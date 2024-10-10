@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/instance"
+	instance "github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -796,7 +796,8 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock
 	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
 	if arch != nil {
 		machine.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	}

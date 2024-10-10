@@ -105,6 +105,11 @@ type MachineService interface {
 	// exists.
 	// It returns a NotFound if the given machine doesn't exist.
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// HardwareCharacteristics returns the hardware characteristics of the
+	// specified machine.
+	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -371,6 +376,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		ObjectStore:             mm.controllerStore,
 		KeyUpdaterService:       mm.keyUpdaterService,
 		ModelConfigService:      mm.modelConfigService,
+		MachineService:          mm.machineService,
 	}
 
 	icfg, err := InstanceConfig(

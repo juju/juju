@@ -26,9 +26,11 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
@@ -60,6 +62,7 @@ type API struct {
 
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
+	machineService     MachineService
 }
 
 // CharmInfo returns information about the requested charm.
@@ -93,6 +96,7 @@ func NewCharmsAPI(
 	st charmsinterfaces.BackendState,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
+	machineService MachineService,
 	modelTag names.ModelTag,
 	repoFactory corecharm.RepositoryFactory,
 	logger corelogger.Logger,
@@ -102,6 +106,7 @@ func NewCharmsAPI(
 		backendState:       st,
 		modelConfigService: modelConfigService,
 		applicationService: applicationService,
+		machineService:     machineService,
 		tag:                modelTag,
 		requestRecorder:    noopRequestRecorder{},
 		repoFactory:        repoFactory,
@@ -501,7 +506,7 @@ func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCh
 		Results: make([]params.ErrorResult, len(args.Placements)),
 	}
 	for i, placement := range args.Placements {
-		result, err := a.checkCharmPlacement(placement)
+		result, err := a.checkCharmPlacement(ctx, placement)
 		if err != nil {
 			return params.ErrorResults{}, errors.Trace(err)
 		}
@@ -511,7 +516,7 @@ func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCh
 	return results, nil
 }
 
-func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.ErrorResult, error) {
+func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCharmPlacement) (params.ErrorResult, error) {
 	curl, err := charm.ParseURL(arg.CharmURL)
 	if err != nil {
 		return params.ErrorResult{
@@ -585,7 +590,12 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 			}, nil
 		}
 
-		machineArch, err := a.getMachineArch(machine)
+		machineArch, err := a.getMachineArch(ctx, machineID, machine)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			return params.ErrorResult{
+				Error: apiservererrors.ServerError(errors.NotProvisioned),
+			}, nil
+		}
 		if err != nil {
 			return params.ErrorResult{
 				Error: apiservererrors.ServerError(err),
@@ -611,16 +621,21 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	return params.ErrorResult{}, nil
 }
 
-func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error) {
+func (a *API) getMachineArch(ctx context.Context, machineID string, machine charmsinterfaces.Machine) (arch.Arch, error) {
 	cons, err := machine.Constraints()
 	if err == nil && cons.HasArch() {
 		return *cons.Arch, nil
 	}
 
-	hardware, err := machine.HardwareCharacteristics()
+	machineUUID, err := a.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if errors.Is(err, errors.NotFound) {
 		return "", nil
-	} else if err != nil {
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	hardware, err := a.machineService.HardwareCharacteristics(ctx, machineUUID)
+	if err != nil {
 		return "", errors.Trace(err)
 	}
 

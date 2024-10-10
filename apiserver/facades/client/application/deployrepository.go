@@ -23,10 +23,12 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -282,6 +284,7 @@ type validatorConfig struct {
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
+	machineService     MachineService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
 	storagePoolGetter  StoragePoolGetter
@@ -295,6 +298,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		modelInfo:          cfg.modelInfo,
 		modelConfigService: cfg.modelConfigService,
 		applicationService: cfg.applicationService,
+		machineService:     cfg.machineService,
 		state:              cfg.state,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
@@ -337,6 +341,7 @@ type deployFromRepositoryValidator struct {
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
+	machineService     MachineService
 	state              DeployFromRepositoryState
 
 	mu          sync.Mutex
@@ -668,7 +673,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 		return corecharm.Platform{}, usedModelDefaultBase, err
 	}
 
-	placementPlatform, placementsMatch, err := v.platformFromPlacement(arg.Placement)
+	placementPlatform, placementsMatch, err := v.platformFromPlacement(ctx, arg.Placement)
 	if err != nil {
 		return corecharm.Platform{}, usedModelDefaultBase, err
 	}
@@ -729,7 +734,7 @@ func (v *deployFromRepositoryValidator) modelDefaultBase(ctx context.Context, p 
 // platformFromPlacement attempts to choose a platform to deploy with based on the
 // machine scoped placement values provided by the user. The platform for all provided
 // machines much match.
-func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*instance.Placement) (*corecharm.Platform, bool, error) {
+func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Context, placements []*instance.Placement) (*corecharm.Platform, bool, error) {
 	if len(placements) == 0 {
 		return nil, false, nil
 	}
@@ -761,11 +766,15 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*inst
 	platStrings := set.NewStrings()
 	for _, machine := range machines {
 		b := machine.Base()
-		hc, err := machine.HardwareCharacteristics()
+		machineUUID, err := v.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
 		if err != nil {
-			if errors.Is(err, errors.NotFound) {
+			if errors.Is(err, machineerrors.MachineNotFound) {
 				return nil, false, fmt.Errorf("machine %q not started, please retry when started", machine.Id())
 			}
+			return nil, false, err
+		}
+		hc, err := v.machineService.HardwareCharacteristics(ctx, machineUUID)
+		if err != nil {
 			return nil, false, err
 		}
 		mArch := hc.Arch

@@ -507,6 +507,10 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 			continue
 		}
 		hc, err := api.machineService.HardwareCharacteristics(ctx, machineUUID)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisioned)
+			continue
+		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

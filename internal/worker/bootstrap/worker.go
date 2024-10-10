@@ -226,20 +226,6 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	// Set machine cloud instance data for the bootstrap machine.
-	bootstrapMachineUUID, err := w.cfg.MachineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
-	if err != nil {
-		w.logger.Errorf("unable to retrieve machine UUID for bootstrap machine %q: %w", agent.BootstrapControllerId, err)
-	} else if err := w.cfg.MachineService.SetMachineCloudInstance(
-		ctx,
-		bootstrapMachineUUID,
-		bootstrapParams.BootstrapMachineInstanceId,
-		bootstrapParams.BootstrapMachineDisplayName,
-		bootstrapParams.BootstrapMachineHardwareCharacteristics,
-	); err != nil {
-		w.logger.Errorf("unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
-	}
-
 	// Retrieve controller addresses needed to set the API host ports.
 	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, bootstrapParams.BootstrapMachineInstanceId)
 	if err != nil {
@@ -261,6 +247,20 @@ func (w *bootstrapWorker) loop() error {
 
 	if err := w.seedInitialAuthorizedKeys(ctx, bootstrapParams.ControllerModelAuthorizedKeys); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Set machine cloud instance data for the bootstrap machine.
+	bootstrapMachineUUID, err := w.cfg.MachineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
+	if err != nil {
+		w.logger.Errorf("unable to retrieve machine UUID for bootstrap machine %q: %w", agent.BootstrapControllerId, err)
+	} else if err := w.cfg.MachineService.SetMachineCloudInstance(
+		ctx,
+		bootstrapMachineUUID,
+		bootstrapParams.BootstrapMachineInstanceId,
+		bootstrapParams.BootstrapMachineDisplayName,
+		bootstrapParams.BootstrapMachineHardwareCharacteristics,
+	); err != nil {
+		w.logger.Errorf("unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance

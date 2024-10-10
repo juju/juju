@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
@@ -103,7 +102,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(available, jc.IsTrue)
 	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
 	expectModelConstraints := constraints.MustParse("mem=512M")
-	expectHW := instance.MustParseHardware("mem=2048M")
 	initialAddrs := corenetwork.NewMachineAddresses([]string{
 		"zeroonetwothree",
 		"0.1.2.3",
@@ -134,10 +132,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	registry := provider.CommonStorageProviders()
 	var envProvider fakeProvider
 	stateInitParams := instancecfg.StateInitializationParams{
-		BootstrapMachineConstraints:             expectBootstrapConstraints,
-		BootstrapMachineInstanceId:              "i-bootstrap",
-		BootstrapMachineDisplayName:             "test-display-name",
-		BootstrapMachineHardwareCharacteristics: &expectHW,
+		BootstrapMachineConstraints: expectBootstrapConstraints,
+		BootstrapMachineInstanceId:  "i-bootstrap",
+		BootstrapMachineDisplayName: "test-display-name",
 		ControllerCloud: cloud.Cloud{
 			Name:         "dummy",
 			Type:         "dummy",
@@ -234,10 +231,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
-
-	gotHW, err := m.HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*gotHW, gc.DeepEquals, expectHW)
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()

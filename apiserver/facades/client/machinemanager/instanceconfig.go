@@ -37,6 +37,7 @@ type InstanceConfigServices struct {
 	CredentialService       common.CredentialService
 	KeyUpdaterService       KeyUpdaterService
 	ModelConfigService      ModelConfigService
+	MachineService          MachineService
 	ObjectStore             objectstore.ObjectStore
 }
 
@@ -64,7 +65,11 @@ func InstanceConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting machine")
 	}
-	hc, err := machine.HardwareCharacteristics()
+	machineUUID, err := services.MachineService.GetMachineUUID(ctx, coremachine.Name(machineId))
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving machine UUID for machine %q", machineId)
+	}
+	hc, err := services.MachineService.HardwareCharacteristics(ctx, machineUUID)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting machine hardware characteristics")
 	}

@@ -21,6 +21,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -40,6 +41,7 @@ type validatorSuite struct {
 	state       *MockDeployFromRepositoryState
 
 	modelConfigService *MockModelConfigService
+	machineService     *MockMachineService
 }
 
 var _ = gc.Suite(&deployRepositorySuite{})
@@ -176,8 +178,10 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 		OS:      "ubuntu",
 		Channel: "22.04",
 	})
+	s.machine.EXPECT().Id().Return("0")
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
 	hwc := &instance.HardwareCharacteristics{Arch: strptr("amd64")}
-	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(hwc, nil)
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 	s.state.EXPECT().Charm(gomock.Any()).Return(nil, errors.NotFoundf("charm"))
 
@@ -276,6 +280,7 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 	v := &deployFromRepositoryValidator{
 		model:              s.model,
 		modelConfigService: s.modelConfigService,
+		machineService:     s.machineService,
 		state:              s.state,
 		repoFactory:        s.repoFactory,
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
@@ -704,8 +709,11 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 		OS:      "ubuntu",
 		Channel: "22.04",
 	})
+
+	s.machine.EXPECT().Id().Return("0")
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
 	hwc := &instance.HardwareCharacteristics{Arch: strptr("arm64")}
-	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(hwc, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
@@ -727,14 +735,15 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 func (s *validatorSuite) TestDeducePlatformPlacementNoPanic(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
-	s.machine.EXPECT().Id().Return("5/lxd/6")
+	s.machine.EXPECT().Id().Return("5/lxd/6").Times(2)
 	s.state.EXPECT().Machine("5/lxd/6").Return(s.machine, nil)
 	s.machine.EXPECT().Base().Return(state.Base{
 		OS:      "ubuntu",
 		Channel: "22.04",
 	})
 	hwc := &instance.HardwareCharacteristics{}
-	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("5/lxd/6")).Return("deadbeef", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(hwc, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
@@ -789,8 +798,10 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 		OS:      "ubuntu",
 		Channel: "22.04",
 	}).Times(3)
+	s.machine.EXPECT().Id().Return("0").Times(3)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil).Times(3)
 	hwc := &instance.HardwareCharacteristics{Arch: strptr("arm64")}
-	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil).Times(3)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(hwc, nil).Times(3)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
@@ -813,17 +824,19 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
-	s.state.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).AnyTimes()
+	s.state.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).Times(2)
 	s.machine.EXPECT().Base().Return(
 		state.Base{
 			OS:      "ubuntu",
 			Channel: "22.04",
-		}).AnyTimes()
+		}).Times(2)
+	s.machine.EXPECT().Id().Return("0").Times(2)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil).Times(2)
 	gomock.InOrder(
-		s.machine.EXPECT().HardwareCharacteristics().Return(
+		s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(
 			&instance.HardwareCharacteristics{Arch: strptr("arm64")},
 			nil),
-		s.machine.EXPECT().HardwareCharacteristics().Return(
+		s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(
 			&instance.HardwareCharacteristics{Arch: strptr("amd64")},
 			nil),
 	)
@@ -1076,6 +1089,7 @@ func (s *validatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.repoFactory = NewMockRepositoryFactory(ctrl)
 	s.state = NewMockDeployFromRepositoryState(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
 
@@ -1084,6 +1098,7 @@ func (s *validatorSuite) getValidator(c *gc.C) *deployFromRepositoryValidator {
 	return &deployFromRepositoryValidator{
 		model:              s.model,
 		modelConfigService: s.modelConfigService,
+		machineService:     s.machineService,
 		state:              s.state,
 		repoFactory:        s.repoFactory,
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {

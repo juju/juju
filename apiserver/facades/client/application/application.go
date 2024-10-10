@@ -196,6 +196,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		model:              m,
 		modelInfo:          modelInfo,
 		modelConfigService: domainServices.Config(),
+		machineService:     domainServices.Machine(),
 		applicationService: applicationService,
 		registry:           registry,
 		state:              state,

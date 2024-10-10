@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -124,6 +125,9 @@ type MachineService interface {
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
 	InstanceIDAndName(ctx context.Context, machineUUID string) (string, string, error)
+	// HardwareCharacteristics returns the hardware characteristics of the
+	// specified machine.
+	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

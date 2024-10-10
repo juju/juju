@@ -134,7 +134,6 @@ type CharmMeta interface {
 // the same names.
 type Machine interface {
 	Base() state.Base
-	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Id() string
 	PublicAddress() (network.SpaceAddress, error)
 }

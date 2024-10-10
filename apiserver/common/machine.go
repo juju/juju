@@ -71,7 +71,6 @@ type Machine interface {
 	Id() string
 	Status() (status.StatusInfo, error)
 	ContainerType() instance.ContainerType
-	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
 	ForceDestroy(time.Duration) error
 	Destroy(objectstore.ObjectStore) error
@@ -181,8 +180,8 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 			continue
 		}
 		// Only include cores for physical machines.
-		hw, err := m.HardwareCharacteristics()
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		hw, err := machineService.HardwareCharacteristics(ctx, machineUUID)
+		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, errors.Trace(err)
 		}
 		if hw != nil && hw.String() != "" {

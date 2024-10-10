@@ -4665,45 +4665,6 @@ func (c *MockMachineBaseCall) DoAndReturn(f func() state.Base) *MockMachineBaseC
 	return c
 }
 
-// HardwareCharacteristics mocks base method.
-func (m *MockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HardwareCharacteristics")
-	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HardwareCharacteristics indicates an expected call of HardwareCharacteristics.
-func (mr *MockMachineMockRecorder) HardwareCharacteristics() *MockMachineHardwareCharacteristicsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareCharacteristics", reflect.TypeOf((*MockMachine)(nil).HardwareCharacteristics))
-	return &MockMachineHardwareCharacteristicsCall{Call: call}
-}
-
-// MockMachineHardwareCharacteristicsCall wrap *gomock.Call
-type MockMachineHardwareCharacteristicsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineHardwareCharacteristicsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineHardwareCharacteristicsCall) Do(f func() (*instance.HardwareCharacteristics, error)) *MockMachineHardwareCharacteristicsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineHardwareCharacteristicsCall) DoAndReturn(f func() (*instance.HardwareCharacteristics, error)) *MockMachineHardwareCharacteristicsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Id mocks base method.
 func (m *MockMachine) Id() string {
 	m.ctrl.T.Helper()

@@ -51,7 +51,6 @@ type Machine interface {
 	Id() string
 	Tag() names.Tag
 	SetPassword(string) error
-	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Destroy(objectstore.ObjectStore) error
 	ForceDestroy(time.Duration) error
 	Base() state.Base

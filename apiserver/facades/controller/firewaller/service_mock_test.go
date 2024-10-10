@@ -15,6 +15,7 @@ import (
 
 	set "github.com/juju/collections/set"
 	controller "github.com/juju/juju/controller"
+	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
@@ -445,6 +446,45 @@ func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceGetMachineUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// HardwareCharacteristics mocks base method.
+func (m *MockMachineService) HardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HardwareCharacteristics", arg0, arg1)
+	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HardwareCharacteristics indicates an expected call of HardwareCharacteristics.
+func (mr *MockMachineServiceMockRecorder) HardwareCharacteristics(arg0, arg1 any) *MockMachineServiceHardwareCharacteristicsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareCharacteristics", reflect.TypeOf((*MockMachineService)(nil).HardwareCharacteristics), arg0, arg1)
+	return &MockMachineServiceHardwareCharacteristicsCall{Call: call}
+}
+
+// MockMachineServiceHardwareCharacteristicsCall wrap *gomock.Call
+type MockMachineServiceHardwareCharacteristicsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCharacteristics, arg1 error) *MockMachineServiceHardwareCharacteristicsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceHardwareCharacteristicsCall) Do(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockMachineServiceHardwareCharacteristicsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockMachineServiceHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

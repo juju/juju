@@ -47,7 +47,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
+			return errors.Annotatef(machineerrors.NotProvisioned, "machine: %q", machineUUID)
 		}
 		return errors.Annotatef(err, "querying machine cloud instance for machine %q", machineUUID)
 	}); err != nil {

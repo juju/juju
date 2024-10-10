@@ -138,7 +138,6 @@ type State interface {
 	GetAllMachineRemovals(context.Context) ([]string, error)
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	// It returns a MachineNotFound if the machine does not exist.
 	GetMachineUUID(context.Context, coremachine.Name) (string, error)
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.

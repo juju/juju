@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -44,10 +45,16 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
-// MachineService instances save a machine to dqlite state.
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
 type MachineService interface {
 	// CreateMachine creates the specified machine.
 	CreateMachine(context.Context, machine.Name) (string, error)
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	// HardwareCharacteristics returns the hardware characteristics of the
+	// specified machine.
+	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 }
 
 // ApplicationService instances save an application to dqlite state.
