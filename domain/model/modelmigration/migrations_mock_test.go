@@ -14,10 +14,10 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	controller0 "github.com/juju/juju/core/controller"
 	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
-	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -150,7 +150,7 @@ func (m *MockReadOnlyModelService) EXPECT() *MockReadOnlyModelServiceMockRecorde
 }
 
 // CreateModel mocks base method.
-func (m *MockReadOnlyModelService) CreateModel(arg0 context.Context, arg1 uuid.UUID) error {
+func (m *MockReadOnlyModelService) CreateModel(arg0 context.Context, arg1 controller0.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -176,13 +176,13 @@ func (c *MockReadOnlyModelServiceCreateModelCall) Return(arg0 error) *MockReadOn
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReadOnlyModelServiceCreateModelCall) Do(f func(context.Context, uuid.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
+func (c *MockReadOnlyModelServiceCreateModelCall) Do(f func(context.Context, controller0.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReadOnlyModelServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
+func (c *MockReadOnlyModelServiceCreateModelCall) DoAndReturn(f func(context.Context, controller0.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

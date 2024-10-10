@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/controller"
+	coretesting "github.com/juju/juju/core/controller/testing"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -17,20 +19,19 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type modelSuite struct {
 	schematesting.ModelSuite
 
-	controllerUUID uuid.UUID
+	controllerUUID controller.UUID
 }
 
 var _ = gc.Suite(&modelSuite{})
 
 func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
-	s.controllerUUID = uuid.MustNewUUID()
+	s.controllerUUID = coretesting.GenControllerUUID(c)
 }
 
 func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {

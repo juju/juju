@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -33,7 +34,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	jtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -52,7 +52,7 @@ type ListModelsWithInfoSuite struct {
 
 	api *modelmanager.ModelManagerAPI
 
-	controllerUUID uuid.UUID
+	controllerUUID controller.UUID
 }
 
 var _ = gc.Suite(&ListModelsWithInfoSuite{})
@@ -61,7 +61,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	var err error
-	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	s.controllerUUID, err = controller.ParseUUID(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := "admin"

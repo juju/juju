@@ -10,12 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corecontroller "github.com/juju/juju/core/controller"
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type dummyModelState struct {
@@ -84,7 +85,7 @@ type modelServiceSuite struct {
 	testing.IsolationSuite
 
 	state          *dummyModelState
-	controllerUUID uuid.UUID
+	controllerUUID corecontroller.UUID
 }
 
 var _ = gc.Suite(&modelServiceSuite{})
@@ -94,7 +95,7 @@ func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 		models: map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
 	}
 
-	s.controllerUUID = uuid.MustNewUUID()
+	s.controllerUUID = controllertesting.GenControllerUUID(c)
 }
 
 func (s *modelServiceSuite) TestModelCreation(c *gc.C) {

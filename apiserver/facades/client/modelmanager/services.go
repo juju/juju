@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -26,7 +27,6 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -117,7 +117,7 @@ type ModelDefaultsService interface {
 type ModelInfoService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, uuid.UUID) error
+	CreateModel(context.Context, controller.UUID) error
 
 	// DeleteModel is responsible for deleting a model during model migration.
 	DeleteModel(context.Context) error

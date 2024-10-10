@@ -114,3 +114,12 @@ func (u UUID) Validate() error {
 	}
 	return nil
 }
+
+// ParseUUID parses a string into a UUID. If the string is not a valid UUID an
+// error satisfying [errors.NotValid] will be returned.
+func ParseUUID(s string) (UUID, error) {
+	if !uuid.IsValidUUIDString(s) {
+		return UUID(""), fmt.Errorf("%q %w", s, errors.NotValid)
+	}
+	return UUID(s), nil
+}

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelCreationArgs supplies the information required for instantiating a new
@@ -108,7 +108,7 @@ type ReadOnlyModelCreationArgs struct {
 
 	// ControllerUUID represents the unique id for the controller that the model
 	// is associated with.
-	ControllerUUID uuid.UUID
+	ControllerUUID controller.UUID
 
 	// Name is the name of the model.
 	// Must not be empty for a valid struct.

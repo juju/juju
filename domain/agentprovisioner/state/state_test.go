@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	controllertesting "github.com/juju/juju/core/controller/testing"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/model"
@@ -18,7 +19,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type suite struct {
@@ -110,7 +110,7 @@ func (s *suite) TestModelID(c *gc.C) {
 	err := modelSt.Create(context.Background(), model.ReadOnlyModelCreationArgs{
 		UUID:           modelID,
 		AgentVersion:   version.Number{Major: 4, Minor: 21, Patch: 67},
-		ControllerUUID: uuid.MustNewUUID(),
+		ControllerUUID: controllertesting.GenControllerUUID(c),
 		Name:           "test-model",
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	corecontroller "github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -28,7 +29,6 @@ import (
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -61,7 +61,7 @@ type ModelService interface {
 type ReadOnlyModelService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, uuid.UUID) error
+	CreateModel(context.Context, corecontroller.UUID) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
 	DeleteModel(context.Context) error
@@ -228,7 +228,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// controller to the current controller. This is done, during the import
 	// operation, so it never changes once the model is up and running.
 
-	controllerUUID, err := uuid.UUIDFromString(controllerConfig.ControllerUUID())
+	controllerUUID, err := corecontroller.ParseUUID(controllerConfig.ControllerUUID())
 	if err != nil {
 		return fmt.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)
 	}

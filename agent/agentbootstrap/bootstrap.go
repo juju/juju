@@ -17,6 +17,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	coreagent "github.com/juju/juju/core/agent"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
@@ -46,7 +47,6 @@ import (
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -202,7 +202,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 
-	controllerUUID, err := uuid.UUIDFromString(stateParams.ControllerConfig.ControllerUUID())
+	controllerUUID, err := controller.ParseUUID(stateParams.ControllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
 	}
