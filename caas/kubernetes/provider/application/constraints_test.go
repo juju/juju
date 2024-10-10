@@ -223,3 +223,61 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
 	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
 	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
 }
+
+func (s *applyConstraintsSuite) TestTopologySpreadConstraintsConfig(c *gc.C) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+		return errors.New("unexpected")
+	}
+	pod := &corev1.PodSpec{}
+	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=topology-spread.topology-key=foo"), configureConstraint)
+	c.Assert(err, jc.ErrorIsNil)
+	var minDomains int32 = 3
+	var honorPolicy corev1.NodeInclusionPolicy = corev1.NodeInclusionPolicy("Honor")
+	c.Assert(pod.TopologySpreadConstraints, jc.DeepEquals, []corev1.TopologySpreadConstraint{
+		{
+			TopologyKey:        "foo",
+			WhenUnsatisfiable:  corev1.DoNotSchedule,
+			NodeTaintsPolicy:   &honorPolicy,
+			NodeAffinityPolicy: &honorPolicy,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: nil,
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      "app.kubernetes.io/name",
+					Operator: metav1.LabelSelectorOpIn,
+					Values:   []string{"foo"},
+				}},
+			},
+			MaxSkew:    1,
+			MinDomains: &minDomains,
+		},
+	})
+}
+
+func (s *applyConstraintsSuite) TestTopologySpreadConstraintsWithCustomMaxSkewMinDomains(c *gc.C) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+		return errors.New("unexpected")
+	}
+	pod := &corev1.PodSpec{}
+	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=topology-spread.maxSkew=2,topology-spread.minDomains=4,topology-spread.topology-key=foo"), configureConstraint)
+	c.Assert(err, jc.ErrorIsNil)
+	var minDomains int32 = 4
+	var honorPolicy corev1.NodeInclusionPolicy = corev1.NodeInclusionPolicy("Honor")
+	c.Assert(pod.TopologySpreadConstraints, jc.DeepEquals, []corev1.TopologySpreadConstraint{
+		{
+			TopologyKey:        "foo",
+			WhenUnsatisfiable:  corev1.DoNotSchedule,
+			NodeTaintsPolicy:   &honorPolicy,
+			NodeAffinityPolicy: &honorPolicy,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: nil,
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      "app.kubernetes.io/name",
+					Operator: metav1.LabelSelectorOpIn,
+					Values:   []string{"foo"},
+				}},
+			},
+			MaxSkew:    2,
+			MinDomains: &minDomains,
+		},
+	})
+}
