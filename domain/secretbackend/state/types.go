@@ -65,6 +65,8 @@ func (m modelIdentifier) String() string {
 
 // modelDetails represents details about a model.
 type modelDetails struct {
+	// UUID is the unique identifier for the model.
+	UUID coremodel.UUID `db:"uuid"`
 	// Type is the type of the model.
 	Type coremodel.ModelType `db:"model_type"`
 }

@@ -81,6 +81,80 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	}, nil
 }
 
+// GetModelType returns the model type for the given model UUID.
+func (s *State) GetModelType(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelType, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	mDetails := modelDetails{UUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT mt.type AS &modelDetails.model_type
+FROM   model m
+JOIN   model_type mt ON mt.id = model_type_id
+WHERE  m.uuid = $modelDetails.uuid
+`, modelDetails{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, mDetails).Get(&mDetails)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("cannot get model type for model %q: %w", modelUUID, modelerrors.NotFound)
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return mDetails.Type, nil
+}
+
+// GetInternalAndActiveBackendUUIDs returns the UUIDs for the internal and active secret backends.
+func (s *State) GetInternalAndActiveBackendUUIDs(ctx context.Context, modelUUID coremodel.UUID) (string, string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	activeBackend := ModelSecretBackend{ModelID: modelUUID}
+	internalBackend := SecretBackend{Name: juju.BackendName}
+
+	stmtActiveBackend, err := s.Prepare(`
+SELECT secret_backend_uuid AS &ModelSecretBackend.secret_backend_uuid
+FROM   v_model_secret_backend
+WHERE  uuid = $ModelSecretBackend.uuid`, activeBackend)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	stmtBackendUUID, err := s.Prepare(`
+SELECT uuid AS &SecretBackend.uuid
+FROM   secret_backend
+WHERE  name = $SecretBackend.name`, internalBackend)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmtActiveBackend, activeBackend).Get(&activeBackend)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("cannot get active secret backend for model %q: %w", modelUUID, modelerrors.NotFound)
+		}
+
+		err = tx.Query(ctx, stmtBackendUUID, internalBackend).Get(&internalBackend)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("cannot get secret backend %q: %w", juju.BackendName, secretbackenderrors.NotFound)
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return internalBackend.ID, activeBackend.SecretBackendID, nil
+}
+
 // CreateSecretBackend creates a new secret backend.
 func (s *State) CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error) {
 	if err := params.Validate(); err != nil {
@@ -646,6 +720,7 @@ func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.Backe
 	if params.ID != "" && params.Name != "" {
 		return nil, fmt.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
 	}
+
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -653,6 +728,7 @@ func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.Backe
 
 	var sb *secretbackend.SecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
 		sb, err = s.getSecretBackend(ctx, tx, params)
 		return errors.Trace(err)
 	})
@@ -739,7 +815,7 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, secretBackendSelectStmt, backendInfo).Get(&backendInfo)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cannot get secret backend %q: %w", backendInfo.SecretBackendName, secretbackenderrors.NotFound)
@@ -764,7 +840,6 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 		}
 		return nil
 	})
-	return err
 }
 
 // GetSecretBackendReferenceCount returns the number of references to the secret backend.

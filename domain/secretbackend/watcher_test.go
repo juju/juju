@@ -180,11 +180,12 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	// Wait for the initial change.
 	wc.AssertOneChange()
 
-	err = state.SetModelSecretBackend(context.Background(), modelUUID, vaultBackendName)
+	ctx := context.Background()
+	err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	err = state.SetModelSecretBackend(context.Background(), modelUUID, internalBackendName)
+	err = state.SetModelSecretBackend(ctx, modelUUID, internalBackendName)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

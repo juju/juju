@@ -120,6 +120,46 @@ func (c *MockStateDeleteSecretBackendCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// GetInternalAndActiveBackendUUIDs mocks base method.
+func (m *MockState) GetInternalAndActiveBackendUUIDs(arg0 context.Context, arg1 model.UUID) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInternalAndActiveBackendUUIDs", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetInternalAndActiveBackendUUIDs indicates an expected call of GetInternalAndActiveBackendUUIDs.
+func (mr *MockStateMockRecorder) GetInternalAndActiveBackendUUIDs(arg0, arg1 any) *MockStateGetInternalAndActiveBackendUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInternalAndActiveBackendUUIDs", reflect.TypeOf((*MockState)(nil).GetInternalAndActiveBackendUUIDs), arg0, arg1)
+	return &MockStateGetInternalAndActiveBackendUUIDsCall{Call: call}
+}
+
+// MockStateGetInternalAndActiveBackendUUIDsCall wrap *gomock.Call
+type MockStateGetInternalAndActiveBackendUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetInternalAndActiveBackendUUIDsCall) Return(arg0, arg1 string, arg2 error) *MockStateGetInternalAndActiveBackendUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetInternalAndActiveBackendUUIDsCall) Do(f func(context.Context, model.UUID) (string, string, error)) *MockStateGetInternalAndActiveBackendUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetInternalAndActiveBackendUUIDsCall) DoAndReturn(f func(context.Context, model.UUID) (string, string, error)) *MockStateGetInternalAndActiveBackendUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelSecretBackendDetails mocks base method.
 func (m *MockState) GetModelSecretBackendDetails(arg0 context.Context, arg1 model.UUID) (secretbackend.ModelSecretBackend, error) {
 	m.ctrl.T.Helper()
@@ -155,6 +195,45 @@ func (c *MockStateGetModelSecretBackendDetailsCall) Do(f func(context.Context, m
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelSecretBackendDetailsCall) DoAndReturn(f func(context.Context, model.UUID) (secretbackend.ModelSecretBackend, error)) *MockStateGetModelSecretBackendDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelType mocks base method.
+func (m *MockState) GetModelType(arg0 context.Context, arg1 model.UUID) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelType", arg0, arg1)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockStateMockRecorder) GetModelType(arg0, arg1 any) *MockStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockState)(nil).GetModelType), arg0, arg1)
+	return &MockStateGetModelTypeCall{Call: call}
+}
+
+// MockStateGetModelTypeCall wrap *gomock.Call
+type MockStateGetModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockStateGetModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelTypeCall) Do(f func(context.Context, model.UUID) (model.ModelType, error)) *MockStateGetModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context, model.UUID) (model.ModelType, error)) *MockStateGetModelTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

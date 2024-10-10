@@ -31,7 +31,7 @@ func NewModelSecretBackendService(modelID coremodel.UUID, st State) *ModelSecret
 func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (string, error) {
 	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
 	if err != nil {
-		return "", fmt.Errorf("cannot get model secret backend detail for %q: %w", s.modelID, err)
+		return "", fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 	}
 	backendName := modelSecretBackend.SecretBackendName
 	switch modelSecretBackend.ModelType {
@@ -59,26 +59,25 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 		return fmt.Errorf("secret backend name %q not valid%w", backendName, errors.Hide(secretbackenderrors.NotValid))
 	}
 
-	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
-	if err != nil {
-		return fmt.Errorf("cannot get model secret backend detail for %q: %w", s.modelID, err)
-	}
 	if backendName == provider.Auto {
-		switch modelSecretBackend.ModelType {
+		modelType, err := s.st.GetModelType(ctx, s.modelID)
+		if err != nil {
+			return fmt.Errorf("getting model type for %q: %w", s.modelID, err)
+		}
+		switch modelType {
 		case coremodel.IAAS:
 			backendName = provider.Internal
 		case coremodel.CAAS:
 			backendName = kubernetes.BackendName
 		default:
 			// Should never happen.
-			return fmt.Errorf("cannot set model secret backend for unsupported model type %q for model %q",
-				modelSecretBackend.ModelType, s.modelID,
+			return fmt.Errorf("setting model secret backend for unsupported model type %q for model %q",
+				modelType, s.modelID,
 			)
 		}
 	}
-	err = s.st.SetModelSecretBackend(ctx, s.modelID, backendName)
-	if err != nil {
-		return fmt.Errorf("cannot set model secret backend for %q: %w", s.modelID, err)
+	if err := s.st.SetModelSecretBackend(ctx, s.modelID, backendName); err != nil {
+		return fmt.Errorf("setting model secret backend for %q: %w", s.modelID, err)
 	}
-	return errors.Trace(err)
+	return nil
 }
