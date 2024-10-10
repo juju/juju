@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
@@ -773,6 +774,8 @@ func (s *stateSuite) TestSetKeepInstanceNotFound(c *gc.C) {
 func (s *stateSuite) TestSetAppliedLXDProfileNames(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile1", "profile2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -793,6 +796,8 @@ func (s *stateSuite) TestSetAppliedLXDProfileNames(c *gc.C) {
 
 func (s *stateSuite) TestSetLXDProfilesPartial(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Insert a single lxd profile.
@@ -822,6 +827,8 @@ func (s *stateSuite) TestSetLXDProfilesPartial(c *gc.C) {
 func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Insert 3 lxd profiles.
 	db := s.DB()
@@ -849,6 +856,8 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *gc.C) {
 func (s *stateSuite) TestSetLXDProfilesSameOrder(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile3", "profile1", "profile2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -862,8 +871,17 @@ func (s *stateSuite) TestSetLXDProfilesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *stateSuite) TestSetLXDProfilesNotProvisioned(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{"profile3", "profile1", "profile2"})
+	c.Assert(err, jc.ErrorIs, machineerrors.NotProvisioned)
+}
+
 func (s *stateSuite) TestSetLXDProfilesEmpty(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(context.Background(), "deadbeef", []string{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -875,6 +893,8 @@ func (s *stateSuite) TestSetLXDProfilesEmpty(c *gc.C) {
 
 func (s *stateSuite) TestAppliedLXDProfileNames(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Insert 2 lxd profiles.
@@ -888,7 +908,19 @@ func (s *stateSuite) TestAppliedLXDProfileNames(c *gc.C) {
 	c.Check(profiles, gc.DeepEquals, []string{"profile1", "profile2"})
 }
 
-func (s *stateSuite) TestLXDProfilesNoErrorEmpty(c *gc.C) {
+func (s *stateSuite) TestAppliedLXDProfileNamesNotProvisioned(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIs, machineerrors.NotProvisioned)
+	c.Check(profiles, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetMachineCloudInstance(context.Background(), "deadbeef", instance.Id("123"), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profiles, gc.HasLen, 0)

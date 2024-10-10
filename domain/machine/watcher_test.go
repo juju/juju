@@ -136,7 +136,11 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 func (s *watcherSuite) TestWatchLXDProfiles(c *gc.C) {
 	machineUUIDm0, err := s.svc.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUIDm0, instance.Id("123"), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineUUIDm1, err := s.svc.CreateMachine(context.Background(), "machine-2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUIDm1, instance.Id("456"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchLXDProfiles(context.Background(), machineUUIDm0)

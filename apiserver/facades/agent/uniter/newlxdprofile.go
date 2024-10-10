@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -31,10 +32,8 @@ type LXDProfileBackendV2 interface {
 // LXDProfileMachineV2 describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachineV2 interface {
-	CharmProfiles() ([]string, error)
 	ContainerType() instance.ContainerType
 	IsManual() (bool, error)
-	WatchInstanceData() state.NotifyWatcher
 }
 
 // LXDProfileUnitV2 describes unit-receiver state methods
@@ -247,7 +246,9 @@ func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entiti
 			continue
 		}
 		name, err := u.getOneLXDProfileName(ctx, unit, machineUUID)
-		if err != nil {
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", machineTagID))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

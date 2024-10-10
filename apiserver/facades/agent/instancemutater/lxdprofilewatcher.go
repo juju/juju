@@ -152,7 +152,14 @@ func (w *machineLXDProfileWatcher) loop() error {
 	if err := w.catacomb.Add(unitWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	instanceWatcher := w.machine.WatchInstanceData()
+	machineUUID, err := w.machineService.GetMachineUUID(context.TODO(), coremachine.Name(w.machine.Id()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	instanceWatcher, err := w.machineService.WatchLXDProfiles(context.TODO(), machineUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := w.catacomb.Add(instanceWatcher); err != nil {
 		return errors.Trace(err)
 	}

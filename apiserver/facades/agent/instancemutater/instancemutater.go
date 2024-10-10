@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -39,15 +41,19 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (string, error)
+	InstanceID(ctx context.Context, machineUUID string) (string, error)
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
+	AppliedLXDProfileNames(ctx context.Context, machineUUID string) ([]string, error)
 
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
-	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+	SetAppliedLXDProfileNames(ctx context.Context, machineUUID string, profileNames []string) error
+
+	// WatchLXDProfiles returns a NotifyWatcher that is subscribed to the changes in
+	// the machine_cloud_instance table in the model, for the given machine UUID.
+	WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error)
 }
 
 type InstanceMutaterAPI struct {
@@ -119,7 +125,9 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(ctx context.Context, arg param
 		return result, nil
 	}
 	lxdProfileInfo, err := api.machineLXDProfileInfo(ctx, m)
-	if err != nil {
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		result.Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", tag.Id()))
+	} else if err != nil {
 		result.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
 	}
 
@@ -186,7 +194,11 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(ctx context.Context, args params
 	}
 	for i, a := range args.Args {
 		err := api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess)
-		results[i].Error = apiservererrors.ServerError(err)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", a.Entity.Tag))
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return params.ErrorResults{Results: results}, nil
 }
@@ -416,22 +428,16 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, m
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if !canAccess(mTag) {
+		return apiservererrors.ErrPerm
+	}
 
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
 	if err != nil {
 		api.logger.Errorf("getting machine uuid: %w", err)
 		return errors.Trace(err)
 	}
-	if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles); err != nil {
-		api.logger.Errorf("setting lxd profile: %w", err)
-		return errors.Trace(err)
-	}
-	// TODO(nvinuesa): Remove this double write once we clean up instance data.
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.SetCharmProfiles(profiles)
+	return errors.Trace(api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles))
 }
 
 func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {

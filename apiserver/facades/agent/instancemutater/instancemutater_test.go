@@ -376,7 +376,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.ErrorMatches, "machine-0: attempting to get instanceId: machine not provisioned")
+	c.Assert(results.Error, gc.ErrorMatches, ".* not provisioned")
 	c.Assert(results.InstanceId, gc.Equals, instance.Id(""))
 	c.Assert(results.ModelName, gc.Equals, "")
 	c.Assert(results.ProfileChanges, gc.HasLen, 0)
@@ -466,8 +466,6 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) 
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectMachine(s.machineTag, s.machine)
-	s.expectSetProfiles(profiles, nil)
 	facade := s.facadeAPIForScenario(c)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
@@ -493,8 +491,6 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectMachine(s.machineTag, s.machine)
-	s.expectSetProfiles(profiles, nil)
 	facade := s.facadeAPIForScenario(c)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil).Times(2)
@@ -523,10 +519,6 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 			},
 		},
 	})
-}
-
-func (s *InstanceMutaterAPISetCharmProfilesSuite) expectSetProfiles(profiles []string, err error) {
-	s.machine.EXPECT().SetCharmProfiles(profiles).Return(err)
 }
 
 type InstanceMutaterAPISetModificationStatusSuite struct {
