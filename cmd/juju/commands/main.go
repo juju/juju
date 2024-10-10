@@ -115,7 +115,7 @@ const (
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 // This function returns the exit code, for main to pass to os.Exit.
-func Main(args []string) int {
+var Main = func(args []string) int {
 	return jujuMain{
 		execCommand: exec.Command,
 	}.Run(args)

@@ -87,6 +87,11 @@ EXTRA_BUILD_TAGS += libsqlite3
 EXTRA_BUILD_TAGS += dqlite
 endif
 
+ifeq ($(DEBUG_JUJU), 1)
+	EXTRA_BUILD_TAGS += debug
+endif
+
+
 # TEST_BUILD_TAGS is the final list of build tags for tests only.
 TEST_BUILD_TAGS=$(shell echo "$(BUILD_TAGS) $(EXTRA_BUILD_TAGS)" | awk '{$$1=$$1};1' | tr ' ' ',')
 # FINAL_BUILD_TAGS is the final list of build tags.

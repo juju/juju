@@ -4,9 +4,7 @@
 package main
 
 import (
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/loggo/v2"
@@ -14,10 +12,6 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 )
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 func main() {
 	_, err := loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(os.Stderr))

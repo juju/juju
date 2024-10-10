@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -52,7 +51,6 @@ import (
 var logger = internallogger.GetLogger("juju.cmd.jujud")
 
 func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
@@ -290,7 +288,7 @@ func main() {
 
 // Main is not redundant with main(), because it provides an entry point
 // for testing with arbitrary command line arguments.
-func Main(args []string) int {
+var Main = func(args []string) int {
 	defer func() {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
