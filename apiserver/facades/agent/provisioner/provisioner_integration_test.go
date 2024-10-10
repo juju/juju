@@ -1350,8 +1350,15 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
+	machine0UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[0].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, instance.Id("i-am"), "", &hwChars)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We keep this SetInstanceInfo only for the nonce.
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1363,7 +1370,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	_, err = machineService.CreateMachine(context.Background(), coremachine.Name(volumesMachine.Id()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1404,19 +1410,14 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	}}
 	result, err := s.provisioner.SetInstanceInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{
-				Message: `cannot record provisioning info for "i-was": cannot set instance data for machine "0": already set`,
-			}},
-			{Error: nil},
-			{Error: nil},
-			{Error: nil},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
+	c.Assert(result.Results[0].Error.Message, gc.Matches, ".*machine cloud instance already exists for machine.*")
+	c.Assert(result.Results[1].Error, gc.IsNil)
+	c.Assert(result.Results[2].Error, gc.IsNil)
+	c.Assert(result.Results[3].Error, gc.IsNil)
+	c.Assert(result.Results[4].Error.Code, gc.Equals, params.CodeNotFound)
+	c.Assert(result.Results[4].Error.Message, gc.Equals, "machine 42 not found")
+	c.Assert(result.Results[5].Error.Code, gc.Equals, params.CodeUnauthorized)
+	c.Assert(result.Results[6].Error.Code, gc.Equals, params.CodeUnauthorized)
 
 	// Verify machine 1 and 2 were provisioned.
 	c.Assert(s.machines[1].Refresh(), gc.IsNil)
@@ -1424,8 +1425,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	machine1UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
-	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
 	gotHardware, err := machineService.HardwareCharacteristics(context.Background(), machine1UUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
