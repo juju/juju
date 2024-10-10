@@ -14,8 +14,7 @@ run_deploy_local_charm_revision() {
 	cd "${TMP}/ubuntu-plus" || exit 1
 
 	# Initialise a git repo to check the commit SHA is used as the charm version.
-	git init
-	git add . && git commit -m "commit everything"
+	create_local_git_and_commit_all
 	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
 
 	# Deploy from directory.
@@ -100,8 +99,7 @@ run_deploy_local_charm_revision_relative_path() {
 	cd "${TMP}/ubuntu-plus" || exit 1
 
 	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
-	git init
-	git add . && git commit -m "commit everything"
+	create_local_git_and_commit_all
 	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
 
 	# Create git directory outside the charm directory
@@ -149,8 +147,7 @@ run_deploy_local_charm_revision_invalid_git() {
 	cd "${TMP_CHARM_GIT}/ubuntu-plus" || exit 1
 
 	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
-	git init
-	git add . && git commit -m "commit everything"
+	create_local_git_and_commit_all
 	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
 
 	WANTED_CHARM_SHA=\"$(git describe --dirty --always)\"
@@ -181,6 +178,15 @@ create_local_git_folder() {
 	touch rand_file
 	git add rand_file
 	git commit -am "rand_file"
+}
+
+create_local_git_and_commit_all() {
+	git init .
+	if [ -z "$(git config --global user.email)" ]; then
+		git config --global user.email "john@doe.com"
+		git config --global user.name "John Doe"
+	fi
+	git add . && git commit -m "commit everything"
 }
 
 test_local_charms() {
