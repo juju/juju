@@ -52,14 +52,12 @@ type applicationSuite struct {
 	store              objectstore.ObjectStore
 	networkService     *application.MockNetworkService
 	modelConfigService *application.MockModelConfigService
-	modelAgentService  *application.MockModelAgentService
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
 func (s *applicationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.modelAgentService = application.NewMockModelAgentService(ctrl)
 
 	s.modelConfigService = application.NewMockModelConfigService(ctrl)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(testing.ModelConfig(c), nil).AnyTimes()
@@ -125,7 +123,6 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		application.GetModel(m),
 		modelInfo,
 		s.modelConfigService,
-		s.modelAgentService,
 		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Machine(),

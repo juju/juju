@@ -76,41 +76,6 @@ func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-// TestGetApplicationTargetAgentVersion is asserting the happy path for getting
-// an application's target agent version.
-func (s *suite) TestGetApplicationTargetAgentVersion(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	ver := version.MustParse("4.0.0")
-
-	s.modelState.EXPECT().GetModelUUID(gomock.Any()).Return(modelUUID, nil)
-	s.modelState.EXPECT().CheckApplicationExists(gomock.Any(), "foo").Return(nil)
-	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelUUID).Return(ver, nil)
-
-	rval, err := NewModelService(s.modelState, s.state).GetApplicationTargetAgentVersion(
-		context.Background(),
-		"foo",
-	)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(rval, gc.Equals, ver)
-}
-
-// TestGetApplicationTargetAgentVersionNotFound is testing that the service
-// returns an [applicationerrors.ApplicationNotFound] error when no application
-// exists for given name.
-func (s *suite) TestGetApplicationTargetAgentVersionNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().CheckApplicationExists(gomock.Any(), "foo").Return(applicationerrors.ApplicationNotFound)
-
-	_, err := NewModelService(s.modelState, s.state).GetApplicationTargetAgentVersion(
-		context.Background(),
-		"foo",
-	)
-	c.Check(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
-}
-
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
 // a machine's target agent version.
 func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {

@@ -31,13 +31,6 @@ import (
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetApplicationTargetAgentVersion reports the target agent version that should be
-	// being run on the provided machine identified by name. The following errors
-	// are possible:
-	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
-	// - [github.com/juju/juju/domain/model/errors.NotFound]
-	GetApplicationTargetAgentVersion(context.Context, string) (version.Number, error)
-
 	// GetModelTargetAgentVersion returns the target agent version for the
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
@@ -141,8 +134,6 @@ func (t *ToolsGetter) GetEntityAgentVersion(
 	case names.ControllerTagKind:
 	case names.ModelTagKind:
 		ver, err = t.modelAgentService.GetModelTargetAgentVersion(ctx)
-	case names.ApplicationTagKind:
-		ver, err = t.modelAgentService.GetApplicationTargetAgentVersion(ctx, tag.Id())
 	case names.MachineTagKind:
 		ver, err = t.modelAgentService.GetMachineTargetAgentVersion(ctx, machine.Name(tag.Id()))
 	case names.UnitTagKind:
@@ -154,7 +145,7 @@ func (t *ToolsGetter) GetEntityAgentVersion(
 		).Add(coreerrors.NotSupported)
 	}
 
-	isNotFound := errors.IsOf(
+	isNotFound := errors.IsOneOf(
 		err,
 		applicationerrors.ApplicationNotFound,
 		applicationerrors.UnitNotFound,

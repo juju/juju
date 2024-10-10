@@ -6,8 +6,6 @@ package application
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -102,16 +100,6 @@ type ApplicationService interface {
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
-}
-
-// ModelAgentService provides access to the Juju agent version for the model.
-type ModelAgentService interface {
-	// GetApplicationTargetAgentVersion reports the target agent version that should be
-	// being run on the provided machine identified by name. The following errors
-	// are possible:
-	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
-	// - [github.com/juju/juju/domain/model/errors.NotFound]
-	GetApplicationTargetAgentVersion(context.Context, string) (version.Number, error)
 }
 
 type PortService interface {

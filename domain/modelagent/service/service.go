@@ -84,37 +84,6 @@ func NewModelService(modelSt ModelState, st State) *ModelService {
 	}
 }
 
-// GetApplicationTargetAgentVersion reports the target agent version that should be
-// being run on the provided machine identified by name. The following errors
-// are possible:
-// - [applicationerrors.ApplicationNotFound]
-// - [github.com/juju/juju/domain/model/errors.NotFound]
-func (s *ModelService) GetApplicationTargetAgentVersion(
-	ctx context.Context,
-	applicationName string,
-) (version.Number, error) {
-	err := s.st.CheckApplicationExists(ctx, applicationName)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return version.Zero, errors.Errorf(
-			"application %q does not exist", applicationName,
-		).Add(applicationerrors.ApplicationNotFound)
-	} else if err != nil {
-		return version.Zero, errors.Errorf(
-			"checking if application %q exists when getting target agent version: %w",
-			applicationName, err,
-		)
-	}
-
-	modelUUID, err := s.st.GetModelUUID(ctx)
-	if err != nil {
-		return version.Zero, errors.Errorf(
-			"getting application %q model uuid: %w", applicationName, err,
-		)
-	}
-
-	return s.Service.st.GetModelTargetAgentVersion(ctx, modelUUID)
-}
-
 // GetMachineTargetAgentVersion reports the target agent version that should be
 // being run on the provided machine identified by name. The following errors
 // are possible:

@@ -71,7 +71,6 @@ type ApplicationSuite struct {
 	backend            *mocks.MockBackend
 	ecService          *application.MockExternalControllerService
 	modelConfigService *application.MockModelConfigService
-	modelAgentService  *application.MockModelAgentService
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
 	machineService     *application.MockMachineService
@@ -209,7 +208,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
-	s.modelAgentService = application.NewMockModelAgentService(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 
@@ -226,7 +224,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.model,
 		s.modelInfo,
 		s.modelConfigService,
-		s.modelAgentService,
 		s.cloudService,
 		s.credService,
 		s.machineService,
