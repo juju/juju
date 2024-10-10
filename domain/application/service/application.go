@@ -261,7 +261,15 @@ func (s *ApplicationService) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
-	modelType, appArg, err := s.makeCreateApplicationArgs(ctx, name, charm, origin, args)
+	if err := s.validateCreateApplicationParams(name, args.ReferenceName, charm, origin); err != nil {
+		return "", errors.Annotatef(err, "invalid application args")
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting model type")
+	}
+	appArg, err := s.makeCreateApplicationArgs(ctx, modelType, charm, origin, args)
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application args")
 	}
@@ -281,7 +289,7 @@ func (s *ApplicationService) CreateApplication(
 		arg := application.AddUnitArg{
 			UnitName: u.UnitName,
 		}
-		s.addNewUnitStatusToArg(&arg.UnitStatusArg, coremodel.ModelType(modelType))
+		s.addNewUnitStatusToArg(&arg.UnitStatusArg, modelType)
 		unitArgs[i] = arg
 	}
 
@@ -296,66 +304,69 @@ func (s *ApplicationService) CreateApplication(
 	return appID, err
 }
 
-func (s *ApplicationService) makeCreateApplicationArgs(
-	ctx context.Context,
-	name string,
+func (s *ApplicationService) validateCreateApplicationParams(
+	name, referenceName string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
-	args AddApplicationArgs,
-) (coremodel.ModelType, application.AddApplicationArg, error) {
+) error {
 	if !isValidApplicationName(name) {
-		return "", application.AddApplicationArg{}, applicationerrors.ApplicationNameNotValid
+		return applicationerrors.ApplicationNameNotValid
 	}
 
 	// Validate that we have a valid charm and name.
 	meta := charm.Meta()
 	if meta == nil {
-		return "", application.AddApplicationArg{}, applicationerrors.CharmMetadataNotValid
+		return applicationerrors.CharmMetadataNotValid
 	}
 
 	if !isValidCharmName(meta.Name) {
-		return "", application.AddApplicationArg{}, applicationerrors.CharmNameNotValid
-	} else if !isValidReferenceName(args.ReferenceName) {
-		return "", application.AddApplicationArg{}, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+		return applicationerrors.CharmNameNotValid
+	} else if !isValidReferenceName(referenceName) {
+		return fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
 	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
-		return "", application.AddApplicationArg{}, fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
+		return fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
+	return nil
+}
 
+func (s *ApplicationService) makeCreateApplicationArgs(
+	ctx context.Context,
+	modelType coremodel.ModelType,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+) (application.AddApplicationArg, error) {
 	// TODO (stickupkid): These should be done either in the application
 	// state in one transaction, or be operating on the domain/charm types.
 	//TODO(storage) - insert storage directive for app
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return "", application.AddApplicationArg{}, errors.Annotatef(err, "getting model type")
-	}
 
 	cons := make(map[string]storage.Directive)
 	for n, sc := range args.Storage {
 		cons[n] = sc
 	}
-	if err := s.addDefaultStorageDirectives(ctx, coremodel.ModelType(modelType), cons, meta); err != nil {
-		return "", application.AddApplicationArg{}, errors.Annotate(err, "adding default storage directives")
+	if err := s.addDefaultStorageDirectives(ctx, modelType, cons, charm.Meta()); err != nil {
+		return application.AddApplicationArg{}, errors.Annotate(err, "adding default storage directives")
 	}
-	if err := s.validateStorageDirectives(ctx, coremodel.ModelType(modelType), cons, charm); err != nil {
-		return "", application.AddApplicationArg{}, errors.Annotate(err, "invalid storage directives")
+	if err := s.validateStorageDirectives(ctx, modelType, cons, charm); err != nil {
+		return application.AddApplicationArg{}, errors.Annotate(err, "invalid storage directives")
 	}
 
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
 	ch, _, err := encodeCharm(charm)
 	if err != nil {
-		return "", application.AddApplicationArg{}, fmt.Errorf("encode charm: %w", err)
+		return application.AddApplicationArg{}, fmt.Errorf("encode charm: %w", err)
 	}
 
 	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin, args.ReferenceName)
 	if err != nil {
-		return "", application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
+		return application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
 	}
 
-	return modelType, application.AddApplicationArg{
+	return application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platformArg,
 		Origin:   originArg,
@@ -391,7 +402,15 @@ func (s *ApplicationService) makeUnitStatus(in StatusParams) application.StatusI
 	if in.Since != nil {
 		si.Since = *in.Since
 	}
-	si.Data = transform.Map(in.Data, func(k string, v any) (string, string) { return k, fmt.Sprintf("%v", v) })
+	if len(in.Data) > 0 {
+		si.Data = make(map[string]string)
+		for k, v := range in.Data {
+			if v == nil {
+				continue
+			}
+			si.Data[k] = fmt.Sprintf("%v", v)
+		}
+	}
 	return si
 }
 
@@ -403,7 +422,15 @@ func (s *ApplicationService) ImportApplication(
 	charm internalcharm.Charm, origin corecharm.Origin, args AddApplicationArgs,
 	units ...ImportUnitArg,
 ) error {
-	_, appArg, err := s.makeCreateApplicationArgs(ctx, appName, charm, origin, args)
+	if err := s.validateCreateApplicationParams(appName, args.ReferenceName, charm, origin); err != nil {
+		return errors.Annotatef(err, "invalid application args")
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return errors.Annotatef(err, "getting model type")
+	}
+	appArg, err := s.makeCreateApplicationArgs(ctx, modelType, charm, origin, args)
 	if err != nil {
 		return errors.Annotatef(err, "creating application args")
 	}
@@ -464,7 +491,7 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 		arg := application.AddUnitArg{
 			UnitName: u.UnitName,
 		}
-		s.addNewUnitStatusToArg(&arg.UnitStatusArg, coremodel.ModelType(modelType))
+		s.addNewUnitStatusToArg(&arg.UnitStatusArg, modelType)
 		args[i] = arg
 	}
 
@@ -802,8 +829,11 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string
 		}
 		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
 	}
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appName, _ := names.UnitApplication(unitName)
+	appName, err := names.UnitApplication(unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 		if err != nil {
 			return fmt.Errorf("getting application %q life: %w", appName, err)

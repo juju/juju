@@ -84,11 +84,6 @@ type unitPassword struct {
 	PasswordHashAlgorithmID int    `db:"password_hash_algorithm_id"`
 }
 
-// unitName represents the name of a unit
-type unitName struct {
-	Name string `db:"name"`
-}
-
 // unitNameAndUUID store the name & uuid of a unit
 type unitNameAndUUID struct {
 	UnitUUID string `db:"uuid"`

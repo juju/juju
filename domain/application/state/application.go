@@ -536,7 +536,6 @@ WHERE uuid = $unitPassword.uuid
 		return tx.Query(ctx, updatePasswordStmt, info).Run()
 	})
 	return errors.Annotatef(err, "updating password for unit %q", unitUUID)
-
 }
 
 // InsertUnit insert the specified application unit, returning an error
