@@ -1203,6 +1203,9 @@ func (c *statusContext) makeMachineStatus(
 
 	lxdProfiles := make(map[string]params.LXDProfile)
 	charmProfiles, err := machineService.AppliedLXDProfileNames(ctx, machineUUID)
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		logger.Debugf("can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
+	}
 	if err != nil {
 		logger.Debugf("error fetching lxd profiles: %w", err)
 	}

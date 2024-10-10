@@ -866,18 +866,36 @@ func (st *State) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]st
 		return nil, errors.Trace(err)
 	}
 
+	instanceDataQuery := instanceData{MachineUUID: mUUID}
+	isProvisionedStmt, err := st.Prepare(`
+SELECT   &instanceData.instance_id
+FROM     machine_cloud_instance
+WHERE    machine_uuid = $instanceData.machine_uuid`, instanceDataQuery)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lxdProfileQuery := lxdProfile{MachineUUID: mUUID}
 	queryStmt, err := st.Prepare(`
 SELECT   &lxdProfile.name
 FROM     machine_lxd_profile
 WHERE    machine_uuid = $lxdProfile.machine_uuid
-ORDER BY array_index ASC`, lxdProfile{})
+ORDER BY array_index ASC`, lxdProfileQuery)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var result []lxdProfile
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, lxdProfile{MachineUUID: mUUID}).GetAll(&result)
+		var instanceData instanceData
+		err := tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
+		}
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
+		}
+		err = tx.Query(ctx, queryStmt, lxdProfileQuery).GetAll(&result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return internalerrors.Errorf("retrieving lxd profiles for machine %q: %w", mUUID, err)
 		}
@@ -916,6 +934,16 @@ WHERE  machine.uuid = $machineUUID.uuid`, queryMachineUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	instanceDataQuery := instanceData{MachineUUID: mUUID}
+	isProvisionedStmt, err := st.Prepare(`
+SELECT   &instanceData.instance_id
+FROM     machine_cloud_instance
+WHERE    machine_uuid = $instanceData.machine_uuid`, instanceDataQuery)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	queryLXDProfile := lxdProfile{MachineUUID: mUUID}
 	retrievePreviousProfilesStmt, err := st.Prepare(`
 SELECT   name AS &lxdProfile.name
@@ -950,6 +978,15 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 			return internalerrors.Errorf("checking if machine %q exists: %w", mUUID, err)
 		}
 
+		// Check if the machine is provisioned
+		var instanceData instanceData
+		err = tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
+		}
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
+		}
 		// Retrieve the existing profiles to check if the input is the exactly
 		// the same as the existing ones and in that case no insert is needed.
 		var existingProfiles []lxdProfile

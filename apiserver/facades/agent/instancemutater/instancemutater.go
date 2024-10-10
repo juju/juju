@@ -17,6 +17,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -124,7 +125,9 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(ctx context.Context, arg param
 		return result, nil
 	}
 	lxdProfileInfo, err := api.machineLXDProfileInfo(ctx, m)
-	if err != nil {
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		result.Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", tag.Id()))
+	} else if err != nil {
 		result.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
 	}
 
@@ -191,7 +194,11 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(ctx context.Context, args params
 	}
 	for i, a := range args.Args {
 		err := api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess)
-		results[i].Error = apiservererrors.ServerError(err)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", a.Entity.Tag))
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return params.ErrorResults{Results: results}, nil
 }

@@ -797,7 +797,10 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 		); err != nil {
 			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
 		}
-		if err := api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, arg.CharmProfiles); err != nil {
+		err = api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, arg.CharmProfiles)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			return errors.NotProvisionedf("machine %q", tag.Id())
+		} else if err != nil {
 			return errors.Annotatef(err, "setting lxd profiles for machine uuid %q", machineUUID)
 		}
 
@@ -1460,7 +1463,12 @@ func (api *ProvisionerAPI) SetCharmProfiles(ctx context.Context, args params.Set
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {
-		results[i].Error = apiservererrors.ServerError(api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess))
+		err := api.setOneMachineCharmProfiles(ctx, a.Entity.Tag, a.Profiles, canAccess)
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", a.Entity.Tag))
+		} else {
+			results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return params.ErrorResults{Results: results}, nil
 }

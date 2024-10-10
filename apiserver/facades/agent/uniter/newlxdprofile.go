@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -245,7 +246,9 @@ func (u *LXDProfileAPIv2) LXDProfileName(ctx context.Context, args params.Entiti
 			continue
 		}
 		name, err := u.getOneLXDProfileName(ctx, unit, machineUUID)
-		if err != nil {
+		if errors.Is(err, machineerrors.NotProvisioned) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisionedf("machine %q", machineTagID))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
