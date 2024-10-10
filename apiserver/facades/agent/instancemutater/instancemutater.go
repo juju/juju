@@ -40,15 +40,15 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (string, error)
+	InstanceID(ctx context.Context, machineUUID string) (string, error)
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
+	AppliedLXDProfileNames(ctx context.Context, machineUUID string) ([]string, error)
 
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
-	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+	SetAppliedLXDProfileNames(ctx context.Context, machineUUID string, profileNames []string) error
 
 	// WatchLXDProfiles returns a NotifyWatcher that is subscribed to the changes in
 	// the machine_cloud_instance table in the model, for the given machine UUID.

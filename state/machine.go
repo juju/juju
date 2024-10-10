@@ -283,21 +283,6 @@ type instanceData struct {
 	CharmProfiles []string `bson:"charm-profiles,omitempty"`
 }
 
-func getInstanceData(st *State, id string) (instanceData, error) {
-	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
-	defer closer()
-
-	var instData instanceData
-	err := instanceDataCollection.FindId(id).One(&instData)
-	if err == mgo.ErrNotFound {
-		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
-	}
-	if err != nil {
-		return instanceData{}, fmt.Errorf("cannot get instance data for machine %v: %v", id, err)
-	}
-	return instData, nil
-}
-
 // removeInstanceDataOp returns the operation needed to remove the
 // instance data document associated with the given globalKey.
 func removeInstanceDataOp(globalKey string) txn.Op {
