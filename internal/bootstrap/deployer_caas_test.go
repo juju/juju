@@ -9,11 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
@@ -139,12 +140,17 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 
 	op := &state.UpdateUnitOperation{}
 
-	s.unit.EXPECT().UnitTag().Return(names.NewUnitTag("controller/0"))
+	s.unit.EXPECT().UnitTag().Return(names.NewUnitTag("controller/0")).AnyTimes()
 	s.unit.EXPECT().UpdateOperation(state.UnitUpdateProperties{
 		ProviderId: ptr("controller-0"),
 	}).Return(op)
 	s.operationApplier.EXPECT().ApplyOperation(op).Return(nil)
 	s.unit.EXPECT().SetPassword(cfg.UnitPassword).Return(nil)
+
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), "controller/0", service.UpdateCAASUnitParams{
+		ProviderId: ptr("controller-0"),
+	})
+	s.applicationService.EXPECT().SetUnitPassword(gomock.Any(), "controller/0", cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.CompleteProcess(context.Background(), s.unit)

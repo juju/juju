@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -15,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	jujudb "github.com/juju/juju/internal/database"
@@ -46,15 +49,38 @@ func NewApplicationState(factory database.TxnRunnerFactory, logger logger.Logger
 	}
 }
 
-// CreateApplication creates an application, whilst inserting a charm into the
-// database, returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
-// if the application already exists.
-func (st *ApplicationState) CreateApplication(ctx context.Context, name string, app application.AddApplicationArg, units ...application.UpsertUnitArg) (coreapplication.ID, error) {
+// GetModelType returns the model type for the underlying model. If the model
+// does not exist then an error satisfying [modelerrors.NotFound] will be returned.
+func (st *ApplicationState) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
+	var result modelInfo
+	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&result)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.NotFound
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Annotatef(err, "querying model type")
+	}
+	return coremodel.ModelType(result.ModelType), nil
+}
+
+// CreateApplication creates an application, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already exists.
+// If returns as error satisfying [applicationerrors.CharmNotFound] if the charm
+// for the application is not found.
+func (st *ApplicationState) CreateApplication(ctx domain.AtomicContext, name string, app application.AddApplicationArg) (coreapplication.ID, error) {
 	appID, err := coreapplication.NewID()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -79,7 +105,7 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 
 	scaleInfo := applicationScale{
 		ApplicationID: appID.String(),
-		Scale:         len(units),
+		Scale:         app.Scale,
 	}
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
@@ -152,7 +178,7 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 		}
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationExists(ctx, tx, name); err != nil {
 			return fmt.Errorf("checking if application %q exists: %w", name, err)
@@ -207,17 +233,6 @@ func (st *ApplicationState) CreateApplication(ctx context.Context, name string, 
 				return errors.Annotatef(err, "creating channel row for application %q", name)
 			}
 		}
-
-		if len(units) == 0 {
-			return nil
-		}
-
-		for _, u := range units {
-			if err := st.insertUnit(ctx, tx, appID, u); err != nil {
-				return fmt.Errorf("adding unit for application %q: %w", name, err)
-			}
-		}
-
 		return nil
 	})
 	return appID, errors.Annotatef(err, "creating application %q", name)
@@ -354,26 +369,42 @@ func (st *ApplicationState) deleteSimpleApplicationReferences(ctx context.Contex
 	return nil
 }
 
-// AddUnits adds the specified units to the application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string, args ...application.UpsertUnitArg) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err := st.lookupApplication(ctx, tx, applicationName)
-		if err != nil {
-			return errors.Trace(err)
+// AddUnits adds the specified units to the application.
+func (st *ApplicationState) AddUnits(ctx domain.AtomicContext, appID coreapplication.ID, args ...application.AddUnitArg) error {
+	for _, arg := range args {
+		insertARg := application.InsertUnitArg{
+			UnitName: arg.UnitName,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus:    arg.UnitStatusArg.AgentStatus,
+				WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
+			},
 		}
-		for _, arg := range args {
-			if err := st.insertUnit(ctx, tx, appID, arg); err != nil {
-				return fmt.Errorf("adding unit for application %q: %w", applicationName, err)
-			}
+		if _, err := st.insertUnit(ctx, appID, insertARg); err != nil {
+			return fmt.Errorf("adding unit for application %q: %w", appID, err)
+		}
+	}
+	return nil
+}
+
+// GetUnitUUID returns the UUID for the named unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error) {
+	unit := unitDetails{Name: unitName}
+	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		if err != nil {
+			return fmt.Errorf("querying unit %q: %w", unitName, err)
 		}
 		return nil
 	})
-	return errors.Annotatef(err, "adding units for application %q", applicationName)
+	return coreunit.UUID(unit.UnitUUID), errors.Trace(err)
 }
 
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
@@ -464,53 +495,77 @@ WHERE uuid IN ($unitUUIDs[:])
 	})
 }
 
-func (st *ApplicationState) getUnit(ctx context.Context, tx *sqlair.TX, name string) (*unitDetails, error) {
-	unitName := unitName{Name: name}
-	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitName.name`
-	getUnitStmt, err := st.Prepare(getUnit, unitDetails{}, unitName)
+func (st *ApplicationState) getUnit(ctx domain.AtomicContext, unitName string) (*unitDetails, error) {
+	unit := unitDetails{Name: unitName}
+	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitDetails.name`
+	getUnitStmt, err := st.Prepare(getUnit, unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var unit unitDetails
-	err = tx.Query(ctx, getUnitStmt, unitName).Get(&unit)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, internalerrors.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
-	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+		}
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return nil, internalerrors.Errorf("querying unit %q: %w", unitName, err)
 	}
 	return &unit, nil
 }
 
+// SetUnitPassword updates the password for the specified unit UUID.
+func (st *ApplicationState) SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, password application.PasswordInfo) error {
+	info := unitPassword{
+		UnitID:                  unitUUID.String(),
+		PasswordHash:            password.PasswordHash,
+		PasswordHashAlgorithmID: password.HashAlgorithm,
+	}
+	updatePasswordStmt, err := st.Prepare(`
+UPDATE unit SET
+    password_hash = $unitPassword.password_hash,
+    password_hash_algorithm_id = $unitPassword.password_hash_algorithm_id
+WHERE uuid = $unitPassword.uuid
+`, info)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, updatePasswordStmt, info).Run()
+	})
+	return errors.Annotatef(err, "updating password for unit %q", unitUUID)
+}
+
 // InsertUnit insert the specified application unit, returning an error
 // satisfying [applicationerrors.UnitAlreadyExists]
 // if the unit exists.
 func (st *ApplicationState) InsertUnit(
-	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
+	ctx domain.AtomicContext, appID coreapplication.ID, args application.InsertUnitArg,
 ) error {
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.getUnit(ctx, tx, args.UnitName)
-		if err == nil {
-			return fmt.Errorf("unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
-		}
-		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
-			return errors.Annotatef(err, "looking up unit %q", args.UnitName)
-		}
-		return st.insertUnit(ctx, tx, appID, args)
-	})
+	var err error
+	_, err = st.getUnit(ctx, args.UnitName)
+	if err == nil {
+		return fmt.Errorf("unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
+	}
+	if !errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Annotatef(err, "looking up unit %q", args.UnitName)
+	}
+	_, err = st.insertUnit(ctx, appID, args)
 	return errors.Annotatef(err, "inserting unit for application %q", appID)
 }
 
 func (st *ApplicationState) insertUnit(
-	ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, args application.UpsertUnitArg,
-) error {
+	ctx domain.AtomicContext, appID coreapplication.ID, args application.InsertUnitArg,
+) (string, error) {
 	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	nodeUUID, err := uuid.NewUUID()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	createParams := unitDetails{
 		ApplicationID: appID.String(),
@@ -518,78 +573,65 @@ func (st *ApplicationState) insertUnit(
 		NetNodeID:     nodeUUID.String(),
 		LifeID:        life.Alive,
 	}
-	if args.PasswordHash != nil {
-		createParams.PasswordHash = *args.PasswordHash
-		createParams.PasswordHashAlgorithmID = 0 //currently we only use sha256
+	if args.Password != nil {
+		createParams.PasswordHash = args.Password.PasswordHash
+		createParams.PasswordHashAlgorithmID = args.Password.HashAlgorithm
 	}
 
 	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`
 	createUnitStmt, err := st.Prepare(createUnit, createParams)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($unitDetails.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNode, createParams)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	createParams.Name = args.UnitName
 
-	if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-		return errors.Annotatef(err, "creating net node row for unit %q", args.UnitName)
-	}
-	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
-		return errors.Annotatef(err, "creating unit row for unit %q", args.UnitName)
-	}
-	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, nodeUUID.String(), args.CloudContainer); err != nil {
-			return errors.Annotatef(err, "creating cloud container row for unit %q", args.UnitName)
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
+			return errors.Annotatef(err, "creating net node for unit %q", args.UnitName)
 		}
-	}
-	return nil
-}
-
-// UpdateUnit updates the specified application unit, returning an error
-// satisfying [applicationerrors.UnitNotFoundError] if the unit doesn't exist.
-func (st *ApplicationState) UpdateUnit(
-	ctx domain.AtomicContext, appID coreapplication.ID, args application.UpsertUnitArg,
-) error {
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		toUpdate, err := st.getUnit(ctx, tx, args.UnitName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if args.PasswordHash != nil {
-			toUpdate.PasswordHash = *args.PasswordHash
-			toUpdate.PasswordHashAlgorithmID = 0 //currently we only use sha256
-		}
-
-		updateUnit := `
-UPDATE unit SET
-    life_id = $unitDetails.life_id,
-    password_hash = $unitDetails.password_hash,
-    password_hash_algorithm_id = $unitDetails.password_hash_algorithm_id
-WHERE uuid = $unitDetails.uuid
-`
-		updateUnitStmt, err := st.Prepare(updateUnit, *toUpdate)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := tx.Query(ctx, updateUnitStmt, toUpdate).Run(); err != nil {
-			return errors.Annotatef(err, "updating unit row for unit %q", toUpdate.Name)
+		if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
+			return errors.Annotatef(err, "creating unit for unit %q", args.UnitName)
 		}
 		if args.CloudContainer != nil {
-			if err := st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, args.CloudContainer); err != nil {
-				return errors.Annotatef(err, "updating cloud container row for unit %q", toUpdate.Name)
+			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, nodeUUID.String(), args.CloudContainer); err != nil {
+				return errors.Annotatef(err, "creating cloud container for unit %q", args.UnitName)
 			}
 		}
 		return nil
 	})
-	return errors.Annotatef(err, "updating unit %q for application %q", args.UnitName, appID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := st.SetUnitAgentStatus(ctx, unitUUID, args.AgentStatus); err != nil {
+		return "", errors.Annotatef(err, "saving agent status for unit %q", args.UnitName)
+	}
+	if err := st.SetUnitWorkloadStatus(ctx, unitUUID, args.WorkloadStatus); err != nil {
+		return "", errors.Annotatef(err, "saving workload status for unit %q", args.UnitName)
+	}
+	return unitUUID.String(), nil
+}
+
+// UpdateUnitContainer updates the cloud container for specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFoundError]
+// if the unit doesn't exist.
+func (st *ApplicationState) UpdateUnitContainer(
+	ctx domain.AtomicContext, unitName string, container *application.CloudContainer,
+) error {
+	toUpdate, err := st.getUnit(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, container)
+	})
+	return errors.Annotatef(err, "updating cloud container unit %q", unitName)
 }
 
 func (st *ApplicationState) upsertUnitCloudContainer(
@@ -615,10 +657,7 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid
 		}
 	}
 
-	var newProviderId string
-	if cc.ProviderId != nil {
-		newProviderId = *cc.ProviderId
-	}
+	newProviderId := cc.ProviderId
 	if existingContainerInfo.ProviderID != "" &&
 		newProviderId != "" &&
 		existingContainerInfo.ProviderID != newProviderId {
@@ -1379,9 +1418,9 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 	return nil
 }
 
-// SaveCloudContainerStatus saves the given cloud container status, overwriting any current status data.
+// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
+func (st *ApplicationState) SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
@@ -1411,9 +1450,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving cloud container status for unit %q", unitUUID)
 }
 
-// SaveUnitAgentStatus saves the given unit agent status, overwriting any current status data.
+// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
+func (st *ApplicationState) SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),
@@ -1443,9 +1482,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving unit agent status for unit %q", unitUUID)
 }
 
-// SaveUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
+// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SaveUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
+func (st *ApplicationState) SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID.String(),
 		StatusID:  int(status.StatusID),

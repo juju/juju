@@ -13,11 +13,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -55,8 +55,11 @@ type importOperation struct {
 // ImportService defines the application service used to import applications
 // from another controller model to this controller.
 type ImportService interface {
-	// CreateApplication registers the existence of an application in the model.
-	CreateApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (coreapplication.ID, error)
+	// ImportApplication registers the existence of an application in the model.
+	ImportApplication(
+		context.Context, string, internalcharm.Charm, corecharm.Origin, service.AddApplicationArgs,
+		...service.ImportUnitArg,
+	) error
 }
 
 // Name returns the name of this operation.
@@ -78,13 +81,32 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
+func makeStatusParam(statusVal description.Status) service.StatusParams {
+	p := service.StatusParams{
+		Status:  corestatus.Status(statusVal.Value()),
+		Message: statusVal.Message(),
+		Data:    statusVal.Data(),
+		Since:   ptr(statusVal.Updated()),
+	}
+	// Older versions of Juju would pass through NeverSet() on the status
+	// description for application statuses that hadn't been explicitly
+	// set by the lead unit. If that is the case, we make the status what
+	// the new code expects.
+	if statusVal.NeverSet() {
+		p.Status = corestatus.Unset
+		p.Message = ""
+		p.Data = nil
+	}
+	return p
+}
+
 // Execute the import, adding the application to the model. This also includes
 // the charm and any units that are associated with the application.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
-		unitArgs := make([]service.AddUnitArg, 0, len(app.Units()))
+		unitArgs := make([]service.ImportUnitArg, 0, len(app.Units()))
 		for _, unit := range app.Units() {
-			arg := service.AddUnitArg{
+			arg := service.ImportUnitArg{
 				UnitName: unit.Name(),
 			}
 			if unit.PasswordHash() != "" {
@@ -94,13 +116,15 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				cldContainer := &service.CloudContainerParams{}
 				cldContainer.Address, cldContainer.AddressOrigin = i.makeAddress(cc.Address())
 				if cc.ProviderId() != "" {
-					cldContainer.ProviderId = ptr(cc.ProviderId())
+					cldContainer.ProviderId = cc.ProviderId()
 				}
 				if len(cc.Ports()) > 0 {
 					cldContainer.Ports = ptr(cc.Ports())
 				}
 				arg.CloudContainer = cldContainer
 			}
+			arg.WorkloadStatus = makeStatusParam(unit.WorkloadStatus())
+			arg.AgentStatus = makeStatusParam(unit.AgentStatus())
 			unitArgs = append(unitArgs, arg)
 		}
 
@@ -124,7 +148,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return fmt.Errorf("parse charm origin %v: %w", app.CharmOrigin(), err)
 		}
 
-		_, err = i.service.CreateApplication(
+		err = i.service.ImportApplication(
 			ctx, app.Name(), charm, *origin, service.AddApplicationArgs{
 				ReferenceName: chURL.Name,
 			}, unitArgs...,

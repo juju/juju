@@ -26,6 +26,8 @@ import (
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
 	CreateApplication(ctx context.Context, name string, charm charm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	UpdateCAASUnit(ctx context.Context, unitName string, params applicationservice.UpdateCAASUnitParams) error
+	SetUnitPassword(ctx context.Context, unitName string, passwordHash string) error
 }
 
 // BakeryConfigService describes the service used to initialise the
