@@ -37,6 +37,11 @@ type unit struct {
 	Name string `db:"name"`
 }
 
+type application struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type secretRef struct {
 	ID         string `db:"secret_id"`
 	SourceUUID string `db:"source_uuid"`
@@ -501,4 +506,10 @@ func (rows obsoleteRevisionRows) toRevIDs() []string {
 		result[i] = fmt.Sprintf("%s/%s", row.SecretID, row.Revision)
 	}
 	return result
+}
+
+// Count is a helper struct to count the number of rows.
+type Count struct {
+	// Num is the number of rows.
+	Num int `db:"num"`
 }
