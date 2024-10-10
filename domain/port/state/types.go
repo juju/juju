@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/port"
@@ -138,6 +139,10 @@ type unitUUID struct {
 // machineUUID represents a machine's UUID.
 type machineUUID struct {
 	UUID string `db:"machine_uuid"`
+}
+
+type machineName struct {
+	Name machine.Name `db:"name"`
 }
 
 // applicationUUID represents an application's UUID.
