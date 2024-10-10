@@ -140,7 +140,7 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 	if len(args.Entities) == 0 {
 		return params.VersionResults{}, nil
 	}
-	agentVersion, err := u.modelAgentService.GetModelAgentVersion(ctx)
+	agentVersion, err := u.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return params.VersionResults{}, apiservererrors.ServerError(err)
 	}
