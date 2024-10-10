@@ -5,6 +5,7 @@ test_log_permissions() {
 	# The following ensures that a bootstrap juju exists
 	file="${TEST_DIR}/test_log_permissions.log"
 	ensure "correct-log" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	juju deploy juju-qa-test source --base ubuntu@20.04
 

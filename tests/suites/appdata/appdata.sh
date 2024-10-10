@@ -4,6 +4,7 @@ run_appdata_basic() {
 	file="${TEST_DIR}/appdata-basic.log"
 
 	ensure "appdata-basic" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	juju deploy juju-qa-appdata-source
 	juju deploy -n 2 juju-qa-appdata-sink

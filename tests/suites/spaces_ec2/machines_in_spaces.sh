@@ -6,6 +6,7 @@ run_machines_in_spaces() {
 	file="${TEST_DIR}/test-machines-in-spaces.log"
 
 	ensure "machines-in-spaces" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	echo "Setup spaces"
 	juju reload-spaces

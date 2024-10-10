@@ -5,6 +5,7 @@ run_start_hook_fires_after_reboot() {
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	# the log messages the test looks for do not appear if root
 	# log level is WARNING.
@@ -81,6 +82,7 @@ run_reboot_monitor_state_cleanup() {
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	juju deploy juju-qa-test --base ubuntu@22.04
 	juju deploy juju-qa-dummy-subordinate

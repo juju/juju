@@ -4,6 +4,7 @@ run_juju_bind() {
 	file="${TEST_DIR}/test-juju-bind.log"
 
 	ensure "spaces-juju-bind" "${file}"
+	juju add-ssh-key "$(cat ~/.ssh/id_rsa.pub)"
 
 	## Setup spaces
 	juju reload-spaces
