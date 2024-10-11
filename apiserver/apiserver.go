@@ -1132,9 +1132,11 @@ func (srv *Server) serveConn(
 		h  *apiHandler
 	)
 
+	var stateClosing <-chan struct{}
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
+		stateClosing = st.Removing()
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.Is(err, errors.NotFound) {
@@ -1158,6 +1160,7 @@ func (srv *Server) serveConn(
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():
+	case <-stateClosing:
 	}
 	return conn.Close()
 }
