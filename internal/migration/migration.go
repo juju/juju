@@ -152,7 +152,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config, config.ConfigSchemaSourceGetter) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
 }
 
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
@@ -163,11 +163,10 @@ type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchem
 type ModelImporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
-	legacyStateImporter        legacyStateImporter
-	controllerConfigService    ControllerConfigService
-	domainServices             services.DomainServicesGetter
-	configSchemaSourceProvider ConfigSchemaSourceProvider
-	storageRegistryGetter      storageRegistryGetter
+	legacyStateImporter     legacyStateImporter
+	controllerConfigService ControllerConfigService
+	domainServices          services.DomainServicesGetter
+	storageRegistryGetter   storageRegistryGetter
 
 	scope  modelmigration.ScopeForModel
 	logger corelogger.Logger
@@ -182,20 +181,18 @@ func NewModelImporter(
 	scope modelmigration.ScopeForModel,
 	controllerConfigService ControllerConfigService,
 	domainServices services.DomainServicesGetter,
-	configSchemaSourceProvider ConfigSchemaSourceProvider,
 	storageRegistryGetter storageRegistryGetter,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
-		legacyStateImporter:        stateImporter,
-		scope:                      scope,
-		controllerConfigService:    controllerConfigService,
-		domainServices:             domainServices,
-		configSchemaSourceProvider: configSchemaSourceProvider,
-		storageRegistryGetter:      storageRegistryGetter,
-		logger:                     logger,
-		clock:                      clock,
+		legacyStateImporter:     stateImporter,
+		scope:                   scope,
+		controllerConfigService: controllerConfigService,
+		domainServices:          domainServices,
+		storageRegistryGetter:   storageRegistryGetter,
+		logger:                  logger,
+		clock:                   clock,
 	}
 }
 
@@ -216,8 +213,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	modelUUID := coremodel.UUID(model.Tag().Id())
 
 	domainServices := i.domainServices.ServicesForModel(modelUUID)
-	configSchemaSource := i.configSchemaSourceProvider(domainServices.Cloud())
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource)
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

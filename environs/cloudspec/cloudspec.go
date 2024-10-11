@@ -103,11 +103,3 @@ type CloudRegionSpec struct {
 	// Region is the name of the cloud region.
 	Region string
 }
-
-// NewCloudRegionSpec returns a CloudRegionSpec ensuring cloud arg is not empty.
-func NewCloudRegionSpec(cloud, region string) (*CloudRegionSpec, error) {
-	if cloud == "" {
-		return nil, errors.New("cloud is required to be non empty")
-	}
-	return &CloudRegionSpec{Cloud: cloud, Region: region}, nil
-}

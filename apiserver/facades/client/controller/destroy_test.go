@@ -76,6 +76,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	s.otherModelOwner = names.NewUserTag("jess@dummy")
 	s.otherState = f.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
@@ -192,6 +193,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -236,6 +238,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required

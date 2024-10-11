@@ -39,7 +39,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -251,7 +250,6 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelMan
 			SecretBackendService: s.mockSecretBackendService,
 			MachineService:       s.mockMachineService,
 		},
-		state.NoopConfigSchemaSource,
 		nil, nil, common.NewBlockChecker(s.mockBlockCommandService),
 		&s.authorizer, s.st.model,
 	)
@@ -294,7 +292,6 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 			SecretBackendService: s.mockSecretBackendService,
 			MachineService:       s.mockMachineService,
 		},
-		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer, s.st.model,
 	)
@@ -670,7 +667,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *gc.C) {
 	s.testModelInfoError(c, api, s.st.model.tag.String(), "model info not found")
 }
 
-func (s *modelInfoSuite) TestAliveModelWithGetModelAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	defer ctrl.Finish()
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
@@ -740,7 +737,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithGetModelAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
@@ -825,7 +822,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithGetModelAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
@@ -926,7 +923,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithGetModelAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
@@ -1145,16 +1142,6 @@ func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelM
 func (st *mockState) ControllerTag() names.ControllerTag {
 	st.MethodCall(st, "ControllerTag")
 	return names.NewControllerTag(st.controllerUUID)
-}
-
-func (st *mockState) ComposeNewModelConfig(_ config.ConfigSchemaSourceGetter, modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
-	st.MethodCall(st, "ComposeNewModelConfig")
-	attr := make(map[string]interface{})
-	for attrName, val := range modelAttr {
-		attr[attrName] = val
-	}
-	attr["something"] = "value"
-	return attr, st.NextErr()
 }
 
 func (st *mockState) IsController() bool {

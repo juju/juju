@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -129,23 +128,4 @@ func Provider(providerType string) (EnvironProvider, error) {
 // CloudService provides access to clouds.
 type CloudService interface {
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-}
-
-// ProviderConfigSchemaSource returns a function that can be used to
-// get a config.ConfigSchemaSource for the specified cloud.
-func ProviderConfigSchemaSource(cloudService CloudService) config.ConfigSchemaSourceGetter {
-	return func(ctx context.Context, cloudName string) (config.ConfigSchemaSource, error) {
-		cloud, err := cloudService.Cloud(ctx, cloudName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		provider, err := Provider(cloud.Type)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if cs, ok := provider.(config.ConfigSchemaSource); ok {
-			return cs, nil
-		}
-		return nil, errors.NotImplementedf("config.ConfigSource")
-	}
 }

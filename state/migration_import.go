@@ -39,7 +39,6 @@ import (
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(
 	model description.Model, controllerConfig controller.Config,
-	configSchemaSourceGetter config.ConfigSchemaSourceGetter,
 ) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
@@ -98,7 +97,7 @@ func (ctrl *Controller) Import(
 		// that is now done using the new domain/credential importer.
 		args.CloudCredential = credTag
 	}
-	dbModel, newSt, err := ctrl.NewModel(configSchemaSourceGetter, args)
+	dbModel, newSt, err := ctrl.NewModel(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -120,11 +119,10 @@ func (ctrl *Controller) Import(
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:                       newSt,
-		dbModel:                  dbModel,
-		model:                    model,
-		logger:                   logger,
-		configSchemaSourceGetter: configSchemaSourceGetter,
+		st:      newSt,
+		dbModel: dbModel,
+		model:   model,
+		logger:  logger,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -157,9 +155,6 @@ func (ctrl *Controller) Import(
 	}
 	if err := restore.remoteApplications(); err != nil {
 		return nil, nil, errors.Annotate(err, "remoteapplications")
-	}
-	if err := restore.firewallRules(); err != nil {
-		return nil, nil, errors.Annotate(err, "firewallrules")
 	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
@@ -238,8 +233,6 @@ type importer struct {
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
 	charmOrigins     map[string]*CharmOrigin
-
-	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
 func (i *importer) modelExtras() error {
@@ -1340,27 +1333,6 @@ func (i *importer) remoteApplications() error {
 		return errors.Trace(err)
 	}
 	i.logger.Debugf("importing remote applications succeeded")
-	return nil
-}
-
-func (i *importer) firewallRules() error {
-	i.logger.Debugf("importing firewall rules")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportFirewallRules{}
-		return m.Execute(stateModelNamspaceShim{
-			Model:                    migration.src,
-			st:                       i.st,
-			configSchemaSourceGetter: i.configSchemaSourceGetter,
-		}, i.dbModel)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf("importing firewall rules succeeded")
 	return nil
 }
 

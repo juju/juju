@@ -270,7 +270,7 @@ func (m ModelArgs) Validate() error {
 // model document means that we have a way to represent external
 // models, perhaps for future use around cross model
 // relations.
-func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGetter, args ModelArgs) (_ *Model, _ *State, err error) {
+func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	st, err := ctlr.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -316,7 +316,7 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), configSchemaGetter, args, nil)
+	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}

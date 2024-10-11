@@ -14,8 +14,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs/config"
 )
 
 // Migration import tasks provide a boundary of isolation between the
@@ -45,16 +43,11 @@ type DocModelNamespace interface {
 
 type stateModelNamspaceShim struct {
 	description.Model
-	st                       *State
-	configSchemaSourceGetter config.ConfigSchemaSourceGetter
+	st *State
 }
 
 func (s stateModelNamspaceShim) DocID(localID string) string {
 	return s.st.docID(localID)
-}
-
-func (s stateModelNamspaceShim) ConfigSchemaSourceGetter() config.ConfigSchemaSourceGetter {
-	return s.configSchemaSourceGetter
 }
 
 // stateApplicationOfferDocumentFactoryShim is required to allow the new
@@ -220,60 +213,6 @@ func (s stateDocumentFactoryShim) MakeStatusDoc(status description.Status) statu
 
 func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) txn.Op {
 	return createStatusOp(s.importer.st, globalKey, doc)
-}
-
-// FirewallRulesDescription defines an in-place usage for reading firewall
-// rules.
-type FirewallRulesDescription interface {
-	FirewallRules() []description.FirewallRule
-}
-
-// FirewallRulesInput describes the input used for migrating firewall rules.
-type FirewallRulesInput interface {
-	FirewallRulesDescription
-	ConfigSchemaSourceGetter() config.ConfigSchemaSourceGetter
-}
-
-// FirewallRulesOutput describes the methods used to set firewall rules
-// on the dest model
-type FirewallRulesOutput interface {
-	UpdateModelConfig(config.ConfigSchemaSourceGetter, map[string]interface{}, []string, ...ValidateConfigFunc) error
-}
-
-// ImportFirewallRules describes a way to import firewallRules from a
-// description.
-type ImportFirewallRules struct{}
-
-// Execute the import on the firewall rules description, carefully modelling
-// the dependencies we have.
-func (rules ImportFirewallRules) Execute(src FirewallRulesInput, dst FirewallRulesOutput) error {
-	firewallRules := src.FirewallRules()
-	if len(firewallRules) == 0 {
-		return nil
-	}
-
-	configSchemaSourceGetter := src.ConfigSchemaSourceGetter()
-	for _, rule := range firewallRules {
-		var err error
-		cidrs := strings.Join(rule.WhitelistCIDRs(), ",")
-		switch firewall.WellKnownServiceType(rule.WellKnownService()) {
-		case firewall.SSHRule:
-			err = dst.UpdateModelConfig(configSchemaSourceGetter, map[string]interface{}{
-				config.SSHAllowKey: cidrs,
-			}, nil)
-		case firewall.JujuApplicationOfferRule:
-			// SAASIngressAllow cannot be empty. If it is, leave as it's default value
-			if cidrs != "" {
-				err = dst.UpdateModelConfig(configSchemaSourceGetter, map[string]interface{}{
-					config.SAASIngressAllowKey: cidrs,
-				}, nil)
-			}
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // RemoteApplicationsDescription defines an in-place usage for reading remote

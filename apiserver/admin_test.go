@@ -585,6 +585,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	info := s.ControllerModelApiInfo()
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	ownerName := usertesting.GenNewName(c, "modelOwner")
 	modelState := f.MakeModel(c, &factory.ModelParams{
@@ -781,6 +782,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// using the correct state connection.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -812,6 +814,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -847,6 +850,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	machine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -874,6 +878,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	managerMachine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -910,6 +915,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	machine, pass := f.MakeMachineReturningPassword(c, nil)
 
 	modelState := f.MakeModel(c, nil)

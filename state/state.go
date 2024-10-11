@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -35,7 +34,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	jujuversion "github.com/juju/juju/core/version"
-	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -2450,8 +2448,4 @@ func TagFromDocID(docID string) names.Tag {
 	default:
 		return nil
 	}
-}
-
-func NoopConfigSchemaSource(ctx context.Context, cloudName string) (environsconfig.ConfigSchemaSource, error) {
-	return nil, errors.NotImplementedf("config schema source")
 }

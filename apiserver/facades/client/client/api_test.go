@@ -410,7 +410,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add(taggedUser{tag: testing.AdminUser})
 
 	err = s.ControllerModel(c).UpdateModelConfig(
-		s.ConfigSchemaSourceGetter(c),
 		map[string]interface{}{
 			config.AgentVersionKey: "2.0.0",
 		}, nil)

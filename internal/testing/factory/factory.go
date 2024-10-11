@@ -745,7 +745,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"type": cfgType,
 	}.Merge(params.ConfigAttrs))
 	controller := state.NewController(factory.pool)
-	_, st, err := controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
+	_, st, err := controller.NewModel(state.ModelArgs{
 		Type:                    params.Type,
 		CloudName:               params.CloudName,
 		CloudRegion:             params.CloudRegion,
@@ -791,10 +791,7 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 }
 
 func (factory *Factory) currentCfg(c *gc.C) *config.Config {
-	model, err := factory.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	currentCfg, err := model.ModelConfig(context.Background())
+	currentCfg, err := factory.modelConfigService.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	return currentCfg

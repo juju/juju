@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/caas"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -75,15 +74,13 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		return nil, errors.Trace(err)
 	}
 
-	configSchemaSource := environs.ProviderConfigSchemaSource(domainServices.Cloud())
-
 	controllerConfigService := domainServices.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
-	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
+	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 
 	secretBackendService := domainServices.SecretBackend()
 	return NewModelManagerAPI(
@@ -92,7 +89,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		func(modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) ModelExporter {
 			return ctx.ModelExporter(modelUUID, legacyState)
 		},
-		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
+		common.NewModelManagerBackend(ctrlModel, pool),
 		controllerUUID,
 		Services{
 			DomainServicesGetter: domainServicesGetter{ctx: ctx},
@@ -107,7 +104,6 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			MachineService:       domainServices.Machine(),
 			ApplicationService:   domainServices.Application(service.ApplicationServiceParams{}),
 		},
-		configSchemaSource,
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(domainServices.BlockCommand()),
