@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -159,10 +157,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	modelOps, modelStatusDoc, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
-		&lineage{
-			ControllerConfig: args.ControllerInheritedConfig,
-			RegionConfig:     args.RegionInheritedConfig,
-		})
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -231,13 +226,8 @@ type lineage struct {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, statusDoc, error) {
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op, statusDoc, error) {
 	var modelStatusDoc statusDoc
-	if inherited != nil {
-		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
-			return nil, modelStatusDoc, errors.Trace(err)
-		}
-	}
 
 	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
@@ -256,42 +246,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		ops = append(ops, incHostedModelCountOp())
 	}
 
-	// Create the final map of config attributes for the model.
-	// If we have ControllerInheritedConfig passed in, that means state
-	// is being initialised and there won't be any config sources
-	// in state.
-	var configSources []modelConfigSource
-	if inherited != nil {
-		configSources = []modelConfigSource{
-			{
-				name: config.JujuDefaultSource,
-				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-					return config.ConfigDefaults(), nil
-				})},
-			{
-				name: config.JujuControllerSource,
-				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-					return inherited.ControllerConfig, nil
-				})},
-			{
-				name: config.JujuRegionSource,
-				sourceFunc: modelConfigSourceFunc(func() (attrValues, error) {
-					// We return the values specific to this region for this model.
-					return attrValues(inherited.RegionConfig[args.CloudRegion]), nil
-				})},
-		}
-	} else {
-		rspec := &environscloudspec.CloudRegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
-		configSources = modelConfigSources(st, rspec)
-	}
-	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
-	if err != nil {
-		return nil, modelStatusDoc, errors.Trace(err)
-	}
-	// Some values require marshalling before storage.
-	modelCfg = config.CoerceForStorage(modelCfg)
 	ops = append(ops,
-		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
 		createModelOp(
 			args.Type,

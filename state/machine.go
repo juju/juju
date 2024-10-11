@@ -293,35 +293,12 @@ func (m *Machine) IsManager() bool {
 
 // IsManual returns true if the machine was manually provisioned.
 func (m *Machine) IsManual() (bool, error) {
-	// To avoid unnecessary db lookups, a little of the
-	// logic from isManualMachine() below is duplicated here
-	// so we can exit early if possible.
-	if strings.HasPrefix(m.doc.Nonce, manualMachinePrefix) {
-		return true, nil
-	}
-	if m.doc.Id != "0" {
-		return false, nil
-	}
-	modelSettings, err := readSettings(m.st.db(), settingsC, modelGlobalKey)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	providerRaw, _ := modelSettings.Get("type")
-	providerType, _ := providerRaw.(string)
-	return isManualMachine(m.doc.Id, m.doc.Nonce, providerType), nil
-}
-
-func isManualMachine(id, nonce, providerType string) bool {
-	// Apart from the bootstrap machine, manually provisioned
-	// machines have a nonce prefixed with "manual:". This is
-	// unique to manual provisioning.
-	if strings.HasPrefix(nonce, manualMachinePrefix) {
-		return true
-	}
-	// The bootstrap machine uses BootstrapNonce, so in that
-	// case we need to check if its provider type is "manual".
-	// We also check for "null", which is an alias for manual.
-	return id == "0" && (providerType == "null" || providerType == "manual")
+	// If the controller was bootstrapped with a manual cloud,
+	// this method will not return the correct answer to IsManual.
+	// Doing so requires model config which has been moved to a
+	// domains. This will be corrected once the machine domain is
+	// completed.
+	return strings.HasPrefix(m.doc.Nonce, manualMachinePrefix), nil
 }
 
 // AgentTools returns the tools that the agent is currently running.

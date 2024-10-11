@@ -116,18 +116,12 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		return nil, errors.Trace(err)
 	}
 
-	modelConfig, found := export.modelSettings[modelGlobalKey]
-	if !found && !cfg.SkipSettings {
-		return nil, errors.New("missing model config")
-	}
-	delete(export.modelSettings, modelGlobalKey)
-
 	args := description.ModelArgs{
 		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.CloudName(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),
-		Config:             modelConfig.Settings,
+		Config:             make(map[string]interface{}, 0),
 		PasswordHash:       dbModel.doc.PasswordHash,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		EnvironVersion:     dbModel.EnvironVersion(),

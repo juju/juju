@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type modelconfigSuite struct {
@@ -517,13 +516,7 @@ func (m *mockBackend) Sequences() (map[string]int, error) {
 	return nil, nil
 }
 
-func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string,
-	validate ...state.ValidateConfigFunc) error {
-	for _, validateFunc := range validate {
-		if err := validateFunc(update, remove, m.old); err != nil {
-			return err
-		}
-	}
+func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string) error {
 	for k, v := range update {
 		m.cfg[k] = config.ConfigValue{Value: v, Source: "model"}
 	}

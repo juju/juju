@@ -68,15 +68,15 @@ func (ctrl *Controller) Import(
 	}
 
 	// Create the model.
-	cfg, err := modelConfig(model.Config())
+	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
 	args := ModelArgs{
 		Type:                    modelType,
 		CloudName:               model.Cloud(),
 		CloudRegion:             model.CloudRegion(),
-		Config:                  cfg,
 		Owner:                   model.Owner(),
 		MigrationMode:           MigrationModeImporting,
 		EnvironVersion:          model.EnvironVersion(),
@@ -182,19 +182,6 @@ func (ctrl *Controller) Import(
 
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
-}
-
-// modelConfig creates a config for the model being imported.
-func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	// Remove obsolete and no longer supported syslog forward config.
-	for _, a := range []string{
-		"logforward-enabled", "syslog-host", "syslog-ca-cert", "syslog-client-cert", "syslog-client-key",
-		"logging-output",
-	} {
-		delete(attrs, a)
-	}
-
-	return config.New(config.NoDefaults, attrs)
 }
 
 // ImportStateMigration defines a migration for importing various entities from

@@ -1196,14 +1196,14 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 //func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 //	anAuthoriser := s.authoriser
 //	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-//	st := common.NewModelManagerBackend( s.ControllerModel(c), s.StatePool())
+//	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 //	domainServices := s.ControllerDomainServices(c)
 //
 //	endPoint, err := modelmanager.NewModelManagerAPI(
 //		context.Background(),
 //		mockCredentialShim{st},
 //		nil,
-//		common.NewModelManagerBackend( s.ControllerModel(c), s.StatePool()),
+//		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 //		s.controllerUUID,
 //		modelmanager.Services{
 //			DomainServicesGetter: s.domainServicesGetter,
@@ -1214,7 +1214,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 //			AccessService:        s.accessService,
 //			ObjectStore:          &mockObjectStore{},
 //		},
-//
 //		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
 //	)
 //	c.Assert(endPoint, gc.IsNil)
@@ -1442,7 +1441,6 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			DomainServicesGetter: s.domainServicesGetter,
 			CloudService:         domainServices.Cloud(),
 			CredentialService:    domainServices.Credential(),
-			ModelService:         nil,
 			ModelDefaultsService: nil,
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
@@ -1624,8 +1622,6 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	modelState := f.MakeModel(c, &factory.ModelParams{
 		Owner: user,

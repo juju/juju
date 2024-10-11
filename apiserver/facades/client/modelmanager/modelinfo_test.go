@@ -1191,12 +1191,6 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 	return st.migration, st.NextErr()
 }
 
-func (st *mockState) ModelConfig(context.Context) (*config.Config, error) {
-	// Cannot delete method from the State interface yet, panic
-	// in the test to ensure we're not using it.
-	panic("Use ModelConfigService instead")
-}
-
 func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	st.MethodCall(st, "HAPrimaryMachine")
 	return names.MachineTag{}, nil
@@ -1282,12 +1276,6 @@ type mockModel struct {
 	controllerUUID      string
 	isController        bool
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
-}
-
-func (m *mockModel) Config() (*config.Config, error) {
-	// Cannot delete method from the Model interface yet, panic
-	// in the test to ensure we're not using it.
-	panic("Use ModelConfigService instead")
 }
 
 func (m *mockModel) Owner() names.UserTag {

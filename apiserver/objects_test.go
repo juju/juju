@@ -39,6 +39,8 @@ type baseObjectsSuite struct {
 	contentType string
 }
 
+var _ = gc.Suite(&baseObjectsSuite{})
+
 func (s *baseObjectsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.CharmsResponse {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var charmResponse params.CharmsResponse

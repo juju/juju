@@ -17,7 +17,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -214,6 +213,10 @@ type ModelArgs struct {
 	CloudCredential names.CloudCredentialTag
 
 	// Config is the model config.
+	//
+	// Deprecated. ModelConfig is now handled by the model config domain.
+	// Has values necessary for creating a model, e.g. name and uuid,
+	// however will not be used to set model config in settingsC.
 	Config *config.Config
 
 	// Constraints contains the initial constraints for the model.
@@ -234,9 +237,6 @@ type ModelArgs struct {
 
 	// PasswordHash is used by the caas model operator.
 	PasswordHash string
-
-	// ControllerConfig is passed in enable configuration of the model.
-	ControllerConfig controller.Config
 }
 
 // Validate validates the ModelArgs.
@@ -316,7 +316,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
+	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -594,11 +594,6 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 		clock:     m.st.clock(),
 	}
 	return statusHistory(args)
-}
-
-// Config returns the config for the model.
-func (m *Model) Config() (*config.Config, error) {
-	return getModelConfig(m.st.db(), m.UUID())
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of

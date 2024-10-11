@@ -39,7 +39,6 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	// Set up a CAAS model to replace the IAAS one.
 
 	// For the test to run properly with part of the model in mongo and

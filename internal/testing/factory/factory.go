@@ -791,10 +791,7 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 }
 
 func (factory *Factory) currentCfg(c *gc.C) *config.Config {
-	currentCfg, err := factory.modelConfigService.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	return currentCfg
+	return testing.ModelConfig(c)
 }
 
 func NewObjectStore(c *gc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {

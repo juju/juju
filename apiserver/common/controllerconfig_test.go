@@ -114,7 +114,6 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 	s.localState = f.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) {
 		s.localState.Close()
@@ -168,7 +167,6 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required

@@ -1158,7 +1158,6 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 	if err == nil {
 		info.ProviderType = modelInfo.CloudType
-
 	}
 
 	modelAgentService := modelDomainServices.Agent()
