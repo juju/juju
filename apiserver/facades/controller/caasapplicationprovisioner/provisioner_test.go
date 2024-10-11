@@ -473,6 +473,21 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		},
 	}
 
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), "gitlab/0", service.UpdateCAASUnitParams{
+		ProviderId:           strPtr("gitlab-0"),
+		Address:              strPtr("address"),
+		Ports:                &[]string{"port"},
+		AgentStatus:          &service.StatusParams{Status: status.Idle},
+		CloudContainerStatus: &service.StatusParams{Status: status.Running, Message: "message"},
+	})
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), "gitlab/1", service.UpdateCAASUnitParams{
+		ProviderId:           strPtr("gitlab-1"),
+		Address:              strPtr("another-address"),
+		Ports:                &[]string{"another-port"},
+		AgentStatus:          &service.StatusParams{Status: status.Idle},
+		CloudContainerStatus: &service.StatusParams{Status: status.Running, Message: "another message"},
+	})
+
 	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
@@ -632,6 +647,22 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 			{ApplicationTag: "application-gitlab", Units: units},
 		},
 	}
+
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), "gitlab/0", service.UpdateCAASUnitParams{
+		ProviderId:           strPtr("gitlab-0"),
+		Address:              strPtr("address"),
+		Ports:                &[]string{"port"},
+		AgentStatus:          &service.StatusParams{Status: status.Idle},
+		CloudContainerStatus: &service.StatusParams{Status: status.Running, Message: "message"},
+	})
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), "gitlab/1", service.UpdateCAASUnitParams{
+		ProviderId:           strPtr("gitlab-1"),
+		Address:              strPtr("another-address"),
+		Ports:                &[]string{"another-port"},
+		AgentStatus:          &service.StatusParams{Status: status.Idle},
+		CloudContainerStatus: &service.StatusParams{Status: status.Running, Message: "another message"},
+	})
+
 	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{

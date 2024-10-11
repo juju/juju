@@ -4,7 +4,10 @@
 package service
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/network"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -36,7 +39,7 @@ type AddApplicationArgs struct {
 
 // CloudContainerParams contains parameters for a unit cloud container.
 type CloudContainerParams struct {
-	ProviderId    *string
+	ProviderId    string
 	Address       *network.SpaceAddress
 	AddressOrigin *network.Origin
 	Ports         *[]string
@@ -53,11 +56,19 @@ type AddressParams struct {
 
 // AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
-	UnitName       string
-	PasswordHash   *string
-	CloudContainer *CloudContainerParams
+	UnitName string
 
 	// Storage params go here.
+}
+
+// ImportUnitArg contains parameters for inserting a fully
+// populated unit into the model, eg during migration.
+type ImportUnitArg struct {
+	UnitName       string
+	PasswordHash   *string
+	AgentStatus    StatusParams
+	WorkloadStatus StatusParams
+	CloudContainer *CloudContainerParams
 }
 
 // ScalingState contains attributes that describes
@@ -71,12 +82,30 @@ type ScalingState struct {
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitParams struct {
 	UnitName     string
-	PasswordHash *string
-	ProviderId   *string
+	PasswordHash string
+	ProviderId   string
 	Address      *string
 	Ports        *[]string
 	OrderedScale bool
 	OrderedId    int
+}
+
+// StatusParams contains parameters for setting unit status.
+type StatusParams struct {
+	Status  corestatus.Status
+	Message string
+	Data    map[string]any
+	Since   *time.Time
+}
+
+// UpdateCAASUnitParams contains parameters for updating a CAAS unit.
+type UpdateCAASUnitParams struct {
+	ProviderId           *string
+	Address              *string
+	Ports                *[]string
+	AgentStatus          *StatusParams
+	WorkloadStatus       *StatusParams
+	CloudContainerStatus *StatusParams
 }
 
 // UpdateCharmParams contains the parameters for updating

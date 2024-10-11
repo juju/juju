@@ -2008,6 +2008,82 @@ func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context
 	return c
 }
 
+// SetUnitPassword mocks base method.
+func (m *MockApplicationService) SetUnitPassword(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitPassword", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitPassword indicates an expected call of SetUnitPassword.
+func (mr *MockApplicationServiceMockRecorder) SetUnitPassword(arg0, arg1, arg2 any) *MockApplicationServiceSetUnitPasswordCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPassword", reflect.TypeOf((*MockApplicationService)(nil).SetUnitPassword), arg0, arg1, arg2)
+	return &MockApplicationServiceSetUnitPasswordCall{Call: call}
+}
+
+// MockApplicationServiceSetUnitPasswordCall wrap *gomock.Call
+type MockApplicationServiceSetUnitPasswordCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceSetUnitPasswordCall) Return(arg0 error) *MockApplicationServiceSetUnitPasswordCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceSetUnitPasswordCall) Do(f func(context.Context, string, string) error) *MockApplicationServiceSetUnitPasswordCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceSetUnitPasswordCall) DoAndReturn(f func(context.Context, string, string) error) *MockApplicationServiceSetUnitPasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateCAASUnit mocks base method.
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 string, arg2 service.UpdateCAASUnitParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCAASUnit indicates an expected call of UpdateCAASUnit.
+func (mr *MockApplicationServiceMockRecorder) UpdateCAASUnit(arg0, arg1, arg2 any) *MockApplicationServiceUpdateCAASUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCAASUnit", reflect.TypeOf((*MockApplicationService)(nil).UpdateCAASUnit), arg0, arg1, arg2)
+	return &MockApplicationServiceUpdateCAASUnitCall{Call: call}
+}
+
+// MockApplicationServiceUpdateCAASUnitCall wrap *gomock.Call
+type MockApplicationServiceUpdateCAASUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceUpdateCAASUnitCall) Return(arg0 error) *MockApplicationServiceUpdateCAASUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceUpdateCAASUnitCall) Do(f func(context.Context, string, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Context, string, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelConfigService is a mock of ModelConfigService interface.
 type MockModelConfigService struct {
 	ctrl     *gomock.Controller

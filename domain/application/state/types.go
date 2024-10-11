@@ -12,6 +12,10 @@ import (
 
 // These structs represent the persistent block device entity schema in the database.
 
+type modelInfo struct {
+	ModelType string `db:"type"`
+}
+
 type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
@@ -74,9 +78,10 @@ type unitDetails struct {
 	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
 }
 
-// unitName represents the name of a unit
-type unitName struct {
-	Name string `db:"name"`
+type unitPassword struct {
+	UnitID                  string `db:"uuid"`
+	PasswordHash            string `db:"password_hash"`
+	PasswordHashAlgorithmID int    `db:"password_hash_algorithm_id"`
 }
 
 // unitNameAndUUID store the name & uuid of a unit

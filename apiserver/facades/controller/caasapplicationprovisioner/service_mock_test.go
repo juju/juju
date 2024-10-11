@@ -293,6 +293,20 @@ func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(arg0, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScalingState", reflect.TypeOf((*MockApplicationService)(nil).SetApplicationScalingState), arg0, arg1, arg2, arg3)
 }
 
+// UpdateCAASUnit mocks base method.
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 string, arg2 service.UpdateCAASUnitParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCAASUnit indicates an expected call of UpdateCAASUnit.
+func (mr *MockApplicationServiceMockRecorder) UpdateCAASUnit(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCAASUnit", reflect.TypeOf((*MockApplicationService)(nil).UpdateCAASUnit), arg0, arg1, arg2)
+}
+
 // MockMachineService is a mock of MachineService interface.
 type MockMachineService struct {
 	ctrl     *gomock.Controller

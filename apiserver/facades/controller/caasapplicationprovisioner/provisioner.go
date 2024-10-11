@@ -1116,6 +1116,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		return nil
 	}
 
+	unitUpdateParams := make(map[string]applicationservice.UpdateCAASUnitParams, len(unitUpdates))
 	unitUpdate := state.UpdateUnitsOperation{}
 	processedFilesystemIds := set.NewStrings()
 	for _, unitParams := range unitUpdates {
@@ -1125,8 +1126,10 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			continue
 		}
 
-		updateProps := processUnitParams(unitParams)
-		unitUpdate.Updates = append(unitUpdate.Updates, unit.UpdateOperation(*updateProps))
+		updateParams := processUnitParams(unitParams)
+		unitUpdateParams[unit.Tag().Id()] = updateParams
+		legacyParams := legacyUnitParams(&updateParams)
+		unitUpdate.Updates = append(unitUpdate.Updates, unit.UpdateOperation(legacyParams))
 
 		if len(unitParams.FilesystemInfo) > 0 {
 			err := processFilesystemParams(processedFilesystemIds, unit.Tag().(names.UnitTag), unitParams)
@@ -1135,7 +1138,17 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 			}
 		}
 	}
+	for unitName := range unitUpdateParams {
+		err = a.applicationService.UpdateCAASUnit(ctx, unitName, unitUpdateParams[unitName])
+		// We ignore any updates for dying applications.
+		if errors.Is(err, applicationerrors.ApplicationNotAlive) {
+			return nil, nil
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "updating unit %q", unitName)
+		}
+	}
 
+	// TODO(units) - remove dual write to state
 	err = app.UpdateUnits(&unitUpdate)
 	// We ignore any updates for dying applications.
 	if stateerrors.IsNotAlive(err) {
@@ -1386,9 +1399,9 @@ func (a *API) updateFilesystemInfo(ctx context.Context, filesystemUpdates map[st
 	return nil
 }
 
-func processUnitParams(unitParams params.ApplicationUnitParams) *state.UnitUpdateProperties {
+func processUnitParams(unitParams params.ApplicationUnitParams) applicationservice.UpdateCAASUnitParams {
 	agentStatus, cloudContainerStatus := updateStatus(unitParams)
-	return &state.UnitUpdateProperties{
+	return applicationservice.UpdateCAASUnitParams{
 		ProviderId:           &unitParams.ProviderId,
 		Address:              &unitParams.Address,
 		Ports:                &unitParams.Ports,
@@ -1397,10 +1410,35 @@ func processUnitParams(unitParams params.ApplicationUnitParams) *state.UnitUpdat
 	}
 }
 
+func legacyUnitParams(unitParams *applicationservice.UpdateCAASUnitParams) state.UnitUpdateProperties {
+	result := state.UnitUpdateProperties{
+		ProviderId: unitParams.ProviderId,
+		Address:    unitParams.Address,
+		Ports:      unitParams.Ports,
+	}
+	if s := unitParams.AgentStatus; s != nil {
+		result.AgentStatus = &status.StatusInfo{
+			Status:  s.Status,
+			Message: s.Message,
+			Data:    s.Data,
+			Since:   s.Since,
+		}
+	}
+	if s := unitParams.CloudContainerStatus; s != nil {
+		result.CloudContainerStatus = &status.StatusInfo{
+			Status:  s.Status,
+			Message: s.Message,
+			Data:    s.Data,
+			Since:   s.Since,
+		}
+	}
+	return result
+}
+
 // updateStatus constructs the agent and cloud container status values.
 func updateStatus(params params.ApplicationUnitParams) (
-	agentStatus *status.StatusInfo,
-	cloudContainerStatus *status.StatusInfo,
+	agentStatus *applicationservice.StatusParams,
+	cloudContainerStatus *applicationservice.StatusParams,
 ) {
 	var containerStatus status.Status
 	switch status.Status(params.Status) {
@@ -1410,19 +1448,19 @@ func updateStatus(params params.ApplicationUnitParams) (
 		return nil, nil
 	case status.Allocating:
 		// The container runtime has decided to restart the pod.
-		agentStatus = &status.StatusInfo{
+		agentStatus = &applicationservice.StatusParams{
 			Status:  status.Allocating,
 			Message: params.Info,
 		}
 		containerStatus = status.Waiting
 	case status.Running:
 		// A pod has finished starting so the workload is now active.
-		agentStatus = &status.StatusInfo{
+		agentStatus = &applicationservice.StatusParams{
 			Status: status.Idle,
 		}
 		containerStatus = status.Running
 	case status.Error:
-		agentStatus = &status.StatusInfo{
+		agentStatus = &applicationservice.StatusParams{
 			Status:  status.Error,
 			Message: params.Info,
 			Data:    params.Data,
@@ -1430,11 +1468,11 @@ func updateStatus(params params.ApplicationUnitParams) (
 		containerStatus = status.Error
 	case status.Blocked:
 		containerStatus = status.Blocked
-		agentStatus = &status.StatusInfo{
+		agentStatus = &applicationservice.StatusParams{
 			Status: status.Idle,
 		}
 	}
-	cloudContainerStatus = &status.StatusInfo{
+	cloudContainerStatus = &applicationservice.StatusParams{
 		Status:  containerStatus,
 		Message: params.Info,
 		Data:    params.Data,

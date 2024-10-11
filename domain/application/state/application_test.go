@@ -16,9 +16,11 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -30,13 +32,15 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type applicationStateSuite struct {
 	schematesting.ModelSuite
 
-	state *ApplicationState
+	state      *ApplicationState
+	charmState *CharmState
 }
 
 var _ = gc.Suite(&applicationStateSuite{})
@@ -45,43 +49,25 @@ func (s *applicationStateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.state = NewApplicationState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.charmState = NewCharmState(s.TxnRunnerFactory())
 }
 
-func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
-	platform := application.Platform{
-		Channel:      "666",
-		OSType:       charm.Ubuntu,
-		Architecture: charm.ARM64,
-	}
-	channel := &application.Channel{
-		Track:  "track",
-		Risk:   "risk",
-		Branch: "branch",
-	}
-	origin := charm.CharmOrigin{
-		Source:   charm.CharmHubSource,
-		Revision: 42,
-	}
-
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Origin:   origin,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "666",
-			},
-		},
+func (s *applicationStateSuite) TestGetModelType(c *gc.C) {
+	modelUUID := uuid.MustNewUUID()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
+			VALUES (?, ?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	scale := application.ScaleState{Scale: 0}
-	s.assertApplication(c, "666", platform, channel, scale, origin)
+	mt, err := s.state.GetModelType(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mt, gc.Equals, coremodel.ModelType("iaas"))
 }
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
-	u := application.UpsertUnitArg{
-		UnitName: "foo/666",
-	}
 	platform := application.Platform{
 		Channel:      "666",
 		OSType:       charm.Ubuntu,
@@ -93,34 +79,28 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		Branch: "branch",
 	}
 	origin := charm.CharmOrigin{
-		ReferenceName: "foo",
-		Source:        charm.LocalSource,
+		Source:        charm.CharmHubSource,
+		ReferenceName: "666",
 		Revision:      42,
 	}
-	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Origin:   origin,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "foo",
-			},
-		},
-	}, u)
-	c.Assert(err, jc.ErrorIsNil)
-	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "foo", platform, channel, scale, origin)
 
-	var unitID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
-		if err != nil {
-			return err
-		}
-		return nil
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+			Platform: platform,
+			Origin:   origin,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "666",
+				},
+			},
+			Scale:   1,
+			Channel: channel,
+		})
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitID, gc.Equals, "foo/666")
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, origin)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
@@ -138,27 +118,32 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 		Source:   charm.LocalSource,
 		Revision: 42,
 	}
-	_, err := s.state.CreateApplication(context.Background(), "foo1", application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Origin:   origin,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "foo",
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "foo1", application.AddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Origin:   origin,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "foo",
+				},
 			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+		})
+		if err != nil {
+			return err
+		}
 
-	_, err = s.state.CreateApplication(context.Background(), "foo2", application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Origin:   origin,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "foo",
+		_, err = s.state.CreateApplication(ctx, "foo2", application.AddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Origin:   origin,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "foo",
+				},
 			},
-		},
+		})
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -168,47 +153,35 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
-	u := application.UpsertUnitArg{
-		UnitName: "foo/666",
-	}
 	platform := application.Platform{
 		Channel:      "666",
 		OSType:       charm.Ubuntu,
 		Architecture: charm.ARM64,
 	}
 	origin := charm.CharmOrigin{
-		Source:   charm.LocalSource,
-		Revision: 42,
+		Source:        charm.LocalSource,
+		ReferenceName: "666",
+		Revision:      42,
 	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Origin:   origin,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "666",
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+			Platform: platform,
+			Origin:   origin,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "666",
+				},
 			},
-		},
-	}, u)
+			Scale: 1,
+		})
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, nil, scale, origin)
-
-	var unitID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitID, gc.Equals, "foo/666")
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
-	u := application.UpsertUnitArg{
-		UnitName: "foo/666",
-	}
 	platform := application.Platform{
 		Channel:      "666",
 		OSType:       charm.Ubuntu,
@@ -219,29 +192,22 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 		Source:   charm.LocalSource,
 		Revision: 42,
 	}
-	_, err := s.state.CreateApplication(context.Background(), "666", application.AddApplicationArg{
-		Platform: platform,
-		Origin:   origin,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: "666",
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+			Platform: platform,
+			Origin:   origin,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "666",
+				},
 			},
-		},
-	}, u)
+			Scale: 1,
+		})
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, origin)
-
-	var unitID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitID, gc.Equals, "foo/666")
 }
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {
@@ -291,11 +257,11 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestCreateUnitCloudContainer(c *gc.C) {
-	u := application.UpsertUnitArg{
+func (s *applicationStateSuite) TestInsertUnitCloudContainer(c *gc.C) {
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: ptr("some-id"),
+			ProviderId: "some-id",
 			Ports:      ptr([]string{"666", "667"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -311,7 +277,11 @@ func (s *applicationStateSuite) TestCreateUnitCloudContainer(c *gc.C) {
 			}),
 		},
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	appID := s.createApplication(c, "foo", life.Alive)
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.InsertUnit(ctx, appID, u)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertContainerAddressValues(c, "foo/666", "some-id", "10.6.6.6",
 		ipaddress.AddressTypeIPv4, ipaddress.OriginHost, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
 	s.assertContainerPortValues(c, "foo/666", []string{"666", "667"})
@@ -392,11 +362,11 @@ WHERE u.name=?`,
 	c.Assert(gotPorts, jc.SameContents, ports)
 }
 
-func (s *applicationStateSuite) TestUpdateUnit(c *gc.C) {
-	u := application.UpsertUnitArg{
+func (s *applicationStateSuite) TestUpdateUnitContainer(c *gc.C) {
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: ptr("some-id"),
+			ProviderId: "some-id",
 			Ports:      ptr([]string{"666", "668"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -412,36 +382,31 @@ func (s *applicationStateSuite) TestUpdateUnit(c *gc.C) {
 			}),
 		},
 	}
-	appID := s.createApplication(c, "foo", life.Alive, u)
+	s.createApplication(c, "foo", life.Alive, u)
 
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpdateUnit(ctx, appID, application.UpsertUnitArg{
-			UnitName: "foo/667",
-		})
+		return s.state.UpdateUnitContainer(ctx, "foo/667", &application.CloudContainer{})
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 
-	u = application.UpsertUnitArg{
-		UnitName: "foo/666",
-		CloudContainer: &application.CloudContainer{
-			ProviderId: ptr("another-id"),
-			Ports:      ptr([]string{"666", "667"}),
-			Address: ptr(application.ContainerAddress{
-				Device: application.ContainerDevice{
-					Name:              "placeholder",
-					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
-				},
-				Value:       "2001:db8::1",
-				AddressType: ipaddress.AddressTypeIPv6,
-				ConfigType:  ipaddress.ConfigTypeDHCP,
-				Scope:       ipaddress.ScopeCloudLocal,
-				Origin:      ipaddress.OriginProvider,
-			}),
-		},
+	cc := &application.CloudContainer{
+		ProviderId: "another-id",
+		Ports:      ptr([]string{"666", "667"}),
+		Address: ptr(application.ContainerAddress{
+			Device: application.ContainerDevice{
+				Name:              "placeholder",
+				DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+				VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+			},
+			Value:       "2001:db8::1",
+			AddressType: ipaddress.AddressTypeIPv6,
+			ConfigType:  ipaddress.ConfigTypeDHCP,
+			Scope:       ipaddress.ScopeCloudLocal,
+			Origin:      ipaddress.OriginProvider,
+		}),
 	}
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpdateUnit(ctx, appID, u)
+		return s.state.UpdateUnitContainer(ctx, "foo/666", cc)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -470,10 +435,10 @@ WHERE u.name=?`,
 func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
-	u := application.UpsertUnitArg{
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: ptr("some-id"),
+			ProviderId: "some-id",
 		},
 	}
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
@@ -504,8 +469,41 @@ WHERE u.name=?`,
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
 }
 
+func (s *applicationStateSuite) TestSetUnitPassword(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, appID, u)
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
+			PasswordHash: "secret",
+		})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		password    string
+		algorithmID int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = tx.QueryRowContext(ctx, `
+SELECT password_hash, password_hash_algorithm_id FROM unit u
+WHERE u.name=?`,
+			"foo/666").Scan(&password, &algorithmID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(password, gc.Equals, "secret")
+	c.Assert(algorithmID, gc.Equals, 0)
+}
+
 func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
-	u := application.UpsertUnitArg{
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
@@ -529,7 +527,7 @@ func (s *applicationStateSuite) TestGetUnitLifeNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
-	u := application.UpsertUnitArg{
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
@@ -574,10 +572,10 @@ func (s *applicationStateSuite) TestSetUnitLifeNotFound(c *gc.C) {
 
 func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	// TODO(units) - add references to agents etc when those are fully cooked
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: ptr("provider-id"),
+			ProviderId: "provider-id",
 			Ports:      ptr([]string{"666", "668"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -592,8 +590,26 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 				Origin:      ipaddress.OriginHost,
 			}),
 		},
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: application.UnitAgentStatusInfo{
+				StatusID: application.UnitAgentStatusExecuting,
+				StatusInfo: application.StatusInfo{
+					Message: "test",
+					Data:    map[string]string{"foo": "bar"},
+					Since:   time.Now(),
+				},
+			},
+			WorkloadStatus: application.UnitWorkloadStatusInfo{
+				StatusID: application.UnitWorkloadStatusActive,
+				StatusInfo: application.StatusInfo{
+					Message: "test",
+					Data:    map[string]string{"foo": "bar"},
+					Since:   time.Now(),
+				},
+			},
+		},
 	}
-	u2 := application.UpsertUnitArg{
+	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
@@ -617,27 +633,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		if err := s.state.SaveUnitAgentStatus(ctx, unitUUID, application.UnitAgentStatusInfo{
-			StatusID: application.UnitAgentStatusExecuting,
-			StatusInfo: application.StatusInfo{
-				Message: "test",
-				Data:    map[string]string{"foo": "bar"},
-				Since:   time.Now(),
-			},
-		}); err != nil {
-			return err
-		}
-		if err := s.state.SaveUnitWorkloadStatus(ctx, unitUUID, application.UnitWorkloadStatusInfo{
-			StatusID: application.UnitWorkloadStatusActive,
-			StatusInfo: application.StatusInfo{
-				Message: "test",
-				Data:    map[string]string{"foo": "bar"},
-				Since:   time.Now(),
-			},
-		}); err != nil {
-			return err
-		}
-		if err := s.state.SaveCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
+		if err := s.state.SetCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
 			StatusID: application.CloudContainerStatusBlocked,
 			StatusInfo: application.StatusInfo{
 				Message: "test",
@@ -724,7 +720,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
@@ -758,7 +754,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Dying, u1)
@@ -792,10 +788,10 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetUnitUUIDs(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	u2 := application.UpsertUnitArg{
+	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
@@ -829,7 +825,7 @@ func (s *applicationStateSuite) TestGetUnitUUIDsNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetUnitUUIDsOneNotFound(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
@@ -839,10 +835,10 @@ func (s *applicationStateSuite) TestGetUnitUUIDsOneNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetUnitNames(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	u2 := application.UpsertUnitArg{
+	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
@@ -878,7 +874,7 @@ func (s *applicationStateSuite) TestGetUnitNamesNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetUnitNamesOneNotFound(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
@@ -940,8 +936,8 @@ SELECT key, data FROM %s_status_data WHERE unit_uuid = ?
 	c.Assert(gotData, jc.DeepEquals, data)
 }
 
-func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
@@ -961,15 +957,15 @@ func (s *applicationStateSuite) TestSaveCloudContainerStatus(c *gc.C) {
 	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SaveCloudContainerStatus(ctx, unitUUID, status)
+		return s.state.SetCloudContainerStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "cloud_container", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
 }
 
-func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
@@ -989,15 +985,15 @@ func (s *applicationStateSuite) TestSaveUnitAgentStatus(c *gc.C) {
 	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SaveUnitAgentStatus(ctx, unitUUID, status)
+		return s.state.SetUnitAgentStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
 }
 
-func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
@@ -1017,7 +1013,7 @@ func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
 	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SaveUnitWorkloadStatus(ctx, unitUUID, status)
+		return s.state.SetUnitWorkloadStatus(ctx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
@@ -1025,7 +1021,7 @@ func (s *applicationStateSuite) TestSaveUnitWorkloadStatus(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
-	u := application.UpsertUnitArg{
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
@@ -1069,7 +1065,7 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
-	u := application.UpsertUnitArg{
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
@@ -1236,7 +1232,7 @@ func (s *applicationStateSuite) TestDeleteDeadApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
-	u := application.UpsertUnitArg{
+	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
@@ -1262,40 +1258,62 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
-	u := application.UpsertUnitArg{
+	u := application.AddUnitArg{
 		UnitName: "foo/666",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: application.UnitAgentStatusInfo{
+				StatusID: application.UnitAgentStatusExecuting,
+				StatusInfo: application.StatusInfo{
+					Message: "test",
+					Data:    map[string]string{"foo": "bar"},
+					Since:   time.Now(),
+				},
+			},
+			WorkloadStatus: application.UnitWorkloadStatusInfo{
+				StatusID: application.UnitWorkloadStatusActive,
+				StatusInfo: application.StatusInfo{
+					Message: "test",
+					Data:    map[string]string{"foo": "bar"},
+					Since:   time.Now(),
+				},
+			},
+		},
 	}
-	err := s.state.AddUnits(context.Background(), "foo", u)
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.AddUnits(ctx, appID, u)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var unitID string
+	var (
+		unitUUID, unitName string
+	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitID)
+		err := tx.QueryRowContext(ctx, "SELECT uuid, name FROM unit WHERE application_uuid=?", appID).Scan(&unitUUID, &unitName)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unitID, gc.Equals, "foo/666")
-}
-
-func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
-	u := application.UpsertUnitArg{
-		UnitName: "foo/666",
-	}
-	err := s.state.AddUnits(context.Background(), "foo", u)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Check(unitName, gc.Equals, "foo/666")
+	s.assertUnitStatus(
+		c, "unit_agent", coreunit.UUID(unitUUID),
+		int(u.UnitStatusArg.AgentStatus.StatusID), u.UnitStatusArg.AgentStatus.Message,
+		u.UnitStatusArg.AgentStatus.Since, u.UnitStatusArg.AgentStatus.Data)
+	s.assertUnitStatus(
+		c, "unit_workload", coreunit.UUID(unitUUID),
+		int(u.UnitStatusArg.WorkloadStatus.StatusID), u.UnitStatusArg.WorkloadStatus.Message,
+		u.UnitStatusArg.WorkloadStatus.Since, u.UnitStatusArg.WorkloadStatus.Data)
 }
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	u2 := application.UpsertUnitArg{
+	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
-	u3 := application.UpsertUnitArg{
+	u3 := application.InsertUnitArg{
 		UnitName: "bar/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
@@ -1342,10 +1360,10 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
-	u1 := application.UpsertUnitArg{
+	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	u2 := application.UpsertUnitArg{
+	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
@@ -1439,21 +1457,22 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 	}
 	expectedLXDProfile := []byte("[{}]")
 
-	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata:   expectedMetadata,
-			Manifest:   expectedManifest,
-			Actions:    expectedActions,
-			Config:     expectedConfig,
-			LXDProfile: expectedLXDProfile,
-		},
-		Origin: origin,
-		Channel: &application.Channel{
-			Track:  "track",
-			Risk:   "stable",
-			Branch: "branch",
-		},
-		Platform: application.Platform{
+	s.createApplication(c, "foo", life.Alive)
+
+	_, err := s.charmState.SetCharm(context.Background(), charm.Charm{
+		Metadata:   expectedMetadata,
+		Manifest:   expectedManifest,
+		Actions:    expectedActions,
+		Config:     expectedConfig,
+		LXDProfile: expectedLXDProfile,
+	}, charm.SetStateArgs{
+		Source:        origin.Source,
+		ReferenceName: expectedMetadata.Name,
+		Revision:      origin.Revision,
+		Hash:          "",
+		ArchivePath:   "",
+		Version:       "",
+		Platform: charm.Platform{
 			OSType:       charm.Ubuntu,
 			Architecture: charm.AMD64,
 			Channel:      "22.04",
@@ -1520,25 +1539,30 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 	expectedLXDProfile := []byte("[{}]")
 
 	revision := 42
-	appID, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata:   expectedMetadata,
-			Manifest:   expectedManifest,
-			Actions:    expectedActions,
-			Config:     expectedConfig,
-			LXDProfile: expectedLXDProfile,
-		},
-		Origin: origin,
-		Channel: &application.Channel{
-			Track:  "track",
-			Risk:   "stable",
-			Branch: "branch",
-		},
-		Platform: application.Platform{
-			OSType:       charm.Ubuntu,
-			Architecture: charm.AMD64,
-			Channel:      "22.04",
-		},
+	var appID coreapplication.ID
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+			Charm: charm.Charm{
+				Metadata:   expectedMetadata,
+				Manifest:   expectedManifest,
+				Actions:    expectedActions,
+				Config:     expectedConfig,
+				LXDProfile: expectedLXDProfile,
+			},
+			Origin: origin,
+			Channel: &application.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Platform: application.Platform{
+				OSType:       charm.Ubuntu,
+				Architecture: charm.AMD64,
+				Channel:      "22.04",
+			},
+		})
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1628,19 +1652,24 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	}
 
 	revision := 42
-	appID, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: expectedMetadata,
-			Manifest: expectedManifest,
-			Actions:  expectedActions,
-			Config:   expectedConfig,
-		},
-		Origin: origin,
-		Platform: application.Platform{
-			OSType:       charm.Ubuntu,
-			Architecture: charm.AMD64,
-			Channel:      "22.04",
-		},
+	var appID coreapplication.ID
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: expectedMetadata,
+				Manifest: expectedManifest,
+				Actions:  expectedActions,
+				Config:   expectedConfig,
+			},
+			Origin: origin,
+			Platform: application.Platform{
+				OSType:       charm.Ubuntu,
+				Architecture: charm.AMD64,
+				Channel:      "22.04",
+			},
+		})
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1674,10 +1703,13 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 		Assumes:        []byte("null"),
 	}
 
-	_, err := s.state.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: expectedMetadata,
-		},
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: expectedMetadata,
+			},
+		})
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1758,7 +1790,7 @@ func (s *applicationStateSuite) assertApplication(
 	}
 }
 
-func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.UpsertUnitArg) coreapplication.ID {
+func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	platform := application.Platform{
 		Channel:      "22.04/stable",
 		OSType:       charm.Ubuntu,
@@ -1769,20 +1801,34 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	appID, err := s.state.CreateApplication(context.Background(), name, application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: name,
+	var appID coreapplication.ID
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = s.state.CreateApplication(ctx, name, application.AddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+				},
 			},
-		},
-		Origin: charm.CharmOrigin{
-			ReferenceName: name,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
-		},
-	}, units...)
+			Origin: charm.CharmOrigin{
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+			},
+			Scale: len(units),
+		})
+		if err != nil {
+			return err
+		}
+		for _, u := range units {
+			if err := s.state.InsertUnit(ctx, appID, u); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1791,4 +1837,18 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
+}
+
+func (s *applicationStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return s.state.InsertUnit(ctx, appID, u)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var unitUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return coreunit.UUID(unitUUID)
 }
