@@ -70,19 +70,20 @@ type ModelManagerAPI struct {
 	check     common.BlockCheckerInterface
 
 	// Services required by the model manager.
+	accessService        AccessService
 	domainServicesGetter DomainServicesGetter
-	modelService         ModelService
-	modelDefaultsService ModelDefaultsService
+	applicationService   ApplicationService
 	cloudService         CloudService
 	credentialService    CredentialService
-	applicationService   ApplicationService
-	networkService       NetworkService
 	machineService       MachineService
-	configSchemaSource   config.ConfigSchemaSourceGetter
-	accessService        AccessService
-	modelExporter        func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
-	store                objectstore.ObjectStore
+	modelService         ModelService
+	modelDefaultsService ModelDefaultsService
+	networkService       NetworkService
 	secretBackendService SecretBackendService
+
+	configSchemaSource config.ConfigSchemaSourceGetter
+	modelExporter      func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	store              objectstore.ObjectStore
 
 	// ToolsFinder is used to find tools for a given version.
 	toolsFinder common.ToolsFinder
@@ -1157,7 +1158,16 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 	if err == nil {
 		info.ProviderType = modelInfo.CloudType
-		info.AgentVersion = &modelInfo.AgentVersion
+
+	}
+
+	modelAgentService := modelDomainServices.Agent()
+	agentVersion, err := modelAgentService.GetModelAgentVersion(ctx)
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		info.AgentVersion = &agentVersion
 	}
 
 	status, err := model.Status()

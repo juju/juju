@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -386,18 +387,23 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
+	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
+	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
-		AgentVersion:   jujuversion.Current,
+		// Use a version we shouldn't have now to ensure we're using the
+		// ModelAgentService rather than the ReadOnlyModel data.
+		AgentVersion:   version.MustParse("2.6.5"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
 	}, nil)
+	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	s.modelConfigService.EXPECT().SetModelConfig(gomock.Any(), modelConfig)
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
@@ -1125,24 +1131,30 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
 
 	// Expect calls to get various model services.
+	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+	modelConfigService := mocks.NewMockModelConfigService(ctrl)
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
-	modelConfigService := mocks.NewMockModelConfigService(ctrl)
+
+	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+	modelDomainServices.EXPECT().Config().Return(modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
-	modelDomainServices.EXPECT().Config().Return(modelConfigService).AnyTimes()
 
 	// Expect calls to functions of the model services.
+	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
+	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
-		UUID:           modelUUID,
-		AgentVersion:   jujuversion.Current,
+		UUID: modelUUID,
+		// Use a version we shouldn't have now to ensure we're using the
+		// ModelAgentService rather than the ReadOnlyModel data.
+		AgentVersion:   version.MustParse("2.6.5"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
 	}, nil)
-	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
-	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
 
 	// Called as part of getModelInfo which returns information to the user

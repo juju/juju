@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/description/v8"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -32,8 +33,20 @@ import (
 
 // ModelDomainServices is a factory for creating model info services.
 type ModelDomainServices interface {
-	ModelInfo() ModelInfoService
+	// Agent returns the model's agent service.
+	Agent() ModelAgentService
+
+	// Config returns the model config service.
 	Config() ModelConfigService
+
+	// ModelInfo returns the model service for the model. The model info
+	// contains read-only information about the model.
+	// Note: This should be called model, but we have naming conflicts with
+	// the model service. As this is only for read-only model information, we
+	// can rename it to the more obscure version.
+	ModelInfo() ModelInfoService
+
+	// Network returns the space service.
 	Network() NetworkService
 }
 
@@ -168,6 +181,12 @@ type AccessService interface {
 	LastModelLogin(context.Context, coreuser.Name, coremodel.UUID) (time.Time, error)
 }
 
+// ModelAgentService provides access to the Juju agent version for the model.
+type ModelAgentService interface {
+	// GetModelAgentVersion returns the agent version for the current model.
+	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+}
+
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
@@ -250,13 +269,13 @@ type domainServices struct {
 	domainServices services.DomainServices
 }
 
-func (s domainServices) ModelInfo() ModelInfoService {
-	return s.domainServices.ModelInfo()
-}
+func (s domainServices) Agent() ModelAgentService { return s.domainServices.Agent() }
 
 func (s domainServices) Config() ModelConfigService {
 	return s.domainServices.Config()
 }
+
+func (s domainServices) ModelInfo() ModelInfoService { return s.domainServices.ModelInfo() }
 
 func (s domainServices) Network() NetworkService {
 	return s.domainServices.Network()
