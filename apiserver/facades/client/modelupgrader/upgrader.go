@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -53,6 +54,8 @@ type ModelUpgraderAPI struct {
 	apiUser                     names.UserTag
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	newEnviron                  common.NewEnvironFunc
+	modelAgentServiceGetter     func(modelID coremodel.UUID) ModelAgentService
+	controllerAgentService      ModelAgentService
 	controllerConfigService     ControllerConfigService
 	upgradeService              UpgradeService
 
@@ -73,6 +76,8 @@ func NewModelUpgraderAPI(
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
+	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService,
+	controllerAgentService ModelAgentService,
 	controllerConfigService ControllerConfigService,
 	upgradeService UpgradeService,
 	logger corelogger.Logger,
@@ -96,6 +101,8 @@ func NewModelUpgraderAPI(
 		registryAPIFunc:             registryAPIFunc,
 		environscloudspecGetter:     environscloudspecGetter,
 		upgradeService:              upgradeService,
+		modelAgentServiceGetter:     modelAgentServiceGetter,
+		controllerAgentService:      controllerAgentService,
 		controllerConfigService:     controllerConfigService,
 		logger:                      logger,
 	}, nil
@@ -172,7 +179,9 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 		return result, nil
 	}
 
-	currentVersion, err := model.AgentVersion()
+	modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
+
+	currentVersion, err := modelAgentVersionService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -182,11 +191,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	// has been specified.
 	useControllerVersion := false
 	if !model.IsControllerModel() {
-		ctrlModel, err := m.statePool.ControllerModel()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		vers, err := ctrlModel.AgentVersion()
+		vers, err := m.controllerAgentService.GetModelTargetAgentVersion(ctx)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -343,10 +348,12 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		return errors.Trace(err)
 	}
 
+	modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
+
 	isControllerModel := model.IsControllerModel()
 	if !isControllerModel {
 		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion, cloudspec)
-		checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, model, validators...)
+		checker := upgradevalidation.NewModelUpgradeCheck(m.statePool, st, model, modelAgentVersionService, validators...)
 		blockers, err = checker.Validate()
 		if err != nil {
 			return errors.Trace(err)
@@ -355,7 +362,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	}
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
-		modelTag.Id(), m.statePool, st, model,
+		m.statePool, st, model, modelAgentVersionService,
 		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudspec)...,
 	)
 	blockers, err = checker.Validate()
@@ -394,7 +401,8 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudspec)
 
-		checker := upgradevalidation.NewModelUpgradeCheck(modelUUID, m.statePool, st, model, validators...)
+		modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelUUID))
+		checker := upgradevalidation.NewModelUpgradeCheck(m.statePool, st, model, modelAgentVersionService, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
 			return errors.Annotatef(err, "validating model %q for controller upgrade", model.Name())

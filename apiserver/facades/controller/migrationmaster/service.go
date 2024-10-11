@@ -6,6 +6,8 @@ package migrationmaster
 import (
 	"context"
 
+	"github.com/juju/version/v2"
+
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -46,4 +48,13 @@ type ModelService interface {
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
 	GetApplicationLife(context.Context, string) (life.Value, error)
+}
+
+// ModelAgentService provides access to the Juju agent version for the model.
+type ModelAgentService interface {
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model. The following errors can be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+	// not exist.
+	GetModelTargetAgentVersion(context.Context) (version.Number, error)
 }

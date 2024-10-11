@@ -52,6 +52,7 @@ type API struct {
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
+	modelAgentService       ModelAgentService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
 	modelService            ModelService
@@ -80,6 +81,7 @@ func NewAPI(
 	modelService ModelService,
 	applicationService ApplicationService,
 	upgradeService UpgradeService,
+	modelAgentService ModelAgentService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -104,6 +106,7 @@ func NewAPI(
 		modelService:            modelService,
 		applicationService:      applicationService,
 		upgradeService:          upgradeService,
+		modelAgentService:       modelAgentService,
 	}, nil
 }
 
@@ -278,6 +281,7 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		api.credentialService,
 		api.upgradeService,
 		api.applicationService,
+		api.modelAgentService,
 	)
 }
 

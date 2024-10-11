@@ -163,6 +163,7 @@ type ControllerAPI struct {
 	modelService              ModelService
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(coremodel.UUID) ApplicationService
+	modelAgentServiceGetter   func(coremodel.UUID) common.ModelAgentService
 	modelConfigServiceGetter  func(coremodel.UUID) common.ModelConfigService
 	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService
 	proxyService              ProxyService
@@ -198,6 +199,7 @@ func NewControllerAPI(
 	modelService ModelService,
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
+	modelAgentServiceGetter func(coremodel.UUID) common.ModelAgentService,
 	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
 	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService,
 	proxyService ProxyService,
@@ -253,6 +255,7 @@ func NewControllerAPI(
 		accessService:             accessService,
 		modelService:              modelService,
 		blockCommandService:       blockCommandService,
+		modelAgentServiceGetter:   modelAgentServiceGetter,
 		modelConfigServiceGetter:  modelConfigServiceGetter,
 		blockCommandServiceGetter: blockCommandServiceGetter,
 		proxyService:              proxyService,
@@ -812,6 +815,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	}
 
 	modelConfigService := c.modelConfigServiceGetter(coremodel.UUID(modelTag.Id()))
+	modelAgentService := c.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
 
 	// Check if the migration is likely to succeed.
 	systemState, err := c.statePool.SystemState()
@@ -832,6 +836,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
+		modelAgentService,
 		modelConfigService,
 		c.upgradeService,
 		c.modelService,
@@ -979,6 +984,7 @@ var runMigrationPrechecks = func(
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	modelAgentService common.ModelAgentService,
 	modelConfigService common.ModelConfigService,
 	upgradeService UpgradeService,
 	modelService ModelService,
@@ -1003,6 +1009,7 @@ var runMigrationPrechecks = func(
 		credentialService,
 		upgradeService,
 		applicationService,
+		modelAgentService,
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}

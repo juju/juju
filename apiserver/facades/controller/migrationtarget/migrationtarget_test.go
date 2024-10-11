@@ -55,6 +55,7 @@ type Suite struct {
 	upgradeService            *MockUpgradeService
 	modelImporter             *MockModelImporter
 	modelMigrationService     *MockModelMigrationService
+	agentService              *MockModelAgentService
 
 	facadeContext facadetest.ModelContext
 	callContext   envcontext.ProviderCallContext
@@ -549,6 +550,8 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelImporter = NewMockModelImporter(ctrl)
 	s.modelMigrationService = NewMockModelMigrationService(ctrl)
 
+	s.agentService = NewMockModelAgentService(ctrl)
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
@@ -570,6 +573,10 @@ func (s *Suite) migrationServiceGetter(_ model.UUID) migrationtarget.ModelMigrat
 	return s.modelMigrationService
 }
 
+func (s *Suite) agentServiceGetter(_ model.UUID) migrationtarget.ModelAgentService {
+	return s.agentService
+}
+
 func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
 	return migrationtarget.NewAPI(
 		&s.facadeContext,
@@ -578,6 +585,7 @@ func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrati
 		s.externalControllerService,
 		s.applicationService,
 		s.upgradeService,
+		s.agentServiceGetter,
 		s.migrationServiceGetter,
 		versions,
 		logDir,

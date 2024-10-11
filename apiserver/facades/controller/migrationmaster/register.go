@@ -77,5 +77,6 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 			Secrets:         service.NotImplementedSecretService{},
 		}),
 		domainServices.Upgrade(),
+		domainServices.Agent(),
 	)
 }

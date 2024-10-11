@@ -41,7 +41,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := common.NewModelManagerBackend(model, c.statePool)
+	backend := common.NewModelManagerBackend(stModel, c.statePool)
 	return errors.Trace(common.DestroyController(
 		ctx,
 		backend,

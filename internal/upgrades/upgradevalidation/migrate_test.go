@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/base"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/state"
@@ -32,19 +31,19 @@ var _ = gc.Suite(&migrateSuite{})
 type migrateSuite struct {
 	jujutesting.IsolationSuite
 
-	st        *mocks.MockState
-	statePool *mocks.MockStatePool
-	model     *mocks.MockModel
+	st           *mocks.MockState
+	statePool    *mocks.MockStatePool
+	model        *mocks.MockModel
+	agentService *mocks.MockModelAgentService
 }
 
 func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
 	ctrl, cloudSpec := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelTag := coretesting.ModelTag
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
 
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(s.statePool, s.st, s.model, s.agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
@@ -54,10 +53,9 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 	ctrl, cloudSpec := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelTag := coretesting.ModelTag
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
 
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(s.statePool, s.st, s.model, s.agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
@@ -68,6 +66,7 @@ func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.st = mocks.NewMockState(ctrl)
 	s.model = mocks.NewMockModel(ctrl)
+	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	return ctrl
 }
 

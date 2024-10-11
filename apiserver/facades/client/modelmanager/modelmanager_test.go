@@ -1184,9 +1184,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
-=======
-		nil, nil, common.NewBlockChecker(st), anAuthoriser,
->>>>>>> 2901365856 (refactor: delete NoopConfigSchemaSource and configSchemaGetter from state)
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)

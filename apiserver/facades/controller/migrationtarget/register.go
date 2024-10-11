@@ -46,6 +46,9 @@ func makeFacade(
 	modelMigrationServiceGetter := func(modelId model.UUID) ModelMigrationService {
 		return ctx.DomainServicesForModel(modelId).ModelMigration()
 	}
+	modelAgentServiceGetter := func(modelId model.UUID) ModelAgentService {
+		return ctx.DomainServicesForModel(modelId).Agent()
+	}
 
 	return NewAPI(
 		ctx,
@@ -57,6 +60,7 @@ func makeFacade(
 			Secrets:         service.NotImplementedSecretService{},
 		}),
 		domainServices.Upgrade(),
+		modelAgentServiceGetter,
 		modelMigrationServiceGetter,
 		facadeVersions,
 		ctx.LogDir(),

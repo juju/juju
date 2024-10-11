@@ -38,8 +38,9 @@ func SourcePrecheck(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	modelAgentService ModelAgentService,
 ) error {
-	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService, upgradeService, applicationService)
+	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService, upgradeService, applicationService, modelAgentService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -68,7 +69,7 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService, applicationService)
+	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService, applicationService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -99,6 +100,7 @@ func TargetPrecheck(ctx context.Context,
 	presence ModelPresence,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	modelAgentService ModelAgentService,
 ) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
@@ -117,7 +119,7 @@ func TargetPrecheck(ctx context.Context,
 		return errors.New("model is being migrated out of target controller")
 	}
 
-	controllerVersion, err := backend.AgentVersion()
+	controllerVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
 	}
@@ -132,7 +134,7 @@ func TargetPrecheck(ctx context.Context,
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, presence, upgradeService, applicationService)
+	controllerCtx := newPrecheckTarget(backend, presence, upgradeService, applicationService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -178,6 +180,7 @@ func newPrecheckTarget(
 	presence ModelPresence,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	modelAgentService ModelAgentService,
 ) *precheckTarget {
 	return &precheckTarget{
 		precheckContext: precheckContext{
@@ -185,6 +188,7 @@ func newPrecheckTarget(
 			presence:           presence,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
+			modelAgentService:  modelAgentService,
 		},
 	}
 }
@@ -194,6 +198,7 @@ type precheckContext struct {
 	presence           ModelPresence
 	upgradeService     UpgradeService
 	applicationService ApplicationService
+	modelAgentService  ModelAgentService
 }
 
 func (c *precheckContext) checkController(ctx context.Context) error {
@@ -215,7 +220,7 @@ func (c *precheckContext) checkController(ctx context.Context) error {
 }
 
 func (c *precheckContext) checkMachines(ctx context.Context) error {
-	modelVersion, err := c.backend.AgentVersion()
+	modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
 	}
@@ -258,7 +263,7 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 }
 
 func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]PrecheckUnit, error) {
-	modelVersion, err := c.backend.AgentVersion()
+	modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving model version")
 	}
@@ -414,6 +419,7 @@ func newPrecheckSource(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	modelAgentService ModelAgentService,
 ) *precheckSource {
 	return &precheckSource{
 		precheckContext: precheckContext{
@@ -421,6 +427,7 @@ func newPrecheckSource(
 			presence:           presence,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
+			modelAgentService:  modelAgentService,
 		},
 		environscloudspecGetter: environscloudspecGetter,
 		credentialService:       credentialService,
@@ -453,7 +460,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		return errors.Trace(err)
 	}
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudspec)
-	checker := upgradevalidation.NewModelUpgradeCheck(model.UUID(), nil, ctx.backend, model, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(nil, ctx.backend, model, ctx.modelAgentService, validators...)
 	blockers, err := checker.Validate()
 	if err != nil {
 		return errors.Trace(err)

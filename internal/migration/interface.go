@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -24,7 +23,6 @@ import (
 // PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
 type PrecheckBackend interface {
-	AgentVersion() (version.Number, error)
 	NeedsCleanup() (bool, error)
 	Model() (PrecheckModel, error)
 	AllModelUUIDs() ([]string, error)
@@ -74,7 +72,6 @@ type PrecheckModel interface {
 	Owner() names.UserTag
 	Life() state.Life
 	MigrationMode() state.MigrationMode
-	AgentVersion() (version.Number, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }
 

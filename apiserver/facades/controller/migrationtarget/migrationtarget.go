@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/modelmigration"
@@ -67,7 +67,7 @@ type ApplicationService interface {
 
 // ModelManagerService describes the method needed to update model metadata.
 type ModelManagerService interface {
-	Create(context.Context, model.UUID) error
+	Create(context.Context, coremodel.UUID) error
 }
 
 // ModelMigrationService provides the means for supporting model migration
@@ -85,9 +85,22 @@ type ModelMigrationService interface {
 	CheckMachines(context.Context) ([]modelmigration.MigrationMachineDiscrepancy, error)
 }
 
+// ModelAgentService provides access to the Juju agent version for the model.
+type ModelAgentService interface {
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model. The following errors can be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+	// not exist.
+	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+}
+
 // ModelMigrationServiceGetter describes a function that is able to return the
 // [ModelMigrationService] for a given model id.
-type ModelMigrationServiceGetter func(model.UUID) ModelMigrationService
+type ModelMigrationServiceGetter func(coremodel.UUID) ModelMigrationService
+
+// ModelAgentServiceGetter describes a function that is able to return the
+// [ModelAgentService] for a given model id.
+type ModelAgentServiceGetter func(modelId coremodel.UUID) ModelAgentService
 
 // UpgradeService provides a subset of the upgrade domain service methods.
 type UpgradeService interface {
@@ -105,6 +118,7 @@ type API struct {
 	applicationService          ApplicationService
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
+	modelAgentServiceGetter     ModelAgentServiceGetter
 	modelMigrationServiceGetter ModelMigrationServiceGetter
 
 	pool       *state.StatePool
@@ -125,6 +139,7 @@ func NewAPI(
 	externalControllerService ExternalControllerService,
 	applicationService ApplicationService,
 	upgradeService UpgradeService,
+	modelAgentServiceGetter ModelAgentServiceGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 	logDir string,
@@ -137,6 +152,7 @@ func NewAPI(
 		externalControllerService:       externalControllerService,
 		applicationService:              applicationService,
 		upgradeService:                  upgradeService,
+		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
 		presence:                        ctx.Presence(),
@@ -222,6 +238,7 @@ with an earlier version of the target controller and try again.
 	// from the controllerState as I had thought that the Precheck call was
 	// on the controller model, in which case it should be the same as the
 	// controllerState.
+	modelAgentService := api.modelAgentServiceGetter(coremodel.UUID(controllerState.ModelUUID()))
 	backend, err := migration.PrecheckShim(api.state, controllerState)
 	if err != nil {
 		return errors.Errorf("cannot create prechecks backend: %w", err)
@@ -241,6 +258,7 @@ with an earlier version of the target controller and try again.
 		api.presence.ModelPresence(controllerState.ModelUUID()),
 		api.upgradeService,
 		api.applicationService,
+		modelAgentService,
 	); err != nil {
 		return errors.Errorf("migration target prechecks failed: %w", err)
 	}
@@ -465,7 +483,7 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 		return errors.Errorf("cannot parse model tag: %w", err)
 	}
 
-	modelId := model.UUID(tag.Id())
+	modelId := coremodel.UUID(tag.Id())
 	return api.modelMigrationServiceGetter(modelId).AdoptResources(ctx, args.SourceControllerVersion)
 }
 
@@ -479,7 +497,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		)
 	}
 
-	modelId := model.UUID(tag.Id())
+	modelId := coremodel.UUID(tag.Id())
 	migrationService := api.modelMigrationServiceGetter(modelId)
 	discrepancies, err := migrationService.CheckMachines(ctx)
 	if err != nil {
