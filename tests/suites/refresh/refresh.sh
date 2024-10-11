@@ -129,10 +129,17 @@ run_refresh_revision() {
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
-	# do a generic refresh, should pick up revision from latest stable
-	OUT=$(juju refresh juju-qa-test 2>&1 || true)
+	# do a generic refresh, should pick up revision from latest stable.test-refresh-revision
+	# we may need to retry a bit, because we need to get the revision number, and it may take a bit before it actually
+	# works (we will have an error message a few times before it passes)
+  # https://github.com/juju/juju/blob/a7509f956032ea8fab1ec1641040b3fab42220a3/cmd/juju/application/refresh.go#L361-L368
+	attempt=0
+	until [[ $attempt -ge 5 ]] || OUT=$(juju refresh juju-qa-test 2>&1 || true) &&  [[ $OUT == "Added"* ]]; do
+	attempt=$((attempt + 1))
 	# shellcheck disable=SC2059
-	printf "${OUT}\n"
+	printf "${OUT} // attempt $attempt\n"
+	sleep "${SHORT_TIMEOUT}"
+	done
 
 	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
