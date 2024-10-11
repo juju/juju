@@ -154,7 +154,21 @@ jobs:
             fi
           done
 
-          juju status -m target-controller:test-migrate
+          # Ensure that the model is finished migrating.
+          attempt=0
+          while true; do
+            RES=$(juju status -m target-controller:test-migrate || true)
+            if [[ -n $RES ]]; then
+              break
+            fi
+
+            sleep 5
+            attempt=$((attempt+1))
+            if [ "$attempt" -eq 10 ]; then
+              echo "Migration timed out"
+              exit 1
+            fi
+          done
 
           juju switch test-migrate
           

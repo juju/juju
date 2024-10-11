@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
@@ -26,6 +25,7 @@ import (
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -33,15 +33,15 @@ import (
 
 type userManagerSuite struct {
 	jujutesting.ApiServerSuite
-	commontesting.BlockHelper
 
 	api        *usermanager.UserManagerAPI
 	authorizer apiservertesting.FakeAuthorizer
 	apiUser    coreuser.User
 	resources  *common.Resources
 
-	accessService *MockAccessService
-	modelService  *MockModelService
+	accessService       *MockAccessService
+	modelService        *MockModelService
+	blockCommandService *MockBlockCommandService
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -51,13 +51,12 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 
 	s.setAPIUserAndAuth(c, "admin")
 	s.resources = common.NewResources()
-
-	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	pass := auth.NewPassword("password")
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
@@ -97,6 +96,8 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        coreusertesting.GenNewName(c, "foobar"),
 		DisplayName: "Foo Bar",
@@ -135,10 +136,11 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	s.BlockAllChanges(c, "TestBlockAddUser")
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockAddUser", nil)
 	result, err := s.api.AddUser(context.Background(), args)
-	s.AssertBlocked(c, err, "TestBlockAddUser")
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(err, gc.ErrorMatches, "TestBlockAddUser")
+	assertBlocked(c, err, "TestBlockAddUser")
+	c.Check(result.Results, gc.HasLen, 0)
 }
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
@@ -159,6 +161,8 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	exp := s.accessService.EXPECT()
 	exp.DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "alex")).Return(nil)
 	exp.DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "barb")).Return(nil)
@@ -167,11 +171,11 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{"user-alex"},
-			{"user-barb"},
-			{names.NewLocalUserTag("ellie").String()},
-			{names.NewUserTag("fred@remote").String()},
-			{"not-a-tag"},
+			{Tag: "user-alex"},
+			{Tag: "user-barb"},
+			{Tag: names.NewLocalUserTag("ellie").String()},
+			{Tag: names.NewUserTag("fred@remote").String()},
+			{Tag: "not-a-tag"},
 		}}
 	result, err := s.api.DisableUser(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,20 +200,23 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{"user-alex"},
-			{"user-barb"},
-			{names.NewLocalUserTag("ellie").String()},
-			{names.NewUserTag("fred@remote").String()},
-			{"not-a-tag"},
+			{Tag: "user-alex"},
+			{Tag: "user-barb"},
+			{Tag: names.NewLocalUserTag("ellie").String()},
+			{Tag: names.NewUserTag("fred@remote").String()},
+			{Tag: "not-a-tag"},
 		}}
 
-	s.BlockAllChanges(c, "TestBlockDisableUser")
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockDisableUser", nil)
 	_, err := s.api.DisableUser(context.Background(), args)
-	s.AssertBlocked(c, err, "TestBlockDisableUser")
+	c.Assert(err, gc.ErrorMatches, "TestBlockDisableUser")
+	assertBlocked(c, err, "TestBlockDisableUser")
 }
 
 func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	exp := s.accessService.EXPECT()
 	exp.EnableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "alex")).Return(nil)
@@ -219,11 +226,11 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{"user-alex"},
-			{"user-barb"},
-			{names.NewLocalUserTag("ellie").String()},
-			{names.NewUserTag("fred@remote").String()},
-			{"not-a-tag"},
+			{Tag: "user-alex"},
+			{Tag: "user-barb"},
+			{Tag: names.NewLocalUserTag("ellie").String()},
+			{Tag: names.NewUserTag("fred@remote").String()},
+			{Tag: "not-a-tag"},
 		}}
 	result, err := s.api.EnableUser(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,17 +258,18 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{alex.String()},
-			{barb.String()},
-			{names.NewLocalUserTag("ellie").String()},
-			{names.NewUserTag("fred@remote").String()},
-			{"not-a-tag"},
+			{Tag: alex.String()},
+			{Tag: barb.String()},
+			{Tag: names.NewLocalUserTag("ellie").String()},
+			{Tag: names.NewUserTag("fred@remote").String()},
+			{Tag: "not-a-tag"},
 		}}
 
-	s.BlockAllChanges(c, "TestBlockEnableUser")
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockEnableUser", nil)
 	// Do not expect any calls to the access service as this should fail.
 	_, err := s.api.EnableUser(context.Background(), args)
-	s.AssertBlocked(c, err, "TestBlockEnableUser")
+	c.Assert(err, gc.ErrorMatches, "TestBlockEnableUser")
+	assertBlocked(c, err, "TestBlockEnableUser")
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
@@ -271,7 +279,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	barb := names.NewUserTag("barb")
 
 	args := params.Entities{
-		Entities: []params.Entity{{barb.String()}},
+		Entities: []params.Entity{{Tag: barb.String()}},
 	}
 	// Do not expect any calls to the access service as this should fail.
 	_, err := s.api.DisableUser(context.Background(), args)
@@ -285,7 +293,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	barb := names.NewUserTag("barb")
 
 	args := params.Entities{
-		Entities: []params.Entity{{barb.String()}},
+		Entities: []params.Entity{{Tag: barb.String()}},
 	}
 	// Do not expect any calls to the access service as this should fail.
 	_, err := s.api.EnableUser(context.Background(), args)
@@ -497,6 +505,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 
 func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
 	model := s.ControllerModel(c)
 	owner := names.NewUserTag("owner")
 
@@ -589,6 +598,8 @@ func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Res
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	s.accessService.EXPECT().SetPassword(gomock.Any(), coreusertesting.GenNewName(c, "alex"), gomock.Any())
 
 	args := params.EntityPasswords{
@@ -612,15 +623,18 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 			Password: "new-password",
 		}}}
 
-	s.BlockAllChanges(c, "TestBlockSetPassword")
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockSetPassword", nil)
 	// Do not expect any calls to the access service as this should fail.
 	_, err := s.api.SetPassword(context.Background(), args)
 	// Check that the call is blocked
-	s.AssertBlocked(c, err, "TestBlockSetPassword")
+	c.Assert(err, gc.ErrorMatches, "TestBlockSetPassword")
+	assertBlocked(c, err, "TestBlockSetPassword")
 }
 
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	alex := names.NewUserTag("alex")
 	s.accessService.EXPECT().SetPassword(gomock.Any(), coreuser.NameFromTag(alex), auth.NewPassword("new-password")).Return(nil)
@@ -642,6 +656,8 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	s.setAPIUserAndAuth(c, alex.Name())
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      barb.String(),
@@ -662,6 +678,8 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	tag := "not-a-tag"
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
@@ -674,6 +692,8 @@ func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 
 func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	tag := "user-harvey"
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "harvey")).Return(errors.NotFound)
@@ -691,6 +711,8 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "jimmyjam")).Return(nil)
 
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
@@ -705,6 +727,8 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	s.setAPIUserAndAuth(c, "check")
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	jjam := names.NewUserTag("jimmyjam")
 
 	// Do not expect any calls to the access service as this should fail.
@@ -717,6 +741,8 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	s.setAPIUserAndAuth(c, "someguy")
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	// Do not expect any calls to the user service as this should fail.
 	_, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUserTag("someguy").String()}}})
@@ -725,6 +751,8 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 
 func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	expectedError := "cannot delete controller owner \"admin\""
 
@@ -740,6 +768,8 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 
 func (s *userManagerSuite) TestRemoveUserBulk(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "jimmyjam")).Return(nil)
 	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "alice")).Return(nil)
@@ -762,6 +792,8 @@ func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 
 	alex := names.NewUserTag("alex")
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreuser.NameFromTag(alex)).Return([]byte("secret-key"), nil)
 
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.String()}}}
@@ -775,6 +807,8 @@ func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 
 func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	alex := names.NewUserTag("alex")
 	barb := names.NewUserTag("barb")
@@ -808,15 +842,18 @@ func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
 	alex := names.NewUserTag("alex")
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.String()}}}
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockResetPassword", nil)
 	// Do not expect any calls to the access service as this should fail.
-	s.BlockAllChanges(c, "TestBlockResetPassword")
 	_, err := s.api.ResetPassword(context.Background(), args)
 	// Check that the call is blocked
-	s.AssertBlocked(c, err, "TestBlockResetPassword")
+	c.Assert(err, gc.ErrorMatches, "TestBlockResetPassword")
+	assertBlocked(c, err, "TestBlockResetPassword")
 }
 
 func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	admin := jujutesting.AdminUser
 	args := params.Entities{Entities: []params.Entity{{Tag: admin.String()}}}
@@ -837,6 +874,8 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	s.setAPIUserAndAuth(c, "dope")
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	alex := names.NewUserTag("alex")
 	barb := names.NewUserTag("barb")
@@ -864,6 +903,8 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+
 	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreusertesting.GenNewName(c, "alex")).Return([]byte("secret-key"), nil)
 	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreusertesting.GenNewName(c, "invalid")).Return(nil, errors.NotFound)
 
@@ -889,6 +930,8 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 
 func (s *userManagerSuite) TestResetPasswordEmpty(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	results, err := s.api.ResetPassword(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -916,6 +959,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 
 	s.accessService = NewMockAccessService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
+	s.blockCommandService = NewMockBlockCommandService(ctrl)
 
 	ctx := facadetest.ModelContext{
 		StatePool_: s.StatePool(),
@@ -930,7 +974,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 		s.accessService,
 		s.modelService,
 		ctx.Auth(),
-		common.NewBlockChecker(ctx.State()),
+		common.NewBlockChecker(s.blockCommandService),
 		ctx.Auth().GetAuthTag().(names.UserTag),
 		s.apiUser,
 		s.apiUser.Name.Name() == "admin",
@@ -940,4 +984,12 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
+}
+
+func assertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }

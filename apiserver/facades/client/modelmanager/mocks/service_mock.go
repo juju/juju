@@ -1196,6 +1196,44 @@ func (c *MockModelDomainServicesAgentCall) DoAndReturn(f func() modelmanager.Mod
 	return c
 }
 
+// BlockCommand mocks base method.
+func (m *MockModelDomainServices) BlockCommand() modelmanager.BlockCommandService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockCommand")
+	ret0, _ := ret[0].(modelmanager.BlockCommandService)
+	return ret0
+}
+
+// BlockCommand indicates an expected call of BlockCommand.
+func (mr *MockModelDomainServicesMockRecorder) BlockCommand() *MockModelDomainServicesBlockCommandCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommand", reflect.TypeOf((*MockModelDomainServices)(nil).BlockCommand))
+	return &MockModelDomainServicesBlockCommandCall{Call: call}
+}
+
+// MockModelDomainServicesBlockCommandCall wrap *gomock.Call
+type MockModelDomainServicesBlockCommandCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesBlockCommandCall) Return(arg0 modelmanager.BlockCommandService) *MockModelDomainServicesBlockCommandCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesBlockCommandCall) Do(f func() modelmanager.BlockCommandService) *MockModelDomainServicesBlockCommandCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesBlockCommandCall) DoAndReturn(f func() modelmanager.BlockCommandService) *MockModelDomainServicesBlockCommandCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Config mocks base method.
 func (m *MockModelDomainServices) Config() modelmanager.ModelConfigService {
 	m.ctrl.T.Helper()

@@ -56,12 +56,16 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 }
 
 func (s *volumeSuite) TestListVolumesNoFilters(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 0)
 }
 
 func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -71,6 +75,8 @@ func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	msg := "inventing error"
 	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, errors.New(msg)
@@ -82,6 +88,8 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesNoVolumes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, nil
 	}
@@ -93,6 +101,8 @@ func (s *volumeSuite) TestListVolumesNoVolumes(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	filters := []params.VolumeFilter{{
 		Machines: []string{s.machineTag.String()},
 	}}
@@ -105,6 +115,8 @@ func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesFilterNonMatching(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	filters := []params.VolumeFilter{{
 		Machines: []string{"machine-42"},
 	}}
@@ -116,6 +128,8 @@ func (s *volumeSuite) TestListVolumesFilterNonMatching(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.volume.info = &state.VolumeInfo{
 		Size:       123,
 		HardwareId: "abc",
@@ -133,6 +147,8 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.volumeAttachment.info = &state.VolumeAttachmentInfo{
 		DeviceName: "xvdf1",
 		ReadOnly:   true,
@@ -154,6 +170,8 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.storageInstance.kind = state.StorageKindBlock
 	s.volume.info = &state.VolumeInfo{}
 	s.volumeAttachment.info = &state.VolumeAttachmentInfo{
@@ -176,6 +194,8 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.blockDeviceGetter.blockDevices = func(machineId string) ([]blockdevice.BlockDevice, error) {
 		return []blockdevice.BlockDevice{{
 			BusAddress: "bus-addr",

@@ -6,6 +6,7 @@ package modelconfig
 import (
 	"context"
 
+	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -24,4 +25,14 @@ type ModelSecretBackendService interface {
 	GetModelSecretBackend(ctx context.Context) (string, error)
 	// SetModelSecretBackend sets the secret backend for the model.
 	SetModelSecretBackend(ctx context.Context, backendName string) error
+}
+
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 }

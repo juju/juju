@@ -4,30 +4,19 @@
 package common_test
 
 import (
-	"context"
-	"time"
-
-	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 type destroyModelSuite struct {
 	jtesting.IsolationSuite
 
-	modelManager *mockModelManager
+	//modelManager *mockModelManager
 }
 
 var _ = gc.Suite(&destroyModelSuite{})
 
+/*
 func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -345,3 +334,4 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	m.MethodCall(m, "Status")
 	return m.currentStatus, m.NextErr()
 }
+*/

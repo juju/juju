@@ -295,7 +295,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the model.
-	_, _ = fmt.Fprint(ctx.Stderr, "Destroying model")
+	_, _ = fmt.Fprintln(ctx.Stderr, "Destroying model")
 	var destroyStorage *bool
 	if c.destroyStorage || c.releaseStorage {
 		destroyStorage = &c.destroyStorage
@@ -305,8 +305,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if c.Force {
 		force = &c.Force
 		if c.NoWait {
-			zeroSec := 0 * time.Second
-			maxWait = &zeroSec
+			zero := 0 * time.Second
+			maxWait = &zero
 		}
 	}
 

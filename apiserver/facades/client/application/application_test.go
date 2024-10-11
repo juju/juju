@@ -17,7 +17,6 @@ import (
 
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -43,7 +43,6 @@ import (
 
 type applicationSuite struct {
 	jujutesting.ApiServerSuite
-	commontesting.BlockHelper
 
 	applicationAPI *application.APIBase
 	application    *state.Application
@@ -75,8 +74,6 @@ func (s *applicationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -97,9 +94,9 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	blockChecker := common.NewBlockChecker(st)
 
 	domainServices := s.DefaultModelDomainServices(c)
+	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
 	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
@@ -1613,4 +1610,33 @@ func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
 	cfg = charm.Settings{"foo": "secret:cj4v5vm78ohs79o84r4g"}
 	err = application.ValidateSecretConfig(chCfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// BlockAllChanges blocks all operations that could change the model.
+func (s *applicationSuite) BlockAllChanges(c *gc.C, msg string) {
+	err := s.DefaultModelDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, msg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// BlockRemoveObject blocks all operations that remove
+// machines, services, units or relations.
+func (s *applicationSuite) BlockRemoveObject(c *gc.C, msg string) {
+	err := s.DefaultModelDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.RemoveBlock, msg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// BlockDestroyModel blocks destroy-model.
+func (s *applicationSuite) BlockDestroyModel(c *gc.C, msg string) {
+	err := s.DefaultModelDomainServices(c).BlockCommand().SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, msg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// AssertBlocked checks if given error is
+// related to switched block.
+func (s *applicationSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }

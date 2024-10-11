@@ -3,6 +3,21 @@
 
 package params
 
+// BlockType values define model block type, which can be used to prevent
+// accidental damage to Juju deployments.
+type BlockType = string
+
+const (
+	// BlockDestroy type identifies destroy blocks.
+	BlockDestroy BlockType = "BlockDestroy"
+
+	// BlockRemove type identifies remove blocks.
+	BlockRemove BlockType = "BlockRemove"
+
+	// BlockChange type identifies change blocks.
+	BlockChange BlockType = "BlockChange"
+)
+
 // Block describes a Juju block that protects model from
 // corruption.
 type Block struct {

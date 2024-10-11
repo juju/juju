@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -37,7 +36,6 @@ import (
 
 type baseSuite struct {
 	testing.ApiServerSuite
-	commontesting.BlockHelper
 }
 
 // modelConfigService is a convenience function to get the controller model's
@@ -49,9 +47,6 @@ func (s *baseSuite) modelConfigService(c *gc.C) state.ModelConfigService {
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.WithLeaseManager = true
 	s.ApiServerSuite.SetUpTest(c)
-	conn := s.OpenControllerModelAPI(c)
-	s.BlockHelper = commontesting.NewBlockHelper(conn)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 var _ = gc.Suite(&baseSuite{})

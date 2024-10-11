@@ -16,12 +16,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Block", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newAPI(ctx)
+		return NewAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
-// newAPI returns a new block API facade.
-func newAPI(ctx facade.ModelContext) (*API, error) {
+// NewAPI returns a new block API facade.
+func NewAPI(ctx facade.ModelContext) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -34,7 +34,8 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	}
 
 	return &API{
-		access:     getState(st, m),
+		modelTag:   m.ModelTag(),
+		service:    ctx.DomainServices().BlockCommand(),
 		authorizer: authorizer,
 	}, nil
 }

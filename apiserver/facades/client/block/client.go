@@ -7,46 +7,48 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-// Block defines the methods on the block API end point.
-type Block interface {
-	// List returns all current blocks for this model.
-	List() (params.BlockResults, error)
+// BlockCommandService defines the methods that the BlockCommandService
+// facade requires from the domain service.
+type BlockCommandService interface {
+	// SwitchBlockOn switches on a command block for a given type and message.
+	SwitchBlockOn(ctx context.Context, t blockcommand.BlockType, message string) error
+	// SwitchBlockOff disables block of specified type for the current model.
+	SwitchBlockOff(ctx context.Context, t blockcommand.BlockType) error
+	// GetBlocks returns all the blocks for the current model.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+}
 
-	// SwitchBlockOn switches desired block type on for this
-	// model.
-	SwitchBlockOn(params.BlockSwitchParams) params.ErrorResult
+// Authorizer defines the methods that the BlockCommandService
+type Authorizer interface {
 
-	// SwitchBlockOff switches desired block type off for this
-	// model.
-	SwitchBlockOff(params.BlockSwitchParams) params.ErrorResult
+	// HasPermission reports whether the given access is allowed for the given
+	// target by the authenticated entity.
+	HasPermission(ctx context.Context, operation permission.Access, target names.Tag) error
 }
 
 // API implements Block interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	access     blockAccess
-	authorizer facade.Authorizer
-}
-
-var getState = func(st *state.State, m *state.Model) blockAccess {
-	return stateShim{st, m}
+	modelTag   names.ModelTag
+	service    BlockCommandService
+	authorizer Authorizer
 }
 
 func (a *API) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.access.ModelTag())
+	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.modelTag)
 	return err
 }
 
 func (a *API) checkCanWrite(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.WriteAccess, a.access.ModelTag())
+	err := a.authorizer.HasPermission(ctx, permission.WriteAccess, a.modelTag)
 	return err
 }
 
@@ -56,29 +58,24 @@ func (a *API) List(ctx context.Context) (params.BlockResults, error) {
 		return params.BlockResults{}, err
 	}
 
-	all, err := a.access.AllBlocks()
+	all, err := a.service.GetBlocks(ctx)
 	if err != nil {
 		return params.BlockResults{}, apiservererrors.ServerError(err)
 	}
 	found := make([]params.BlockResult, len(all))
 	for i, one := range all {
-		found[i] = convertBlock(one)
+		found[i] = convertBlock(a.modelTag, one)
 	}
 	return params.BlockResults{Results: found}, nil
 }
 
-func convertBlock(b state.Block) params.BlockResult {
+func convertBlock(modelTag names.ModelTag, b blockcommand.Block) params.BlockResult {
 	result := params.BlockResult{}
-	tag, err := b.Tag()
-	if err != nil {
-		err := errors.Annotatef(err, "getting block %v", b.Type().String())
-		result.Error = apiservererrors.ServerError(err)
-	}
 	result.Result = params.Block{
-		Id:      b.Id(),
-		Tag:     tag.String(),
-		Type:    b.Type().String(),
-		Message: b.Message(),
+		Id:      b.UUID,
+		Tag:     modelTag.String(),
+		Type:    b.Type.String(),
+		Message: b.Message,
 	}
 	return result
 }
@@ -89,7 +86,12 @@ func (a *API) SwitchBlockOn(ctx context.Context, args params.BlockSwitchParams) 
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 
-	err := a.access.SwitchBlockOn(state.ParseBlockType(args.Type), args.Message)
+	blockType, err := parseBlockType(args.Type)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
+	}
+
+	err = a.service.SwitchBlockOn(ctx, blockType, args.Message)
 	return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 }
 
@@ -99,6 +101,24 @@ func (a *API) SwitchBlockOff(ctx context.Context, args params.BlockSwitchParams)
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 
-	err := a.access.SwitchBlockOff(state.ParseBlockType(args.Type))
+	blockType, err := parseBlockType(args.Type)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
+	}
+
+	err = a.service.SwitchBlockOff(ctx, blockType)
 	return params.ErrorResult{Error: apiservererrors.ServerError(err)}
+}
+
+func parseBlockType(str string) (blockcommand.BlockType, error) {
+	switch str {
+	case params.BlockDestroy:
+		return blockcommand.DestroyBlock, nil
+	case params.BlockRemove:
+		return blockcommand.RemoveBlock, nil
+	case params.BlockChange:
+		return blockcommand.ChangeBlock, nil
+	default:
+		return -1, errors.NotValidf("unknown block type %q", str)
+	}
 }

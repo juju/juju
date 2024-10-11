@@ -2393,6 +2393,42 @@ func (c *MockModelSetAnnotationsCall) DoAndReturn(f func(map[string]string)) *Mo
 	return c
 }
 
+// SetBlocks mocks base method.
+func (m *MockModel) SetBlocks(arg0 map[string]string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBlocks", arg0)
+}
+
+// SetBlocks indicates an expected call of SetBlocks.
+func (mr *MockModelMockRecorder) SetBlocks(arg0 any) *MockModelSetBlocksCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlocks", reflect.TypeOf((*MockModel)(nil).SetBlocks), arg0)
+	return &MockModelSetBlocksCall{Call: call}
+}
+
+// MockModelSetBlocksCall wrap *gomock.Call
+type MockModelSetBlocksCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelSetBlocksCall) Return() *MockModelSetBlocksCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelSetBlocksCall) Do(f func(map[string]string)) *MockModelSetBlocksCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelSetBlocksCall) DoAndReturn(f func(map[string]string)) *MockModelSetBlocksCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetCloudCredential mocks base method.
 func (m *MockModel) SetCloudCredential(arg0 description.CloudCredentialArgs) {
 	m.ctrl.T.Helper()

@@ -38,6 +38,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
+	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -79,6 +80,7 @@ type modelManagerSuite struct {
 	modelExporter        *mocks.MockModelExporter
 	domainServicesGetter *mocks.MockDomainServicesGetter
 	applicationService   *mocks.MockApplicationService
+	blockCommandService  *mocks.MockBlockCommandService
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
 	caasApi              *modelmanager.ModelManagerAPI
@@ -96,6 +98,7 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	s.domainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.blockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	return ctrl
 }
 
@@ -132,7 +135,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = &mockState{
-		block:           -1,
 		controllerModel: controllerModel,
 		model: &mockModel{
 			owner: names.NewUserTag("admin"),
@@ -247,7 +249,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
-		nil, newBroker, common.NewBlockChecker(s.st),
+		nil, newBroker, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,7 +274,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
-		nil, newBroker, common.NewBlockChecker(s.caasSt),
+		nil, newBroker, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -306,7 +308,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
-		nil, newBroker, common.NewBlockChecker(s.st),
+		nil, newBroker, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,8 +654,7 @@ func (s *modelManagerSuite) TestSetModelDefaults(c *gc.C) {
 }
 
 func (s *modelManagerSuite) blockAllChanges(c *gc.C, msg string) {
-	s.st.blockMsg = msg
-	s.st.block = state.ChangeBlock
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
 }
 
 func (s *modelManagerSuite) assertBlocked(c *gc.C, err error, msg string) {
@@ -798,7 +799,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
-		nil, nil, common.NewBlockChecker(s.st),
+		nil, nil, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -992,6 +993,7 @@ type modelManagerStateSuite struct {
 	modelService            *mocks.MockModelService
 	applicationService      *mocks.MockApplicationService
 	domainServicesGetter    *mocks.MockDomainServicesGetter
+	blockCommandService     *mocks.MockBlockCommandService
 
 	store objectstore.ObjectStore
 
@@ -1029,6 +1031,7 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelService = mocks.NewMockModelService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.domainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
+	s.blockCommandService = mocks.NewMockBlockCommandService(ctrl)
 
 	var fs assumes.FeatureSet
 	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).AnyTimes().Return(fs, nil)
@@ -1056,7 +1059,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
-		mockCredentialShim{st}, nil, ctlrSt,
+		mockCredentialShim{ModelManagerBackend: st}, nil, ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1071,7 +1074,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.ConfigSchemaSourceGetter(c),
 		toolsFinder,
 		nil,
-		common.NewBlockChecker(st),
+		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
 		s.ControllerModel(c),
 	)
@@ -1141,6 +1144,9 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 
+	blockCommandService := mocks.NewMockBlockCommandService(ctrl)
+	modelDomainServices.EXPECT().BlockCommand().Return(blockCommandService).AnyTimes()
+
 	// Expect calls to functions of the model services.
 	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
@@ -1156,6 +1162,8 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 		CloudType:      "dummy",
 	}, nil)
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
+
+	blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	// Called as part of getModelInfo which returns information to the user
 	// about the newly created model.
@@ -1184,7 +1192,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
-		nil, nil, common.NewBlockChecker(st), anAuthoriser,
+		nil, nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1411,6 +1419,8 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	domainServices := s.ControllerDomainServices(c)
+
 	// TODO(perrito666) this test is not valid until we have
 	// proper controller permission since the only users that
 	// can create models are controller admins.
@@ -1428,11 +1438,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	backend := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), model, s.StatePool())
 
-	domainServices := s.ControllerDomainServices(c)
-
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),
-		mockCredentialShim{backend},
+		mockCredentialShim{ModelManagerBackend: backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
@@ -1446,7 +1454,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
-		nil, nil, common.NewBlockChecker(backend), s.authoriser,
+		nil, nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1514,7 +1522,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
-		nil, nil, common.NewBlockChecker(backend), s.authoriser,
+		nil, nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1570,7 +1578,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
-		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.ControllerModel(c),
+		nil, nil, common.NewBlockChecker(s.blockCommandService), s.authoriser, s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1674,7 +1682,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
-		nil, nil, common.NewBlockChecker(st), anAuthoriser,
+		nil, nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)

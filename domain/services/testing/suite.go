@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
@@ -97,6 +98,12 @@ func (s *DomainServicesSuite) ControllerDomainServices(c *gc.C) services.DomainS
 // default model.
 func (s *DomainServicesSuite) DefaultModelDomainServices(c *gc.C) services.DomainServices {
 	return s.DomainServicesGetter(c, TestingObjectStore{})(s.ControllerModelUUID)
+}
+
+// ModelDomainServices conveniently constructs a domain services for the
+// default model.
+func (s *DomainServicesSuite) ModelDomainServices(c *gc.C, modelUUID model.UUID) services.DomainServices {
+	return s.DomainServicesGetter(c, TestingObjectStore{})(modelUUID)
 }
 
 func (s *DomainServicesSuite) SeedControllerConfig(c *gc.C) {

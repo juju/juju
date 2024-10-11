@@ -52,6 +52,7 @@ func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAP
 		modelInfo.UUID,
 		NewStateBackend(model),
 		modelSecretBackend, configService, auth,
+		domainServices.BlockCommand(),
 	)
 }
 

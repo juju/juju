@@ -26,7 +26,6 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	AllMachines() ([]Machine, error)
 	Unit(string) (Unit, error)
-	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (Machine, error)

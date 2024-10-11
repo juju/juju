@@ -384,20 +384,6 @@ func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {
 	panic("not implemented for test")
 }
 
-type mockBlock struct {
-	state.Block
-	t   state.BlockType
-	msg string
-}
-
-func (b mockBlock) Type() state.BlockType {
-	return b.t
-}
-
-func (b mockBlock) Message() string {
-	return b.msg
-}
-
 type mockUnit struct {
 	assignedMachine string
 }
@@ -408,7 +394,6 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 
 type mockState struct {
 	modelTag        names.ModelTag
-	getBlockForType func(t state.BlockType) (state.Block, bool, error)
 	unitName        string
 	unitErr         string
 	assignedMachine string
@@ -420,10 +405,6 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 
 func (st *mockState) ModelTag() names.ModelTag {
 	return st.modelTag
-}
-
-func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return st.getBlockForType(t)
 }
 
 func (st *mockState) Unit(unitName string) (storage.Unit, error) {

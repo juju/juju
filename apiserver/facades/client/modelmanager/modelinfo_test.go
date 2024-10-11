@@ -67,6 +67,7 @@ type modelInfoSuite struct {
 	mockModelDomainServices  *mocks.MockModelDomainServices
 	mockModelService         *mocks.MockModelService
 	mockSecretBackendService *mocks.MockSecretBackendService
+	mockBlockCommandService  *mocks.MockBlockCommandService
 }
 
 func pUint64(v uint64) *uint64 {
@@ -246,6 +247,7 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelMan
 	s.mockMachineService = mocks.NewMockMachineService(ctrl)
 	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 
+	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
@@ -266,7 +268,7 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelMan
 			MachineService:       s.mockMachineService,
 		},
 		state.NoopConfigSchemaSource,
-		nil, nil, common.NewBlockChecker(s.st),
+		nil, nil, common.NewBlockChecker(s.mockBlockCommandService),
 		&s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,6 +289,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	s.mockModelDomainServices = mocks.NewMockModelDomainServices(ctrl)
 	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(s.mockModelDomainServices).AnyTimes()
+	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.authorizer.Tag = user
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
@@ -309,7 +312,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 		},
 		state.NoopConfigSchemaSource,
 		nil, nil,
-		common.NewBlockChecker(s.st), s.authorizer, s.st.model,
+		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -430,18 +433,18 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
 	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []jujutesting.StubCall{
-		{"UUID", nil},
-		{"Name", nil},
-		{"Type", nil},
-		{"UUID", nil},
-		{"Owner", nil},
-		{"Life", nil},
-		{"CloudName", nil},
-		{"CloudRegion", nil},
-		{"CloudCredentialTag", nil},
-		{"Life", nil},
-		{"Status", nil},
-		{"Type", nil},
+		{FuncName: "UUID", Args: nil},
+		{FuncName: "Name", Args: nil},
+		{FuncName: "Type", Args: nil},
+		{FuncName: "UUID", Args: nil},
+		{FuncName: "Owner", Args: nil},
+		{FuncName: "Life", Args: nil},
+		{FuncName: "CloudName", Args: nil},
+		{FuncName: "CloudRegion", Args: nil},
+		{FuncName: "CloudCredentialTag", Args: nil},
+		{FuncName: "Life", Args: nil},
+		{FuncName: "Status", Args: nil},
+		{FuncName: "Type", Args: nil},
 	})
 }
 
@@ -490,6 +493,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	api, ctrl := s.getAPIWithUser(c, names.NewUserTag("charlotte@local"))
 	defer ctrl.Finish()
+
 	charlotteName := coreusertesting.GenNewName(c, "charlotte")
 	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(charlotteName), permission.ID{
 		ObjectType: permission.Model,
@@ -1072,7 +1076,6 @@ type mockState struct {
 	environs.EnvironConfigGetter
 	common.APIHostPortsForAgentsGetter
 	common.ToolsStorageGetter
-	common.BlockGetter
 	unitRetriever
 
 	controllerUUID  string
@@ -1082,8 +1085,6 @@ type mockState struct {
 	machines        []common.Machine
 	controllerNodes []common.ControllerNode
 	cfgDefaults     config.ModelDefaultAttributes
-	blockMsg        string
-	block           state.BlockType
 	migration       *mockMigration
 	modelConfig     *config.Config
 }
@@ -1292,15 +1293,6 @@ func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{
 	return nil
 }
 
-func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	st.MethodCall(st, "GetBlockForType", t)
-	if st.block == t {
-		return &mockBlock{t: t, m: st.blockMsg}, true, nil
-	} else {
-		return nil, false, nil
-	}
-}
-
 func (st *mockState) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
 	st.MethodCall(st, "SaveProviderSubnets", subnets, spaceID)
 	return st.NextErr()
@@ -1381,22 +1373,6 @@ func (st *mockState) InvalidateModelCredential(reason string) error {
 	st.MethodCall(st, "InvalidateModelCredential", reason)
 	return nil
 }
-
-type mockBlock struct {
-	state.Block
-	t state.BlockType
-	m string
-}
-
-func (m mockBlock) Id() string { return "" }
-
-func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
-
-func (m mockBlock) Type() state.BlockType { return m.t }
-
-func (m mockBlock) Message() string { return m.m }
-
-func (m mockBlock) ModelUUID() string { return "" }
 
 type mockControllerNode struct {
 	id        string

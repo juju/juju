@@ -41,45 +41,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// AllBlocksForController mocks base method.
-func (m *MockBackend) AllBlocksForController() ([]state.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllBlocksForController")
-	ret0, _ := ret[0].([]state.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllBlocksForController indicates an expected call of AllBlocksForController.
-func (mr *MockBackendMockRecorder) AllBlocksForController() *MockBackendAllBlocksForControllerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllBlocksForController", reflect.TypeOf((*MockBackend)(nil).AllBlocksForController))
-	return &MockBackendAllBlocksForControllerCall{Call: call}
-}
-
-// MockBackendAllBlocksForControllerCall wrap *gomock.Call
-type MockBackendAllBlocksForControllerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllBlocksForControllerCall) Return(arg0 []state.Block, arg1 error) *MockBackendAllBlocksForControllerCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllBlocksForControllerCall) Do(f func() ([]state.Block, error)) *MockBackendAllBlocksForControllerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllBlocksForControllerCall) DoAndReturn(f func() ([]state.Block, error)) *MockBackendAllBlocksForControllerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllModelUUIDs mocks base method.
 func (m *MockBackend) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -309,44 +270,6 @@ func (c *MockBackendMongoVersionCall) Do(f func() (string, error)) *MockBackendM
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendMongoVersionCall) DoAndReturn(f func() (string, error)) *MockBackendMongoVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoveAllBlocksForController mocks base method.
-func (m *MockBackend) RemoveAllBlocksForController() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveAllBlocksForController")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveAllBlocksForController indicates an expected call of RemoveAllBlocksForController.
-func (mr *MockBackendMockRecorder) RemoveAllBlocksForController() *MockBackendRemoveAllBlocksForControllerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllBlocksForController", reflect.TypeOf((*MockBackend)(nil).RemoveAllBlocksForController))
-	return &MockBackendRemoveAllBlocksForControllerCall{Call: call}
-}
-
-// MockBackendRemoveAllBlocksForControllerCall wrap *gomock.Call
-type MockBackendRemoveAllBlocksForControllerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendRemoveAllBlocksForControllerCall) Return(arg0 error) *MockBackendRemoveAllBlocksForControllerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendRemoveAllBlocksForControllerCall) Do(f func() error) *MockBackendRemoveAllBlocksForControllerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendRemoveAllBlocksForControllerCall) DoAndReturn(f func() error) *MockBackendRemoveAllBlocksForControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -44,6 +44,7 @@ func NewModelConfigAPI(
 	modelSecretBackendService ModelSecretBackendService,
 	configService ModelConfigService,
 	authorizer facade.Authorizer,
+	blockCommandService common.BlockCommandService,
 ) (*ModelConfigAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -54,7 +55,7 @@ func NewModelConfigAPI(
 		modelSecretBackendService: modelSecretBackendService,
 		configService:             configService,
 		auth:                      authorizer,
-		check:                     common.NewBlockChecker(backend),
+		check:                     common.NewBlockChecker(blockCommandService),
 	}, nil
 }
 
