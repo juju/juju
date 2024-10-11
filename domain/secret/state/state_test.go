@@ -1857,7 +1857,7 @@ func (s *stateSuite) TestGetSecretOwnerUnitOwned(c *gc.C) {
 
 	owner, err := getSecretOwner(ctx, st, uri)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(owner, gc.DeepEquals, domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: unitUUID})
+	c.Assert(owner, gc.DeepEquals, domainsecret.Owner{Kind: domainsecret.UnitOwner, UUID: unitUUID.String()})
 }
 
 func (s *stateSuite) TestGetSecretOwnerApplicationOwned(c *gc.C) {
@@ -1881,7 +1881,7 @@ func (s *stateSuite) TestGetSecretOwnerApplicationOwned(c *gc.C) {
 
 	owner, err := getSecretOwner(ctx, st, uri)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(owner, gc.DeepEquals, domainsecret.Owner{Kind: domainsecret.ApplicationOwner, UUID: appUUID})
+	c.Assert(owner, gc.DeepEquals, domainsecret.Owner{Kind: domainsecret.ApplicationOwner, UUID: appUUID.String()})
 }
 
 func (s *stateSuite) TestGetSecretOwnerUserSecret(c *gc.C) {

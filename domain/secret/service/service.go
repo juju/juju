@@ -12,10 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -561,9 +563,9 @@ func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI,
 		var labelExists bool
 		switch kind := owner.Kind; kind {
 		case domainsecret.ApplicationOwner:
-			labelExists, err = s.secretState.CheckApplicationSecretLabelExists(ctx, owner.UUID, *params.Label)
+			labelExists, err = s.secretState.CheckApplicationSecretLabelExists(ctx, coreapplication.ID(owner.UUID), *params.Label)
 		case domainsecret.UnitOwner:
-			labelExists, err = s.secretState.CheckUnitSecretLabelExists(ctx, owner.UUID, *params.Label)
+			labelExists, err = s.secretState.CheckUnitSecretLabelExists(ctx, coreunit.UUID(owner.UUID), *params.Label)
 		case domainsecret.ModelOwner:
 			labelExists, err = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
 		default:

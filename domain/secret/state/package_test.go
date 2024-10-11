@@ -9,7 +9,9 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 )
@@ -18,8 +20,8 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func getApplicationUUID(ctx context.Context, st *State, appName string) (string, error) {
-	var uuid string
+func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapplication.ID, error) {
+	var uuid coreapplication.ID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		uuid, err = st.GetApplicationUUID(ctx, appName)
@@ -28,8 +30,8 @@ func getApplicationUUID(ctx context.Context, st *State, appName string) (string,
 	return uuid, err
 }
 
-func getUnitUUID(ctx context.Context, st *State, unitName string) (string, error) {
-	var uuid string
+func getUnitUUID(ctx context.Context, st *State, unitName string) (coreunit.UUID, error) {
+	var uuid coreunit.UUID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		uuid, err = st.GetUnitUUID(ctx, unitName)
@@ -58,7 +60,7 @@ func checkUserSecretLabelExists(ctx context.Context, st *State, label string) (b
 	return exists, err
 }
 
-func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID string, label string) (bool, error) {
+func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID coreapplication.ID, label string) (bool, error) {
 	var exists bool
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
@@ -68,7 +70,7 @@ func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID s
 	return exists, err
 }
 
-func checkUnitSecretLabelExists(ctx context.Context, st *State, unitUUID string, label string) (bool, error) {
+func checkUnitSecretLabelExists(ctx context.Context, st *State, unitUUID coreunit.UUID, label string) (bool, error) {
 	var exists bool
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error

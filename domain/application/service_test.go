@@ -136,7 +136,9 @@ func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecr
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
 	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appName, sp)
+		appUUID, err := s.secretState.GetApplicationUUID(ctx, appName)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appUUID, sp)
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
@@ -150,7 +152,9 @@ func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecr
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
 	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err := s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitName, sp2)
+		unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitUUID, sp2)
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
