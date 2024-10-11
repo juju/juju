@@ -172,18 +172,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
-	dbChange := make(chan struct{})
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts - 1)
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).DoAndReturn(func(_ context.Context, _ string) (*sql.DB, error) {
-		defer close(dbChange)
-		return s.DB(), nil
-	})
+	dbReady := make(chan struct{})
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
 	var count uint64
 	pingFn := func(context.Context, *sql.DB) error {
 		val := atomic.AddUint64(&count, 1)
 
 		if val == DefaultVerifyAttempts {
+			defer close(dbReady)
 			return nil
 		}
 		return errors.New("boom")
@@ -200,9 +197,9 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 		c.Fatal("timed out waiting for DB callback")
 	}
 
-	// The db should have changed to the new db.
+	// The db should wait to a successful ping after several attempts
 	select {
-	case <-dbChange:
+	case <-dbReady:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for DB callback")
 	}
