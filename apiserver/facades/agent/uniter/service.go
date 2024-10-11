@@ -56,11 +56,25 @@ type CredentialService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
+	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(ctx context.Context, unitName string) (life.Value, error)
+
+	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
 	GetUnitUUID(ctx context.Context, unitName string) (coreunit.UUID, error)
+
+	// GetUnitNames gets in bulk the names for the specified unit UUIDs.
+	GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]string, error)
+
+	// EnsureUnitDead is called by the unit agent just before it terminates.
 	EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
+
+	// DeleteUnit deletes the specified unit.
 	DeleteUnit(ctx context.Context, unitName string) error
+
+	// DestroyUnit prepares a unit for removal from the model.
 	DestroyUnit(ctx context.Context, unitName string) error
 }
 
@@ -77,7 +91,16 @@ type UnitStateService interface {
 
 // PortService describes the ability to open and close port ranges for units.
 type PortService interface {
+	// UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
 	UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error
+
+	// GetMachineOpenedPorts returns the opened ports for all the units on the
+	// machine. Opened ports are grouped first by unit name and then by endpoint.
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
+
+	// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped
+	// by endpoint.
+	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
 }
 
 // NetworkService is the interface that is used to interact with the

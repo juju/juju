@@ -29,12 +29,16 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/application/service"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	machineservice "github.com/juju/juju/domain/machine/service"
+	portservice "github.com/juju/juju/domain/port/service"
+	stubservice "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -50,9 +54,27 @@ const allEndpoints = ""
 
 type uniterSuite struct {
 	uniterSuiteBase
+	domainServices     services.DomainServices
+	machineService     *machineservice.WatchableService
+	applicationService *applicationservice.WatchableService
+	portService        *portservice.WatchableService
+	stubService        *stubservice.StubService
 }
 
 var _ = gc.Suite(&uniterSuite{})
+
+func (s *uniterSuite) SetUpTest(c *gc.C) {
+	s.uniterSuiteBase.SetUpTest(c)
+	s.domainServices = s.ControllerDomainServices(c)
+
+	s.machineService = s.domainServices.Machine()
+	s.applicationService = s.domainServices.Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
+	s.portService = s.domainServices.Port()
+	s.stubService = s.domainServices.Stub()
+}
 
 func (s *uniterSuite) controllerConfig(c *gc.C) (controller.Config, error) {
 	controllerDomainServices := s.ControllerDomainServices(c)
@@ -217,13 +239,6 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 
-	// We need to dual write to dqlite.
-	sf := s.DomainServicesSuite.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(s.DomainServicesSuite.ControllerModelUUID)
-	applicationService := sf.Application(service.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         service.NotImplementedSecretService{},
-	})
-
 	// Make the wordpressUnit dead.
 	err = s.wordpressUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,7 +246,8 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 
-	err = applicationService.EnsureUnitDead(context.Background(), "wordpress/0", s.leadershipRevoker)
+	// We need to dual write to dqlite.
+	err = s.applicationService.EnsureUnitDead(context.Background(), "wordpress/0", s.leadershipRevoker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 
@@ -248,7 +264,8 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.wordpress.Life(), gc.Equals, state.Dying)
 
-	err = applicationService.DestroyApplication(context.Background(), "wordpress")
+	// We need to dual write to dqlite.
+	err = s.applicationService.DestroyApplication(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -3077,29 +3094,39 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
-	// Verify no ports are opened yet on the machine (or unit).
-	machinePortRanges, err := s.machine0.OpenedPortRanges()
+	_, err := s.machineService.CreateMachine(context.Background(), "0")
 	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range machinePortRanges.ByUnit() {
-		c.Assert(unit.UniquePortRanges(), gc.HasLen, 0)
-	}
 
-	// Add another mysql unit on machine 0.
-	mysqlUnit1, err := s.mysql.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	err = s.applicationService.AddUnits(context.Background(), "mysql", applicationservice.AddUnitArg{
+		UnitName: "mysql/1",
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlUnit1.AssignToMachine(s.modelConfigService(c), s.machine0)
+
+	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]string{
+		"0": {"wordpress/0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]string{
+		"0": {"mysql/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpressUnitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlUnitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "mysql/1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units using different endpoints.
-	wpPortRanges := machinePortRanges.ForUnit(s.wordpressUnit.Name())
-	wpPortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
-	wpPortRanges.Open("monitoring-port", network.MustParsePortRange("10-20/udp"))
+	err = s.portService.UpdateUnitPorts(context.Background(), wordpressUnitUUID, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("100-200/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("10-20/udp")},
+	}, network.GroupedPortRanges{})
+	c.Assert(err, jc.ErrorIsNil)
 
-	msPortRanges := machinePortRanges.ForUnit(mysqlUnit1.Name())
-	msPortRanges.Open("server", network.MustParsePortRange("3306/tcp"))
-
-	c.Assert(s.ControllerModel(c).State().ApplyOperation(wpPortRanges.Changes()), jc.ErrorIsNil)
-	c.Assert(s.ControllerModel(c).State().ApplyOperation(msPortRanges.Changes()), jc.ErrorIsNil)
+	err = s.portService.UpdateUnitPorts(context.Background(), mysqlUnitUUID, network.GroupedPortRanges{
+		"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+	}, network.GroupedPortRanges{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the open port ranges
 	args := params.Entities{Entities: []params.Entity{
@@ -3343,21 +3370,14 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
-	_, cm, _, unit := s.setupCAASModel(c)
-	st := cm.State()
-
-	unitPortRanges, err := unit.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0)
-
-	portRanges, err := unit.OpenedPortRanges()
+	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Open some ports using different endpoints.
-	portRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
-	portRanges.Open("db", network.MustParsePortRange("1111/udp"))
-
-	c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
+	err = s.portService.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("1000/tcp")},
+		"db":         []network.PortRange{network.MustParsePortRange("1111/udp")},
+	}, network.GroupedPortRanges{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the open port ranges
 	expectPortRanges := []params.OpenUnitPortRangesByEndpoint{
@@ -3371,7 +3391,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 		},
 	}
 
-	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
+	uniterAPI := s.makeMysqlUniter(c)
 
 	result, err := uniterAPI.OpenedPortRangesByEndpoint(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3379,7 +3399,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 		Results: []params.OpenPortRangesByEndpointResult{
 			{
 				UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
-					"unit-gitlab-0": expectPortRanges,
+					"unit-mysql-0": expectPortRanges,
 				},
 			},
 		},
