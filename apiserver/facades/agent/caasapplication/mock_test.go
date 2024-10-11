@@ -179,7 +179,7 @@ type mockModelAgent struct {
 	agentVersion version.Number
 }
 
-func (m *mockModelAgent) GetModelAgentVersion(ctx context.Context) (version.Number, error) {
+func (m *mockModelAgent) GetModelTargetAgentVersion(ctx context.Context) (version.Number, error) {
 	m.MethodCall(m, "GetModelAgentVersion")
 	if err := m.NextErr(); err != nil {
 		return version.Zero, err

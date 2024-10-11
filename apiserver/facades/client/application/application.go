@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
@@ -2476,27 +2475,6 @@ func (api *APIBase) convertSpacesToIDInBindings(ctx context.Context, bindings ma
 	return newMap, nil
 }
 
-// lxdCharmProfiler massages a *state.Charm into a LXDProfiler
-// inside of the core package.
-type lxdCharmProfiler struct {
-	Charm Charm
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
-	if p.Charm == nil {
-		return nil
-	}
-	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
-		profile := profiler.LXDProfile()
-		if profile == nil {
-			return nil
-		}
-		return profile
-	}
-	return nil
-}
-
 // AgentTools is a point of use agent tools requester.
 type AgentTools interface {
 	AgentTools() (*tools.Tools, error)
@@ -2514,14 +2492,6 @@ var (
 		"Unable to upgrade LXDProfile charms with the current model version. " +
 			"Please run juju upgrade-model to upgrade the current model to match your controller.")
 )
-
-func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
-	tools, err := agentTools.AgentTools()
-	if err != nil {
-		return version.Zero, err
-	}
-	return tools.Version.Number, nil
-}
 
 // UnitsInfo returns unit information for the given entities (units or
 // applications).

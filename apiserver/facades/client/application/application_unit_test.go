@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -605,14 +604,6 @@ postgresql:
 `,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-var agentTools = tools.Tools{
-	Version: version.Binary{
-		Number:  version.Number{Major: 2, Minor: 6, Patch: 0},
-		Release: "ubuntu",
-		Arch:    "x86",
-	},
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) {
