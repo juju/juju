@@ -70,19 +70,20 @@ type ModelManagerAPI struct {
 	check     common.BlockCheckerInterface
 
 	// Services required by the model manager.
+	accessService        AccessService
 	domainServicesGetter DomainServicesGetter
-	modelService         ModelService
-	modelDefaultsService ModelDefaultsService
+	applicationService   ApplicationService
 	cloudService         CloudService
 	credentialService    CredentialService
-	applicationService   ApplicationService
-	networkService       NetworkService
 	machineService       MachineService
-	configSchemaSource   config.ConfigSchemaSourceGetter
-	accessService        AccessService
-	modelExporter        func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
-	store                objectstore.ObjectStore
+	modelService         ModelService
+	modelDefaultsService ModelDefaultsService
+	networkService       NetworkService
 	secretBackendService SecretBackendService
+
+	configSchemaSource config.ConfigSchemaSourceGetter
+	modelExporter      func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	store              objectstore.ObjectStore
 
 	// ToolsFinder is used to find tools for a given version.
 	toolsFinder common.ToolsFinder
@@ -1148,16 +1149,25 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 		return !ignoreNotFoundError || !(errors.Is(thisErr, errors.NotFound) || errors.Is(thisErr, modelerrors.NotFound))
 	}
-	cfg, err := model.Config()
+
+	modelDomainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
+	modelInfoService := modelDomainServices.ModelInfo()
+	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 	if err == nil {
-		info.ProviderType = cfg.Type()
+		info.ProviderType = modelInfo.CloudType
 
-		if agentVersion, exists := cfg.AgentVersion(); exists {
-			info.AgentVersion = &agentVersion
-		}
+	}
+
+	modelAgentService := modelDomainServices.Agent()
+	agentVersion, err := modelAgentService.GetModelAgentVersion(ctx)
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		info.AgentVersion = &agentVersion
 	}
 
 	status, err := model.Status()
