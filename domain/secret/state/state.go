@@ -94,12 +94,11 @@ WHERE name=$application.name`, app)
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, selectApplicationUUIDStmt, app).Get(&app)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("application %q not found%w", appName, errors.Hide(applicationerrors.ApplicationNotFound))
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("application %q not found%w", appName, errors.Hide(applicationerrors.ApplicationNotFound))
-			} else {
-				return errors.Annotatef(err, "looking up application UUID for %q", appName)
-			}
+			return errors.Annotatef(err, "looking up application UUID for %q", appName)
 		}
 		return nil
 	})
@@ -138,17 +137,17 @@ WHERE name=$unit.name`, u)
 	return u.UUID, errors.Trace(err)
 }
 
-// CheckApplicationSecretLabelExists returns function which checks if a charm application secret with the given label already exists.
+// CheckApplicationSecretLabelExists checks if a charm application secret with the given label already exists.
 func (st State) CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.ID, label string) (bool, error) {
 	if label == "" {
 		return false, nil
 	}
 
 	input := secretApplicationOwner{Label: label, ApplicationUUID: appUUID.String()}
-	count := Count{}
+	count := count{}
 	// TODO(secrets) - we check using 2 queries, but should do in DDL
 	checkLabelExistsSQL := `
-SELECT COUNT(*) AS &Count.num
+SELECT COUNT(*) AS &count.num
 FROM (
     SELECT secret_id
     FROM   secret_application_owner
@@ -177,17 +176,17 @@ FROM (
 	return count.Num > 0, nil
 }
 
-// CheckUnitSecretLabelExists returns function which checks if a charm unit secret with the given label already exists.
+// CheckUnitSecretLabelExists checks if a charm unit secret with the given label already exists.
 func (st State) CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID coreunit.UUID, label string) (bool, error) {
 	if label == "" {
 		return false, nil
 	}
 
 	input := secretUnitOwner{Label: label, UnitUUID: unitUUID.String()}
-	count := Count{}
+	count := count{}
 	// TODO(secrets) - we check using 2 queries, but should do in DDL
 	checkLabelExistsSQL := `
-SELECT COUNT(*) AS &Count.num
+SELECT COUNT(*) AS &count.num
 FROM (
     SELECT secret_id
     FROM   secret_application_owner sao
@@ -220,15 +219,15 @@ FROM (
 
 }
 
-// CheckUserSecretLabelExists returns an error if a user secret with the given label already exists.
+// CheckUserSecretLabelExists checks if a user secret with the given label already exists.
 func (st State) CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) (bool, error) {
 	if label == "" {
 		return false, nil
 	}
 	input := secretOwner{Label: label}
-	count := Count{}
+	count := count{}
 	checkLabelExistsSQL := `
-SELECT COUNT(*) AS &Count.num
+SELECT COUNT(*) AS &count.num
 FROM   secret_model_owner
 WHERE  label = $secretOwner.label`
 

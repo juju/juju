@@ -128,7 +128,7 @@ func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
 	c.Assert(gotLife, gc.Equals, 1)
 }
 
-func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+func (s *serviceSuite) createSecrets(c *gc.C, appUUID coreapplication.ID, unitName string) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
 	ctx := context.Background()
 	appSecretURI = coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
@@ -136,9 +136,7 @@ func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecr
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
 	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appUUID, err := s.secretState.GetApplicationUUID(ctx, appName)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appUUID, sp)
+		err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appUUID, sp)
 		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	})
@@ -165,8 +163,8 @@ func (s *serviceSuite) TestDeleteApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appID := s.createApplication(c, "foo")
-	s.createSecrets(c, "foo", "")
+	appUUID := s.createApplication(c, "foo")
+	s.createSecrets(c, appUUID, "")
 
 	err := s.svc.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +180,7 @@ func (s *serviceSuite) TestDeleteApplication(c *gc.C) {
 			return err
 		}
 		err = tx.QueryRowContext(ctx,
-			"SELECT count(*) FROM secret_metadata sm JOIN secret_application_owner so ON sm.secret_id = so.secret_id WHERE application_uuid = ?", appID).
+			"SELECT count(*) FROM secret_metadata sm JOIN secret_application_owner so ON sm.secret_id = so.secret_id WHERE application_uuid = ?", appUUID).
 			Scan(&gotSecretCount)
 		if err != nil {
 			return err
@@ -315,8 +313,8 @@ func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", u)
-	s.createSecrets(c, "foo", "foo/666")
+	appUUID := s.createApplication(c, "foo", u)
+	s.createSecrets(c, appUUID, "foo/666")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
