@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -75,6 +76,7 @@ type ApplicationSuite struct {
 	credService        *commonmocks.MockCredentialService
 	machineService     *application.MockMachineService
 	applicationService *application.MockApplicationService
+	portService        *application.MockPortService
 	stubService        *application.MockStubService
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
@@ -171,6 +173,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.machineService = application.NewMockMachineService(ctrl)
 	s.applicationService = application.NewMockApplicationService(ctrl)
+	s.portService = application.NewMockPortService(ctrl)
 	s.stubService = application.NewMockStubService(ctrl)
 
 	var fs coreassumes.FeatureSet
@@ -228,6 +231,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.credService,
 		s.machineService,
 		s.applicationService,
+		s.portService,
 		s.stubService,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
@@ -2854,14 +2858,6 @@ func (s *ApplicationSuite) expectUnitWithCloudContainer(ctrl *gomock.Controller,
 	return unit
 }
 
-func (s *ApplicationSuite) expectMachineUnitPortRange(ctrl *gomock.Controller, unitName, portRange string) *mocks.MockMachinePortRanges {
-	unitPortRanges := mocks.NewMockUnitPortRanges(ctrl)
-	unitPortRanges.EXPECT().UniquePortRanges().Return([]network.PortRange{network.MustParsePortRange(portRange)})
-	machinePortRange := mocks.NewMockMachinePortRanges(ctrl)
-	machinePortRange.EXPECT().ForUnit(unitName).Return(unitPortRanges)
-	return machinePortRange
-}
-
 func (s *ApplicationSuite) expectRelationUnit(ctrl *gomock.Controller, name string) *mocks.MockRelationUnit {
 	relUnit := mocks.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().UnitName().Return(name).AnyTimes()
@@ -2896,7 +2892,12 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 
 	s.backend.EXPECT().Machine("0").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 
-	s.model.EXPECT().OpenedPortRangesForMachine("0").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/0", "100-102/tcp"), nil)
+	unitUUID, err := coreunit.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), "postgresql/0").Return(unitUUID, nil)
+	s.portService.EXPECT().GetUnitOpenedPorts(gomock.Any(), unitUUID).Return(network.GroupedPortRanges{
+		"foo": []network.PortRange{network.MustParsePortRange("100-102/tcp")},
+	}, nil)
 
 	// gitlab exists is remote in this scenerios so return a not found error
 	s.backend.EXPECT().Application("gitlab").Return(nil, errors.NotFoundf(`application "gitlab"`))
@@ -2957,8 +2958,20 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	s.backend.EXPECT().Machine("0").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 	s.backend.EXPECT().Machine("1").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 
-	s.model.EXPECT().OpenedPortRangesForMachine("0").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/0", "100-102/tcp"), nil)
-	s.model.EXPECT().OpenedPortRangesForMachine("1").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/1", "100-102/tcp"), nil)
+	postgress0UUID, err := coreunit.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	postgress1UUID, err := coreunit.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), "postgresql/0").Return(postgress0UUID, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), "postgresql/1").Return(postgress1UUID, nil)
+
+	s.portService.EXPECT().GetUnitOpenedPorts(gomock.Any(), postgress0UUID).Return(network.GroupedPortRanges{
+		"foo": []network.PortRange{network.MustParsePortRange("100-102/tcp")},
+	}, nil)
+	s.portService.EXPECT().GetUnitOpenedPorts(gomock.Any(), postgress1UUID).Return(network.GroupedPortRanges{
+		"bar": []network.PortRange{network.MustParsePortRange("100-102/tcp")},
+	}, nil)
 
 	// gitlab exists is remote in this scenerios so return a not found error
 	s.backend.EXPECT().Application("gitlab").Return(nil, errors.NotFoundf(`application "gitlab"`)).MinTimes(1)

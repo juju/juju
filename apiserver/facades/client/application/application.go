@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -51,6 +52,7 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -91,6 +93,7 @@ type APIBase struct {
 	machineService     MachineService
 	applicationService ApplicationService
 	networkService     NetworkService
+	portService        PortService
 	stubService        StubService
 
 	resources        facade.Resources
@@ -229,6 +232,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		domainServices.Credential(),
 		domainServices.Machine(),
 		applicationService,
+		domainServices.Port(),
 		domainServices.Stub(),
 		leadershipReader,
 		stateCharm,
@@ -271,6 +275,7 @@ func NewAPIBase(
 	credentialService common.CredentialService,
 	machineService MachineService,
 	applicationService ApplicationService,
+	portService PortService,
 	stubService StubService,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
@@ -302,6 +307,7 @@ func NewAPIBase(
 		credentialService:     credentialService,
 		machineService:        machineService,
 		applicationService:    applicationService,
+		portService:           portService,
 		stubService:           stubService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
@@ -2654,10 +2660,15 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 	if err != nil {
 		return nil, err
 	}
-	unitLife, err := api.applicationService.GetUnitLife(ctx, unit.Name())
+
+	unitUUID, err := api.applicationService.GetUnitUUID(ctx, unit.Name())
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		err = errors.NotFoundf("unit %s", unit.Name())
 	}
+	if err != nil {
+		return nil, err
+	}
+	unitLife, err := api.applicationService.GetUnitLife(ctx, unit.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -2682,7 +2693,7 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 		// subnets and lumps all port ranges together in a
 		// single group. This works fine for pre 2.9 agents
 		// as ports where always opened across all subnets.
-		openPorts, err := api.openPortsOnMachineForUnit(unit.Name(), machineId)
+		openPorts, err := api.openPortsOnUnit(ctx, unitUUID)
 		if err != nil {
 			return nil, err
 		}
@@ -2712,14 +2723,14 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 // specified unit and machine arguments without distinguishing between port
 // ranges across subnets. This method is provided for backwards compatibility
 // with pre 2.9 agents which assume open-ports apply to all subnets.
-func (api *APIBase) openPortsOnMachineForUnit(unitName, machineID string) ([]string, error) {
+func (api *APIBase) openPortsOnUnit(ctx context.Context, unitUUID coreunit.UUID) ([]string, error) {
 	var result []string
-	machinePortRanges, err := api.model.OpenedPortRangesForMachine(machineID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	for _, portRange := range machinePortRanges.ForUnit(unitName).UniquePortRanges() {
+	groupedPortRanges, err := api.portService.GetUnitOpenedPorts(ctx, unitUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting opened ports for unit %q: %w", unitUUID, err)
+	}
+	for _, portRange := range groupedPortRanges.UniquePortRanges() {
 		result = append(result, portRange.String())
 	}
 	return result, nil

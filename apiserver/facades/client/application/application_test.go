@@ -133,6 +133,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		domainServices.Credential(),
 		domainServices.Machine(),
 		applicationService,
+		domainServices.Port(),
 		domainServices.Stub(),
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
