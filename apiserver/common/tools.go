@@ -37,9 +37,9 @@ type ModelAgentService interface {
 	// not exist.
 	GetModelTargetAgentVersion(context.Context) (version.Number, error)
 
-	// GetMachineTargetAgentVersion reports the target agent version that should be
-	// being run on the provided machine identified by name. The following errors
-	// are possible:
+	// GetMachineTargetAgentVersion reports the target agent version that should
+	// be running on the provided machine identified by name. The following
+	// errors are possible:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 	// - [github.com/juju/juju/domain/model/errors.NotFound]
 	GetMachineTargetAgentVersion(context.Context, machine.Name) (version.Number, error)
@@ -124,9 +124,9 @@ func NewToolsGetter(
 	}
 }
 
-// GetEntityAgentVersion is responsible for getting the target agent version for
+// getEntityAgentVersion is responsible for getting the target agent version for
 // a given tag.
-func (t *ToolsGetter) GetEntityAgentVersion(
+func (t *ToolsGetter) getEntityAgentVersion(
 	ctx context.Context,
 	tag names.Tag,
 ) (ver version.Number, err error) {
@@ -182,7 +182,7 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 			continue
 		}
 
-		agentVersion, err := t.GetEntityAgentVersion(ctx, tag)
+		agentVersion, err := t.getEntityAgentVersion(ctx, tag)
 		if err != nil {
 			return result, err
 		}

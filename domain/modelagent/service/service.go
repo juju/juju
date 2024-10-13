@@ -85,8 +85,8 @@ func NewModelService(modelSt ModelState, st State) *ModelService {
 }
 
 // GetMachineTargetAgentVersion reports the target agent version that should be
-// being run on the provided machine identified by name. The following errors
-// are possible:
+// running on the provided machine identified by name. The following errors are
+// possible:
 // - [machineerrors.MachineNotFound]
 // - [github.com/juju/juju/domain/model/errors.NotFound]
 func (s *ModelService) GetMachineTargetAgentVersion(
