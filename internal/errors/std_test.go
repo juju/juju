@@ -312,3 +312,35 @@ func TestNew(t *testing.T) {
 func TestUnwrap(t *testing.T) {
 	t.SkipNow()
 }
+
+// TestIsOneOf is testing [IsOneOf] and the various combinations of errors and
+// targets we are likely to expect.
+func TestIsOneOf(t *testing.T) {
+	t.Run("ReturnsFalseForEmptyTargets", func(t *testing.T) {
+		err := New("test error")
+		if IsOneOf(err) {
+			t.Error("IsOf with empty target list should return false")
+		}
+	})
+
+	t.Run("ReturnsFalseForNilError", func(t *testing.T) {
+		err := New("test error")
+		if IsOneOf(nil, err) {
+			t.Error("IsOneOf with nil error should return false")
+		}
+
+		if IsOneOf(nil) {
+			t.Error("IsOneOf with nil error with empty target list should return false")
+		}
+	})
+
+	t.Run("IsOneOfMultiple", func(t *testing.T) {
+		type1 := New("type 1")
+		type2 := New("type 2")
+		err := Errorf("%w", type1)
+
+		if !IsOneOf(err, type2, type1) {
+			t.Error("IsOf expected to find type1 in error chain")
+		}
+	})
+}

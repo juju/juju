@@ -108,6 +108,23 @@ func Is(err, target error) bool {
 	return stderrors.Is(err, target)
 }
 
+// IsOneOf reports whether any error in err's tree matches one of the target
+// errors. This check works on a first match effort in that the first target
+// error discovered reports back true with no further errors.
+//
+// If targets is empty then this func will always return false.
+//
+// IsOneOf is the same as writing Is(err, type1) || Is(err, type2) || Is(err, type3)
+func IsOneOf(err error, targets ...error) bool {
+	for _, target := range targets {
+		if stderrors.Is(err, target) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Join returns an error that wraps the given errors.
 // Any nil error values are discarded.
 // Join returns nil if every value in errs is nil.
