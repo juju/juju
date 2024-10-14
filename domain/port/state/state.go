@@ -89,7 +89,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 // So to join units to machines we go via their net_nodes.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
-func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[coreunit.UUID]network.GroupedPortRanges, error) {
+func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[string]network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -99,11 +99,8 @@ func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map
 
 	query, err := st.Prepare(`
 SELECT &unitEndpointPortRange.*
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
-JOIN machine ON unit.net_node_uuid = machine.net_node_uuid
+FROM v_port_range AS pr
+JOIN machine ON pr.net_node_uuid = machine.net_node_uuid
 WHERE machine.uuid = $machineUUID.machine_uuid
 `, unitEndpointPortRange{}, machineUUID)
 	if err != nil {
@@ -141,11 +138,8 @@ func (st *State) GetApplicationOpenedPorts(ctx context.Context, application core
 
 	query, err := st.Prepare(`
 SELECT &unitEndpointPortRange.*
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
-WHERE unit.application_uuid = $applicationUUID.application_uuid
+FROM v_port_range
+WHERE application_uuid = $applicationUUID.application_uuid
 `, unitEndpointPortRange{}, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get application opened ports statement: %w", err)

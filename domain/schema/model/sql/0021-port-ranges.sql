@@ -38,3 +38,21 @@ CREATE TABLE unit_endpoint (
 );
 
 CREATE UNIQUE INDEX idx_unit_endpoint_endpoint_unit_uuid ON unit_endpoint (endpoint, unit_uuid);
+
+-- v_port_range is used to fetch well constructed information about a port range.
+-- This will include information about the port range's endpoint and unit, as well
+-- as the uuids for the net node and application each endpoint is located on.
+CREATE VIEW v_port_range
+AS
+SELECT
+    pr.from_port,
+    pr.to_port,
+    protocol.protocol,
+    ue.endpoint,
+    u.name AS unit_name,
+    u.net_node_uuid,
+    u.application_uuid
+FROM port_range AS pr
+LEFT JOIN protocol ON pr.protocol_id = protocol.id
+LEFT JOIN unit_endpoint AS ue ON pr.unit_endpoint_uuid = ue.uuid
+LEFT JOIN unit AS u ON ue.unit_uuid = u.uuid;

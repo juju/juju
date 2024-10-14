@@ -502,6 +502,7 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_storage",
 		"v_charm_url",
 		"v_hardware_characteristics",
+		"v_port_range",
 		"v_secret_permission",
 		"v_space_subnet",
 	)

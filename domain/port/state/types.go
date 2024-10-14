@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/port"
 )
 
@@ -69,7 +68,7 @@ func (p endpointPortRangeUUID) decode() network.PortRange {
 // unitEndpointPortRange represents a range of ports for a given protocol for
 // a given unit's endpoint, and unit UUID.
 type unitEndpointPortRange struct {
-	UnitUUID string `db:"unit_uuid"`
+	UnitName string `db:"unit_name"`
 	Protocol string `db:"protocol"`
 	FromPort int    `db:"from_port"`
 	ToPort   int    `db:"to_port"`
@@ -78,7 +77,7 @@ type unitEndpointPortRange struct {
 
 func (p unitEndpointPortRange) decodeToUnitEndpointPortRange() port.UnitEndpointPortRange {
 	return port.UnitEndpointPortRange{
-		UnitUUID:  unit.UUID(p.UnitUUID),
+		UnitName:  p.UnitName,
 		Endpoint:  p.Endpoint,
 		PortRange: p.decodeToPortRange(),
 	}
