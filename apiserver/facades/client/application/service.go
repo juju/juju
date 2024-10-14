@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -73,28 +74,24 @@ type ApplicationService interface {
 	// This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
 
-	// DestroyApplication prepares an application for removal from the model
-	// returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
-	// if the application doesn't exist.
+	// DestroyApplication prepares an application for removal from the model.
 	DestroyApplication(ctx context.Context, name string) error
 
-	// DeleteApplication deletes the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// DeleteApplication deletes the specified application,
 	// TODO(units) - remove when destroy is fully implemented.
 	DeleteApplication(ctx context.Context, name string) error
 
-	// DestroyUnit prepares a unit for removal from the model
-	// returning an error  satisfying [applicationerrors.UnitNotFoundError]
-	// if the unit doesn't exist.
+	// DestroyUnit prepares a unit for removal from the model.
 	DestroyUnit(ctx context.Context, name string) error
 
-	// GetApplicationLife looks up the life of the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 
-	// GetUnitLife looks up the life of the specified unit, returning an error
-	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
+	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(ctx context.Context, name string) (life.Value, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	GetUnitUUID(ctx context.Context, unitName string) (unit.UUID, error)
 
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
@@ -111,6 +108,12 @@ type ModelConfigService interface {
 type ModelAgentService interface {
 	// GetModelAgentVersion returns the agent version for the current model.
 	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+}
+
+type PortService interface {
+	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
+	// grouped by endpoint.
+	GetUnitOpenedPorts(ctx context.Context, unitUUID unit.UUID) (network.GroupedPortRanges, error)
 }
 
 // StubService is the interface used to interact with the stub service. A special
