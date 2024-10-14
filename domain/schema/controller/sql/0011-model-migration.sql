@@ -33,13 +33,13 @@ CREATE TABLE model_migration_status (
 
 CREATE TABLE model_migration_user (
     uuid TEXT NOT NULL PRIMARY KEY,
-    --     user_uuid       TEXT NOT NULL,
+    user_uuid TEXT NOT NULL,
     migration_uuid TEXT NOT NULL,
     permission TEXT,
-    --     CONSTRAINT      fk_model_migration_user_XXX
-    --         FOREIGN KEY (user_uuid)
-    --         REFERENCES  XXX(uuid)
-    CONSTRAINT fk_model_migration_user_model_migration
+    CONSTRAINT fk_model_migration_user_user
+    FOREIGN KEY (user_uuid)
+    REFERENCES user (uuid),
+    CONSTRAINT fk_model_migration_user_migration_uuid
     FOREIGN KEY (migration_uuid)
     REFERENCES model_migration (uuid)
 );
@@ -57,11 +57,11 @@ CREATE TABLE model_migration_minion_sync (
 );
 
 CREATE VIEW v_model_migration_info AS
-SELECT 
+SELECT
+    m.uuid,
     c.uuid AS controller_uuid,
-    MAX(c.model_uuid=m.uuid) AS is_controller_model,
+    c.model_uuid AS controller_model_uuid,
     mm.active AS migration_active
 FROM model AS m
-JOIN model_migration AS mm
-JOIN controller AS c
-ON m.uuid = mm.model_uuid;
+INNER JOIN controller AS c
+LEFT JOIN model_migration AS mm ON m.uuid = mm.model_uuid;

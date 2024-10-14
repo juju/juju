@@ -56,6 +56,15 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
+// ParseUUID parses a UUID from a string. If the string is not a valid UUID
+// an error satisfying [errors.NotValid] will be returned.
+func ParseUUID(u string) (UUID, error) {
+	if !uuid.IsValidUUIDString(u) {
+		return "", errors.NotValidf("uuid %q", u)
+	}
+	return UUID(u), nil
+}
+
 // Validate returns an error if the UUID is invalid. The error returned
 // satisfies [errors.NotValid].
 func (u UUID) Validate() error {

@@ -15,11 +15,12 @@ type modelInfo struct {
 // modelMigrationInfo represents the model's information in relation to the
 // controller.
 type modelMigrationInfo struct {
+	// UUID is the unique id of the model.
+	UUID string `db:"uuid"`
 	// ControllerUUID is the UUID of the controller.
 	ControllerUUID string `db:"controller_uuid"`
-	// IsControllerModel is a boolean value to determine if the model is the
-	// controller model.
-	IsControllerModel bool `db:"is_controller_model"`
+	// ControllerModelUUID is the UUID of the controller model.
+	ControllerModelUUID string `db:"controller_model_uuid"`
 	// MigrationActive is a boolean value to determine if the model is currently
 	// in a migration.
 	MigrationActive bool `db:"migration_active"`
@@ -40,5 +41,15 @@ type modelLife struct {
 // modelUUID represents the struct to be used for the uuid column within the
 // sqlair statements in the model domain.
 type modelUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// userName is used to pass a user's name as an argument to SQL.
+type userName struct {
+	Name string `db:"name"`
+}
+
+// userUUID is used to pass a user's UUID as an argument to SQL.
+type userUUID struct {
 	UUID string `db:"uuid"`
 }
