@@ -23,26 +23,45 @@ import (
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
+// Exporter defines the instance of the coordinator on which we'll register
+// the export operations. A logger and a clock are needed for two of the
+// export operations.
+type Exporter struct {
+	coordinator Coordinator
+	logger      logger.Logger
+	clock       clock.Clock
+}
+
+// NewExporter returns a new Exporter that encapsulates the
+// legacyStateExporter. The legacyStateExporter is being deprecated, only
+// needed until the migration to dqlite is complete.
+func NewExporter(
+	coordinator Coordinator,
+	logger logger.Logger,
+	clock clock.Clock,
+) *Exporter {
+	return &Exporter{
+		coordinator: coordinator,
+		logger:      logger,
+		clock:       clock,
+	}
+}
+
 // ExportOperations registers the export operations with the given coordinator.
 // This is a convenience function that can be used by the main migration package
 // to register all the export operations.
-func ExportOperations(
-	coordinator Coordinator,
-	registry internalstorage.ProviderRegistry,
-	logger logger.Logger,
-	clock clock.Clock,
-) {
-	blockcommand.RegisterExport(coordinator, logger.Child("blockcommand"))
-	modelconfig.RegisterExport(coordinator)
-	access.RegisterExport(coordinator, logger.Child("access"))
-	keymanager.RegisterExport(coordinator)
-	credential.RegisterExport(coordinator, logger.Child("credential"))
-	network.RegisterExport(coordinator, logger.Child("network"))
-	externalcontroller.RegisterExport(coordinator)
-	machine.RegisterExport(coordinator, logger.Child("machine"))
-	blockdevice.RegisterExport(coordinator, logger.Child("blockdevice"))
-	storage.RegisterExport(coordinator, registry, logger.Child("storage"))
-	secret.RegisterExport(coordinator, logger.Child("secret"))
-	application.RegisterExport(coordinator, logger.Child("application"))
-	cloudimagemetadata.RegisterExport(coordinator, logger.Child("cloudimagemetadata"), clock)
+func (e *Exporter) ExportOperations(registry internalstorage.ProviderRegistry) {
+	blockcommand.RegisterExport(e.coordinator, e.logger.Child("blockcommand"))
+	modelconfig.RegisterExport(e.coordinator)
+	access.RegisterExport(e.coordinator, e.logger.Child("access"))
+	keymanager.RegisterExport(e.coordinator)
+	credential.RegisterExport(e.coordinator, e.logger.Child("credential"))
+	network.RegisterExport(e.coordinator, e.logger.Child("network"))
+	externalcontroller.RegisterExport(e.coordinator)
+	machine.RegisterExport(e.coordinator, e.logger.Child("machine"))
+	blockdevice.RegisterExport(e.coordinator, e.logger.Child("blockdevice"))
+	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
+	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
+	application.RegisterExport(e.coordinator, e.logger.Child("application"))
+	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
 }

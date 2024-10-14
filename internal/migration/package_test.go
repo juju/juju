@@ -15,8 +15,9 @@ import (
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ApplicationService,OperationExporter,Coordinator
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v8 Model
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

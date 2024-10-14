@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -46,6 +47,26 @@ type LegacyStateExporter interface {
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
 
+// OperationExporter describes the interface for running the ExportOpertions
+// method.
+type OperationExporter interface {
+	// ExportOperations registers the export operations with the given coordinator.
+	ExportOperations(registry internalstorage.ProviderRegistry)
+}
+
+// Coordinator describes the interface required for coordinating model
+// migration operations.
+type Coordinator interface {
+	// Add a new operation to the migration. It will be appended at the end of the
+	// list of operations.
+	Add(operations modelmigration.Operation)
+	// Perform executes the migration.
+	// We log in addition to returning errors because the error is ultimately
+	// returned to the caller on the source, and we want them to be reflected
+	// in *this* controller's logs.
+	Perform(ctx context.Context, scope modelmigration.Scope, model description.Model) (err error)
+}
+
 type storageRegistryGetter func() (storage.ProviderRegistry, error)
 
 // ModelExporter facilitates partial and full export of a model.
@@ -54,9 +75,11 @@ type ModelExporter struct {
 	// migration to dqlite is complete.
 	legacyStateExporter   LegacyStateExporter
 	storageRegistryGetter storageRegistryGetter
+	operationExporter     OperationExporter
 
-	scope  modelmigration.Scope
-	logger corelogger.Logger
+	scope       modelmigration.Scope
+	coordinator Coordinator
+	logger      corelogger.Logger
 
 	clock clock.Clock
 }
@@ -65,15 +88,19 @@ type ModelExporter struct {
 // legacyStateExporter. The legacyStateExporter is being deprecated, only
 // needed until the migration to dqlite is complete.
 func NewModelExporter(
+	operationExporter OperationExporter,
 	legacyStateExporter LegacyStateExporter,
 	scope modelmigration.Scope,
 	storageRegistryGetter storageRegistryGetter,
+	coordinator Coordinator,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelExporter {
 	return &ModelExporter{
+		operationExporter:   operationExporter,
 		legacyStateExporter: legacyStateExporter, scope: scope,
 		storageRegistryGetter: storageRegistryGetter,
+		coordinator:           coordinator,
 		logger:                logger,
 		clock:                 clock,
 	}
@@ -108,9 +135,8 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	coordinator := modelmigration.NewCoordinator(e.logger)
-	migrations.ExportOperations(coordinator, registry, e.logger, e.clock)
-	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
+	e.operationExporter.ExportOperations(registry)
+	if err := e.coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// The model now contains all the exported data from the legacy state along

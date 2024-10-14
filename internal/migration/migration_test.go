@@ -37,6 +37,77 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type ExportSuite struct {
+	providerRegistry      *MockProviderRegistry
+	storageRegistryGetter func() (storage.ProviderRegistry, error)
+	operationsExporter    *MockOperationExporter
+	coordinator           *MockCoordinator
+	model                 *MockModel
+}
+
+var _ = gc.Suite(&ExportSuite{})
+
+func (s *ExportSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.providerRegistry = NewMockProviderRegistry(ctrl)
+	s.operationsExporter = NewMockOperationExporter(ctrl)
+	s.coordinator = NewMockCoordinator(ctrl)
+	s.model = NewMockModel(ctrl)
+
+	return ctrl
+}
+
+func (s *ExportSuite) SetUpTest(c *gc.C) {
+	s.storageRegistryGetter = func() (storage.ProviderRegistry, error) { return s.providerRegistry, nil }
+}
+
+func (s *ExportSuite) TestExportValidates(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	scope := modelmigration.NewScope(nil, nil, nil)
+	exporter := migration.NewModelExporter(
+		s.operationsExporter,
+		nil,
+		scope,
+		s.storageRegistryGetter,
+		s.coordinator,
+		nil, nil,
+	)
+
+	// The order of the expectations is important here. We expect that the
+	// validation is the last thing that happens.
+	gomock.InOrder(
+		s.operationsExporter.EXPECT().ExportOperations(s.providerRegistry),
+		s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil),
+		s.model.EXPECT().Validate().Return(nil),
+	)
+
+	_, err := exporter.Export(context.Background(), s.model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	scope := modelmigration.NewScope(nil, nil, nil)
+	exporter := migration.NewModelExporter(
+		s.operationsExporter,
+		nil,
+		scope,
+		s.storageRegistryGetter,
+		s.coordinator,
+		nil, nil,
+	)
+
+	s.operationsExporter.EXPECT().ExportOperations(s.providerRegistry)
+	s.model.EXPECT().Validate().Return(errors.New("boom"))
+	s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil)
+
+	_, err := exporter.Export(context.Background(), s.model)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 type ImportSuite struct {
 	testing.IsolationSuite
 
