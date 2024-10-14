@@ -1164,7 +1164,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 
 	modelAgentService := modelDomainServices.Agent()
-	agentVersion, err := modelAgentService.GetModelAgentVersion(ctx)
+	agentVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}

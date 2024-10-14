@@ -1589,41 +1589,41 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 	return m.recorder
 }
 
-// GetModelAgentVersion mocks base method.
-func (m *MockModelAgentService) GetModelAgentVersion(arg0 context.Context) (version.Number, error) {
+// GetModelTargetAgentVersion mocks base method.
+func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (version.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelAgentVersion", arg0)
+	ret := m.ctrl.Call(m, "GetModelTargetAgentVersion", arg0)
 	ret0, _ := ret[0].(version.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetModelAgentVersion indicates an expected call of GetModelAgentVersion.
-func (mr *MockModelAgentServiceMockRecorder) GetModelAgentVersion(arg0 any) *MockModelAgentServiceGetModelAgentVersionCall {
+// GetModelTargetAgentVersion indicates an expected call of GetModelTargetAgentVersion.
+func (mr *MockModelAgentServiceMockRecorder) GetModelTargetAgentVersion(arg0 any) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelAgentVersion", reflect.TypeOf((*MockModelAgentService)(nil).GetModelAgentVersion), arg0)
-	return &MockModelAgentServiceGetModelAgentVersionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelTargetAgentVersion", reflect.TypeOf((*MockModelAgentService)(nil).GetModelTargetAgentVersion), arg0)
+	return &MockModelAgentServiceGetModelTargetAgentVersionCall{Call: call}
 }
 
-// MockModelAgentServiceGetModelAgentVersionCall wrap *gomock.Call
-type MockModelAgentServiceGetModelAgentVersionCall struct {
+// MockModelAgentServiceGetModelTargetAgentVersionCall wrap *gomock.Call
+type MockModelAgentServiceGetModelTargetAgentVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelAgentServiceGetModelAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentServiceGetModelAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceGetModelAgentVersionCall) Do(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Do(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceGetModelAgentVersionCall) DoAndReturn(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

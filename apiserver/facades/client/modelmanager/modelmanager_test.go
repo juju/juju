@@ -405,7 +405,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 		Cloud:          "dummy",
 		CloudType:      "dummy",
 	}, nil)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	s.modelConfigService.EXPECT().SetModelConfig(gomock.Any(), modelConfig)
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
@@ -1148,7 +1148,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelDomainServices.EXPECT().BlockCommand().Return(blockCommandService).AnyTimes()
 
 	// Expect calls to functions of the model services.
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
 	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
