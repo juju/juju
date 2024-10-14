@@ -29,8 +29,8 @@ func NewDomainServices(
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
-	logger logger.Logger,
 	clock clock.Clock,
+	logger logger.Logger,
 ) *DomainServices {
 	controllerServices := NewControllerServices(controllerDB, deleterDB, logger)
 	return &DomainServices{
@@ -41,8 +41,8 @@ func NewDomainServices(
 			modelDB,
 			providerTracker,
 			objectStore,
-			logger,
 			clock,
+			logger,
 		),
 	}
 }

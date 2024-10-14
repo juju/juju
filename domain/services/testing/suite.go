@@ -240,8 +240,8 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 			singularObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
-			loggertesting.WrapCheckLog(c),
 			clock.WallClock,
+			loggertesting.WrapCheckLog(c),
 		)
 	}
 }

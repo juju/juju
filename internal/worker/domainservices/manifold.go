@@ -206,8 +206,8 @@ func NewProviderTrackerModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
 		objectStore,
-		logger,
 		clock,
+		logger,
 	)
 }
 
@@ -227,8 +227,8 @@ func NewModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
 		objectStore,
-		logger,
 		clock,
+		logger,
 	)
 }
 

@@ -578,7 +578,6 @@ func (api *ProvisionerAPI) availableImageMetadata(
 		return nil, errors.Annotate(err, "could not construct image constraint")
 	}
 
-	// Look for image metadata in current model.
 	data, err := api.findImageMetadata(ctx, imageConstraint, env, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -632,7 +631,7 @@ func (api *ProvisionerAPI) constructImageConstraint(
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.
-// It looks for image metadata in the model.
+// It looks for cached or custom image metadata in the CloudImageMetadata service.
 // If none are found, we fall back on original image search in simple streams.
 func (api *ProvisionerAPI) findImageMetadata(
 	ctx context.Context,
@@ -640,20 +639,20 @@ func (api *ProvisionerAPI) findImageMetadata(
 	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
-	// Look for image metadata in current model.
+	// Look for image metadata in the service (cached or custom metadata).
 	serviceMetadata, err := api.imageMetadataFromService(ctx, imageConstraint)
 	if err != nil {
-		// look into simple stream if for some reason can't get from the current model,
+		// look into simple stream if for some reason metadata can't be got from the service
 		// so do not exit on error.
-		api.logger.Infof("could not get image metadata from model: %v", err)
+		api.logger.Infof("could not get image metadata from controller: %v", err)
 	}
-	api.logger.Debugf("got from model %d metadata", len(serviceMetadata))
+	api.logger.Debugf("got from controller %d metadata", len(serviceMetadata))
 	// No need to look in data sources if found through service.
 	if len(serviceMetadata) != 0 {
 		return serviceMetadata, nil
 	}
 
-	// If no metadata is found through the model service, fall back to original simple stream search.
+	// If no metadata is found through the service, fall back to original simple stream search.
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
 	// and stores it. So potentially, this data could be different
 	// to what is cached.
@@ -668,7 +667,7 @@ func (api *ProvisionerAPI) findImageMetadata(
 	return dsMetadata, nil
 }
 
-// imageMetadataFromService returns image metadata stored in the current model
+// imageMetadataFromService returns image metadata stored in the service
 // that matches given criteria.
 func (api *ProvisionerAPI) imageMetadataFromService(ctx context.Context, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	filter := cloudimagemetadata.MetadataFilter{
@@ -769,11 +768,11 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(
 		}
 	}
 
-	// Since we've fallen through to data sources search and have saved all needed images for the model,
-	// let's try to get them from controller to avoid duplication of conversion logic here.
+	// Since we've fallen through to data sources search and have saved all needed images in the service,
+	// let's try to get them from the service to avoid duplication of conversion logic here.
 	all, err := api.imageMetadataFromService(ctx, constraint)
 	if err != nil && !errors.Is(err, cloudimagemetadataerrors.NotFound) {
-		return nil, errors.Annotate(err, "could not read metadata from model after saving it there from data sources")
+		return nil, errors.Annotate(err, "could not read metadata from the service after saving it there from data sources")
 	}
 
 	if len(all) == 0 {

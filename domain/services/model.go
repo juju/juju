@@ -77,8 +77,8 @@ func NewModelFactory(
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
-	logger logger.Logger,
 	clock clock.Clock,
+	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
 		logger:          logger,
@@ -288,7 +288,7 @@ func (s *ModelFactory) UnitState() *unitstateservice.Service {
 // CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for the current model.
 func (s *ModelFactory) CloudImageMetadata() *cloudimagemetadataservice.Service {
 	return cloudimagemetadataservice.NewService(
-		cloudimagemetadatastate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger.Child("cloudimagemetadata")),
+		cloudimagemetadatastate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock, s.logger.Child("cloudimagemetadata")),
 	)
 }
 

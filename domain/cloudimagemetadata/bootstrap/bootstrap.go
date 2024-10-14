@@ -18,7 +18,7 @@ import (
 
 // AddCustomImageMetadata creates a BootstrapOpt function that adds custom image metadata to the database.
 func AddCustomImageMetadata(clock clock.Clock, defaultStream string, metadata []*imagemetadata.ImageMetadata) internaldatabase.BootstrapOpt {
-	return func(ctx context.Context, controller, model database.TxnRunner) error {
+	return func(ctx context.Context, controller, _ database.TxnRunner) error {
 		defaultMetadata := make([]cloudimagemetadata.Metadata, 0, len(metadata))
 		for _, m := range metadata {
 			if m == nil {
@@ -43,6 +43,6 @@ func AddCustomImageMetadata(clock clock.Clock, defaultStream string, metadata []
 			})
 		}
 
-		return state.InsertMetadata(ctx, model, defaultMetadata, clock.Now())
+		return state.InsertMetadata(ctx, controller, defaultMetadata, clock.Now())
 	}
 }

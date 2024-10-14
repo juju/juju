@@ -19,12 +19,12 @@ import (
 )
 
 type bootstrapSuite struct {
-	schematesting.ModelSuite
+	schematesting.ControllerSuite
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestInitCustomImageMetadata(c *gc.C) {
+func (s *bootstrapSuite) TestAddCustomImageMetadata(c *gc.C) {
 
 	defaultStream := "defaulted"
 	metadata := []*imagemetadata.ImageMetadata{
@@ -62,7 +62,7 @@ func (s *bootstrapSuite) TestInitCustomImageMetadata(c *gc.C) {
 			Stream:      "Stream-3",
 		},
 	}
-	err := AddCustomImageMetadata(clock.WallClock, defaultStream, metadata)(context.Background(), s.NoopTxnRunner(), s.TxnRunner())
+	err := AddCustomImageMetadata(clock.WallClock, defaultStream, metadata)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	insertedMetadata, err := s.retrieveMetadataFromDB()
@@ -113,7 +113,7 @@ func (s *bootstrapSuite) TestInitCustomImageMetadata(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *gc.C) {
-	err := AddCustomImageMetadata(clock.WallClock, "useless", []*imagemetadata.ImageMetadata{nil, nil, nil})(context.Background(), s.NoopTxnRunner(), s.TxnRunner())
+	err := AddCustomImageMetadata(clock.WallClock, "useless", []*imagemetadata.ImageMetadata{nil, nil, nil})(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	insertedMetadata, err := s.retrieveMetadataFromDB()
