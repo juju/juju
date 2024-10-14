@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -110,8 +111,9 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               registry,
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	api, err := application.NewAPIBase(

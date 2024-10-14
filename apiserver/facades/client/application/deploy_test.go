@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
@@ -69,8 +70,9 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "juju-controller"})
@@ -97,8 +99,9 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	app, err := application.DeployApplication(
@@ -129,8 +132,9 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer
@@ -163,8 +167,9 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
@@ -233,8 +238,9 @@ func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	wordpressCharm := s.addWordpressCharm(c)
@@ -291,8 +297,9 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
@@ -353,8 +360,9 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer
@@ -389,8 +397,9 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	app, err := application.DeployApplication(
@@ -424,8 +433,9 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	st := s.ControllerModel(c).State()
@@ -467,8 +477,9 @@ func sampleApplicationConfigSchema() environschema.Fields {
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	cfg, err := coreconfig.NewConfig(map[string]interface{}{
@@ -505,8 +516,9 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	st := s.ControllerModel(c).State()
@@ -539,8 +551,9 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer
@@ -575,8 +588,9 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer
@@ -614,8 +628,9 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer
@@ -652,8 +667,9 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer
@@ -698,8 +714,9 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
@@ -743,8 +760,9 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
@@ -784,8 +802,9 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               provider.CommonStorageProviders(),
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	var f fakeDeployer

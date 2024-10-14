@@ -55,9 +55,10 @@ VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger)
-	svc := applicationservice.NewService(st, nil, applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
+	svc := applicationservice.NewService(st, nil, nil, applicationservice.ApplicationServiceParams{
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      service.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	}, logger)
 
 	unitName := fmt.Sprintf("%s/0", appName)

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -220,8 +221,9 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	// We need to dual write to dqlite.
 	sf := s.DomainServicesSuite.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(s.DomainServicesSuite.ControllerModelUUID)
 	applicationService := sf.Application(service.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	// Make the wordpressUnit dead.

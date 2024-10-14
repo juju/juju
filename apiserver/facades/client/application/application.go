@@ -45,7 +45,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -176,19 +175,10 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
 
-	backendService := domainServices.SecretBackend()
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets: domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
-		),
+		StorageRegistry:               registry,
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	})
 
 	validatorCfg := validatorConfig{

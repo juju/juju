@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -58,8 +59,9 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		domainServices.ControllerConfig(),
 		domainServices.Config(),
 		domainServices.Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               storage.NotImplementedProviderRegistry{},
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		}),
 		domainServices.Machine(),
 		ctx.Logger().Child("firewaller"),

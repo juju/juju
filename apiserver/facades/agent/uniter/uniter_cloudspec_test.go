@@ -43,8 +43,9 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 
 	facadeContext := s.facadeContext(c)
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	})
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
@@ -86,8 +87,9 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 
 	domainServices := facadeContext.DomainServices()
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	})
 
 	uniterAPI, err := uniter.NewUniterAPIWithServices(

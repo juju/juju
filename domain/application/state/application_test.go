@@ -18,6 +18,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -28,7 +29,10 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
+	portstate "github.com/juju/juju/domain/port/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainsecret "github.com/juju/juju/domain/secret"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -647,6 +651,20 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	portSt := portstate.NewState(s.TxnRunnerFactory())
+	err = portSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return portSt.UpdateUnitPorts(ctx, unitUUID, network.GroupedPortRanges{
+			"endpoint": {
+				{Protocol: "tcp", FromPort: 80, ToPort: 80},
+				{Protocol: "udp", FromPort: 1000, ToPort: 1500},
+			},
+			"misc": {
+				{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
+			},
+		}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	var gotIsLast bool
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
@@ -662,6 +680,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		deviceCount                   int
 		addressCount                  int
 		portCount                     int
+		endpointCount                 int
 		agentStatusCount              int
 		agentStatusDataCount          int
 		workloadStatusCount           int
@@ -683,6 +702,9 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE cloud_container_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_endpoint WHERE unit_uuid=?", unitUUID).Scan(&endpointCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
@@ -708,6 +730,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addressCount, gc.Equals, 0)
 	c.Assert(portCount, gc.Equals, 0)
+	c.Assert(endpointCount, gc.Equals, 0)
 	c.Assert(deviceCount, gc.Equals, 0)
 	c.Assert(containerCount, gc.Equals, 0)
 	c.Assert(agentStatusCount, gc.Equals, 0)
@@ -751,6 +774,71 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitCount, gc.Equals, 0)
+}
+
+func (s *applicationStateSuite) createOwnedSecrets(c *gc.C) (appSecretURI *secrets.URI, unitSecretURI *secrets.URI) {
+	s.createApplication(c, "mysql", life.Alive,
+		application.InsertUnitArg{UnitName: "mysql/0"},
+		application.InsertUnitArg{UnitName: "mysql/1"},
+	)
+	s.createApplication(c, "mariadb", life.Alive,
+		application.InsertUnitArg{UnitName: "mariadb/0"},
+		application.InsertUnitArg{UnitName: "mariadb/1"},
+	)
+	st := secretstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	ctx := context.Background()
+	uri1 := secrets.NewURI()
+	sp := domainsecret.UpsertSecretParams{
+		Data:       secrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := secrets.NewURI()
+	sp2 := domainsecret.UpsertSecretParams{
+		Data:       secrets.SecretData{"foo": "bar"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	c.Assert(err, jc.ErrorIsNil)
+	return uri1, uri2
+}
+
+func (s *applicationStateSuite) TestGetSecretsForAppOwners(c *gc.C) {
+	uri1, _ := s.createOwnedSecrets(c)
+	var gotURIs []*secrets.URI
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = s.state.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, jc.SameContents, []*secrets.URI{uri1})
+}
+
+func (s *applicationStateSuite) TestGetSecretsForUnitOwners(c *gc.C) {
+	_, uri2 := s.createOwnedSecrets(c)
+	var gotURIs []*secrets.URI
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = s.state.GetSecretsForOwners(ctx, domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/1"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, jc.SameContents, []*secrets.URI{uri2})
+}
+
+func (s *applicationStateSuite) TestGetSecretsNone(c *gc.C) {
+	s.createOwnedSecrets(c)
+	var gotURIs []*secrets.URI
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		gotURIs, err = s.state.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/1"})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURIs, gc.HasLen, 0)
 }
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {

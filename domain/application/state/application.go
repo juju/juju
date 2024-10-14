@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -26,6 +27,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainsecret "github.com/juju/juju/domain/secret"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	jujudb "github.com/juju/juju/internal/database"
@@ -367,6 +369,55 @@ func (st *ApplicationState) deleteSimpleApplicationReferences(ctx context.Contex
 		}
 	}
 	return nil
+}
+
+// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.`
+func (st *ApplicationState) GetSecretsForOwners(
+	ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) ([]*secrets.URI, error) {
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, errors.New("must supply at least one app owner or unit owner")
+	}
+
+	query := `
+SELECT sm.secret_id AS &secretID.id
+FROM secret_metadata sm
+LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
+LEFT JOIN application a ON a.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
+LEFT JOIN unit u ON u.uuid = suo.unit_uuid
+WHERE
+    (sao.application_uuid <> "" OR suo.unit_uuid <> "")
+AND
+    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
+`
+
+	queryTypes := []any{
+		secretID{},
+		domainsecret.ApplicationOwners{},
+		domainsecret.UnitOwners{},
+	}
+
+	queryStmt, err := st.Prepare(query, queryTypes...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		dbSecrets secretIDs
+		uris      []*secrets.URI
+	)
+	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryStmt, appOwners, unitOwners).GetAll(&dbSecrets)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Trace(err)
+		}
+		uris, err = dbSecrets.toSecretURIs()
+		return errors.Trace(err)
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return uris, nil
 }
 
 // AddUnits adds the specified units to the application.
@@ -1062,6 +1113,7 @@ func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *
 		"unit_workload_status",
 		"cloud_container_status_data",
 		"cloud_container_status",
+		"unit_endpoint",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)

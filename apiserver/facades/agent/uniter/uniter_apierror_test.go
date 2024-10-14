@@ -56,8 +56,9 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 
 	domainServices := s.ControllerDomainServices(c)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 	_, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,

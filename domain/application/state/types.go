@@ -6,8 +6,10 @@ package state
 import (
 	"time"
 
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent block device entity schema in the database.
@@ -155,6 +157,24 @@ type ipAddress struct {
 	OriginID     int    `db:"origin_id"`
 	ScopeID      int    `db:"scope_id"`
 	DeviceID     string `db:"device_uuid"`
+}
+
+type secretID struct {
+	ID string `db:"id"`
+}
+
+type secretIDs []secretID
+
+func (rows secretIDs) toSecretURIs() ([]*secrets.URI, error) {
+	result := make([]*secrets.URI, len(rows))
+	for i, row := range rows {
+		uri, err := secrets.ParseURI(row.ID)
+		if err != nil {
+			return nil, errors.Errorf("secret URI %q not valid", row.ID)
+		}
+		result[i] = uri
+	}
+	return result, nil
 }
 
 // These structs represent the persistent charm schema in the database.

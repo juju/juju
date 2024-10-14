@@ -39,11 +39,13 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -136,6 +138,11 @@ type AtomicApplicationState interface {
 	// indicate the application could be safely deleted.
 	// It will fail if the unit is not Dead.
 	DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error)
+
+	// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
+	GetSecretsForOwners(
+		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*coresecrets.URI, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -192,6 +199,12 @@ type ApplicationState interface {
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 }
 
+// DeleteSecretState describes methods used by the secret deleter plugin.
+type DeleteSecretState interface {
+	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error)
+	DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) ([]string, error)
+}
+
 const (
 	// applicationSnippet is a non-compiled regexp that can be composed with
 	// other snippets to form a valid application regexp.
@@ -202,22 +215,17 @@ var (
 	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
 )
 
-// SecretService defines methods on a secret service
-// used by an application service.
-type SecretService interface {
-	InternalDeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(context.Context), error)
-	GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error)
+// SecretDeleter defines a way to delete a secret
+// used by an application or unit.
+type SecretDeleter interface {
+	DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(context.Context), error)
 }
 
-// NotImplementedSecretService defines a secret service which does nothing.
-type NotImplementedSecretService struct{}
+// NotImplementedSecretDeleter defines a secret service which does nothing.
+type NotImplementedSecretDeleter struct{}
 
-func (s NotImplementedSecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error) {
-	return nil, nil
-}
-
-func (NotImplementedSecretService) InternalDeleteSecret(domain.AtomicContext, *coresecrets.URI, secretservice.DeleteSecretParams) (func(context.Context), error) {
-	return func(context.Context) {}, nil
+func (NotImplementedSecretDeleter) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error {
+	return nil
 }
 
 // ApplicationService provides the API for working with applications.
@@ -227,26 +235,39 @@ type ApplicationService struct {
 	clock  clock.Clock
 
 	registry      storage.ProviderRegistry
-	secretService SecretService
+	secretDeleter SecretDeleter
 }
 
 // NewApplicationService returns a new service reference wrapping the input state.
-func NewApplicationService(st ApplicationState, params ApplicationServiceParams, logger logger.Logger) *ApplicationService {
+func NewApplicationService(
+	st ApplicationState, deleteSecretState DeleteSecretState,
+	params ApplicationServiceParams, logger logger.Logger,
+) *ApplicationService {
 	// Some uses of application service don't need to supply a storage registry,
 	// eg cleaner facade. In such cases it'd wasteful to create one as an
 	// environ instance would be needed.
 	if params.StorageRegistry == nil {
 		params.StorageRegistry = storage.NotImplementedProviderRegistry{}
 	}
-	if params.Secrets == nil {
-		params.Secrets = NotImplementedSecretService{}
+	if params.BackendAdminConfigGetter == nil {
+		params.BackendAdminConfigGetter = secretservice.NotImplementedBackendConfigGetter
+	}
+	if params.SecretBackendReferenceDeleter == nil {
+		params.SecretBackendReferenceDeleter = NotImplementedSecretDeleter{}
+	}
+	secretDeleter := &secretservice.SecretDeleter{
+		Logger:            logger,
+		SecretState:       deleteSecretState,
+		ProviderGetter:    provider.Provider,
+		AdminConfigGetter: params.BackendAdminConfigGetter,
+		ReferenceDeleter:  params.SecretBackendReferenceDeleter,
 	}
 	return &ApplicationService{
 		st:            st,
 		logger:        logger,
 		clock:         clock.WallClock,
 		registry:      params.StorageRegistry,
-		secretService: params.Secrets,
+		secretDeleter: secretDeleter,
 	}
 }
 
@@ -570,10 +591,7 @@ func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) er
 
 func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName string) ([]func(context.Context), error) {
 	// Get unit owned secrets.
-	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
-		Kind: secretservice.UnitOwner,
-		ID:   unitName,
-	})
+	uris, err := s.st.GetSecretsForOwners(ctx, domainsecret.NilApplicationOwners, domainsecret.UnitOwners{unitName})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
 	}
@@ -581,7 +599,7 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName strin
 	var cleanups []func(context.Context)
 	for _, uri := range uris {
 		s.logger.Debugf("deleting unit %q secret: %s", unitName, uri.ID)
-		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
+		cleanup, err := s.secretDeleter.DeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
 			Accessor: secretservice.SecretAccessor{
 				Kind: secretservice.UnitAccessor,
 				ID:   unitName,
@@ -940,10 +958,7 @@ func (s *ApplicationService) DeleteApplication(ctx context.Context, name string)
 
 func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
 	// Get app owned secrets.
-	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
-		Kind: secretservice.ApplicationOwner,
-		ID:   name,
-	})
+	uris, err := s.st.GetSecretsForOwners(ctx, domainsecret.ApplicationOwners{name}, domainsecret.NilUnitOwners)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application owned secrets for %q", name)
 	}
@@ -951,7 +966,7 @@ func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name st
 	var cleanups []func(context.Context)
 	for _, uri := range uris {
 		s.logger.Debugf("deleting application %q secret: %s", name, uri.ID)
-		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
+		cleanup, err := s.secretDeleter.DeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
 			// TODO(units) - access is expected to be a unit
 			// It is passed to CleanupSecrets() on k8s and is used
 			// to name the service account..
@@ -1364,12 +1379,12 @@ type ProviderApplicationService struct {
 
 // NewProviderApplicationService returns a new Service for interacting with a models state.
 func NewProviderApplicationService(
-	st ApplicationState, params ApplicationServiceParams, logger logger.Logger,
+	st ApplicationState, deleteSecretState DeleteSecretState, params ApplicationServiceParams, logger logger.Logger,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 ) *ProviderApplicationService {
-	service := NewApplicationService(st, params, logger)
+	service := NewApplicationService(st, deleteSecretState, params, logger)
 
 	return &ProviderApplicationService{
 		ApplicationService: *service,
@@ -1422,14 +1437,14 @@ type WatchableApplicationService struct {
 
 // NewWatchableApplicationService returns a new service reference wrapping the input state.
 func NewWatchableApplicationService(
-	st ApplicationState, watcherFactory WatcherFactory,
+	st ApplicationState, deleteSecretState DeleteSecretState, watcherFactory WatcherFactory,
 	params ApplicationServiceParams,
 	logger logger.Logger,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 ) *WatchableApplicationService {
-	service := NewProviderApplicationService(st, params, logger, modelID, agentVersionGetter, provider)
+	service := NewProviderApplicationService(st, deleteSecretState, params, logger, modelID, agentVersionGetter, provider)
 
 	return &WatchableApplicationService{
 		ProviderApplicationService: *service,

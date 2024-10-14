@@ -17,22 +17,19 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// AtomicState describes retrieval and persistence methods for
+// DeleteSecretState describes retrieval and persistence methods for
 // secrets that require atomic transactions.
-type AtomicState interface {
-	domain.AtomicStateBase
-
+type DeleteSecretState interface {
 	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
-	GetSecretsForOwners(
-		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
-	) ([]*secrets.URI, error)
 }
 
 // State describes retrieval and persistence methods needed for
 // the secrets domain service.
 type State interface {
-	AtomicState
+	domain.AtomicStateBase
+
+	DeleteSecretState
 
 	GetModelUUID(ctx context.Context) (string, error)
 	CreateUserSecret(

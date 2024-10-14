@@ -50,23 +50,18 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
-	secretService := secretservice.NewSecretService(
-		s.secretState,
-		secretservice.NoopImplementedBackendReferenceMutator{},
-		loggertesting.WrapCheckLog(c),
-		secretservice.SecretServiceParams{
-			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
-			BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-		},
-	)
 	s.svc = service.NewService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
 		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         secretService,
+			StorageRegistry:               provider.CommonStorageProviders(),
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		loggertesting.WrapCheckLog(c),
 	)

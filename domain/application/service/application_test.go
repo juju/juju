@@ -27,6 +27,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/secret/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -44,6 +45,7 @@ type applicationServiceSuite struct {
 
 	state   *MockApplicationState
 	charm   *MockCharm
+	secret  *MockDeleteSecretState
 	clock   *testclock.Clock
 	service *ApplicationService
 }
@@ -1085,16 +1087,18 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockApplicationState(ctrl)
 	s.charm = NewMockCharm(ctrl)
+	s.secret = NewMockDeleteSecretState(ctrl)
 	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
 	params := ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         NotImplementedSecretService{},
+		StorageRegistry:               registry,
+		BackendAdminConfigGetter:      service.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: NotImplementedSecretDeleter{},
 	}
 	s.clock = testclock.NewClock(time.Time{})
-	s.service = NewApplicationService(s.state, params, loggertesting.WrapCheckLog(c))
+	s.service = NewApplicationService(s.state, s.secret, params, loggertesting.WrapCheckLog(c))
 	s.service.clock = s.clock
 
 	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {

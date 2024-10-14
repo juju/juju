@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -70,8 +71,9 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               registry,
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	api, err := application.NewAPIBase(
@@ -229,8 +231,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               registry,
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	api, err := application.NewAPIBase(

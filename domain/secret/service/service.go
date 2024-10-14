@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -38,7 +37,14 @@ func NewSecretService(
 		providerGetter:                provider.Provider,
 		adminConfigGetter:             params.BackendAdminConfigGetter,
 		userSecretConfigGetter:        params.BackendUserSecretConfigGetter,
-		uuidGenerator:                 uuid.NewUUID,
+		secretDeleter: SecretDeleter{
+			Logger:            logger,
+			SecretState:       secretState,
+			ProviderGetter:    provider.Provider,
+			AdminConfigGetter: params.BackendAdminConfigGetter,
+			ReferenceDeleter:  secretBackendReferenceMutator,
+		},
+		uuidGenerator: uuid.NewUUID,
 	}
 }
 
@@ -48,7 +54,7 @@ type ProviderGetter func(backendType string) (provider.SecretBackendProvider, er
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
-// BackendAdminConfigGetter is a func used to get admin level secret backend config.
+// BackendUserSecretConfigGetter is a func used to get admin level secret backend config.
 type BackendUserSecretConfigGetter func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error)
 
 // NotImplementedBackendConfigGetter is a not implemented secret backend getter.
@@ -87,6 +93,8 @@ type SecretService struct {
 	adminConfigGetter             BackendAdminConfigGetter
 	userSecretConfigGetter        BackendUserSecretConfigGetter
 
+	secretDeleter SecretDeleter
+
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
 	uuidGenerator   func() (uuid.UUID, error)
@@ -95,12 +103,14 @@ type SecretService struct {
 // WithProviderGetter is used in tests to override the default provider getter.
 func (s *SecretService) WithProviderGetter(getter ProviderGetter) *SecretService {
 	s.providerGetter = getter
+	s.secretDeleter.ProviderGetter = getter
 	return s
 }
 
 // WithBackendRefMutator is used in tests to override the default backend ref mutator.
 func (s *SecretService) WithBackendRefMutator(mutator SecretBackendReferenceMutator) *SecretService {
 	s.secretBackendReferenceMutator = mutator
+	s.secretDeleter.ReferenceDeleter = mutator
 	return s
 }
 
@@ -487,12 +497,6 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
 	}
 	return nil
-}
-
-// GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
-func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...CharmSecretOwner) ([]*secrets.URI, error) {
-	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	return s.secretState.GetSecretsForOwners(ctx, appOwners, unitOwners)
 }
 
 // ListSecrets returns the secrets matching the specified terms.

@@ -46,7 +46,10 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 	)
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         secretService,
+		BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+			backendService, ctx.ModelUUID(),
+		),
+		SecretBackendReferenceDeleter: secretService,
 	})
 
 	return newUniterAPIWithServices(

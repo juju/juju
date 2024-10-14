@@ -51,6 +51,7 @@ import (
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -573,8 +574,9 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		}
 	}
 	applicationService := modelDomainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         applicationservice.NotImplementedSecretService{},
+		StorageRegistry:               registry,
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	})
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(applicationService), releaser

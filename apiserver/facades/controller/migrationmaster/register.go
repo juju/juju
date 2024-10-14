@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/storage"
 )
@@ -73,8 +74,9 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		domainServices.ModelInfo(),
 		domainServices.Model(),
 		domainServices.Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               storage.NotImplementedProviderRegistry{},
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		}),
 		domainServices.Upgrade(),
 	)

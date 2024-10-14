@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -50,9 +51,10 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	var err error
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil, nil)
-	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
+	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, nil, applicationservice.ApplicationServiceParams{
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	}, loggertesting.WrapCheckLog(c), "", nil, nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,

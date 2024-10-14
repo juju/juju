@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -15,8 +16,9 @@ import (
 // ApplicationServiceParams defines parameters used to
 // create an application service.
 type ApplicationServiceParams struct {
-	StorageRegistry storage.ProviderRegistry
-	Secrets         SecretService
+	StorageRegistry               storage.ProviderRegistry
+	SecretBackendReferenceDeleter secretservice.SecretBackendReferenceDeleter
+	BackendAdminConfigGetter      secretservice.BackendAdminConfigGetter
 }
 
 // AddApplicationArgs contains arguments for adding an application to the model.

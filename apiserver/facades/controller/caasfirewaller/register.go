@@ -13,6 +13,7 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -30,8 +31,9 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 
 	domainServices := ctx.DomainServices()
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         service.NotImplementedSecretService{},
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 	})
 
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())

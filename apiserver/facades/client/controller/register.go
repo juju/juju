@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -50,8 +51,9 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	}
 	applicationServiceGetter := func(modelID model.UUID) ApplicationService {
 		return ctx.DomainServicesForModel(modelID).Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               storage.NotImplementedProviderRegistry{},
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		})
 	}
 	blockCommandServiceGetter := func(modelID model.UUID) BlockCommandService {

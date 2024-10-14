@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -53,8 +54,9 @@ func makeFacade(
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
 		domainServices.Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               storage.NotImplementedProviderRegistry{},
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		}),
 		domainServices.Upgrade(),
 		modelMigrationServiceGetter,

@@ -14,9 +14,12 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -44,6 +47,17 @@ type ExportService interface {
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error)
 }
 
+// NotImplementedDeleteSecretState defines a secret state which does nothing.
+type NotImplementedDeleteSecretState struct{}
+
+func (NotImplementedDeleteSecretState) ListExternalSecretRevisions(domain.AtomicContext, *coresecrets.URI, ...int) ([]coresecrets.ValueRef, error) {
+	return nil, nil
+}
+
+func (NotImplementedDeleteSecretState) DeleteSecret(domain.AtomicContext, *coresecrets.URI, []int) ([]string, error) {
+	return nil, nil
+}
+
 // exportOperation describes a way to execute a migration for
 // exporting applications.
 type exportOperation struct {
@@ -65,10 +79,12 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// so that we can create the appropriate storage instances.
 	e.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), e.logger),
+		NotImplementedDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
 		service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               storage.NotImplementedProviderRegistry{},
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		e.logger,
 	)

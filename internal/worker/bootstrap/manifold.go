@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/services"
@@ -245,8 +246,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			applicationService := controllerModelDomainServices.Application(applicationservice.ApplicationServiceParams{
-				StorageRegistry: registry,
-				Secrets:         applicationservice.NotImplementedSecretService{},
+				StorageRegistry:               registry,
+				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+				SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 			})
 
 			w, err := NewWorker(WorkerConfig{

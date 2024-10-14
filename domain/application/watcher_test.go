@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	secretservice "github.com/juju/juju/domain/secret/service"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -56,13 +58,17 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               provider.CommonStorageProviders(),
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		loggertesting.WrapCheckLog(c),
 		"", nil, nil,
@@ -124,13 +130,17 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 
 	svc := service.NewWatchableService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               provider.CommonStorageProviders(),
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		loggertesting.WrapCheckLog(c),
 		"", nil, nil,
@@ -324,13 +334,17 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 
 	svc := service.NewWatchableService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               provider.CommonStorageProviders(),
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		loggertesting.WrapCheckLog(c),
 		"", nil, nil,
@@ -383,13 +397,17 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 
 	svc := service.NewWatchableService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               provider.CommonStorageProviders(),
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		loggertesting.WrapCheckLog(c),
 		"", nil, nil,

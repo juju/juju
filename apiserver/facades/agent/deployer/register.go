@@ -46,18 +46,18 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	controllerConfigGetter := ctx.DomainServices().ControllerConfig()
 	domainServices := ctx.DomainServices()
 	backendService := domainServices.SecretBackend()
+	secretService := domainServices.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
+		},
+	)
 	applicationService := ctx.DomainServices().Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets: ctx.DomainServices().Secret(
-			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
+		BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+			backendService, ctx.ModelUUID(),
 		),
+		SecretBackendReferenceDeleter: secretService,
 	})
 
 	return NewDeployerAPI(controllerConfigGetter, applicationService, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)

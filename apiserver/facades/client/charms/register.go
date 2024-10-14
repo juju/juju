@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/storage"
 )
@@ -46,8 +47,9 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 
 	domainServices := ctx.DomainServices()
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
+		StorageRegistry:               storage.NotImplementedProviderRegistry{},
+		BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+		SecretBackendReferenceDeleter: applicationservice.NotImplementedSecretDeleter{},
 	})
 
 	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(modelTag, applicationService, authorizer)

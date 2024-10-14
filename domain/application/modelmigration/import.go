@@ -20,6 +20,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	secretservice "github.com/juju/juju/domain/secret/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -71,10 +72,12 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), i.logger),
+		NotImplementedDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
 		service.ApplicationServiceParams{
-			StorageRegistry: i.registry,
-			Secrets:         service.NotImplementedSecretService{},
+			StorageRegistry:               i.registry,
+			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
+			SecretBackendReferenceDeleter: service.NotImplementedSecretDeleter{},
 		},
 		i.logger,
 	)
