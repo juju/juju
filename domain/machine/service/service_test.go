@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	cmachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
@@ -268,7 +269,7 @@ func (s *serviceSuite) TestInstanceIdSuccess(c *gc.C) {
 
 	instanceId, err := NewService(s.state).InstanceID(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, "123")
+	c.Check(instanceId, gc.Equals, instance.Id("123"))
 }
 
 // TestInstanceIdError asserts that an error coming from the state layer is
@@ -281,7 +282,7 @@ func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 
 	instanceId, err := NewService(s.state).InstanceID(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Check(instanceId, gc.Equals, "")
+	c.Check(instanceId, gc.Equals, instance.UnknownId)
 }
 
 // TestInstanceIdNotProvisionedError asserts that the state layer returns a
@@ -295,7 +296,7 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 
 	instanceId, err := NewService(s.state).InstanceID(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
-	c.Check(instanceId, gc.Equals, "")
+	c.Check(instanceId, gc.Equals, instance.UnknownId)
 }
 
 // TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.

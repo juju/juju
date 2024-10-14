@@ -69,7 +69,7 @@ func (ig *InstanceIdGetter) InstanceId(ctx context.Context, args params.Entities
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].Result = instanceId
+		result.Results[i].Result = string(instanceId)
 	}
 	return result, nil
 }

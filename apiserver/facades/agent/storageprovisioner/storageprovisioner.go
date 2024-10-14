@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/container"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -798,7 +799,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			}
 			// Volumes can be attached to units (caas models) or machines.
 			// We only care about instance id for machine attachments.
-			var instanceId string
+			var instanceId instance.Id
 			if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
 				machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
 				if err != nil {
@@ -813,7 +814,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 				VolumeTag:  tag.String(),
 				MachineTag: volumeAttachment.Host().String(),
 				VolumeId:   "",
-				InstanceId: instanceId,
+				InstanceId: string(instanceId),
 				Provider:   volumeParams.Provider,
 				ReadOnly:   volumeAttachmentParams.ReadOnly,
 			}
@@ -1019,7 +1020,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 		}
 		// Volumes can be attached to units (caas models) or machines.
 		// We only care about instance id for machine attachments.
-		var instanceId string
+		var instanceId instance.Id
 		if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
 			machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
 			if err != nil {
@@ -1066,7 +1067,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 			VolumeTag:  volumeAttachment.Volume().String(),
 			MachineTag: volumeAttachment.Host().String(),
 			VolumeId:   volumeId,
-			InstanceId: instanceId,
+			InstanceId: string(instanceId),
 			Provider:   string(providerType),
 			ReadOnly:   readOnly,
 		}, nil
@@ -1105,7 +1106,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 		hostTag := filesystemAttachment.Host()
 		// Filesystems can be attached to units (caas models) or machines.
 		// We only care about instance id for machine attachments.
-		var instanceId string
+		var instanceId instance.Id
 		if machineTag, ok := filesystemAttachment.Host().(names.MachineTag); ok {
 			machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
 			if err != nil {
@@ -1155,7 +1156,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			FilesystemTag: filesystemAttachment.Filesystem().String(),
 			MachineTag:    hostTag.String(),
 			FilesystemId:  filesystemId,
-			InstanceId:    instanceId,
+			InstanceId:    string(instanceId),
 			Provider:      string(providerType),
 			// TODO(axw) dealias MountPoint. We now have
 			// Path, MountPoint and Location in different

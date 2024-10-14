@@ -1103,7 +1103,8 @@ func (c *statusContext) makeMachineStatus(
 	populateStatusFromStatusInfoAndErr(&status.ModificationStatus, sModInfo, err)
 
 	var (
-		instid, displayName string
+		instid      instance.Id
+		displayName string
 	)
 	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if err != nil {
@@ -1114,8 +1115,8 @@ func (c *statusContext) makeMachineStatus(
 			logger.Debugf("error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
 	}
-	if instid != "" {
-		status.InstanceId = instance.Id(instid)
+	if instid != instance.UnknownId {
+		status.InstanceId = instid
 		status.DisplayName = displayName
 		addr, err := machine.PublicAddress()
 		if err != nil {

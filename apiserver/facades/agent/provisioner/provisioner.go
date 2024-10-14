@@ -242,7 +242,7 @@ func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.Machi
 }
 
 // getInstanceID returns the instance ID for the given machine.
-func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) (string, error) {
+func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) (instance.Id, error) {
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return "", apiservererrors.ServerError(err)
@@ -597,7 +597,7 @@ func (api *ProvisionerAPI) controllerInstances(ctx context.Context, st *state.St
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, err
 		}
-		instances = append(instances, instance.Id(instanceId))
+		instances = append(instances, instanceId)
 	}
 	return instances, nil
 }
@@ -626,7 +626,7 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, st *state
 			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return nil, err
 			}
-			instanceIdSet.Add(instanceId)
+			instanceIdSet.Add(string(instanceId))
 		}
 	}
 	instanceIds := make([]instance.Id, instanceIdSet.Size())
@@ -1003,8 +1003,8 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			env, callCtx, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
-			instance.Id(hostInstanceID),
-			instance.Id(guestInstanceID),
+			hostInstanceID,
+			guestInstanceID,
 			allSubnets,
 		); err != nil {
 			handler.SetError(i, err)

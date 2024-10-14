@@ -14,24 +14,24 @@ import (
 // InstanceID returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a
 // [github.com/juju/juju/domain/machine/errors.NotProvisioned]
-func (s *Service) InstanceID(ctx context.Context, machineUUID string) (string, error) {
+func (s *Service) InstanceID(ctx context.Context, machineUUID string) (instance.Id, error) {
 	instanceId, err := s.st.InstanceID(ctx, machineUUID)
 	if err != nil {
 		return "", errors.Annotatef(err, "retrieving cloud instance id for machine %q", machineUUID)
 	}
-	return instanceId, nil
+	return instance.Id(instanceId), nil
 }
 
 // InstanceIDAndName returns the cloud specific instance ID and display name for
 // this machine.
 // If the machine is not provisioned, it returns a
 // [github.com/juju/juju/domain/machine/errors.NotProvisioned]
-func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID string) (string, string, error) {
+func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error) {
 	instanceID, instanceName, err := s.st.InstanceIDAndName(ctx, machineUUID)
 	if err != nil {
 		return "", "", errors.Annotatef(err, "retrieving cloud instance name for machine %q", machineUUID)
 	}
-	return instanceID, instanceName, nil
+	return instance.Id(instanceID), instanceName, nil
 }
 
 // AvailabilityZone returns the availability zone for the specified machine.

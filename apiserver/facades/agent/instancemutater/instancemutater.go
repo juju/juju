@@ -41,7 +41,7 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, machineUUID string) (string, error)
+	InstanceID(ctx context.Context, machineUUID string) (instance.Id, error)
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, machineUUID string) ([]string, error)
@@ -416,7 +416,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		return empty, errors.Trace(err)
 	}
 	return lxdProfileInfo{
-		InstanceId:      instance.Id(instId),
+		InstanceId:      instId,
 		ModelName:       modelName,
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,

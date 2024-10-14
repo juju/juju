@@ -319,10 +319,10 @@ func (c *MockExportServiceHardwareCharacteristicsCall) DoAndReturn(f func(contex
 }
 
 // InstanceID mocks base method.
-func (m *MockExportService) InstanceID(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockExportService) InstanceID(arg0 context.Context, arg1 string) (instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -340,19 +340,19 @@ type MockExportServiceInstanceIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceInstanceIDCall) Return(arg0 string, arg1 error) *MockExportServiceInstanceIDCall {
+func (c *MockExportServiceInstanceIDCall) Return(arg0 instance.Id, arg1 error) *MockExportServiceInstanceIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceInstanceIDCall) Do(f func(context.Context, string) (string, error)) *MockExportServiceInstanceIDCall {
+func (c *MockExportServiceInstanceIDCall) Do(f func(context.Context, string) (instance.Id, error)) *MockExportServiceInstanceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceInstanceIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockExportServiceInstanceIDCall {
+func (c *MockExportServiceInstanceIDCall) DoAndReturn(f func(context.Context, string) (instance.Id, error)) *MockExportServiceInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
