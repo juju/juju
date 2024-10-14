@@ -17,5 +17,10 @@ type Status struct {
 	Message string
 }
 
+// String returns the [Id] as a string.
+func (id Id) String() string {
+	return string(id)
+}
+
 // UnknownId can be used to explicitly specify the instance Id when it does not matter.
 const UnknownId Id = ""

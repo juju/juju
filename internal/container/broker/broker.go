@@ -139,7 +139,7 @@ func releaseContainerAddresses(
 	namespace instance.Namespace,
 	log corelogger.Logger,
 ) {
-	containerTag, err := namespace.MachineTag(string(instanceID))
+	containerTag, err := namespace.MachineTag(instanceID.String())
 	if err != nil {
 		// Not a reason to cause StopInstances to fail though..
 		log.Warningf("unexpected container tag %q: %v", instanceID, err)

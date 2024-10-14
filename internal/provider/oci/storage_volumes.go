@@ -353,7 +353,7 @@ func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 }
 
 func (v *volumeSource) volumeAttachments(instanceId instance.Id) ([]ociCore.IScsiVolumeAttachment, error) {
-	instId := string(instanceId)
+	instId := instanceId.String()
 
 	attachments, err := v.computeAPI.ListVolumeAttachments(context.Background(), v.env.ecfg().compartmentID(), &instId)
 	if err != nil {

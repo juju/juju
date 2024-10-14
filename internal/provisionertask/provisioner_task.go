@@ -1528,7 +1528,7 @@ func (task *provisionerTask) doStartMachine(
 	// Gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
 	charmLXDProfiles, err := task.gatherCharmLXDProfiles(
-		string(instanceID), machine.Tag().Id(), startInstanceParams.CharmLXDProfiles)
+		instanceID.String(), machine.Tag().Id(), startInstanceParams.CharmLXDProfiles)
 	if err != nil {
 		return errors.Trace(err)
 	}

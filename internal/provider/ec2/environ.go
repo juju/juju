@@ -1717,7 +1717,7 @@ func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 
 	resourceIds := make([]string, len(instances))
 	for i, instance := range instances {
-		resourceIds[i] = string(instance.Id())
+		resourceIds[i] = instance.Id().String()
 	}
 	groupIds := make([]string, len(groups))
 	for i, g := range groups {

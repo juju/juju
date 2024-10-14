@@ -84,7 +84,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
 		}
 		instanceArgs := description.CloudInstanceArgs{
-			InstanceId: string(instanceID),
+			InstanceId: instanceID.String(),
 		}
 		hardwareCharacteristics, err := e.service.HardwareCharacteristics(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {

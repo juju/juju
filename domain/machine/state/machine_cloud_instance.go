@@ -146,7 +146,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		instanceData := instanceData{
 			MachineUUID: machineUUID,
-			InstanceID:  string(instanceID),
+			InstanceID:  instanceID.String(),
 			DisplayName: displayName,
 		}
 		if hardwareCharacteristics != nil {

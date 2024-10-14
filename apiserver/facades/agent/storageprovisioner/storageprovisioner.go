@@ -814,7 +814,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 				VolumeTag:  tag.String(),
 				MachineTag: volumeAttachment.Host().String(),
 				VolumeId:   "",
-				InstanceId: string(instanceId),
+				InstanceId: instanceId.String(),
 				Provider:   volumeParams.Provider,
 				ReadOnly:   volumeAttachmentParams.ReadOnly,
 			}
@@ -1067,7 +1067,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 			VolumeTag:  volumeAttachment.Volume().String(),
 			MachineTag: volumeAttachment.Host().String(),
 			VolumeId:   volumeId,
-			InstanceId: string(instanceId),
+			InstanceId: instanceId.String(),
 			Provider:   string(providerType),
 			ReadOnly:   readOnly,
 		}, nil
@@ -1156,7 +1156,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 			FilesystemTag: filesystemAttachment.Filesystem().String(),
 			MachineTag:    hostTag.String(),
 			FilesystemId:  filesystemId,
-			InstanceId:    string(instanceId),
+			InstanceId:    instanceId.String(),
 			Provider:      string(providerType),
 			// TODO(axw) dealias MountPoint. We now have
 			// Path, MountPoint and Location in different

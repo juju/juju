@@ -626,7 +626,7 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, st *state
 			if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 				return nil, err
 			}
-			instanceIdSet.Add(string(instanceId))
+			instanceIdSet.Add(instanceId.String())
 		}
 	}
 	instanceIds := make([]instance.Id, instanceIdSet.Size())

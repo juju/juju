@@ -200,7 +200,7 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
-		id := string(instance.Id())
+		id := instance.Id().String()
 		instanceIds.Add(id)
 		if checkCloudInstances {
 			if _, found := machinesByInstance[id]; !found {
