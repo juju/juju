@@ -195,7 +195,7 @@ WHERE name = $unitName.name
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"unit %q does not exist", name,
-			).Add(machineerrors.MachineNotFound)
+			).Add(applicationerrors.UnitNotFound)
 		} else if err != nil {
 			return errors.Errorf(
 				"checking if unit %q exists: %w", name, err,
