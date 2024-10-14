@@ -58,7 +58,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 
 // AvailabilityZone returns the availability zone for the specified machine.
 // If no hardware characteristics are set for the machine, it returns
-// [errors.NotFound].
+// [machineerrors.AvailabilityZoneNotFound].
 func (st *State) AvailabilityZone(
 	ctx context.Context,
 	machineUUID string,
@@ -84,7 +84,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, machineUUIDQuery).Get(&row)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
+			return errors.Annotatef(machineerrors.AvailabilityZoneNotFound, "machine cloud instance for machine %q", machineUUID)
 		}
 		return errors.Annotatef(err, "querying machine cloud instance for machine %q", machineUUID)
 	}); err != nil {
@@ -383,7 +383,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUID)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.NotFoundf("machine %q", mName)
+				return machineerrors.MachineNotFound
 			}
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
@@ -424,7 +424,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 
 // SetInstanceStatus sets the cloud specific instance status for this
 // machine.
-// It returns NotFound if the machine does not exist.
+// It returns [machineerrors.MachineNotFound] if the machine does not exist.
 func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newStatus status.StatusInfo) error {
 	db, err := st.DB()
 	if err != nil {
@@ -478,7 +478,7 @@ VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.da
 		err := tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&mUUID)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.NotFoundf("machine %q", mName)
+				return machineerrors.MachineNotFound
 			}
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}

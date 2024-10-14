@@ -503,12 +503,12 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Ent
 		}
 		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(machineerrors.MachineNotFound)
+			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("%w: %w", err, errors.NotFound))
 			continue
 		}
 		hc, err := api.machineService.HardwareCharacteristics(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotProvisioned)
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFound)
 			continue
 		}
 		if err != nil {

@@ -37,9 +37,6 @@ func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID string) (st
 // AvailabilityZone returns the availability zone for the specified machine.
 func (s *Service) AvailabilityZone(ctx context.Context, machineUUID string) (string, error) {
 	az, err := s.st.AvailabilityZone(ctx, machineUUID)
-	if errors.Is(err, errors.NotFound) {
-		return "", errors.NotProvisionedf("machine %q is not provisioned", machineUUID)
-	}
 	return az, errors.Annotatef(err, "retrieving availability zone for machine %q", machineUUID)
 }
 

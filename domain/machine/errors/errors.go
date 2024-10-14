@@ -12,6 +12,10 @@ const (
 	// operated on does not exist.
 	MachineNotFound = errors.ConstError("machine not found")
 
+	// AvailabilityZoneNotFound describes an error that occurs when the required
+	// availability zone does not exist.
+	AvailabilityZoneNotFound = errors.ConstError("availability zone not found")
+
 	// NotProvisioned describes an error that occurs when the machine being
 	// operated on is not provisioned yet.
 	NotProvisioned = errors.ConstError("machine not provisioned")

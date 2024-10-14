@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -350,6 +351,9 @@ var getZone = func(ctx context.Context, st *state.State, machineService MachineS
 		return "", errors.Trace(err)
 	}
 	az, err := machineService.AvailabilityZone(ctx, machineUUID)
+	if errors.Is(err, machineerrors.AvailabilityZoneNotFound) {
+		return "", errors.NotProvisioned
+	}
 	if err != nil {
 		return "", errors.Trace(err)
 	}
