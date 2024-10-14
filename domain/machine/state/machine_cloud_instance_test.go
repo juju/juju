@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -84,7 +83,7 @@ func (s *stateSuite) TestAvailabilityZoneWithNoMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.AvailabilityZone(context.Background(), machineUUID.String())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.AvailabilityZoneNotFound)
 }
 
 func (s *stateSuite) TestAvailabilityZone(c *gc.C) {
@@ -353,7 +352,7 @@ func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *gc.C) {
 // NotFound error when the given machine cannot be found.
 func (s *stateSuite) TestGetInstanceStatusNotFoundError(c *gc.C) {
 	_, err := s.state.GetInstanceStatus(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetInstanceStatusStatusNotSetError asserts that GetInstanceStatus returns
@@ -403,7 +402,7 @@ func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *gc.C) {
 // error when the given machine cannot be found.
 func (s *stateSuite) TestSetInstanceStatusError(c *gc.C) {
 	err := s.state.SetInstanceStatus(context.Background(), "666", status.StatusInfo{})
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestInstanceStatusValues asserts the keys and values in the
