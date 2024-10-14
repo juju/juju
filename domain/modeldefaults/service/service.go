@@ -254,9 +254,9 @@ func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldef
 	return s.cloudDefaults(ctx, cloudUUID)
 }
 
-// UpdateModelConfigCloudDefaultValues saves the specified default attribute details for a cloud.
+// UpdateCloudConfigDefaultValues saves the specified default attribute details for a cloud.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateModelConfigCloudDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error {
+func (s *Service) UpdateCloudConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error {
 	if len(updateAttrs) == 0 {
 		return nil
 	}
@@ -273,9 +273,9 @@ func (s *Service) UpdateModelConfigCloudDefaultValues(ctx context.Context, updat
 	return s.st.UpdateCloudDefaults(ctx, cloudUUID, strAttrs)
 }
 
-// UpdateModelConfigRegionDefaultValues saves the specified default attribute details for a cloud region.
+// UpdateCloudRegionConfigDefaultValues saves the specified default attribute details for a cloud region.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateModelConfigRegionDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error {
+func (s *Service) UpdateCloudRegionConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error {
 	if len(updateAttrs) == 0 {
 		return nil
 	}
@@ -292,9 +292,9 @@ func (s *Service) UpdateModelConfigRegionDefaultValues(ctx context.Context, upda
 	return s.st.UpdateCloudRegionDefaults(ctx, cloudUUID, regionName, strAttrs)
 }
 
-// RemoveModelConfigCloudDefaultValues deletes the specified default attribute details for a cloud.
+// RemoveCloudConfigDefaultValues deletes the specified default attribute details for a cloud.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) RemoveModelConfigCloudDefaultValues(ctx context.Context, removeAttrs []string, cloudName string) error {
+func (s *Service) RemoveCloudConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudName string) error {
 	if len(removeAttrs) == 0 {
 		return nil
 	}
@@ -306,9 +306,9 @@ func (s *Service) RemoveModelConfigCloudDefaultValues(ctx context.Context, remov
 	return s.st.DeleteCloudDefaults(ctx, cloudUUID, removeAttrs)
 }
 
-// RemoveModelConfigRegionDefaultValues deletes the specified default attribute details for a cloud region.
+// RemoveCloudRegionConfigDefaultValues deletes the specified default attribute details for a cloud region.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) RemoveModelConfigRegionDefaultValues(ctx context.Context, removeAttrs []string, cloudName, regionName string) error {
+func (s *Service) RemoveCloudRegionConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudName, regionName string) error {
 	if len(removeAttrs) == 0 {
 		return nil
 	}

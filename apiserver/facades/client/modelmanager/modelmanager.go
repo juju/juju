@@ -1394,9 +1394,9 @@ func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.Mode
 		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", args.CloudTag))
 	}
 	if args.CloudRegion == "" {
-		return m.modelDefaultsService.UpdateModelConfigCloudDefaultValues(ctx, args.Config, cTag.Id())
+		return m.modelDefaultsService.UpdateCloudConfigDefaultValues(ctx, args.Config, cTag.Id())
 	}
-	return m.modelDefaultsService.UpdateModelConfigRegionDefaultValues(ctx, args.Config, cTag.Id(), args.CloudRegion)
+	return m.modelDefaultsService.UpdateCloudRegionConfigDefaultValues(ctx, args.Config, cTag.Id(), args.CloudRegion)
 }
 
 // UnsetModelDefaults removes the specified default model settings.
@@ -1428,9 +1428,9 @@ func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.Mod
 		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", arg.CloudTag))
 	}
 	if arg.CloudRegion == "" {
-		return m.modelDefaultsService.RemoveModelConfigCloudDefaultValues(ctx, arg.Keys, cTag.Id())
+		return m.modelDefaultsService.RemoveCloudConfigDefaultValues(ctx, arg.Keys, cTag.Id())
 	}
-	return m.modelDefaultsService.RemoveModelConfigRegionDefaultValues(ctx, arg.Keys, cTag.Id(), arg.CloudRegion)
+	return m.modelDefaultsService.RemoveCloudRegionConfigDefaultValues(ctx, arg.Keys, cTag.Id(), arg.CloudRegion)
 }
 
 // ChangeModelCredential changes cloud credential reference for models.

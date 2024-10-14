@@ -259,11 +259,14 @@ WHERE m.uuid = $modelUUID.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, model).Get(&region)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return interrors.Errorf("model %q not found%w", uuid, errors.Hide(modelerrors.NotFound))
+			return interrors.Errorf("model %q not found", uuid).Add(modelerrors.NotFound)
 		}
 		return errors.Trace(err)
 	})
-	return cloud.UUID(region.CloudUUID), region.Name, errors.Annotatef(err, "getting cloud details for model %q", uuid)
+	if err != nil {
+		return "", "", errors.Annotatef(err, "getting cloud details for model %q", uuid)
+	}
+	return cloud.UUID(region.CloudUUID), region.Name, nil
 }
 
 // GetCloudUUID returns the cloud UUID and region for the given cloud name.
@@ -286,7 +289,7 @@ WHERE c.name = $dbCloud.name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, cld).Get(&cld)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return interrors.Errorf("cloud %q not found%w", cloudName, errors.Hide(clouderrors.NotFound))
+			return interrors.Errorf("cloud %q not found", cloudName).Add(clouderrors.NotFound)
 		}
 		return errors.Trace(err)
 	})
@@ -326,9 +329,9 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 			err := tx.Query(ctx, upsertStmt, cloudDefaultValue{UUID: cld.UUID, Key: k, Value: v}).Run()
 			// The cloud UUID has previously been checked. This allows us to avoid having to use RunAtomic.
 			if database.IsErrConstraintForeignKey(err) {
-				return interrors.Errorf("cloud %q not found%w", cloudUUID, errors.Hide(clouderrors.NotFound))
+				return interrors.Errorf("cloud %q not found", cloudUUID).Add(clouderrors.NotFound)
 			} else if err != nil {
-				return interrors.Errorf("updating cloud default keys %q: %w", cloudUUID, err)
+				return interrors.Errorf("updating %q cloud default keys: %w", cloudUUID, err)
 			}
 		}
 		return nil
@@ -420,7 +423,7 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 			err := tx.Query(ctx, upsertStmt, cloudRegionDefaultValue{UUID: region.UUID, Key: k, Value: v}).Run()
 			// The cloud UUID has previously been checked. This allows us to avoid having to use RunAtomic.
 			if database.IsErrConstraintForeignKey(err) {
-				return interrors.Errorf("cloud %q not found %w", cloudUUID, errors.Hide(clouderrors.NotFound))
+				return interrors.Errorf("cloud %q not found", cloudUUID).Add(clouderrors.NotFound)
 			} else if err != nil {
 				return errors.Trace(err)
 			}

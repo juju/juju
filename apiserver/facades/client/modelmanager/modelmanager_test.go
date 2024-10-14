@@ -38,6 +38,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -633,12 +634,14 @@ func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
 
 func (s *modelManagerSuite) TestSetModelCloudDefaults(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	defaults := map[string]interface{}{
 		"attr3": "val3",
 		"attr4": "val4",
 	}
-	s.modelDefaultService.EXPECT().UpdateModelConfigCloudDefaultValues(gomock.Any(), defaults, "test")
+	s.modelDefaultService.EXPECT().UpdateCloudConfigDefaultValues(gomock.Any(), defaults, "test")
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", Config: defaults}},
 	}
@@ -649,12 +652,14 @@ func (s *modelManagerSuite) TestSetModelCloudDefaults(c *gc.C) {
 
 func (s *modelManagerSuite) TestSetModelRegionDefaults(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	defaults := map[string]interface{}{
 		"attr3": "val3",
 		"attr4": "val4",
 	}
-	s.modelDefaultService.EXPECT().UpdateModelConfigRegionDefaultValues(gomock.Any(), defaults, "test", "east")
+	s.modelDefaultService.EXPECT().UpdateCloudRegionConfigDefaultValues(gomock.Any(), defaults, "test", "east")
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", CloudRegion: "east", Config: defaults}},
 	}
@@ -685,8 +690,10 @@ func (s *modelManagerSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
 
 func (s *modelManagerSuite) TestUnsetModelCloudDefaults(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
-	s.modelDefaultService.EXPECT().RemoveModelConfigCloudDefaultValues(gomock.Any(), []string{"attr"}, "test")
+	s.modelDefaultService.EXPECT().RemoveCloudConfigDefaultValues(gomock.Any(), []string{"attr"}, "test")
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			CloudTag: "cloud-test",
@@ -699,8 +706,10 @@ func (s *modelManagerSuite) TestUnsetModelCloudDefaults(c *gc.C) {
 
 func (s *modelManagerSuite) TestUnsetModelRegionDefaults(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
-	s.modelDefaultService.EXPECT().RemoveModelConfigRegionDefaultValues(gomock.Any(), []string{"attr"}, "test", "east")
+	s.modelDefaultService.EXPECT().RemoveCloudRegionConfigDefaultValues(gomock.Any(), []string{"attr"}, "test", "east")
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			CloudTag:    "cloud-test",
@@ -1741,6 +1750,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 
 func (s *modelManagerSuite) TestChangeModelCredential(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
@@ -1756,6 +1766,8 @@ func (s *modelManagerSuite) TestChangeModelCredential(c *gc.C) {
 
 func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
@@ -1786,6 +1798,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) 
 
 func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	apiUser := names.NewUserTag("bob@remote")
@@ -1803,6 +1816,8 @@ func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *gc.C) {
 
 func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	s.st.SetErrors(errors.New("getting model"))
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
@@ -1815,11 +1830,13 @@ func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `getting model`)
-	s.st.CheckCallNames(c, "ControllerTag", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
+	s.st.CheckCallNames(c, "ControllerTag", "ModelTag", "ControllerTag", "GetModel")
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
+		Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return false, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
