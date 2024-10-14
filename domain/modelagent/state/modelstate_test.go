@@ -6,9 +6,8 @@ package state
 import (
 	"context"
 
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
