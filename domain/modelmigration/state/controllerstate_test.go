@@ -12,19 +12,15 @@ import (
 	"github.com/juju/juju/core/controller"
 	controllertesting "github.com/juju/juju/core/controller/testing"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
-	usertesting "github.com/juju/juju/core/user/testing"
-	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type controllerSuite struct {
 	schematesting.ModelSuite
 
 	controllerUUID controller.UUID
+	modelUUID      coremodel.UUID
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -34,21 +30,13 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = controllertesting.GenControllerUUID(c)
 
 	runner := s.TxnRunnerFactory()
-	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+	s.modelUUID = modelstatetesting.CreateTestModel(c, runner, "test")
+}
 
-	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
-	}
-	err := state.Create(context.Background(), args)
+func (s *controllerSuite) TestModelAvailable(c *gc.C) {
+	state := NewControllerState(s.TxnRunnerFactory())
+
+	available, err := state.ModelAvailable(context.Background(), s.modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(available, jc.IsTrue)
 }

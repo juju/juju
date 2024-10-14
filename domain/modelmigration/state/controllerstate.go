@@ -113,5 +113,6 @@ func (s *ControllerState) ModelMigrationInfo(ctx context.Context) (modelmigratio
 	return modelmigration.ModelMigrationInfo{
 		ControllerUUID:    controllerUUID,
 		IsControllerModel: result.IsControllerModel,
+		MigrationActive:   result.MigrationActive,
 	}, nil
 }
