@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -1131,16 +1130,12 @@ func (sb *storageBackend) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op
 
 func (sb *storageConfigBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := sb.modelConfigService.ModelConfig(context.Background())
-		if err != nil {
-			return VolumeParams{}, errors.Trace(err)
-		}
 		cons := StorageConstraints{
 			Pool:  params.Pool,
 			Size:  params.Size,
 			Count: 1,
 		}
-		poolName, err := defaultStoragePool(sb.modelType, modelConfig, storage.StorageKindBlock, cons)
+		poolName, err := defaultStoragePool(sb.modelType, storage.StorageKindBlock, cons)
 		if err != nil {
 			return VolumeParams{}, errors.Annotate(err, "getting default block storage pool")
 		}

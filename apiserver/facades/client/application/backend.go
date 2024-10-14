@@ -211,7 +211,6 @@ type Resources interface {
 
 type stateShim struct {
 	*state.State
-	modelConfigService ModelConfigService
 }
 
 type modelShim struct {
@@ -262,13 +261,11 @@ func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
 // NewStateApplication converts a state.Application into an Application.
 func NewStateApplication(
 	st *state.State,
-	modelConfigService ModelConfigService,
 	app *state.Application,
 ) Application {
 	return stateApplicationShim{
-		Application:        app,
-		st:                 st,
-		modelConfigService: modelConfigService,
+		Application: app,
+		st:          st,
 	}
 }
 
@@ -286,9 +283,8 @@ func (s stateShim) Application(name string) (Application, error) {
 		return nil, err
 	}
 	return stateApplicationShim{
-		Application:        a,
-		st:                 s.State,
-		modelConfigService: s.modelConfigService,
+		Application: a,
+		st:          s.State,
 	}, nil
 }
 
@@ -297,14 +293,13 @@ func (s stateShim) ReadSequence(name string) (int, error) {
 }
 
 func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(s.modelConfigService, args, store)
+	a, err := s.State.AddApplication(args, store)
 	if err != nil {
 		return nil, err
 	}
 	return stateApplicationShim{
-		Application:        a,
-		st:                 s.State,
-		modelConfigService: s.modelConfigService,
+		Application: a,
+		st:          s.State,
 	}, nil
 }
 
@@ -428,9 +423,8 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return stateUnitShim{
-		Unit:               u,
-		st:                 s.State,
-		modelConfigService: s.modelConfigService,
+		Unit: u,
+		st:   s.State,
 	}, nil
 }
 
@@ -442,9 +436,8 @@ func (s stateShim) UnitsInError() ([]Unit, error) {
 	result := make([]Unit, len(units))
 	for i, u := range units {
 		result[i] = stateUnitShim{
-			Unit:               u,
-			st:                 s.State,
-			modelConfigService: s.modelConfigService,
+			Unit: u,
+			st:   s.State,
 		}
 	}
 	return result, nil
@@ -470,19 +463,17 @@ func (s stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Applic
 
 type stateApplicationShim struct {
 	*state.Application
-	st                 *state.State
-	modelConfigService ModelConfigService
+	st *state.State
 }
 
 func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
-	u, err := a.Application.AddUnit(a.modelConfigService, args)
+	u, err := a.Application.AddUnit(args)
 	if err != nil {
 		return nil, err
 	}
 	return stateUnitShim{
-		Unit:               u,
-		st:                 a.st,
-		modelConfigService: a.modelConfigService,
+		Unit: u,
+		st:   a.st,
 	}, nil
 }
 
@@ -502,9 +493,8 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 	out := make([]Unit, len(units))
 	for i, u := range units {
 		out[i] = stateUnitShim{
-			Unit:               u,
-			st:                 a.st,
-			modelConfigService: a.modelConfigService,
+			Unit: u,
+			st:   a.st,
 		}
 	}
 	return out, nil
@@ -530,7 +520,7 @@ func (a stateApplicationShim) SetCharm(
 	config state.SetCharmConfig,
 	objStore objectstore.ObjectStore,
 ) error {
-	return a.Application.SetCharm(a.modelConfigService, config, objStore)
+	return a.Application.SetCharm(config, objStore)
 }
 
 type stateCharmShim struct {
@@ -584,16 +574,15 @@ func (ru stateRelationUnitShim) Settings() (map[string]interface{}, error) {
 
 type stateUnitShim struct {
 	*state.Unit
-	st                 *state.State
-	modelConfigService ModelConfigService
+	st *state.State
 }
 
 func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
-	return u.st.AssignUnit(u.modelConfigService, u.Unit, policy)
+	return u.st.AssignUnit(u.Unit, policy)
 }
 
 func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {
-	return u.st.AssignUnitWithPlacement(u.modelConfigService, u.Unit, placement, allSpaces)
+	return u.st.AssignUnitWithPlacement(u.Unit, placement, allSpaces)
 }
 
 type Subnet interface {

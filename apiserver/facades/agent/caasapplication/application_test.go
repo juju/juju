@@ -140,7 +140,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
-	c.Assert(s.st.app.Calls()[0].Args[1], mc, state.UpsertCAASUnitParams{
+	c.Assert(s.st.app.Calls()[0].Args[0], mc, state.UpsertCAASUnitParams{
 		AddUnitParams: state.AddUnitParams{
 			ProviderId: strPtr("gitlab-0"),
 			UnitName:   strPtr("gitlab/0"),
@@ -211,7 +211,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
-	c.Assert(s.st.app.Calls()[0].Args[1], mc, state.UpsertCAASUnitParams{
+	c.Assert(s.st.app.Calls()[0].Args[0], mc, state.UpsertCAASUnitParams{
 		AddUnitParams: state.AddUnitParams{
 			ProviderId: strPtr("gitlab-0"),
 			UnitName:   strPtr("gitlab/0"),

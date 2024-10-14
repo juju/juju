@@ -36,7 +36,6 @@ func PublishRelationChange(
 	ctx context.Context,
 	auth authoriser,
 	backend Backend,
-	modelConfigService ModelConfigService,
 	modelID model.UUID,
 	relationTag,
 	applicationTag names.Tag,
@@ -113,7 +112,7 @@ func PublishRelationChange(
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(handleChangedUnits(modelConfigService, change, applicationTag, rel))
+	return errors.Trace(handleChangedUnits(change, applicationTag, rel))
 }
 
 type authoriser interface {
@@ -211,7 +210,6 @@ func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag
 }
 
 func handleChangedUnits(
-	modelConfigService ModelConfigService,
 	change params.RemoteRelationChangeEvent,
 	applicationTag names.Tag,
 	rel Relation,
@@ -233,7 +231,7 @@ func handleChangedUnits(
 		}
 		if !inScope {
 			logger.Debugf("%s entering scope (%v)", unitTag.Id(), settings)
-			err = ru.EnterScope(modelConfigService, settings)
+			err = ru.EnterScope(settings)
 		} else {
 			logger.Debugf("%s updated settings (%v)", unitTag.Id(), settings)
 			err = ru.ReplaceSettings(settings)

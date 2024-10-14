@@ -28,7 +28,6 @@ var _ = gc.Suite(&filteringStatusSuite{})
 func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
 	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// make application 1 with endpoint 1
 	a1 := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Name: "abc",
@@ -97,7 +96,6 @@ func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
 func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitOrdering(c *gc.C) {
 	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
 	applicationA := factory.MakeApplication(c, &testfactory.ApplicationParams{
@@ -159,7 +157,6 @@ func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitO
 func (s *filteringStatusSuite) TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly(c *gc.C) {
 	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
 	applicationA := factory.MakeApplication(c, &testfactory.ApplicationParams{
@@ -223,7 +220,6 @@ func (s *filteringStatusSuite) TestFilterOutRelationsForRelatedApplicationsThatD
 func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
 	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	factory = factory.WithModelConfigService(s.modelConfigService(c))
 
 	app := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Charm: factory.MakeCharm(c, &testfactory.CharmParams{

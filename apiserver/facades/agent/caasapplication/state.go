@@ -6,7 +6,6 @@ package caasapplication
 import (
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -38,7 +37,7 @@ type Model interface {
 // Application provides the subset of application state
 // required by the CAAS application facade.
 type Application interface {
-	UpsertCAASUnit(modelConfigService common.ModelConfigService, args state.UpsertCAASUnitParams) (Unit, error)
+	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
 }
 
 // Charm provides the subset of charm state required by the
@@ -92,10 +91,9 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 }
 
 func (a applicationShim) UpsertCAASUnit(
-	modelConfigService common.ModelConfigService,
 	args state.UpsertCAASUnitParams,
 ) (Unit, error) {
-	u, err := a.Application.UpsertCAASUnit(modelConfigService, args)
+	u, err := a.Application.UpsertCAASUnit(args)
 	if err != nil {
 		return nil, err
 	}

@@ -32,7 +32,6 @@ func (s *containerProvisionerSuite) SetUpTest(c *gc.C) {
 func addContainerToMachine(
 	c *gc.C,
 	st *state.State,
-	modelConfigService provisioner.ModelConfigService,
 	machine *state.Machine,
 ) *state.Machine {
 	// Add a container machine with machine as its host.
@@ -40,7 +39,7 @@ func addContainerToMachine(
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := st.AddMachineInsideMachine(modelConfigService, containerTemplate, machine.Id(), instance.LXD)
+	container, err := st.AddMachineInsideMachine(containerTemplate, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	return container
 }
@@ -50,10 +49,9 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 
 	// Login as a machine agent for machine 1, which has a container put on it
 	st := s.ControllerModel(c).State()
-	modelConfigService := s.ControllerDomainServices(c).Config()
-	addContainerToMachine(c, st, modelConfigService, s.machines[1])
-	addContainerToMachine(c, st, modelConfigService, s.machines[1])
-	addContainerToMachine(c, st, modelConfigService, s.machines[2])
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[2])
 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
@@ -108,10 +106,9 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 
 	// Login as a machine agent for machine 1, which has a container put on it
 	st := s.ControllerModel(c).State()
-	modelConfigService := s.ControllerDomainServices(c).Config()
-	addContainerToMachine(c, st, modelConfigService, s.machines[1])
-	addContainerToMachine(c, st, modelConfigService, s.machines[1])
-	addContainerToMachine(c, st, modelConfigService, s.machines[2])
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[2])
 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false

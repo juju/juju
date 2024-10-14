@@ -90,7 +90,6 @@ func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
-	modelConfigService ModelConfigService,
 	numControllers int, cons constraints.Value, base Base, placement []string,
 ) (ControllersChanges, []string, error) {
 
@@ -149,7 +148,7 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, addedUnits, err = st.enableHAIntentionOps(modelConfigService, intent, cons, base)
+		ops, change, addedUnits, err = st.enableHAIntentionOps(intent, cons, base)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
@@ -169,7 +168,6 @@ type ControllersChanges struct {
 
 // enableHAIntentionOps returns operations to fulfil the desired intent.
 func (st *State) enableHAIntentionOps(
-	modelConfigService ModelConfigService,
 	intent *enableHAIntent,
 	cons constraints.Value,
 	base Base,
@@ -191,7 +189,7 @@ func (st *State) enableHAIntentionOps(
 		change.Converted = append(change.Converted, m.Id())
 		// Add a controller charm unit to the promoted machine.
 		if controllerApp != nil {
-			unitName, unitOps, err := controllerApp.addUnitOps(modelConfigService, "", AddUnitParams{machineID: m.Id()}, nil)
+			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil)
 			if err != nil {
 				return nil, ControllersChanges{}, nil, errors.Trace(err)
 			}
@@ -243,7 +241,7 @@ func (st *State) enableHAIntentionOps(
 			template.Dirty = true
 			template.principals = []string{controllerUnitName}
 		}
-		mdoc, addOps, err := st.addMachineOps(modelConfigService, template)
+		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, ControllersChanges{}, nil, errors.Trace(err)
 		}
@@ -253,7 +251,7 @@ func (st *State) enableHAIntentionOps(
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
 		if controllerApp != nil {
-			_, unitOps, err := controllerApp.addUnitOps(modelConfigService, "", AddUnitParams{
+			_, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{
 				UnitName:  &controllerUnitName,
 				machineID: mdoc.Id,
 			}, nil)

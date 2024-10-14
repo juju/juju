@@ -58,12 +58,6 @@ type networkInfoSuite struct {
 	networkService NetworkService
 }
 
-// modelConfigService is a convenience function to get the controller model's
-// model config service inside a test.
-func (s *networkInfoSuite) modelConfigService(c *gc.C) uniter.ModelConfigService {
-	return s.ControllerDomainServices(c).Config()
-}
-
 var _ = gc.Suite(&networkInfoSuite{})
 
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
@@ -78,7 +72,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +132,6 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	bindings := map[string]string{
 		"":             network.AlphaSpaceId,
@@ -166,9 +159,9 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(s.modelConfigService(c)), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,7 +216,6 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	bindings := map[string]string{
 		"":             network.AlphaSpaceId,
@@ -233,9 +225,9 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 		EndpointBindings: bindings,
 	})
 
-	unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(s.modelConfigService(c)), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -288,7 +280,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -348,7 +340,6 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -361,7 +352,6 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
-	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 
 	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	app := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
@@ -423,7 +413,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil)
-	err := prr.pu0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -467,7 +457,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -501,7 +491,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -534,7 +524,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -579,7 +569,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	st := s.ControllerModel(c).State()
 
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine(s.modelConfigService(c))
+	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -639,7 +629,6 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -652,14 +641,13 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
-	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 
 	gitlabch := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	mysqlch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	gitlab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
 	mysql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
 
-	prr := newProReqRelationForApps(c, st, s.modelConfigService(c), mysql, gitlab)
+	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
@@ -700,7 +688,6 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -713,14 +700,13 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
-	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 
 	gitLabCh := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	mySqlCh := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
 	mySql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
 
-	prr := newProReqRelationForApps(c, st, s.modelConfigService(c), mySql, gitLab)
+	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
@@ -737,7 +723,6 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
@@ -750,7 +735,6 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	f2, release := s.NewFactory(c, st.ModelUUID())
 	defer release()
-	f2 = f2.WithModelConfigService(s.modelConfigService(c))
 
 	gitLabCh := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
@@ -784,8 +768,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	prr := &RemoteProReqRelation{rel: rel, papp: papp, rapp: gitLab}
 	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
 	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
-	prr.ru0, prr.rru0 = addRU(c, s.modelConfigService(c), gitLab, rel, nil)
-	prr.ru1, prr.rru1 = addRU(c, s.modelConfigService(c), gitLab, rel, nil)
+	prr.ru0, prr.rru0 = addRU(c, gitLab, rel, nil)
+	prr.ru1, prr.rru1 = addRU(c, gitLab, rel, nil)
 
 	// Add a container address.
 	// These are scoped as local-machine and are fallen back to for CAAS by
@@ -844,7 +828,6 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	bindings := map[string]string{
 		"":             spaceDefault.ID,
@@ -854,12 +837,12 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 		EndpointBindings: bindings,
 	})
 
-	unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddOneMachine(
-		s.modelConfigService(c),
+
 		state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
@@ -867,7 +850,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.AssignToMachine(s.modelConfigService(c), machine)
+	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", "10.0.0.20/24")
@@ -925,19 +908,18 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
 
-	unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddOneMachine(
-		s.modelConfigService(c),
+
 		state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
@@ -945,7 +927,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.AssignToMachine(s.modelConfigService(c), machine)
+	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", "10.0.0.20/24")
@@ -1069,7 +1051,6 @@ func (s *networkInfoSuite) newProReqRelationWithBindings(
 ) *ProReqRelation {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	papp := f.MakeApplication(c, &factory.ApplicationParams{
 		EndpointBindings: pBindings,
@@ -1088,13 +1069,12 @@ func (s *networkInfoSuite) newProReqRelationWithBindings(
 			EndpointBindings: rBindings,
 		})
 	}
-	return newProReqRelationForApps(c, s.ControllerModel(c).State(), s.modelConfigService(c), papp, rapp)
+	return newProReqRelationForApps(c, s.ControllerModel(c).State(), papp, rapp)
 }
 
 func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope) *ProReqRelation {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	pApp := f.MakeApplication(c, nil)
 
@@ -1111,7 +1091,7 @@ func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope)
 		})
 	}
 
-	return newProReqRelationForApps(c, s.ControllerModel(c).State(), s.modelConfigService(c), pApp, rApp)
+	return newProReqRelationForApps(c, s.ControllerModel(c).State(), pApp, rApp)
 }
 
 func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelation {
@@ -1129,7 +1109,6 @@ func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelatio
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	rapp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
@@ -1144,15 +1123,14 @@ func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelatio
 	prr := &RemoteProReqRelation{rel: rel, papp: papp, rapp: rapp}
 	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
 	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
-	prr.ru0, prr.rru0 = addRU(c, s.modelConfigService(c), rapp, rel, nil)
-	prr.ru1, prr.rru1 = addRU(c, s.modelConfigService(c), rapp, rel, nil)
+	prr.ru0, prr.rru0 = addRU(c, rapp, rel, nil)
+	prr.ru1, prr.rru1 = addRU(c, rapp, rel, nil)
 	return prr
 }
 
 func newProReqRelationForApps(
 	c *gc.C,
 	st *state.State,
-	modelConfigService uniter.ModelConfigService,
 	proApp, reqApp *state.Application,
 ) *ProReqRelation {
 	eps, err := st.InferEndpoints(proApp.Name(), reqApp.Name())
@@ -1160,21 +1138,20 @@ func newProReqRelationForApps(
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	prr := &ProReqRelation{rel: rel, papp: proApp, rapp: reqApp}
-	prr.pu0, prr.pru0 = addRU(c, modelConfigService, proApp, rel, nil)
-	prr.pu1, prr.pru1 = addRU(c, modelConfigService, proApp, rel, nil)
+	prr.pu0, prr.pru0 = addRU(c, proApp, rel, nil)
+	prr.pu1, prr.pru1 = addRU(c, proApp, rel, nil)
 	if eps[0].Scope == charm.ScopeGlobal {
-		prr.ru0, prr.rru0 = addRU(c, modelConfigService, reqApp, rel, nil)
-		prr.ru1, prr.rru1 = addRU(c, modelConfigService, reqApp, rel, nil)
+		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, nil)
+		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, nil)
 	} else {
-		prr.ru0, prr.rru0 = addRU(c, modelConfigService, reqApp, rel, prr.pu0)
-		prr.ru1, prr.rru1 = addRU(c, modelConfigService, reqApp, rel, prr.pu1)
+		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, prr.pu0)
+		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, prr.pu1)
 	}
 	return prr
 }
 
 func addRU(
 	c *gc.C,
-	modelConfigService uniter.ModelConfigService,
 	app *state.Application,
 	rel *state.Relation,
 	principal *state.Unit,
@@ -1185,7 +1162,7 @@ func addRU(
 	// relation's scope as the principal.
 	var u *state.Unit
 	if principal == nil {
-		unit, err := app.AddUnit(modelConfigService, state.AddUnitParams{})
+		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		u = unit
 	} else {
@@ -1193,7 +1170,7 @@ func addRU(
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(principal)
 		c.Assert(err, jc.ErrorIsNil)
-		err = pru.EnterScope(modelConfigService, nil) // to create the subordinate
+		err = pru.EnterScope(nil) // to create the subordinate
 		c.Assert(err, jc.ErrorIsNil)
 		err = pru.LeaveScope() // to reset to initial expected state
 		c.Assert(err, jc.ErrorIsNil)
