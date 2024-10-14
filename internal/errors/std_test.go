@@ -269,7 +269,7 @@ func TestIs(t *testing.T) {
 func TestIsOf(t *testing.T) {
 	t.Run("ReturnsFalseForEmptyTargets", func(t *testing.T) {
 		err := New("test error")
-		if IsOf(err) {
+		if IsOneOf(err) {
 			t.Errorf("IsOf with empty target list should return false")
 		}
 	})
@@ -279,7 +279,7 @@ func TestIsOf(t *testing.T) {
 		type2 := New("type 2")
 		err := Errorf("%w", type1)
 
-		if !IsOf(err, type2, type1) {
+		if !IsOneOf(err, type2, type1) {
 			t.Errorf("IsOf expected to find type1 in error chain")
 		}
 	})
