@@ -45,45 +45,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AllEndpointBindings mocks base method.
-func (m *MockState) AllEndpointBindings() (map[string]map[string]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllEndpointBindings")
-	ret0, _ := ret[0].(map[string]map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllEndpointBindings indicates an expected call of AllEndpointBindings.
-func (mr *MockStateMockRecorder) AllEndpointBindings() *MockStateAllEndpointBindingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindings", reflect.TypeOf((*MockState)(nil).AllEndpointBindings))
-	return &MockStateAllEndpointBindingsCall{Call: call}
-}
-
-// MockStateAllEndpointBindingsCall wrap *gomock.Call
-type MockStateAllEndpointBindingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAllEndpointBindingsCall) Return(arg0 map[string]map[string]string, arg1 error) *MockStateAllEndpointBindingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAllEndpointBindingsCall) Do(f func() (map[string]map[string]string, error)) *MockStateAllEndpointBindingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllEndpointBindingsCall) DoAndReturn(f func() (map[string]map[string]string, error)) *MockStateAllEndpointBindingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Application mocks base method.
 func (m *MockState) Application(arg0 string) (firewall.Application, error) {
 	m.ctrl.T.Helper()
@@ -466,44 +427,6 @@ func (c *MockStateWatchModelMachinesCall) Do(f func() state.StringsWatcher) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateWatchModelMachinesCall) DoAndReturn(f func() state.StringsWatcher) *MockStateWatchModelMachinesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchOpenedPorts mocks base method.
-func (m *MockState) WatchOpenedPorts() state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchOpenedPorts")
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchOpenedPorts indicates an expected call of WatchOpenedPorts.
-func (mr *MockStateMockRecorder) WatchOpenedPorts() *MockStateWatchOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPorts", reflect.TypeOf((*MockState)(nil).WatchOpenedPorts))
-	return &MockStateWatchOpenedPortsCall{Call: call}
-}
-
-// MockStateWatchOpenedPortsCall wrap *gomock.Call
-type MockStateWatchOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateWatchOpenedPortsCall) Return(arg0 state.StringsWatcher) *MockStateWatchOpenedPortsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateWatchOpenedPortsCall) Do(f func() state.StringsWatcher) *MockStateWatchOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateWatchOpenedPortsCall) DoAndReturn(f func() state.StringsWatcher) *MockStateWatchOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

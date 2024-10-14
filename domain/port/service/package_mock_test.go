@@ -15,6 +15,7 @@ import (
 
 	set "github.com/juju/collections/set"
 	application "github.com/juju/juju/core/application"
+	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	domain "github.com/juju/juju/domain"
@@ -279,6 +280,45 @@ func (c *MockStateGetEndpointsCall) DoAndReturn(f func(domain.AtomicContext, uni
 	return c
 }
 
+// GetMachineNamesForEndpoints mocks base method.
+func (m *MockState) GetMachineNamesForEndpoints(arg0 context.Context, arg1 []string) ([]machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineNamesForEndpoints", arg0, arg1)
+	ret0, _ := ret[0].([]machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineNamesForEndpoints indicates an expected call of GetMachineNamesForEndpoints.
+func (mr *MockStateMockRecorder) GetMachineNamesForEndpoints(arg0, arg1 any) *MockStateGetMachineNamesForEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNamesForEndpoints", reflect.TypeOf((*MockState)(nil).GetMachineNamesForEndpoints), arg0, arg1)
+	return &MockStateGetMachineNamesForEndpointsCall{Call: call}
+}
+
+// MockStateGetMachineNamesForEndpointsCall wrap *gomock.Call
+type MockStateGetMachineNamesForEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineNamesForEndpointsCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachineNamesForEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineNamesForEndpointsCall) Do(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineNamesForEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineOpenedPorts mocks base method.
 func (m *MockState) GetMachineOpenedPorts(arg0 context.Context, arg1 string) (map[string]network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
@@ -314,45 +354,6 @@ func (c *MockStateGetMachineOpenedPortsCall) Do(f func(context.Context, string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineOpenedPortsCall) DoAndReturn(f func(context.Context, string) (map[string]network.GroupedPortRanges, error)) *MockStateGetMachineOpenedPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetMachinesForEndpoints mocks base method.
-func (m *MockState) GetMachinesForEndpoints(arg0 context.Context, arg1 []string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachinesForEndpoints", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMachinesForEndpoints indicates an expected call of GetMachinesForEndpoints.
-func (mr *MockStateMockRecorder) GetMachinesForEndpoints(arg0, arg1 any) *MockStateGetMachinesForEndpointsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesForEndpoints", reflect.TypeOf((*MockState)(nil).GetMachinesForEndpoints), arg0, arg1)
-	return &MockStateGetMachinesForEndpointsCall{Call: call}
-}
-
-// MockStateGetMachinesForEndpointsCall wrap *gomock.Call
-type MockStateGetMachinesForEndpointsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachinesForEndpointsCall) Return(arg0 []string, arg1 error) *MockStateGetMachinesForEndpointsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachinesForEndpointsCall) Do(f func(context.Context, []string) ([]string, error)) *MockStateGetMachinesForEndpointsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachinesForEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockStateGetMachinesForEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

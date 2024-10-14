@@ -12,6 +12,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -23,11 +24,11 @@ func (st *State) WatchOpenedPortsTable() string {
 // InitialWatchOpenedPortsStatement returns the query to load the initial event
 // for the WatchOpenedPorts watcher
 func (st *State) InitialWatchOpenedPortsStatement() string {
-	return "SELECT uuid FROM machine"
+	return "SELECT name FROM machine"
 }
 
-// GetMachinesForEndpoints returns a slice of machine UUIDs that host the provided endpoints.
-func (st *State) GetMachinesForEndpoints(ctx context.Context, eps []string) ([]string, error) {
+// GetMachineNamesForEndpoints returns a slice of machine names that host the provided endpoints.
+func (st *State) GetMachineNamesForEndpoints(ctx context.Context, eps []string) ([]coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -36,19 +37,19 @@ func (st *State) GetMachinesForEndpoints(ctx context.Context, eps []string) ([]s
 	endpointUUIDs := endpoints(eps)
 
 	query, err := st.Prepare(`
-SELECT DISTINCT machine.uuid AS &machineUUID.machine_uuid
+SELECT DISTINCT machine.name AS &machineName.name
 FROM machine
 JOIN unit ON machine.net_node_uuid = unit.net_node_uuid
 JOIN unit_endpoint ON unit.uuid = unit_endpoint.unit_uuid
 WHERE unit_endpoint.uuid IN ($endpoints[:])
-`, machineUUID{}, endpointUUIDs)
+`, machineName{}, endpointUUIDs)
 	if err != nil {
 		return nil, errors.Errorf("failed to prepare machine for endpoint query: %w", err)
 	}
 
-	machineUUIDs := []machineUUID{}
+	machineNames := []machineName{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, endpointUUIDs).GetAll(&machineUUIDs)
+		err := tx.Query(ctx, query, endpointUUIDs).GetAll(&machineNames)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -58,7 +59,7 @@ WHERE unit_endpoint.uuid IN ($endpoints[:])
 		return nil, errors.Errorf("failed to get machines for endpoints: %w", err)
 	}
 
-	return transform.Slice(machineUUIDs, func(m machineUUID) string { return m.UUID }), nil
+	return transform.Slice(machineNames, func(m machineName) coremachine.Name { return m.Name }), nil
 }
 
 // FilterEndpointsForApplication returns the subset of provided endpoint uuids

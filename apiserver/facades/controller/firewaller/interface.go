@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -29,9 +29,7 @@ type State interface {
 	IsController() bool
 	ModelUUID() string
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
-	WatchOpenedPorts() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
-	AllEndpointBindings() (map[string]map[string]string, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -69,6 +67,18 @@ type ApplicationService interface {
 	GetUnitLife(context.Context, string) (life.Value, error)
 }
 
+// PortService provides access to the port service.
+type PortService interface {
+	// WatchOpenedPorts returns a strings watcher for opened ports. This watcher
+	// emits events for changes to the opened ports table. Each emitted event
+	// contains the machine UUID which is associated with the port range.
+	WatchOpenedPorts(context.Context) (watcher.StringsWatcher, error)
+
+	// GetMachineOpenedPortsAndSubnets returns the opened port ranges, including the
+	// subnet CIDRs they're open to, for each endpoint, for each unit on a machine.
+	GetMachineOpenedPortsAndSubnets(context.Context, string) (map[string]port.GroupedPortRangesOnSubnets, error)
+}
+
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI
 // required by the remote firewaller facade
 type ControllerConfigAPI interface {
@@ -104,25 +114,4 @@ func (st stateShim) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {
 
 func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
 	return st.st.FindEntity(tag)
-}
-
-func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
-	return st.st.WatchOpenedPorts()
-}
-
-func (st stateShim) AllEndpointBindings() (map[string]map[string]string, error) {
-	model, err := st.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	allEndpointBindings, err := model.AllEndpointBindings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	res := make(map[string]map[string]string, len(allEndpointBindings))
-	for appName, bindings := range allEndpointBindings {
-		res[appName] = bindings.Map() // endpoint -> spaceID
-	}
-	return res, nil
 }
