@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -1342,10 +1343,13 @@ func (m *ModelManagerAPI) modelDefaults(ctx context.Context, cloud string) param
 	result := params.ModelDefaultsResult{}
 	modelDefaults, err := m.modelDefaultsService.CloudDefaults(ctx, cloud)
 	if err != nil {
+		if errors.Is(err, clouderrors.NotFound) {
+			err = errors.NotFoundf("cloud %q", cloud)
+		}
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
-	result.Config = make(map[string]params.ModelDefaults)
+	result.Config = make(map[string]params.ModelDefaults, len(modelDefaults))
 	for attr, val := range modelDefaults {
 		settings := params.ModelDefaults{
 			Controller: val.Controller,
@@ -1382,11 +1386,6 @@ func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetM
 }
 
 func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.ModelDefaultValues) error {
-	// Make sure we don't allow changing agent-version.
-	if _, found := args.Config["agent-version"]; found {
-		return errors.New("agent-version cannot have a default value")
-	}
-
 	if args.CloudTag == "" {
 		return errors.New("missing cloud name")
 	}

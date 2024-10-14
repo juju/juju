@@ -43,7 +43,7 @@ type ModelConfigProviderFunc func(string) (environs.ModelConfigProvider, error)
 // State is the model config state required by this service.
 type State interface {
 	// GetModelCloudDetails returns the cloud UUID and region for the given model.
-	// If the model is not found, an error specifying [modelerrors,NotFound] is returned.
+	// If the model is not found, an error specifying [modelerrors.NotFound] is returned.
 	GetModelCloudDetails(context.Context, coremodel.UUID) (cloud.UUID, string, error)
 
 	// GetCloudUUID returns the cloud UUID and region for the given cloud name.
@@ -57,7 +57,7 @@ type State interface {
 	UpdateCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs map[string]string) error
 
 	// DeleteCloudDefaults deletes the specified cloud default
-	// config values if they exist.
+	// config values for the provided keys if they exist.
 	DeleteCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs []string) error
 
 	// UpdateCloudRegionDefaults is responsible for updating default config values
@@ -161,36 +161,20 @@ func ProviderModelConfigGetter() ModelConfigProviderFunc {
 func ProviderDefaults(
 	ctx context.Context,
 	cloudType string,
-	providerGetter ModelConfigProviderFunc,
-) (modeldefaults.Defaults, schema.Checker, error) {
-	configProvider, err := providerGetter(cloudType)
-	if errors.Is(err, coreerrors.NotFound) {
-		return nil, nil, errors.Errorf(
-			"getting model config provider, provider for cloud type %q does not exist",
-			cloudType,
-		)
-	} else if errors.Is(err, coreerrors.NotSupported) {
-		// The provider doesn't have anything to contribute.
-		return nil, nil, nil
-	} else if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting model config provider for cloud type %q: %w",
-			cloudType, err,
-		)
-	}
-
+	configProvider environs.ModelConfigProvider,
+	configChecker schema.Checker,
+) (modeldefaults.Defaults, error) {
 	modelDefaults, err := configProvider.ModelConfigDefaults(ctx)
 	if err != nil {
-		return nil, nil, errors.Errorf(
+		return nil, errors.Errorf(
 			"getting model defaults for provider of cloud type %q: %w",
 			cloudType, err,
 		)
 	}
 
-	fields := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
-	coercedAttrs, err := fields.Coerce(map[string]any{}, nil)
+	coercedAttrs, err := configChecker.Coerce(map[string]any{}, nil)
 	if err != nil {
-		return nil, nil, errors.Errorf(
+		return nil, errors.Errorf(
 			"coercing model config provider for cloud type %q default schema attributes: %w",
 			cloudType, err,
 		)
@@ -211,7 +195,7 @@ func ProviderDefaults(
 		}
 	}
 
-	return rval, fields, nil
+	return rval, nil
 }
 
 // providerDefaults is responsible for wrangling and bringing together all of
@@ -234,13 +218,29 @@ func (s *Service) providerDefaults(
 		)
 	}
 
-	defaults, checker, err := ProviderDefaults(ctx, modelCloudType, s.modelConfigProviderGetter)
+	configProvider, err := s.modelConfigProviderGetter(modelCloudType)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil, nil, errors.Errorf(
+			"getting model config provider, provider for cloud type %q does not exist",
+			modelCloudType,
+		)
+	} else if errors.Is(err, coreerrors.NotSupported) {
+		// The provider doesn't have anything to contribute.
+		return nil, nil, nil
+	} else if err != nil {
+		return nil, nil, errors.Errorf(
+			"getting model config provider for cloud type %q: %w",
+			modelCloudType, err,
+		)
+	}
+	checker := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
+
+	defaults, err := ProviderDefaults(ctx, modelCloudType, configProvider, checker)
 	if err != nil {
 		return nil, nil, errors.Errorf(
 			"getting cloud %q provider defaults: %w", cloudUUID, err,
 		)
 	}
-
 	return defaults, checker, nil
 }
 
@@ -257,6 +257,10 @@ func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldef
 // UpdateModelConfigCloudDefaultValues saves the specified default attribute details for a cloud.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
 func (s *Service) UpdateModelConfigCloudDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error {
+	if len(updateAttrs) == 0 {
+		return nil
+	}
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
@@ -272,6 +276,10 @@ func (s *Service) UpdateModelConfigCloudDefaultValues(ctx context.Context, updat
 // UpdateModelConfigRegionDefaultValues saves the specified default attribute details for a cloud region.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
 func (s *Service) UpdateModelConfigRegionDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error {
+	if len(updateAttrs) == 0 {
+		return nil
+	}
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
@@ -287,6 +295,10 @@ func (s *Service) UpdateModelConfigRegionDefaultValues(ctx context.Context, upda
 // RemoveModelConfigCloudDefaultValues deletes the specified default attribute details for a cloud.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
 func (s *Service) RemoveModelConfigCloudDefaultValues(ctx context.Context, removeAttrs []string, cloudName string) error {
+	if len(removeAttrs) == 0 {
+		return nil
+	}
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
@@ -297,6 +309,10 @@ func (s *Service) RemoveModelConfigCloudDefaultValues(ctx context.Context, remov
 // RemoveModelConfigRegionDefaultValues deletes the specified default attribute details for a cloud region.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
 func (s *Service) RemoveModelConfigRegionDefaultValues(ctx context.Context, removeAttrs []string, cloudName, regionName string) error {
+	if len(removeAttrs) == 0 {
+		return nil
+	}
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)

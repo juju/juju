@@ -6,6 +6,9 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/juju/schema"
+
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service"
 	"github.com/juju/juju/domain/modeldefaults/state"
@@ -29,11 +32,30 @@ func ModelDefaultsProvider(
 			}
 		}
 
-		providerDefaults, _, err := service.ProviderDefaults(
-			context.Background(),
-			cloudType,
-			service.ProviderModelConfigGetter(),
-		)
+		modelConfigProviderGetter := service.ProviderModelConfigGetter()
+		configProvider, err := modelConfigProviderGetter(cloudType)
+		if errors.Is(err, coreerrors.NotFound) {
+			return nil, errors.Errorf(
+				"getting model config provider, provider for cloud type %q does not exist",
+				cloudType,
+			)
+		} else if err != nil && !errors.Is(err, coreerrors.NotSupported) {
+			return nil, errors.Errorf(
+				"getting model config provider for cloud type %q: %w",
+				cloudType, err,
+			)
+		}
+		checker := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
+
+		var providerDefaults modeldefaults.Defaults
+		if configProvider != nil {
+			providerDefaults, err = service.ProviderDefaults(
+				context.Background(),
+				cloudType,
+				configProvider,
+				checker,
+			)
+		}
 		if err != nil {
 			return nil, errors.Errorf(
 				"getting provider defaults for bootstrap: %w", err,

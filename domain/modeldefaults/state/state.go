@@ -236,7 +236,7 @@ WHERE m.uuid = ?
 }
 
 // GetModelCloudDetails returns the cloud UUID and region for the given model.
-// If the model is not found, an error specifying [modelerrors,NotFound] is returned.
+// If the model is not found, an error specifying [modelerrors.Found] is returned.
 func (s *State) GetModelCloudDetails(ctx context.Context, uuid coremodel.UUID) (cloud.UUID, string, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -336,16 +336,12 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 }
 
 // DeleteCloudDefaults deletes the specified cloud default
-// config values if they exist.
+// config values for the provided keys if they exist.
 func (st *State) DeleteCloudDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 	removeAttrs []string,
 ) error {
-	if len(removeAttrs) == 0 {
-		return nil
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -366,7 +362,7 @@ AND cloud_uuid = $dbCloud.uuid;
 		return tx.Query(ctx, deleteStmt, toRemove, cld).Run()
 	})
 	if err != nil {
-		return interrors.Errorf("removing cloud default keys for %q: %w", cloudUUID, err)
+		return interrors.Errorf("removing cloud %q default keys: %w", cloudUUID, err)
 	}
 	return nil
 }
@@ -382,10 +378,6 @@ func (st *State) UpdateCloudRegionDefaults(
 	regionName string,
 	updateAttrs map[string]string,
 ) error {
-	if len(updateAttrs) == 0 {
-		return nil
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -456,10 +448,6 @@ func (st *State) DeleteCloudRegionDefaults(
 	regionName string,
 	removeAttrs []string,
 ) error {
-	if len(removeAttrs) == 0 {
-		return nil
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
