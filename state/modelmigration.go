@@ -849,10 +849,17 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 	// away from a model and then migrated back.
 	if phase == migration.DONE {
 		model, err := st.Model()
-		if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			// The model not being found breaks the precondition of this
+			// function, the model should be in state. However, to make this
+			// function more resilient and allow it to be called when the models
+			// existence is unknown, we do not return an error here.
+			logger.Debugf("checking latest migration: migrated model has been removed from the state")
+			return mig, nil
+		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if model.MigrationMode() == MigrationModeNone {
+		if model != nil && model.MigrationMode() == MigrationModeNone {
 			return nil, errors.NotFoundf("migration")
 		}
 	}
