@@ -113,6 +113,11 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// The model now contains all the exported data from the legacy state along
+	// with the new domains' one. Time to validate.
+	if err := model.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return model, nil
 }
