@@ -39,9 +39,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
+	_ "github.com/juju/juju/provider/all" // Import the providers.
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
