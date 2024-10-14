@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resources"
@@ -436,7 +437,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/2")] = names.NewStorageTag("data/2")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("gitlab/1")).Return("uuid-m-1", nil).Times(2)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-m-1").Return("instance-id-m-1", nil).Times(2)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-m-1").Return(instance.Id("instance-id-m-1"), nil).Times(2)
 
 	units := []params.ApplicationUnitParams{
 		{ProviderId: "gitlab-0", Address: "address", Ports: []string{"port"},

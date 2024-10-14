@@ -1381,10 +1381,10 @@ func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Contex
 }
 
 // InstanceID mocks base method.
-func (m *MockMachineService) InstanceID(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockMachineService) InstanceID(arg0 context.Context, arg1 string) (instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1402,19 +1402,19 @@ type MockMachineServiceInstanceIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceInstanceIDCall) Return(arg0 string, arg1 error) *MockMachineServiceInstanceIDCall {
+func (c *MockMachineServiceInstanceIDCall) Return(arg0 instance.Id, arg1 error) *MockMachineServiceInstanceIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceInstanceIDCall) Do(f func(context.Context, string) (string, error)) *MockMachineServiceInstanceIDCall {
+func (c *MockMachineServiceInstanceIDCall) Do(f func(context.Context, string) (instance.Id, error)) *MockMachineServiceInstanceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceInstanceIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockMachineServiceInstanceIDCall {
+func (c *MockMachineServiceInstanceIDCall) DoAndReturn(f func(context.Context, string) (instance.Id, error)) *MockMachineServiceInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

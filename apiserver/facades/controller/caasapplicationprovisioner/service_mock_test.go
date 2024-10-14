@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	instance "github.com/juju/juju/core/instance"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
@@ -346,10 +347,10 @@ func (mr *MockMachineServiceMockRecorder) GetMachineUUID(arg0, arg1 any) *gomock
 }
 
 // InstanceID mocks base method.
-func (m *MockMachineService) InstanceID(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockMachineService) InstanceID(arg0 context.Context, arg1 string) (instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

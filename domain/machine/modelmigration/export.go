@@ -32,7 +32,7 @@ type ExportService interface {
 	AllMachineNames(ctx context.Context) ([]coremachine.Name, error)
 	// InstanceID returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceID(ctx context.Context, machineUUID string) (string, error)
+	InstanceID(ctx context.Context, machineUUID string) (instance.Id, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
@@ -84,7 +84,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("retrieving instance ID for machine %q: %w", machineName, err)
 		}
 		instanceArgs := description.CloudInstanceArgs{
-			InstanceId: instanceID,
+			InstanceId: instanceID.String(),
 		}
 		hardwareCharacteristics, err := e.service.HardwareCharacteristics(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {

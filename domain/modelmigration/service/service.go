@@ -152,7 +152,7 @@ func (s *Service) CheckMachines(
 	// Build the sets of provider instance IDs and model machine instance IDs.
 	providerInstanceIDsSet := make(set.Strings, len(providerInstances))
 	for _, instance := range providerInstances {
-		providerInstanceIDsSet.Add(string(instance.Id()))
+		providerInstanceIDsSet.Add(instance.Id().String())
 	}
 
 	instanceIDsSet, err := s.st.GetAllInstanceIDs(ctx)

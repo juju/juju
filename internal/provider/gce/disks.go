@@ -439,7 +439,7 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, attachP
 			mode = google.ModeRW
 		}
 		instanceId := attachment.InstanceId
-		attached, err := v.attachOneVolume(ctx, volumeName, mode, string(instanceId))
+		attached, err := v.attachOneVolume(ctx, volumeName, mode, instanceId.String())
 		if err != nil {
 			logger.Errorf("could not attach %q to %q: %v", volumeName, instanceId, err)
 			results[i].Error = err

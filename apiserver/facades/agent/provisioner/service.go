@@ -77,7 +77,7 @@ type MachineService interface {
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (string, error)
+	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.

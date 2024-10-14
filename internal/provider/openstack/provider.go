@@ -1848,7 +1848,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 		err := e.TagInstance(ctx, instance.Id(), controllerTag)
 		if err != nil {
 			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
-			failed = append(failed, string(instance.Id()))
+			failed = append(failed, instance.Id().String())
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
 				break
