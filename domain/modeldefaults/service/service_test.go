@@ -16,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 )
 
@@ -55,7 +54,7 @@ func (s *serviceSuite) TestModelDefaults(c *gc.C) {
 	cloudUUID, err := cloud.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetModelCloudDetails(gomock.Any(), s.modelUUID).Return(cloudUUID, "east", nil)
+	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).Return(cloudUUID, nil)
 
 	s.modelConfigProvider.EXPECT().ModelConfigDefaults(gomock.Any()).Return(
 		map[string]any{
@@ -84,23 +83,21 @@ func (s *serviceSuite) TestModelDefaults(c *gc.C) {
 
 	s.state.EXPECT().ConfigDefaults(gomock.Any()).Return(
 		map[string]any{
-			"juju-default": "val",
+			"foo": "juju-default",
 		},
 	)
 
 	s.state.EXPECT().CloudDefaults(gomock.Any(), cloudUUID).Return(
 		map[string]string{
-			"cloud-default": "val",
+			"foo": "cloud-default",
 		},
 		nil,
 	)
 
-	s.state.EXPECT().CloudAllRegionDefaults(gomock.Any(), cloudUUID).Return(
-		map[string]map[string]string{
-			"east": {
-				"cloud-region-default": "val",
-				"override":             "val2",
-			},
+	s.state.EXPECT().ModelCloudRegionDefaults(gomock.Any(), s.modelUUID).Return(
+		map[string]string{
+			"foo":                   "cloud-region-default",
+			"provider-config-field": "668",
 		},
 		nil,
 	)
@@ -120,16 +117,16 @@ func (s *serviceSuite) TestModelDefaults(c *gc.C) {
 
 	c.Check(defaults["provider-config-field"].Default, gc.Equals, int64(666))
 
+	c.Check(defaults["provider-config-field"].Region, gc.Equals, int64(668))
+
 	// This provider field doesn't have a default so it shouldn't be set
 	c.Check(defaults["provider-config-field-no-default"].Default, gc.Equals, nil)
 
-	c.Check(defaults["juju-default"].Default, gc.Equals, "val")
+	c.Check(defaults["foo"].Default, gc.Equals, "juju-default")
 
-	c.Check(defaults["cloud-default"].Controller, gc.Equals, "val")
+	c.Check(defaults["foo"].Controller, gc.Equals, "cloud-default")
 
-	c.Check(defaults["cloud-region-default"].Region, gc.Equals, "val")
-
-	c.Check(defaults["override"].Region, gc.Equals, "val2")
+	c.Check(defaults["foo"].Region, gc.Equals, "cloud-region-default")
 
 	c.Check(defaults["uuid"].Controller, gc.Equals, s.modelUUID.String())
 }
@@ -144,25 +141,11 @@ func (s *serviceSuite) TestModelDefaultsModelNotFound(c *gc.C) {
 	cloudUUID, err := cloud.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetModelCloudDetails(gomock.Any(), s.modelUUID).Return(cloudUUID, "east", nil)
-
-	s.state.EXPECT().ConfigDefaults(gomock.Any()).Return(nil)
-
-	s.state.EXPECT().CloudDefaults(gomock.Any(), cloudUUID).Return(
-		nil, clouderrors.NotFound,
-	).AnyTimes()
-
-	s.state.EXPECT().CloudAllRegionDefaults(gomock.Any(), cloudUUID).Return(
-		nil, clouderrors.NotFound,
-	).AnyTimes()
+	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).Return(cloudUUID, nil)
 
 	s.state.EXPECT().CloudType(gomock.Any(), cloudUUID).Return(
 		"", clouderrors.NotFound,
-	).AnyTimes()
-
-	s.state.EXPECT().ModelMetadataDefaults(gomock.Any(), s.modelUUID).Return(
-		nil, modelerrors.NotFound,
-	).AnyTimes()
+	)
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 	_, err = svc.ModelDefaults(context.Background(), s.modelUUID)
@@ -179,7 +162,7 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *gc.C) {
 	cloudUUID, err := cloud.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetModelCloudDetails(gomock.Any(), s.modelUUID).Return(cloudUUID, "east", nil)
+	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).Return(cloudUUID, nil)
 
 	providerGetter := func(cloud string) (environs.ModelConfigProvider, error) {
 		c.Check(cloud, gc.Equals, "dummy")
@@ -192,23 +175,20 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *gc.C) {
 
 	s.state.EXPECT().ConfigDefaults(gomock.Any()).Return(
 		map[string]any{
-			"juju-default": "val",
+			"foo": "juju-default",
 		},
 	)
 
 	s.state.EXPECT().CloudDefaults(gomock.Any(), cloudUUID).Return(
 		map[string]string{
-			"cloud-default": "val",
+			"foo": "cloud-default",
 		},
 		nil,
 	)
 
-	s.state.EXPECT().CloudAllRegionDefaults(gomock.Any(), cloudUUID).Return(
-		map[string]map[string]string{
-			"east": {
-				"cloud-region-default": "val",
-				"override":             "val2",
-			},
+	s.state.EXPECT().ModelCloudRegionDefaults(gomock.Any(), s.modelUUID).Return(
+		map[string]string{
+			"foo": "cloud-region-default",
 		},
 		nil,
 	)
@@ -224,13 +204,11 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *gc.C) {
 	defaults, err := svc.ModelDefaults(context.Background(), s.modelUUID)
 	c.Check(err, jc.ErrorIsNil)
 
-	c.Check(defaults["juju-default"].Default, gc.Equals, "val")
+	c.Check(defaults["foo"].Default, gc.Equals, "juju-default")
 
-	c.Check(defaults["cloud-default"].Controller, gc.Equals, "val")
+	c.Check(defaults["foo"].Controller, gc.Equals, "cloud-default")
 
-	c.Check(defaults["cloud-region-default"].Region, gc.Equals, "val")
-
-	c.Check(defaults["override"].Region, gc.Equals, "val2")
+	c.Check(defaults["foo"].Region, gc.Equals, "cloud-region-default")
 
 	c.Check(defaults["uuid"].Controller, gc.Equals, s.modelUUID.String())
 }
@@ -241,8 +219,8 @@ func (s *serviceSuite) TestModelDefaultsProviderNotSupported(c *gc.C) {
 func (s *serviceSuite) TestModelDefaultsForNonExistentCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetModelCloudDetails(gomock.Any(), s.modelUUID).
-		Return("", "", clouderrors.NotFound).Times(2)
+	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), s.modelUUID).
+		Return("", clouderrors.NotFound).Times(2)
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 

@@ -25,6 +25,19 @@ type AttributeDefaultValues struct {
 	Regions []RegionDefaultValue
 }
 
+// ModelCloudDefaultAttributes represents a set of default values for
+// a given attribute. The values contain the schema default value
+// and any controller default value.
+type ModelCloudDefaultAttributes map[string]CloudDefaultValues
+
+// CloudDefaultValues represents the default values for a given
+// config attribute.
+type CloudDefaultValues struct {
+	// Default and Controller represent the values as set at those levels.
+	Default    any
+	Controller any
+}
+
 // RegionDefaultValue holds the region information for each region in DefaultSetting.
 type RegionDefaultValue struct {
 	// Name represents the region name for this specific setting.

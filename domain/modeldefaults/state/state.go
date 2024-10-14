@@ -87,24 +87,74 @@ WHERE cloud_defaults.cloud_uuid = ?
 	return rval, nil
 }
 
+// ModelCloudRegionDefaults returns the defaults associated with the model's cloud region.
+// It returns an error satisfying [modelerrors.NotFound] if the model doesn't exist.
+func (s *State) ModelCloudRegionDefaults(ctx context.Context, uuid coremodel.UUID) (map[string]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model := modelUUID{UUID: uuid.String()}
+
+	query, err := s.Prepare(`
+SELECT (crd.key, crd.value) AS (&cloudRegionDefaultValue.*)
+FROM model m
+JOIN cloud_region cr ON cr.uuid = m.cloud_region_uuid
+LEFT JOIN cloud_region_defaults crd ON crd.region_uuid = cr.uuid
+WHERE m.uuid = $modelUUID.uuid
+`, cloudRegionDefaultValue{}, model)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(map[string]string)
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+
+		var regionDefaultValues []cloudRegionDefaultValue
+
+		err := tx.Query(ctx, query, model).GetAll(&regionDefaultValues)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return interrors.Errorf("model %q not found", uuid).Add(modelerrors.NotFound)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, regionDefaultValue := range regionDefaultValues {
+			if regionDefaultValue.Key == "" {
+				continue
+			}
+			result[regionDefaultValue.Key] = regionDefaultValue.Value
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting cloud region defaults details for model %q", uuid)
+	}
+	return result, nil
+
+}
+
 // CloudAllRegionDefaults returns the defaults associated with all of the
 // regions for the specified cloud. The result is a map of region name
 // key values, keyed on the name of the region.
 // If no defaults are found then an empty map will be returned with nil error.
 // Note this will not include the defaults set on the cloud itself but
 // just that of its regions.
-func (st *State) CloudAllRegionDefaults(
+func (s *State) CloudAllRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 ) (map[string]map[string]string, error) {
 	defaults := map[string]map[string]string{}
 
-	db, err := st.DB()
+	db, err := s.DB()
 	if err != nil {
 		return defaults, interrors.Errorf("getting database instance for cloud region defaults: %w", err)
 	}
 
-	stmt, err := st.Prepare(`
+	stmt, err := s.Prepare(`
 SELECT (cloud_region.name, cloud_region_defaults.key, cloud_region_defaults.value) AS (&cloudRegionDefaultValue.*)
 FROM cloud_region_defaults
 JOIN cloud_region ON cloud_region.uuid = cloud_region_defaults.region_uuid
@@ -235,38 +285,37 @@ WHERE m.uuid = ?
 	}, nil
 }
 
-// GetModelCloudDetails returns the cloud UUID and region for the given model.
-// If the model is not found, an error specifying [modelerrors.Found] is returned.
-func (s *State) GetModelCloudDetails(ctx context.Context, uuid coremodel.UUID) (cloud.UUID, string, error) {
+// GetModelCloudUUID returns the cloud UUID for the given model.
+// If the model is not found, an error specifying [modelerrors.NotFound] is returned.
+func (s *State) GetModelCloudUUID(ctx context.Context, uuid coremodel.UUID) (cloud.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	model := modelUUID{UUID: uuid.String()}
-	var region cloudRegion
 
 	query, err := s.Prepare(`
-SELECT m.cloud_uuid AS &cloudRegion.cloud_uuid, cr.name AS &cloudRegion.name
+SELECT m.cloud_uuid AS &dbCloud.uuid
 FROM model m
-JOIN cloud_region cr ON cr.uuid = m.cloud_region_uuid
 WHERE m.uuid = $modelUUID.uuid
-`, model, region)
+`, model, dbCloud{})
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
+	var cld dbCloud
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, model).Get(&region)
+		err := tx.Query(ctx, query, model).Get(&cld)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return interrors.Errorf("model %q not found", uuid).Add(modelerrors.NotFound)
 		}
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return "", "", errors.Annotatef(err, "getting cloud details for model %q", uuid)
+		return "", errors.Annotatef(err, "getting cloud UUID for model %q", uuid)
 	}
-	return cloud.UUID(region.CloudUUID), region.Name, nil
+	return cloud.UUID(cld.UUID), nil
 }
 
 // GetCloudUUID returns the cloud UUID and region for the given cloud name.
@@ -300,12 +349,12 @@ WHERE c.name = $dbCloud.name
 // cloud. This function will allow the addition and updating of attributes.
 // If the cloud doesn't exist, an error satisfying [clouderrors.NotFound]
 // is returned.
-func (st *State) UpdateCloudDefaults(
+func (s *State) UpdateCloudDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 	updateAttrs map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -340,12 +389,12 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 
 // DeleteCloudDefaults deletes the specified cloud default
 // config values for the provided keys if they exist.
-func (st *State) DeleteCloudDefaults(
+func (s *State) DeleteCloudDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 	removeAttrs []string,
 ) error {
-	db, err := st.DB()
+	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -353,7 +402,7 @@ func (st *State) DeleteCloudDefaults(
 	cld := dbCloud{UUID: cloudUUID.String()}
 	toRemove := attrs(removeAttrs)
 
-	deleteStmt, err := st.Prepare(`
+	deleteStmt, err := s.Prepare(`
 DELETE FROM cloud_defaults
 WHERE key IN ($attrs[:])
 AND cloud_uuid = $dbCloud.uuid;
@@ -375,13 +424,13 @@ AND cloud_uuid = $dbCloud.uuid;
 // attributes. If the cloud is not found an error satisfying [clouderrors.NotFound]
 // is returned. If the region is not found, am error satisfying [errors.NotFound]
 // is returned.
-func (st *State) UpdateCloudRegionDefaults(
+func (s *State) UpdateCloudRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 	regionName string,
 	updateAttrs map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -389,7 +438,7 @@ func (st *State) UpdateCloudRegionDefaults(
 	cld := dbCloud{UUID: cloudUUID.String()}
 	region := cloudRegion{Name: regionName}
 
-	selectStmt, err := st.Prepare(`
+	selectStmt, err := s.Prepare(`
 SELECT &cloudRegion.uuid
 FROM cloud_region
 WHERE cloud_region.cloud_uuid = $dbCloud.uuid
@@ -399,7 +448,7 @@ AND cloud_region.name = $cloudRegion.name;
 		return errors.Trace(err)
 	}
 
-	upsertStmt, err := st.Prepare(`
+	upsertStmt, err := s.Prepare(`
 INSERT INTO cloud_region_defaults (region_uuid, key, value)
 VALUES ($cloudRegionDefaultValue.*)
 ON CONFLICT(region_uuid, key) DO UPDATE
@@ -445,13 +494,13 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 // keys for the given cloud region.
 // It returns an error satisfying [errors.NotFound] if the
 // region doesn't exist.
-func (st *State) DeleteCloudRegionDefaults(
+func (s *State) DeleteCloudRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 	regionName string,
 	removeAttrs []string,
 ) error {
-	db, err := st.DB()
+	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -459,7 +508,7 @@ func (st *State) DeleteCloudRegionDefaults(
 	cld := dbCloud{UUID: cloudUUID.String()}
 	region := cloudRegion{Name: regionName}
 
-	selectStmt, err := st.Prepare(`
+	selectStmt, err := s.Prepare(`
 SELECT &cloudRegion.uuid
 FROM cloud_region
 WHERE cloud_region.cloud_uuid = $dbCloud.uuid
@@ -471,7 +520,7 @@ AND cloud_region.name = $cloudRegion.name;
 
 	toRemove := attrs(removeAttrs)
 
-	deleteStmt, err := st.Prepare(`
+	deleteStmt, err := s.Prepare(`
 DELETE FROM  cloud_region_defaults
 WHERE key IN ($attrs[:])
 AND region_uuid = $cloudRegion.uuid;

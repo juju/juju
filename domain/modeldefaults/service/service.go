@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/schema"
@@ -42,9 +44,9 @@ type ModelConfigProviderFunc func(string) (environs.ModelConfigProvider, error)
 
 // State is the model config state required by this service.
 type State interface {
-	// GetModelCloudDetails returns the cloud UUID and region for the given model.
+	// GetModelCloudUUID returns the cloud UUID for the given model.
 	// If the model is not found, an error specifying [modelerrors.NotFound] is returned.
-	GetModelCloudDetails(context.Context, coremodel.UUID) (cloud.UUID, string, error)
+	GetModelCloudUUID(context.Context, coremodel.UUID) (cloud.UUID, error)
 
 	// GetCloudUUID returns the cloud UUID and region for the given cloud name.
 	// If the cloud is not found, an error specifying [clouderrors.NotFound] is returned.
@@ -79,6 +81,10 @@ type State interface {
 	// CloudDefaults returns the defaults associated with the given cloud. If
 	// no defaults are found then an empty map will be returned with a nil error.
 	CloudDefaults(context.Context, cloud.UUID) (map[string]string, error)
+
+	// ModelCloudRegionDefaults returns the defaults associated with the model's cloud region.
+	// It returns an error satisfying [modelerrors.NotFound] if the model doesn't exist.
+	ModelCloudRegionDefaults(ctx context.Context, uuid coremodel.UUID) (map[string]string, error)
 
 	// CloudAllRegionDefaults returns the defaults associated with all of the
 	// regions for the specified cloud. The result is a map of region name
@@ -198,50 +204,50 @@ func ProviderDefaults(
 	return rval, nil
 }
 
-// providerDefaults is responsible for wrangling and bringing together all of
-// the config attributes and their defaults for a cloud provider.
-// There are typically two types of defaults a provider has. The first is the
-// defaults for the keys the provider extends model config with. These are
-// generally provider specific keys and only make sense in the context of the
-// provider. The second is defaults the provider can suggest for controller wide
-// attributes. Most commonly this is providing a default for the storage to use
-// in a model.
-func (s *Service) providerDefaults(
-	ctx context.Context,
-	cloudUUID cloud.UUID,
-) (modeldefaults.Defaults, schema.Checker, error) {
-	modelCloudType, err := s.st.CloudType(ctx, cloudUUID)
-	if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting %q cloud type to extract provider model config defaults: %w",
-			cloudUUID, err,
-		)
-	}
+type noopCoerce struct{}
 
-	configProvider, err := s.modelConfigProviderGetter(modelCloudType)
+func (noopCoerce) Coerce(v any, path []string) (any, error) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Map {
+		return nil, errors.Errorf("%v is not a map", v)
+	}
+	result := make(map[string]any)
+	iter := rv.MapRange()
+	for iter.Next() {
+		result[fmt.Sprintf("%v", iter.Key().String())] = iter.Value().String()
+	}
+	return result, nil
+}
+
+type notImplementedConfigProvider struct {
+	environs.ModelConfigProvider
+}
+
+func (notImplementedConfigProvider) ModelConfigDefaults(context.Context) (map[string]any, error) {
+	return nil, nil
+}
+
+func (s Service) providerConfigInfoForCloudType(cloudType string) (environs.ModelConfigProvider, schema.Checker, error) {
+	var providerConfigChecker schema.Checker
+	configProvider, err := s.modelConfigProviderGetter(cloudType)
 	if errors.Is(err, coreerrors.NotFound) {
 		return nil, nil, errors.Errorf(
 			"getting model config provider, provider for cloud type %q does not exist",
-			modelCloudType,
+			cloudType,
 		)
 	} else if errors.Is(err, coreerrors.NotSupported) {
-		// The provider doesn't have anything to contribute.
-		return nil, nil, nil
+		configProvider = notImplementedConfigProvider{}
+		providerConfigChecker = noopCoerce{}
 	} else if err != nil {
 		return nil, nil, errors.Errorf(
 			"getting model config provider for cloud type %q: %w",
-			modelCloudType, err,
+			cloudType, err,
 		)
 	}
-	checker := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
-
-	defaults, err := ProviderDefaults(ctx, modelCloudType, configProvider, checker)
-	if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting cloud %q provider defaults: %w", cloudUUID, err,
-		)
+	if err == nil {
+		providerConfigChecker = schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
 	}
-	return defaults, checker, nil
+	return configProvider, providerConfigChecker, nil
 }
 
 // CloudDefaults returns the default attribute details for a specified cloud.
@@ -251,7 +257,53 @@ func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldef
 	if err != nil {
 		return nil, errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
-	return s.cloudDefaults(ctx, cloudUUID)
+	cloudType, err := s.st.CloudType(ctx, cloudUUID)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting %q cloud type to extract provider model config defaults: %w",
+			cloudUUID, err,
+		)
+	}
+
+	configProvider, providerConfigChecker, err := s.providerConfigInfoForCloudType(cloudType)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting model config provider for cloud type %q: %w",
+			cloudType, err,
+		)
+	}
+
+	cloudDefaults, err := s.cloudDefaults(ctx, cloudUUID, cloudType, configProvider, providerConfigChecker)
+	if err != nil {
+		return nil, errors.Errorf("getting cloud defaults for cloud %q: %w", cloudName, err)
+	}
+
+	regionDefaults, err := s.cloudAllRegionDefaults(ctx, cloudUUID, providerConfigChecker)
+	if err != nil {
+		return nil, errors.Errorf("getting cloud region defaults for cloud %q: %w", cloudUUID, err)
+	}
+
+	defaults := modeldefaults.ModelDefaultAttributes{}
+	for k, v := range cloudDefaults {
+		defaults[k] = modeldefaults.AttributeDefaultValues{
+			Default:    v.Default,
+			Controller: v.Controller,
+		}
+	}
+
+	// Transform the region defaults keys on region name into
+	// a slice of region default values.
+	for regionName, regionAttr := range regionDefaults {
+		for k := range regionAttr {
+			val := defaults[k]
+			val.Regions = append(val.Regions, modeldefaults.RegionDefaultValue{
+				Name:  regionName,
+				Value: regionAttr[k],
+			})
+			defaults[k] = val
+		}
+	}
+	return defaults, nil
 }
 
 // UpdateCloudConfigDefaultValues saves the specified default attribute details for a cloud.
@@ -344,13 +396,35 @@ func (s *Service) ModelDefaults(
 	if err := uuid.Validate(); err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("model uuid: %w", err)
 	}
-	cloudUUID, cloudRegion, err := s.st.GetModelCloudDetails(ctx, uuid)
+	cloudUUID, err := s.st.GetModelCloudUUID(ctx, uuid)
 	if err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("getting cloud UUID for model %q: %w", uuid, err)
 	}
-	defaults, err := s.cloudDefaults(ctx, cloudUUID)
+	cloudType, err := s.st.CloudType(ctx, cloudUUID)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting %q cloud type to extract provider model config defaults: %w",
+			cloudUUID, err,
+		)
+	}
+
+	configProvider, providerConfigChecker, err := s.providerConfigInfoForCloudType(cloudType)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting model config provider for cloud type %q: %w",
+			cloudType, err,
+		)
+	}
+
+	defaults, err := s.cloudDefaults(ctx, cloudUUID, cloudType, configProvider, providerConfigChecker)
 	if err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("getting cloud defaults for model %q with cloud %q: %w", uuid, cloudUUID, err)
+	}
+
+	regionDefaults, err := s.modelCloudRegionDefaults(ctx, uuid, providerConfigChecker)
+	if err != nil {
+		return modeldefaults.Defaults{}, errors.Errorf(
+			"getting cloud region default for model %q with cloud %q: %w", uuid, cloudUUID, err)
 	}
 
 	// TODO (tlm): We want to remove this eventually. Due to legacy reasons
@@ -377,12 +451,7 @@ func (s *Service) ModelDefaults(
 		val := modeldefaults.DefaultAttributeValue{
 			Default:    v.Default,
 			Controller: v.Controller,
-		}
-		for _, r := range v.Regions {
-			if r.Name == cloudRegion {
-				val.Region = r.Value
-				break
-			}
+			Region:     regionDefaults[k],
 		}
 		result[k] = val
 	}
@@ -390,31 +459,36 @@ func (s *Service) ModelDefaults(
 }
 
 // cloudDefaults will return the default config values which have been
-// specified for a cloud and its regions. The string values fron the
+// specified for a cloud and its regions. The string values from the
 // database are coerced into the types specified by the cloud's config schema.
 func (s *Service) cloudDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
-) (modeldefaults.ModelDefaultAttributes, error) {
+	cloudType string,
+	configProvider environs.ModelConfigProvider,
+	providerConfigChecker schema.Checker,
+) (modeldefaults.ModelCloudDefaultAttributes, error) {
 	if err := cloudUUID.Validate(); err != nil {
-		return modeldefaults.ModelDefaultAttributes{}, errors.Errorf("cloud uuid: %w", err)
+		return modeldefaults.ModelCloudDefaultAttributes{}, errors.Errorf("cloud uuid: %w", err)
 	}
 
-	defaults := modeldefaults.ModelDefaultAttributes{}
+	defaults := modeldefaults.ModelCloudDefaultAttributes{}
 
 	jujuDefaults := s.st.ConfigDefaults(ctx)
 	for k, v := range jujuDefaults {
-		defaults[k] = modeldefaults.AttributeDefaultValues{
+		defaults[k] = modeldefaults.CloudDefaultValues{
 			Default: v,
 		}
 	}
 
-	providerDefaults, providerConfigChecker, err := s.providerDefaults(ctx, cloudUUID)
+	providerDefaults, err := ProviderDefaults(ctx, cloudType, configProvider, providerConfigChecker)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf(
+			"getting cloud %q provider defaults: %w", cloudUUID, err,
+		)
 	}
 	for k, v := range providerDefaults {
-		defaults[k] = modeldefaults.AttributeDefaultValues{
+		defaults[k] = modeldefaults.CloudDefaultValues{
 			Default: v.Default,
 		}
 	}
@@ -422,22 +496,30 @@ func (s *Service) cloudDefaults(
 	// Process the cloud defaults.
 	dbCloudDefaults, err := s.st.CloudDefaults(ctx, cloudUUID)
 	if err != nil {
-		return modeldefaults.ModelDefaultAttributes{}, errors.Errorf("getting model %q cloud defaults: %w", cloudUUID, err)
+		return modeldefaults.ModelCloudDefaultAttributes{}, errors.Errorf("getting model %q cloud defaults: %w", cloudUUID, err)
 	}
 	coercedCloudDefaults, err := coerceConfig(dbCloudDefaults, providerConfigChecker)
 	if err != nil {
-		return modeldefaults.ModelDefaultAttributes{}, err
+		return modeldefaults.ModelCloudDefaultAttributes{}, err
 	}
 	for k := range dbCloudDefaults {
 		val := defaults[k]
 		val.Controller = coercedCloudDefaults[k]
 		defaults[k] = val
 	}
+	return defaults, nil
+}
 
-	// Process the cloud region defaults.
+// cloudAllRegionDefaults returns the defaults for all
+// cloud regions for the cloud.
+func (s *Service) cloudAllRegionDefaults(
+	ctx context.Context,
+	cloudUUID cloud.UUID,
+	providerConfigChecker schema.Checker,
+) (map[string]map[string]any, error) {
 	dbCloudRegionDefaults, err := s.st.CloudAllRegionDefaults(ctx, cloudUUID)
 	if err != nil {
-		return modeldefaults.ModelDefaultAttributes{}, errors.Errorf("getting model %q cloud region defaults: %w", cloudUUID, err)
+		return nil, errors.Errorf("getting model %q cloud region defaults: %w", cloudUUID, err)
 	}
 
 	cloudRegionDefaults := make(map[string]map[string]any)
@@ -445,39 +527,41 @@ func (s *Service) cloudDefaults(
 	for regionName, regionAttr := range dbCloudRegionDefaults {
 		coercedAttrs, err := coerceConfig(regionAttr, providerConfigChecker)
 		if err != nil {
-			return modeldefaults.ModelDefaultAttributes{}, err
+			return nil, err
 		}
 		cloudRegionDefaults[regionName] = coercedAttrs
 	}
+	return cloudRegionDefaults, nil
+}
 
-	// Transform the region defaults keys on region name into
-	// a slice of region default values.
-	for regionName, regionAttr := range cloudRegionDefaults {
-		dbRegionAttr := dbCloudRegionDefaults[regionName]
-		for k := range dbRegionAttr {
-			val := defaults[k]
-			val.Regions = append(val.Regions, modeldefaults.RegionDefaultValue{
-				Name:  regionName,
-				Value: regionAttr[k],
-			})
-			defaults[k] = val
-		}
+// modelCloudRegionDefaults returns the defaults for the model's cloud region.
+func (s *Service) modelCloudRegionDefaults(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+	providerConfigChecker schema.Checker,
+) (map[string]any, error) {
+	dbCloudRegionDefaults, err := s.st.ModelCloudRegionDefaults(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting model %q cloud region defaults: %w", modelUUID, err)
 	}
 
-	return defaults, nil
+	// Coerce the cloud region config defaults if a cloud config schema has been found.
+	coercedAttrs, err := coerceConfig(dbCloudRegionDefaults, providerConfigChecker)
+	if err != nil {
+		return nil, err
+	}
+	return coercedAttrs, nil
 }
 
 // coerceConfig takes the config strings as stored in the database and uses the provider
 // and Juju schemas to coerce them to their actual types.
 func coerceConfig(strConfig map[string]string, providerConfigChecker schema.Checker) (map[string]any, error) {
 	var providerCfg map[string]any
-	if providerConfigChecker != nil {
-		coercedProviderCfg, err := providerConfigChecker.Coerce(strConfig, nil)
-		if err != nil {
-			return nil, errors.Errorf("coercing config for cloud provider: %w", err)
-		}
-		providerCfg = coercedProviderCfg.(map[string]any)
+	coercedProviderCfg, err := providerConfigChecker.Coerce(strConfig, nil)
+	if err != nil {
+		return nil, errors.Errorf("coercing config for cloud provider: %w", err)
 	}
+	providerCfg = coercedProviderCfg.(map[string]any)
 
 	resultCfg := transform.Map(strConfig, func(k, v string) (string, any) { return k, v })
 
