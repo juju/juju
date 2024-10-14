@@ -1,3 +1,6 @@
+# Copyright 2024 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
+
 run_refresh_switch_local_to_ch_channel() {
 	# Test juju refresh from a local charm to a charm hub charm with a specific channel
 	echo
@@ -8,11 +11,11 @@ run_refresh_switch_local_to_ch_channel() {
 
 	ensure "${model_name}" "${file}"
 
-	juju download ubuntu --no-progress - >"${charm_name}"
-	juju deploy "${charm_name}" ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju download juju-qa-refresher --no-progress - >"${charm_name}"
+	juju deploy --channel=stable "${charm_name}"
+	wait_for "refresher" "$(idle_condition "refresher")"
 
-	OUT=$(juju refresh ubuntu --switch ch:ubuntu --channel edge 2>&1 || true)
+	OUT=$(juju refresh refresher --switch ch:juju-qa-refresher --channel edge 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added charm-hub charm"; then
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
@@ -21,12 +24,12 @@ run_refresh_switch_local_to_ch_channel() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
+	# format: Added charm-store charm "juju-qa-refresher", revision 1 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
-	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
-	wait_for "ubuntu" "$(charm_channel "ubuntu" "latest/edge")"
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "refresher" "$(charm_rev "refresher" "${revision}")"
+	wait_for "refresher" "$(charm_channel "refresher" "latest/edge")"
+	wait_for "refresher" "$(idle_condition "refresher")"
 
 	destroy_model "${model_name}"
 }
