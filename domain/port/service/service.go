@@ -52,7 +52,7 @@ type State interface {
 
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
 	// given machine. Opened ports are grouped first by unit and then by endpoint.
-	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.UUID]network.GroupedPortRanges, error)
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
 
 	// GetApplicationOpenedPorts returns the opened ports for all the units of the
 	// given application. We return opened ports paired with the unit UUIDs, grouped
@@ -79,16 +79,16 @@ func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID
 }
 
 // GetMachineOpenedPorts returns the opened ports for all the units on the machine.
-// Opened ports are grouped first by unit and then by endpoint.
+// Opened ports are grouped first by unit name and then by endpoint.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
-func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.UUID]network.GroupedPortRanges, error) {
+func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
-// application. Opened ports are grouped first by unit and then by endpoint.
-func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[coreunit.UUID]network.GroupedPortRanges, error) {
+// application. Opened ports are grouped first by unit name and then by endpoint.
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[string]network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)

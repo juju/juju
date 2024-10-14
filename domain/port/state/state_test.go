@@ -35,6 +35,7 @@ type stateSuite struct {
 	baseSuite
 
 	unitUUID coreunit.UUID
+	unitName string
 
 	appUUID coreapplication.ID
 }
@@ -54,12 +55,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitUUID, s.appUUID = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUID, s.unitName, s.appUUID = s.createUnit(c, netNodeUUIDs[0], appNames[0])
 }
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
+func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, string, coreapplication.ID) {
 	unitName := fmt.Sprintf("%s/%d", appName, s.unitCount)
 
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
@@ -113,7 +114,7 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return unitUUID, appUUID
+	return unitUUID, unitName, appUUID
 }
 
 func (s *stateSuite) initialiseOpenPort(c *gc.C, st *State) {
@@ -184,7 +185,7 @@ func (s *stateSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
-	unit0PortRanges, ok := machineGroupedPortRanges[s.unitUUID]
+	unit0PortRanges, ok := machineGroupedPortRanges[s.unitName]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit0PortRanges, gc.HasLen, 2)
 
@@ -201,7 +202,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	unit1UUID, unit1Name, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -216,7 +217,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 2)
 
-	unit0PortRanges, ok := machineGroupedPortRanges[s.unitUUID]
+	unit0PortRanges, ok := machineGroupedPortRanges[s.unitName]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit0PortRanges, gc.HasLen, 2)
 
@@ -227,7 +228,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnits(c *gc.C) {
 	c.Check(unit0PortRanges["misc"], gc.HasLen, 1)
 	c.Check(unit0PortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 
-	unit1PortRanges, ok := machineGroupedPortRanges[unit1UUID]
+	unit1PortRanges, ok := machineGroupedPortRanges[unit1Name]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit1PortRanges, gc.HasLen, 1)
 
@@ -245,7 +246,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	err := machineSt.CreateMachine(context.Background(), "m1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
+	unit1UUID, unit1Name, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
 	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -260,7 +261,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
-	unit0PortRanges, ok := machineGroupedPortRanges[s.unitUUID]
+	unit0PortRanges, ok := machineGroupedPortRanges[s.unitName]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit0PortRanges, gc.HasLen, 2)
 
@@ -275,7 +276,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 1)
 
-	unit1PortRanges, ok := machineGroupedPortRanges[unit1UUID]
+	unit1PortRanges, ok := machineGroupedPortRanges[unit1Name]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit1PortRanges, gc.HasLen, 1)
 
@@ -299,9 +300,9 @@ func (s *stateSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	s.initialiseOpenPort(c, st)
 
 	expect := port.UnitEndpointPortRanges{
-		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
-		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
-		{Endpoint: "misc", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
+		{Endpoint: "endpoint", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+		{Endpoint: "endpoint", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
+		{Endpoint: "misc", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
 	}
 	port.SortUnitEndpointPortRanges(expect)
 
@@ -316,7 +317,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
+	unit1UUID, unit1Name, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -328,11 +329,11 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := port.UnitEndpointPortRanges{
-		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
-		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
-		{Endpoint: "misc", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
-		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}},
-		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
+		{Endpoint: "endpoint", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+		{Endpoint: "endpoint", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
+		{Endpoint: "misc", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
+		{Endpoint: "endpoint", UnitName: unit1Name, PortRange: network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}},
+		{Endpoint: "endpoint", UnitName: unit1Name, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
 	}
 	port.SortUnitEndpointPortRanges(expect)
 
@@ -347,7 +348,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, app1UUID := s.createUnit(c, netNodeUUIDs[1], "app-name-1")
+	unit1UUID, unit1Name, app1UUID := s.createUnit(c, netNodeUUIDs[1], "app-name-1")
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -359,9 +360,9 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := port.UnitEndpointPortRanges{
-		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
-		{Endpoint: "endpoint", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
-		{Endpoint: "misc", UnitUUID: s.unitUUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
+		{Endpoint: "endpoint", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+		{Endpoint: "endpoint", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500}},
+		{Endpoint: "misc", UnitName: s.unitName, PortRange: network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080}},
 	}
 	port.SortUnitEndpointPortRanges(expect)
 
@@ -371,8 +372,8 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	c.Check(unitEndpointPortRanges, jc.DeepEquals, expect)
 
 	expect = port.UnitEndpointPortRanges{
-		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}},
-		{Endpoint: "endpoint", UnitUUID: unit1UUID, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
+		{Endpoint: "endpoint", UnitName: unit1Name, PortRange: network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}},
+		{Endpoint: "endpoint", UnitName: unit1Name, PortRange: network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500}},
 	}
 
 	unitEndpointPortRanges, err = st.GetApplicationOpenedPorts(ctx, app1UUID)
@@ -404,7 +405,7 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnits(c *gc.C) {
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	unit1UUID, _, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -435,7 +436,7 @@ func (s *stateSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNodes(c *gc.C)
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
+	unit1UUID, _, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {
@@ -718,7 +719,7 @@ func (s *stateSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *gc.C)
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
-	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	unit1UUID, unit1Name, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"endpoint": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
@@ -734,13 +735,13 @@ func (s *stateSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineGroupedPortRanges, gc.HasLen, 2)
 
-	unit0PortRanges, ok := machineGroupedPortRanges[s.unitUUID]
+	unit0PortRanges, ok := machineGroupedPortRanges[s.unitName]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit0PortRanges["endpoint"], gc.HasLen, 2)
 	c.Check(unit0PortRanges["endpoint"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
 	c.Check(unit0PortRanges["endpoint"][1], jc.DeepEquals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
 
-	unit1PortRanges, ok := machineGroupedPortRanges[unit1UUID]
+	unit1PortRanges, ok := machineGroupedPortRanges[unit1Name]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(unit1PortRanges, gc.HasLen, 1)
 

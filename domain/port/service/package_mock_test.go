@@ -241,10 +241,10 @@ func (c *MockStateGetEndpointsCall) DoAndReturn(f func(domain.AtomicContext, uni
 }
 
 // GetMachineOpenedPorts mocks base method.
-func (m *MockState) GetMachineOpenedPorts(arg0 context.Context, arg1 string) (map[unit.UUID]network.GroupedPortRanges, error) {
+func (m *MockState) GetMachineOpenedPorts(arg0 context.Context, arg1 string) (map[string]network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineOpenedPorts", arg0, arg1)
-	ret0, _ := ret[0].(map[unit.UUID]network.GroupedPortRanges)
+	ret0, _ := ret[0].(map[string]network.GroupedPortRanges)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -262,19 +262,19 @@ type MockStateGetMachineOpenedPortsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineOpenedPortsCall) Return(arg0 map[unit.UUID]network.GroupedPortRanges, arg1 error) *MockStateGetMachineOpenedPortsCall {
+func (c *MockStateGetMachineOpenedPortsCall) Return(arg0 map[string]network.GroupedPortRanges, arg1 error) *MockStateGetMachineOpenedPortsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineOpenedPortsCall) Do(f func(context.Context, string) (map[unit.UUID]network.GroupedPortRanges, error)) *MockStateGetMachineOpenedPortsCall {
+func (c *MockStateGetMachineOpenedPortsCall) Do(f func(context.Context, string) (map[string]network.GroupedPortRanges, error)) *MockStateGetMachineOpenedPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineOpenedPortsCall) DoAndReturn(f func(context.Context, string) (map[unit.UUID]network.GroupedPortRanges, error)) *MockStateGetMachineOpenedPortsCall {
+func (c *MockStateGetMachineOpenedPortsCall) DoAndReturn(f func(context.Context, string) (map[string]network.GroupedPortRanges, error)) *MockStateGetMachineOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
