@@ -139,9 +139,9 @@ type ModelDefaultsService interface {
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
 	UpdateCloudRegionConfigDefaultValues(ctx context.Context, cloudName, regionName string, updateAttrs map[string]any) error
 
-	// RemoveCloudConfigDefaultValues deletes the specified default attribute details for a cloud.
+	// RemoveCloudDefaults deletes the specified default attribute details for a cloud.
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-	RemoveCloudConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudName string) error
+	RemoveCloudDefaults(ctx context.Context, cloudName string, removeAttrs []string) error
 
 	// RemoveCloudRegionConfigDefaultValues deletes the specified default attribute details for a cloud region.
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.

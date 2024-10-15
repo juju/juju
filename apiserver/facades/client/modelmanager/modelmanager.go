@@ -1428,7 +1428,7 @@ func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.Mod
 		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", arg.CloudTag))
 	}
 	if arg.CloudRegion == "" {
-		return m.modelDefaultsService.RemoveCloudConfigDefaultValues(ctx, arg.Keys, cTag.Id())
+		return m.modelDefaultsService.RemoveCloudDefaults(ctx, cTag.Id(), arg.Keys)
 	}
 	return m.modelDefaultsService.RemoveCloudRegionConfigDefaultValues(ctx, arg.Keys, cTag.Id(), arg.CloudRegion)
 }

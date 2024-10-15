@@ -250,7 +250,7 @@ func (s *serviceSuite) TestUpdateCloudDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRemoveCloudDefaultValues(c *gc.C) {
+func (s *serviceSuite) TestRemoveCloudDefaults(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cloudUUID, err := cloud.NewUUID()
@@ -261,8 +261,23 @@ func (s *serviceSuite) TestRemoveCloudDefaultValues(c *gc.C) {
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
-	err = svc.RemoveCloudConfigDefaultValues(context.Background(), []string{"wallyworld"}, "test")
+	err = svc.RemoveCloudDefaults(context.Background(), "test", []string{"wallyworld"})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestRemoveCloudDefaultsCloudNotFound is asserting that if we attempt to
+// remove defaults for a cloud that does not exist we get back an error
+// satisfying [clouderrors.NotFound].
+func (s *serviceSuite) TestRemoveCloudDefaultsCloudNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCloudUUID(gomock.Any(), "test").Return(cloud.UUID(""), clouderrors.NotFound)
+	err := NewService(s.modelConfigProviderFunc(c), s.state).RemoveCloudDefaults(
+		context.Background(),
+		"test",
+		nil,
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *serviceSuite) TestUpdateCloudRegionDefaults(c *gc.C) {
