@@ -128,7 +128,9 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreuni
 		}
 
 		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
 		if err != nil {
