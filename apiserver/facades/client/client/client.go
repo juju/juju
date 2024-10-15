@@ -31,6 +31,7 @@ type Client struct {
 	networkService     NetworkService
 	modelInfoService   ModelInfoService
 	machineService     MachineService
+	portService        PortService
 }
 
 // TODO(wallyworld) - remove this method

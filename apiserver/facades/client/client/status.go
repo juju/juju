@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -261,7 +262,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if err = context.fetchMachines(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	}
-	if err = context.fetchOpenPortRangesForAllMachines(c.stateAccessor); err != nil {
+	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch open port ranges")
 	}
 	if context.controllerNodes, err = fetchControllerNodes(c.stateAccessor); err != nil {
@@ -654,8 +655,8 @@ type statusContext struct {
 	// remote applications: application name -> application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
-	// opened ports by machine.
-	openPortRangesByMachine map[string]state.MachinePortRanges
+	// allOpenPortRanges: all open port ranges in the model, grouped by unit name.
+	allOpenPortRanges network.GroupedPortRanges
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
@@ -716,20 +717,10 @@ func (context *statusContext) fetchMachines(st Backend) error {
 	return nil
 }
 
-func (context *statusContext) fetchOpenPortRangesForAllMachines(st Backend) error {
-	if context.model.Type() == state.ModelTypeCAAS {
-		return nil
-	}
-
-	context.openPortRangesByMachine = make(map[string]state.MachinePortRanges)
-	allMachPortRanges, err := context.model.OpenedPortRangesForAllMachines()
-	if err != nil {
-		return err
-	}
-	for _, machPortRanges := range allMachPortRanges {
-		context.openPortRangesByMachine[machPortRanges.MachineID()] = machPortRanges
-	}
-	return nil
+func (context *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService PortService) error {
+	var err error
+	context.allOpenPortRanges, err = portService.GetAllOpenedPorts(ctx)
+	return err
 }
 
 // fetchControllerNodes returns a map from node id to controller node.
@@ -1544,14 +1535,11 @@ func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
 
 func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
+	if prs, ok := context.allOpenPortRanges[unit.Tag().Id()]; ok {
+		result.OpenedPorts = transform.Slice(prs, network.PortRange.String)
+	}
 	if context.model.Type() == state.ModelTypeIAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
-
-		if machPortRanges, found := context.openPortRangesByMachine[context.unitMachineID(unit)]; found {
-			for _, pr := range machPortRanges.ForUnit(unit.Name()).UniquePortRanges() {
-				result.OpenedPorts = append(result.OpenedPorts, pr.String())
-			}
-		}
 	} else {
 		// For CAAS units we want to provide the container address.
 		// TODO: preload all the container info.
@@ -1561,9 +1549,6 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 				result.Address = addr.Value
 			}
 			result.ProviderId = container.ProviderId()
-			if len(result.OpenedPorts) == 0 {
-				result.OpenedPorts = container.Ports()
-			}
 
 		} else {
 			logger.Tracef("container info not yet available for unit: %v", err)

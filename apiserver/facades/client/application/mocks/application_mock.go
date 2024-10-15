@@ -1412,45 +1412,6 @@ func (c *MockModelModelTagCall) DoAndReturn(f func() names.ModelTag) *MockModelM
 	return c
 }
 
-// OpenedPortRangesForMachine mocks base method.
-func (m *MockModel) OpenedPortRangesForMachine(arg0 string) (state.MachinePortRanges, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenedPortRangesForMachine", arg0)
-	ret0, _ := ret[0].(state.MachinePortRanges)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// OpenedPortRangesForMachine indicates an expected call of OpenedPortRangesForMachine.
-func (mr *MockModelMockRecorder) OpenedPortRangesForMachine(arg0 any) *MockModelOpenedPortRangesForMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPortRangesForMachine", reflect.TypeOf((*MockModel)(nil).OpenedPortRangesForMachine), arg0)
-	return &MockModelOpenedPortRangesForMachineCall{Call: call}
-}
-
-// MockModelOpenedPortRangesForMachineCall wrap *gomock.Call
-type MockModelOpenedPortRangesForMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelOpenedPortRangesForMachineCall) Return(arg0 state.MachinePortRanges, arg1 error) *MockModelOpenedPortRangesForMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelOpenedPortRangesForMachineCall) Do(f func(string) (state.MachinePortRanges, error)) *MockModelOpenedPortRangesForMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelOpenedPortRangesForMachineCall) DoAndReturn(f func(string) (state.MachinePortRanges, error)) *MockModelOpenedPortRangesForMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Type mocks base method.
 func (m *MockModel) Type() state.ModelType {
 	m.ctrl.T.Helper()

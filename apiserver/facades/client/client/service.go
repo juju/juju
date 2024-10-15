@@ -49,3 +49,10 @@ type MachineService interface {
 	// AppliedLXDProfiles returns the names of the LXD profiles on the machine.
 	AppliedLXDProfileNames(ctx context.Context, machineUUID string) ([]string, error)
 }
+
+// PortService defines the methods that the facade assumes from the Port service.
+type PortService interface {
+	// GetAllOpenedPorts returns the opened ports in the model, grouped by unit
+	// name.
+	GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error)
+}

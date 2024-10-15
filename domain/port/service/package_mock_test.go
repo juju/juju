@@ -84,6 +84,45 @@ func (c *MockStateFilterEndpointsForApplicationCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetAllOpenedPorts mocks base method.
+func (m *MockState) GetAllOpenedPorts(arg0 context.Context) (network.GroupedPortRanges, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllOpenedPorts", arg0)
+	ret0, _ := ret[0].(network.GroupedPortRanges)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllOpenedPorts indicates an expected call of GetAllOpenedPorts.
+func (mr *MockStateMockRecorder) GetAllOpenedPorts(arg0 any) *MockStateGetAllOpenedPortsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllOpenedPorts", reflect.TypeOf((*MockState)(nil).GetAllOpenedPorts), arg0)
+	return &MockStateGetAllOpenedPortsCall{Call: call}
+}
+
+// MockStateGetAllOpenedPortsCall wrap *gomock.Call
+type MockStateGetAllOpenedPortsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllOpenedPortsCall) Return(arg0 network.GroupedPortRanges, arg1 error) *MockStateGetAllOpenedPortsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllOpenedPortsCall) Do(f func(context.Context) (network.GroupedPortRanges, error)) *MockStateGetAllOpenedPortsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllOpenedPortsCall) DoAndReturn(f func(context.Context) (network.GroupedPortRanges, error)) *MockStateGetAllOpenedPortsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationOpenedPorts mocks base method.
 func (m *MockState) GetApplicationOpenedPorts(arg0 context.Context, arg1 application.ID) (port.UnitEndpointPortRanges, error) {
 	m.ctrl.T.Helper()
