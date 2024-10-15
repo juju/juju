@@ -33,15 +33,13 @@ run_charmhub_deploy() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy jameinel-ubuntu-lite --revision 9 --channel stable
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	charm="juju-qa-test"
+	juju deploy "$charm" --revision 22 --channel stable "$charm"
+	wait_for "$charm" "$(idle_condition "$charm")"
 
-	juju refresh ubuntu-lite
-	wait_for "ubuntu-lite" "$(idle_condition_for_rev "ubuntu-lite" "10")"
+	juju refresh "$charm" --revision 23
+	wait_for "$charm" "$(idle_condition_for_rev "$charm" "23")"
 
-	# On microk8s, there's a bug where the application blocks the model teardown
-	# TODO: remove the next line once this bug is fixed.
-	juju remove-application ubuntu-lite
 	destroy_model "${model_name}"
 }
 

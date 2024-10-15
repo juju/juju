@@ -10,8 +10,9 @@ run_start_hook_fires_after_reboot() {
 	# log level is WARNING.
 	juju model-config -m "${model_name}" logging-config="<root>=INFO;unit=DEBUG"
 
-	juju deploy jameinel-ubuntu-lite --revision 9 --channel stable
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	charm="juju-qa-test"
+	juju deploy "$charm" --revision 22 --channel stable "$charm"
+	wait_for "$charm" "$(idle_condition "$charm")"
 
 	# Ensure that the implicit start hook after reboot detection does not
 	# fire for the initial charm deployment
@@ -28,9 +29,9 @@ run_start_hook_fires_after_reboot() {
 	# does not fire. In juju 2.9+, we use a unified agent so we need to restart
 	# the machine agent.
 	echo "[+] ensuring that implicit start hook does not fire after restarting the (unified) unit agent"
-	juju ssh ubuntu-lite/0 'sudo service jujud-machine-0 restart'
+	juju ssh juju-qa-test/0 'sudo service jujud-machine-0 restart'
 	echo
-	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 9)"
+	wait_for "$charm" "$(charm_rev "$charm" 22)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
 	echo "$logs" | sed 's/^/    | /g'
 	if [ -n "$logs" ]; then
@@ -39,13 +40,13 @@ run_start_hook_fires_after_reboot() {
 		exit 1
 	fi
 	sleep 1
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	wait_for "$charm" "$(idle_condition "$charm")"
 
 	# Ensure that the implicit start hook does not fire after upgrading the unit
-	juju refresh ubuntu-lite --revision 10
+	juju refresh juju-qa-test --revision 23
 	echo
 	sleep 1
-	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 10)"
+	wait_for "$charm" "$(charm_rev "$charm" 23)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
 	echo "$logs" | sed 's/^/    | /g'
 	if [ -n "$logs" ]; then
@@ -55,13 +56,13 @@ run_start_hook_fires_after_reboot() {
 	fi
 
 	sleep 1
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	wait_for "$charm" "$(idle_condition "$charm")"
 
 	# Trigger a reboot and verify that the implicit start hook fires
 	echo "[+] ensuring that implicit start hook fires after a machine reboot"
-	juju ssh ubuntu-lite/0 'sudo reboot now' || true
+	juju ssh juju-qa-test/0 'sudo reboot now' || true
 	sleep 1
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	wait_for "$charm" "$(idle_condition "$charm")"
 	echo
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
 	echo "$logs" | sed 's/^/    | /g'
@@ -85,8 +86,8 @@ run_reboot_monitor_state_cleanup() {
 	juju deploy juju-qa-test --base ubuntu@22.04
 	juju deploy juju-qa-dummy-subordinate
 	juju integrate juju-qa-test dummy-subordinate
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
-	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
+	wait_for "$charm" "$(idle_condition "$charm" 1)"
+	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "$charm")"
 
 	# Check that the reboot flag files have been created for both the charm and
 	# the subordinate. Note: juju ssh adds whitespace which we need to trim
@@ -103,9 +104,9 @@ run_reboot_monitor_state_cleanup() {
 	# Remove subordinate and ensure that the state file for its monitor got purged
 	echo "[+] Verifying that reboot monitor state files are removed once a subordinate gets removed"
 	juju remove-relation juju-qa-test dummy-subordinate
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+	wait_for "$charm" "$(idle_condition "$charm" 1)"
 
-	wait_for_subordinate_count "juju-qa-test"
+	wait_for_subordinate_count "$charm"
 	num_files=$(juju ssh juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
 	echo "   | number of monitor state files: ${num_files}"
 	if [ "$num_files" != "1" ]; then

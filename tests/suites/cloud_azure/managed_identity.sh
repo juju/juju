@@ -25,7 +25,7 @@ check_managed_identity_controller() {
 	wait_for_ha 3
 
 	juju add-model test
-	juju deploy jameinel-ubuntu-lite
+	juju deploy ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 }

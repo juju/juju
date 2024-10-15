@@ -38,7 +38,7 @@ run_simplestream_metadata() {
 
 	juju add-model default
 
-	juju deploy jameinel-ubuntu-lite
+	juju deploy ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 }
 
