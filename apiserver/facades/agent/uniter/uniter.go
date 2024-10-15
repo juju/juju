@@ -141,16 +141,17 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args 
 		return params.OpenPortRangesByEndpointResults{}, err
 	}
 	for i, entity := range args.Entities {
-		machPortRanges, err := u.getOneMachineOpenedPortRanges(canAccess, entity.Tag)
+
+		machPortRanges, err := u.getOneMachineOpenedPortRanges(ctx, canAccess, entity.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		result.Results[i].UnitPortRanges = make(map[string][]params.OpenUnitPortRangesByEndpoint)
-		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
+		for unitName, groupedPortRanges := range machPortRanges {
 			unitTag := names.NewUnitTag(unitName).String()
-			for endpointName, portRanges := range unitPortRanges.ByEndpoint() {
+			for endpointName, portRanges := range groupedPortRanges {
 				result.Results[i].UnitPortRanges[unitTag] = append(
 					result.Results[i].UnitPortRanges[unitTag],
 					params.OpenUnitPortRangesByEndpoint{
@@ -169,7 +170,7 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args 
 	return result, nil
 }
 
-func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, machineTag string) (state.MachinePortRanges, error) {
+func (u *UniterAPI) getOneMachineOpenedPortRanges(ctx context.Context, canAccess common.AuthFunc, machineTag string) (map[string]network.GroupedPortRanges, error) {
 	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
@@ -177,11 +178,15 @@ func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, mac
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	machine, err := u.getMachine(tag)
+	machineUUID, err := u.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
 	if err != nil {
-		return nil, err
+		return nil, internalerrors.Errorf("getting machine UUID for %q: %w", tag, err)
 	}
-	return machine.OpenedPortRanges()
+	machineOpenedPortRanges, err := u.portService.GetMachineOpenedPorts(ctx, machineUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting opened ports for machine %q: %w", tag, err)
+	}
+	return machineOpenedPortRanges, nil
 }
 
 // OpenedPortRangesByEndpoint returns the port ranges opened by the unit.
@@ -198,19 +203,20 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint(ctx context.Context) (params.Open
 		return result, nil
 	}
 
-	unit, err := u.st.Unit(authTag.Id())
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, authTag.Id())
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	openedPortRanges, err := unit.OpenedPortRanges()
+	openedPortRanges, err := u.portService.GetUnitOpenedPorts(ctx, unitUUID)
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
+
 	result.Results[0].UnitPortRanges = make(map[string][]params.OpenUnitPortRangesByEndpoint)
-	unitTag := unit.Tag().String()
-	for endpointName, portRanges := range openedPortRanges.ByEndpoint() {
+	unitTag := authTag.String()
+	for endpointName, portRanges := range openedPortRanges {
 		result.Results[0].UnitPortRanges[unitTag] = append(
 			result.Results[0].UnitPortRanges[unitTag],
 			params.OpenUnitPortRangesByEndpoint{
@@ -261,10 +267,6 @@ func (u *UniterAPI) AssignedMachine(ctx context.Context, args params.Entities) (
 		}
 	}
 	return result, nil
-}
-
-func (u *UniterAPI) getMachine(tag names.MachineTag) (*state.Machine, error) {
-	return u.st.Machine(tag.Id())
 }
 
 // PublicAddress returns the public address for each given unit, if set.
