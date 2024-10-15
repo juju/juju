@@ -257,79 +257,6 @@ func (m *Machine) globalKey() string {
 	return machineGlobalKey(m.doc.Id)
 }
 
-// instanceData holds attributes relevant to a provisioned machine.
-type instanceData struct {
-	DocID          string      `bson:"_id"`
-	MachineId      string      `bson:"machineid"`
-	InstanceId     instance.Id `bson:"instanceid"`
-	DisplayName    string      `bson:"display-name"`
-	ModelUUID      string      `bson:"model-uuid"`
-	Arch           *string     `bson:"arch,omitempty"`
-	Mem            *uint64     `bson:"mem,omitempty"`
-	RootDisk       *uint64     `bson:"rootdisk,omitempty"`
-	RootDiskSource *string     `bson:"rootdisksource,omitempty"`
-	CpuCores       *uint64     `bson:"cpucores,omitempty"`
-	CpuPower       *uint64     `bson:"cpupower,omitempty"`
-	Tags           *[]string   `bson:"tags,omitempty"`
-	AvailZone      *string     `bson:"availzone,omitempty"`
-	VirtType       *string     `bson:"virt-type,omitempty"`
-
-	// KeepInstance is set to true if, on machine removal from Juju,
-	// the cloud instance should be retained.
-	KeepInstance bool `bson:"keep-instance,omitempty"`
-
-	// CharmProfiles contains the names of LXD profiles used by this machine.
-	// Profiles would have been defined in the charm deployed to this machine.
-	CharmProfiles []string `bson:"charm-profiles,omitempty"`
-}
-
-// removeInstanceDataOp returns the operation needed to remove the
-// instance data document associated with the given globalKey.
-func removeInstanceDataOp(globalKey string) txn.Op {
-	return txn.Op{
-		C:      instanceDataC,
-		Id:     globalKey,
-		Remove: true,
-	}
-}
-
-// AllInstanceData retrieves all instance data in the model
-// and provides a way to query hardware characteristics and
-// charm profiles by machine.
-func (m *Model) AllInstanceData() (*ModelInstanceData, error) {
-	coll, closer := m.st.db().GetCollection(instanceDataC)
-	defer closer()
-
-	var docs []instanceData
-	err := coll.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all instance data for model")
-	}
-	all := &ModelInstanceData{
-		data: make(map[string]instanceData),
-	}
-	for _, doc := range docs {
-		all.data[doc.MachineId] = doc
-	}
-	return all, nil
-}
-
-// ModelInstanceData represents all the instance data for a model
-// keyed on machine ID.
-type ModelInstanceData struct {
-	data map[string]instanceData
-}
-
-// CharmProfiles returns the names of the profiles that are defined for
-// the machine. If the machine isn't found in the map, a nil is returned.
-func (d *ModelInstanceData) CharmProfiles(machineID string) []string {
-	instData, found := d.data[machineID]
-	if !found {
-		return nil
-	}
-	return instData.CharmProfiles
-}
-
 // Tag returns a tag identifying the machine. The String method provides a
 // string representation that is safe to use as a file name. The returned name
 // will be different from other Tag values returned by any other entities
@@ -982,7 +909,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeConstraintsOp(m.globalKey()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
-		removeInstanceDataOp(m.doc.DocID),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
@@ -1189,47 +1115,12 @@ func (m *Machine) SetProvisioned(
 		return fmt.Errorf("instance id and nonce cannot be empty")
 	}
 
-	coll, closer := m.st.db().GetCollection(instanceDataC)
-	defer closer()
-	count, err := coll.Find(bson.D{{"instanceid", id}}).Count()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if count > 0 {
-		logger.Warningf("duplicate instance id %q already saved", id)
-	}
-
-	if characteristics == nil {
-		characteristics = &instance.HardwareCharacteristics{}
-	}
-	instData := &instanceData{
-		DocID:          m.doc.DocID,
-		MachineId:      m.doc.Id,
-		InstanceId:     id,
-		DisplayName:    displayName,
-		ModelUUID:      m.doc.ModelUUID,
-		Arch:           characteristics.Arch,
-		Mem:            characteristics.Mem,
-		RootDisk:       characteristics.RootDisk,
-		RootDiskSource: characteristics.RootDiskSource,
-		CpuCores:       characteristics.CpuCores,
-		CpuPower:       characteristics.CpuPower,
-		Tags:           characteristics.Tags,
-		AvailZone:      characteristics.AvailabilityZone,
-		VirtType:       characteristics.VirtType,
-	}
-
 	ops := []txn.Op{
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
 			Assert: append(isAliveDoc, bson.DocElem{Name: "nonce", Value: ""}),
 			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
-		}, {
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocMissing,
-			Insert: instData,
 		},
 	}
 

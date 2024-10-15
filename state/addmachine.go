@@ -296,29 +296,6 @@ func (st *State) addMachineOps(
 
 	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, insertNewContainerRefOp(st, mdoc.Id))
-	if template.InstanceId != "" {
-		prereqOps = append(prereqOps, txn.Op{
-			C:      instanceDataC,
-			Id:     mdoc.DocID,
-			Assert: txn.DocMissing,
-			Insert: &instanceData{
-				DocID:          mdoc.DocID,
-				MachineId:      mdoc.Id,
-				InstanceId:     template.InstanceId,
-				DisplayName:    template.DisplayName,
-				ModelUUID:      mdoc.ModelUUID,
-				Arch:           template.HardwareCharacteristics.Arch,
-				Mem:            template.HardwareCharacteristics.Mem,
-				RootDisk:       template.HardwareCharacteristics.RootDisk,
-				RootDiskSource: template.HardwareCharacteristics.RootDiskSource,
-				CpuCores:       template.HardwareCharacteristics.CpuCores,
-				CpuPower:       template.HardwareCharacteristics.CpuPower,
-				Tags:           template.HardwareCharacteristics.Tags,
-				AvailZone:      template.HardwareCharacteristics.AvailabilityZone,
-				VirtType:       template.HardwareCharacteristics.VirtType,
-			},
-		})
-	}
 	if isController(mdoc) {
 		prereqOps = append(prereqOps, addControllerNodeOp(st, mdoc.Id, false))
 	}

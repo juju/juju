@@ -637,7 +637,6 @@ type statusContext struct {
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
 	allMachines    map[string]*state.Machine
-	allInstances   *state.ModelInstanceData
 	allConstraints *state.ModelConstraints
 
 	// controllerNodes: node id -> controller node
@@ -709,10 +708,6 @@ func (context *statusContext) fetchMachines(st Backend) error {
 		}
 	}
 
-	context.allInstances, err = context.model.AllInstanceData()
-	if err != nil {
-		return err
-	}
 	context.allConstraints, err = context.model.AllConstraints()
 	if err != nil {
 		return err
