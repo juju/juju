@@ -73,7 +73,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 
 	stop := make(chan struct{})
 	close(stop) // Stop the request immediately.
-	err := handleDebugLogDBRequest(s.clock, s.timeout, nil, reqParams, s.sock, stop)
+	err := handleDebugLogDBRequest(s.clock, s.timeout, nil, reqParams, s.sock, stop, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -96,7 +96,7 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 
 	stop := make(chan struct{})
 	close(stop) // Stop the request immediately.
-	err := handleDebugLogDBRequest(s.clock, s.timeout, nil, reqParams, s.sock, stop)
+	err := handleDebugLogDBRequest(s.clock, s.timeout, nil, reqParams, s.sock, nil, stop)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -187,7 +187,7 @@ func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 		return tailer, nil
 	})
 
-	err := handleDebugLogDBRequest(s.clock, s.timeout, nil, debugLogParams{}, s.sock, nil)
+	err := handleDebugLogDBRequest(s.clock, s.timeout, nil, debugLogParams{}, s.sock, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tailer.stopped, jc.IsTrue)
 }
@@ -225,7 +225,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 func (s *debugLogDBIntSuite) runRequest(params debugLogParams, stop chan struct{}) chan error {
 	done := make(chan error)
 	go func() {
-		done <- handleDebugLogDBRequest(s.clock, s.timeout, &fakeState{}, params, s.sock, stop)
+		done <- handleDebugLogDBRequest(s.clock, s.timeout, &fakeState{}, params, s.sock, stop, nil)
 	}()
 	return done
 }

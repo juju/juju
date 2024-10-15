@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
@@ -495,4 +496,51 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 		Done:   true,
 		Error:  resultErr,
 	})
+}
+
+// TestModelRemoveClosesRPC tests that when an RPC connection is opened
+// to a model that is being removed, the connection is closed
+// gracefully.
+func (s *apiserverSuite) TestModelRemoveClosesRPC(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfig := testing.CustomModelConfig(c, testing.Attrs{
+		"name": "testing",
+		"uuid": uuid.String(),
+	})
+
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  modelConfig,
+		Owner:                   s.Owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		st.Close()
+	})
+
+	apiInfo := s.APIInfo(s.apiServer)
+	apiInfo.Tag = s.Owner
+	apiInfo.Password = ownerPassword
+	apiInfo.Nonce = ""
+	apiInfo.ModelTag = model.ModelTag()
+
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		conn.Close()
+	})
+
+	removed, err := s.StatePool.Remove(model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
+
+	time.Sleep(testing.ShortWait)
+
+	err = conn.APICall("Pinger", 1, "", "Ping", nil, nil)
+	c.Assert(err, gc.ErrorMatches, `connection is shut down`)
 }
