@@ -69,13 +69,13 @@ func (s *serviceSuite) TestModelDefaults(c *gc.C) {
 			"provider-config-field":            schema.Int(),
 			"provider-config-field-no-default": schema.Any(),
 		},
-	)
+	).AnyTimes()
 
 	s.modelConfigProvider.EXPECT().ConfigDefaults().Return(
 		schema.Defaults{
 			"provider-config-field": 666,
 		},
-	)
+	).AnyTimes()
 
 	s.state.EXPECT().CloudType(gomock.Any(), cloudUUID).Return(
 		"dummy", nil,

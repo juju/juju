@@ -5,8 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/schema"
@@ -14,6 +12,7 @@ import (
 	"github.com/juju/juju/core/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	_ "github.com/juju/juju/domain/model/errors"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -167,9 +166,24 @@ func ProviderModelConfigGetter() ModelConfigProviderFunc {
 func ProviderDefaults(
 	ctx context.Context,
 	cloudType string,
-	configProvider environs.ModelConfigProvider,
-	configChecker schema.Checker,
-) (modeldefaults.Defaults, error) {
+	providerGetter ModelConfigProviderFunc,
+) (map[string]any, error) {
+	configProvider, err := providerGetter(cloudType)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil, errors.Errorf(
+			"getting model config provider, provider for cloud type %q does not exist",
+			cloudType,
+		)
+	} else if errors.Is(err, coreerrors.NotSupported) {
+		// The provider doesn't have anything to contribute.
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting model config provider for cloud type %q: %w",
+			cloudType, err,
+		)
+	}
+
 	modelDefaults, err := configProvider.ModelConfigDefaults(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
@@ -178,7 +192,8 @@ func ProviderDefaults(
 		)
 	}
 
-	coercedAttrs, err := configChecker.Coerce(map[string]any{}, nil)
+	fields := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
+	coercedAttrs, err := fields.Coerce(map[string]any{}, nil)
 	if err != nil {
 		return nil, errors.Errorf(
 			"coercing model config provider for cloud type %q default schema attributes: %w",
@@ -187,98 +202,49 @@ func ProviderDefaults(
 	}
 
 	coercedMap := coercedAttrs.(map[string]any)
-	rval := make(modeldefaults.Defaults, len(coercedMap)+len(modelDefaults))
+	rval := make(map[string]any, len(coercedMap)+len(modelDefaults))
 
 	for k, v := range coercedAttrs.(map[string]interface{}) {
-		rval[k] = modeldefaults.DefaultAttributeValue{
-			Default: v,
-		}
+		rval[k] = v
 	}
 
 	for k, v := range modelDefaults {
-		rval[k] = modeldefaults.DefaultAttributeValue{
-			Default: v,
-		}
+		rval[k] = v
 	}
 
 	return rval, nil
 }
 
-type noopCoerce struct{}
-
-func (noopCoerce) Coerce(v any, path []string) (any, error) {
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Map {
-		return nil, errors.Errorf("%v is not a map", v)
-	}
-	result := make(map[string]any)
-	iter := rv.MapRange()
-	for iter.Next() {
-		result[fmt.Sprintf("%v", iter.Key().String())] = iter.Value().String()
-	}
-	return result, nil
-}
-
-type notImplementedConfigProvider struct {
-	environs.ModelConfigProvider
-}
-
-func (notImplementedConfigProvider) ModelConfigDefaults(context.Context) (map[string]any, error) {
-	return nil, nil
-}
-
-func (s Service) providerConfigInfoForCloudType(cloudType string) (environs.ModelConfigProvider, schema.Checker, error) {
-	var providerConfigChecker schema.Checker
-	configProvider, err := s.modelConfigProviderGetter(cloudType)
-	if errors.Is(err, coreerrors.NotFound) {
-		return nil, nil, errors.Errorf(
-			"getting model config provider, provider for cloud type %q does not exist",
-			cloudType,
-		)
-	} else if errors.Is(err, coreerrors.NotSupported) {
-		configProvider = notImplementedConfigProvider{}
-		providerConfigChecker = noopCoerce{}
-	} else if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting model config provider for cloud type %q: %w",
-			cloudType, err,
-		)
-	}
-	if err == nil {
-		providerConfigChecker = schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
-	}
-	return configProvider, providerConfigChecker, nil
-}
-
 // CloudDefaults returns the default attribute details for a specified cloud.
-// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error) {
+// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't
+// exist.
+func (s *Service) CloudDefaults(
+	ctx context.Context,
+	cloudName string,
+) (modeldefaults.ModelDefaultAttributes, error) {
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
-	if err != nil {
-		return nil, errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
+	if errors.Is(err, clouderrors.NotFound) {
+		return nil, errors.Errorf(
+			"cloud %q does not exist", cloudName,
+		).Add(clouderrors.NotFound)
+	} else if err != nil {
+		return nil, errors.Errorf("getting cloud %q uuid: %w", cloudName, err)
 	}
+
 	cloudType, err := s.st.CloudType(ctx, cloudUUID)
 	if err != nil {
 		return nil, errors.Errorf(
-			"getting %q cloud type to extract provider model config defaults: %w",
+			"getting cloud %q type to extract provider model config defaults: %w",
 			cloudUUID, err,
 		)
 	}
 
-	configProvider, providerConfigChecker, err := s.providerConfigInfoForCloudType(cloudType)
-	if err != nil {
-		return nil, errors.Errorf(
-			"getting model config provider for cloud type %q: %w",
-			cloudType, err,
-		)
-	}
-
-	cloudDefaults, err := s.cloudDefaults(ctx, cloudUUID, cloudType, configProvider, providerConfigChecker)
+	cloudDefaults, err := s.cloudDefaults(ctx, cloudUUID, cloudType)
 	if err != nil {
 		return nil, errors.Errorf("getting cloud defaults for cloud %q: %w", cloudName, err)
 	}
 
-	regionDefaults, err := s.cloudAllRegionDefaults(ctx, cloudUUID, providerConfigChecker)
+	regionDefaults, err := s.cloudAllRegionDefaults(ctx, cloudUUID, cloudType)
 	if err != nil {
 		return nil, errors.Errorf("getting cloud region defaults for cloud %q: %w", cloudUUID, err)
 	}
@@ -417,20 +383,16 @@ func (s *Service) ModelDefaults(
 		)
 	}
 
-	configProvider, providerConfigChecker, err := s.providerConfigInfoForCloudType(cloudType)
-	if err != nil {
-		return nil, errors.Errorf(
-			"getting model config provider for cloud type %q: %w",
-			cloudType, err,
-		)
-	}
-
-	defaults, err := s.cloudDefaults(ctx, cloudUUID, cloudType, configProvider, providerConfigChecker)
+	defaults, err := s.cloudDefaults(ctx, cloudUUID, cloudType)
 	if err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("getting cloud defaults for model %q with cloud %q: %w", uuid, cloudUUID, err)
 	}
 
-	regionDefaults, err := s.modelCloudRegionDefaults(ctx, uuid, providerConfigChecker)
+	regionDefaults, err := s.modelCloudRegionDefaults(
+		ctx,
+		uuid,
+		cloudType,
+	)
 	if err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf(
 			"getting cloud region default for model %q with cloud %q: %w", uuid, cloudUUID, err)
@@ -474,8 +436,6 @@ func (s *Service) cloudDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 	cloudType string,
-	configProvider environs.ModelConfigProvider,
-	providerConfigChecker schema.Checker,
 ) (modeldefaults.ModelCloudDefaultAttributes, error) {
 	if err := cloudUUID.Validate(); err != nil {
 		return modeldefaults.ModelCloudDefaultAttributes{}, errors.Errorf("cloud uuid: %w", err)
@@ -490,15 +450,16 @@ func (s *Service) cloudDefaults(
 		}
 	}
 
-	providerDefaults, err := ProviderDefaults(ctx, cloudType, configProvider, providerConfigChecker)
+	providerDefaults, err := ProviderDefaults(ctx, cloudType, s.modelConfigProviderGetter)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting cloud %q provider defaults: %w", cloudUUID, err,
 		)
 	}
+
 	for k, v := range providerDefaults {
 		defaults[k] = modeldefaults.CloudDefaultValues{
-			Default: v.Default,
+			Default: v,
 		}
 	}
 
@@ -507,7 +468,8 @@ func (s *Service) cloudDefaults(
 	if err != nil {
 		return modeldefaults.ModelCloudDefaultAttributes{}, errors.Errorf("getting model %q cloud defaults: %w", cloudUUID, err)
 	}
-	coercedCloudDefaults, err := coerceConfig(dbCloudDefaults, providerConfigChecker)
+
+	coercedCloudDefaults, err := coerceConfig(dbCloudDefaults, cloudType, s.modelConfigProviderGetter)
 	if err != nil {
 		return modeldefaults.ModelCloudDefaultAttributes{}, err
 	}
@@ -524,7 +486,7 @@ func (s *Service) cloudDefaults(
 func (s *Service) cloudAllRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
-	providerConfigChecker schema.Checker,
+	cloudType string,
 ) (map[string]map[string]any, error) {
 	dbCloudRegionDefaults, err := s.st.CloudAllRegionDefaults(ctx, cloudUUID)
 	if err != nil {
@@ -534,9 +496,12 @@ func (s *Service) cloudAllRegionDefaults(
 	cloudRegionDefaults := make(map[string]map[string]any)
 	// Coerce the cloud region config defaults if a cloud config schema has been found.
 	for regionName, regionAttr := range dbCloudRegionDefaults {
-		coercedAttrs, err := coerceConfig(regionAttr, providerConfigChecker)
+		coercedAttrs, err := coerceConfig(regionAttr, cloudType, s.modelConfigProviderGetter)
 		if err != nil {
-			return nil, err
+			return nil, errors.Errorf(
+				"coercing cloud %q region %q config: %w",
+				cloudUUID, regionName, err,
+			)
 		}
 		cloudRegionDefaults[regionName] = coercedAttrs
 	}
@@ -547,7 +512,7 @@ func (s *Service) cloudAllRegionDefaults(
 func (s *Service) modelCloudRegionDefaults(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
-	providerConfigChecker schema.Checker,
+	cloudType string,
 ) (map[string]any, error) {
 	dbCloudRegionDefaults, err := s.st.ModelCloudRegionDefaults(ctx, modelUUID)
 	if err != nil {
@@ -555,28 +520,56 @@ func (s *Service) modelCloudRegionDefaults(
 	}
 
 	// Coerce the cloud region config defaults if a cloud config schema has been found.
-	coercedAttrs, err := coerceConfig(dbCloudRegionDefaults, providerConfigChecker)
+	coercedAttrs, err := coerceConfig(dbCloudRegionDefaults, cloudType, s.modelConfigProviderGetter)
 	if err != nil {
 		return nil, err
 	}
 	return coercedAttrs, nil
 }
 
-// coerceConfig takes the config strings as stored in the database and uses the provider
-// and Juju schemas to coerce them to their actual types.
-func coerceConfig(strConfig map[string]string, providerConfigChecker schema.Checker) (map[string]any, error) {
-	var providerCfg map[string]any
-	coercedProviderCfg, err := providerConfigChecker.Coerce(strConfig, nil)
-	if err != nil {
-		return nil, errors.Errorf("coercing config for cloud provider: %w", err)
+// coerceConfig takes the config strings as stored in the database and uses the
+// provider and Juju schemas to coerce them to their actual types.
+func coerceConfig(
+	strConfig map[string]string,
+	cloudType string,
+	providerGetter ModelConfigProviderFunc,
+) (map[string]any, error) {
+	configProvider, err := providerGetter(cloudType)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil, errors.Errorf(
+			"getting model config provider, provider for cloud type %q does not exist",
+			cloudType,
+		)
+	} else if err != nil && !errors.Is(err, coreerrors.NotSupported) {
+		return nil, errors.Errorf(
+			"getting model config provider for cloud type %q: %w",
+			cloudType, err,
+		)
 	}
-	providerCfg = coercedProviderCfg.(map[string]any)
+
+	providerFieldMap := schema.FieldMap(nil, nil)
+	if configProvider != nil {
+		providerFieldMap = schema.FieldMap(
+			configProvider.ConfigSchema(),
+			configProvider.ConfigDefaults(),
+		)
+	}
+
+	coercedProviderCfg, err := providerFieldMap.Coerce(strConfig, nil)
+	if err != nil {
+		return nil, errors.Errorf(
+			"coercing config for cloud type %q provider: %w",
+			cloudType, err,
+		)
+	}
+
+	providerCfg := coercedProviderCfg.(map[string]any)
 
 	resultCfg := transform.Map(strConfig, func(k, v string) (string, any) { return k, v })
 
 	jujuCfg, err := config.Coerce(strConfig)
 	if err != nil {
-		return nil, errors.Errorf("creating Juju config: %w", err)
+		return nil, errors.Errorf("coercing config to Juju schema: %w", err)
 	}
 
 	for k, v := range providerCfg {
