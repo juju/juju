@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
@@ -937,12 +938,18 @@ var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderReg
 
 // ModelExporter returns a model exporter for the current model.
 func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.LegacyStateExporter) facade.ModelExporter {
+	logger := ctx.Logger()
+	coordinator := modelmigration.NewCoordinator(logger)
+	clock := ctx.r.clock
+	exporter := domainmodelmigration.NewExporter(coordinator, logger, clock)
 	return migration.NewModelExporter(
+		exporter,
 		backend,
 		ctx.migrationScope(modelUUID),
 		storageRegistryGetter(ctx),
-		ctx.Logger(),
-		ctx.r.clock,
+		coordinator,
+		logger,
+		clock,
 	)
 }
 

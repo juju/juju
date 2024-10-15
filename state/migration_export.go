@@ -198,14 +198,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// If we are doing a partial export, it doesn't really make sense
-	// to validate the model.
-	fullExport := ExportConfig{}
-	if cfg == fullExport {
-		if err := export.model.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 
 	if featureflag.Enabled(featureflag.StrictMigration) {
 		if err := export.checkUnexportedValues(); err != nil {
