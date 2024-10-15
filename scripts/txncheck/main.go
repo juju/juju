@@ -26,18 +26,25 @@ func main() {
 	parsed, err := parser.ParseFile(fileSet, path, nil, 0)
 	check(err)
 
-	contextPath, ok := locatePath(parsed.Imports, "context")
+	contextPath, ok := locateImportAlias(parsed.Imports, "context")
 	if !ok {
 		os.Exit(0)
 	}
-	sqlPath, sqlFound := locatePath(parsed.Imports, "database/sql")
-	sqlairPath, sqlairFound := locatePath(parsed.Imports, "github.com/canonical/sqlair")
+	sqlPath, sqlFound := locateImportAlias(parsed.Imports, "database/sql")
+	sqlairPath, sqlairFound := locateImportAlias(parsed.Imports, "github.com/canonical/sqlair")
 
 	// We need to at least import one of these.
 	if !sqlFound && !sqlairFound {
 		os.Exit(0)
 	}
 
+	// Walk over all the function declarations and look for assignment
+	// statements that have a call expression with two arguments.
+	// The first argument should be a context.Context and the second
+	// argument should be a *sql.Tx or *sqlair.Tx.
+	// If that is the case, we look for a call expression that has a
+	// selector expression with the name "Assert".
+	var foundAssert bool
 	for _, decl := range parsed.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
@@ -57,15 +64,16 @@ func main() {
 							}
 
 							funcDecl := funcLit.Type
-							if len(funcDecl.Params.List) != 2 {
+							list := funcDecl.Params.List
+							if len(list) != 2 {
 								continue
 							}
 
-							if !isContextType(funcDecl.Params.List[0], contextPath) {
+							if !isContextType(list[0], contextPath) {
 								continue
 							}
 
-							if !isStdTxnType(funcDecl.Params.List[1], sqlPath) && !isTxnType(funcDecl.Params.List[1], sqlairPath) {
+							if !isTxnType(list[1], sqlPath, SQLTxnType) && !isTxnType(list[1], sqlairPath, SQLairTxnType) {
 								continue
 							}
 
@@ -81,11 +89,27 @@ func main() {
 									if !ok {
 										continue
 									}
-									if sel.Sel.Name == "Assert" {
-										start := fileSet.Position(sel.Pos())
 
+									id, ok := sel.X.(*ast.Ident)
+									if !ok {
+										continue
+									}
+
+									// We only care about the "c" variable.
+									// TODO (stickupkid): This is a bit naive,
+									// we should be checking if the variable is
+									// actually gc.C.Assert or gc.C.Check.
+									if id.Name != "c" {
+										continue
+									}
+
+									start := fileSet.Position(sel.Pos())
+									if sel.Sel.Name == "Assert" {
 										fmt.Println("found assert: ", start)
-										os.Exit(1)
+										foundAssert = true
+									}
+									if sel.Sel.Name == "Check" {
+										fmt.Println("found check: ", start)
 									}
 								}
 							}
@@ -95,6 +119,11 @@ func main() {
 			}
 		}
 	}
+	// If we found an assert, we should exit with a non-zero status.
+	// Any checks, are just warnings.
+	if foundAssert {
+		os.Exit(1)
+	}
 }
 
 func check(err error) {
@@ -103,7 +132,7 @@ func check(err error) {
 	}
 }
 
-func locatePath(imports []*ast.ImportSpec, path string) (string, bool) {
+func locateImportAlias(imports []*ast.ImportSpec, path string) (string, bool) {
 	for _, i := range imports {
 
 		if i.Path.Value != fmt.Sprintf(`"%s"`, path) {
@@ -137,15 +166,14 @@ func isContextType(expr *ast.Field, importPath string) bool {
 	return true
 }
 
-func isStdTxnType(expr *ast.Field, importPath string) bool {
-	return isTxnImportType(expr, importPath, "Tx")
-}
+type txnType string
 
-func isTxnType(expr *ast.Field, importPath string) bool {
-	return isTxnImportType(expr, importPath, "TX")
-}
+const (
+	SQLTxnType    txnType = "Tx"
+	SQLairTxnType txnType = "TX"
+)
 
-func isTxnImportType(expr *ast.Field, importPath string, txnType string) bool {
+func isTxnType(expr *ast.Field, importPath string, txnType txnType) bool {
 	t, ok := expr.Type.(*ast.StarExpr)
 	if !ok {
 		return false
@@ -165,5 +193,5 @@ func isTxnImportType(expr *ast.Field, importPath string, txnType string) bool {
 		return false
 	}
 
-	return s.Sel.Name == txnType
+	return s.Sel.Name == string(txnType)
 }
