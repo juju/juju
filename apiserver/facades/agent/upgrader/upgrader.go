@@ -5,6 +5,7 @@ package upgrader
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -12,14 +13,15 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ControllerConfigGetter defines a method for getting the controller config.
@@ -41,10 +43,10 @@ type UpgraderAPI struct {
 
 	st                *state.State
 	m                 *state.Model
-	resources         facade.Resources
 	authorizer        facade.Authorizer
 	logger            corelogger.Logger
 	modelAgentService ModelAgentService
+	watcherRegistry   facade.WatcherRegistry
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
@@ -52,7 +54,6 @@ func NewUpgraderAPI(
 	controllerConfigGetter ControllerConfigGetter,
 	ctrlSt *state.State,
 	st *state.State,
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	cloudService common.CloudService,
@@ -60,6 +61,7 @@ func NewUpgraderAPI(
 	modelConfigService common.ModelConfigService,
 	modelAgentService ModelAgentService,
 	controllerStore objectstore.ObjectStore,
+	watcherRegistry facade.WatcherRegistry,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -81,39 +83,53 @@ func NewUpgraderAPI(
 		ToolsSetter:       common.NewToolsSetter(st, getCanReadWrite),
 		st:                st,
 		m:                 model,
-		resources:         resources,
 		authorizer:        authorizer,
 		logger:            logger,
 		modelAgentService: modelAgentService,
+		watcherRegistry:   watcherRegistry,
 	}, nil
 }
 
 // WatchAPIVersion starts a watcher to track if there is a new version
-// of the API that we want to upgrade to
+// of the API that we want to upgrade a machine to.
 func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		tag, err := names.ParseTag(agent.Tag)
+		tag, err := names.ParseMachineTag(agent.Tag)
 		if err != nil {
 			return params.NotifyWatchResults{}, errors.Trace(err)
 		}
-		err = apiservererrors.ErrPerm
-		if u.authorizer.AuthOwner(tag) {
-			watch := u.m.WatchForModelConfigChanges()
-			// Consume the initial event. Technically, API
-			// calls to Watch 'transmit' the initial event
-			// in the Watch response. But NotifyWatchers
-			// have no state to transmit.
-			if _, ok := <-watch.Changes(); ok {
-				result.Results[i].NotifyWatcherId = u.resources.Register(watch)
-				err = nil
-			} else {
-				err = watcher.EnsureErr(watch)
-			}
+		tagID := tag.Id()
+		upgraderAPIWatcher, err := u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))
+
+		switch {
+		case errors.Is(err, errors.NotValid):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeMachineInvalidID,
+				"invalid machine ID %q",
+				tagID,
+			)
+			continue
+		case err != nil:
+			// We don't understand this error. At this stage we consider it an
+			// internal server error and bail out of the call completely.
+			return params.NotifyWatchResults{}, fmt.Errorf(
+				"cannot watch api version for machine %q: %w",
+				tagID, err,
+			)
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		result.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
+			ctx, u.watcherRegistry, upgraderAPIWatcher,
+		)
+		if err != nil {
+			return params.NotifyWatchResults{}, fmt.Errorf(
+				"registering machine %q api version watcher: %w",
+				tagID, err,
+			)
+		}
 	}
 	return result, nil
 }

@@ -67,7 +67,7 @@ func sourcePrecheck(
 
 func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
+	s.expectAgentVersion(3)
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
@@ -89,7 +89,7 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestDyingModel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
@@ -98,7 +98,7 @@ func (s *SourcePrecheckSuite) TestDyingModel(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("spanner", life.Alive)
 
@@ -143,7 +143,6 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 		&fakeMachine{id: "0"},
 		&fakeMachine{id: "1"},
 	}
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.35"), nil)
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
 
@@ -186,7 +185,6 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 		&fakeMachine{id: "0"},
 		&fakeMachine{id: "1"},
 	}
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.31"), nil)
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(
@@ -207,7 +205,7 @@ cannot migrate to controller due to issues:
 }
 
 func (s *SourcePrecheckSuite) TestImportingModel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.model.migrationMode = state.MigrationModeImporting
@@ -216,7 +214,7 @@ func (s *SourcePrecheckSuite) TestImportingModel(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.cleanupErr = errors.New("boom")
@@ -225,7 +223,7 @@ func (s *SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.cleanupNeeded = true
@@ -234,7 +232,7 @@ func (s *SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestIsUpgradingError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgradeError(errors.New("boom"))
 
@@ -244,7 +242,7 @@ func (s *SourcePrecheckSuite) TestIsUpgradingError(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(true)
 
@@ -254,17 +252,15 @@ func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
 
-	s.checkAgentVersionError(c, sourcePrecheck, agentService)
+	s.checkAgentVersionError(c, sourcePrecheck, s.agentService)
 }
 
 func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
 	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
@@ -273,17 +269,15 @@ func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil)
+	s.expectAgentVersion(1)
 
-	s.checkMachineVersionsDontMatch(c, sourcePrecheck, agentService)
+	s.checkMachineVersionsDontMatch(c, sourcePrecheck, s.agentService)
 }
 
 func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newBackendWithDyingMachine()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.agentService)
@@ -291,7 +285,7 @@ func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newBackendWithDownMachine()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.agentService)
@@ -299,18 +293,15 @@ func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	err := sourcePrecheck(newBackendWithProvisioningMachine(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
 func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil)
+	defer s.setupMocks(c).Finish()
+	s.expectAgentVersion(1)
 
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("machine-1")
@@ -324,13 +315,13 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 		&fakeCredentialService{},
 		s.upgradeService,
 		s.applicationService,
-		agentService,
+		s.agentService,
 	)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Dying)
 
@@ -346,7 +337,7 @@ func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestWithPendingMinUnits(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Alive)
 
@@ -365,6 +356,7 @@ func (s *SourcePrecheckSuite) TestWithPendingMinUnits(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.expectAgentVersion(2)
 
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
@@ -390,7 +382,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
@@ -409,7 +401,7 @@ func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Alive)
 
@@ -428,7 +420,7 @@ func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
@@ -448,7 +440,7 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Alive)
 
@@ -469,6 +461,7 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAgentVersion(2)
 	s.expectApplicationLife("foo", life.Alive)
 
 	backend := newHappyBackend()
@@ -489,7 +482,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.controllerBackend.model.life = state.Dying
@@ -498,21 +491,18 @@ func (s *SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	agentService := NewMockModelAgentService(ctrl)
+	defer s.setupMocks(c).Finish()
 	s.expectIsUpgrade(false)
 
 	backend := newFakeBackend()
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
-	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, agentService)
+	s.expectAgentVersion(2)
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
+	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "controller: retrieving model version: boom")
-
 }
 
 func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -523,7 +513,7 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
 	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
@@ -537,7 +527,7 @@ func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -549,7 +539,7 @@ func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -561,7 +551,7 @@ func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -575,6 +565,7 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
 func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAgentVersion(3)
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
@@ -598,6 +589,7 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAgentVersion(2)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 
@@ -621,8 +613,8 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAgentVersion(3)
 	s.expectIsUpgrade(false)
-
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 
@@ -646,6 +638,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectAgentVersion(2)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 
@@ -761,42 +754,37 @@ func (s *TargetPrecheckSuite) runPrecheck(
 		allAlivePresence(),
 		upgradeService,
 		applicationService,
-		agentService,
+		s.agentService,
 	)
 }
 
 func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	s.expectIsUpgrade(false)
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil).Times(2)
+	s.expectAgentVersion(2)
 
-	err := s.runPrecheck(newHappyBackend(), nil, s.upgradeService, s.applicationService, agentService)
+	err := s.runPrecheck(newHappyBackend(), nil, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	backend := newFakeBackend()
 
 	sourceVersion := backendVersion
 	sourceVersion.Patch++
 	s.modelInfo.AgentVersion = sourceVersion
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil)
+	s.expectAgentVersion(1)
 
-	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, agentService)
+	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	backend := newFakeBackend()
 
@@ -805,17 +793,15 @@ func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
 	sourceVersion.Minor = 0
 	sourceVersion.Patch = 0
 	s.modelInfo.ControllerAgentVersion = sourceVersion
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil)
+	s.expectAgentVersion(1)
 
-	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, agentService)
+	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals,
 		`source controller has higher version than target controller (2.0.0 > 1.2.3)`)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	backend := newFakeBackend()
 
@@ -823,16 +809,15 @@ func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
 	sourceVersion.Minor++
 	sourceVersion.Patch = 0
 	s.modelInfo.ControllerAgentVersion = sourceVersion
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil)
+	s.expectAgentVersion(1)
 
-	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, agentService)
+	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals,
 		`source controller has higher version than target controller (1.3.0 > 1.2.3)`)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -846,7 +831,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -860,7 +845,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -874,7 +859,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
@@ -883,7 +868,7 @@ func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
 	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
@@ -894,17 +879,14 @@ func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
 
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
-
-	s.checkAgentVersionError(c, s.runPrecheck, agentService)
+	s.checkAgentVersionError(c, s.runPrecheck, s.agentService)
 }
 
 func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgradeError(errors.New("boom"))
 
@@ -914,7 +896,7 @@ func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(true)
 
@@ -924,7 +906,7 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := &fakeBackend{migrationActiveErr: errors.New("boom")}
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.agentService)
@@ -932,7 +914,7 @@ func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := &fakeBackend{migrationActive: true}
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.agentService)
@@ -940,19 +922,16 @@ func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil).Times(2)
-
+	s.expectAgentVersion(2)
 	s.expectIsUpgrade(false)
 
-	s.checkMachineVersionsDontMatch(c, s.runPrecheck, agentService)
+	s.checkMachineVersionsDontMatch(c, s.runPrecheck, s.agentService)
 }
 
 func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -962,7 +941,7 @@ func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -972,7 +951,7 @@ func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -982,22 +961,19 @@ func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	agentService := NewMockModelAgentService(ctrl)
-	agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil).Times(2)
-
+	s.expectAgentVersion(2)
 	s.expectIsUpgrade(false)
 
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("machine-1")
-	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, modelPresence, s.upgradeService, s.applicationService, agentService)
+	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, modelPresence, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -1018,7 +994,7 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -1038,7 +1014,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -1054,7 +1030,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
@@ -1074,7 +1050,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 	backend := newFakeBackend()
@@ -1087,7 +1063,7 @@ func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestContainerNetworkingFan(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 	backend := newFakeBackend()

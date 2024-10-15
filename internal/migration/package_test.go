@@ -51,6 +51,12 @@ func (s *precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck p
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")
 }
 
+func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *gc.C) *gomock.Controller {
+	ctrl := s.setupMocks(c)
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.32"), nil).AnyTimes()
+	return ctrl
+}
+
 func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.upgradeService = NewMockUpgradeService(ctrl)
@@ -60,7 +66,6 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.server = upgradevalidationmocks.NewMockServer(ctrl)
 	s.serverFactory = upgradevalidationmocks.NewMockServerFactory(ctrl)
 
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.32"), nil).AnyTimes()
 	return ctrl
 }
 
@@ -76,6 +81,6 @@ func (s *precheckBaseSuite) expectIsUpgradeError(err error) {
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, err)
 }
 
-func (s *precheckBaseSuite) expectAgentVersion() {
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.32"), nil)
+func (s *precheckBaseSuite) expectAgentVersion(times int) {
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil).Times(times)
 }

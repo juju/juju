@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/watcher"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -34,4 +35,18 @@ type ModelAgentService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
 	// the unit belongs to no longer exists.
 	GetUnitTargetAgentVersion(context.Context, string) (version.Number, error)
+
+	// WatchMachineTargetAgentVersion is responsible for watching the target agent
+	// version for machine and reporting when there has been a change via a
+	// [watcher.NotifyWatcher]. The following errors can be expected:
+	// - [machineerrors.NotFound] - When no machine exists for the provided name.
+	// - [modelerrors.NotFound] - When the model of the machine no longer exists.
+	WatchMachineTargetAgentVersion(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error)
+
+	// WatchUnitTargetAgentVersion is responsible for watching the target agent
+	// version for unit and reporting when there has been a change via a
+	// [watcher.NotifyWatcher]. The following errors can be expected:
+	// - [applicationerrors.NotFound] - When no unit exists for the provided name.
+	// - [modelerrors.NotFound] - When the model of the unit no longer exists.
+	WatchUnitTargetAgentVersion(ctx context.Context, unitName string) (watcher.NotifyWatcher, error)
 }

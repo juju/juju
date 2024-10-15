@@ -42,19 +42,20 @@ import (
 type Suite struct {
 	coretesting.BaseSuite
 
-	controllerBackend       *mocks.MockControllerState
-	backend                 *mocks.MockBackend
-	modelExporter           *mocks.MockModelExporter
-	credentialService       *commonmocks.MockCredentialService
-	upgradeService          *mocks.MockUpgradeService
-	store                   *mocks.MockObjectStore
+	backend           *mocks.MockBackend
+	controllerBackend *mocks.MockControllerState
+	modelExporter     *mocks.MockModelExporter
+	precheckBackend   *mocks.MockPrecheckBackend
+	store             *mocks.MockObjectStore
+
+	agentService            *mocks.MockModelAgentService
+	applicationService      *mocks.MockApplicationService
 	controllerConfigService *mocks.MockControllerConfigService
+	credentialService       *commonmocks.MockCredentialService
 	modelConfigService      *mocks.MockModelConfigService
 	modelInfoService        *mocks.MockModelInfoService
 	modelService            *mocks.MockModelService
-	applicationService      *mocks.MockApplicationService
-
-	precheckBackend *mocks.MockPrecheckBackend
+	upgradeService          *mocks.MockUpgradeService
 
 	controllerUUID string
 	modelUUID      string
@@ -610,18 +611,19 @@ func (s *Suite) TestMinionReportTimeout(c *gc.C) {
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.controllerBackend = mocks.NewMockControllerState(ctrl)
+	s.agentService = mocks.NewMockModelAgentService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
-	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
-	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
-	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
-	s.store = mocks.NewMockObjectStore(ctrl)
+	s.controllerBackend = mocks.NewMockControllerState(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
+	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
-	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
+	s.store = mocks.NewMockObjectStore(ctrl)
+	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
 	return ctrl
 }
 
@@ -651,6 +653,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.modelService,
 		s.applicationService,
 		s.upgradeService,
+		s.agentService,
 	)
 }
 

@@ -50,7 +50,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	resources := ctx.Resources()
 
 	domainServices := ctx.DomainServices()
 	controllerConfigGetter := domainServices.ControllerConfig()
@@ -64,7 +63,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 			controllerConfigGetter,
 			ctrlSt,
 			st,
-			resources,
 			auth,
 			ctx.Logger().Child("upgrader"),
 			cloudService,
@@ -72,6 +70,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 			modelConfigService,
 			modelAgentService,
 			ctx.ControllerObjectStore(),
+			ctx.WatcherRegistry(),
 		)
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
@@ -80,7 +79,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 				controllerConfigGetter,
 				ctrlSt,
 				st,
-				resources,
 				auth,
 				ctx.Logger().Child("upgrader"),
 				cloudService,
@@ -88,9 +86,10 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 				modelConfigService,
 				modelAgentService,
 				ctx.ControllerObjectStore(),
+				ctx.WatcherRegistry(),
 			)
 		}
-		return NewUnitUpgraderAPI(ctx)
+		return NewUnitUpgraderAPI(ctx, modelAgentService, ctx.WatcherRegistry())
 	}
 	// Not a machine or unit.
 	return nil, apiservererrors.ErrPerm
