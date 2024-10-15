@@ -69,10 +69,10 @@ type ApplicationService interface {
 
 // PortService provides access to the port service.
 type PortService interface {
-	// WatchOpenedPorts returns a strings watcher for opened ports. This watcher
+	// WatchMachineOpenedPorts returns a strings watcher for opened ports. This watcher
 	// emits events for changes to the opened ports table. Each emitted event
 	// contains the machine UUID which is associated with the port range.
-	WatchOpenedPorts(context.Context) (watcher.StringsWatcher, error)
+	WatchMachineOpenedPorts(context.Context) (watcher.StringsWatcher, error)
 
 	// GetMachineOpenedPortsAndSubnets returns the opened port ranges, including the
 	// subnet CIDRs they're open to, for each endpoint, for each unit on a machine.

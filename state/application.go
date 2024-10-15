@@ -3172,16 +3172,6 @@ func assertApplicationAliveOp(docID string) txn.Op {
 	}
 }
 
-// OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
-// and/or mutate the port ranges opened by the embedded k8s application.
-func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
-	apr, err := getApplicationPortRanges(a.st, a.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apr, nil
-}
-
 // EndpointBindings returns the mapping for each endpoint name and the space
 // ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -141,14 +142,14 @@ func (w *applicationWorker) loop() (err error) {
 				}
 				return errors.Trace(err)
 			}
-		case _, ok := <-w.portsWatcher.Changes():
+		case changes, ok := <-w.portsWatcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			// TODO(sidecar): implement portWatcher to return application names having port changes,
-			/*
-				if !sets.NewString(changes...).Contains(w.appName){continue}
-			*/
+			if !set.NewStrings(changes...).Contains(w.appName) {
+				w.logger.Debugf("port changes not for app %q, skipping event", w.appName)
+				continue
+			}
 			if err := w.onPortChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}

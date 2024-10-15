@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	set "github.com/juju/collections/set"
 	application "github.com/juju/juju/core/application"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
@@ -44,45 +43,6 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
-}
-
-// FilterEndpointsForApplication mocks base method.
-func (m *MockState) FilterEndpointsForApplication(arg0 context.Context, arg1 application.ID, arg2 []string) (set.Strings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FilterEndpointsForApplication", arg0, arg1, arg2)
-	ret0, _ := ret[0].(set.Strings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FilterEndpointsForApplication indicates an expected call of FilterEndpointsForApplication.
-func (mr *MockStateMockRecorder) FilterEndpointsForApplication(arg0, arg1, arg2 any) *MockStateFilterEndpointsForApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterEndpointsForApplication", reflect.TypeOf((*MockState)(nil).FilterEndpointsForApplication), arg0, arg1, arg2)
-	return &MockStateFilterEndpointsForApplicationCall{Call: call}
-}
-
-// MockStateFilterEndpointsForApplicationCall wrap *gomock.Call
-type MockStateFilterEndpointsForApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateFilterEndpointsForApplicationCall) Return(arg0 set.Strings, arg1 error) *MockStateFilterEndpointsForApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateFilterEndpointsForApplicationCall) Do(f func(context.Context, application.ID, []string) (set.Strings, error)) *MockStateFilterEndpointsForApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateFilterEndpointsForApplicationCall) DoAndReturn(f func(context.Context, application.ID, []string) (set.Strings, error)) *MockStateFilterEndpointsForApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // GetAllOpenedPorts mocks base method.
@@ -120,6 +80,45 @@ func (c *MockStateGetAllOpenedPortsCall) Do(f func(context.Context) (network.Gro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllOpenedPortsCall) DoAndReturn(f func(context.Context) (network.GroupedPortRanges, error)) *MockStateGetAllOpenedPortsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationNamesForUnitEndpoints mocks base method.
+func (m *MockState) GetApplicationNamesForUnitEndpoints(arg0 context.Context, arg1 []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationNamesForUnitEndpoints", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationNamesForUnitEndpoints indicates an expected call of GetApplicationNamesForUnitEndpoints.
+func (mr *MockStateMockRecorder) GetApplicationNamesForUnitEndpoints(arg0, arg1 any) *MockStateGetApplicationNamesForUnitEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationNamesForUnitEndpoints", reflect.TypeOf((*MockState)(nil).GetApplicationNamesForUnitEndpoints), arg0, arg1)
+	return &MockStateGetApplicationNamesForUnitEndpointsCall{Call: call}
+}
+
+// MockStateGetApplicationNamesForUnitEndpointsCall wrap *gomock.Call
+type MockStateGetApplicationNamesForUnitEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationNamesForUnitEndpointsCall) Return(arg0 []string, arg1 error) *MockStateGetApplicationNamesForUnitEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationNamesForUnitEndpointsCall) Do(f func(context.Context, []string) ([]string, error)) *MockStateGetApplicationNamesForUnitEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationNamesForUnitEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockStateGetApplicationNamesForUnitEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -280,41 +279,41 @@ func (c *MockStateGetEndpointsCall) DoAndReturn(f func(domain.AtomicContext, uni
 	return c
 }
 
-// GetMachineNamesForEndpoints mocks base method.
-func (m *MockState) GetMachineNamesForEndpoints(arg0 context.Context, arg1 []string) ([]machine.Name, error) {
+// GetMachineNamesForUnitEndpoints mocks base method.
+func (m *MockState) GetMachineNamesForUnitEndpoints(arg0 context.Context, arg1 []string) ([]machine.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineNamesForEndpoints", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetMachineNamesForUnitEndpoints", arg0, arg1)
 	ret0, _ := ret[0].([]machine.Name)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMachineNamesForEndpoints indicates an expected call of GetMachineNamesForEndpoints.
-func (mr *MockStateMockRecorder) GetMachineNamesForEndpoints(arg0, arg1 any) *MockStateGetMachineNamesForEndpointsCall {
+// GetMachineNamesForUnitEndpoints indicates an expected call of GetMachineNamesForUnitEndpoints.
+func (mr *MockStateMockRecorder) GetMachineNamesForUnitEndpoints(arg0, arg1 any) *MockStateGetMachineNamesForUnitEndpointsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNamesForEndpoints", reflect.TypeOf((*MockState)(nil).GetMachineNamesForEndpoints), arg0, arg1)
-	return &MockStateGetMachineNamesForEndpointsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNamesForUnitEndpoints", reflect.TypeOf((*MockState)(nil).GetMachineNamesForUnitEndpoints), arg0, arg1)
+	return &MockStateGetMachineNamesForUnitEndpointsCall{Call: call}
 }
 
-// MockStateGetMachineNamesForEndpointsCall wrap *gomock.Call
-type MockStateGetMachineNamesForEndpointsCall struct {
+// MockStateGetMachineNamesForUnitEndpointsCall wrap *gomock.Call
+type MockStateGetMachineNamesForUnitEndpointsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineNamesForEndpointsCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachineNamesForEndpointsCall {
+func (c *MockStateGetMachineNamesForUnitEndpointsCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachineNamesForUnitEndpointsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineNamesForEndpointsCall) Do(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForEndpointsCall {
+func (c *MockStateGetMachineNamesForUnitEndpointsCall) Do(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForUnitEndpointsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineNamesForEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForEndpointsCall {
+func (c *MockStateGetMachineNamesForUnitEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForUnitEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -397,40 +396,78 @@ func (c *MockStateGetUnitOpenedPortsCall) DoAndReturn(f func(context.Context, un
 	return c
 }
 
-// InitialWatchOpenedPortsStatement mocks base method.
-func (m *MockState) InitialWatchOpenedPortsStatement() string {
+// InitialWatchApplicationOpenedPortsStatement mocks base method.
+func (m *MockState) InitialWatchApplicationOpenedPortsStatement() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchOpenedPortsStatement")
+	ret := m.ctrl.Call(m, "InitialWatchApplicationOpenedPortsStatement")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// InitialWatchOpenedPortsStatement indicates an expected call of InitialWatchOpenedPortsStatement.
-func (mr *MockStateMockRecorder) InitialWatchOpenedPortsStatement() *MockStateInitialWatchOpenedPortsStatementCall {
+// InitialWatchApplicationOpenedPortsStatement indicates an expected call of InitialWatchApplicationOpenedPortsStatement.
+func (mr *MockStateMockRecorder) InitialWatchApplicationOpenedPortsStatement() *MockStateInitialWatchApplicationOpenedPortsStatementCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchOpenedPortsStatement", reflect.TypeOf((*MockState)(nil).InitialWatchOpenedPortsStatement))
-	return &MockStateInitialWatchOpenedPortsStatementCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchApplicationOpenedPortsStatement", reflect.TypeOf((*MockState)(nil).InitialWatchApplicationOpenedPortsStatement))
+	return &MockStateInitialWatchApplicationOpenedPortsStatementCall{Call: call}
 }
 
-// MockStateInitialWatchOpenedPortsStatementCall wrap *gomock.Call
-type MockStateInitialWatchOpenedPortsStatementCall struct {
+// MockStateInitialWatchApplicationOpenedPortsStatementCall wrap *gomock.Call
+type MockStateInitialWatchApplicationOpenedPortsStatementCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchOpenedPortsStatementCall) Return(arg0 string) *MockStateInitialWatchOpenedPortsStatementCall {
+func (c *MockStateInitialWatchApplicationOpenedPortsStatementCall) Return(arg0 string) *MockStateInitialWatchApplicationOpenedPortsStatementCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchOpenedPortsStatementCall) Do(f func() string) *MockStateInitialWatchOpenedPortsStatementCall {
+func (c *MockStateInitialWatchApplicationOpenedPortsStatementCall) Do(f func() string) *MockStateInitialWatchApplicationOpenedPortsStatementCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchOpenedPortsStatementCall) DoAndReturn(f func() string) *MockStateInitialWatchOpenedPortsStatementCall {
+func (c *MockStateInitialWatchApplicationOpenedPortsStatementCall) DoAndReturn(f func() string) *MockStateInitialWatchApplicationOpenedPortsStatementCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchMachineOpenedPortsStatement mocks base method.
+func (m *MockState) InitialWatchMachineOpenedPortsStatement() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchMachineOpenedPortsStatement")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// InitialWatchMachineOpenedPortsStatement indicates an expected call of InitialWatchMachineOpenedPortsStatement.
+func (mr *MockStateMockRecorder) InitialWatchMachineOpenedPortsStatement() *MockStateInitialWatchMachineOpenedPortsStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchMachineOpenedPortsStatement", reflect.TypeOf((*MockState)(nil).InitialWatchMachineOpenedPortsStatement))
+	return &MockStateInitialWatchMachineOpenedPortsStatementCall{Call: call}
+}
+
+// MockStateInitialWatchMachineOpenedPortsStatementCall wrap *gomock.Call
+type MockStateInitialWatchMachineOpenedPortsStatementCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) Return(arg0 string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) Do(f func() string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) DoAndReturn(f func() string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

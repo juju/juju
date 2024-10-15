@@ -59,11 +59,4 @@ type ApplicationPortRanges interface {
 
 	// ByUnit returns the set of port ranges opened by each unit grouped by unit name.
 	ByUnit() map[string]UnitPortRanges
-
-	// ForUnit returns the set of port ranges opened by the specified unit.
-	ForUnit(unitName string) UnitPortRanges
-
-	// ByEndpoint returns the list of open port ranges grouped by
-	// application endpoint.
-	ByEndpoint() network.GroupedPortRanges
 }

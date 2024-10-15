@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -111,30 +110,38 @@ FROM unit_endpoint
 *   - https is open on endpoint 2 on unit 2
  */
 
-func (s *watcherSuite) TestGetMachinesForEndpoints(c *gc.C) {
+func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	machineUUIDsForEndpoint, err := st.GetMachineNamesForEndpoints(ctx, endpointUUIDs)
+	machineUUIDsForUnitEndpoints, err := st.GetMachineNamesForUnitEndpoints(ctx, endpointUUIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForEndpoint, jc.SameContents, []machine.Name{"0", "1"})
+	c.Check(machineUUIDsForUnitEndpoints, jc.SameContents, []machine.Name{"0", "1"})
 
-	machineUUIDsForEndpoint, err = st.GetMachineNamesForEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
+	machineUUIDsForUnitEndpoints, err = st.GetMachineNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []machine.Name{"0"})
+	c.Check(machineUUIDsForUnitEndpoints, jc.DeepEquals, []machine.Name{"0"})
+
+	machineUUIDsForUnitEndpoints, err = st.GetMachineNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"], endpointToUUIDMap["ep1"]})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(machineUUIDsForUnitEndpoints, jc.DeepEquals, []machine.Name{"0"})
 }
 
-func (s *watcherSuite) TestFilterEndpointForApplication(c *gc.C) {
+func (s *watcherSuite) TestGetApplicationForUnitEndpoints(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	filteredEndpointUUIDs, err := st.FilterEndpointsForApplication(ctx, s.appUUIDs[0], endpointUUIDs)
+	appNamesForUnitEndpoints, err := st.GetApplicationNamesForUnitEndpoints(ctx, endpointUUIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(filteredEndpointUUIDs, jc.DeepEquals, set.NewStrings(endpointToUUIDMap["ep0"]))
+	c.Check(appNamesForUnitEndpoints, jc.SameContents, []string{appNames[0], appNames[1]})
 
-	filteredEndpointUUIDs, err = st.FilterEndpointsForApplication(ctx, s.appUUIDs[1], endpointUUIDs)
+	appNamesForUnitEndpoints, err = st.GetApplicationNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(filteredEndpointUUIDs, jc.DeepEquals, set.NewStrings(endpointToUUIDMap["ep1"], endpointToUUIDMap["ep2"]))
+	c.Check(appNamesForUnitEndpoints, jc.SameContents, []string{appNames[0]})
+
+	appNamesForUnitEndpoints, err = st.GetApplicationNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep1"], endpointToUUIDMap["ep2"]})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appNamesForUnitEndpoints, jc.SameContents, []string{appNames[1]})
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -18,7 +17,6 @@ type CAASFirewallerState interface {
 	Application(string) (Application, error)
 
 	WatchApplications() state.StringsWatcher
-	WatchOpenedPorts() state.StringsWatcher
 }
 
 // Application provides the subset of application state
@@ -27,7 +25,6 @@ type Application interface {
 	IsExposed() bool
 	ApplicationConfig() (config.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
-	OpenedPortRanges() (network.GroupedPortRanges, error)
 }
 
 type stateShim struct {
@@ -44,12 +41,4 @@ func (s *stateShim) Application(id string) (Application, error) {
 
 type applicationShim struct {
 	*state.Application
-}
-
-func (a *applicationShim) OpenedPortRanges() (network.GroupedPortRanges, error) {
-	pg, err := a.Application.OpenedPortRanges()
-	if err != nil {
-		return nil, err
-	}
-	return pg.ByEndpoint(), nil
 }

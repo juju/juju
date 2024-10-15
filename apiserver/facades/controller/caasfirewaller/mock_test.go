@@ -6,6 +6,7 @@ package caasfirewaller_test
 import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
@@ -18,18 +19,12 @@ type mockState struct {
 	testing.Stub
 	application         mockApplication
 	applicationsWatcher *watchertest.MockStringsWatcher
-	openPortsWatcher    *watchertest.MockStringsWatcher
 	appExposedWatcher   *watchertest.MockNotifyWatcher
 }
 
 func (st *mockState) WatchApplications() state.StringsWatcher {
 	st.MethodCall(st, "WatchApplications")
 	return st.applicationsWatcher
-}
-
-func (st *mockState) WatchOpenedPorts() state.StringsWatcher {
-	st.MethodCall(st, "WatchOpenedPorts")
-	return st.openPortsWatcher
 }
 
 func (st *mockState) Application(name string) (caasfirewaller.Application, error) {
@@ -91,4 +86,47 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 func (a *mockApplication) OpenedPortRanges() (network.GroupedPortRanges, error) {
 	a.MethodCall(a, "OpenedPortRanges")
 	return a.appPortRanges, nil
+}
+
+type mockWatcher struct {
+	testing.Stub
+	tomb.Tomb
+}
+
+func (w *mockWatcher) Kill() {
+	w.MethodCall(w, "Kill")
+	w.Tomb.Kill(nil)
+}
+
+func (w *mockWatcher) Stop() error {
+	w.MethodCall(w, "Stop")
+	if err := w.NextErr(); err != nil {
+		return err
+	}
+	w.Tomb.Kill(nil)
+	return w.Tomb.Wait()
+}
+
+func (w *mockWatcher) Err() error {
+	w.MethodCall(w, "Err")
+	return w.Tomb.Err()
+}
+
+type mockStringsWatcher struct {
+	mockWatcher
+	changes chan []string
+}
+
+func newMockStringsWatcher() *mockStringsWatcher {
+	w := &mockStringsWatcher{changes: make(chan []string, 1)}
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
+	return w
+}
+
+func (w *mockStringsWatcher) Changes() <-chan []string {
+	w.MethodCall(w, "Changes")
+	return w.changes
 }
