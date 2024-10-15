@@ -20,7 +20,7 @@ linters-settings:
       - loopclosure
       - lostcancel
       - nilfunc
-# TODO(3.6): re-enable me
+# TODO(4.0): re-enable me
 #      - printf
       - shift
       - stdmethods
