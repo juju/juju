@@ -399,12 +399,11 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	loopDeviceManager          looputil.LoopDeviceManager
-	newIntrospectionSocketName func(names.Tag) string
-	prometheusRegistry         *prometheus.Registry
-	mongoTxnCollector          *mongometrics.TxnCollector
-	mongoDialCollector         *mongometrics.DialCollector
-	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
+	loopDeviceManager  looputil.LoopDeviceManager
+	prometheusRegistry *prometheus.Registry
+	mongoTxnCollector  *mongometrics.TxnCollector
+	mongoDialCollector *mongometrics.DialCollector
+	preUpgradeSteps    upgrades.PreUpgradeStepsFunc
 
 	centralHub    *pubsub.StructuredHub
 	pubsubMetrics *centralhub.PubsubMetrics
