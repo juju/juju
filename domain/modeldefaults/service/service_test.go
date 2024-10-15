@@ -246,7 +246,7 @@ func (s *serviceSuite) TestUpdateCloudDefaults(c *gc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
-	err = svc.UpdateCloudConfigDefaultValues(context.Background(), attr, "test")
+	err = svc.UpdateCloudConfigDefaultValues(context.Background(), "test", attr)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -278,7 +278,7 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaults(c *gc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
-	err = svc.UpdateCloudRegionConfigDefaultValues(context.Background(), attr, "test", "east")
+	err = svc.UpdateCloudRegionConfigDefaultValues(context.Background(), "test", "east", attr)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

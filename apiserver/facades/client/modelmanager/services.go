@@ -133,11 +133,11 @@ type ModelDefaultsService interface {
 
 	// UpdateCloudConfigDefaultValues saves the specified default attribute details for a cloud.
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-	UpdateCloudConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error
+	UpdateCloudConfigDefaultValues(ctx context.Context, cloudName string, updateAttrs map[string]any) error
 
 	// UpdateCloudRegionConfigDefaultValues saves the specified default attribute details for a cloud region.
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-	UpdateCloudRegionConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error
+	UpdateCloudRegionConfigDefaultValues(ctx context.Context, cloudName, regionName string, updateAttrs map[string]any) error
 
 	// RemoveCloudConfigDefaultValues deletes the specified default attribute details for a cloud.
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.

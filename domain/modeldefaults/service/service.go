@@ -308,7 +308,11 @@ func (s *Service) CloudDefaults(ctx context.Context, cloudName string) (modeldef
 
 // UpdateCloudConfigDefaultValues saves the specified default attribute details for a cloud.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateCloudConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName string) error {
+func (s *Service) UpdateCloudConfigDefaultValues(
+	ctx context.Context,
+	cloudName string,
+	updateAttrs map[string]any,
+) error {
 	if len(updateAttrs) == 0 {
 		return nil
 	}
@@ -327,7 +331,12 @@ func (s *Service) UpdateCloudConfigDefaultValues(ctx context.Context, updateAttr
 
 // UpdateCloudRegionConfigDefaultValues saves the specified default attribute details for a cloud region.
 // It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateCloudRegionConfigDefaultValues(ctx context.Context, updateAttrs map[string]interface{}, cloudName, regionName string) error {
+func (s *Service) UpdateCloudRegionConfigDefaultValues(
+	ctx context.Context,
+	cloudName string,
+	regionName string,
+	updateAttrs map[string]any,
+) error {
 	if len(updateAttrs) == 0 {
 		return nil
 	}

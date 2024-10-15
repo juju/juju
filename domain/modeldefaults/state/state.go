@@ -421,9 +421,8 @@ AND cloud_uuid = $dbCloud.uuid;
 
 // UpdateCloudRegionDefaults is responsible for updating default config values
 // for a cloud region. This function will allow the addition and updating of
-// attributes. If the cloud is not found an error satisfying [clouderrors.NotFound]
-// is returned. If the region is not found, am error satisfying [errors.NotFound]
-// is returned.
+// attributes. If the cloud region is not found an error satisfying
+// [clouderrors.NotFound] is returned.
 func (s *State) UpdateCloudRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
@@ -463,7 +462,10 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, selectStmt, cld, region).Get(&region)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return interrors.Errorf("cloud %q region %q %w", cloudUUID, regionName, errors.NotFound)
+			return interrors.Errorf(
+				"cloud %q region %q does not exist",
+				cloudUUID, regionName,
+			).Add(clouderrors.NotFound)
 		} else if err != nil {
 			return interrors.Errorf("fetching cloud %q region %q: %w", cloudUUID, regionName, err)
 		}

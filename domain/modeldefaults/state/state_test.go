@@ -7,12 +7,12 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	corecloud "github.com/juju/juju/core/cloud"
+	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -136,11 +136,27 @@ func (s *stateSuite) TestComplexUpdateCloudDefaults(c *gc.C) {
 }
 
 func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *gc.C) {
+	cloudUUID := cloudtesting.GenCloudUUID(c)
 	st := NewState(s.TxnRunnerFactory())
-	err := st.UpdateCloudDefaults(context.Background(), "noexist", map[string]string{
+	err := st.UpdateCloudDefaults(context.Background(), cloudUUID, map[string]string{
 		"wallyworld": "peachy",
 	})
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+}
+
+// TestUpdateNonExistentCloudRegionDefaults is asserting that if we attempt to
+// update the defaults for a cloud region that doesn't exist we get back an
+// error satisfying [clouderrors.NotFound].
+func (s *stateSuite) TestUpdateNonExistentCloudRegionDefaults(c *gc.C) {
+	cloudUUID := cloudtesting.GenCloudUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cloudUUID,
+		"noexist",
+		nil,
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *stateSuite) TestCloudAllRegionDefaults(c *gc.C) {
@@ -281,7 +297,7 @@ func (s *stateSuite) TestCloudAllRegionDefaultsNoExist(c *gc.C) {
 	err = st.UpdateCloudRegionDefaults(context.Background(), cloudUUID, "noexistregion", map[string]string{
 		"foo": "bar",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 
 	defaults, err := st.CloudAllRegionDefaults(context.Background(), cloudUUID)
 	c.Assert(err, jc.ErrorIsNil)

@@ -953,7 +953,7 @@ func (c *MockModelDefaultsServiceRemoveCloudRegionConfigDefaultValuesCall) DoAnd
 }
 
 // UpdateCloudConfigDefaultValues mocks base method.
-func (m *MockModelDefaultsService) UpdateCloudConfigDefaultValues(arg0 context.Context, arg1 map[string]any, arg2 string) error {
+func (m *MockModelDefaultsService) UpdateCloudConfigDefaultValues(arg0 context.Context, arg1 string, arg2 map[string]any) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudConfigDefaultValues", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -979,19 +979,19 @@ func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) Do(f func(context.Context, map[string]any, string) error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) Do(f func(context.Context, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) DoAndReturn(f func(context.Context, map[string]any, string) error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) DoAndReturn(f func(context.Context, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateCloudRegionConfigDefaultValues mocks base method.
-func (m *MockModelDefaultsService) UpdateCloudRegionConfigDefaultValues(arg0 context.Context, arg1 map[string]any, arg2, arg3 string) error {
+func (m *MockModelDefaultsService) UpdateCloudRegionConfigDefaultValues(arg0 context.Context, arg1, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudRegionConfigDefaultValues", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -1017,13 +1017,13 @@ func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) Retur
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) Do(f func(context.Context, map[string]any, string, string) error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) Do(f func(context.Context, string, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) DoAndReturn(f func(context.Context, map[string]any, string, string) error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) DoAndReturn(f func(context.Context, string, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
