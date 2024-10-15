@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"
@@ -122,4 +123,18 @@ func (st *State) IsSecretRevisionObsolete(c *gc.C, uri *secrets.URI, rev int) bo
 	err := col.FindId(secretRevisionKey(uri, rev)).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.Obsolete
+}
+
+// ApplicationOffersExposingOps extends the crossmodel.ApplicationOffers
+// interface so that external test packages can interrogate the generated
+// model operation for removal.
+type ApplicationOffersExposingOps interface {
+	crossmodel.ApplicationOffers
+	RemoveOfferOperation(offerName string, force bool) (*RemoveOfferOperation, error)
+}
+
+// NewApplicationOffersExposingOps returns an extended indirection for
+// a new reference to the package-private applicationOffers type.
+func NewApplicationOffersExposingOps(st *State) ApplicationOffersExposingOps {
+	return &applicationOffers{st: st}
 }
