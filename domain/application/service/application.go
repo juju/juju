@@ -1342,8 +1342,9 @@ func (s *ApplicationService) GetApplicationScalingState(ctx context.Context, app
 // AgentVersionGetter is responsible for retrieving the agent version for a
 // given model.
 type AgentVersionGetter interface {
-	// GetModelAgentVersion returns the agent version for the specified model.
-	GetModelAgentVersion(context.Context, coremodel.UUID) (version.Number, error)
+	// GetModelTargetAgentVersion returns the agent version for the specified
+	// model.
+	GetModelTargetAgentVersion(context.Context, coremodel.UUID) (version.Number, error)
 }
 
 // Provider defines the interface for interacting with the underlying model
@@ -1384,7 +1385,7 @@ func NewProviderApplicationService(
 // If the agent version cannot be found, an error satisfying
 // [modelerrors.NotFound] will be returned.
 func (s *ProviderApplicationService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
-	agentVersion, err := s.agentVersionGetter.GetModelAgentVersion(ctx, s.modelID)
+	agentVersion, err := s.agentVersionGetter.GetModelTargetAgentVersion(ctx, s.modelID)
 	if err != nil {
 		return assumes.FeatureSet{}, err
 	}

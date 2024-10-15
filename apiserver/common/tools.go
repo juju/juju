@@ -8,16 +8,21 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -26,8 +31,27 @@ import (
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetModelAgentVersion returns the agent version for the current model.
-	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model. The following errors can be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
+	// not exist.
+	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+
+	// GetMachineTargetAgentVersion reports the target agent version that should
+	// be running on the provided machine identified by name. The following
+	// errors are possible:
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
+	// - [github.com/juju/juju/domain/model/errors.NotFound]
+	GetMachineTargetAgentVersion(context.Context, machine.Name) (version.Number, error)
+
+	// GetUnitTargetAgentVersion reports the target agent version that should be
+	// being run on the provided unit identified by name. The following errors
+	// are possible:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] - When
+	// the unit in question does not exist.
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
+	// the unit belongs to no longer exists.
+	GetUnitTargetAgentVersion(context.Context, string) (version.Number, error)
 }
 
 var envtoolsFindTools = envtools.FindTools
@@ -100,6 +124,47 @@ func NewToolsGetter(
 	}
 }
 
+// getEntityAgentVersion is responsible for getting the target agent version for
+// a given tag.
+func (t *ToolsGetter) getEntityAgentVersion(
+	ctx context.Context,
+	tag names.Tag,
+) (ver version.Number, err error) {
+	switch tag.Kind() {
+	case names.ControllerTagKind:
+	case names.ModelTagKind:
+		ver, err = t.modelAgentService.GetModelTargetAgentVersion(ctx)
+	case names.MachineTagKind:
+		ver, err = t.modelAgentService.GetMachineTargetAgentVersion(ctx, machine.Name(tag.Id()))
+	case names.UnitTagKind:
+		ver, err = t.modelAgentService.GetUnitTargetAgentVersion(ctx, tag.Id())
+	default:
+		return version.Zero, errors.Errorf(
+			"getting agent version for unsupported entity kind %q",
+			tag.Kind(),
+		).Add(coreerrors.NotSupported)
+	}
+
+	isNotFound := errors.IsOneOf(
+		err,
+		applicationerrors.ApplicationNotFound,
+		applicationerrors.UnitNotFound,
+		machineerrors.MachineNotFound,
+		modelerrors.NotFound,
+	)
+	if isNotFound {
+		return version.Zero, errors.Errorf(
+			"entity %q does not exist", tag.String(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return version.Zero, errors.Errorf(
+			"finding agent version for entity %q: %w", tag.String(), err,
+		)
+	}
+
+	return ver, nil
+}
+
 // Tools finds the tools necessary for the given agents.
 func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.ToolsResults, error) {
 	result := params.ToolsResults{
@@ -109,10 +174,6 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	if err != nil {
 		return result, err
 	}
-	agentVersion, err := t.modelAgentService.GetModelAgentVersion(ctx)
-	if err != nil {
-		return result, fmt.Errorf("getting agent version: %w", err)
-	}
 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -120,6 +181,12 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
+
+		agentVersion, err := t.getEntityAgentVersion(ctx, tag)
+		if err != nil {
+			return result, err
+		}
+
 		agentToolsList, err := t.oneAgentTools(ctx, canRead, tag, agentVersion)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
@@ -178,7 +245,7 @@ func (t *ToolsSetter) SetTools(ctx context.Context, args params.EntitiesVersion)
 	}
 	canWrite, err := t.getCanWrite()
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, err
 	}
 	for i, agentTools := range args.AgentTools {
 		tag, err := names.ParseTag(agentTools.Tag)
@@ -370,7 +437,10 @@ func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.Lis
 	for i, m := range allMetadata {
 		vers, err := version.ParseBinary(m.Version)
 		if err != nil {
-			return nil, errors.Annotatef(err, "unexpected bad version %q of agent binary in storage", m.Version)
+			return nil, errors.Errorf(
+				"unexpected bad version %q of agent binary in storage: %w",
+				m.Version, err,
+			)
 		}
 		list[i] = &coretools.Tools{
 			Version: vers,
@@ -436,7 +506,7 @@ func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig control
 		return nil, err
 	}
 	if len(addrs) == 0 {
-		return nil, errors.Errorf("no suitable API server address to pick from")
+		return nil, errors.New("no suitable API server address to pick from")
 	}
 	var urls []string
 	for _, addr := range addrs {

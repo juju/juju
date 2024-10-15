@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"math"
 	"net"
 	"reflect"
 
@@ -34,7 +33,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
@@ -87,7 +85,6 @@ type APIBase struct {
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
-	modelAgentService  ModelAgentService
 	cloudService       common.CloudService
 	credentialService  common.CredentialService
 	machineService     MachineService
@@ -227,7 +224,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		model,
 		modelInfo,
 		domainServices.Config(),
-		domainServices.Agent(),
 		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Machine(),
@@ -270,7 +266,6 @@ func NewAPIBase(
 	model Model,
 	modelInfo model.ReadOnlyModel,
 	modelConfigService ModelConfigService,
-	modelAgentService ModelAgentService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	machineService MachineService,
@@ -302,7 +297,6 @@ func NewAPIBase(
 		model:                 model,
 		modelInfo:             modelInfo,
 		modelConfigService:    modelConfigService,
-		modelAgentService:     modelAgentService,
 		cloudService:          cloudService,
 		credentialService:     credentialService,
 		machineService:        machineService,
@@ -1016,30 +1010,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 			return errors.Trace(err)
 		}
 		return api.applicationSetCharm(ctx, params, newCharm, origin)
-	}
-
-	// Check if the controller agent tools version is greater than the
-	// version we support for the new LXD profiles.
-	// Then check all the units, to see what their agent tools versions is
-	// so that we can ensure that everyone is aligned. If the units version
-	// is too low (i.e. less than the 2.6.0 epoch), then show an error
-	// message that the operator should upgrade to receive the latest
-	// LXD Profile changes.
-
-	// Ensure that we only check agent versions of a charm when we have a
-	// non-empty profile. So this check will only be run in the following
-	// scenarios; adding a profile, upgrading a profile. Removal of a
-	// profile, that had an existing charm, will check if there is currently
-	// an existing charm and if so, run the check.
-	// Checking that is possible, but that would require asking every unit
-	// machines what profiles they currently have and matching with the
-	// incoming update. This could be very costly when you have lots of
-	// machines.
-	if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
-		lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
-		if err := validateAgentVersions(ctx, oneApplication, api.modelAgentService); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	origin, err := StateCharmOrigin(newOrigin)
@@ -2505,27 +2475,6 @@ func (api *APIBase) convertSpacesToIDInBindings(ctx context.Context, bindings ma
 	return newMap, nil
 }
 
-// lxdCharmProfiler massages a *state.Charm into a LXDProfiler
-// inside of the core package.
-type lxdCharmProfiler struct {
-	Charm Charm
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
-	if p.Charm == nil {
-		return nil
-	}
-	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
-		profile := profiler.LXDProfile()
-		if profile == nil {
-			return nil
-		}
-		return profile
-	}
-	return nil
-}
-
 // AgentTools is a point of use agent tools requester.
 type AgentTools interface {
 	AgentTools() (*tools.Tools, error)
@@ -2543,53 +2492,6 @@ var (
 		"Unable to upgrade LXDProfile charms with the current model version. " +
 			"Please run juju upgrade-model to upgrade the current model to match your controller.")
 )
-
-func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
-	tools, err := agentTools.AgentTools()
-	if err != nil {
-		return version.Zero, err
-	}
-	return tools.Version.Number, nil
-}
-
-func validateAgentVersions(
-	ctx context.Context,
-	application Application,
-	modelAgentService ModelAgentService,
-) error {
-	// The epoch is set like this, because beta tags are less than release tags.
-	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
-	// prevent the miss-match, we add the upper epoch limit.
-	epoch := version.Number{Major: 2, Minor: 5, Patch: math.MaxInt32}
-
-	// Locate the agent tools version to limit the amount of checking we
-	// required to do over all. We check for NotFound to also use that as a
-	// fallthrough to check the agent version as well. This should take care
-	// of places where the application.AgentTools version is not set (IAAS).
-	ver, err := getAgentToolsVersion(application)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotFound) || ver.Compare(epoch) >= 0 {
-		// Check to see if the model config version is valid
-		// Arguably we could check on the per-unit level, as that is the
-		// *actual* version of the agent that is running, looking at the
-		// versioner (alias to model config), we get the intent of the move
-		// to that version.
-		// This should be enough for a pre-flight check, rather than querying
-		// potentially thousands of units (think large production stacks).
-		modelVer, modelErr := modelAgentService.GetModelAgentVersion(ctx)
-		if modelErr != nil {
-			// If we can't find the model config version, then we can't do the
-			// comparison check.
-			return errors.Trace(modelErr)
-		}
-		if modelVer.Compare(epoch) < 0 {
-			return ErrInvalidAgentVersions
-		}
-	}
-	return nil
-}
 
 // UnitsInfo returns unit information for the given entities (units or
 // applications).

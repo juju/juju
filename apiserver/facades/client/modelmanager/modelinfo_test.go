@@ -227,7 +227,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		AgentVersion:   version.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
@@ -474,7 +474,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		AgentVersion:   version.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
@@ -508,7 +508,7 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	)
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		AgentVersion:   version.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
@@ -696,7 +696,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelAgentVersionFailure(c *gc.C) 
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{}, nil)
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
 
 	s.st.model.life = state.Alive
 	s.testModelInfoError(c, api, s.st.model.tag.String(), "model agent version not found")
@@ -751,7 +751,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
@@ -775,7 +775,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelAgentVersionFailure(c *gc.C) {
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
@@ -836,7 +836,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
 }
@@ -860,7 +860,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelAgentVersionFailure(c *gc.C) 
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, errors.NotFoundf("model agent version"))
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
 }
@@ -937,7 +937,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
@@ -962,7 +962,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelAgentVersionFailure(c *gc
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
 
 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }

@@ -47,8 +47,11 @@ type ApplicationService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetModelAgentVersion returns the agent version for the current model.
-	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model. The following errors can be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
+	// does not exist.
+	GetModelTargetAgentVersion(ctx context.Context) (version.Number, error)
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -241,7 +244,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	// Skip checking okay on CACerts result, it will always be there
 	// Method has a comment to remove the boolean return value.
 	caCert, _ := controllerConfig.CACert()
-	version, err := f.modelAgentService.GetModelAgentVersion(ctx)
+	version, err := f.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return errResp(err)
 	}

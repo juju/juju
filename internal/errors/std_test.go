@@ -266,6 +266,25 @@ func TestIs(t *testing.T) {
 	t.SkipNow()
 }
 
+func TestIsOf(t *testing.T) {
+	t.Run("ReturnsFalseForEmptyTargets", func(t *testing.T) {
+		err := New("test error")
+		if IsOneOf(err) {
+			t.Errorf("IsOf with empty target list should return false")
+		}
+	})
+
+	t.Run("IsOfMultiple", func(t *testing.T) {
+		type1 := New("type 1")
+		type2 := New("type 2")
+		err := Errorf("%w", type1)
+
+		if !IsOneOf(err, type2, type1) {
+			t.Errorf("IsOf expected to find type1 in error chain")
+		}
+	})
+}
+
 // TestJoin tests the Join function to ensure it correctly combines errors and verifies their presence using the Is function.
 func TestJoin(t *testing.T) {
 	fooErr := fmt.Errorf("foo")

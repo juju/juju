@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -71,7 +70,6 @@ type ApplicationSuite struct {
 	backend            *mocks.MockBackend
 	ecService          *application.MockExternalControllerService
 	modelConfigService *application.MockModelConfigService
-	modelAgentService  *application.MockModelAgentService
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
 	machineService     *application.MockMachineService
@@ -209,7 +207,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
-	s.modelAgentService = application.NewMockModelAgentService(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 
@@ -226,7 +223,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.model,
 		s.modelInfo,
 		s.modelConfigService,
-		s.modelAgentService,
 		s.cloudService,
 		s.credService,
 		s.machineService,
@@ -610,14 +606,6 @@ postgresql:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var agentTools = tools.Tools{
-	Version: version.Binary{
-		Number:  version.Number{Major: 2, Minor: 6, Patch: 0},
-		Release: "ubuntu",
-		Arch:    "x86",
-	},
-}
-
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -628,14 +616,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 
 	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
-	app.EXPECT().AgentTools().Return(&agentTools, nil)
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
 		Charm:   ch,
@@ -651,31 +636,6 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectDefaultLxdProfilerCharm(ctrl)
-	curl := "ch:postgresql"
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
-	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
-	app.EXPECT().AgentTools().Return(&agentTools, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Number{Major: 2, Minor: 5, Patch: 0}, nil)
-
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
-		ApplicationName: "postgresql",
-		CharmURL:        curl,
-		CharmOrigin:     createCharmOriginFromURL(curl),
-		ConfigSettings:  map[string]string{"stringOption": "value"},
-	})
-	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
-		"Please run juju upgrade-model to upgrade the current model to match your controller.")
-}
-
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -686,14 +646,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 
 	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
-	app.EXPECT().AgentTools().Return(&agentTools, nil)
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
 		Charm:   ch,

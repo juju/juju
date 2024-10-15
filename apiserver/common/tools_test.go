@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -78,7 +79,9 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	}
 
 	current := coretesting.CurrentVersion()
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(current.Number, nil)
+	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("0")).Return(current.Number, nil)
+	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("1")).Return(current.Number, nil)
+	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("42")).Return(current.Number, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: current}, nil)
@@ -123,7 +126,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 	current := coretesting.CurrentVersion()
 	currentCopy := current
 	currentCopy.Release = "foo"
-	s.modelAgentService.EXPECT().GetModelAgentVersion(gomock.Any()).Return(currentCopy.Number, nil)
+	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("0")).Return(currentCopy.Number, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)

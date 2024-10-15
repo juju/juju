@@ -185,8 +185,11 @@ type AccessService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetModelAgentVersion returns the agent version for the current model.
-	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model. The following errors can be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
+	// does not exist.
+	GetModelTargetAgentVersion(ctx context.Context) (version.Number, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -281,7 +284,9 @@ type domainServices struct {
 	domainServices services.DomainServices
 }
 
-func (s domainServices) Agent() ModelAgentService { return s.domainServices.Agent() }
+func (s domainServices) Agent() ModelAgentService {
+	return s.domainServices.Agent()
+}
 
 func (s domainServices) Config() ModelConfigService {
 	return s.domainServices.Config()
