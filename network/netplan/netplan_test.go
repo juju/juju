@@ -199,7 +199,7 @@ network:
         lacp-rate: fast
         mii-monitor-interval: 100
         transmit-hash-policy: layer2
-        up-delay: 0
+        up-delay: "0"
         down-delay: 0
 `)
 }
@@ -231,7 +231,7 @@ network:
         mii-monitor-interval: 100
         transmit-hash-policy: layer2
         up-delay: 0
-        down-delay: 0
+        down-delay: "0"
 `)
 }
 
@@ -355,7 +355,7 @@ network:
       parameters:
         mode: 802.3ad
         lacp-rate: fast
-        mii-monitor-interval: 100
+        mii-monitor-interval: "100"
         min-links: 0
         transmit-hash-policy: layer2
         ad-select: 1

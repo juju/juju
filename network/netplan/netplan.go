@@ -194,7 +194,7 @@ func (i IntString) MarshalYAML() (interface{}, error) {
 type BondParameters struct {
 	Mode               IntString `yaml:"mode,omitempty"`
 	LACPRate           IntString `yaml:"lacp-rate,omitempty"`
-	MIIMonitorInterval *int      `yaml:"mii-monitor-interval,omitempty"`
+	MIIMonitorInterval IntString `yaml:"mii-monitor-interval,omitempty"`
 	MinLinks           *int      `yaml:"min-links,omitempty"`
 	TransmitHashPolicy string    `yaml:"transmit-hash-policy,omitempty"`
 	ADSelect           IntString `yaml:"ad-select,omitempty"`
@@ -203,8 +203,8 @@ type BondParameters struct {
 	ARPIPTargets       []string  `yaml:"arp-ip-targets,omitempty"`
 	ARPValidate        IntString `yaml:"arp-validate,omitempty"`
 	ARPAllTargets      IntString `yaml:"arp-all-targets,omitempty"`
-	UpDelay            *int      `yaml:"up-delay,omitempty"`
-	DownDelay          *int      `yaml:"down-delay,omitempty"`
+	UpDelay            IntString `yaml:"up-delay,omitempty"`
+	DownDelay          IntString `yaml:"down-delay,omitempty"`
 	FailOverMACPolicy  IntString `yaml:"fail-over-mac-policy,omitempty"`
 	// Netplan misspelled this as 'gratuitious-arp', not sure if it works with that name.
 	// We may need custom handling of both spellings.
