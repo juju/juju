@@ -34,7 +34,8 @@ run_charm_storage() {
 
 	# Assess charm storage with the filesystem storage provider
 	echo "Assessing filesystem rootfs"
-	juju deploy ./testcharms/charms/dummy-storage-fs --base ubuntu@22.04 --storage data=rootfs,1G
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/dummy-storage-fs) --base ubuntu@22.04 --storage data=rootfs,1G
 	wait_for "dummy-storage-fs" ".applications"
 	if [ "$(unit_exist "data/0")" == "true" ]; then
 		assess_rootfs
@@ -45,7 +46,8 @@ run_charm_storage() {
 
 	# Assess charm storage with the filesystem storage provider
 	echo "Assessing block loop disk 1"
-	juju deploy ./testcharms/charms/dummy-storage-lp --base ubuntu@22.04 --storage disks=loop,1G
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/dummy-storage-lp) --base ubuntu@22.04 --storage disks=loop,1G
 	wait_for "dummy-storage-lp" ".applications"
 	# assert the storage kind name
 	if [ "$(unit_exist "disks/1")" == "true" ]; then
@@ -64,7 +66,8 @@ run_charm_storage() {
 
 	# Assess tmpfs pool for the filesystem provider
 	echo "Assessing filesystem tmpfs"
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-tp --base ubuntu@22.04 --storage data=tmpfs,1G
+	# shellcheck disable=SC2046
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-tp) --base ubuntu@22.04 --storage data=tmpfs,1G
 	wait_for "dummy-storage-tp" ".applications"
 	if [ "$(unit_exist "data/3")" == "true" ]; then
 		assess_tmpfs
@@ -74,7 +77,8 @@ run_charm_storage() {
 	wait_for "{}" ".applications"
 
 	#Assessing for persistent filesystem
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-np --base ubuntu@22.04 --storage data=1G
+	# shellcheck disable=SC2046
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-np) --base ubuntu@22.04 --storage data=1G
 	wait_for "dummy-storage-np" ".applications"
 	if [ "$(unit_exist "data/4")" == "true" ]; then
 		assess_fs
@@ -86,7 +90,8 @@ run_charm_storage() {
 	juju remove-storage data/4
 
 	#Assessing multiple filesystem, block, rootfs, loop"
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --base ubuntu@22.04 --storage data=1G
+	# shellcheck disable=SC2046
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-mp) --base ubuntu@22.04 --storage data=1G
 	wait_for "dummy-storage-mp" ".applications"
 	if [ "$(unit_exist "data/5")" == "true" ]; then
 		assess_multiple_fs

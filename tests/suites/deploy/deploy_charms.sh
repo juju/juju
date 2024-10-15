@@ -136,7 +136,8 @@ run_deploy_local_predeployed_charm() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ./testcharms/charms/lxd-profile --base ubuntu@22.04
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/lxd-profile) --base ubuntu@22.04
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju deploy local:lxd-profile-0 another-lxd-profile-app
@@ -153,8 +154,10 @@ run_deploy_local_lxd_profile_charm() {
 
 	ensure "test-deploy-local-lxd-profile" "${file}"
 
-	juju deploy ./testcharms/charms/lxd-profile
-	juju deploy ./testcharms/charms/lxd-profile-subordinate
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/lxd-profile)
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/lxd-profile-subordinate)
 	juju integrate lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
@@ -191,8 +194,8 @@ run_deploy_lxd_to_machine() {
 
 	juju add-machine -n 2 --base ubuntu@22.04
 
-	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to 0 --base ubuntu@22.04
+	charm=$(pack_charm ./tests/suites/deploy/charms/lxd-profile-alt)
+	juju deploy ${charm} --to 0 --base ubuntu@22.04
 
 	# Test the case where we wait for the machine to start
 	# before deploying the unit.
@@ -204,7 +207,7 @@ run_deploy_lxd_to_machine() {
 	lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" |
 		grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-	juju refresh "lxd-profile-alt" --path "${charm}"
+	juju refresh "lxd-profile-alt" --path ${charm}
 
 	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
 	# has finished though, just started.
@@ -256,10 +259,11 @@ run_deploy_lxd_to_container() {
 
 	ensure "${model_name}" "${file}"
 
-	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to lxd
+	charm=$(pack_charm ./tests/suites/deploy/charms/lxd-profile-alt)
+	juju deploy ${charm} --to lxd
 
-	juju deploy ./testcharms/charms/lxd-profile-subordinate
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/lxd-profile-subordinate)
 	juju integrate lxd-profile-subordinate lxd-profile-alt
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
@@ -277,7 +281,7 @@ run_deploy_lxd_to_container() {
 	OUT=$(juju exec --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-	juju refresh "lxd-profile-alt" --path "${charm}"
+	juju refresh "lxd-profile-alt" --path ${charm}
 
 	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
 	# has finished though, just started.
@@ -327,8 +331,8 @@ run_resolve_charm() {
 
 	ensure "${model_name}" "${file}"
 
-	charm=./testcharms/charms/simple-resolve
-	juju deploy "${charm}"
+	charm=$(pack_charm ./testcharms/charms/simple-resolve)
+	juju deploy ${charm}
 
 	wait_for "error" '.applications["simple-resolve"] | ."application-status".current'
 
@@ -348,6 +352,9 @@ test_deploy_charms() {
 
 	(
 		set_verbosity
+
+		echo "==> Checking for dependencies"
+		check_dependencies charmcraft
 
 		cd .. || exit
 
