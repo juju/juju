@@ -77,6 +77,7 @@ func (ctrl *Controller) Import(
 		Type:                    modelType,
 		CloudName:               model.Cloud(),
 		CloudRegion:             model.CloudRegion(),
+		Config:                  cfg,
 		Owner:                   model.Owner(),
 		MigrationMode:           MigrationModeImporting,
 		EnvironVersion:          model.EnvironVersion(),
