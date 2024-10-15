@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/cmd/v4"
 
@@ -43,6 +44,8 @@ func NewRefreshCommandForTest(
 		NewRefresherFactory:   refresher.NewRefresherFactory,
 		ModelConfigClient:     newModelConfigClient,
 		NewCharmHubClient:     newCharmHubClient,
+		RetryGetCharmCount:    1,
+		RetryGetCharmDelay:    1 * time.Millisecond,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)

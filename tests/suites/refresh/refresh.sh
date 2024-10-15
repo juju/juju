@@ -134,6 +134,11 @@ run_refresh_revision() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
+	if echo "${OUT}" | head -n 1 | grep -vq "Added"; then
+		printf "refresh failed, cannot extract the revision number"
+		exit 5
+	fi
+
 	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 

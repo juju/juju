@@ -7,12 +7,15 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -78,6 +81,8 @@ func newRefreshCommand() *refreshCommand {
 			)
 		},
 		NewRefresherFactory: refresher.NewRefresherFactory,
+		RetryGetCharmCount:  10,
+		RetryGetCharmDelay:  500 * time.Millisecond,
 	}
 }
 
@@ -109,7 +114,7 @@ type NewCharmAdderFunc func(
 // NewCharmResolverFunc returns a client implementing CharmResolver.
 type NewCharmResolverFunc func(base.APICallCloser, store.DownloadBundleClient) CharmResolver
 
-// RefreshCharm is responsible for upgrading an application's charm.
+// refreshCommand handles the process of refreshing an application's charm.
 type refreshCommand struct {
 	modelcmd.ModelCommandBase
 
@@ -133,6 +138,13 @@ type refreshCommand struct {
 	SwitchURL  string
 	CharmPath  string
 	Revision   int // defaults to -1 (latest)
+
+	// RetryGetCharmCount allows to retry several time to get the Charm URL. Indeed, there is a timing window where
+	// deploy has been called and the charm is not yet downloaded, so we may want to retry during the refresh instead of
+	// fails to refresh then retry in enclosing code. It is especially useful in CI
+	RetryGetCharmCount int
+	// RetryGetCharmDelay is the delay between two retries
+	RetryGetCharmDelay time.Duration
 
 	BindToSpaces string
 	Bindings     map[string]string
@@ -353,17 +365,35 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = apiRoot.Close() }()
 
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(ctx, c.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// There is a timing window where deploy has been called and the charm
 	// is not yet downloaded. Check here to verify the origin has an ID,
-	// otherwise refresh result may be in accurate. We could use the
-	// retry package, but the issue is only seen in automated test due to
-	// speed. Can always use retry if it becomes an issue.
-	if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
+	// otherwise refresh result may be in accurate.
+	// It should only occur in automated test, but if the default retries isn't enough,
+	// the returned error should help to investigate.
+	// Outside automated test, a new refresh will end up to works
+	var (
+		oldURL    *charm.URL
+		oldOrigin commoncharm.Origin
+	)
+
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			oldURL, oldOrigin, err = charmRefreshClient.GetCharmURLOrigin(ctx, c.ApplicationName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
+				return errors.Errorf("attempt exceeded")
+			}
+			return nil
+		},
+		Stop:     ctx.Done(),
+		Attempts: c.RetryGetCharmCount,
+		Delay:    c.RetryGetCharmDelay,
+		Clock:    clock.WallClock,
+	})
+	if err != nil {
 		return errors.Errorf("%q deploy incomplete, please try refresh again in a little bit.", c.ApplicationName)
 	}
 
