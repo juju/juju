@@ -62,7 +62,7 @@ type GetMetadataServiceFunc func(getter dependency.Getter, name string) (Metadat
 // is the initial bootstrap controller.
 type IsBootstrapControllerFunc func(dataDir string) bool
 
-// ManifoldConfig defines the configuration for the trace manifold.
+// ManifoldConfig defines the configuration for the objectstore manifold.
 type ManifoldConfig struct {
 	AgentName               string
 	TraceName               string
