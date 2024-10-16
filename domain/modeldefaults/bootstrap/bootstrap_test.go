@@ -32,16 +32,12 @@ func (*bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 
 	defaults, err := provider.ModelDefaults(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults["foo"].Value, gc.Equals, "region")
-	c.Check(defaults["foo"].Source, gc.Equals, "region")
-	c.Check(defaults["controller"].Value, gc.Equals, "some value")
-	c.Check(defaults["controller"].Source, gc.Equals, "controller")
-	c.Check(defaults["region"].Value, gc.Equals, "some value")
-	c.Check(defaults["region"].Source, gc.Equals, "region")
+	c.Check(defaults["foo"].Region, gc.Equals, "region")
+	c.Check(defaults["controller"].Controller, gc.Equals, "some value")
+	c.Check(defaults["region"].Region, gc.Equals, "some value")
 
 	configDefaults := state.ConfigDefaults(context.Background())
 	for k, v := range configDefaults {
-		c.Check(defaults[k].Value, gc.Equals, v)
-		c.Check(defaults[k].Source, gc.Equals, "default")
+		c.Check(defaults[k].Default, gc.Equals, v)
 	}
 }

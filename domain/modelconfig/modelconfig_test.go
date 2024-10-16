@@ -122,8 +122,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 	var defaults modelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
-				Source: config.JujuControllerSource,
-				Value:  "bar",
+				Controller: "bar",
 			},
 		}, nil
 	}

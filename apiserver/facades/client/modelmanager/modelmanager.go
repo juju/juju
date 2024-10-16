@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -1333,20 +1334,23 @@ func (m *ModelManagerAPI) ModelDefaultsForClouds(ctx context.Context, args param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i] = m.modelDefaults(cloudTag.Id())
+		result.Results[i] = m.modelDefaults(ctx, cloudTag.Id())
 	}
 	return result, nil
 }
 
-func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult {
+func (m *ModelManagerAPI) modelDefaults(ctx context.Context, cloud string) params.ModelDefaultsResult {
 	result := params.ModelDefaultsResult{}
-	values, err := m.ctlrState.ModelConfigDefaultValues(cloud)
+	modelDefaults, err := m.modelDefaultsService.CloudDefaults(ctx, cloud)
 	if err != nil {
+		if errors.Is(err, clouderrors.NotFound) {
+			err = errors.NotFoundf("cloud %q", cloud)
+		}
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
-	result.Config = make(map[string]params.ModelDefaults)
-	for attr, val := range values {
+	result.Config = make(map[string]params.ModelDefaults, len(modelDefaults))
+	for attr, val := range modelDefaults {
 		settings := params.ModelDefaults{
 			Controller: val.Controller,
 			Default:    val.Default,
@@ -1365,9 +1369,14 @@ func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult
 // SetModelDefaults writes new values for the specified default model settings.
 func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
+	if !m.isAdmin {
+		return results, apiservererrors.ErrPerm
+	}
+
 	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
+
 	for i, arg := range args.Config {
 		results.Results[i].Error = apiservererrors.ServerError(
 			m.setModelDefaults(ctx, arg),
@@ -1377,27 +1386,26 @@ func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetM
 }
 
 func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.ModelDefaultValues) error {
-	if !m.isAdmin {
-		return apiservererrors.ErrPerm
+	if args.CloudTag == "" {
+		return errors.New("missing cloud name")
 	}
-
-	if err := m.check.ChangeAllowed(ctx); err != nil {
-		return errors.Trace(err)
+	cTag, err := names.ParseCloudTag(args.CloudTag)
+	if err != nil {
+		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", args.CloudTag))
 	}
-	// Make sure we don't allow changing agent-version.
-	if _, found := args.Config["agent-version"]; found {
-		return errors.New("agent-version cannot have a default value")
-	}
-
-	var rspec *environscloudspec.CloudRegionSpec
-	if args.CloudTag != "" {
-		spec, err := m.makeRegionSpec(args.CloudTag, args.CloudRegion)
-		if err != nil {
-			return errors.Trace(err)
+	if args.CloudRegion == "" {
+		err := m.modelDefaultsService.UpdateCloudDefaults(ctx, cTag.Id(), args.Config)
+		if errors.Is(err, clouderrors.NotFound) {
+			return errors.NotFoundf("cloud %q", cTag.Id())
 		}
-		rspec = spec
+		return err
 	}
-	return m.ctlrState.UpdateModelConfigDefaultValues(args.Config, nil, rspec)
+
+	err = m.modelDefaultsService.UpdateCloudRegionDefaults(ctx, cTag.Id(), args.CloudRegion, args.Config)
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.NotFoundf("cloud %q region %q", cTag.Id(), args.CloudRegion)
+	}
+	return err
 }
 
 // UnsetModelDefaults removes the specified default model settings.
@@ -1412,35 +1420,34 @@ func (m *ModelManagerAPI) UnsetModelDefaults(ctx context.Context, args params.Un
 	}
 
 	for i, arg := range args.Keys {
-		var rspec *environscloudspec.CloudRegionSpec
-		if arg.CloudTag != "" {
-			spec, err := m.makeRegionSpec(arg.CloudTag, arg.CloudRegion)
-			if err != nil {
-				results.Results[i].Error = apiservererrors.ServerError(
-					errors.Trace(err))
-				continue
-			}
-			rspec = spec
-		}
 		results.Results[i].Error = apiservererrors.ServerError(
-			m.ctlrState.UpdateModelConfigDefaultValues(nil, arg.Keys, rspec),
+			m.unsetModelDefaults(ctx, arg),
 		)
 	}
 	return results, nil
 }
 
-// makeRegionSpec is a helper method for methods that call
-// state.UpdateModelConfigDefaultValues.
-func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environscloudspec.CloudRegionSpec, error) {
-	cTag, err := names.ParseCloudTag(cloudTag)
-	if err != nil {
-		return nil, errors.Trace(err)
+func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.ModelUnsetKeys) error {
+	if arg.CloudTag == "" {
+		return errors.New("missing cloud name")
 	}
-	rspec, err := environscloudspec.NewCloudRegionSpec(cTag.Id(), r)
+
+	cTag, err := names.ParseCloudTag(arg.CloudTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", arg.CloudTag))
 	}
-	return rspec, nil
+	if arg.CloudRegion == "" {
+		err := m.modelDefaultsService.RemoveCloudDefaults(ctx, cTag.Id(), arg.Keys)
+		if errors.Is(err, clouderrors.NotFound) {
+			return errors.NotFoundf("cloud %q", cTag.Id())
+		}
+		return err
+	}
+	err = m.modelDefaultsService.RemoveCloudRegionDefaults(ctx, cTag.Id(), arg.CloudRegion, arg.Keys)
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.NotFoundf("cloud %q region %q", cTag.Id(), arg.CloudRegion)
+	}
+	return err
 }
 
 // ChangeModelCredential changes cloud credential reference for models.

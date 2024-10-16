@@ -80,6 +80,10 @@ func CreateTestModel(
 	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	regionName := name + "-region"
+	cloudRegionUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
 	credId, err := corecredential.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,6 +119,14 @@ func CreateTestModel(
 		}
 
 		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud_region (uuid, name, cloud_uuid)
+			VALUES (?, ?, ?)
+		`, cloudRegionUUID.String(), regionName, cloudUUID.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud_auth_type (cloud_uuid, auth_type_id)
 			VALUES (?, 0), (?, 2)
 		`, cloudUUID.String(), cloudUUID.String())
@@ -143,6 +155,7 @@ func CreateTestModel(
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        name,
+			CloudRegion:  regionName,
 			Credential: corecredential.Key{
 				Cloud: name,
 				Owner: userName,

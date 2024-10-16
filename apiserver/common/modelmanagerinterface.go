@@ -47,12 +47,6 @@ type ModelManagerBackend interface {
 	ControllerModelTag() names.ModelTag
 	IsController() bool
 	ControllerNodes() ([]ControllerNode, error)
-	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
-	UpdateModelConfigDefaultValues(
-		update map[string]any,
-		remove []string,
-		regionSpec *environscloudspec.CloudRegionSpec,
-	) error
 	Unit(name string) (*state.Unit, error)
 	Name() string
 	ModelTag() names.ModelTag
@@ -179,15 +173,6 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 		pool:                     st.pool,
 		user:                     st.user,
 	}, nil
-}
-
-func (st modelManagerStateShim) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
-	return st.State.ModelConfigDefaultValues(st.configSchemaSourceGetter, cloudName)
-}
-
-// UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
-func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environscloudspec.CloudRegionSpec) error {
-	return st.State.UpdateModelConfigDefaultValues(update, remove, regionSpec)
 }
 
 // ControllerTag exposes Model ControllerTag for ModelManagerBackend inteface

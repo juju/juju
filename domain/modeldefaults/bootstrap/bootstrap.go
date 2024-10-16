@@ -6,10 +6,10 @@ package bootstrap
 import (
 	"context"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service"
 	"github.com/juju/juju/domain/modeldefaults/state"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -26,16 +26,32 @@ func ModelDefaultsProvider(
 
 		for k, v := range state.ConfigDefaults(ctx) {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Source: config.JujuDefaultSource,
-				Value:  v,
+				Default: v,
 			}
 		}
 
-		providerDefaults, err := service.ProviderDefaults(
-			context.Background(),
-			cloudType,
-			service.ProviderModelConfigGetter(),
-		)
+		modelConfigProviderGetter := service.ProviderModelConfigGetter()
+		configProvider, err := modelConfigProviderGetter(cloudType)
+		if errors.Is(err, coreerrors.NotFound) {
+			return nil, errors.Errorf(
+				"getting model config provider, provider for cloud type %q does not exist",
+				cloudType,
+			)
+		} else if err != nil && !errors.Is(err, coreerrors.NotSupported) {
+			return nil, errors.Errorf(
+				"getting model config provider for cloud type %q: %w",
+				cloudType, err,
+			)
+		}
+
+		var providerDefaults map[string]any
+		if configProvider != nil {
+			providerDefaults, err = service.ProviderDefaults(
+				context.Background(),
+				cloudType,
+				service.ProviderModelConfigGetter(),
+			)
+		}
 		if err != nil {
 			return nil, errors.Errorf(
 				"getting provider defaults for bootstrap: %w", err,
@@ -43,20 +59,20 @@ func ModelDefaultsProvider(
 		}
 
 		for k, v := range providerDefaults {
-			defaults[k] = v
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Default: v,
+			}
 		}
 
 		for k, v := range controllerConfig {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Source: config.JujuControllerSource,
-				Value:  v,
+				Controller: v,
 			}
 		}
 
 		for k, v := range cloudRegionConfig {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Source: config.JujuRegionSource,
-				Value:  v,
+				Region: v,
 			}
 		}
 

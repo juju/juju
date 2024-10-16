@@ -5,14 +5,16 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	corecloud "github.com/juju/juju/core/cloud"
 	coreuser "github.com/juju/juju/core/user"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	"github.com/juju/juju/domain/cloud/state"
+	modeldefaultstate "github.com/juju/juju/domain/modeldefaults/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -67,8 +69,14 @@ func (s *bootstrapSuite) TestSetCloudDefaults(c *gc.C) {
 	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
-	st := state.NewState(s.TxnRunnerFactory())
-	defaults, err := st.CloudDefaults(context.Background(), "cirrus")
+	var cloudUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", "cirrus").Scan(&cloudUUID)
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	st := modeldefaultstate.NewState(s.TxnRunnerFactory())
+	defaults, err := st.CloudDefaults(context.Background(), corecloud.UUID(cloudUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
@@ -93,8 +101,14 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
-	st := state.NewState(s.TxnRunnerFactory())
-	defaults, err := st.CloudDefaults(context.Background(), "cirrus")
+	var cloudUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", "cirrus").Scan(&cloudUUID)
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	st := modeldefaultstate.NewState(s.TxnRunnerFactory())
+	defaults, err := st.CloudDefaults(context.Background(), corecloud.UUID(cloudUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
@@ -109,8 +123,8 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
 
-	st = state.NewState(s.TxnRunnerFactory())
-	defaults, err = st.CloudDefaults(context.Background(), "cirrus")
+	st = modeldefaultstate.NewState(s.TxnRunnerFactory())
+	defaults, err = st.CloudDefaults(context.Background(), corecloud.UUID(cloudUUID))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		"foo": "bar",

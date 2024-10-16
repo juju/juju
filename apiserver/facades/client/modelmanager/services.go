@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/modeldefaults"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
@@ -125,6 +126,27 @@ type ModelDefaultsService interface {
 	ModelDefaultsProvider(
 		uuid coremodel.UUID,
 	) modeldefaultsservice.ModelDefaultsProviderFunc
+
+	// CloudDefaults returns the default attribute details for a specified cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
+
+	// UpdateCloudDefaults saves the specified default attribute details for a cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	UpdateCloudDefaults(ctx context.Context, cloudName string, updateAttrs map[string]any) error
+
+	// UpdateCloudRegionDefaults saves the specified default attribute details for a cloud region.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	UpdateCloudRegionDefaults(ctx context.Context, cloudName, regionName string, updateAttrs map[string]any) error
+
+	// RemoveCloudDefaults deletes the specified default attribute details for a cloud.
+	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	RemoveCloudDefaults(ctx context.Context, cloudName string, removeAttrs []string) error
+
+	// RemoveCloudRegionDefaults deletes the specified default attributes for a
+	// cloud region. It returns an error satisfying [clouderrors.NotFound] if
+	// the cloud doesn't exist.
+	RemoveCloudRegionDefaults(ctx context.Context, cloudName, regionName string, removeAttrs []string) error
 }
 
 // ModelInfoService defines a interface for interacting with the underlying
