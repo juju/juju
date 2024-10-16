@@ -11,6 +11,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -58,7 +60,11 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		networkService:     domainServices.Network(),
 		modelInfoService:   domainServices.ModelInfo(),
 		machineService:     domainServices.Machine(),
-		portService:        domainServices.Port(),
+		applicationService: domainServices.Application(applicationservice.ApplicationServiceParams{
+			StorageRegistry: storage.NotImplementedProviderRegistry{},
+			Secrets:         applicationservice.NotImplementedSecretService{},
+		}),
+		portService: domainServices.Port(),
 	}
 	return client, nil
 }

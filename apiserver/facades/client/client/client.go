@@ -31,6 +31,7 @@ type Client struct {
 	networkService     NetworkService
 	modelInfoService   ModelInfoService
 	machineService     MachineService
+	applicationService ApplicationService
 	portService        PortService
 }
 
