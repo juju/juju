@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/watcher/watchertest"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type baseSuite struct {
@@ -340,7 +340,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Log a message and check the watcher result.

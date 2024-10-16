@@ -20,10 +20,10 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type machinerSuite struct {
@@ -324,7 +324,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
+	wc := watchertest.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
 

@@ -18,9 +18,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type firewallerSuite struct {
@@ -53,13 +53,13 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.appExposedChanges = make(chan struct{}, 1)
 	s.openPortsChanges = make(chan []string, 1)
 
-	appExposedWatcher := statetesting.NewMockNotifyWatcher(s.appExposedChanges)
+	appExposedWatcher := watchertest.NewMockNotifyWatcher(s.appExposedChanges)
 	s.st = &mockState{
 		application: mockApplication{
 			watcher: appExposedWatcher,
 		},
-		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
-		openPortsWatcher:    statetesting.NewMockStringsWatcher(s.openPortsChanges),
+		applicationsWatcher: watchertest.NewMockStringsWatcher(s.applicationsChanges),
+		openPortsWatcher:    watchertest.NewMockStringsWatcher(s.openPortsChanges),
 		appExposedWatcher:   appExposedWatcher,
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	portservice "github.com/juju/juju/domain/port/service"
@@ -46,7 +47,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -390,9 +390,9 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, resource1.(state.NotifyWatcher))
+	wc := watchertest.NewNotifyWatcherC(c, resource1.(state.NotifyWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewNotifyWatcherC(c, resource2.(state.NotifyWatcher))
+	wc = watchertest.NewNotifyWatcherC(c, resource2.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
 
@@ -912,7 +912,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -952,7 +952,7 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1048,7 +1048,7 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
@@ -1097,7 +1097,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	addedAction, err := s.ControllerModel(c).AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
@@ -1219,7 +1219,7 @@ func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1260,7 +1260,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// We get notified about the mysql relation going away but not the
@@ -1326,7 +1326,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	resource := s.resources.Get("1")
 	defer workertest.CleanKill(c, resource)
 
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Should be notified about the relation to logging frontend, since it's global scope.
@@ -1390,7 +1390,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Now we relate logging and monitoring together.
@@ -2859,7 +2859,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -2900,7 +2900,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 

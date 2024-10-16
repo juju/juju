@@ -10,16 +10,16 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type mockState struct {
 	testing.Stub
 	application         mockApplication
-	applicationsWatcher *statetesting.MockStringsWatcher
-	openPortsWatcher    *statetesting.MockStringsWatcher
-	appExposedWatcher   *statetesting.MockNotifyWatcher
+	applicationsWatcher *watchertest.MockStringsWatcher
+	openPortsWatcher    *watchertest.MockStringsWatcher
+	appExposedWatcher   *watchertest.MockNotifyWatcher
 }
 
 func (st *mockState) WatchApplications() state.StringsWatcher {

@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 // firewallerBaseSuite implements common testing suite for all API
@@ -227,7 +227,7 @@ func (s *firewallerBaseSuite) testWatchModelMachines(
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -299,10 +299,10 @@ func (s *firewallerBaseSuite) testWatch(
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc1 := statetesting.NewNotifyWatcherC(c, watcher1.(state.NotifyWatcher))
+	wc1 := watchertest.NewNotifyWatcherC(c, watcher1.(state.NotifyWatcher))
 	wc1.AssertNoChange()
 	if allowUnits {
-		wc2 := statetesting.NewNotifyWatcherC(c, watcher2.(state.NotifyWatcher))
+		wc2 := watchertest.NewNotifyWatcherC(c, watcher2.(state.NotifyWatcher))
 		wc2.AssertNoChange()
 	}
 }
@@ -344,7 +344,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 

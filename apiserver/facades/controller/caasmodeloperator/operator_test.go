@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type ModelOperatorSuite struct {
@@ -77,7 +76,7 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
 	controllerConfigWatcher := watchertest.NewMockStringsWatcher(controllerConfigChanged)
 	m.controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
-	m.state.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
+	m.state.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
 
 	modelConfigWatcher := watchertest.NewMockStringsWatcher(modelConfigChanged)
 	m.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)

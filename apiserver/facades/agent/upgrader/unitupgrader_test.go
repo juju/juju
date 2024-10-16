@@ -20,12 +20,12 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type unitUpgraderSuite struct {
@@ -116,14 +116,14 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = s.rawMachine.SetAgentVersion(version.MustParseBinary("3.4.567.8-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
-	wc.AssertClosed()
+	wc.AssertKilled()
 }
 
 func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	coreconfig "github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type mockState struct {
@@ -30,7 +30,7 @@ func (st *mockState) Application(name string) (caasunitprovisioner.Application, 
 type mockApplication struct {
 	testing.Stub
 	life            state.Life
-	settingsWatcher *statetesting.MockStringsWatcher
+	settingsWatcher *watchertest.MockStringsWatcher
 
 	tag   names.Tag
 	scale int

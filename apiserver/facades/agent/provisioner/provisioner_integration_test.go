@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type provisionerSuite struct {
@@ -766,9 +766,9 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc0 := statetesting.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
+	wc0 := watchertest.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
-	wc1 := statetesting.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
+	wc1 := watchertest.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
 }
 
@@ -803,9 +803,9 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc0 := statetesting.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
+	wc0 := watchertest.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
-	wc1 := statetesting.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
+	wc1 := watchertest.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
 }
 
@@ -1516,7 +1516,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Make sure WatchModelMachines fails with a machine agent login.
@@ -1552,7 +1552,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
+	wc := watchertest.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	// We should now get a time triggered change.
