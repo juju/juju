@@ -14,7 +14,8 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/testing/factory"
+	testfactory "github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -25,13 +26,13 @@ type filteringStatusSuite struct {
 var _ = gc.Suite(&filteringStatusSuite{})
 
 func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// make application 1 with endpoint 1
-	a1 := f.MakeApplication(c, &factory.ApplicationParams{
+	a1 := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Name: "abc",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
@@ -39,9 +40,9 @@ func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make application 2 with endpoint 2
-	a2 := f.MakeApplication(c, &factory.ApplicationParams{
+	a2 := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Name: "def",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "mysql",
 		}),
 	})
@@ -49,14 +50,14 @@ func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// create relation between a1 and a2
-	r12 := f.MakeRelation(c, &factory.RelationParams{
+	r12 := factory.MakeRelation(c, &testfactory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
 	})
 	c.Assert(r12, gc.NotNil)
 
 	// create another application 3 with an endpoint 3
-	a3 := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	a3 := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{Name: "logging"}),
 	})
 	e3, err := a3.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,7 +65,7 @@ func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
 	// create endpoint 4 on application 1
 	e4, err := a1.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	r13 := f.MakeRelation(c, &factory.RelationParams{
+	r13 := factory.MakeRelation(c, &testfactory.RelationParams{
 		Endpoints: []state.Endpoint{e3, e4},
 	})
 	c.Assert(r13, gc.NotNil)
@@ -94,13 +95,13 @@ func (s *filteringStatusSuite) TestRelationFiltered(c *gc.C) {
 // TestApplicationFilterIndependentOfAlphabeticUnitOrdering ensures we
 // do not regress and are carrying forward fix for lp#1592872.
 func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitOrdering(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
-	applicationA := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationA := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "mysql",
 		}),
 		Name: "abc",
@@ -108,8 +109,8 @@ func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitO
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
-	applicationB := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationB := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 		Name: "def",
@@ -118,14 +119,14 @@ func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitO
 	// Put a unit from each, application A and B, on the same machine.
 	// This will be enough to ensure that the application B qualifies to be
 	// in the status result filtered by the application A.
-	machine := f.MakeMachine(c, &factory.MachineParams{
+	machine := factory.MakeMachine(c, &testfactory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationA,
 		Machine:     machine,
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationB,
 		Machine:     machine,
 	})
@@ -140,7 +141,7 @@ func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitO
 				Patterns: []string{applicationA.Name()},
 			})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Applications, gc.HasLen, 2)
+		c.Check(status.Applications, gc.HasLen, 2)
 	}
 }
 
@@ -156,21 +157,21 @@ func (s *filteringStatusSuite) TestApplicationFilterIndependentOfAlphabeticUnitO
 //
 // application B's relations should not be returned.
 func (s *filteringStatusSuite) TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
-	applicationA := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationA := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "mysql",
 		}),
 	})
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
-	applicationB := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationB := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
@@ -179,26 +180,26 @@ func (s *filteringStatusSuite) TestFilterOutRelationsForRelatedApplicationsThatD
 
 	// Application C has a relation to application B but has no touch points with
 	// an application A.
-	applicationC := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	applicationC := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{Name: "logging"}),
 	})
 	endpoint2, err := applicationC.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
-	f.MakeRelation(c, &factory.RelationParams{
+	factory.MakeRelation(c, &testfactory.RelationParams{
 		Endpoints: []state.Endpoint{endpoint2, endpoint1},
 	})
 
 	// Put a unit from each, application A and B, on the same machine.
 	// This will be enough to ensure that the application B qualifies to be
 	// in the status result filtered by the application A.
-	machine := f.MakeMachine(c, &factory.MachineParams{
+	machine := factory.MakeMachine(c, &testfactory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationA,
 		Machine:     machine,
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationB,
 		Machine:     machine,
 	})
@@ -215,24 +216,24 @@ func (s *filteringStatusSuite) TestFilterOutRelationsForRelatedApplicationsThatD
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	c.Assert(status.Applications, gc.HasLen, 2)
-	c.Assert(status.Relations, gc.HasLen, 0)
+	c.Check(status.Applications, gc.HasLen, 2)
+	c.Check(status.Relations, gc.HasLen, 0)
 }
 
 func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 
-	app := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	app := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
-	_ = f.MakeUnit(c, &factory.UnitParams{
+	_ = factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: app,
 	})
-	_ = f.MakeUnit(c, &factory.UnitParams{
+	_ = factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: app,
 	})
 
@@ -269,9 +270,11 @@ func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
-	c.Assert(status.Applications[app.Name()].Units, gc.HasLen, 1)
-	c.Check(status.Applications[app.Name()].Units["wordpress/0"], gc.NotNil)
+	c.Check(status.Applications, jc.Satisfies, func(apps map[string]params.ApplicationStatus) bool {
+		_, ok0 := apps[app.Name()].Units["wordpress/0"]
+		_, ok1 := apps[app.Name()].Units["wordpress/1"]
+		return ok0 && !ok1
+	})
 
 	status, err = client.Status(
 		context.Background(),
@@ -281,7 +284,11 @@ func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
-	c.Check(status.Applications[app.Name()].Units, gc.HasLen, 2)
+	c.Check(status.Applications, jc.Satisfies, func(apps map[string]params.ApplicationStatus) bool {
+		_, ok0 := apps[app.Name()].Units["wordpress/0"]
+		_, ok1 := apps[app.Name()].Units["wordpress/1"]
+		return ok0 && ok1
+	})
 
 	status, err = client.Status(
 		context.Background(),
@@ -290,7 +297,9 @@ func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
-	c.Assert(status.Applications[app.Name()].Units, gc.HasLen, 1)
-	c.Check(status.Applications[app.Name()].Units["wordpress/1"], gc.NotNil)
+	c.Check(status.Applications, jc.Satisfies, func(apps map[string]params.ApplicationStatus) bool {
+		_, ok0 := apps[app.Name()].Units["wordpress/0"]
+		_, ok1 := apps[app.Name()].Units["wordpress/1"]
+		return !ok0 && ok1
+	})
 }

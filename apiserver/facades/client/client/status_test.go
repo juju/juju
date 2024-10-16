@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/testing/factory"
+	testfactory "github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -85,32 +85,32 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 }
 
 func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	u := f.MakeUnit(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	unit := factory.MakeUnit(c, nil)
 	st := s.ControllerModel(c).State()
 	claimer, err := s.LeaseManager.Claimer("application-leadership", st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
+	err = claimer.Claim(unit.ApplicationName(), unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenModelAPI(c, st.ModelUUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
-	app, ok := status.Applications[u.ApplicationName()]
+	app, ok := status.Applications[unit.ApplicationName()]
 	c.Assert(ok, jc.IsTrue)
-	unit, ok := app.Units[u.Name()]
+	unitStatus, ok := app.Units[unit.Name()]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(unit.Leader, jc.IsTrue)
+	c.Assert(unitStatus.Leader, jc.IsTrue)
 }
 
 func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	machine := f.MakeMachine(c, nil)
-	unit := f.MakeUnit(c, &factory.UnitParams{
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	machine := factory.MakeMachine(c, nil)
+	unit := factory.MakeUnit(c, &testfactory.UnitParams{
 		Machine: machine,
 	})
 	st := s.ControllerModel(c).State()
@@ -133,7 +133,7 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 
 	const numUnits = 5
 	for i := 0; i < numUnits; i++ {
-		f.MakeUnit(c, &factory.UnitParams{
+		factory.MakeUnit(c, &testfactory.UnitParams{
 			Application: app,
 			Machine:     machine,
 		})
@@ -151,10 +151,10 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 }
 
 func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	f.MakeMachine(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	factory.MakeMachine(c, nil)
 	st := s.ControllerModel(c).State()
 	tracker := st.TrackQueries("FullStatus")
 
@@ -168,7 +168,7 @@ func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 
 	// Add several more machines to the model.
 	for i := 0; i < 5; i++ {
-		f.MakeMachine(c, nil)
+		factory.MakeMachine(c, nil)
 	}
 	tracker.Reset()
 
@@ -255,11 +255,11 @@ type statusUnitTestSuite struct {
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	host := f.MakeMachine(c, &factory.MachineParams{InstanceId: "0"})
-	container := f.MakeMachineNested(c, host.Id(), nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	host := factory.MakeMachine(c, &testfactory.MachineParams{InstanceId: "0"})
+	container := factory.MakeMachineNested(c, host.Id(), nil)
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
@@ -276,13 +276,13 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	host := f.MakeMachine(c, &factory.MachineParams{InstanceId: "1"})
-	f.MakeMachineNested(c, host.Id(), nil)
-	lxdHost := f.MakeMachineNested(c, host.Id(), nil)
-	f.MakeMachineNested(c, lxdHost.Id(), nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	host := factory.MakeMachine(c, &testfactory.MachineParams{InstanceId: "1"})
+	factory.MakeMachineNested(c, host.Id(), nil)
+	lxdHost := factory.MakeMachineNested(c, host.Id(), nil)
+	factory.MakeMachineNested(c, lxdHost.Id(), nil)
 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
@@ -301,11 +301,11 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 }
 
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "ch:amd64/wordpress"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	charm := factory.MakeCharm(c, &testfactory.CharmParams{Name: "wordpress", URL: "ch:amd64/wordpress"})
+	app := factory.MakeApplication(c, &testfactory.ApplicationParams{Charm: charm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
@@ -367,20 +367,20 @@ func intPtr(i int) *int {
 }
 
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	principalCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "ch:amd64/mysql"})
-	subordCharm := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/logging-1"})
-	subordCharmNew := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/logging-2"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	principalCharm := factory.MakeCharm(c, &testfactory.CharmParams{Name: "mysql", URL: "ch:amd64/mysql"})
+	subordCharm := factory.MakeCharm(c, &testfactory.CharmParams{Name: "logging", URL: "ch:amd64/logging-1"})
+	subordCharmNew := factory.MakeCharm(c, &testfactory.CharmParams{Name: "logging", URL: "ch:amd64/logging-2"})
+	app := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Charm: principalCharm,
 		Name:  "principal",
 	})
-	pu := f.MakeUnit(c, &factory.UnitParams{
+	pu := factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: app,
 	})
-	subordApp := f.MakeApplication(c, &factory.ApplicationParams{
+	subordApp := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Charm:       subordCharm,
 		CharmOrigin: defaultCharmOrigin(subordCharm.URL()),
 		Name:        "subord",
@@ -462,10 +462,10 @@ func checkUnitVersion(c *gc.C, appStatus params.ApplicationStatus, unit *state.U
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	application := f.MakeApplication(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	application := factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, s.modelConfigService(c), application, "voltron")
 	unit2 := addUnitWithVersion(c, s.modelConfigService(c), application, "voltron")
 	unit3 := addUnitWithVersion(c, s.modelConfigService(c), application, "zarkon")
@@ -477,10 +477,10 @@ func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	application := f.MakeApplication(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	application := factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, s.modelConfigService(c), application, "voltron")
 
 	appStatus := s.checkAppVersion(c, application, "voltron")
@@ -488,10 +488,10 @@ func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	application := f.MakeApplication(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	application := factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, s.modelConfigService(c), application, "voltron")
 	unit2 := addUnitWithVersion(c, s.modelConfigService(c), application, "")
 
@@ -501,18 +501,18 @@ func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	application := f.MakeApplication(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	application := factory.MakeApplication(c, nil)
 	s.checkAppVersion(c, application, "")
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	application := f.MakeApplication(c, nil)
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	application := factory.MakeApplication(c, nil)
 	unit, err := application.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
@@ -521,9 +521,9 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	// Create a host model because controller models can't be migrated.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	state2 := f.MakeModel(c, nil)
+	state2 := factory.MakeModel(c, nil)
 	defer state2.Close()
 
 	model2, err := state2.Model()
@@ -589,82 +589,82 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// make application 1 with endpoint 1
-	a1 := f.MakeApplication(c, &factory.ApplicationParams{
+	wordpress := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Name: "abc",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
-	e1, err := a1.Endpoint("db")
+	wordpressEndpoint, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make application 2 with endpoint 2
-	a2 := f.MakeApplication(c, &factory.ApplicationParams{
+	mysql := factory.MakeApplication(c, &testfactory.ApplicationParams{
 		Name: "def",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "mysql",
 		}),
 	})
-	e2, err := a2.Endpoint("server")
+	mysqlEndpoint, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create relation between a1 and a2
-	r12 := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{e1, e2},
+	// create relation between wordpress and mysql
+	wordpressMysqlRelation := factory.MakeRelation(c, &testfactory.RelationParams{
+		Endpoints: []state.Endpoint{wordpressEndpoint, mysqlEndpoint},
 	})
-	c.Assert(r12, gc.NotNil)
+	c.Assert(wordpressMysqlRelation, gc.NotNil)
 
 	// create another application 3 with an endpoint 3
-	a3 := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	logging := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{Name: "logging"}),
 	})
-	e3, err := a3.Endpoint("info")
+	loggingEndpoint, err := logging.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// create endpoint 4 on application 1
-	e4, err := a1.Endpoint("juju-info")
+	wordpressJujuInfo, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	r13 := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{e3, e4},
+	wordpressLoggingRelation := factory.MakeRelation(c, &testfactory.RelationParams{
+		Endpoints: []state.Endpoint{loggingEndpoint, wordpressJujuInfo},
 	})
-	c.Assert(r13, gc.NotNil)
+	c.Assert(wordpressLoggingRelation, gc.NotNil)
 
 	// Test status filtering with application 1: should get both relations
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(context.Background(),
 		&apiclient.StatusArgs{
-			Patterns: []string{a1.Name()},
+			Patterns: []string{wordpress.Name()},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
+	assertApplicationRelations(c, wordpress.Name(), 2, status.Relations)
 
 	// test status filtering with application 3: should get 1 relation
 	status, err = client.Status(
 		context.Background(),
 		&apiclient.StatusArgs{
-			Patterns: []string{a3.Name()},
+			Patterns: []string{logging.Name()},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
+	assertApplicationRelations(c, logging.Name(), 1, status.Relations)
 }
 
 // TestApplicationFilterIndependentOfAlphabeticUnitOrdering ensures we
 // do not regress and are carrying forward fix for lp#1592872.
 func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOrdering(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
-	applicationA := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationA := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "mysql",
 		}),
 		Name: "abc",
@@ -672,8 +672,8 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
-	applicationB := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationB := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 		Name: "def",
@@ -682,14 +682,14 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 	// Put a unit from each, application A and B, on the same machine.
 	// This will be enough to ensure that the application B qualifies to be
 	// in the status result filtered by the application A.
-	machine := f.MakeMachine(c, &factory.MachineParams{
+	machine := factory.MakeMachine(c, &testfactory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationA,
 		Machine:     machine,
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationB,
 		Machine:     machine,
 	})
@@ -704,7 +704,7 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 				Patterns: []string{applicationA.Name()},
 			})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Applications, gc.HasLen, 2)
+		c.Check(status.Applications, gc.HasLen, 2)
 	}
 }
 
@@ -720,21 +720,21 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 //
 // application B's relations should not be returned.
 func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
-	applicationA := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationA := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "mysql",
 		}),
 	})
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
-	applicationB := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	applicationB := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
@@ -743,26 +743,26 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 
 	// Application C has a relation to application B but has no touch points with
 	// an application A.
-	applicationC := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	applicationC := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{Name: "logging"}),
 	})
 	endpoint2, err := applicationC.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
-	f.MakeRelation(c, &factory.RelationParams{
+	factory.MakeRelation(c, &testfactory.RelationParams{
 		Endpoints: []state.Endpoint{endpoint2, endpoint1},
 	})
 
 	// Put a unit from each, application A and B, on the same machine.
 	// This will be enough to ensure that the application B qualifies to be
 	// in the status result filtered by the application A.
-	machine := f.MakeMachine(c, &factory.MachineParams{
+	machine := factory.MakeMachine(c, &testfactory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationA,
 		Machine:     machine,
 	})
-	f.MakeUnit(c, &factory.UnitParams{
+	factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: applicationB,
 		Machine:     machine,
 	})
@@ -779,15 +779,15 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	c.Assert(status.Applications, gc.HasLen, 2)
-	c.Assert(status.Relations, gc.HasLen, 0)
+	c.Check(status.Applications, gc.HasLen, 2)
+	c.Check(status.Relations, gc.HasLen, 0)
 }
 
 func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayNameSent(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	machine := f.MakeMachine(c, &factory.MachineParams{
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	machine := factory.MakeMachine(c, &testfactory.MachineParams{
 		InstanceId: "i-123",
 	})
 
@@ -800,10 +800,10 @@ func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayName
 }
 
 func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
-	machine := f.MakeMachine(c, &factory.MachineParams{
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
+	machine := factory.MakeMachine(c, &testfactory.MachineParams{
 		InstanceId:  "i-123",
 		DisplayName: "snowflake",
 	})
@@ -822,7 +822,7 @@ func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c 
 }
 
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
-	c.Assert(relations, gc.HasLen, expectedNumber)
+	c.Check(relations, gc.HasLen, expectedNumber)
 	for _, relation := range relations {
 		belongs := false
 		for _, endpoint := range relation.Endpoints {
@@ -838,16 +838,16 @@ func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, rel
 }
 
 func (s *statusUnitTestSuite) TestUnitsWithOpenedPortsSent(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
+	factory = factory.WithModelConfigService(s.modelConfigService(c))
 
-	app := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
+	app := factory.MakeApplication(c, &testfactory.ApplicationParams{
+		Charm: factory.MakeCharm(c, &testfactory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
-	_ = f.MakeUnit(c, &factory.UnitParams{
+	_ = factory.MakeUnit(c, &testfactory.UnitParams{
 		Application: app,
 	})
 
@@ -933,19 +933,19 @@ func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
 // AddMachine adds a new machine to state.
 func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
 	st := s.ControllerModel(c).State()
-	m, err := st.AddOneMachine(s.modelConfigService(c), state.MachineTemplate{
+	machine, err := st.AddOneMachine(s.modelConfigService(c), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{job},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, machineId)
+	c.Assert(machine.Id(), gc.Equals, machineId)
 }
 
 // AddCharmhubCharmWithRevision adds a charmhub charm with the specified revision to state.
 func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
 	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
-	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev)
+	curl := fmt.Sprintf("ch:amd64/%s-%d", name, rev)
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -991,22 +991,22 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 func (s *statusUpgradeUnitSuite) AddUnit(c *gc.C, appName, machineId string) {
 	app, err := s.ControllerModel(c).State().Application(appName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.ControllerModel(c).State().Machine(machineId)
+	machine, err := s.ControllerModel(c).State().Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(s.modelConfigService(c), m)
+	err = unit.AssignToMachine(s.modelConfigService(c), machine)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // SetUnitRevision sets the unit's charm to the specified revision.
 func (s *statusUpgradeUnitSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
-	u, err := s.ControllerModel(c).State().Unit(unitName)
+	unit, err := s.ControllerModel(c).State().Unit(unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := u.Application()
+	svc, err := unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev)
-	err = u.SetCharmURL(curl)
+	curl := fmt.Sprintf("ch:amd64/%s-%d", svc.Name(), rev)
+	err = unit.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1060,7 +1060,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	status, _ = client.Status(context.Background(), nil)
 	appStatus, ok = status.Applications["charmhubby"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/charmhubby-42")
+	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/charmhubby-42")
 }
 
 type preparer struct{}
