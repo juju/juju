@@ -280,9 +280,11 @@ func (s *ModelFactory) UnitState() *unitstateservice.Service {
 
 // Port returns the service for managing opened port ranges for units.
 func (s *ModelFactory) Port() *portservice.WatchableService {
+	logger := s.logger.Child("port")
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("port")),
+		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
+		logger.Child("service"),
 	)
 }
 

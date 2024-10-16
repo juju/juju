@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -54,7 +55,7 @@ type State interface {
 	GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error)
 
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
-	// given machine. Opened ports are grouped first by unit and then by endpoint.
+	// given machine. Opened ports are grouped first by unit name and then by endpoint.
 	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
 
 	// GetApplicationOpenedPorts returns the opened ports for all the units of the
@@ -65,13 +66,15 @@ type State interface {
 
 // Service provides the API for managing the opened ports for units.
 type Service struct {
-	st State
+	st     State
+	logger logger.Logger
 }
 
 // NewService returns a new Service for managing opened ports for units.
-func NewService(st State) *Service {
+func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
-		st: st,
+		st:     st,
+		logger: logger,
 	}
 }
 
@@ -96,6 +99,31 @@ func (s *Service) GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRan
 // TODO: Once we have a core static machine uuid type, use it here.
 func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
+}
+
+// GetMachineOpenedPortsAndSubnets returns the opened port ranges, including the
+// subnet CIDRs they're open to, for each endpoint, for each unit on a machine.
+//
+// NOTE(jack-w-shaw): This method is a stub implementation, that always returns
+// nil for the endpoint SubnetCIDRs
+// TODO: Once endpoint bindings have been implemented into a DQLite domain, implement
+// this method properly to return the subnet CIDRs each endpoint is open to.
+func (s *Service) GetMachineOpenedPortsAndSubnets(ctx context.Context, machineUUID string) (map[string]port.GroupedPortRangesOnSubnets, error) {
+	byUnitByEndpoint, err := s.st.GetMachineOpenedPorts(ctx, machineUUID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get opened ports for machine %s: %w", machineUUID, err)
+	}
+	res := make(map[string]port.GroupedPortRangesOnSubnets)
+	for unitName, ByEndpoint := range byUnitByEndpoint {
+		res[unitName] = make(port.GroupedPortRangesOnSubnets)
+		for endpoint, portRanges := range ByEndpoint {
+			res[unitName][endpoint] = port.PortRangesOnSubnet{
+				PortRanges:  portRanges,
+				SubnetCIDRs: nil,
+			}
+		}
+	}
+	return res, nil
 }
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the

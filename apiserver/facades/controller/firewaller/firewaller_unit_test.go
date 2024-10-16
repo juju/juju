@@ -17,12 +17,15 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -45,6 +48,8 @@ type RemoteFirewallerSuite struct {
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
 	applicationService      *MockApplicationService
+	machineService          *MockMachineService
+	portService             *MockPortService
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -71,6 +76,8 @@ func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.portService = NewMockPortService(ctrl)
 
 	return ctrl
 }
@@ -88,7 +95,8 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.applicationService,
-		nil,
+		s.machineService,
+		s.portService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,6 +192,8 @@ type FirewallerSuite struct {
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
 	applicationService      *MockApplicationService
+	machineService          *MockMachineService
+	portService             *MockPortService
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -207,6 +217,8 @@ func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.portService = NewMockPortService(ctrl)
 
 	return ctrl
 }
@@ -224,7 +236,8 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.applicationService,
-		nil,
+		s.machineService,
+		s.portService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,50 +323,26 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	// Set up our mocks
-	mockMachine := newMockMachine("0")
-	mockMachine.openedPortRanges = newMockMachinePortRanges(
-		newMockUnitPortRanges(
-			"wordpress/0",
-			network.GroupedPortRanges{
-				"": []network.PortRange{
-					network.MustParsePortRange("80/tcp"),
+	machineUUID := uuid.MustNewUUID().String()
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machineUUID, nil)
+
+	s.portService.EXPECT().GetMachineOpenedPortsAndSubnets(gomock.Any(), machineUUID).Return(
+		map[string]port.GroupedPortRangesOnSubnets{
+			"wordpress/0": {
+				"": {
+					PortRanges:  []network.PortRange{network.MustParsePortRange("80/tcp")},
+					SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24"},
 				},
 			},
-		),
-		newMockUnitPortRanges(
-			"mysql/0",
-			network.GroupedPortRanges{
-				"foo": []network.PortRange{
-					network.MustParsePortRange("3306/tcp"),
+			"mysql/0": {
+				"foo": {
+					PortRanges:  []network.PortRange{network.MustParsePortRange("3306/tcp")},
+					SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 				},
 			},
-		),
+		},
+		nil,
 	)
-	spaceInfos := network.SpaceInfos{
-		{ID: network.AlphaSpaceId, Name: "alpha", Subnets: []network.SubnetInfo{
-			{ID: "11", CIDR: "10.0.0.0/24"},
-			{ID: "12", CIDR: "10.0.1.0/24"},
-		}},
-		{ID: "42", Name: "questions-about-the-universe", Subnets: []network.SubnetInfo{
-			{ID: "13", CIDR: "192.168.0.0/24"},
-			{ID: "14", CIDR: "192.168.1.0/24"},
-		}},
-	}
-	applicationEndpointBindings := map[string]map[string]string{
-		"mysql": {
-			"":    network.AlphaSpaceId,
-			"foo": "42",
-		},
-		"wordpress": {
-			"":           network.AlphaSpaceId,
-			"monitoring": network.AlphaSpaceId,
-			"web":        "42",
-		},
-	}
-	s.st.EXPECT().Machine("0").Return(mockMachine, nil)
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaceInfos, nil)
-	s.st.EXPECT().AllEndpointBindings().Return(applicationEndpointBindings, nil)
 
 	// Test call output
 	req := params.Entities{
@@ -370,7 +359,7 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		"unit-wordpress-0": {
 			{
 				Endpoint:    "",
-				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24"},
 				PortRanges: []params.PortRange{
 					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},

@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -115,13 +116,13 @@ func (s *watcherSuite) TestGetMachinesForEndpoints(c *gc.C) {
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	machineUUIDsForEndpoint, err := st.GetMachinesForEndpoints(ctx, endpointUUIDs)
+	machineUUIDsForEndpoint, err := st.GetMachineNamesForEndpoints(ctx, endpointUUIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForEndpoint, jc.SameContents, []string{machineUUIDs[0], machineUUIDs[1]})
+	c.Check(machineUUIDsForEndpoint, jc.SameContents, []machine.Name{"0", "1"})
 
-	machineUUIDsForEndpoint, err = st.GetMachinesForEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
+	machineUUIDsForEndpoint, err = st.GetMachineNamesForEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []string{machineUUIDs[0]})
+	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []machine.Name{"0"})
 }
 
 func (s *watcherSuite) TestFilterEndpointForApplication(c *gc.C) {

@@ -12,6 +12,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 )
@@ -25,9 +27,9 @@ type WatchableService struct {
 
 // NewWatchableService returns a new Service providing an API to manage the opened
 // ports for units.
-func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
-		Service:        &Service{st: st},
+		Service:        &Service{st: st, logger: logger},
 		watcherFactory: watcherFactory,
 	}
 }
@@ -59,9 +61,9 @@ type WatcherState interface {
 	// for the WatchOpenedPorts watcher
 	InitialWatchOpenedPortsStatement() string
 
-	// GetMachinesForEndpoints returns map from endpoint uuids to the uuids of
+	// GetMachineNamesForEndpoints returns map from endpoint uuids to the uuids of
 	// the machines which host that endpoint for each provided endpoint uuid.
-	GetMachinesForEndpoints(ctx context.Context, endpointUUIDs []string) ([]string, error)
+	GetMachineNamesForEndpoints(ctx context.Context, endpointUUIDs []string) ([]coremachine.Name, error)
 
 	// FilterEndpointsForApplication returns the subset of provided endpoint uuids
 	// that are associated with the provided application.
@@ -93,7 +95,7 @@ func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, a
 
 // endpointToMachineMapper is an eventsource.Mapper that maps a slice of
 // changestream.ChangeEvent containing endpoint UUIDs to a slice of
-// changestream.ChanegEvent containing the UUIDs of the machines the corresponding
+// changestream.ChanegEvent containing the names of the machines the corresponding
 // endpoint is located on.
 func (s *WatchableService) endpointToMachineMapper(
 	ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
@@ -103,17 +105,17 @@ func (s *WatchableService) endpointToMachineMapper(
 		return e.Changed()
 	})
 
-	machineUUIDs, err := s.st.GetMachinesForEndpoints(ctx, endpointUUIDs)
+	machineNames, err := s.st.GetMachineNamesForEndpoints(ctx, endpointUUIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	newEvents := make([]changestream.ChangeEvent, 0, len(machineUUIDs))
-	for _, machineUUID := range machineUUIDs {
+	newEvents := make([]changestream.ChangeEvent, 0, len(machineNames))
+	for _, machineName := range machineNames {
 		newEvents = append(newEvents, changeEventShim{
 			changeType: changestream.Update,
 			namespace:  "machine",
-			changed:    machineUUID,
+			changed:    machineName.String(),
 		})
 	}
 

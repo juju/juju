@@ -42,6 +42,7 @@ type firewallerSuite struct {
 	networkService          *MockNetworkService
 	machineService          *MockMachineService
 	applicationService      *MockApplicationService
+	portService             *MockPortService
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -58,6 +59,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.portService = NewMockPortService(ctrl)
 
 	return ctrl
 }
@@ -89,6 +91,7 @@ func (s *firewallerSuite) setupAPI(c *gc.C) {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
+		s.portService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,41 +168,21 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	s.testGetAssignedMachine(c, s.firewaller)
 }
 
-func (s *firewallerSuite) openPorts(c *gc.C) {
-	// Open some ports on the units.
-	allEndpoints := ""
-	s.mustOpenPorts(c, s.units[0], allEndpoints, []network.PortRange{
-		network.MustParsePortRange("1234-1400/tcp"),
-		network.MustParsePortRange("4321/tcp"),
-	})
-	s.mustOpenPorts(c, s.units[2], allEndpoints, []network.PortRange{
-		network.MustParsePortRange("1111-2222/udp"),
-	})
-}
-
-func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, err := unit.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, pr := range portRanges {
-		unitPortRanges.Open(endpointName, pr)
-	}
-
-	c.Assert(s.ControllerModel(c).State().ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
-}
-
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	s.openPorts(c)
 	expectChanges := []string{ // machine IDs
 		"0",
 		"2",
 	}
+
+	w := newMockStringsWatcher()
+	defer workertest.CleanKill(c, w)
+	w.changes <- expectChanges
+	s.portService.EXPECT().WatchOpenedPorts(gomock.Any()).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
 
 	fakeModelTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
@@ -227,14 +210,11 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertNoChange()
 }
 
