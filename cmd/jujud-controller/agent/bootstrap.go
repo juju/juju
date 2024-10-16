@@ -351,7 +351,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapMachineAddresses: addrs,
 			BootstrapMachineJobs:      agentConfig.Jobs(),
 			SharedSecret:              info.SharedSecret,
-			StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
+			StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(),
 			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
 			Provider:                  environs.Provider,

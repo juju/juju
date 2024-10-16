@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
@@ -55,8 +54,6 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	args := &factory.ModelParams{UUID: &modelUUID}
 	s.st = f.MakeCAASModel(c, args)
 	s.AddCleanup(func(_ *gc.C) { s.st.Close() })
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -65,9 +62,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, domainServices.Cloud(), domainServices.Credential(), s.DefaultModelDomainServices(c).Config())
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	registry := stateenvirons.NewStorageProviderRegistry()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
 

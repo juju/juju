@@ -833,7 +833,7 @@ to create a new model to deploy %sworkloads.
 	}
 
 	// Validate the storage provider config.
-	registry := stateenvirons.NewStorageProviderRegistry(environ)
+	registry := stateenvirons.NewStorageProviderRegistry()
 	for poolName, cfg := range bootstrapCfg.storagePools {
 		poolAttrs := make(storage.Attrs)
 		for k, v := range cfg {

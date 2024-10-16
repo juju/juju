@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
@@ -148,16 +147,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	isCaasModel := modelInfo.Type == coremodel.CAAS
 
-	var env storage.ProviderRegistry
-	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	} else {
-		env, err = environs.GetEnviron(stdCtx, configGetter, environs.New)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry()
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
 		stdCtx, st, domainServices.Cloud(), domainServices.Network(), getCanModify)

@@ -58,10 +58,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+	registry := stateenvirons.NewStorageProviderRegistry()
 
 	applicationService := domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: registry,

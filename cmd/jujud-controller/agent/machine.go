@@ -925,7 +925,6 @@ func mongoDialOptions(
 
 func (a *MachineAgent) initState(
 	ctx stdcontext.Context, agentConfig agent.Config,
-	domainServices services.ControllerDomainServices,
 	domainServicesGetter services.DomainServicesGetter,
 ) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
@@ -944,7 +943,6 @@ func (a *MachineAgent) initState(
 	pool, err := openStatePool(
 		agentConfig,
 		dialOpts,
-		domainServices,
 		domainServicesGetter,
 		a.mongoTxnCollector.AfterRunTransaction,
 	)
@@ -1112,7 +1110,6 @@ func (a *MachineAgent) ensureMongoServer(ctx stdcontext.Context, agentConfig age
 func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
-	domainServices services.ControllerDomainServices,
 	domainServicesGetter services.DomainServicesGetter,
 	runTransactionObserver state.RunTransactionObserverFunc,
 ) (_ *state.StatePool, err error) {
@@ -1126,19 +1123,8 @@ func openStatePool(
 	}
 	defer session.Close()
 
-	var (
-		credService  stateenvirons.CredentialService
-		cloudService stateenvirons.CloudService
-	)
-	if domainServices != nil {
-		credService = domainServices.Credential()
-		cloudService = domainServices.Cloud()
-	}
 	storageServiceGetter := func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
 		return domainServicesGetter.ServicesForModel(modelUUID).Storage(registry)
-	}
-	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
-		return domainServicesGetter.ServicesForModel(modelUUID).Config()
 	}
 	pool, err := state.OpenStatePool(state.OpenParams{
 
@@ -1146,7 +1132,7 @@ func openStatePool(
 		ControllerTag:          agentConfig.Controller(),
 		ControllerModelTag:     agentConfig.Model(),
 		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(cloudService, credService, modelConfigServiceGetter, storageServiceGetter),
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(storageServiceGetter),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {

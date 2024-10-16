@@ -23,7 +23,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
@@ -98,16 +97,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting caas client")
-	}
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	registry := stateenvirons.NewStorageProviderRegistry()
 
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()

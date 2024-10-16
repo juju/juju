@@ -167,7 +167,7 @@ type ManifoldsConfig struct {
 
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
-	OpenStatePool func(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error)
+	OpenStatePool func(context.Context, coreagent.Config, services.DomainServicesGetter) (*state.StatePool, error)
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.

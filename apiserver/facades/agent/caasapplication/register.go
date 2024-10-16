@@ -45,7 +45,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	registry := stateenvirons.NewStorageProviderRegistry()
 	backendService := domainServices.SecretBackend()
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,

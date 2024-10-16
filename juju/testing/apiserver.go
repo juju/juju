@@ -270,9 +270,6 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	storageServiceGetter := func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
 		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Storage(registry)
 	}
-	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Config()
-	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// Pass the minimal controller config needed for bootstrap, the rest
@@ -291,7 +288,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		CloudName:     DefaultCloud.Name,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
+		NewPolicy:     stateenvirons.GetNewPolicyFunc(storageServiceGetter),
 	}, environs.ProviderConfigSchemaSource(domainServices.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

@@ -61,7 +61,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error) {
+func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, services.DomainServicesGetter) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
