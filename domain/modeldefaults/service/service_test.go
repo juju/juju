@@ -375,6 +375,47 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultValues(c *gc.C) {
 	s.state.EXPECT().DeleteCloudRegionDefaults(gomock.Any(), cloudUUID, "east", []string{"wallyworld"})
 
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
-	err = svc.RemoveCloudRegionConfigDefaultValues(context.Background(), []string{"wallyworld"}, "test", "east")
+	err = svc.RemoveCloudRegionDefaults(context.Background(), "test", "east", []string{"wallyworld"})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestRemoveCloudRegionDefaultsCloudNotFound is testing that if we attempt to
+// remove cloud region defaults for a cloud that doesn't exist we get back a
+// [clouderrors.NotFound] error.
+func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCloudUUID(gomock.Any(), "noexist").Return(cloud.UUID(""), clouderrors.NotFound)
+
+	err := NewService(s.modelConfigProviderFunc(c), s.state).RemoveCloudRegionDefaults(
+		context.Background(),
+		"noexist",
+		"east",
+		[]string{"foo"},
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+}
+
+// TestRemoveCloudRegionDefaultsCloudRegionNotFound is asserting that we try
+// to remove default attributes for a cloud region and the region doesn't exist
+// we get back a [clouderrors.NotFound] error.
+func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudRegionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cloudUUID := cloudtesting.GenCloudUUID(c)
+	s.state.EXPECT().GetCloudUUID(gomock.Any(), "foo").Return(cloudUUID, nil)
+	s.state.EXPECT().DeleteCloudRegionDefaults(
+		gomock.Any(),
+		cloudUUID,
+		"east",
+		[]string{"foo"},
+	).Return(clouderrors.NotFound)
+
+	err := NewService(s.modelConfigProviderFunc(c), s.state).RemoveCloudRegionDefaults(
+		context.Background(),
+		"foo",
+		"east",
+		[]string{"foo"},
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 }

@@ -709,7 +709,7 @@ func (s *modelManagerSuite) TestUnsetModelRegionDefaults(c *gc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
 		Return("", blockcommanderrors.NotFound).AnyTimes()
 
-	s.modelDefaultService.EXPECT().RemoveCloudRegionConfigDefaultValues(gomock.Any(), []string{"attr"}, "test", "east")
+	s.modelDefaultService.EXPECT().RemoveCloudRegionDefaults(gomock.Any(), "test", "east", []string{"attr"})
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			CloudTag:    "cloud-test",

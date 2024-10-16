@@ -1439,7 +1439,7 @@ func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.Mod
 	if arg.CloudRegion == "" {
 		return m.modelDefaultsService.RemoveCloudDefaults(ctx, cTag.Id(), arg.Keys)
 	}
-	return m.modelDefaultsService.RemoveCloudRegionConfigDefaultValues(ctx, arg.Keys, cTag.Id(), arg.CloudRegion)
+	return m.modelDefaultsService.RemoveCloudRegionDefaults(ctx, cTag.Id(), arg.CloudRegion, arg.Keys)
 }
 
 // ChangeModelCredential changes cloud credential reference for models.

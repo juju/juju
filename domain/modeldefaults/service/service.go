@@ -341,7 +341,11 @@ func (s *Service) RemoveCloudDefaults(
 	removeAttrs []string,
 ) error {
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
-	if err != nil {
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.Errorf(
+			"cloud %q does not exist", cloudName,
+		).Add(clouderrors.NotFound)
+	} else if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
 
@@ -352,17 +356,24 @@ func (s *Service) RemoveCloudDefaults(
 	return s.st.DeleteCloudDefaults(ctx, cloudUUID, removeAttrs)
 }
 
-// RemoveCloudRegionConfigDefaultValues deletes the specified default attribute details for a cloud region.
-// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) RemoveCloudRegionConfigDefaultValues(ctx context.Context, removeAttrs []string, cloudName, regionName string) error {
-	if len(removeAttrs) == 0 {
-		return nil
-	}
-
+// RemoveCloudRegionDefaults deletes the specified default attribute details for
+// a cloud region. It returns an error satisfying [clouderrors.NotFound] if the
+// cloud or region doesn't exist.
+func (s *Service) RemoveCloudRegionDefaults(
+	ctx context.Context,
+	cloudName,
+	regionName string,
+	removeAttrs []string,
+) error {
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
-	if err != nil {
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.Errorf(
+			"cloud %q region %q does not exist", cloudName, regionName,
+		).Add(clouderrors.NotFound)
+	} else if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
+
 	return s.st.DeleteCloudRegionDefaults(ctx, cloudUUID, regionName, removeAttrs)
 }
 
