@@ -3573,7 +3573,9 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	})
 
 	// Verify state
-	unitPortRanges, err := unit.OpenedPortRanges()
+	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), unit.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	unitPortRanges, err := s.portService.GetUnitOpenedPorts(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
 
@@ -3620,11 +3622,12 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		},
 	})
 
-	portRanges, err := unit.OpenedPortRanges()
+	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), unit.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	portRanges, err := s.portService.GetUnitOpenedPorts(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(portRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
-	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+	c.Assert(portRanges, jc.DeepEquals, network.GroupedPortRanges{
 		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
 	})
 }
