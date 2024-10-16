@@ -641,7 +641,7 @@ func (s *modelManagerSuite) TestSetModelCloudDefaults(c *gc.C) {
 		"attr3": "val3",
 		"attr4": "val4",
 	}
-	s.modelDefaultService.EXPECT().UpdateCloudConfigDefaultValues(gomock.Any(), defaults, "test")
+	s.modelDefaultService.EXPECT().UpdateCloudDefaults(gomock.Any(), "test", defaults)
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", Config: defaults}},
 	}
@@ -659,7 +659,7 @@ func (s *modelManagerSuite) TestSetModelRegionDefaults(c *gc.C) {
 		"attr3": "val3",
 		"attr4": "val4",
 	}
-	s.modelDefaultService.EXPECT().UpdateCloudRegionConfigDefaultValues(gomock.Any(), defaults, "test", "east")
+	s.modelDefaultService.EXPECT().UpdateCloudRegionDefaults(gomock.Any(), "test", "east", defaults)
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", CloudRegion: "east", Config: defaults}},
 	}
@@ -693,7 +693,7 @@ func (s *modelManagerSuite) TestUnsetModelCloudDefaults(c *gc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
 		Return("", blockcommanderrors.NotFound).AnyTimes()
 
-	s.modelDefaultService.EXPECT().RemoveCloudConfigDefaultValues(gomock.Any(), []string{"attr"}, "test")
+	s.modelDefaultService.EXPECT().RemoveCloudDefaults(gomock.Any(), "test", []string{"attr"})
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			CloudTag: "cloud-test",

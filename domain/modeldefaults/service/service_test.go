@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cloud"
+	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -246,8 +247,37 @@ func (s *serviceSuite) TestUpdateCloudDefaults(c *gc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
-	err = svc.UpdateCloudConfigDefaultValues(context.Background(), "test", attr)
+	err = svc.UpdateCloudDefaults(context.Background(), "test", attr)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateCloudDefaultsNotFound is asserting that is we try and update the
+// cloud defaults for a cloud that does not exist we get back an error that
+// satisfies [clouderrors.NotFound].
+func (s *serviceSuite) TestUpdateCloudDefaultsNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCloudUUID(gomock.Any(), "noexist").Return(
+		cloud.UUID(""), clouderrors.NotFound,
+	).AnyTimes()
+
+	err := NewService(s.modelConfigProviderFunc(c), s.state).UpdateCloudDefaults(
+		context.Background(),
+		"noexist",
+		map[string]any{
+			"foo": "bar",
+		},
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+
+	// Assert that if we still pass a cloud that doesn't exist but would be
+	// considered a noop we still check the cloud exists.
+	err = NewService(s.modelConfigProviderFunc(c), s.state).UpdateCloudDefaults(
+		context.Background(),
+		"noexist",
+		nil,
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *serviceSuite) TestRemoveCloudDefaults(c *gc.C) {
@@ -293,8 +323,46 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaults(c *gc.C) {
 	svc := NewService(s.modelConfigProviderFunc(c), s.state)
 
 	attr := map[string]any{"wallyworld": "peachy2", "lucifer": 668}
-	err = svc.UpdateCloudRegionConfigDefaultValues(context.Background(), "test", "east", attr)
+	err = svc.UpdateCloudRegionDefaults(context.Background(), "test", "east", attr)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateCloudRegionDefaultsNotFoundCloud is a test to assert that if the
+// cloud does not exist when trying to update cloud region defaults we get back
+// an error that satisfies [clouderrors.NotFound].
+func (s *serviceSuite) TestUpdateCloudRegionDefaultsNotFoundCloud(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCloudUUID(gomock.Any(), "noexist").Return(cloud.UUID(""), clouderrors.NotFound)
+	err := NewService(s.modelConfigProviderFunc(c), s.state).UpdateCloudRegionDefaults(
+		context.Background(),
+		"noexist",
+		"east",
+		map[string]any{"foo": "bar"},
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+}
+
+// TestUpdateCloudRegionDeaultsNotFoundRegion is a test to assert that if the
+// cloud region does not exist when trying to update cloud region defaults we
+// get back an error that satisfies [clouderrors.NotFound].
+func (s *serviceSuite) TestUpdateCloudRegionDefaultsNotFoundRegion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cloudUUID := cloudtesting.GenCloudUUID(c)
+
+	s.state.EXPECT().GetCloudUUID(gomock.Any(), "foo").Return(cloudUUID, nil)
+	s.state.EXPECT().UpdateCloudRegionDefaults(
+		gomock.Any(), cloudUUID, "east", gomock.Any(),
+	).Return(clouderrors.NotFound)
+
+	err := NewService(s.modelConfigProviderFunc(c), s.state).UpdateCloudRegionDefaults(
+		context.Background(),
+		"foo",
+		"east",
+		map[string]any{"foo": "bar"},
+	)
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 }
 
 func (s *serviceSuite) TestRemoveCloudRegionDefaultValues(c *gc.C) {

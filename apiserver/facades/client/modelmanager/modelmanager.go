@@ -1394,9 +1394,18 @@ func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.Mode
 		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", args.CloudTag))
 	}
 	if args.CloudRegion == "" {
-		return m.modelDefaultsService.UpdateCloudConfigDefaultValues(ctx, cTag.Id(), args.Config)
+		err := m.modelDefaultsService.UpdateCloudDefaults(ctx, cTag.Id(), args.Config)
+		if errors.Is(err, clouderrors.NotFound) {
+			return errors.NotFoundf("cloud %q", cTag.Id())
+		}
+		return err
 	}
-	return m.modelDefaultsService.UpdateCloudRegionConfigDefaultValues(ctx, cTag.Id(), args.CloudRegion, args.Config)
+
+	err = m.modelDefaultsService.UpdateCloudRegionDefaults(ctx, cTag.Id(), args.CloudRegion, args.Config)
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.NotFoundf("cloud %q region %q", cTag.Id(), args.CloudRegion)
+	}
+	return err
 }
 
 // UnsetModelDefaults removes the specified default model settings.

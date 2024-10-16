@@ -272,20 +272,25 @@ func (s *Service) CloudDefaults(
 	return defaults, nil
 }
 
-// UpdateCloudConfigDefaultValues saves the specified default attribute details for a cloud.
-// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateCloudConfigDefaultValues(
+// UpdateCloudDefaults saves the specified default attribute details for a
+// cloud. It returns an error satisfying [clouderrors.NotFound] if the cloud
+// doesn't exist.
+func (s *Service) UpdateCloudDefaults(
 	ctx context.Context,
 	cloudName string,
 	updateAttrs map[string]any,
 ) error {
-	if len(updateAttrs) == 0 {
-		return nil
+	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.Errorf(
+			"cloud %q does not exist", cloudName,
+		).Add(clouderrors.NotFound)
+	} else if err != nil {
+		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
 
-	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
-	if err != nil {
-		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
+	if len(updateAttrs) == 0 {
+		return nil
 	}
 
 	strAttrs, err := modelconfigservice.CoerceConfigForStorage(updateAttrs)
@@ -295,20 +300,21 @@ func (s *Service) UpdateCloudConfigDefaultValues(
 	return s.st.UpdateCloudDefaults(ctx, cloudUUID, strAttrs)
 }
 
-// UpdateCloudRegionConfigDefaultValues saves the specified default attribute details for a cloud region.
-// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
-func (s *Service) UpdateCloudRegionConfigDefaultValues(
+// UpdateCloudRegionDefaults saves the specified default attribute details for a
+// cloud region. It returns an error satisfying [clouderrors.NotFound] if the
+// cloud doesn't exist.
+func (s *Service) UpdateCloudRegionDefaults(
 	ctx context.Context,
 	cloudName string,
 	regionName string,
 	updateAttrs map[string]any,
 ) error {
-	if len(updateAttrs) == 0 {
-		return nil
-	}
-
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
-	if err != nil {
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.Errorf(
+			"cloud %q region %q does not exist", cloudName, regionName,
+		).Add(clouderrors.NotFound)
+	} else if err != nil {
 		return errors.Errorf("getting cloud UUID for cloud %q: %w", cloudName, err)
 	}
 
@@ -316,7 +322,14 @@ func (s *Service) UpdateCloudRegionConfigDefaultValues(
 	if err != nil {
 		return errors.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
 	}
-	return s.st.UpdateCloudRegionDefaults(ctx, cloudUUID, regionName, strAttrs)
+
+	err = s.st.UpdateCloudRegionDefaults(ctx, cloudUUID, regionName, strAttrs)
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.Errorf(
+			"cloud %q region %q does not exist", cloudName, regionName,
+		).Add(clouderrors.NotFound)
+	}
+	return err
 }
 
 // RemoveCloudDefaults deletes the specified default attribute details for a

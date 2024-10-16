@@ -6,8 +6,6 @@ package bootstrap
 import (
 	"context"
 
-	"github.com/juju/schema"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service"
@@ -45,15 +43,13 @@ func ModelDefaultsProvider(
 				cloudType, err,
 			)
 		}
-		checker := schema.FieldMap(configProvider.ConfigSchema(), configProvider.ConfigDefaults())
 
-		var providerDefaults modeldefaults.Defaults
+		var providerDefaults map[string]any
 		if configProvider != nil {
 			providerDefaults, err = service.ProviderDefaults(
 				context.Background(),
 				cloudType,
-				configProvider,
-				checker,
+				service.ProviderModelConfigGetter(),
 			)
 		}
 		if err != nil {
@@ -63,7 +59,9 @@ func ModelDefaultsProvider(
 		}
 
 		for k, v := range providerDefaults {
-			defaults[k] = v
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Default: v,
+			}
 		}
 
 		for k, v := range controllerConfig {

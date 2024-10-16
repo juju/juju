@@ -952,78 +952,78 @@ func (c *MockModelDefaultsServiceRemoveCloudRegionConfigDefaultValuesCall) DoAnd
 	return c
 }
 
-// UpdateCloudConfigDefaultValues mocks base method.
-func (m *MockModelDefaultsService) UpdateCloudConfigDefaultValues(arg0 context.Context, arg1 string, arg2 map[string]any) error {
+// UpdateCloudDefaults mocks base method.
+func (m *MockModelDefaultsService) UpdateCloudDefaults(arg0 context.Context, arg1 string, arg2 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateCloudConfigDefaultValues", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateCloudDefaults", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateCloudConfigDefaultValues indicates an expected call of UpdateCloudConfigDefaultValues.
-func (mr *MockModelDefaultsServiceMockRecorder) UpdateCloudConfigDefaultValues(arg0, arg1, arg2 any) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
+// UpdateCloudDefaults indicates an expected call of UpdateCloudDefaults.
+func (mr *MockModelDefaultsServiceMockRecorder) UpdateCloudDefaults(arg0, arg1, arg2 any) *MockModelDefaultsServiceUpdateCloudDefaultsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudConfigDefaultValues", reflect.TypeOf((*MockModelDefaultsService)(nil).UpdateCloudConfigDefaultValues), arg0, arg1, arg2)
-	return &MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudDefaults", reflect.TypeOf((*MockModelDefaultsService)(nil).UpdateCloudDefaults), arg0, arg1, arg2)
+	return &MockModelDefaultsServiceUpdateCloudDefaultsCall{Call: call}
 }
 
-// MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall wrap *gomock.Call
-type MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall struct {
+// MockModelDefaultsServiceUpdateCloudDefaultsCall wrap *gomock.Call
+type MockModelDefaultsServiceUpdateCloudDefaultsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) Return(arg0 error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudDefaultsCall) Return(arg0 error) *MockModelDefaultsServiceUpdateCloudDefaultsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) Do(f func(context.Context, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudDefaultsCall) Do(f func(context.Context, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall) DoAndReturn(f func(context.Context, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudDefaultsCall) DoAndReturn(f func(context.Context, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// UpdateCloudRegionConfigDefaultValues mocks base method.
-func (m *MockModelDefaultsService) UpdateCloudRegionConfigDefaultValues(arg0 context.Context, arg1, arg2 string, arg3 map[string]any) error {
+// UpdateCloudRegionDefaults mocks base method.
+func (m *MockModelDefaultsService) UpdateCloudRegionDefaults(arg0 context.Context, arg1, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateCloudRegionConfigDefaultValues", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateCloudRegionDefaults", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateCloudRegionConfigDefaultValues indicates an expected call of UpdateCloudRegionConfigDefaultValues.
-func (mr *MockModelDefaultsServiceMockRecorder) UpdateCloudRegionConfigDefaultValues(arg0, arg1, arg2, arg3 any) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
+// UpdateCloudRegionDefaults indicates an expected call of UpdateCloudRegionDefaults.
+func (mr *MockModelDefaultsServiceMockRecorder) UpdateCloudRegionDefaults(arg0, arg1, arg2, arg3 any) *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudRegionConfigDefaultValues", reflect.TypeOf((*MockModelDefaultsService)(nil).UpdateCloudRegionConfigDefaultValues), arg0, arg1, arg2, arg3)
-	return &MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudRegionDefaults", reflect.TypeOf((*MockModelDefaultsService)(nil).UpdateCloudRegionDefaults), arg0, arg1, arg2, arg3)
+	return &MockModelDefaultsServiceUpdateCloudRegionDefaultsCall{Call: call}
 }
 
-// MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall wrap *gomock.Call
-type MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall struct {
+// MockModelDefaultsServiceUpdateCloudRegionDefaultsCall wrap *gomock.Call
+type MockModelDefaultsServiceUpdateCloudRegionDefaultsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) Return(arg0 error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall) Return(arg0 error) *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) Do(f func(context.Context, string, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall) Do(f func(context.Context, string, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall) DoAndReturn(f func(context.Context, string, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudRegionConfigDefaultValuesCall {
+func (c *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall) DoAndReturn(f func(context.Context, string, string, map[string]any) error) *MockModelDefaultsServiceUpdateCloudRegionDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
