@@ -301,7 +301,7 @@ func (ctlr *Controller) NewModel(configSchemaGetter config.ConfigSchemaSourceGet
 		names.NewModelTag(uuid),
 		controllerInfo.ModelTag,
 		session,
-		st.newPolicy,
+		st.storageServiceGetter,
 		st.clock(),
 		st.runTransactionObserver,
 		st.maxTxnAttempts,

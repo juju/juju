@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -56,17 +57,18 @@ type providerIdDoc struct {
 	ID string `bson:"_id"` // format: "<model-uuid>:<global-key>:<provider-id>"
 }
 
+type StorageServiceGetter func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) StoragePoolGetter
+
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	stateClock             clock.Clock
-	modelTag               names.ModelTag
-	controllerModelTag     names.ModelTag
-	controllerTag          names.ControllerTag
-	session                *mgo.Session
-	database               Database
-	policy                 Policy
-	newPolicy              NewPolicyFunc
+	stateClock         clock.Clock
+	modelTag           names.ModelTag
+	controllerModelTag names.ModelTag
+	controllerTag      names.ControllerTag
+	session            *mgo.Session
+	database           Database
+
 	runTransactionObserver RunTransactionObserverFunc
 	maxTxnAttempts         int
 
@@ -78,6 +80,8 @@ type State struct {
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
+
+	storageServiceGetter StorageServiceGetter
 }
 
 func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
@@ -87,7 +91,7 @@ func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
 		names.NewModelTag(modelUUID),
 		st.controllerModelTag,
 		session,
-		st.newPolicy,
+		st.storageServiceGetter,
 		st.stateClock,
 		st.runTransactionObserver,
 		st.maxTxnAttempts,

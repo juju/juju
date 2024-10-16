@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -55,8 +56,8 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"name": "controller",
 	})
-	s.NewPolicy = func(*state.State) state.Policy {
-		return statePolicy{}
+	s.StorageServiceGetter = func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
+		return noopStoragePoolGetter{}
 	}
 
 	s.StateSuite.SetUpTest(c)

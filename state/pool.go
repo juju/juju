@@ -146,7 +146,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		session,
 		args.InitDatabaseFunc,
 		nil,
-		args.NewPolicy,
+		args.StorageServiceGetter,
 		args.Clock,
 		args.RunTransactionObserver,
 		args.MaxTxnAttempts,
@@ -274,7 +274,7 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 	newSt, err := newState(
 		p.systemState.controllerTag,
 		modelTag, p.systemState.controllerModelTag,
-		session, p.systemState.newPolicy, p.systemState.stateClock,
+		session, p.systemState.storageServiceGetter, p.systemState.stateClock,
 		p.systemState.runTransactionObserver,
 		p.systemState.maxTxnAttempts,
 	)

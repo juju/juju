@@ -24,7 +24,7 @@ var _ = gc.Suite(&StateWithWallClockSuite{})
 type StateWithWallClockSuite struct {
 	mgotesting.MgoSuite
 	coretesting.BaseSuite
-	NewPolicy                 state.NewPolicyFunc
+	StorageServiceGetter      state.StorageServiceGetter
 	Controller                *state.Controller
 	StatePool                 *state.StatePool
 	State                     *state.State
@@ -51,7 +51,7 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.Controller = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
+	s.Controller = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.StorageServiceGetter)
 	s.AddCleanup(func(*gc.C) {
 		s.Controller.Close()
 	})

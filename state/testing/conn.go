@@ -30,7 +30,7 @@ type InitializeArgs struct {
 	ControllerInheritedConfig map[string]interface{}
 	ControllerModelType       state.ModelType
 	RegionConfig              cloud.RegionConfig
-	NewPolicy                 state.NewPolicyFunc
+	StorageServiceGetter      state.StorageServiceGetter
 	Clock                     clock.Clock
 }
 
@@ -39,13 +39,13 @@ type InitializeArgs struct {
 // configuration will be used.
 // This provides for tests still using a real clock from utils as tests are
 // migrated to use the testing clock
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.Controller {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, storageServiceGetter state.StorageServiceGetter) *state.Controller {
 	return InitializeWithArgs(c, InitializeArgs{
 		Owner:                     owner,
 		InitialConfig:             cfg,
 		ControllerInheritedConfig: controllerInheritedConfig,
 		RegionConfig:              regionConfig,
-		NewPolicy:                 newPolicy,
+		StorageServiceGetter:      storageServiceGetter,
 		Clock:                     &clock.WallClock,
 	})
 }
@@ -93,7 +93,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 		CloudName:                 "dummy",
 		MongoSession:              session,
 		WatcherPollInterval:       10 * time.Millisecond,
-		NewPolicy:                 args.NewPolicy,
+		StorageServiceGetter:      args.StorageServiceGetter,
 		AdminPassword:             args.AdminPassword,
 	}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)

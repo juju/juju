@@ -75,7 +75,6 @@ import (
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 const AdminSecret = "dummy-secret"
@@ -285,10 +284,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 			CloudRegion:     DefaultCloudRegion,
 			CloudCredential: DefaultCredentialTag,
 		},
-		CloudName:     DefaultCloud.Name,
-		MongoSession:  session,
-		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(storageServiceGetter),
+		CloudName:            DefaultCloud.Name,
+		MongoSession:         session,
+		AdminPassword:        AdminSecret,
+		StorageServiceGetter: storageServiceGetter,
 	}, environs.ProviderConfigSchemaSource(domainServices.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

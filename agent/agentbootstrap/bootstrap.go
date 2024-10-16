@@ -71,13 +71,13 @@ type bootstrapController interface {
 
 // AgentBootstrap is used to initialize the state for a new controller.
 type AgentBootstrap struct {
-	bootstrapEnviron         environs.BootstrapEnviron
-	adminUser                names.UserTag
-	agentConfig              agent.ConfigSetter
-	mongoDialOpts            mongo.DialOpts
-	stateNewPolicy           state.NewPolicyFunc
-	configSchemaSourceGetter config.ConfigSchemaSourceGetter
-	bootstrapDqlite          DqliteInitializerFunc
+	bootstrapEnviron          environs.BootstrapEnviron
+	adminUser                 names.UserTag
+	agentConfig               agent.ConfigSetter
+	mongoDialOpts             mongo.DialOpts
+	stateStorageServiceGetter state.StorageServiceGetter
+	configSchemaSourceGetter  config.ConfigSchemaSourceGetter
+	bootstrapDqlite           DqliteInitializerFunc
 
 	stateInitializationParams instancecfg.StateInitializationParams
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
@@ -314,7 +314,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
 		MongoSession:              session,
 		AdminPassword:             info.Password,
-		NewPolicy:                 b.stateNewPolicy,
+		StorageServiceGetter:      b.stateStorageServiceGetter,
 	}, b.configSchemaSourceGetter)
 	if err != nil {
 		return nil, errors.Errorf("failed to initialize state: %v", err)

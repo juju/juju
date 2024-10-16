@@ -38,10 +38,6 @@ type OpenParams struct {
 	// for closing this session; Open will copy it.
 	MongoSession *mgo.Session
 
-	// NewPolicy, if non-nil, returns a policy which will be used to
-	// validate and modify behaviour of certain operations in state.
-	NewPolicy NewPolicyFunc
-
 	// RunTransactionObserver, if non-nil, is a function that will
 	// be called after mgo/txn transactions are run, successfully
 	// or not.
@@ -56,6 +52,8 @@ type OpenParams struct {
 
 	// WatcherPollInterval is defaulted by the TxnWatcher if otherwise not set.
 	WatcherPollInterval time.Duration
+
+	StorageServiceGetter StorageServiceGetter
 }
 
 // Validate validates the OpenParams.
@@ -97,7 +95,7 @@ func open(
 	session *mgo.Session,
 	initDatabase InitDatabaseFunc,
 	controllerConfig *controller.Config,
-	newPolicy NewPolicyFunc,
+	storageServiceGetter StorageServiceGetter,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
@@ -106,7 +104,7 @@ func open(
 		controllerModelTag,
 		controllerModelTag,
 		session,
-		newPolicy,
+		storageServiceGetter,
 		clock,
 		runTransactionObserver,
 		maxTxnAttempts)
@@ -134,7 +132,7 @@ func newState(
 	controllerTag names.ControllerTag,
 	modelTag, controllerModelTag names.ModelTag,
 	session *mgo.Session,
-	newPolicy NewPolicyFunc,
+	storageServiceGetter StorageServiceGetter,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
@@ -178,13 +176,11 @@ func newState(
 		controllerModelTag:     controllerModelTag,
 		session:                session,
 		database:               db,
-		newPolicy:              newPolicy,
+		storageServiceGetter:   storageServiceGetter,
 		runTransactionObserver: runTransactionObserver,
 		maxTxnAttempts:         maxTxnAttempts,
 	}
-	if newPolicy != nil {
-		st.policy = newPolicy(st)
-	}
+
 	// Record this State instance with the global tracker.
 	profileTracker.Add(st, 1)
 

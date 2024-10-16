@@ -50,9 +50,7 @@ type InitializeParams struct {
 	// models running on specific cloud regions.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// NewPolicy is a function that returns the set of state policies
-	// to apply.
-	NewPolicy NewPolicyFunc
+	StorageServiceGetter StorageServiceGetter
 
 	// MongoSession is the mgo.Session to use for storing and
 	// accessing state data. The caller remains responsible
@@ -118,14 +116,14 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 	modelTag := names.NewModelTag(modelUUID)
 
 	ctlr, err := OpenController(OpenParams{
-		Clock:               args.Clock,
-		ControllerTag:       controllerTag,
-		ControllerModelTag:  modelTag,
-		MongoSession:        args.MongoSession,
-		MaxTxnAttempts:      args.MaxTxnAttempts,
-		WatcherPollInterval: args.WatcherPollInterval,
-		NewPolicy:           args.NewPolicy,
-		InitDatabaseFunc:    InitDatabase,
+		Clock:                args.Clock,
+		ControllerTag:        controllerTag,
+		ControllerModelTag:   modelTag,
+		MongoSession:         args.MongoSession,
+		MaxTxnAttempts:       args.MaxTxnAttempts,
+		WatcherPollInterval:  args.WatcherPollInterval,
+		StorageServiceGetter: args.StorageServiceGetter,
+		InitDatabaseFunc:     InitDatabase,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "opening controller")

@@ -31,7 +31,7 @@ var _ = gc.Suite(&StateSuite{})
 type StateSuite struct {
 	mgotesting.MgoSuite
 	testing.BaseSuite
-	NewPolicy                 state.NewPolicyFunc
+	StorageServiceGetter      state.StorageServiceGetter
 	Controller                *state.Controller
 	StatePool                 *state.StatePool
 	State                     *state.State
@@ -84,7 +84,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		ControllerInheritedConfig: s.ControllerInheritedConfig,
 		ControllerModelType:       s.ControllerModelType,
 		RegionConfig:              s.RegionConfig,
-		NewPolicy:                 s.NewPolicy,
+		StorageServiceGetter:      s.StorageServiceGetter,
 		Clock:                     s.Clock,
 	})
 	s.AddCleanup(func(*gc.C) {

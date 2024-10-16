@@ -338,11 +338,11 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	defer session.Close()
 
 	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      config.Controller(),
-		ControllerModelTag: config.Model(),
-		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
+		Clock:                clock.WallClock,
+		ControllerTag:        config.Controller(),
+		ControllerModelTag:   config.Model(),
+		MongoSession:         session,
+		StorageServiceGetter: nil,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_ = pool.Close()

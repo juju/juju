@@ -95,7 +95,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type (
@@ -1132,7 +1131,7 @@ func openStatePool(
 		ControllerTag:          agentConfig.Controller(),
 		ControllerModelTag:     agentConfig.Model(),
 		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(storageServiceGetter),
+		StorageServiceGetter:   storageServiceGetter,
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {
