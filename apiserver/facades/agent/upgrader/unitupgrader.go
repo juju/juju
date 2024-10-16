@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -78,6 +79,12 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entit
 				unitName,
 			)
 			continue
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotFound,
+				"unit %q does not exist",
+				unitName,
+			)
 		case err != nil:
 			// We don't understand this error. At this stage we consider it an
 			// internal server error and bail out of the call completely.
