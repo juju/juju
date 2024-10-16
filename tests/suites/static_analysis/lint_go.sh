@@ -88,6 +88,14 @@ run_go_fanout() {
 	done
 }
 
+run_go_txncheck() {
+	got=$(find ./**/*.go -type f -not -path "./scripts/*" -not -path "./_deps/*" | xargs grep -lE "database/sql|github.com/canonical/sqlair" | sort -u | xargs -I% go run ./scripts/txncheck/main.go -- %)
+	if [[ -n ${got} ]]; then
+		(echo >&2 -e "\\nError: transaction check failed:\\n\\n${got}")
+		exit 1
+	fi
+}
+
 run_govulncheck() {
 	govulncheck "github.com/juju/juju/..."
 }
@@ -109,6 +117,8 @@ test_static_analysis_go() {
 		run_linter "run_go"
 		run_linter "run_go_tidy"
 		run_linter "run_go_fanout"
+
+		run "run_go_txncheck"
 
 		# govulncheck static analysis
 		if which govulncheck >/dev/null 2>&1; then

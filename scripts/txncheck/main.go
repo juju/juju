@@ -14,12 +14,15 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
+	argPath := os.Args[1]
+	if num := len(os.Args); num == 3 && os.Args[1] == "--" {
+		argPath = os.Args[2]
+	} else if num != 2 {
 		fmt.Println("usage: txncheck <path>")
 		os.Exit(1)
 	}
 
-	path, err := filepath.Abs(os.Args[1])
+	path, err := filepath.Abs(argPath)
 	check(err)
 
 	fileSet := token.NewFileSet()
