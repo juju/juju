@@ -163,6 +163,48 @@ func (s *stateSuite) TestGetUnitOpenedPorts(c *gc.C) {
 	c.Check(groupedPortRanges["misc"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
 }
 
+func (s *stateSuite) TestGetAllOpenedPortsBlankDB(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	groupedPortRanges, err := st.GetAllOpenedPorts(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetAllOpenedPorts(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	s.initialiseOpenPort(c, st)
+
+	unit1UUID, unit1Name, _ := s.createUnit(c, netNodeUUIDs[1], appNames[1])
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
+			"endpoint": {
+				{Protocol: "tcp", FromPort: 443, ToPort: 443},
+				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
+			},
+			"endpoint-2": {
+				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
+			},
+		}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupedPortRanges, err := st.GetAllOpenedPorts(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 2)
+
+	c.Check(groupedPortRanges[s.unitName], gc.HasLen, 3)
+	c.Check(groupedPortRanges[s.unitName][0], gc.Equals, network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80})
+	c.Check(groupedPortRanges[s.unitName][1], gc.Equals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+	c.Check(groupedPortRanges[s.unitName][2], gc.Equals, network.PortRange{Protocol: "udp", FromPort: 1000, ToPort: 1500})
+
+	c.Check(groupedPortRanges[unit1Name], gc.HasLen, 2)
+	c.Check(groupedPortRanges[unit1Name][0], gc.Equals, network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443})
+	c.Check(groupedPortRanges[unit1Name][1], gc.Equals, network.PortRange{Protocol: "udp", FromPort: 2000, ToPort: 2500})
+}
+
 func (s *stateSuite) TestGetMachineOpenedPortsBlankDB(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()

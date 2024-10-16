@@ -82,6 +82,52 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 	return groupedPortRanges, nil
 }
 
+// GetAllOpenedPorts returns the opened ports in the model, grouped by unit name.
+//
+// NOTE: We do not group by endpoint here. It is not needed. Instead, we just
+// group by unit name
+func (s *State) GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	query, err := s.Prepare(`
+SELECT DISTINCT &unitNamePortRange.*
+FROM port_range
+JOIN protocol ON port_range.protocol_id = protocol.id
+JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
+JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
+`, unitNamePortRange{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get all opened ports statement: %w", err)
+	}
+
+	results := []unitNamePortRange{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return jujuerrors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting all opened ports: %w", err)
+	}
+
+	groupedPortRanges := network.GroupedPortRanges{}
+	for _, portRange := range results {
+		unitName := portRange.UnitName
+		groupedPortRanges[unitName] = append(groupedPortRanges[unitName], portRange.decode())
+	}
+
+	for _, portRanges := range groupedPortRanges {
+		network.SortPortRanges(portRanges)
+	}
+
+	return groupedPortRanges, nil
+}
+
 // GetMachineOpenedPorts returns the opened ports for all the units on the given
 // machine. Opened ports are grouped first by unit and then by endpoint.
 //

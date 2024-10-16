@@ -50,6 +50,9 @@ type State interface {
 	// grouped by endpoint.
 	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
 
+	// GetAllOpenedPorts returns the opened ports in the model, grouped by unit name.
+	GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error)
+
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
 	// given machine. Opened ports are grouped first by unit and then by endpoint.
 	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
@@ -78,8 +81,17 @@ func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID
 	return s.st.GetUnitOpenedPorts(ctx, unitUUID)
 }
 
-// GetMachineOpenedPorts returns the opened ports for all the units on the machine.
-// Opened ports are grouped first by unit name and then by endpoint.
+// GetAllOpenedPorts returns the opened ports in the model, grouped by unit name.
+//
+// NOTE: We do not group by endpoint here. It is not needed. Instead, we just
+// group by unit name
+func (s *Service) GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error) {
+	return s.st.GetAllOpenedPorts(ctx)
+}
+
+// GetMachineOpenedPorts returns the opened ports for all endpoints, for all the
+// units on the machine. Opened ports are grouped first by unit name and then by
+// endpoint.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
 func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {

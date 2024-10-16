@@ -58,6 +58,7 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		networkService:     domainServices.Network(),
 		modelInfoService:   domainServices.ModelInfo(),
 		machineService:     domainServices.Machine(),
+		portService:        domainServices.Port(),
 	}
 	return client, nil
 }

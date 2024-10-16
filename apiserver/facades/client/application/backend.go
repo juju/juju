@@ -194,7 +194,6 @@ type Unit interface {
 type Model interface {
 	ModelTag() names.ModelTag
 	Type() state.ModelType
-	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
 	// The following methods are required for querying the featureset
 	// supported by the model.
 	CloudName() string

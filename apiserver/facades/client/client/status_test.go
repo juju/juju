@@ -28,12 +28,14 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/version"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -833,6 +835,45 @@ func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, rel
 			c.Fatalf("application %v is not part of the relation %v as expected", appName, relation.Id)
 		}
 	}
+}
+
+func (s *statusUnitTestSuite) TestUnitsWithOpenedPortsSent(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	release()
+	f = f.WithModelConfigService(s.modelConfigService(c))
+
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: f.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	_ = f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+
+	appService := s.ControllerDomainServices(c).Application(applicationservice.ApplicationServiceParams{
+		StorageRegistry: storage.NotImplementedProviderRegistry{},
+		Secrets:         applicationservice.NotImplementedSecretService{},
+	})
+
+	unitUUID, err := appService.GetUnitUUID(context.Background(), "wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	portService := s.ControllerDomainServices(c).Port()
+	err = portService.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
+		"":    []network.PortRange{network.MustParsePortRange("1000/tcp")},
+		"foo": []network.PortRange{network.MustParsePortRange("2000/tcp")},
+	}, network.GroupedPortRanges{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	conn := s.OpenControllerModelAPI(c)
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
+	status, err := client.Status(context.Background(), &apiclient.StatusArgs{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(status.Applications["wordpress"].Units, gc.HasLen, 1)
+	c.Assert(status.Applications["wordpress"].Units["wordpress/0"].OpenedPorts, gc.DeepEquals, []string{"1000/tcp", "2000/tcp"})
 }
 
 type statusUpgradeUnitSuite struct {

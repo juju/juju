@@ -64,6 +64,26 @@ func (s *serviceSuite) TestGetUnitOpenedPorts(c *gc.C) {
 	c.Assert(res, gc.DeepEquals, grp)
 }
 
+func (s *serviceSuite) TestGetAllOpenedPorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	grp := network.GroupedPortRanges{
+		"unit/0": {
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("443/tcp"),
+		},
+		"unit/1": {
+			network.MustParsePortRange("8000-9000/udp"),
+		},
+	}
+
+	s.st.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(grp, nil)
+
+	res, err := s.srv.GetAllOpenedPorts(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.DeepEquals, grp)
+}
+
 func (s *serviceSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

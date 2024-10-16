@@ -30,6 +30,24 @@ func (pr portRange) decode() network.PortRange {
 	}
 }
 
+// unitNamePortRange represents a range of ports for a given protocol for a
+// given unit.
+type unitNamePortRange struct {
+	UnitName string `db:"name"`
+	Protocol string `db:"protocol"`
+	FromPort int    `db:"from_port"`
+	ToPort   int    `db:"to_port"`
+}
+
+// decode returns the network.PortRange representation of the unitNamePortRange.
+func (upr unitNamePortRange) decode() network.PortRange {
+	return network.PortRange{
+		Protocol: upr.Protocol,
+		FromPort: upr.FromPort,
+		ToPort:   upr.ToPort,
+	}
+}
+
 // endpointPortRange represents a range of ports for a give protocol for a
 // given endpoint.
 type endpointPortRange struct {

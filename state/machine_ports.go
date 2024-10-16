@@ -189,27 +189,6 @@ func (m *Machine) OpenedPortRanges() (MachinePortRanges, error) {
 	return getOpenedMachinePortRanges(m.st, m.Id())
 }
 
-// OpenedPortRangesForMachine returns the set of opened port ranges for one of
-// the model's machines.
-func (m *Model) OpenedPortRangesForMachine(machineID string) (MachinePortRanges, error) {
-	return getOpenedMachinePortRanges(m.st, machineID)
-}
-
-// OpenedPortRangesForAllMachines returns a slice of opened port ranges for all
-// machines managed by this model.
-func (m *Model) OpenedPortRangesForAllMachines() ([]MachinePortRanges, error) {
-	mprResults, err := getOpenedPortRangesForAllMachines(m.st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	results := make([]MachinePortRanges, len(mprResults))
-	for i, res := range mprResults {
-		results[i] = res
-	}
-	return results, nil
-}
-
 // getOpenedPortRangesForAllMachines returns a slice of machine port ranges for
 // all machines managed by this model.
 func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) {
