@@ -768,11 +768,6 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	}
 	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
 
-	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
-	c.Assert(unitPortRanges.ByEndpoint()["monitoring-port"], jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
-
 	unitUUID, err := s.domainServices.Application(service.ApplicationServiceParams{}).GetUnitUUID(context.Background(), s.wordpressUnit.Tag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	grp, err := s.domainServices.Port().GetUnitOpenedPorts(context.Background(), unitUUID)
