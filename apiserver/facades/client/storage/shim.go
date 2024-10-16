@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/state"
@@ -100,9 +99,8 @@ type storageFile interface {
 
 var getStorageAccessor = func(
 	st *state.State,
-	modelConfigService common.ModelConfigService,
 ) (storageAccess, error) {
-	sb, err := state.NewStorageConfigBackend(st, modelConfigService)
+	sb, err := state.NewStorageConfigBackend(st)
 	if err != nil {
 		return nil, err
 	}

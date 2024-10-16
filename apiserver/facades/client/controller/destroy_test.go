@@ -209,8 +209,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	})
 	s.AddCleanup(func(c *gc.C) { _ = modelState.Close() })
 
-	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig).
-		WithModelConfigService(s.ControllerDomainServices(c).Config())
+	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig)
 	f2.MakeUnit(c, &factory.UnitParams{
 		Application: f2.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f2.MakeCharm(c, &factory.CharmParams{
@@ -254,8 +253,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	})
 	s.AddCleanup(func(c *gc.C) { _ = modelState.Close() })
 
-	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig).
-		WithModelConfigService(s.ControllerDomainServices(c).Config())
+	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig)
 	f2.MakeUnit(c, &factory.UnitParams{
 		Application: f2.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f2.MakeCharm(c, &factory.CharmParams{

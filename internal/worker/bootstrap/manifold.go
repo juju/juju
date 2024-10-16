@@ -266,8 +266,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NetworkService:          controllerModelDomainServices.Network(),
 				BakeryConfigService:     controllerDomainServices.Macaroon(),
 				SystemState: &stateShim{
-					State:              systemState,
-					modelConfigService: controllerModelDomainServices.Config(),
+					State: systemState,
 				},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

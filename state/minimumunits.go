@@ -146,9 +146,7 @@ func (a *Application) MinUnits() int {
 
 // EnsureMinUnits adds new units if the application's MinUnits value is greater
 // than the number of alive units.
-func (a *Application) EnsureMinUnits(
-	modelConfigService ModelConfigService,
-) (err error) {
+func (a *Application) EnsureMinUnits() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot ensure minimum units for application %q", a)
 	app := &Application{st: a.st, doc: a.doc}
 	for {
@@ -170,7 +168,7 @@ func (a *Application) EnsureMinUnits(
 		if missing <= 0 {
 			return nil
 		}
-		name, ops, err := ensureMinUnitsOps(modelConfigService, app)
+		name, ops, err := ensureMinUnitsOps(app)
 		if err != nil {
 			return err
 		}
@@ -182,7 +180,7 @@ func (a *Application) EnsureMinUnits(
 			if err != nil {
 				return err
 			}
-			if err := app.st.AssignUnit(modelConfigService, unit, AssignNew); err != nil {
+			if err := app.st.AssignUnit(unit, AssignNew); err != nil {
 				return err
 			}
 			// No need to proceed and refresh the application if this was the
@@ -213,10 +211,7 @@ func aliveUnitsCount(app *Application) (int, error) {
 // ensureMinUnitsOps returns the operations required to add a unit for the
 // application in MongoDB and the name for the new unit. The resulting transaction
 // will be aborted if the application document changes when running the operations.
-func ensureMinUnitsOps(
-	modelConfigService ModelConfigService,
-	app *Application,
-) (string, []txn.Op, error) {
+func ensureMinUnitsOps(app *Application) (string, []txn.Op, error) {
 	asserts := bson.D{{"txn-revno", app.doc.TxnRevno}}
-	return app.addUnitOps(modelConfigService, "", AddUnitParams{}, asserts)
+	return app.addUnitOps("", AddUnitParams{}, asserts)
 }

@@ -380,7 +380,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
+
 	s.charm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress",
 	})

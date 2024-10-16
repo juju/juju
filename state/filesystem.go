@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"path"
 	"regexp"
@@ -1168,16 +1167,12 @@ func (sb *storageBackend) newFilesystemOps(doc filesystemDoc, status statusDoc) 
 
 func (sb *storageConfigBackend) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := sb.modelConfigService.ModelConfig(context.Background())
-		if err != nil {
-			return FilesystemParams{}, errors.Trace(err)
-		}
 		cons := StorageConstraints{
 			Pool:  params.Pool,
 			Size:  params.Size,
 			Count: 1,
 		}
-		poolName, err := defaultStoragePool(sb.modelType, modelConfig, storage.StorageKindFilesystem, cons)
+		poolName, err := defaultStoragePool(sb.modelType, storage.StorageKindFilesystem, cons)
 		if err != nil {
 			return FilesystemParams{}, errors.Annotate(err, "getting default filesystem storage pool")
 		}

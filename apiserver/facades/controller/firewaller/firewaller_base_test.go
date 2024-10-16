@@ -51,16 +51,14 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	st := s.ControllerModel(c).State()
-	modelConfigService := s.ControllerDomainServices(c).Config()
 	for i := 0; i <= 2; i++ {
-		machine, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
 	// Create an application and three units for these machines.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(modelConfigService)
 
 	s.charm = f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{
@@ -69,9 +67,9 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	})
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
-		unit, err := s.application.AddUnit(modelConfigService, state.AddUnitParams{})
+		unit, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Check(err, jc.ErrorIsNil)
-		err = unit.AssignToMachine(modelConfigService, s.machines[i])
+		err = unit.AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)
 		s.units = append(s.units, unit)
 	}
@@ -382,7 +380,7 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 	})
 
 	// Now reset assign unit 2 again and check.
-	err = s.units[2].AssignToMachine(s.ControllerDomainServices(c).Config(), s.machines[0])
+	err = s.units[2].AssignToMachine(s.machines[0])
 	c.Assert(err, jc.ErrorIsNil)
 
 	args = params.Entities{Entities: []params.Entity{

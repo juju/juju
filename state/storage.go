@@ -20,7 +20,6 @@ import (
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -112,7 +111,6 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 // config service.
 func NewStorageConfigBackend(
 	st *State,
-	modelConfigService ModelConfigService,
 ) (*storageConfigBackend, error) {
 	sb, err := NewStorageBackend(st)
 	if err != nil {
@@ -120,20 +118,13 @@ func NewStorageConfigBackend(
 	}
 
 	return &storageConfigBackend{
-		storageBackend:     sb,
-		modelConfigService: modelConfigService,
+		storageBackend: sb,
 	}, nil
 }
 
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
-}
-
-// ModelConfigService provides access to the model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // storageBackend exposes storage-specific state utilities.
@@ -158,7 +149,6 @@ type storageBackend struct {
 // config access.
 type storageConfigBackend struct {
 	*storageBackend
-	modelConfigService ModelConfigService
 }
 
 type storageInstance struct {
@@ -921,7 +911,7 @@ func unitAssignedMachineStorageOps(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateDynamicMachineStorageParams(sb.modelConfigService, m, storageParams); err != nil {
+	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storageOps, volumeAttachments, filesystemAttachments, err := sb.hostStorageOps(
@@ -1938,11 +1928,6 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specified and no defau
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
 func addDefaultStorageConstraints(sb *storageConfigBackend, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	conf, err := sb.modelConfigService.ModelConfig(context.Background())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for name, charmStorage := range charmMeta.Storage {
 		cons, ok := allCons[name]
 		if !ok {
@@ -1955,7 +1940,7 @@ func addDefaultStorageConstraints(sb *storageConfigBackend, allCons map[string]S
 				)
 			}
 		}
-		cons, err := storageConstraintsWithDefaults(sb.modelType, conf, charmStorage, name, cons)
+		cons, err := storageConstraintsWithDefaults(sb.modelType, charmStorage, name, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1969,7 +1954,6 @@ func addDefaultStorageConstraints(sb *storageConfigBackend, allCons map[string]S
 // derived from cons, with any defaults filled in.
 func storageConstraintsWithDefaults(
 	modelType ModelType,
-	cfg *config.Config,
 	charmStorage charm.Storage,
 	name string,
 	cons StorageConstraints,
@@ -1979,7 +1963,7 @@ func storageConstraintsWithDefaults(
 	// If no pool is specified, determine the pool from the env config and other constraints.
 	if cons.Pool == "" {
 		kind := storageKind(charmStorage.Type)
-		poolName, err := defaultStoragePool(modelType, cfg, kind, cons)
+		poolName, err := defaultStoragePool(modelType, kind, cons)
 		if err != nil {
 			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", name)
 		}
@@ -2003,7 +1987,7 @@ func storageConstraintsWithDefaults(
 
 // defaultStoragePool returns the default storage pool for the model.
 // The default pool is either user specified, or one that is registered by the provider itself.
-func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.StorageKind, cons StorageConstraints) (string, error) {
+func defaultStoragePool(modelType ModelType, kind storage.StorageKind, cons StorageConstraints) (string, error) {
 	switch kind {
 	case storage.StorageKindBlock:
 		fallbackPool := string(provider.LoopProviderType)
@@ -2011,41 +1995,15 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
 
-		emptyConstraints := StorageConstraints{}
-		if cons == emptyConstraints {
-			// No constraints at all: use fallback.
-			return fallbackPool, nil
-		}
-		// Either size or count specified, use env default.
-		defaultPool, ok := cfg.StorageDefaultBlockSource()
-		if !ok {
-			defaultPool = fallbackPool
-		}
-		return defaultPool, nil
+		return fallbackPool, nil
 
 	case storage.StorageKindFilesystem:
 		fallbackPool := string(provider.RootfsProviderType)
 		if modelType == ModelTypeCAAS {
 			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
-		emptyConstraints := StorageConstraints{}
-		if cons == emptyConstraints {
-			return fallbackPool, nil
-		}
 
-		// If a filesystem source is specified in config,
-		// use that; otherwise if a block source is specified,
-		// use that and create a filesystem within.
-		defaultPool, ok := cfg.StorageDefaultFilesystemSource()
-		if !ok {
-			defaultPool, ok = cfg.StorageDefaultBlockSource()
-			if !ok {
-				// No filesystem or block source,
-				// so just use rootfs.
-				defaultPool = fallbackPool
-			}
-		}
-		return defaultPool, nil
+		return fallbackPool, nil
 	}
 	return "", ErrNoDefaultStoragePool
 }
@@ -2136,13 +2094,9 @@ func (sb *storageConfigBackend) addStorageForUnitOps(
 
 		// Populate missing configuration parameters with defaults.
 		if cons.Pool == "" || cons.Size == 0 {
-			modelConfig, err := sb.modelConfigService.ModelConfig(context.Background())
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
+
 			completeCons, err := storageConstraintsWithDefaults(
 				sb.modelType,
-				modelConfig,
 				charmStorageMeta,
 				storageName,
 				cons,

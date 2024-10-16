@@ -478,14 +478,6 @@ func (b *AgentBootstrap) initBootstrapMachine(
 
 	// TODO: move this call to the bootstrap worker
 	m, err := st.AddOneMachine(
-		// By design, we do not have access here to the Dqlite database. Hence
-		// the model config we pass here is not guaranteed to be equal to the
-		// "real" model config. This has potential to cause issues, but at this
-		// stage we are only using this to read the default storage pools, and
-		// furthermore, this call is not creating a machine, it's just
-		// recording the existing machine in state. Long-term, this should be
-		// removed once we move machines over to Dqlite.
-		&modelConfigShim{cfg: stateParams.ControllerModelConfig},
 		state.MachineTemplate{
 			Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 			Nonce:                   agent.BootstrapNonce,
@@ -582,15 +574,4 @@ func machineJobFromParams(job model.MachineJob) (state.MachineJob, error) {
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}
-}
-
-// modelConfigShim implements state.ModelConfigService using a constant model
-// config (namely, the controller model config sourced from the state
-// initialization params).
-type modelConfigShim struct {
-	cfg *config.Config
-}
-
-func (m *modelConfigShim) ModelConfig(stdcontext.Context) (*config.Config, error) {
-	return m.cfg, nil
 }

@@ -75,7 +75,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.ControllerDomainServices(c).Config())
+
 	s.application = f.MakeApplication(c, nil)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -113,7 +113,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	})
 
 	api, err := application.NewAPIBase(
-		application.GetState(st, s.modelConfigService),
+		application.GetState(st),
 		nil,
 		s.networkService,
 		storageAccess,
@@ -295,7 +295,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.modelConfigService, state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -348,7 +348,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-0", "lxd-profile")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.modelConfigService, state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -407,7 +407,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.modelConfigService, state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -531,7 +531,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -571,13 +571,13 @@ func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.modelConfigService, state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
@@ -616,7 +616,7 @@ func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -656,7 +656,7 @@ func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -671,7 +671,7 @@ func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -686,7 +686,7 @@ func (s *applicationSuite) TestBlockChangeAddApplicationUnits(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -701,7 +701,7 @@ func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -720,7 +720,7 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	applicationNames := []string{"dummy-application", "exposed-application"}
 	apps := make([]*state.Application, len(applicationNames))
@@ -745,7 +745,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -778,7 +778,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -806,7 +806,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	applicationNames := []string{"dummy-application", "exposed-application"}
 	apps := make([]*state.Application, len(applicationNames))
@@ -1015,7 +1015,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	charm := f.MakeCharm(c, nil)
 	for i, t := range applicationUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -1048,7 +1048,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy-application",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -1108,7 +1108,7 @@ func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -1129,7 +1129,7 @@ func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 func (s *applicationSuite) setupSetApplicationConstraints(c *gc.C) (*state.Application, constraints.Value) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
@@ -1187,7 +1187,7 @@ func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	fooConstraints := constraints.MustParse("arch=amd64", "mem=4G")
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:        "foo",
@@ -1249,7 +1249,7 @@ func (s *applicationSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoint
 func (s *applicationSuite) setupRelationScenario(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1333,7 +1333,7 @@ func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1360,7 +1360,7 @@ func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1376,7 +1376,7 @@ func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1396,7 +1396,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1494,7 +1494,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 	s.setupRemoteApplication(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1526,7 +1526,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
@@ -1542,7 +1542,7 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService)
+
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),

@@ -92,7 +92,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	magic, err := st.AddApplication(
-		s.modelConfigService(c),
+
 		state.AddApplicationArgs{
 			Name: "magic", Charm: charm,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
@@ -156,7 +156,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 	magic, err := st.AddApplication(
-		s.modelConfigService(c),
+
 		state.AddApplicationArgs{
 			Name: "magic", Charm: charm,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
@@ -289,12 +289,6 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// modelConfigService is a convenience function to get the controller model's
-// model config service inside a test.
-func (s *runSuite) modelConfigService(c *gc.C) state.ModelConfigService {
-	return s.ControllerDomainServices(c).Config()
-}
-
 func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -312,15 +306,15 @@ func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(s.modelConfigService(c), state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
 func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit {
-	unit, err := application.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine(s.modelConfigService(c))
+	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }

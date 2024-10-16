@@ -49,8 +49,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine and unit to work with
 	st := s.ControllerModel(c).State()
-	modelConfigService := s.ControllerDomainServices(c).Config()
-	machine, err := st.AddMachine(modelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -63,15 +62,14 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(modelConfigService)
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
-	s.rawUnit, err = app.AddUnit(modelConfigService, state.AddUnitParams{})
+	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
-	err = s.rawUnit.AssignToNewMachine(modelConfigService)
+	err = s.rawUnit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := s.rawUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

@@ -43,12 +43,6 @@ type DeployLocalSuite struct {
 
 var _ = gc.Suite(&DeployLocalSuite{})
 
-// modelConfigService is a convenience function to get the controller model's
-// model config service inside a test.
-func (s *DeployLocalSuite) modelConfigService(c *gc.C) application.ModelConfigService {
-	return s.ControllerDomainServices(c).Config()
-}
-
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.ApiServerSuite.SetUpSuite(c)
 }
@@ -76,7 +70,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "juju-controller"})
 	_, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: s.ControllerModel(c).State(), modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -103,7 +97,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: s.ControllerModel(c).State(), modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -171,7 +165,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: s.ControllerModel(c).State(), modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -251,7 +245,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: st, modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: st},
 		m,
 		model.ReadOnlyModel{},
 		applicationService,
@@ -312,7 +306,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: st, modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: st},
 		m,
 		model.ReadOnlyModel{},
 		applicationService,
@@ -395,7 +389,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: s.ControllerModel(c).State(), modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -431,7 +425,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	_, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: st, modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: st},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -479,7 +473,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: s.ControllerModel(c).State(), modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -516,7 +510,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 
 	app, err := application.DeployApplication(
 		context.Background(),
-		stateDeployer{State: st, modelConfigService: s.modelConfigService(c)},
+		stateDeployer{State: st},
 		s.ControllerModel(c),
 		model.ReadOnlyModel{},
 		applicationService,
@@ -859,7 +853,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	st := s.ControllerModel(c).State()
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
-		res, err := st.AssignStagedUnits(s.modelConfigService(c), nil, []string{id})
+		res, err := st.AssignStagedUnits(nil, []string{id})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
 		c.Assert(res[0].Unit, gc.Equals, id)
@@ -885,7 +879,6 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 
 type stateDeployer struct {
 	*state.State
-	modelConfigService application.ModelConfigService
 }
 
 func (d stateDeployer) ReadSequence(name string) (int, error) {
@@ -893,11 +886,11 @@ func (d stateDeployer) ReadSequence(name string) (int, error) {
 }
 
 func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (application.Application, error) {
-	app, err := d.State.AddApplication(d.modelConfigService, args, store)
+	app, err := d.State.AddApplication(args, store)
 	if err != nil {
 		return nil, err
 	}
-	return application.NewStateApplication(d.State, d.modelConfigService, app), nil
+	return application.NewStateApplication(d.State, app), nil
 }
 
 type fakeDeployer struct {

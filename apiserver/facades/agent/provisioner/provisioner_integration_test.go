@@ -89,13 +89,13 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 
-		s.machines = append(s.machines, testing.AddControllerMachine(c, st, controllerModelConfigService, controllerConfig))
+		s.machines = append(s.machines, testing.AddControllerMachine(c, st, controllerConfig))
 	}
 
 	s.domainServices = s.ControllerDomainServices(c)
 
 	for i := 0; i < 5; i++ {
-		m, err := st.AddMachine(controllerModelConfigService, state.UbuntuBase("12.10"), state.JobHostUnits)
+		m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		_, err = s.domainServices.Machine().CreateMachine(context.Background(), coremachine.Name(m.Id()))
 		c.Assert(err, jc.ErrorIsNil)
@@ -131,12 +131,6 @@ type withoutControllerSuite struct {
 }
 
 var _ = gc.Suite(&withoutControllerSuite{})
-
-// modelConfigService is a convenience function to get the controller model's
-// model config service inside a test.
-func (s *withoutControllerSuite) modelConfigService(c *gc.C) provisioner.ModelConfigService {
-	return s.ControllerDomainServices(c).Config()
-}
 
 func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
@@ -261,7 +255,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
-		container, err := st.AddMachineInsideMachine(s.modelConfigService(c), template, s.machines[0].Id(), instance.LXD)
+		container, err := st.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
 		c.Check(err, jc.ErrorIsNil)
 		containers = append(containers, container)
 	}
@@ -1018,7 +1012,6 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	st := s.ControllerModel(c).State()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
@@ -1030,9 +1023,9 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
 		})
 		for _, m := range machines {
-			unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+			unit, err := app.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			err = unit.AssignToMachine(s.modelConfigService(c), m)
+			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
 			units = append(units, unit)
 		}
@@ -1064,7 +1057,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, _, err = st.EnableHA(s.modelConfigService(c), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Manually add the controller machines on the domain:
 	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("5"))
@@ -1087,7 +1080,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(s.modelConfigService(c), nil)
+	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1175,7 +1168,6 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	f = f.WithModelConfigService(s.modelConfigService(c))
 
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		app := f.MakeApplication(c, &factory.ApplicationParams{
@@ -1183,9 +1175,9 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
 		})
 		for _, m := range machines {
-			unit, err := app.AddUnit(s.modelConfigService(c), state.AddUnitParams{})
+			unit, err := app.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			err = unit.AssignToMachine(s.modelConfigService(c), m)
+			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
 			units = append(units, unit)
 		}
@@ -1213,7 +1205,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, _, err = s.ControllerModel(c).State().EnableHA(s.modelConfigService(c), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1308,7 +1300,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	}
-	consMachine, err := s.ControllerModel(c).State().AddOneMachine(s.modelConfigService(c), template)
+	consMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -1362,7 +1354,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumesMachine, err := st.AddOneMachine(s.modelConfigService(c), state.MachineTemplate{
+	volumesMachine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1417,7 +1409,10 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 			}},
 			{Error: nil},
 			{Error: nil},
-			{Error: nil},
+			{Error: &params.Error{
+				Message: `cannot record provisioning info for "i-am-also": cannot set info for volume "0": volume "0" not found`,
+				Code:    params.CodeNotFound,
+			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1443,14 +1438,19 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	volumeAttachments, err := sb.MachineVolumeAttachments(volumesMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
+
+	// Note (stickupkid): This is all incorrect, because we are no longer
+	// using model-config for fallback storage pools. This should be fixed
+	// once that's implemented in the new storage code.
+	// See: https://warthogs.atlassian.net/browse/JUJU-6933
 	volumeAttachmentInfo, err := volumeAttachments[0].Info()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{DeviceName: "sda"})
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
+	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{})
 	volume, err := sb.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Pool: "static-pool", Size: 1234})
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
+	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{})
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.

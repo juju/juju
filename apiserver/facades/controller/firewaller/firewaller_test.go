@@ -225,7 +225,6 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	m, err := st.AddOneMachine(
-		s.modelConfigService,
 		state.MachineTemplate{
 			Base:       state.UbuntuBase("12.10"),
 			Jobs:       []state.MachineJob{state.JobHostUnits},

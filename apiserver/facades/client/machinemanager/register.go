@@ -40,8 +40,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	domainServices := ctx.DomainServices()
 
 	backend := &stateShim{
-		State:              st,
-		modelConfigService: domainServices.Config(),
+		State: st,
 	}
 	storageAccess, err := getStorageState(st)
 	if err != nil {

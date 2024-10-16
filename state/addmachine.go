@@ -110,11 +110,10 @@ type HostFilesystemParams struct {
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
 func (st *State) AddMachineInsideNewMachine(
-	modelConfigService ModelConfigService,
 	template, parentTemplate MachineTemplate,
 	containerType instance.ContainerType,
 ) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideNewMachineOps(modelConfigService, template, parentTemplate, containerType)
+	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -124,12 +123,11 @@ func (st *State) AddMachineInsideNewMachine(
 // AddMachineInsideMachine adds a machine inside a container of the
 // given type on the existing machine with id=parentId.
 func (st *State) AddMachineInsideMachine(
-	modelConfigService ModelConfigService,
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
 ) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideMachineOps(modelConfigService, template, parentId, containerType)
+	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
@@ -139,10 +137,9 @@ func (st *State) AddMachineInsideMachine(
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
 func (st *State) AddMachine(
-	modelConfigService ModelConfigService,
 	base Base, jobs ...MachineJob,
 ) (*Machine, error) {
-	ms, err := st.AddMachines(modelConfigService, MachineTemplate{
+	ms, err := st.AddMachines(MachineTemplate{
 		Base: base,
 		Jobs: jobs,
 	})
@@ -155,10 +152,9 @@ func (st *State) AddMachine(
 // AddOneMachine machine adds a new machine configured according to the
 // given template.
 func (st *State) AddOneMachine(
-	modelConfigService ModelConfigService,
 	template MachineTemplate,
 ) (*Machine, error) {
-	ms, err := st.AddMachines(modelConfigService, template)
+	ms, err := st.AddMachines(template)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +164,6 @@ func (st *State) AddOneMachine(
 // AddMachines adds new machines configured according to the
 // given templates.
 func (st *State) AddMachines(
-	modelConfigService ModelConfigService,
 	templates ...MachineTemplate,
 ) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
@@ -176,7 +171,7 @@ func (st *State) AddMachines(
 	var ops []txn.Op
 	var controllerIds []string
 	for _, template := range templates {
-		mdoc, addOps, err := st.addMachineOps(modelConfigService, template)
+		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -277,7 +272,6 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(
-	modelConfigService ModelConfigService,
 	template MachineTemplate,
 ) (*machineDoc, []txn.Op, error) {
 	template, err := st.effectiveMachineTemplate(template, st.IsController())
@@ -289,7 +283,7 @@ func (st *State) addMachineOps(
 		return nil, nil, err
 	}
 	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
-	prereqOps, machineOp, err := st.insertNewMachineOps(modelConfigService, mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -325,7 +319,6 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
 func (st *State) addMachineInsideMachineOps(
-	modelConfigService ModelConfigService,
 	template MachineTemplate,
 	parentId string,
 	containerType instance.ContainerType,
@@ -357,7 +350,7 @@ func (st *State) addMachineInsideMachineOps(
 	}
 	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	prereqOps, machineOp, err := st.insertNewMachineOps(modelConfigService, mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -386,7 +379,6 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
 func (st *State) addMachineInsideNewMachineOps(
-	modelConfigService ModelConfigService,
 	template, parentTemplate MachineTemplate,
 	containerType instance.ContainerType,
 ) (*machineDoc, []txn.Op, error) {
@@ -416,11 +408,11 @@ func (st *State) addMachineInsideNewMachineOps(
 	}
 	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	parentPrereqOps, parentOp, err := st.insertNewMachineOps(modelConfigService, parentDoc, parentTemplate)
+	parentPrereqOps, parentOp, err := st.insertNewMachineOps(parentDoc, parentTemplate)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps, machineOp, err := st.insertNewMachineOps(modelConfigService, mdoc, template)
+	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -467,7 +459,6 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // into the database, based on the given template. Only the constraints are
 // taken from the template.
 func (st *State) insertNewMachineOps(
-	modelConfigService ModelConfigService,
 	mdoc *machineDoc,
 	template MachineTemplate,
 ) (prereqOps []txn.Op, machineOp txn.Op, err error) {
@@ -496,7 +487,7 @@ func (st *State) insertNewMachineOps(
 		template.Constraints,
 	)
 
-	sb, err := NewStorageConfigBackend(st, modelConfigService)
+	sb, err := NewStorageConfigBackend(st)
 	if err != nil {
 		return nil, txn.Op{}, errors.Trace(err)
 	}

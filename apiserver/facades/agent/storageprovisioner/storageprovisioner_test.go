@@ -32,12 +32,6 @@ type provisionerSuite struct {
 	storageBackend storageprovisioner.StorageBackend
 }
 
-// modelConfigService is a convenience function to get the controller model's
-// model config service inside a test.
-func (s *provisionerSuite) modelConfigService(c *gc.C) storageprovisioner.ModelConfigService {
-	return s.ControllerDomainServices(c).Config()
-}
-
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 }
