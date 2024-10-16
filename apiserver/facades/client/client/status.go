@@ -334,13 +334,13 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	if len(args.Patterns) > 0 {
 		patterns := resolveLeaderUnits(args.Patterns, context.leaders)
-		predicate := BuildPredicateFor(patterns)
+		predicate := c.BuildPredicateFor(patterns)
 		// First, attempt to match machines. Any units on those
 		// machines are implicitly matched.
 		matchedMachines := make(set.Strings)
 		for _, machineList := range context.machines {
 			for _, m := range machineList {
-				matches, err := predicate(m)
+				matches, err := predicate(ctx, m)
 				if err != nil {
 					return noStatus, errors.Annotate(
 						err, "could not filter machines",
@@ -355,7 +355,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		// Filter units
 		matchedApps := set.NewStrings()
 		matchedUnits := set.NewStrings()
-		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
+		unitChainPredicate := UnitChainPredicateFn(ctx, predicate, context.unitByName)
 		// It's possible that we will discover a unit that matches given filter
 		// half way through units collection. In that case, it may be that the machine
 		// for that unit has other applications' units on it that have already been examined
@@ -410,7 +410,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 		// Filter applications
 		for appName, app := range context.allAppsUnitsCharmBindings.applications {
-			matches, err := predicate(app)
+			matches, err := predicate(ctx, app)
 			if err != nil {
 				return noStatus, errors.Annotate(err, "could not filter applications")
 			}

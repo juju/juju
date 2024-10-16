@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path"
@@ -25,6 +26,7 @@ var InvalidFormatErr = errors.Errorf("the given filter did not match any known p
 // predicate over a unit and all of its subordinates. If one unit in
 // the chain matches, the entire chain matches.
 func UnitChainPredicateFn(
+	ctx context.Context,
 	predicate Predicate,
 	getUnit func(string) *state.Unit,
 ) func(*state.Unit) (bool, error) {
@@ -38,7 +40,7 @@ func UnitChainPredicateFn(
 		}
 
 		// Check the current unit.
-		matches, err := predicate(unit)
+		matches, err := predicate(ctx, unit)
 		if err != nil {
 			return false, errors.Annotate(err, "could not filter units")
 		}
@@ -73,14 +75,14 @@ func UnitChainPredicateFn(
 
 // BuildPredicate returns a Predicate which will evaluate a machine,
 // service, or unit against the given patterns.
-func BuildPredicateFor(patterns []string) Predicate {
+func (c *Client) BuildPredicateFor(patterns []string) Predicate {
 
-	or := func(predicates ...closurePredicate) (bool, error) {
+	or := func(ctx context.Context, predicates ...closurePredicate) (bool, error) {
 		// Differentiate between a valid format that eliminated all
 		// elements, and an invalid query.
 		oneValidFmt := false
 		for _, p := range predicates {
-			if matches, ok, err := p(); err != nil {
+			if matches, ok, err := p(ctx); err != nil {
 				return false, err
 			} else if ok {
 				oneValidFmt = true
@@ -97,36 +99,36 @@ func BuildPredicateFor(patterns []string) Predicate {
 		return false, nil
 	}
 
-	return func(i interface{}) (bool, error) {
+	return func(ctx context.Context, i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
 			panic(errors.Errorf("expected a machine or an applications or a unit, got %T", i))
 		case *state.Machine:
-			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
+			shims, err := c.buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
 				return false, err
 			}
-			return or(shims...)
+			return or(ctx, shims...)
 		case *state.Unit:
-			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
+			return or(ctx, c.buildUnitMatcherShims(i.(*state.Unit), patterns)...)
 		case *state.Application:
-			shims, err := buildApplicationMatcherShims(i.(*state.Application), patterns...)
+			shims, err := c.buildApplicationMatcherShims(i.(*state.Application), patterns...)
 			if err != nil {
 				return false, err
 			}
-			return or(shims...)
+			return or(ctx, shims...)
 		}
 	}
 }
 
 // Predicate is a function that when given a unit, machine, or
 // service, will determine whether the unit meets some criteria.
-type Predicate func(interface{}) (matches bool, _ error)
+type Predicate func(context.Context, interface{}) (matches bool, _ error)
 
 // closurePredicate is a function which has at some point been closed
 // around an element so that it can examine whether this element
 // matches some criteria.
-type closurePredicate func() (matches bool, formatOK bool, _ error)
+type closurePredicate func(context.Context) (matches bool, formatOK bool, _ error)
 
 func matchMachineId(m *state.Machine, patterns []string) (bool, bool, error) {
 	var anyValid bool
@@ -144,7 +146,7 @@ func matchMachineId(m *state.Machine, patterns []string) (bool, bool, error) {
 	return false, anyValid, nil
 }
 
-func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
+func (c *Client) unitMatchUnitName(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
 	um, err := NewUnitMatcher(patterns)
 	if err != nil {
 		// Currently, the only error possible here is a matching
@@ -156,7 +158,7 @@ func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 	return um.matchUnit(u), true, nil
 }
 
-func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) {
+func (c *Client) unitMatchAgentStatus(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
 	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return false, false, err
@@ -164,7 +166,7 @@ func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) 
 	return matchAgentStatus(patterns, statusInfo.Status)
 }
 
-func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, error) {
+func (c *Client) unitMatchWorkloadStatus(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
 	workloadStatusInfo, err := u.Status()
 	if err != nil {
 		return false, false, err
@@ -176,7 +178,7 @@ func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, erro
 	return matchWorkloadStatus(patterns, workloadStatusInfo.Status, agentStatusInfo.Status)
 }
 
-func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
+func (c *Client) unitMatchExposure(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
 	s, err := u.Application()
 	if err != nil {
 		return false, false, err
@@ -184,12 +186,13 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchExposure(patterns, s)
 }
 
-func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
-	unitPortRanges, err := u.OpenedPortRanges()
+func (c *Client) unitMatchPort(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
+	unitUUID, err := c.applicationService.GetUnitUUID(ctx, u.Name())
 	if err != nil {
-		if errors.Is(err, errors.NotAssigned) || errors.Is(err, errors.NotSupported) {
-			return false, false, nil
-		}
+		return false, false, err
+	}
+	unitPortRanges, err := c.portService.GetUnitOpenedPorts(ctx, unitUUID)
+	if err != nil {
 		return false, false, err
 	}
 
@@ -198,9 +201,9 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 
 // buildApplicationMatcherShims adds matchers for application name, application units and
 // whether the application is exposed.
-func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
+func (c *Client) buildApplicationMatcherShims(a *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
-	shims = append(shims, func() (bool, bool, error) {
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) {
 		for _, p := range patterns {
 			if strings.EqualFold(a.Name(), p) {
 				return true, true, nil
@@ -210,11 +213,11 @@ func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shi
 	})
 
 	// Match on exposure.
-	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, a) })
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) { return matchExposure(patterns, a) })
 
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
-	unitShims, err := buildShimsForUnit(a.AllUnits, patterns...)
+	unitShims, err := c.buildShimsForUnit(a.AllUnits, patterns...)
 	if err != nil {
 		return nil, err
 	}
@@ -223,33 +226,33 @@ func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shi
 	// Units may be able to match the pattern. Ultimately defer to
 	// that logic, and guard against breaking the predicate-chain.
 	if len(unitShims) <= 0 {
-		shims = append(shims, func() (bool, bool, error) { return false, true, nil })
+		shims = append(shims, func(ctx context.Context) (bool, bool, error) { return false, true, nil })
 	}
 
 	return shims, nil
 }
 
-func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string) (shims []closurePredicate, _ error) {
+func (c *Client) buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string) (shims []closurePredicate, _ error) {
 	units, err := unitsFn()
 	if err != nil {
 		return nil, err
 	}
 	for _, u := range units {
-		shims = append(shims, buildUnitMatcherShims(u, patterns)...)
+		shims = append(shims, c.buildUnitMatcherShims(u, patterns)...)
 	}
 	return shims, nil
 }
 
-func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
+func (c *Client) buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
 	// Look at machine ID.
-	shims = append(shims, func() (bool, bool, error) { return matchMachineId(m, patterns) })
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) { return matchMachineId(m, patterns) })
 
 	// Look at machine status.
 	statusInfo, err := m.Status()
 	if err != nil {
 		return nil, err
 	}
-	shims = append(shims, func() (bool, bool, error) { return matchAgentStatus(patterns, statusInfo.Status) })
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) { return matchAgentStatus(patterns, statusInfo.Status) })
 
 	// Look at machine addresses. WARNING: Avoid the temptation to
 	// bring the append into the loop. The value we would close over
@@ -259,25 +262,25 @@ func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []clos
 	for _, a := range m.Addresses() {
 		addrs = append(addrs, a.Value)
 	}
-	shims = append(shims, func() (bool, bool, error) { return matchSubnet(patterns, addrs...) })
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) { return matchSubnet(patterns, addrs...) })
 
 	// Units may be able to match the pattern. Ultimately defer to
 	// that logic, and guard against breaking the predicate-chain.
-	shims = append(shims, func() (bool, bool, error) { return false, true, nil })
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) { return false, true, nil })
 
 	return
 }
 
-func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate {
-	closeOver := func(f func(*state.Unit, []string) (bool, bool, error)) closurePredicate {
-		return func() (bool, bool, error) { return f(u, patterns) }
+func (c *Client) buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate {
+	closeOver := func(f func(context.Context, *state.Unit, []string) (bool, bool, error)) closurePredicate {
+		return func(ctx context.Context) (bool, bool, error) { return f(ctx, u, patterns) }
 	}
 	return []closurePredicate{
-		closeOver(unitMatchUnitName),
-		closeOver(unitMatchAgentStatus),
-		closeOver(unitMatchWorkloadStatus),
-		closeOver(unitMatchExposure),
-		closeOver(unitMatchPort),
+		closeOver(c.unitMatchUnitName),
+		closeOver(c.unitMatchAgentStatus),
+		closeOver(c.unitMatchWorkloadStatus),
+		closeOver(c.unitMatchExposure),
+		closeOver(c.unitMatchPort),
 	}
 }
 

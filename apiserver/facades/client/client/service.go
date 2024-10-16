@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 )
 
 // BlockDeviceService instances can fetch block devices for a machine.
@@ -50,9 +51,20 @@ type MachineService interface {
 	AppliedLXDProfileNames(ctx context.Context, machineUUID string) ([]string, error)
 }
 
+// ApplicationService defines the methods that the facade assumes from the
+// Application service.
+type ApplicationService interface {
+	// GetUnitUUID returns the UUID for the named unit
+	GetUnitUUID(context.Context, string) (unit.UUID, error)
+}
+
 // PortService defines the methods that the facade assumes from the Port service.
 type PortService interface {
 	// GetAllOpenedPorts returns the opened ports in the model, grouped by unit
 	// name.
 	GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error)
+
+	// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped
+	// by endpoint.
+	GetUnitOpenedPorts(context.Context, unit.UUID) (network.GroupedPortRanges, error)
 }
