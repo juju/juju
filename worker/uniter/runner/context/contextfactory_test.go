@@ -247,6 +247,48 @@ func (s *ContextFactorySuite) TestRelationBrokenHookContext(c *gc.C) {
 	c.Assert(context.RelationBroken(ctx, 1), jc.IsTrue)
 }
 
+func (s *ContextFactorySuite) TestRelationIsPeerHookContext(c *gc.C) {
+	relCh := s.AddTestingCharm(c, "riak")
+	app := s.AddTestingApplication(c, "riak", relCh)
+	u, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.OpenAPIAs(c, u.Tag(), password)
+	uniterAPI, err := uniter.NewFromConnection(st)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels, err := app.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	var rel *state.Relation
+	for _, r := range rels {
+		if len(r.Endpoints()) == 1 {
+			rel = r
+			break
+		}
+	}
+	c.Assert(rel, gc.NotNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(map[string]interface{}{"relation-name": "riak"})
+	c.Assert(err, jc.ErrorIsNil)
+	apiRel, err := uniterAPI.Relation(rel.Tag().(names.RelationTag))
+	c.Assert(err, jc.ErrorIsNil)
+	apiRelUnit, err := apiRel.Unit(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiRelunits[rel.Id()] = apiRelUnit
+
+	hi := hook.Info{
+		Kind:       hooks.RelationBroken,
+		RelationId: rel.Id(),
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(context.RelationBroken(ctx, rel.Id()), jc.IsFalse)
+}
+
 // TestWorkloadHookContext verifies that each of the types of workload hook
 // generate the correct event context.
 func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
