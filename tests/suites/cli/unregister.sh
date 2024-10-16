@@ -32,7 +32,13 @@ EOF
 	JUJU_DATA="${TEST_DIR}/juju" juju unregister --no-prompt "unregister-test"
 
 	echo "Check that temporary controllers.yaml has no controllers' data"
-	EXPECTED="controllers: {}"
+	EXPECTED=$(
+		cat <<'EOF'
+controllers: {}
+has-controller-changed-on-previous-switch: false
+EOF
+	)
+
 	OUT=$(cat "${TEST_DIR}/juju/controllers.yaml")
 	if [ "${OUT}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${OUT}"
