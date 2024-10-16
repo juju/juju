@@ -35,6 +35,22 @@ type frameTracer struct {
 	pc uintptr
 }
 
+// Capture is responsible for recording the location where this function was
+// called from in the error supplied. This allows errors that are being passed
+// up through a stack to have extra information attached to them at call sites.
+//
+// Captured errors should only be used in scenario's where adding extra context
+// to an error is not necessary or can't be done.
+//
+// [ErrorStack] can be used to gather all of the capture sites about an error.
+func Capture(err error) Traced {
+	if err == nil {
+		return nil
+	}
+
+	return newFrameTracer(err, 1)
+}
+
 // ErrorStack recursively unwinds an error chain by repeatedly calling
 // [stderrors.Unwrap] until no new errors are returned. A new line is outputted
 // to the resultant string for each error in the chain. If an error in the chain

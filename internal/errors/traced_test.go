@@ -132,4 +132,42 @@ func TestErrorStack(t *testing.T) {
 			t.Errorf("test call to ErrorStack() returned %#v expected %#v", stack, expected)
 		}
 	})
+
+	t.Run("CapturedError", func(t *testing.T) {
+		err := Capture(errors.New("test"))
+
+		stack := ErrorStack(err)
+		expected := strings.Join([]string{
+			"github.com/juju/juju/internal/errors.TestErrorStack.func8:137: test",
+			"test",
+		}, "\n")
+		if !reflect.DeepEqual(stack, expected) {
+			t.Errorf("test call to ErrorStack() returned %#v expected %#v", stack, expected)
+		}
+	})
+}
+
+// TestErrorCapture is asserting the schematics around [Capture].
+func TestErrorCapture(t *testing.T) {
+	t.Run("CaptureNil", func(t *testing.T) {
+		if Capture(nil) != nil {
+			t.Error("expected passing nil to Capture() will result in a nil Traced error")
+		}
+	})
+
+	t.Run("Capture", func(t *testing.T) {
+		traced := Capture(errors.New("test"))
+		funcName, line := traced.Location()
+
+		if funcName != "github.com/juju/juju/internal/errors.TestErrorCapture.func2" {
+			t.Errorf(
+				"Capture() returned %q for function name, expected %q",
+				funcName,
+				"github.com/juju/juju/internal/errors.TestErrorCapture.func2",
+			)
+		}
+		if line != 159 {
+			t.Errorf("Capture() returned %d for line number, expected %d", line, 159)
+		}
+	})
 }
