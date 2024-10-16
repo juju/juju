@@ -14,6 +14,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -45,7 +46,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 
-	registry := stateenvirons.NewStorageProviderRegistry()
+	registry := provider.CommonStorageProviders()
 	backendService := domainServices.SecretBackend()
 	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
 		StorageRegistry: registry,

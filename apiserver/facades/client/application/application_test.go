@@ -30,12 +30,12 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 )
@@ -99,7 +99,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		UUID: model.UUID(testing.ModelTag.Id()),
 		Type: model.IAAS,
 	}
-	registry := stateenvirons.NewStorageProviderRegistry()
+	registry := provider.CommonStorageProviders()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	applicationService := domainServices.Application(service.ApplicationServiceParams{

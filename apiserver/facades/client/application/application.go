@@ -45,13 +45,13 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -130,17 +130,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 	stateCharm := CharmToStateCharm
 
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		m,
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Config(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting storage provider registry")
-	}
+	registry := provider.CommonStorageProviders()
 	storagePoolGetter := domainServices.Storage(registry)
 
 	var caasBroker caas.Broker

@@ -52,26 +52,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 		return nil, nil, errors.Trace(err)
 	}
 
-	registry := NewStorageProviderRegistry()
+	registry := provider.CommonStorageProviders()
 	storageService := p.storageServiceGetter(coremodel.UUID(model.UUID()), registry)
 	return storageService, registry, nil
-}
-
-// NewStorageProviderRegistryForModel returns a storage provider registry
-// for the specified model.
-func NewStorageProviderRegistryForModel(
-	model *state.Model,
-	cloudService CloudService,
-	credentialService CredentialService,
-	modelConfigService ModelConfigService,
-	newEnv NewEnvironFunc,
-	newBroker NewCAASBrokerFunc,
-) (_ storage.ProviderRegistry, err error) {
-	return NewStorageProviderRegistry(), nil
-}
-
-// NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
-// the provided registry with the common storage providers.
-func NewStorageProviderRegistry() storage.ProviderRegistry {
-	return storage.ChainedProviderRegistry{provider.CommonStorageProviders()}
 }

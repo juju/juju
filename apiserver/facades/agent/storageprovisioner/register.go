@@ -10,9 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/internal/storage/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -25,22 +23,9 @@ func Register(registry facade.FacadeRegistry) {
 // newFacadeV4 provides the signature required for facade registration.
 func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	domainServices := ctx.DomainServices()
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model,
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Config(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	registry := provider.CommonStorageProviders()
 
 	// Get model UUID
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)

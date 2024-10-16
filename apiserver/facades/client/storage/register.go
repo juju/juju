@@ -12,10 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/internal/storage/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -33,17 +31,8 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	storageMetadata := func() (StorageService, storage.ProviderRegistry, error) {
+		registry := provider.CommonStorageProviders()
 		domainServices := ctx.DomainServices()
-		registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-			model,
-			domainServices.Cloud(),
-			domainServices.Credential(),
-			domainServices.Config(),
-			stateenvirons.GetNewEnvironFunc(environs.New),
-			stateenvirons.GetNewCAASBrokerFunc(caas.New))
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
 		return domainServices.Storage(registry), registry, nil
 	}
 
