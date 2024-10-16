@@ -2218,23 +2218,30 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	c.Assert(md[0].Description, gc.Equals, value(sp.Description))
 	c.Assert(md[0].LatestRevision, gc.Equals, 3)
 
-	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	var obsolete0, pendingDelete0 bool
+	var obsolete1, pendingDelete1 bool
+	var obsolete2, pendingDelete2 bool
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		// Revision 1 is NOT obsolete because it's been consumed.
-		obsolete, pendingDelete := s.getObsolete(c, uri, 1)
-		c.Check(obsolete, jc.IsFalse)
-		c.Check(pendingDelete, jc.IsFalse)
+		obsolete0, pendingDelete0 = s.getObsolete(c, uri, 1)
 
 		// Revision 2 is obsolete.
-		obsolete, pendingDelete = s.getObsolete(c, uri, 2)
-		c.Check(obsolete, jc.IsTrue)
-		c.Check(pendingDelete, jc.IsTrue)
+		obsolete1, pendingDelete1 = s.getObsolete(c, uri, 2)
 
 		// Revision 3 is NOT obsolete because it's the latest revision.
-		obsolete, pendingDelete = s.getObsolete(c, uri, 3)
-		c.Check(obsolete, jc.IsFalse)
-		c.Check(pendingDelete, jc.IsFalse)
+		obsolete2, pendingDelete2 = s.getObsolete(c, uri, 3)
 		return nil
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(obsolete0, jc.IsFalse)
+	c.Check(pendingDelete0, jc.IsFalse)
+
+	c.Check(obsolete1, jc.IsTrue)
+	c.Check(pendingDelete1, jc.IsTrue)
+
+	c.Check(obsolete2, jc.IsTrue)
+	c.Check(pendingDelete2, jc.IsTrue)
 }
 
 func (s *stateSuite) getObsolete(c *gc.C, uri *coresecrets.URI, rev int) (bool, bool) {

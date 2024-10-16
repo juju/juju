@@ -49,16 +49,18 @@ func (s *stateSuite) TestStateBasePrepare(c *gc.C) {
 	stmt1, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
 	c.Assert(err, gc.IsNil)
 	// Validate prepared statement works as expected.
+	var name string
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		results := sqlair.M{}
 		err := tx.Query(ctx, stmt1).Get(results)
 		if err != nil {
 			return err
 		}
-		c.Assert(results["name"], gc.Equals, "schema")
+		name = results["name"].(string)
 		return nil
 	})
 	c.Assert(err, gc.IsNil)
+	c.Assert(name, gc.Equals, "schema")
 
 	// Retrieve previous statement.
 	stmt2, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
@@ -88,19 +90,21 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *gc.C) {
 		Name string `db:"name"`
 	}
 	stmt, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema", TestType{})
+	c.Assert(err, gc.IsNil)
 
 	// Try and run a query.
-	c.Assert(err, gc.IsNil)
+	var name string
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		results := TestType{}
 		err := tx.Query(ctx, stmt).Get(&results)
 		if err != nil {
 			return err
 		}
-		c.Assert(results.Name, gc.Equals, "schema")
+		name = results.Name
 		return nil
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot get result: parameter with type "domain.TestType" missing, have type with same name: "domain.TestType"`)
+	c.Assert(name, gc.Equals, "schema")
 }
 
 func (s *stateSuite) TestStateBaseRunAtomicTransactionExists(c *gc.C) {

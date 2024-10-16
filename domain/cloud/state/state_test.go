@@ -418,6 +418,7 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 	s.assertInsertCloud(c, st, testCloud)
 
 	credUUID := uuid.MustNewUUID().String()
+	var numRows int64
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)
@@ -428,14 +429,15 @@ WHERE cloud.name = ?
 		if err != nil {
 			return err
 		}
-		numRows, err := result.RowsAffected()
+		numRows, err = result.RowsAffected()
 		if err != nil {
 			return err
 		}
-		c.Assert(numRows, gc.Equals, int64(1))
+
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numRows, gc.Equals, int64(1))
 
 	err = st.DeleteCloud(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, "cannot delete cloud as it is still in use")

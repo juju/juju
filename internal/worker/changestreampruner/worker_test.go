@@ -587,18 +587,17 @@ SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_lo
 `, Watermark{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var called bool
+	var got []Watermark
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		called = true
-
-		var got []Watermark
 		err := tx.Query(ctx, query).GetAll(&got)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(got, jc.DeepEquals, watermarks)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Check(got, jc.DeepEquals, watermarks)
 }
 
 func (s *workerSuite) expectChangeLogItems(c *gc.C, runner coredatabase.TxnRunner, amount, lowerBound, upperBound int) {
@@ -607,29 +606,26 @@ SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.
 	`, ChangeLogItem{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var called bool
+	var got []ChangeLogItem
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		called = true
-
-		var got []ChangeLogItem
 		err := tx.Query(ctx, query).GetAll(&got)
-		c.Assert(err, jc.ErrorIsNil)
-
-		c.Check(len(got), gc.Equals, amount)
-		for i, item := range got {
-			if item.ID < lowerBound || item.ID > upperBound {
-				c.Errorf("item %d: id %d not in range %d-%d", i, item.ID, lowerBound, upperBound)
-			}
-
-			c.Check(item.EditTypeID, gc.Equals, 4)
-			c.Check(item.Namespace, gc.Equals, 2)
-			c.Check(item.Changed, gc.Equals, 0)
+		if err != nil {
+			return err
 		}
 
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Check(len(got), gc.Equals, amount)
+	for i, item := range got {
+		if item.ID < lowerBound || item.ID > upperBound {
+			c.Errorf("item %d: id %d not in range %d-%d", i, item.ID, lowerBound, upperBound)
+		}
+
+		c.Check(item.EditTypeID, gc.Equals, 4)
+		c.Check(item.Namespace, gc.Equals, 2)
+		c.Check(item.Changed, gc.Equals, 0)
+	}
 }
 
 func (s *workerSuite) truncateChangeLog(c *gc.C, runner coredatabase.TxnRunner) {

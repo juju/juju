@@ -66,22 +66,23 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the unit have been assigned to the machine.
+	var unitNodeUUID string
+	var machineNodeUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var unitNodeUUID string
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/0'").Scan(&unitNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		var machineNodeUUID string
 		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE name = '0'").Scan(&machineNodeUUID)
 		if err != nil {
 			return err
 		}
-		c.Check(unitNodeUUID, gc.Equals, machineNodeUUID)
+
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unitNodeUUID, gc.Equals, machineNodeUUID)
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
@@ -146,29 +147,30 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the units have been assigned to the machine.
+	var machineNodeUUID string
+	var unitNodeUUID0 string
+	var unitNodeUUID1 string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var machineNodeUUID string
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE name = '0'").Scan(&machineNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		var unitNodeUUID string
-		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/0'").Scan(&unitNodeUUID)
+		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/0'").Scan(&unitNodeUUID0)
 		if err != nil {
 			return err
 		}
-		c.Check(unitNodeUUID, gc.Equals, machineNodeUUID)
 
-		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/1'").Scan(&unitNodeUUID)
+		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/1'").Scan(&unitNodeUUID1)
 		if err != nil {
 			return err
 		}
-		c.Check(unitNodeUUID, gc.Equals, machineNodeUUID)
 
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unitNodeUUID0, gc.Equals, machineNodeUUID)
+	c.Check(unitNodeUUID1, gc.Equals, machineNodeUUID)
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
@@ -203,27 +205,28 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the units are assigned to the same machine.
+	var machineNodeUUID string
+	var unitNodeUUID0 string
+	var unitNodeUUID1 string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var machineNodeUUID string
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE name = '0'").Scan(&machineNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		var unitNodeUUID string
-		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/0'").Scan(&unitNodeUUID)
+		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/0'").Scan(&unitNodeUUID0)
 		if err != nil {
 			return err
 		}
-		c.Check(unitNodeUUID, gc.Equals, machineNodeUUID)
 
-		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/1'").Scan(&unitNodeUUID)
+		err = tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/1'").Scan(&unitNodeUUID1)
 		if err != nil {
 			return err
 		}
-		c.Check(unitNodeUUID, gc.Equals, machineNodeUUID)
 
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unitNodeUUID0, gc.Equals, machineNodeUUID)
+	c.Check(unitNodeUUID1, gc.Equals, machineNodeUUID)
 }

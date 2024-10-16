@@ -717,21 +717,23 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 }
 
 func (s *schemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
+	var count int
 	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT COUNT(*) FROM change_log
 WHERE edit_type_id = ? AND namespace_id = ?;`[1:], editType, namespaceID)
 
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 		defer func() { _ = rows.Close() }()
 
-		var count int
-		c.Assert(rows.Next(), jc.IsTrue)
-		err = rows.Scan(&count)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(count, gc.Equals, expectedCount)
-		return nil
+		if !rows.Next() {
+			return fmt.Errorf("no rows returned")
+		}
+		return rows.Scan(&count)
 	})
+	c.Assert(count, gc.Equals, expectedCount)
 }
 
 func (s *schemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) {

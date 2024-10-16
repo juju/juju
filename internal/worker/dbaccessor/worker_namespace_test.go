@@ -77,18 +77,23 @@ func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 
+	var num int64
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
-		num, err := result.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(num, gc.Equals, int64(1))
+		num, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(num, gc.Equals, int64(1))
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
@@ -197,21 +202,28 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
-	var attempt int
+	var (
+		attempt int
+		num     int64
+	)
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		attempt++
 
 		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
-		num, err := result.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(num, gc.Equals, int64(1))
+		num, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(num, gc.Equals, int64(1))
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
