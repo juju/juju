@@ -1437,9 +1437,17 @@ func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.Mod
 		return errors.NewNotValid(err, fmt.Sprintf("cloud tag %q not valid", arg.CloudTag))
 	}
 	if arg.CloudRegion == "" {
-		return m.modelDefaultsService.RemoveCloudDefaults(ctx, cTag.Id(), arg.Keys)
+		err := m.modelDefaultsService.RemoveCloudDefaults(ctx, cTag.Id(), arg.Keys)
+		if errors.Is(err, clouderrors.NotFound) {
+			return errors.NotFoundf("cloud %q", cTag.Id())
+		}
+		return err
 	}
-	return m.modelDefaultsService.RemoveCloudRegionDefaults(ctx, cTag.Id(), arg.CloudRegion, arg.Keys)
+	err = m.modelDefaultsService.RemoveCloudRegionDefaults(ctx, cTag.Id(), arg.CloudRegion, arg.Keys)
+	if errors.Is(err, clouderrors.NotFound) {
+		return errors.NotFoundf("cloud %q region %q", cTag.Id(), arg.CloudRegion)
+	}
+	return err
 }
 
 // ChangeModelCredential changes cloud credential reference for models.
