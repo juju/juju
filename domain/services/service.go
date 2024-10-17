@@ -4,6 +4,8 @@
 package services
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -27,6 +29,7 @@ func NewDomainServices(
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *DomainServices {
 	controllerServices := NewControllerServices(controllerDB, deleterDB, logger)
@@ -38,6 +41,7 @@ func NewDomainServices(
 			modelDB,
 			providerTracker,
 			objectStore,
+			clock,
 			logger,
 		),
 	}

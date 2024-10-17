@@ -53,7 +53,7 @@ func (i *importOperation) Name() string {
 
 // Setup initializes the importOperation's service using the provided scope's ControllerDB, and sets up other dependencies.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(state.NewState(scope.ModelDB(), i.clock, i.logger))
+	i.service = service.NewService(state.NewState(scope.ControllerDB(), i.clock, i.logger))
 	return nil
 }
 

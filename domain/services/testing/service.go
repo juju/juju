@@ -13,6 +13,7 @@ import (
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
+	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -239,6 +240,11 @@ func (s *TestingDomainServices) Proxy() *proxyservice.Service {
 }
 
 func (s *TestingDomainServices) UnitState() *unitstateservice.Service {
+	return nil
+}
+
+// CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for the current model.
+func (s *TestingDomainServices) CloudImageMetadata() *cloudimagemetadataservice.Service {
 	return nil
 }
 

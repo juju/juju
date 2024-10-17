@@ -6,6 +6,7 @@ package domainservices
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -69,6 +70,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewModelDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
@@ -91,6 +96,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		Clock:                       s.clock,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,6 +117,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		Clock:                       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -134,6 +141,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		Clock:                       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -157,6 +165,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		Clock:                       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -179,6 +188,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.dbGetter,
 		s.modelObjectStoreGetter,
 		s.logger,
+		s.clock,
 	)
 	c.Assert(factory, gc.NotNil)
 }
@@ -188,10 +198,11 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
-		s.logger,
 		NewProviderTrackerModelDomainServices,
 		nil,
 		s.objectStoreGetter,
+		s.clock,
+		s.logger,
 	)
 	c.Assert(factory, gc.NotNil)
 
@@ -209,14 +220,15 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewDomainServicesGetter: func(csf services.ControllerDomainServices, wd changestream.WatchableDBGetter, l logger.Logger, msff ModelDomainServicesFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter) services.DomainServicesGetter {
+		NewDomainServicesGetter: func(csf services.ControllerDomainServices, wd changestream.WatchableDBGetter, msff ModelDomainServicesFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter, clock clock.Clock, l logger.Logger) services.DomainServicesGetter {
 			return nil
 		},
 		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
 			return nil
 		},
-		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, l logger.Logger) services.ModelDomainServices {
+		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, clock clock.Clock, l logger.Logger) services.ModelDomainServices {
 			return nil
 		},
+		Clock: s.clock,
 	}
 }

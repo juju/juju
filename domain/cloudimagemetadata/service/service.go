@@ -38,7 +38,7 @@ type Service struct {
 	st State
 }
 
-// NewService returns a new service around the persistence layer
+// NewService creates a new instance of Service using the provided State.
 func NewService(st State) *Service {
 	return &Service{
 		st: st,

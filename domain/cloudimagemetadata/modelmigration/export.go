@@ -48,7 +48,7 @@ func (e *exportOperation) Name() string {
 // Setup initializes the exportOperation by creating a new service instance using the provided
 // database transaction factory and logger.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.service = service.NewService(state.NewState(scope.ModelDB(), e.clock, e.logger))
+	e.service = service.NewService(state.NewState(scope.ControllerDB(), e.clock, e.logger))
 	return nil
 }
 

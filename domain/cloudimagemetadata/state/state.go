@@ -101,14 +101,19 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 	if err := s.tryCleanUpExpiredMetadata(ctx); err != nil {
 		s.logger.Warningf("cannot cleanup expired metadata: %s", err)
 	}
+	s.logger.Debugf("saving %d metadata", len(metadata))
 
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	return InsertMetadata(ctx, db, metadata, s.clock.Now())
+}
+
+// InsertMetadata inserts or updates metadata for cloud images in the database.
+func InsertMetadata(ctx context.Context, db database.TxnRunner, metadata []cloudimagemetadata.Metadata, createdAt time.Time) error {
 	// Prepare inputs
-	createdAt := s.clock.Now()
 	values := make([]inputMetadata, 0, len(metadata))
 	for _, m := range metadata {
 		// Convert architecture name to a db id
@@ -247,12 +252,15 @@ func (s *State) FindMetadata(ctx context.Context, criteria cloudimagemetadata.Me
 	expirationTime := ttl{
 		ExpiresAt: s.clock.Now().Add(-ExpirationDelay),
 	}
-	inputArgs := []any{expirationTime}
+	customSource := inputMetadata{
+		Source: cloudimagemetadata.CustomSource,
+	}
+	inputArgs := []any{expirationTime, customSource}
 
 	// clauses will collect all required clauses to build the final WHERE ... AND ... clause
 	clauses := []string{
-		// Ignores expired metadata
-		fmt.Sprintf(`cloud_image_metadata.created_at >=  $ttl.expires_at`),
+		// Ignores expired metadata in case of non custom source.
+		`source = $inputMetadata.source OR cloud_image_metadata.created_at >=  $ttl.expires_at`,
 	}
 
 	// declareEqualsClause is an helper function to add a sqlair clause with the format cloud_image_metadata.<field> = $metadataFilter.<field>,

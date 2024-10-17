@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig"
@@ -51,7 +50,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -373,15 +371,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if !isCAAS {
-		// Add custom image metadata to environment storage.
-		if len(args.CustomImageMetadata) > 0 {
-			if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
-				return err
-			}
-		}
-	}
-
 	// bootstrap nodes always get the vote
 	node, err := st.ControllerNode(agent.BootstrapControllerId)
 	if err != nil {
@@ -498,46 +487,5 @@ func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs
 		return err
 	}
 	logger.Infof("started mongo")
-	return nil
-}
-
-// saveCustomImageMetadata stores the custom image metadata to the database,
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.BootstrapEnviron, imageMetadata []*imagemetadata.ImageMetadata) error {
-	logger.Debugf("saving custom image metadata")
-	return storeImageMetadataInState(st, env, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
-}
-
-// storeImageMetadataInState writes image metadata into state store.
-func storeImageMetadataInState(st *state.State, env environs.BootstrapEnviron, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
-	if len(existingMetadata) == 0 {
-		return nil
-	}
-	cfg := env.Config()
-	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
-	for i, one := range existingMetadata {
-		m := cloudimagemetadata.Metadata{
-			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
-				Stream:          one.Stream,
-				Region:          one.RegionName,
-				Arch:            one.Arch,
-				VirtType:        one.VirtType,
-				RootStorageType: one.Storage,
-				Source:          source,
-				Version:         one.Version,
-			},
-			Priority: priority,
-			ImageId:  one.Id,
-		}
-		if m.Stream == "" {
-			m.Stream = cfg.ImageStream()
-		}
-		if m.Source == "" {
-			m.Source = "custom"
-		}
-		metadataState[i] = m
-	}
-	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
-		return errors.Annotatef(err, "cannot cache image metadata")
-	}
 	return nil
 }
