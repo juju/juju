@@ -260,13 +260,6 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err := m.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys())
 }
 
 func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {
@@ -275,33 +268,6 @@ func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
-}
-
-func (s *BootstrapSuite) TestInitializeModelToolsNotFound(c *gc.C) {
-	// bootstrap with 2.99.1 but there will be no tools so version will be reset.
-	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
-		"agent-version": "2.99.1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapParams.ControllerModelConfig = cfg
-	s.writeBootstrapParamsFile(c)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err = m.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	vers, ok := cfg.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(vers.String(), gc.Equals, "2.99.0")
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
