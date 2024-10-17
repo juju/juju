@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type iaasProvisionerSuite struct {
@@ -989,9 +988,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
+	wc = watchertest.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1056,9 +1055,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
+	wc = watchertest.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1101,9 +1100,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
+	wc = watchertest.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1159,9 +1158,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
+	wc = watchertest.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 

@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type InstancePollerSuite struct {
@@ -212,7 +212,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	}()
 
 	// Check that the watcher has consumed the initial event
-	wc1 := statetesting.NewStringsWatcherC(c, resource1.(state.StringsWatcher))
+	wc1 := watchertest.NewStringsWatcherC(c, resource1.(state.StringsWatcher))
 	wc1.AssertNoChange()
 
 	s.st.CheckCallNames(c, watchFacadeName)
@@ -226,7 +226,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
 	defer workertest.CleanKill(c, resource2)
-	wc2 := statetesting.NewStringsWatcherC(c, resource2.(state.StringsWatcher))
+	wc2 := watchertest.NewStringsWatcherC(c, resource2.(state.StringsWatcher))
 	wc2.AssertNoChange()
 
 	// Remove machine 1, check it's reported.
@@ -243,7 +243,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	// Stop the first watcher and assert its changes chan is closed.
 	resource1.Kill()
 	c.Assert(resource1.Wait(), jc.ErrorIsNil)
-	wc1.AssertClosed()
+	wc1.AssertKilled()
 	resource1 = nil
 }
 

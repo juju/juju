@@ -25,7 +25,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})
@@ -57,7 +56,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		application: mockApplication{
 			tag:             names.NewApplicationTag("gitlab"),
 			life:            state.Alive,
-			settingsWatcher: statetesting.NewMockStringsWatcher(s.settingsChanges),
+			settingsWatcher: watchertest.NewMockStringsWatcher(s.settingsChanges),
 			scale:           5,
 		},
 	}

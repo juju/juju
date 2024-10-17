@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type mockState struct {
@@ -42,7 +42,7 @@ type mockState struct {
 	applicationWatcher           *mockStringsWatcher
 	app                          *mockApplication
 	resource                     *mockResources
-	apiHostPortsForAgentsWatcher *statetesting.MockNotifyWatcher
+	apiHostPortsForAgentsWatcher *watchertest.MockNotifyWatcher
 	isController                 bool
 }
 
@@ -192,9 +192,9 @@ type mockApplication struct {
 	deviceConstraints    map[string]state.DeviceConstraints
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
-	unitsWatcher         *statetesting.MockStringsWatcher
+	unitsWatcher         *watchertest.MockStringsWatcher
 	unitsChanges         chan []string
-	watcher              *statetesting.MockNotifyWatcher
+	watcher              *watchertest.MockNotifyWatcher
 	charmPending         bool
 }
 

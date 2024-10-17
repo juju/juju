@@ -36,7 +36,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 var _ = gc.Suite(&CAASApplicationProvisionerSuite{})
@@ -215,7 +214,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	portsChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan []string, 1)
 	controllerConfigChanged := make(chan []string, 1)
-	s.st.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(portsChanged)
+	s.st.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(portsChanged)
 	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
 	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
 	s.st.app = &mockApplication{
@@ -224,7 +223,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 			meta: &charm.Meta{},
 			url:  "cs:gitlab",
 		},
-		watcher: statetesting.NewMockNotifyWatcher(appChanged),
+		watcher: watchertest.NewMockNotifyWatcher(appChanged),
 	}
 	appChanged <- struct{}{}
 	portsChanged <- struct{}{}
@@ -736,7 +735,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 			url:  "ch:gitlab",
 		},
 		unitsChanges: unitsChanges,
-		unitsWatcher: statetesting.NewMockStringsWatcher(unitsChanges),
+		unitsWatcher: watchertest.NewMockStringsWatcher(unitsChanges),
 	}
 	unitsChanges <- []string{"gitlab/0", "gitlab/1"}
 

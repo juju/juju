@@ -29,7 +29,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type agentSuite struct {
@@ -272,7 +271,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))
+	wc := watchertest.NewNotifyWatcherC(c, w.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	select {

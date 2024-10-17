@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
 )
 
 type lxdProfileWatcherSuite struct {
@@ -37,7 +37,7 @@ type lxdProfileWatcherSuite struct {
 	unitChanges     chan []string
 	instanceChanges chan struct{}
 
-	wc0 testing.NotifyWatcherC
+	wc0 watchertest.NotifyWatcherC
 }
 
 var _ = gc.Suite(&lxdProfileWatcherSuite{})
@@ -419,7 +419,7 @@ func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Wo
 	s.machine0.EXPECT().Id().AnyTimes().Return("0")
 
 	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state, s.machineService)
-	wc := testing.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 	s.wc0 = wc

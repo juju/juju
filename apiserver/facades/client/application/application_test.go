@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -1459,7 +1459,7 @@ func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w := rel.WatchRelationEgressNetworks()
 	defer workertest.CleanKill(c, w)
-	wc := statetesting.NewStringsWatcherC(c, w)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	wc.AssertChange("192.168.0.0/16")
 	wc.AssertNoChange()
 }

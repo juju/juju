@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -131,14 +132,14 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
-	wc.AssertClosed()
+	wc.AssertKilled()
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
@@ -178,14 +179,14 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
-	wc.AssertClosed()
+	wc.AssertKilled()
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
@@ -228,14 +229,14 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
-	wc.AssertClosed()
+	wc.AssertKilled()
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
@@ -274,14 +275,14 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
-	wc.AssertClosed()
+	wc.AssertKilled()
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {

@@ -20,6 +20,7 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type caasProvisionerSuite struct {
@@ -185,7 +185,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 			"data": {Count: 1, Size: 1024},
 		},
 	})
-	wc := statetesting.NewStringsWatcherC(c, w)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql")
 }
 
@@ -237,9 +237,9 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
+	wc = watchertest.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
