@@ -10,7 +10,7 @@ run_model_migration() {
 	juju model-config -m controller "logging-config=#migration=DEBUG"
 	juju model-config -m model-migration "logging-config=#migration=DEBUG"
 
-	juju deploy jameinel-ubuntu-lite ubuntu
+	juju deploy ubuntu-lite ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 

@@ -29,7 +29,7 @@ run_enable_ha() {
 
 	ensure "enable-ha" "${file}"
 
-	juju deploy jameinel-ubuntu-lite
+	juju deploy ubuntu-lite
 
 	enable_microceph_backed_storage
 

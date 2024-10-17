@@ -23,7 +23,7 @@ run_block_remove_object() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy jameinel-ubuntu-lite --base ubuntu@20.04 ubuntu
+	juju deploy ubuntu-lite --base ubuntu@20.04 ubuntu
 	juju deploy ntp
 	juju integrate ntp ubuntu
 
@@ -56,7 +56,7 @@ run_block_all() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy jameinel-ubuntu-lite --base ubuntu@20.04 ubuntu
+	juju deploy ubuntu-lite --base ubuntu@20.04 ubuntu
 	juju expose ubuntu
 
 	juju disable-command all
