@@ -14,7 +14,6 @@ import (
 // allowing stubs to be created for testing.
 type Backend interface {
 	ControllerTag() names.ControllerTag
-	ModelTag() names.ModelTag
 	Sequences() (map[string]int, error)
 	SetModelConstraints(value constraints.Value) error
 	ModelConstraints() (constraints.Value, error)
@@ -23,15 +22,6 @@ type Backend interface {
 type stateShim struct {
 	*state.State
 	model *state.Model
-}
-
-func (st stateShim) ModelTag() names.ModelTag {
-	m, err := st.State.Model()
-	if err != nil {
-		return names.NewModelTag(st.State.ModelUUID())
-	}
-
-	return m.ModelTag()
 }
 
 // NewStateBackend creates a backend for the facade to use.
