@@ -6,6 +6,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"go.opentelemetry.io/otel/attribute"
@@ -17,6 +18,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/version"
 )
@@ -115,9 +117,16 @@ type ClientTracerProvider interface {
 }
 
 // NewClient returns a new tracing client.
-func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, sampleRatio float64) (Client, ClientTracerProvider, ClientTracer, error) {
+func NewClient(
+	ctx context.Context,
+	namespace coretrace.TaggedTracerNamespace,
+	endpoint string, insecureSkipVerify bool,
+	sampleRatio float64, tailSamplingThreshold time.Duration,
+	logger logger.Logger,
+) (Client, ClientTracerProvider, ClientTracer, error) {
 	options := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithCompressor("gzip"),
 	}
 	if insecureSkipVerify {
 		options = append(options, otlptracegrpc.WithInsecure())
@@ -129,10 +138,19 @@ func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, e
 		return nil, nil, nil, errors.Trace(err)
 	}
 
+	bsp := sdktrace.NewBatchSpanProcessor(exporter,
+		sdktrace.WithMaxExportBatchSize(512),
+		sdktrace.WithMaxQueueSize(2048),
+	)
+
 	serviceName := fmt.Sprintf("juju-%s", namespace.Kind)
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(sampleRatio)),
-		sdktrace.WithBatcher(exporter),
+		sdktrace.WithSpanProcessor(&tailSamplingProcessor{
+			bsp:       bsp,
+			logger:    logger,
+			threshold: tailSamplingThreshold,
+		}),
 		sdktrace.WithResource(newResource(serviceName, namespace.Namespace)),
 	)
 	return client, tp, clientTracerShim{tracer: tp.Tracer(namespace.String())}, nil
@@ -168,4 +186,60 @@ func newResource(serviceName, serviceID string) *resource.Resource {
 		semconv.ServiceVersion(version.Current.String()),
 		semconv.ServiceInstanceID(serviceID),
 	)
+}
+
+type tailSamplingProcessor struct {
+	bsp sdktrace.SpanProcessor
+
+	logger logger.Logger
+
+	threshold time.Duration
+}
+
+// OnStart is called when a span is started. It is called synchronously and
+// should not block.
+func (p *tailSamplingProcessor) OnStart(parent context.Context, s sdktrace.ReadWriteSpan) {
+	p.bsp.OnStart(parent, s)
+}
+
+// OnEnd is called when span is finished. It is called synchronously and hence
+// should not block.
+func (p *tailSamplingProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
+	// If the span has an error status, we want to export it regardless of the
+	// sampling rate.
+	if status := s.Status(); status.Code == codes.Error {
+		p.bsp.OnEnd(s)
+		return
+	}
+
+	// Span duration is the time it took for the span to complete.
+	spanDuration := s.EndTime().Sub(s.StartTime())
+	if spanDuration >= p.threshold {
+		p.bsp.OnEnd(s)
+		return
+	}
+
+	// If the span duration is less than the threshold, we want to drop it.
+	// This is to prevent the exporter from being overwhelmed with spans that
+	// are not useful for debugging.
+
+	if !p.logger.IsLevelEnabled(logger.TRACE) {
+		return
+	}
+
+	p.logger.Tracef("Dropping span %s due to duration %s less than threshold %s", s.SpanContext().SpanID().String(), spanDuration, p.threshold)
+}
+
+// Shutdown is called when the SDK shuts down. Any cleanup or release of
+// resources held by the processor should be done in this call.
+func (p *tailSamplingProcessor) Shutdown(ctx context.Context) error {
+	return p.bsp.Shutdown(ctx)
+}
+
+// ForceFlush exports all ended spans to the configured Exporter that have not
+// yet been exported.  It should only be called when absolutely necessary, such
+// as when using a FaaS provider that may suspend the process after an
+// invocation, but before the Processor can export the completed spans.
+func (p *tailSamplingProcessor) ForceFlush(ctx context.Context) error {
+	return p.bsp.ForceFlush(ctx)
 }

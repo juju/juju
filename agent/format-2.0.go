@@ -69,11 +69,12 @@ type format_2_0Serialization struct {
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
 	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
 
-	OpenTelemetryEnabled     bool   `yaml:"opentelemetryenabled,omitempty"`
-	OpenTelemetryEndpoint    string `yaml:"opentelemetryendpoint,omitempty"`
-	OpenTelemetryInsecure    bool   `yaml:"opentelemetryinsecure,omitempty"`
-	OpenTelemetryStackTraces bool   `yaml:"opentelemetrystacktraces,omitempty"`
-	OpenTelemetrySampleRatio string `yaml:"opentelemetrysampleratio,omitempty"`
+	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
+	OpenTelemetryEndpoint              string        `yaml:"opentelemetryendpoint,omitempty"`
+	OpenTelemetryInsecure              bool          `yaml:"opentelemetryinsecure,omitempty"`
+	OpenTelemetryStackTraces           bool          `yaml:"opentelemetrystacktraces,omitempty"`
+	OpenTelemetrySampleRatio           string        `yaml:"opentelemetrysampleratio,omitempty"`
+	OpenTelemetryTailSamplingThreshold time.Duration `yaml:"opentelemetrytailsamplingthreshold,omitempty"`
 
 	ObjectStoreType string `yaml:"objectstoretype,omitempty"`
 
@@ -132,9 +133,10 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		queryTracingEnabled:   format.QueryTracingEnabled,
 		queryTracingThreshold: format.QueryTracingThreshold,
 
-		openTelemetryEnabled:     format.OpenTelemetryEnabled,
-		openTelemetryInsecure:    format.OpenTelemetryInsecure,
-		openTelemetryStackTraces: format.OpenTelemetryStackTraces,
+		openTelemetryEnabled:               format.OpenTelemetryEnabled,
+		openTelemetryInsecure:              format.OpenTelemetryInsecure,
+		openTelemetryStackTraces:           format.OpenTelemetryStackTraces,
+		openTelemetryTailSamplingThreshold: format.OpenTelemetryTailSamplingThreshold,
 
 		dqlitePort: format.DqlitePort,
 	}
@@ -224,9 +226,10 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		QueryTracingEnabled:   config.queryTracingEnabled,
 		QueryTracingThreshold: config.queryTracingThreshold,
 
-		OpenTelemetryEnabled:     config.openTelemetryEnabled,
-		OpenTelemetryInsecure:    config.openTelemetryInsecure,
-		OpenTelemetryStackTraces: config.openTelemetryStackTraces,
+		OpenTelemetryEnabled:               config.openTelemetryEnabled,
+		OpenTelemetryInsecure:              config.openTelemetryInsecure,
+		OpenTelemetryStackTraces:           config.openTelemetryStackTraces,
+		OpenTelemetryTailSamplingThreshold: config.openTelemetryTailSamplingThreshold,
 
 		DqlitePort: config.dqlitePort,
 	}

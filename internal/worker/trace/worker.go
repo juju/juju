@@ -43,10 +43,11 @@ type WorkerConfig struct {
 	Tag  names.Tag
 	Kind coretrace.Kind
 
-	Endpoint           string
-	InsecureSkipVerify bool
-	StackTracesEnabled bool
-	SampleRatio        float64
+	Endpoint              string
+	InsecureSkipVerify    bool
+	StackTracesEnabled    bool
+	SampleRatio           float64
+	TailSamplingThreshold time.Duration
 }
 
 // Validate ensures that the config values are valid.
@@ -263,6 +264,7 @@ func (w *tracerWorker) initTracer(namespace coretrace.TaggedTracerNamespace) err
 			w.cfg.InsecureSkipVerify,
 			w.cfg.StackTracesEnabled,
 			w.cfg.SampleRatio,
+			w.cfg.TailSamplingThreshold,
 			w.cfg.Logger,
 			NewClient,
 		)
@@ -416,7 +418,7 @@ func (s *loggerSink) formatKeysAndValues(init []any, keysAndValues []any) (strin
 		args = append(args, v)
 	}
 	if len(exprs) == 0 {
-		return "", nil
+		return "", args
 	}
 
 	format := ": " + strings.Join(exprs, " ")

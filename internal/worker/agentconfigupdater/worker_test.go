@@ -42,42 +42,45 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			profile:                  controller.DefaultMongoMemoryProfile,
-			snapChannel:              controller.DefaultJujuDBSnapChannel,
-			queryTracingEnabled:      controller.DefaultQueryTracingEnabled,
-			queryTracingThreshold:    controller.DefaultQueryTracingThreshold,
-			openTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-			openTelemetryEndpoint:    "",
-			openTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-			openTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-			openTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+			profile:                            controller.DefaultMongoMemoryProfile,
+			snapChannel:                        controller.DefaultJujuDBSnapChannel,
+			queryTracingEnabled:                controller.DefaultQueryTracingEnabled,
+			queryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+			openTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+			openTelemetryEndpoint:              "",
+			openTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+			openTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+			openTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+			openTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:                    s.agent,
-		Hub:                      s.hub,
-		MongoProfile:             controller.DefaultMongoMemoryProfile,
-		JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
-		QueryTracingEnabled:      controller.DefaultQueryTracingEnabled,
-		QueryTracingThreshold:    controller.DefaultQueryTracingThreshold,
-		OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-		OpenTelemetryEndpoint:    "",
-		OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-		OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-		OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
-		Logger:                   s.logger,
+		Agent:                              s.agent,
+		Hub:                                s.hub,
+		MongoProfile:                       controller.DefaultMongoMemoryProfile,
+		JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
+		QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
+		QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+		OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+		OpenTelemetryEndpoint:              "",
+		OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+		OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
+		Logger:                             s.logger,
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoMemoryProfile:       controller.DefaultMongoMemoryProfile,
-			controller.JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
-			controller.QueryTracingEnabled:      controller.DefaultQueryTracingEnabled,
-			controller.QueryTracingThreshold:    controller.DefaultQueryTracingThreshold,
-			controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
-			controller.OpenTelemetryEndpoint:    "",
-			controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
-			controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
-			controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+			controller.MongoMemoryProfile:                 controller.DefaultMongoMemoryProfile,
+			controller.JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
+			controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
+			controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
+			controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+			controller.OpenTelemetryEndpoint:              "",
+			controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
+			controller.OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
+			controller.OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
+			controller.OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
 		},
 	}
 }
@@ -406,6 +409,37 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetrySampleRatio] = 0.42
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	workertest.CheckAlive(c, w)
+
+	d := time.Second
+	newConfig.Config[controller.OpenTelemetryTailSamplingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

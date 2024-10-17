@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	time "time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -14,6 +15,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 )
 
@@ -206,10 +208,10 @@ func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {
 	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
-	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64) (Client, ClientTracerProvider, ClientTracer, error) {
+	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error) {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}
-	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, 0.42, s.logger, newClient)
+	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, 0.42, time.Second, s.logger, newClient)
 	c.Assert(err, jc.ErrorIsNil)
 	return tracer
 }
