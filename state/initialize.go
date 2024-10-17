@@ -218,13 +218,6 @@ func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.C
 	return nil
 }
 
-// lineage is a composite of inheritable properties for the extent of
-// passing them into modelSetupOps.
-type lineage struct {
-	ControllerConfig map[string]interface{}
-	RegionConfig     cloud.RegionConfig
-}
-
 // modelSetupOps returns the transactions necessary to set up a model.
 func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op, statusDoc, error) {
 	var modelStatusDoc statusDoc
