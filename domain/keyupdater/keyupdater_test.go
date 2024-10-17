@@ -186,7 +186,8 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(len(keys), gc.Equals, 0)
-	}, func(_ watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *gc.C) {
@@ -202,7 +203,8 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 		c.Assert(keys, jc.DeepEquals, []string{
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe two@juju.is",
 		})
-	}, func(_ watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *gc.C) {
@@ -216,8 +218,9 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(len(keys), gc.Equals, 0)
-	}, func(_ watchertest.WatcherC[struct{}]) {
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
 	})
 
-	harness.Run(c)
+	harness.Run(c, struct{}{}, struct{}{})
 }
