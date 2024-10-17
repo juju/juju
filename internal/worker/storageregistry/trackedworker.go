@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/worker/v4"
 )
 
 type trackedWorker struct {
@@ -18,7 +19,7 @@ type trackedWorker struct {
 
 // NewTrackedWorker creates a new tracked worker for a storage provider
 // registry.
-func NewTrackedWorker(reg storage.ProviderRegistry) (*trackedWorker, error) {
+func NewTrackedWorker(reg storage.ProviderRegistry) (worker.Worker, error) {
 	// All providers must be chained to the common storage providers. This
 	// ensures that we also have rootfs, loop and tmpfs providers available.
 	regs := storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}

@@ -40,7 +40,7 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	types, err := w.StorageProviderTypes()
+	types, err := w.(*trackedWorker).StorageProviderTypes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(types, gc.DeepEquals, []storage.ProviderType{"ebs", "loop", "rootfs", "tmpfs"})
 }
@@ -54,7 +54,7 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	types, err := w.StorageProviderTypes()
+	types, err := w.(*trackedWorker).StorageProviderTypes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(types, gc.DeepEquals, []storage.ProviderType{"loop", "rootfs", "tmpfs"})
 }
@@ -68,7 +68,7 @@ func (s *trackedWorkerSuite) TestStorageProvider(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	provider, err := w.StorageProvider(storage.ProviderType("rootfs"))
+	provider, err := w.(*trackedWorker).StorageProvider(storage.ProviderType("rootfs"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(provider, gc.DeepEquals, s.provider)
 }

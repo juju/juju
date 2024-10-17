@@ -106,6 +106,7 @@ import (
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
+	"github.com/juju/juju/internal/worker/storageregistry"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
@@ -731,6 +732,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
 			ObjectStoreName:             objectStoreName,
+			StorageRegistryName:         storageRegistryName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
 			NewWorker:                   workerdomainservices.NewWorker,
@@ -904,6 +906,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			}),
 			Logger: internallogger.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,
+		}),
+
+		storageRegistryName: storageregistry.Manifold(storageregistry.ManifoldConfig{
+			ProviderFactoryName:      providerTrackerName,
+			NewStorageRegistryWorker: storageregistry.NewTrackedWorker,
+			Clock:                    config.Clock,
+			Logger:                   internallogger.GetLogger("juju.worker.storageregistry"),
 		}),
 	}
 
@@ -1310,47 +1319,48 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	machineSetupName              = "machine-setup"
-	rebootName                    = "reboot-executor"
-	loggingConfigUpdaterName      = "logging-config-updater"
-	diskManagerName               = "disk-manager"
-	proxyConfigUpdater            = "proxy-config-updater"
 	apiAddressUpdaterName         = "api-address-updater"
-	machinerName                  = "machiner"
-	logSenderName                 = "log-sender"
-	deployerName                  = "deployer"
+	auditConfigUpdaterName        = "audit-config-updater"
 	authenticationWorkerName      = "ssh-authkeys-updater"
-	storageProvisionerName        = "storage-provisioner"
-	identityFileWriterName        = "ssh-identity-writer"
-	toolsVersionCheckerName       = "tools-version-checker"
-	machineActionName             = "machine-action-runner"
-	hostKeyReporterName           = "host-key-reporter"
-	externalControllerUpdaterName = "external-controller-updater"
-	isPrimaryControllerFlagName   = "is-primary-controller-flag"
-	isControllerFlagName          = "is-controller-flag"
-	isNotControllerFlagName       = "is-not-controller-flag"
-	instanceMutaterName           = "instance-mutater"
+	certificateUpdaterName        = "certificate-updater"
 	certificateWatcherName        = "certificate-watcher"
-	modelWorkerManagerName        = "model-worker-manager"
-	peergrouperName               = "peer-grouper"
-	dbAccessorName                = "db-accessor"
-	queryLoggerName               = "query-logger"
-	fileNotifyWatcherName         = "file-notify-watcher"
 	changeStreamName              = "change-stream"
 	changeStreamPrunerName        = "change-stream-pruner"
-	certificateUpdaterName        = "certificate-updater"
-	auditConfigUpdaterName        = "audit-config-updater"
+	controllerAgentConfigName     = "controller-agent-config"
+	dbAccessorName                = "db-accessor"
+	deployerName                  = "deployer"
+	diskManagerName               = "disk-manager"
+	domainServicesName            = "domain-services"
+	externalControllerUpdaterName = "external-controller-updater"
+	fileNotifyWatcherName         = "file-notify-watcher"
+	hostKeyReporterName           = "host-key-reporter"
+	identityFileWriterName        = "ssh-identity-writer"
+	instanceMutaterName           = "instance-mutater"
+	isControllerFlagName          = "is-controller-flag"
+	isNotControllerFlagName       = "is-not-controller-flag"
+	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
-	stateConverterName            = "state-converter"
-	domainServicesName            = "domain-services"
-	providerTrackerName           = "provider-tracker"
-	providerDomainServicesName    = "provider-services"
+	loggingConfigUpdaterName      = "logging-config-updater"
+	logSenderName                 = "log-sender"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
-	controllerAgentConfigName     = "controller-agent-config"
+	machineActionName             = "machine-action-runner"
+	machinerName                  = "machiner"
+	machineSetupName              = "machine-setup"
+	modelWorkerManagerName        = "model-worker-manager"
 	objectStoreName               = "object-store"
-	objectStoreServicesName       = "object-store-services"
 	objectStoreS3CallerName       = "object-store-s3-caller"
+	objectStoreServicesName       = "object-store-services"
+	peergrouperName               = "peer-grouper"
+	providerDomainServicesName    = "provider-services"
+	providerTrackerName           = "provider-tracker"
+	proxyConfigUpdater            = "proxy-config-updater"
+	queryLoggerName               = "query-logger"
+	rebootName                    = "reboot-executor"
+	stateConverterName            = "state-converter"
+	storageProvisionerName        = "storage-provisioner"
+	storageRegistryName           = "storage-registry"
+	toolsVersionCheckerName       = "tools-version-checker"
 
 	secretBackendRotateName = "secret-backend-rotate"
 

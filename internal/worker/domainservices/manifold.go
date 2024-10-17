@@ -29,6 +29,7 @@ type ManifoldConfig struct {
 	ChangeStreamName            string
 	ProviderFactoryName         string
 	ObjectStoreName             string
+	StorageRegistryName         string
 	Logger                      logger.Logger
 	Clock                       clock.Clock
 	NewWorker                   func(Config) (worker.Worker, error)
@@ -80,6 +81,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
+	if config.StorageRegistryName == "" {
+		return errors.NotValidf("empty StorageRegistryName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
@@ -110,6 +114,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DBAccessorName,
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
+			config.StorageRegistryName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -253,8 +258,11 @@ func NewDomainServicesGetter(
 	}
 }
 
+// NoopProviderFactory is a provider factory that returns not supported errors
+// for all methods.
 type NoopProviderFactory struct{}
 
+// ProviderForModel returns a not supported error.
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
 }
