@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -71,21 +72,44 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
-		DBGetter:          s.dbGetter,
-		DBDeleter:         s.dbDeleter,
-		ProviderFactory:   s.providerFactory,
-		ObjectStoreGetter: s.objectStoreGetter,
-		Logger:            s.logger,
-		NewDomainServicesGetter: func(services.ControllerDomainServices, changestream.WatchableDBGetter, ModelDomainServicesFn, providertracker.ProviderFactory, objectstore.ObjectStoreGetter, clock.Clock, logger.Logger) services.DomainServicesGetter {
+		DBGetter:              s.dbGetter,
+		DBDeleter:             s.dbDeleter,
+		ProviderFactory:       s.providerFactory,
+		ObjectStoreGetter:     s.objectStoreGetter,
+		StorageRegistryGetter: s.storageRegistryGetter,
+		Clock:                 s.clock,
+		Logger:                s.logger,
+		NewDomainServicesGetter: func(
+			services.ControllerDomainServices,
+			changestream.WatchableDBGetter,
+			ModelDomainServicesFn,
+			providertracker.ProviderFactory,
+			objectstore.ObjectStoreGetter,
+			storage.StorageRegistryGetter,
+			clock.Clock,
+			logger.Logger,
+		) services.DomainServicesGetter {
 			return s.domainServicesGetter
 		},
-		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
+		NewControllerDomainServices: func(
+			changestream.WatchableDBGetter,
+			coredatabase.DBDeleter,
+			clock.Clock,
+			logger.Logger,
+		) services.ControllerDomainServices {
 			return s.controllerDomainServices
 		},
-		NewModelDomainServices: func(coremodel.UUID, changestream.WatchableDBGetter, providertracker.ProviderFactory, objectstore.ModelObjectStoreGetter, clock.Clock, logger.Logger) services.ModelDomainServices {
+		NewModelDomainServices: func(
+			coremodel.UUID,
+			changestream.WatchableDBGetter,
+			providertracker.ProviderFactory,
+			objectstore.ModelObjectStoreGetter,
+			storage.ModelStorageRegistryGetter,
+			clock.Clock,
+			logger.Logger,
+		) services.ModelDomainServices {
 			return s.modelDomainServices
 		},
-		Clock: s.clock,
 	}
 }
 

@@ -10,9 +10,16 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	changestream "github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/storage"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
+	domainservicefactory "github.com/juju/juju/domain/services"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	services "github.com/juju/juju/internal/services"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination domainservices_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices,ModelDomainServices,DomainServices,DomainServicesGetter
@@ -20,6 +27,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -43,6 +51,9 @@ type baseSuite struct {
 	objectStore            *MockObjectStore
 	objectStoreGetter      *MockObjectStoreGetter
 	modelObjectStoreGetter *MockModelObjectStoreGetter
+
+	storageRegistryGetter      *MockStorageRegistryGetter
+	modelStorageRegistryGetter *MockModelStorageRegistryGetter
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -64,5 +75,31 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
 	s.modelObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
+	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
+	s.modelStorageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
+
 	return ctrl
+}
+
+// NewModelDomainServices returns a new model domain services.
+// This creates a model domain services without a provider tracker. The provider
+// tracker will return not supported errors for all methods.
+func NewModelDomainServices(
+	modelUUID coremodel.UUID,
+	dbGetter changestream.WatchableDBGetter,
+	objectStore objectstore.ModelObjectStoreGetter,
+	storageRegistry storage.ModelStorageRegistryGetter,
+	clock clock.Clock,
+	logger logger.Logger,
+) services.ModelDomainServices {
+	return domainservicefactory.NewModelFactory(
+		modelUUID,
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
+		NoopProviderFactory{},
+		objectStore,
+		storageRegistry,
+		clock,
+		logger,
+	)
 }

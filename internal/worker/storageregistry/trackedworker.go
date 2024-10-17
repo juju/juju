@@ -4,11 +4,11 @@
 package storageregistry
 
 import (
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
-	"github.com/juju/worker/v4"
 )
 
 type trackedWorker struct {

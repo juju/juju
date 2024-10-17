@@ -20,6 +20,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -56,6 +57,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.StorageRegistryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -84,6 +89,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
+		"storageregistry": s.storageRegistryGetter,
 	}
 
 	manifold := Manifold(ManifoldConfig{
@@ -91,6 +97,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		ChangeStreamName:            "changestream",
 		ProviderFactoryName:         "providerfactory",
 		ObjectStoreName:             "objectstore",
+		StorageRegistryName:         "storageregistry",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
@@ -114,6 +121,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
+		StorageRegistryGetter:       s.storageRegistryGetter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -138,6 +146,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
+		StorageRegistryGetter:       s.storageRegistryGetter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -162,6 +171,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		Logger:                      s.logger,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
+		StorageRegistryGetter:       s.storageRegistryGetter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -178,7 +188,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewControllerDomainServices(c *gc.C) {
-	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.logger)
+	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.clock, s.logger)
 	c.Assert(factory, gc.NotNil)
 }
 
@@ -187,20 +197,22 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		"model",
 		s.dbGetter,
 		s.modelObjectStoreGetter,
-		s.logger,
+		s.modelStorageRegistryGetter,
 		s.clock,
+		s.logger,
 	)
 	c.Assert(factory, gc.NotNil)
 }
 
 func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
-	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.logger)
+	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.clock, s.logger)
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
 		NewProviderTrackerModelDomainServices,
 		nil,
 		s.objectStoreGetter,
+		s.storageRegistryGetter,
 		s.clock,
 		s.logger,
 	)
@@ -216,19 +228,48 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ChangeStreamName:    "changestream",
 		ProviderFactoryName: "providerfactory",
 		ObjectStoreName:     "objectstore",
+		StorageRegistryName: "storageregistry",
+		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewDomainServicesGetter: func(csf services.ControllerDomainServices, wd changestream.WatchableDBGetter, msff ModelDomainServicesFn, pf providertracker.ProviderFactory, osg objectstore.ObjectStoreGetter, clock clock.Clock, l logger.Logger) services.DomainServicesGetter {
-			return nil
-		},
-		NewControllerDomainServices: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, logger.Logger) services.ControllerDomainServices {
-			return nil
-		},
-		NewModelDomainServices: func(u coremodel.UUID, wd changestream.WatchableDBGetter, pf providertracker.ProviderFactory, sosg objectstore.ModelObjectStoreGetter, clock clock.Clock, l logger.Logger) services.ModelDomainServices {
-			return nil
-		},
-		Clock: s.clock,
+		NewDomainServicesGetter:     noopDomainServicesGetter,
+		NewControllerDomainServices: noopControllerDomainServices,
+		NewModelDomainServices:      noopModelDomainServices,
 	}
+}
+
+func noopDomainServicesGetter(
+	services.ControllerDomainServices,
+	changestream.WatchableDBGetter,
+	ModelDomainServicesFn,
+	providertracker.ProviderFactory,
+	objectstore.ObjectStoreGetter,
+	storage.StorageRegistryGetter,
+	clock.Clock,
+	logger.Logger,
+) services.DomainServicesGetter {
+	return nil
+}
+
+func noopControllerDomainServices(
+	changestream.WatchableDBGetter,
+	coredatabase.DBDeleter,
+	clock.Clock,
+	logger.Logger,
+) services.ControllerDomainServices {
+	return nil
+}
+
+func noopModelDomainServices(
+	coremodel.UUID,
+	changestream.WatchableDBGetter,
+	providertracker.ProviderFactory,
+	objectstore.ModelObjectStoreGetter,
+	storage.ModelStorageRegistryGetter,
+	clock.Clock,
+	logger.Logger,
+) services.ModelDomainServices {
+	return nil
 }

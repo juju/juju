@@ -26,3 +26,10 @@ type StorageRegistryGetter interface {
 	// GetStorageRegistry returns a storage registry for the given namespace.
 	GetStorageRegistry(context.Context, string) (storage.ProviderRegistry, error)
 }
+
+// ModelStorageRegistryGetter is the interface that is used to get a storage
+// registry.
+type ModelStorageRegistryGetter interface {
+	// GetStorageRegistry returns a storage registry for the given namespace.
+	GetStorageRegistry(context.Context) (storage.ProviderRegistry, error)
+}

@@ -4,11 +4,12 @@
 package storageregistry
 
 import (
-	"github.com/juju/juju/internal/storage"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/storage"
 )
 
 type trackedWorkerSuite struct {

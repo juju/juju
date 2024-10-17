@@ -41,6 +41,8 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -237,8 +239,11 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
 			stubDBDeleter{DB: s.DB()},
 			s.ProviderTracker,
-			singularObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+			modelObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
 				return objectStore, nil
+			}),
+			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
+				return provider.CommonStorageProviders(), nil
 			}),
 			clock.WallClock,
 			loggertesting.WrapCheckLog(c),
@@ -301,9 +306,15 @@ func (s ObjectStoreServicesGetterFunc) ServicesForModel(modelUUID coremodel.UUID
 	return s(modelUUID)
 }
 
-type singularObjectStoreGetter func(context.Context) (coreobjectstore.ObjectStore, error)
+type modelObjectStoreGetter func(context.Context) (coreobjectstore.ObjectStore, error)
 
-func (s singularObjectStoreGetter) GetObjectStore(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+func (s modelObjectStoreGetter) GetObjectStore(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+	return s(ctx)
+}
+
+type modelStorageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
+
+func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
 	return s(ctx)
 }
 
