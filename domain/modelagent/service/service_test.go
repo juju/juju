@@ -89,7 +89,7 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 	s.modelState.EXPECT().CheckMachineExists(gomock.Any(), machineName).Return(nil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelUUID).Return(ver, nil)
 
-	rval, err := NewModelService(s.modelState, s.state).GetMachineTargetAgentVersion(
+	rval, err := NewModelService(s.modelState, s.state, nil).GetMachineTargetAgentVersion(
 		context.Background(),
 		machineName,
 	)
@@ -107,7 +107,7 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
 		machineerrors.MachineNotFound,
 	)
 
-	_, err := NewModelService(s.modelState, s.state).GetMachineTargetAgentVersion(
+	_, err := NewModelService(s.modelState, s.state, nil).GetMachineTargetAgentVersion(
 		context.Background(),
 		machine.Name("0"),
 	)
@@ -126,7 +126,7 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *gc.C) {
 	s.modelState.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(nil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelUUID).Return(ver, nil)
 
-	rval, err := NewModelService(s.modelState, s.state).GetUnitTargetAgentVersion(
+	rval, err := NewModelService(s.modelState, s.state, nil).GetUnitTargetAgentVersion(
 		context.Background(),
 		"foo/0",
 	)
@@ -144,7 +144,7 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 		applicationerrors.UnitNotFound,
 	)
 
-	_, err := NewModelService(s.modelState, s.state).GetUnitTargetAgentVersion(
+	_, err := NewModelService(s.modelState, s.state, nil).GetUnitTargetAgentVersion(
 		context.Background(),
 		"foo/0",
 	)

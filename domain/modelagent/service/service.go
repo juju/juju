@@ -77,10 +77,11 @@ type ModelService struct {
 }
 
 // NewModelService returns a new [ModelService].
-func NewModelService(modelSt ModelState, st State) *ModelService {
+func NewModelService(modelSt ModelState, st State, watcherFactory WatcherFactory) *ModelService {
 	return &ModelService{
-		Service: NewService(st),
-		st:      modelSt,
+		Service:        NewService(st),
+		st:             modelSt,
+		watcherFactory: watcherFactory,
 	}
 }
 

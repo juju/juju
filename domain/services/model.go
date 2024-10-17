@@ -250,6 +250,7 @@ func (s *ModelFactory) Agent() *modelagentservice.ModelService {
 	return modelagentservice.NewModelService(
 		modelagentstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelagent.watcherfactory")),
 	)
 }
 
