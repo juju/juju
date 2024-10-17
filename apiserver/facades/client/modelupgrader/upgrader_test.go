@@ -22,6 +22,8 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
@@ -37,7 +39,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -75,6 +76,9 @@ type modelUpgradeSuite struct {
 	controllerConfigService *mocks.MockControllerConfigService
 	registryProvider        *registrymocks.MockRegistry
 	cloudSpec               lxd.CloudSpec
+
+	controllerModelAgentService *mocks.MockModelAgentService
+	modelAgentServices          map[model.UUID]*mocks.MockModelAgentService
 }
 
 var _ = gc.Suite(&modelUpgradeSuite{})
@@ -101,6 +105,8 @@ func (s *modelUpgradeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.controllerModelAgentService = mocks.NewMockModelAgentService(ctrl)
+	s.modelAgentServices = map[model.UUID]*mocks.MockModelAgentService{}
 
 	return ctrl
 }
@@ -120,6 +126,10 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		func(stdcontext.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
+		func(modelUUID model.UUID) modelupgrader.ModelAgentService {
+			return s.modelAgentServices[modelUUID]
+		},
+		s.controllerModelAgentService,
 		s.controllerConfigService,
 		s.upgradeService,
 		loggertesting.WrapCheckLog(c),
@@ -192,9 +202,9 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlModelUUID := modeltesting.GenModelUUID(c)
+	ctrlModelTag := names.NewModelTag(ctrlModelUUID.String())
+	model1ModelUUID := modeltesting.GenModelUUID(c)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
@@ -211,8 +221,10 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	// Decide/validate target version.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
+	s.controllerModelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("3.9.1"), nil,
+	).AnyTimes()
 	ctrlModel.EXPECT().Life().Return(state.Alive)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
 	s.toolsFinder.EXPECT().FindAgents(
 		gomock.Any(),
@@ -226,7 +238,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 
 	// 1. Check controller model.
 	// - check agent version;
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	// - check mongo status;
 	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 		Members: []replicaset.MemberStatus{
@@ -260,9 +271,13 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	// 2. Check other models.
 	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
 	state1.EXPECT().Model().Return(model1, nil)
+	s.modelAgentServices[ctrlModelUUID] = s.controllerModelAgentService
+	s.modelAgentServices[model1ModelUUID] = mocks.NewMockModelAgentService(ctrl)
+	s.modelAgentServices[model1ModelUUID].EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("2.9.1"), nil,
+	)
 	model1.EXPECT().Life().Return(state.Alive)
 	// - check agent version;
-	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	// - check if the model has deprecated ubuntu machines;
@@ -321,9 +336,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlModelUUID := modeltesting.GenModelUUID(c)
+	ctrlModelTag := names.NewModelTag(ctrlModelUUID.String())
+	model1ModelUUID := modeltesting.GenModelUUID(c)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
@@ -341,7 +356,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
 	ctrlModel.EXPECT().Life().Return(state.Alive)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	s.controllerModelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("3.9.1"), nil,
+	).AnyTimes()
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
@@ -351,9 +368,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 		}, nil,
 	)
 
-	// 1. Check controller model.
-	// - check agent version;
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	// - check mongo status;
 	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 		Members: []replicaset.MemberStatus{
@@ -390,6 +404,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	state1.EXPECT().Model().Return(model1, nil)
 	// Skip this dying model.
 	model1.EXPECT().Life().Return(state.Dying)
+
+	s.modelAgentServices[ctrlModelUUID] = s.controllerModelAgentService
+	s.modelAgentServices[model1ModelUUID] = mocks.NewMockModelAgentService(ctrl)
 
 	ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false, gomock.Any()).Return(nil)
 
@@ -430,9 +447,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlModelUUID := modeltesting.GenModelUUID(c)
+	ctrlModelTag := names.NewModelTag(ctrlModelUUID.String())
+	model1ModelUUID := modeltesting.GenModelUUID(c)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
@@ -451,7 +468,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
 	ctrlModel.EXPECT().Life().Return(state.Alive)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	s.controllerModelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("2.9.1"), nil,
+	).AnyTimes()
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
@@ -461,9 +480,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		}, nil,
 	)
 
-	// 1. Check controller model.
-	// - check agent version;
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	// - check mongo status;
 	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 		Members: []replicaset.MemberStatus{
@@ -501,7 +517,11 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	state1.EXPECT().Model().Return(model1, nil)
 	model1.EXPECT().Life().Return(state.Alive)
 	// - check agent version;
-	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.0"), nil)
+	s.modelAgentServices[ctrlModelUUID] = s.controllerModelAgentService
+	s.modelAgentServices[model1ModelUUID] = mocks.NewMockModelAgentService(ctrl)
+	s.modelAgentServices[model1ModelUUID].EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("2.9.0"), nil,
+	)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting)
 	// - check if the model has deprecated ubuntu machines;
@@ -560,14 +580,13 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 		}
 	})
 
-	modelUUID := coretesting.ModelTag.Id()
+	modelUUID := modeltesting.GenModelUUID(c)
 	model := mocks.NewMockModel(ctrl)
 	st := mocks.NewMockState(ctrl)
 	st.EXPECT().Release().AnyTimes()
 
-	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
+	s.statePool.EXPECT().Get(modelUUID.String()).AnyTimes().Return(st, nil)
 	st.EXPECT().Model().AnyTimes().Return(model, nil)
-	ctrlModel := mocks.NewMockModel(ctrl)
 
 	var agentStream string
 
@@ -576,11 +595,15 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	// Decide/validate target version.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
+	s.modelAgentServices[modelUUID] = mocks.NewMockModelAgentService(ctrl)
+	s.modelAgentServices[modelUUID].EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("2.9.1"), nil,
+	)
 	model.EXPECT().Life().Return(state.Alive)
-	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
-	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse(ctrlModelVers), nil)
+	s.controllerModelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse(ctrlModelVers), nil,
+	)
 	if ctrlModelVers != "3.9.99" {
 		model.EXPECT().Type().Return(state.ModelTypeIAAS)
 		s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
@@ -608,7 +631,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
 		params.UpgradeModelParams{
-			ModelTag:      coretesting.ModelTag.String(),
+			ModelTag:      names.NewModelTag(modelUUID.String()).String(),
 			TargetVersion: version.MustParse("3.9.99"),
 			AgentStream:   agentStream,
 			DryRun:        dryRun,
@@ -648,27 +671,29 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	modelUUID := coretesting.ModelTag.Id()
+	modelUUID := modeltesting.GenModelUUID(c)
 	model := mocks.NewMockModel(ctrl)
 	st := mocks.NewMockState(ctrl)
 	st.EXPECT().Release()
 
-	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
+	s.statePool.EXPECT().Get(modelUUID.String()).AnyTimes().Return(st, nil)
 	st.EXPECT().Model().AnyTimes().Return(model, nil)
-
-	ctrlModel := mocks.NewMockModel(ctrl)
 
 	s.blockChecker.EXPECT().ChangeAllowed(stdcontext.Background()).Return(nil)
 
 	// Decide/validate target version.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 
+	s.modelAgentServices[modelUUID] = mocks.NewMockModelAgentService(ctrl)
+	s.modelAgentServices[modelUUID].EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("2.9.1"), nil,
+	)
 	model.EXPECT().Life().Return(state.Alive)
-	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().Type().Return(state.ModelTypeIAAS)
 	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
-	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.10.0"), nil)
+	s.controllerModelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("3.10.0"), nil,
+	)
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
 		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
@@ -693,7 +718,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
 		params.UpgradeModelParams{
-			ModelTag:      coretesting.ModelTag.String(),
+			ModelTag:      names.NewModelTag(modelUUID.String()).String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
@@ -711,27 +736,30 @@ func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
 
 	api := s.newFacade(c)
 
-	modelUUID := coretesting.ModelTag.Id()
+	modelUUID := modeltesting.GenModelUUID(c)
 	model := mocks.NewMockModel(ctrl)
 	st := mocks.NewMockState(ctrl)
 	st.EXPECT().Release().AnyTimes()
 
-	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
+	s.statePool.EXPECT().Get(modelUUID.String()).AnyTimes().Return(st, nil)
 	st.EXPECT().Model().AnyTimes().Return(model, nil)
-	ctrlModel := mocks.NewMockModel(ctrl)
 
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+	s.modelAgentServices[modelUUID] = mocks.NewMockModelAgentService(ctrl)
+	s.modelAgentServices[modelUUID].EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("2.9.1"), nil,
+	)
 	model.EXPECT().Life().Return(state.Alive)
-	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().IsControllerModel().Return(false)
-	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
+	s.controllerModelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		version.MustParse("3.9.99"), nil,
+	)
 
 	_, err := api.UpgradeModel(stdcontext.Background(),
 		params.UpgradeModelParams{
-			ModelTag:      coretesting.ModelTag.String(),
+			ModelTag:      names.NewModelTag(modelUUID.String()).String(),
 			TargetVersion: version.MustParse("3.12.0"),
 		},
 	)
