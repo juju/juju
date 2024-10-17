@@ -29,7 +29,7 @@ type ModelConfigAPI struct {
 	auth                      facade.Authorizer
 	check                     *common.BlockChecker
 
-	modelID coremodel.UUID
+	modelUUID coremodel.UUID
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -39,7 +39,7 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
-	modelID coremodel.UUID,
+	modelUUID coremodel.UUID,
 	backend Backend,
 	modelSecretBackendService ModelSecretBackendService,
 	configService ModelConfigService,
@@ -49,8 +49,9 @@ func NewModelConfigAPI(
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
+
 	return &ModelConfigAPI{
-		modelID:                   modelID,
+		modelUUID:                 modelUUID,
 		backend:                   backend,
 		modelSecretBackendService: modelSecretBackendService,
 		configService:             configService,
@@ -60,7 +61,7 @@ func NewModelConfigAPI(
 }
 
 func (c *ModelConfigAPI) checkCanWrite(ctx context.Context) error {
-	return c.auth.HasPermission(ctx, permission.WriteAccess, c.backend.ModelTag())
+	return c.auth.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(c.modelUUID.String()))
 }
 
 func (c *ModelConfigAPI) isControllerAdmin(ctx context.Context) error {
@@ -75,14 +76,16 @@ func (c *ModelConfigAPI) canReadModel(ctx context.Context) error {
 		return nil
 	}
 
-	err = c.auth.HasPermission(ctx, permission.AdminAccess, c.backend.ModelTag())
+	modelTag := names.NewModelTag(c.modelUUID.String())
+
+	err = c.auth.HasPermission(ctx, permission.AdminAccess, modelTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
 		return nil
 	}
 
-	return c.auth.HasPermission(ctx, permission.ReadAccess, c.backend.ModelTag())
+	return c.auth.HasPermission(ctx, permission.ReadAccess, modelTag)
 }
 
 func (c *ModelConfigAPI) isModelAdmin(ctx context.Context) (bool, error) {
@@ -92,7 +95,7 @@ func (c *ModelConfigAPI) isModelAdmin(ctx context.Context) (bool, error) {
 	} else if err == nil {
 		return true, nil
 	}
-	err = c.auth.HasPermission(ctx, permission.AdminAccess, c.backend.ModelTag())
+	err = c.auth.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(c.modelUUID.String()))
 	return err == nil, err
 }
 
@@ -293,7 +296,7 @@ func (s *ModelConfigAPIV3) GetModelSecretBackend(struct{}) {}
 // returning [params.CodeModelNotFound] if the model does not exist.
 func (s *ModelConfigAPI) GetModelSecretBackend(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
-	if err := s.auth.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(s.modelID.String())); err != nil {
+	if err := s.auth.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(s.modelUUID.String())); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -315,7 +318,7 @@ func (s *ModelConfigAPIV3) SetModelSecretBackend(_, _ struct{}) {}
 // returning [params.CodeSecretBackendNotFound] if the secret backend does not exist,
 // returning [params.CodeSecretBackendNotValid] if the secret backend name is not valid.
 func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
-	if err := s.auth.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(s.modelID.String())); err != nil {
+	if err := s.auth.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(s.modelUUID.String())); err != nil {
 		return params.ErrorResult{}, errors.Trace(err)
 	}
 	err := s.modelSecretBackendService.SetModelSecretBackend(ctx, arg.SecretBackendName)
