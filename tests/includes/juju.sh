@@ -406,6 +406,21 @@ post_add_model() {
 	if [[ -n ${MODEL_ARCH} ]]; then
 		juju set-model-constraints "arch=${MODEL_ARCH}"
 	fi
+
+	if [[ ${BOOTSTRAP_PROVIDER:-} != "k8s" ]]; then
+		# As of Juju 4.0, the user's SSH keys are no longer added automatically to
+		# newly created models. So that `juju ssh` works in tests, we should generate
+		# a new SSH key pair here, and add it to the model.
+		mkdir -p "${TEST_DIR}/.ssh"
+		ssh-keygen -t ed25519 -f "$(ssh_key_file "${model}")" -P ""
+		juju add-ssh-key -m "${model}" "$(cat "$(ssh_key_file "${model}").pub")"
+	fi
+}
+
+# ssh_key_file returns the path to the SSH key for the given model.
+ssh_key_file() {
+	local model=${1}
+	echo "${TEST_DIR}/.ssh/${model}"
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the

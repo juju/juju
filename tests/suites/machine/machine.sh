@@ -10,11 +10,11 @@ test_log_permissions() {
 
 	wait_for "started" '.machines."0"."juju-status".current'
 
-	check_contains "$(juju ssh 0 -- stat -c '%G' /var/log/juju/unit-source-0.log)" adm
-	check_contains "$(juju ssh 0 -- stat -c '%a' /var/log/juju/unit-source-0.log)" 640
+	check_contains "$(juju ssh 0 -i "$(ssh_key_file "correct-log")" -- stat -c '%G' /var/log/juju/unit-source-0.log)" adm
+	check_contains "$(juju ssh 0 -i "$(ssh_key_file "correct-log")" -- stat -c '%a' /var/log/juju/unit-source-0.log)" 640
 
-	check_contains "$(juju ssh 0 -- stat -c '%a' /var/log/juju/machine-0.log)" 640
-	check_contains "$(juju ssh 0 -- stat -c '%G' /var/log/juju/machine-0.log)" adm
+	check_contains "$(juju ssh 0 -i "$(ssh_key_file "correct-log")" -- stat -c '%a' /var/log/juju/machine-0.log)" 640
+	check_contains "$(juju ssh 0 -i "$(ssh_key_file "correct-log")" -- stat -c '%G' /var/log/juju/machine-0.log)" adm
 
 	# Clean up!
 	destroy_model "correct-log"

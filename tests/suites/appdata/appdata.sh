@@ -44,10 +44,10 @@ EOF
 
 	# Check that the token is in /var/run/appdata-sink/token on each
 	# one.
-	output=$(juju ssh appdata-sink/0 cat /var/run/appdata-sink/token)
+	output=$(juju ssh appdata-sink/0 -i "$(ssh_key_file "appdata-basic")" cat /var/run/appdata-sink/token)
 	check_contains "$output" "appdata-source/0 test-value"
 
-	output=$(juju ssh appdata-sink/1 cat /var/run/appdata-sink/token)
+	output=$(juju ssh appdata-sink/1 -i "$(ssh_key_file "appdata-basic")" cat /var/run/appdata-sink/token)
 	check_contains "$output" "appdata-source/0 test-value"
 
 	juju add-unit appdata-source
@@ -59,10 +59,10 @@ EOF
 	wait_for "value2" "$(workload_status appdata-sink 0).message"
 	wait_for "value2" "$(workload_status appdata-sink 1).message"
 
-	output=$(juju ssh appdata-sink/0 cat /var/run/appdata-sink/token)
+	output=$(juju ssh appdata-sink/0 -i "$(ssh_key_file "appdata-basic")" cat /var/run/appdata-sink/token)
 	check_contains "$output" "appdata-source/1 value2"
 
-	output=$(juju ssh appdata-sink/1 cat /var/run/appdata-sink/token)
+	output=$(juju ssh appdata-sink/1 -i "$(ssh_key_file "appdata-basic")" cat /var/run/appdata-sink/token)
 	check_contains "$output" "appdata-source/1 value2"
 
 	juju config appdata-source --reset token

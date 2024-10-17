@@ -13,13 +13,13 @@ run_upgrade_charm_with_bind() {
 	# Note that due to the way that run_* funcs are executed, $1 holds the
 	# test name so the NIC ID is actually provided in $2
 	hotplug_nic_id=$2
-	add_multi_nic_machine "$hotplug_nic_id"
+	add_multi_nic_machine "$hotplug_nic_id" "spaces-upgrade-charm-with-bind-ec2"
 
 	juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
-	ifaces=$(juju ssh ${juju_machine_id} 'ip -j link' | jq -r '.[].ifname | select(. | startswith("en") or startswith("eth"))')
+	ifaces=$(juju ssh ${juju_machine_id} -i "$(ssh_key_file "spaces-upgrade-charm-with-bind-ec2")" 'ip -j link' | jq -r '.[].ifname | select(. | startswith("en") or startswith("eth"))')
 	primary_iface=$(echo $ifaces | cut -d " " -f1)
 	hotplug_iface=$(echo $ifaces | cut -d " " -f2)
-	configure_multi_nic_netplan "$juju_machine_id" "$hotplug_iface"
+	configure_multi_nic_netplan "$juju_machine_id" "$hotplug_iface" "spaces-upgrade-charm-with-bind-ec2"
 
 	# Deploy test charm to dual-nic machine
 	charm=$(pack_charm ./testcharms/charms/space-defender)
