@@ -38,9 +38,8 @@ func (*multiWatcherSuite) TestNotifyMultiWatcher(c *gc.C) {
 	wc.AssertOneChange()
 
 	ch0 <- struct{}{}
-	wc.AssertOneChange()
 	ch1 <- struct{}{}
-	wc.AssertOneChange()
+	wc.AssertNChanges(2)
 
 	ch0 <- struct{}{}
 	ch1 <- struct{}{}

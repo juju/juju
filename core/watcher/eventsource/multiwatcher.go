@@ -82,17 +82,21 @@ func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ..
 func (w *MultiWatcher[T]) loop() error {
 	defer close(w.changes)
 
-	out := w.changes
+	var in <-chan T
 	var payload T
+	out := w.changes
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case v := <-w.staging:
+		case v := <-in:
 			payload = w.applier(payload, v)
+
 			out = w.changes
+			in = nil
 		case out <- payload:
 			out = nil
+			in = w.staging
 
 			// Ensure we reset the payload to the initial value after
 			// sending it to the channel.
