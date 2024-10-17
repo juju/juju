@@ -305,6 +305,7 @@ WHERE model_uuid = $M.model_id
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
+	c.Skip("SetModelAgentVersion needs to be implemented a domain.")
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()

@@ -14,13 +14,11 @@ var (
 	newProviderIDNotUniqueError     = stateerrors.NewProviderIDNotUniqueError
 	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
 	newErrCharmAlreadyUploaded      = stateerrors.NewErrCharmAlreadyUploaded
-	newVersionInconsistentError     = stateerrors.NewVersionInconsistentError
 
 	IsCharmAlreadyUploadedError    = stateerrors.IsCharmAlreadyUploadedError
 	IsProviderIDNotUniqueError     = stateerrors.IsProviderIDNotUniqueError
 	IsParentDeviceHasChildrenError = stateerrors.IsParentDeviceHasChildrenError
 	IsNotAlive                     = stateerrors.IsNotAlive
-	IsVersionInconsistentError     = stateerrors.IsVersionInconsistentError
 )
 
 var (
