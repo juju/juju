@@ -146,7 +146,9 @@ func ubuntuSKU(
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
-	// We prefer to use v2 SKU if available. But if not, we fall back to v1 SKU.
+	// We prefer to use v2 SKU if available.
+	// If we don't find any v2 SKU, we return the v1 SKU.
+	// If preferGen1Image is true, we return the v1 SKU.
 	var v1SKU string
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
@@ -199,7 +201,9 @@ func selectUbuntuSKULegacy(
 	base jujubase.Base, series, stream string,
 	images []*armcompute.VirtualMachineImageResource, preferGen1Image bool,
 ) (string, error) {
-	// We prefer to use v2 SKU if available. But if not, we fall back to v1 SKU.
+	// We prefer to use v2 SKU if available.
+	// If we don't find any v2 SKU, we return the v1 SKU.
+	// If preferGen1Image is true, we return the v1 SKU.
 	var v1SKU string
 	desiredSKUVersionPrefix := strings.ReplaceAll(base.Channel.Track, ".", "_")
 

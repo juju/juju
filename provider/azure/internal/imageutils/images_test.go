@@ -45,7 +45,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
-func (s *imageutilsSuite) TestBaseImageOldStyle(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageOldStyleGen2(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
 		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
 	))
@@ -54,6 +54,20 @@ func (s *imageutilsSuite) TestBaseImageOldStyle(c *gc.C) {
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
 		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts-gen2:latest",
+		Arch:     arch.AMD64,
+		VirtType: "Hyper-V",
+	})
+}
+
+func (s *imageutilsSuite) TestBaseImageOldStyleFallbackToGen1(c *gc.C) {
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+		`[{"name": "20_04-lts-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-lts-arm64"}]`,
+	))
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", s.client, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.NotNil)
+	c.Assert(image, jc.DeepEquals, &instances.Image{
+		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
@@ -73,7 +87,7 @@ func (s *imageutilsSuite) TestBaseImageOldStyleInvalidSKU(c *gc.C) {
 	})
 }
 
-func (s *imageutilsSuite) TestBaseImage(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageGen2(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
 		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
 	))
@@ -82,6 +96,20 @@ func (s *imageutilsSuite) TestBaseImage(c *gc.C) {
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
 		Id:       "Canonical:ubuntu-24_04-lts:server:latest",
+		Arch:     arch.AMD64,
+		VirtType: "Hyper-V",
+	})
+}
+
+func (s *imageutilsSuite) TestBaseImageFallbackToGen1(c *gc.C) {
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
+	))
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", s.client, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.NotNil)
+	c.Assert(image, jc.DeepEquals, &instances.Image{
+		Id:       "Canonical:ubuntu-24_04-lts:server-gen1:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
