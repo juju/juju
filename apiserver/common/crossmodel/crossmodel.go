@@ -648,7 +648,7 @@ func getDerivedUnitsStatus(app Application) (status.StatusInfo, error) {
 		return status.StatusInfo{}, errors.Trace(err)
 	}
 
-	statuses := make([]status.StatusInfo, len(units))
+	statuses := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
 		st, err := unit.Status()
 		if err != nil {

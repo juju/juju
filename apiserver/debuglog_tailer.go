@@ -35,6 +35,7 @@ func handleDebugLogRequest(
 	socket debugLogSocket,
 	logTailerFunc logTailerFunc,
 	stop <-chan struct{},
+	stateClosing <-chan struct{},
 ) error {
 	tailerParams := makeLogTailerParams(reqParams)
 	tailer, err := logTailerFunc(tailerParams)
@@ -53,6 +54,8 @@ func handleDebugLogRequest(
 	var lineCount uint
 	for {
 		select {
+		case <-stateClosing:
+			return nil
 		case <-stop:
 			return nil
 		case <-timeout:
