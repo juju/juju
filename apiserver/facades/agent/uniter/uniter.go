@@ -2602,11 +2602,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		pcp, err := unit.OpenedPortRanges()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
 		openPorts := network.GroupedPortRanges{}
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
@@ -2625,7 +2620,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 				Protocol: r.Protocol,
 			}
 			openPorts[r.Endpoint] = append(openPorts[r.Endpoint], portRange)
-			pcp.Open(r.Endpoint, portRange)
 		}
 
 		closePorts := network.GroupedPortRanges{}
@@ -2641,9 +2635,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 				Protocol: r.Protocol,
 			}
 			closePorts[r.Endpoint] = append(closePorts[r.Endpoint], portRange)
-			pcp.Close(r.Endpoint, portRange)
 		}
-		modelOps = append(modelOps, pcp.Changes())
 
 		unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitTag.Id())
 		if err != nil {

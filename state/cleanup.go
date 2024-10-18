@@ -1443,13 +1443,6 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
-	removePortsOps, err := machine.removePortsOps()
-	if len(removePortsOps) == 0 || err != nil {
-		return errors.Trace(err)
-	}
-	if err := st.db().RunTransaction(removePortsOps); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Note that we do *not* remove the machine immediately: we leave
 	// it for the provisioner to clean up, so that we don't end up

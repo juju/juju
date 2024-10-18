@@ -1481,46 +1481,6 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	})
 }
 
-// OpenedPortRanges returns a UnitPortRanges object that can be used to query
-// and/or mutate the port ranges opened by the unit.
-func (u *Unit) OpenedPortRanges() (UnitPortRanges, error) {
-	if u.ShouldBeAssigned() {
-		return u.openedPortRangesForIAAS()
-	}
-	isSidecar, err := u.IsSidecar()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if u.isCaas() && !isSidecar {
-		return nil, errors.NotSupportedf("open/close ports for %q", u.ApplicationName())
-	}
-	return u.openedPortRangesForSidecar()
-}
-
-func (u *Unit) openedPortRangesForSidecar() (UnitPortRanges, error) {
-	return getUnitPortRanges(u.st, u.ApplicationName(), u.Name())
-}
-
-// openedPortRangesForIAAS returns a UnitPortRanges object that can be used to query
-// and/or mutate the port ranges opened by the unit on the machine it is
-// assigned to.
-//
-// Calls to OpenPortRanges will return back an error if the unit is not assigned
-// to a machine.
-func (u *Unit) openedPortRangesForIAAS() (UnitPortRanges, error) {
-	machineID, err := u.AssignedMachineId()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
-	}
-
-	machinePorts, err := getOpenedMachinePortRanges(u.st, machineID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
-	}
-
-	return machinePorts.ForUnit(u.Name()), nil
-}
-
 // CharmURL returns the charm URL this unit is currently using.
 func (u *Unit) CharmURL() *string {
 	return u.doc.CharmURL
@@ -2692,24 +2652,4 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 		clock:     g.st.clock(),
 	}
 	return statusHistory(args)
-}
-
-// assertUnitNotDeadOp returns a txn.Op that asserts the given unit name is
-// not dead.
-func assertUnitNotDeadOp(st *State, unitName string) txn.Op {
-	return txn.Op{
-		C:      unitsC,
-		Id:     st.docID(unitName),
-		Assert: notDeadDoc,
-	}
-}
-
-// assertUnitAssignedToMachineOp returns a txn.Op that asserts the given unit
-// name is assigned to the specified machine.
-func assertUnitAssignedToMachineOp(st *State, unitName, machineID string) txn.Op {
-	return txn.Op{
-		C:      unitsC,
-		Id:     st.docID(unitName),
-		Assert: bson.D{{"machineid", machineID}},
-	}
 }

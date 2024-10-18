@@ -871,22 +871,6 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	return bson.D{noNewVolumes, noNewFilesystems}, nil
 }
 
-func (m *Machine) removePortsOps() ([]txn.Op, error) {
-	if m.doc.Life != Dead {
-		return nil, errors.Errorf("machine is not dead")
-	}
-	machRanges, err := m.OpenedPortRanges()
-	if err != nil {
-		return nil, err
-	}
-
-	mpr := machRanges.(*machinePortRanges)
-	if !mpr.Persisted() {
-		return nil, nil
-	}
-	return mpr.removeOps(), nil
-}
-
 func (m *Machine) removeOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
 		return nil, fmt.Errorf("machine is not dead")
@@ -918,10 +902,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	portsOps, err := m.removePortsOps()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	sb, err := NewStorageBackend(m.st)
 	if err != nil {
@@ -939,7 +919,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	ops = append(ops, removeControllerNodeOp(m.st, m.Id()))
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
-	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
 	ops = append(ops, volumeOps...)
@@ -1880,16 +1859,6 @@ func (m *Machine) AssertAliveOp() txn.Op {
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: isAliveDoc,
-	}
-}
-
-// assertMachineNotDeadOp returns an assert-only transaction operation that
-// ensures the machine is not dead.
-func assertMachineNotDeadOp(st *State, machineID string) txn.Op {
-	return txn.Op{
-		C:      machinesC,
-		Id:     st.docID(machineID),
-		Assert: notDeadDoc,
 	}
 }
 

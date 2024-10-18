@@ -1445,13 +1445,6 @@ func assertModelActiveOp(modelUUID string) txn.Op {
 	return assertModelUsableOp(modelUUID, isAliveDoc)
 }
 
-// assertModelNotDeadOp returns a txn.Op that asserts the given
-// model UUID refers to a model that is not dead and not currently
-// in the process of migration.
-func assertModelNotDeadOp(modelUUID string) txn.Op {
-	return assertModelUsableOp(modelUUID, notDeadDoc)
-}
-
 func assertModelUsableOp(modelUUID string, lifeAssertion bson.D) txn.Op {
 	return txn.Op{
 		C:      modelsC,
@@ -1462,10 +1455,6 @@ func assertModelUsableOp(modelUUID string, lifeAssertion bson.D) txn.Op {
 
 func checkModelActive(st *State) error {
 	return errors.Trace(checkModelUsable(st, func(life Life) bool { return life == Alive }))
-}
-
-func checkModelNotDead(st *State) error {
-	return errors.Trace(checkModelUsable(st, func(life Life) bool { return life != Dead }))
 }
 
 func checkModelUsable(st *State, validLife func(Life) bool) error {
