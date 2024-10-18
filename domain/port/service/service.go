@@ -216,8 +216,8 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 	}
 
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		// Verify input port ranges do no conflict with any port ranges co-located
-		// with the unit.
+		// Verify input port ranges do not conflict with any port ranges
+		// co-located with the unit.
 		colocatedOpened, err := s.st.GetColocatedOpenedPorts(ctx, unitUUID)
 		if err != nil {
 			return errors.Errorf("failed to get opened ports co-located with unit %s: %w", unitUUID, err)
