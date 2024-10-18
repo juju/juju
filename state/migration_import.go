@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // Import the database agnostic model representation into the database.
@@ -138,9 +137,6 @@ func (ctrl *Controller) Import(
 	}
 	if err := restore.sshHostKeys(); err != nil {
 		return nil, nil, errors.Annotate(err, "sshHostKeys")
-	}
-	if err := restore.cloudimagemetadata(); err != nil {
-		return nil, nil, errors.Annotate(err, "cloudimagemetadata")
 	}
 	if err := restore.actions(); err != nil {
 		return nil, nil, errors.Annotate(err, "actions")
@@ -1610,46 +1606,6 @@ func (i *importer) sshHostKeys() error {
 		}
 	}
 	i.logger.Debugf("importing ssh host keys succeeded")
-	return nil
-}
-
-func (i *importer) cloudimagemetadata() error {
-	i.logger.Debugf("importing cloudimagemetadata")
-	images := i.model.CloudImageMetadata()
-	var metadatas []cloudimagemetadata.Metadata
-	for _, image := range images {
-		// We only want to import custom (user defined metadata).
-		// Everything else *now* expires after a set time anyway and
-		// coming from Juju < 2.3.4 would result in non-expiring metadata.
-		if image.Source() != "custom" {
-			continue
-		}
-		var rootStoragePtr *uint64
-		if rootStorageSize, ok := image.RootStorageSize(); ok {
-			rootStoragePtr = &rootStorageSize
-		}
-		metadatas = append(metadatas, cloudimagemetadata.Metadata{
-			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
-				Source:          image.Source(),
-				Stream:          image.Stream(),
-				Region:          image.Region(),
-				Version:         image.Version(),
-				Arch:            image.Arch(),
-				RootStorageType: image.RootStorageType(),
-				RootStorageSize: rootStoragePtr,
-				VirtType:        image.VirtType(),
-			},
-			Priority:    image.Priority(),
-			ImageId:     image.ImageId(),
-			DateCreated: image.DateCreated(),
-		})
-	}
-	err := i.st.CloudImageMetadataStorage.SaveMetadata(metadatas)
-	if err != nil {
-		i.logger.Errorf("error importing cloudimagemetadata %v: %s", images, err)
-		return errors.Trace(err)
-	}
-	i.logger.Debugf("importing cloudimagemetadata succeeded")
 	return nil
 }
 

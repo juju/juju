@@ -192,9 +192,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.operations(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.cloudimagemetadata(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1235,33 +1232,6 @@ func (e *exporter) sshHostKeys() error {
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
 			MachineID: machine.Id(),
 			Keys:      keys,
-		})
-	}
-	return nil
-}
-
-func (e *exporter) cloudimagemetadata() error {
-	if e.cfg.SkipCloudImageMetadata {
-		return nil
-	}
-	cloudimagemetadata, err := e.st.CloudImageMetadataStorage.AllCloudImageMetadata()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d cloudimagemetadata", len(cloudimagemetadata))
-	for _, metadata := range cloudimagemetadata {
-		e.model.AddCloudImageMetadata(description.CloudImageMetadataArgs{
-			Stream:          metadata.Stream,
-			Region:          metadata.Region,
-			Version:         metadata.Version,
-			Arch:            metadata.Arch,
-			VirtType:        metadata.VirtType,
-			RootStorageType: metadata.RootStorageType,
-			RootStorageSize: metadata.RootStorageSize,
-			DateCreated:     metadata.DateCreated,
-			Source:          metadata.Source,
-			Priority:        metadata.Priority,
-			ImageId:         metadata.ImageId,
 		})
 	}
 	return nil
