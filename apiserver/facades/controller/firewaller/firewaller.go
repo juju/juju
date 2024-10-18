@@ -242,7 +242,7 @@ func (f *FirewallerAPI) WatchOpenedPorts(ctx context.Context, args params.Entiti
 }
 
 func (f *FirewallerAPI) watchOneModelOpenedPorts(ctx context.Context) (string, []string, error) {
-	watch, err := f.portService.WatchOpenedPorts(ctx)
+	watch, err := f.portService.WatchMachineOpenedPorts(ctx)
 	if err != nil {
 		return "", nil, errors.Errorf("cannot watch opened ports: %w", err)
 	}

@@ -6,10 +6,8 @@ package service
 import (
 	"context"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -57,39 +55,44 @@ type WatcherState interface {
 	// WatchOpenedPortsTable returns the name of the table that should be watched
 	WatchOpenedPortsTable() string
 
-	// InitialWatchOpenedPortsStatement returns the query to load the initial event
-	// for the WatchOpenedPorts watcher
-	InitialWatchOpenedPortsStatement() string
+	// InitialWatchMachineOpenedPortsStatement returns the query to load the initial
+	// event for the WatchMachineOpenedPorts watcher
+	InitialWatchMachineOpenedPortsStatement() string
 
-	// GetMachineNamesForEndpoints returns map from endpoint uuids to the uuids of
+	// InitialWatchApplicationOpenedPortsStatement returns the query to load the
+	// initial event for the WatchApplicationOpenedPorts watcher
+	InitialWatchApplicationOpenedPortsStatement() string
+
+	// GetMachineNamesForUnitEndpoints returns map from endpoint uuids to the uuids of
 	// the machines which host that endpoint for each provided endpoint uuid.
-	GetMachineNamesForEndpoints(ctx context.Context, endpointUUIDs []string) ([]coremachine.Name, error)
+	GetMachineNamesForUnitEndpoints(ctx context.Context, endpointUUIDs []string) ([]coremachine.Name, error)
 
-	// FilterEndpointsForApplication returns the subset of provided endpoint uuids
-	// that are associated with the provided application.
-	FilterEndpointsForApplication(ctx context.Context, app coreapplication.ID, eps []string) (set.Strings, error)
+	// GetApplicationNamesForUnitEndpoints returns a slice of application names that
+	// host the provided endpoints.
+	GetApplicationNamesForUnitEndpoints(ctx context.Context, eps []string) ([]string, error)
 }
 
 // WatchOpenedPorts returns a strings watcher for opened ports. This watcher
 // emits events for changes to the opened ports table. Each emitted event
-// contains the machine UUID which is associated with the port range.
-func (s *WatchableService) WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
+// contains the machine name which is associated with the changed port range.
+func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		s.st.WatchOpenedPortsTable(),
 		changestream.Create|changestream.Delete,
-		eventsource.InitialNamespaceChanges(s.st.InitialWatchOpenedPortsStatement()),
+		eventsource.InitialNamespaceChanges(s.st.InitialWatchMachineOpenedPortsStatement()),
 		s.endpointToMachineMapper,
 	)
 }
 
-// WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
-// watcher emits events for changes to the opened ports table that are associated
-// with the given application
-func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
-	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+// WatchApplicationOpenedPorts returns a strings watcher for opened ports. This
+// watcher emits for changes to the opened ports table. Each emitted event contains
+// the app name which is associated with the changed port range.
+func (s *WatchableService) WatchApplicationOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewNamespaceMapperWatcher(
 		s.st.WatchOpenedPortsTable(),
 		changestream.Create|changestream.Delete,
-		s.filterForApplication(applicationUUID),
+		eventsource.InitialNamespaceChanges(s.st.InitialWatchApplicationOpenedPortsStatement()),
+		s.endpointToApplicationMapper,
 	)
 }
 
@@ -105,7 +108,7 @@ func (s *WatchableService) endpointToMachineMapper(
 		return e.Changed()
 	})
 
-	machineNames, err := s.st.GetMachineNamesForEndpoints(ctx, endpointUUIDs)
+	machineNames, err := s.st.GetMachineNamesForUnitEndpoints(ctx, endpointUUIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -122,28 +125,29 @@ func (s *WatchableService) endpointToMachineMapper(
 	return newEvents, nil
 }
 
-// filterForApplication returns an eventsource.Mapper that filters events emitted
-// by port range changes to only include events for port range changes corresponding
-// to the given application
-func (s *WatchableService) filterForApplication(applicationUUID coreapplication.ID) eventsource.Mapper {
-	return func(
-		ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
-	) ([]changestream.ChangeEvent, error) {
-		endpointUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
-			return e.Changed()
-		})
-		endpointUUIDsForApplication, err := s.st.FilterEndpointsForApplication(ctx, applicationUUID, endpointUUIDs)
-		if err != nil {
-			return nil, err
-		}
-		results := make([]changestream.ChangeEvent, 0, len(events))
-		for _, event := range events {
-			if endpointUUIDsForApplication.Contains(event.Changed()) {
-				results = append(results, event)
-			}
-		}
-		return results, nil
+func (s *WatchableService) endpointToApplicationMapper(
+	ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
+) ([]changestream.ChangeEvent, error) {
+
+	endpointUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
+		return e.Changed()
+	})
+
+	applicationNames, err := s.st.GetApplicationNamesForUnitEndpoints(ctx, endpointUUIDs)
+	if err != nil {
+		return nil, err
 	}
+
+	newEvents := make([]changestream.ChangeEvent, 0, len(applicationNames))
+	for _, applicationName := range applicationNames {
+		newEvents = append(newEvents, changeEventShim{
+			changeType: changestream.Update,
+			namespace:  "application",
+			changed:    applicationName,
+		})
+	}
+
+	return newEvents, nil
 }
 
 // changeEventShim implements changestream.ChangeEvent and allows the

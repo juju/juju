@@ -139,10 +139,9 @@ func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID
 // GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
 // application, across all units, grouped by endpoint.
 //
-// NOTE: The returned port ranges are atomised, meaning that each port range
-// we guarantee that each port range is of unit length. This is useful for
-// down-stream consumers such as k8s, which can only reason with unit-length
-// port ranges.
+// NOTE: The returned port ranges are atomised, meaning we guarantee that each
+// port range is of unit length. This is useful for down-stream consumers such
+// as k8s, which can only reason with unit-length port ranges.
 func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.ID) (network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {

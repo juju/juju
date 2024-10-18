@@ -14,8 +14,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -28,16 +30,17 @@ type firewallerSuite struct {
 
 	st                  *mockState
 	applicationsChanges chan []string
-	openPortsChanges    chan []string
 	appExposedChanges   chan struct{}
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
+	resources       *common.Resources
+	watcherRegistry *facademocks.MockWatcherRegistry
+	authorizer      *apiservertesting.FakeAuthorizer
 
 	facade facadeSidecar
 
 	charmService *MockCharmService
 	appService   *MockApplicationService
+	portService  *MockPortService
 
 	modelTag names.ModelTag
 }
@@ -51,7 +54,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	s.applicationsChanges = make(chan []string, 1)
 	s.appExposedChanges = make(chan struct{}, 1)
-	s.openPortsChanges = make(chan []string, 1)
 
 	appExposedWatcher := watchertest.NewMockNotifyWatcher(s.appExposedChanges)
 	s.st = &mockState{
@@ -59,11 +61,9 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 			watcher: appExposedWatcher,
 		},
 		applicationsWatcher: watchertest.NewMockStringsWatcher(s.applicationsChanges),
-		openPortsWatcher:    watchertest.NewMockStringsWatcher(s.openPortsChanges),
 		appExposedWatcher:   appExposedWatcher,
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.openPortsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.appExposedWatcher) })
 
 	s.resources = common.NewResources()
@@ -77,7 +77,12 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	openPortsChanges := []string{"port1", "port2"}
-	s.openPortsChanges <- openPortsChanges
+
+	w := newMockStringsWatcher()
+	defer workertest.CleanKill(c, w)
+	w.changes <- openPortsChanges
+	s.portService.EXPECT().WatchApplicationOpenedPorts(gomock.Any()).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
 
 	results, err := s.facade.WatchOpenedPorts(context.Background(), params.Entities{
 		Entities: []params.Entity{{
@@ -89,12 +94,20 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "1")
 	c.Assert(result.Changes, jc.DeepEquals, openPortsChanges)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := watchertest.NewStringsWatcherC(c, w)
+	wc.AssertNoChange()
 }
 
 func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.application.appPortRanges = network.GroupedPortRanges{
+	appUUID, err := application.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appUUID, nil)
+	s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), appUUID).Return(network.GroupedPortRanges{
 		"": []network.PortRange{
 			{
 				FromPort: 80,
@@ -109,7 +122,7 @@ func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 				Protocol: "tcp",
 			},
 		},
-	}
+	}, nil)
 
 	results, err := s.facade.GetOpenedPorts(context.Background(), params.Entity{
 		Tag: "application-gitlab",
@@ -146,11 +159,13 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 
 	_, err = caasfirewaller.NewFacade(
 		s.resources,
+		s.watcherRegistry,
 		s.authorizer,
 		s.st,
 		commonCharmsAPI,
 		appCharmInfoAPI,
 		s.appService,
+		s.portService,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -258,8 +273,11 @@ func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
 func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+
 	s.charmService = NewMockCharmService(ctrl)
 	s.appService = NewMockApplicationService(ctrl)
+	s.portService = NewMockPortService(ctrl)
 
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,11 +286,13 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	facade, err := caasfirewaller.NewFacade(
 		s.resources,
+		s.watcherRegistry,
 		s.authorizer,
 		s.st,
 		commonCharmsAPI,
 		appCharmInfoAPI,
 		s.appService,
+		s.portService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

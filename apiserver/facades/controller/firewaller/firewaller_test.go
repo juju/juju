@@ -181,7 +181,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	w := newMockStringsWatcher()
 	defer workertest.CleanKill(c, w)
 	w.changes <- expectChanges
-	s.portService.EXPECT().WatchOpenedPorts(gomock.Any()).Return(w, nil)
+	s.portService.EXPECT().WatchMachineOpenedPorts(gomock.Any()).Return(w, nil)
 	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
 
 	fakeModelTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")

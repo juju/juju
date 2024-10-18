@@ -88,11 +88,14 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	go func() {
 		// 1st port change event.
-		s.portsChanges <- []string{"port changes"}
+		s.portsChanges <- []string{s.appName}
 		// 2nd port change event.
-		s.portsChanges <- []string{"port changes"}
-		// 3rd port change event.
-		s.portsChanges <- []string{"port changes"}
+		s.portsChanges <- []string{s.appName}
+		// 3rd port change event, including another application.
+		s.portsChanges <- []string{s.appName, "another-app"}
+
+		// port change event for another application.
+		s.portsChanges <- []string{"another-app"}
 
 		s.applicationChanges <- struct{}{}
 	}()

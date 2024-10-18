@@ -7,11 +7,9 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	jujuerrors "github.com/juju/errors"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/errors"
 )
@@ -21,14 +19,20 @@ func (st *State) WatchOpenedPortsTable() string {
 	return "port_range"
 }
 
-// InitialWatchOpenedPortsStatement returns the query to load the initial event
+// InitialWatchMachineOpenedPortsStatement returns the query to load the initial event
 // for the WatchOpenedPorts watcher
-func (st *State) InitialWatchOpenedPortsStatement() string {
+func (st *State) InitialWatchMachineOpenedPortsStatement() string {
 	return "SELECT name FROM machine"
 }
 
-// GetMachineNamesForEndpoints returns a slice of machine names that host the provided endpoints.
-func (st *State) GetMachineNamesForEndpoints(ctx context.Context, eps []string) ([]coremachine.Name, error) {
+// InitialWatchApplicationOpenedPortsStatement returns the query to load the initial
+// event for the WatchApplicationOpenedPorts watcher
+func (st *State) InitialWatchApplicationOpenedPortsStatement() string {
+	return "SELECT name FROM application"
+}
+
+// GetMachineNamesForUnitEndpoints returns a slice of machine names that host the provided endpoints.
+func (st *State) GetMachineNamesForUnitEndpoints(ctx context.Context, eps []string) ([]coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -62,31 +66,30 @@ WHERE unit_endpoint.uuid IN ($endpoints[:])
 	return transform.Slice(machineNames, func(m machineName) coremachine.Name { return m.Name }), nil
 }
 
-// FilterEndpointsForApplication returns the subset of provided endpoint uuids
-// that are associated with the provided application.
-func (st *State) FilterEndpointsForApplication(ctx context.Context, app coreapplication.ID, eps []string) (set.Strings, error) {
+// GetApplicationNamesForUnitEndpoints returns a slice of application names that host
+// the provided endpoints.
+func (st *State) GetApplicationNamesForUnitEndpoints(ctx context.Context, eps []string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	applicationUUID := applicationUUID{UUID: app.String()}
 	endpointUUIDs := endpoints(eps)
 
 	query, err := st.Prepare(`
-SELECT unit_endpoint.uuid AS &endpointUUID.uuid
-FROM unit
+SELECT DISTINCT application.name AS &applicationName.name
+FROM application
+JOIN unit ON application.uuid = unit.application_uuid
 JOIN unit_endpoint ON unit.uuid = unit_endpoint.unit_uuid
 WHERE unit_endpoint.uuid IN ($endpoints[:])
-AND unit.application_uuid = $applicationUUID.application_uuid
-`, endpointUUID{}, applicationUUID, endpointUUIDs)
+`, applicationName{}, endpointUUIDs)
 	if err != nil {
 		return nil, errors.Errorf("failed to prepare application for endpoint query: %w", err)
 	}
 
-	filteredEps := []endpointUUID{}
+	applicationNames := []applicationName{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, applicationUUID, endpointUUIDs).GetAll(&filteredEps)
+		err := tx.Query(ctx, query, endpointUUIDs).GetAll(&applicationNames)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -96,5 +99,5 @@ AND unit.application_uuid = $applicationUUID.application_uuid
 		return nil, errors.Errorf("failed to get applications for endpoints: %w", err)
 	}
 
-	return set.NewStrings(transform.Slice(filteredEps, func(e endpointUUID) string { return e.UUID })...), nil
+	return transform.Slice(applicationNames, func(a applicationName) string { return a.Name }), nil
 }
