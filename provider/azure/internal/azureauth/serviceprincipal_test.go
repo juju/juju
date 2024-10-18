@@ -83,10 +83,13 @@ var _ = gc.Suite(&InteractiveSuite{})
 
 const fakeTenantId = "11111111-1111-1111-1111-111111111111"
 
-func roleDefinitionListSender() *azuretesting.MockSender {
+func roleDefinitionListSender(name string) *azuretesting.MockSender {
 	roleDefinitions := []*armauthorization.RoleDefinition{{
 		ID:   to.Ptr("owner-role-id"),
-		Name: to.Ptr("Owner"),
+		Name: to.Ptr("name-id"),
+		Properties: &armauthorization.RoleDefinitionProperties{
+			RoleName: to.Ptr(name),
+		},
 	}}
 	return azuretesting.NewSenderWithValue(armauthorization.RoleDefinitionListResult{
 		Value: roleDefinitions,
@@ -160,7 +163,8 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	}}
 
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender(),
+		roleDefinitionListSender("Some other role"),
+		roleDefinitionListSender("Juju Application Role Definition"),
 		roleAssignmentSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -220,7 +224,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 	}}
 
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender(),
+		roleDefinitionListSender("Juju Application Role Definition"),
 		roleAssignmentAlreadyExistsSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -293,7 +297,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 	}}
 
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender(),
+		roleDefinitionListSender("Juju Application Role Definition"),
 		roleAssignmentSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -355,7 +359,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 	}}
 
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender(),
+		roleDefinitionListSender("Juju Application Role Definition"),
 		roleAssignmentSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -410,7 +414,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 	}}
 
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender(),
+		roleDefinitionListSender("Juju Application Role Definition"),
 		roleAssignmentPrincipalNotExistSender(),
 		roleAssignmentSender(),
 	}
