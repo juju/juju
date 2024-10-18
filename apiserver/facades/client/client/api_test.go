@@ -408,13 +408,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	add(taggedUser{tag: testing.AdminUser})
 
-	//err = s.ControllerModel(c).UpdateModelConfig(
-	//	map[string]interface{}{
-	//		config.AgentVersionKey: "2.0.0",
-	//	}, nil)
-	//c.Assert(err, jc.ErrorIsNil)
-	// Heather
-
 	// Add another user.
 	userTag := names.NewUserTag("other")
 	userPassword := defaultPassword(userTag)

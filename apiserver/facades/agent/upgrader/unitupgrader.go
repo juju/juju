@@ -73,7 +73,6 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entit
 		switch {
 		case errors.Is(err, errors.NotValid):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				// TODO: Update this error when units domain is implemented.
 				params.CodeTagInvalid,
 				"invalid unit name %q",
 				unitName,

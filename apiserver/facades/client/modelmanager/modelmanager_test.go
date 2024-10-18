@@ -1190,33 +1190,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
-//func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
-//	anAuthoriser := s.authoriser
-//	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-//	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
-//	domainServices := s.ControllerDomainServices(c)
-//
-//	endPoint, err := modelmanager.NewModelManagerAPI(
-//		context.Background(),
-//		mockCredentialShim{st},
-//		nil,
-//		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-//		s.controllerUUID,
-//		modelmanager.Services{
-//			DomainServicesGetter: s.domainServicesGetter,
-//			CloudService:         domainServices.Cloud(),
-//			CredentialService:    domainServices.Credential(),
-//			ModelService:         s.modelService,
-//			ModelDefaultsService: nil,
-//			AccessService:        s.accessService,
-//			ObjectStore:          &mockObjectStore{},
-//		},
-//		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
-//	)
-//	c.Assert(endPoint, gc.IsNil)
-//	c.Assert(err, gc.ErrorMatches, "permission denied")
-//}
-
 func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver interface{}) params.ModelCreateArgs {
 	params := createArgs(owner)
 	params.Config["agent-version"] = ver
