@@ -5,8 +5,6 @@ package state
 
 import (
 	"github.com/juju/mgo/v3"
-
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // allCollections should be the single source of truth for information about
@@ -395,12 +393,6 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		// This collection holds information about cloud image metadata.
-		cloudimagemetadataC: {
-			global:  true,
-			indexes: cloudimagemetadata.MongoIndexes(),
-		},
-
 		// Cross model relations collections.
 		applicationOffersC: {
 			indexes: []mgo.Index{
@@ -471,7 +463,6 @@ const (
 	blocksC                = "blocks"
 	charmsC                = "charms"
 	cleanupsC              = "cleanups"
-	cloudimagemetadataC    = "cloudimagemetadata"
 	cloudContainersC       = "cloudcontainers"
 	cloudServicesC         = "cloudservices"
 	constraintsC           = "constraints"

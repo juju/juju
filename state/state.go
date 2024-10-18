@@ -41,7 +41,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -75,9 +74,6 @@ type State struct {
 	// that yet, but having a type that collects them together is the
 	// first step.
 	workers *workers
-
-	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
-	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
 func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {

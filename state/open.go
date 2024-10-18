@@ -16,7 +16,6 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // Register the state tracker as a new profile.
@@ -189,11 +188,6 @@ func newState(
 	profileTracker.Add(st, 1)
 
 	st.controllerTag = controllerTag
-	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
-		cloudimagemetadataC,
-		&environMongo{st},
-	)
 	return st, nil
 }
 
