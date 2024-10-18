@@ -11,6 +11,10 @@ type modelUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type cloudUUID struct {
+	UUID string `db:"uuid"`
+}
+
 type dbCloud struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
@@ -28,11 +32,21 @@ type cloudDefaultValue struct {
 	Value string `db:"value"`
 }
 
+type keyValue struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
 type cloudRegionDefaultValue struct {
 	UUID       string `db:"region_uuid"`
 	RegionName string `db:"name"`
 	Key        string `db:"key"`
 	Value      string `db:"value"`
+}
+
+type modelMetadata struct {
+	ModelName string `db:"name"`
+	CloudType string `db:"type"`
 }
 
 // modelCloudType represents the cloud type of the models cloud.
