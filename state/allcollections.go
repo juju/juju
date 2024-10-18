@@ -307,11 +307,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-		openedPortsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
 
 		// -----
 
@@ -498,7 +493,6 @@ const (
 	migrationsStatusC      = "migrations.status"
 	modelsC                = "models"
 	modelEntityRefsC       = "modelEntityRefs"
-	openedPortsC           = "openedPorts"
 	operationsC            = "operations"
 	payloadsC              = "payloads"
 	providerIDsC           = "providerIDs"

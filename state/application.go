@@ -788,12 +788,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeModelApplicationRefOp(a.st, name),
 	)
 
-	apr, err := getApplicationPortRanges(a.st, a.Name())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, apr.removeOps()...)
-
 	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2746,14 +2740,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	portsOps, err := removePortsForUnitOps(a.st, u)
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	appPortsOps, err := removeApplicationPortsForUnitOps(a.st, u)
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
 	resOps, err := removeUnitResourcesOps(a.st, store, u.doc.Name)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
@@ -2796,8 +2782,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		removeConstraintsOp(u.globalAgentKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
-	ops = append(ops, portsOps...)
-	ops = append(ops, appPortsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 
@@ -3162,14 +3146,6 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	}}
 	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
-}
-
-func assertApplicationAliveOp(docID string) txn.Op {
-	return txn.Op{
-		C:      applicationsC,
-		Id:     docID,
-		Assert: isAliveDoc,
-	}
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
