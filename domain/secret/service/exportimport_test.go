@@ -11,8 +11,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -190,7 +192,12 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		CurrentRevision: 666,
 	})
 
-	s.state.EXPECT().CreateCharmApplicationSecret(gomock.Any(), 0, uri, "mysql", domainsecret.UpsertSecretParams{
+	appUUID, err := coreapplication.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
+	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, secrets[0].Label).Return(false, nil)
+	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 0, uri, appUUID, domainsecret.UpsertSecretParams{
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
 		ExpireTime:     nil,
 		NextRotateTime: ptr(rotateTime),
@@ -325,6 +332,6 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 			},
 		}},
 	}
-	err := s.service.ImportSecrets(context.Background(), toImport)
+	err = s.service.ImportSecrets(context.Background(), toImport)
 	c.Assert(err, jc.ErrorIsNil)
 }

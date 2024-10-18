@@ -9,7 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
@@ -33,8 +35,13 @@ type entityRef struct {
 }
 
 type unit struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
+	UUID coreunit.UUID `db:"uuid"`
+	Name string        `db:"name"`
+}
+
+type application struct {
+	UUID coreapplication.ID `db:"uuid"`
+	Name string             `db:"name"`
 }
 
 type secretRef struct {
@@ -150,11 +157,11 @@ type secretExternalRevision struct {
 }
 
 type secretUnitConsumer struct {
-	UnitUUID        string `db:"unit_uuid"`
-	SecretID        string `db:"secret_id"`
-	SourceModelUUID string `db:"source_model_uuid"`
-	Label           string `db:"label"`
-	CurrentRevision int    `db:"current_revision"`
+	UnitUUID        coreunit.UUID `db:"unit_uuid"`
+	SecretID        string        `db:"secret_id"`
+	SourceModelUUID string        `db:"source_model_uuid"`
+	Label           string        `db:"label"`
+	CurrentRevision int           `db:"current_revision"`
 }
 
 type secretRemoteUnitConsumer struct {
@@ -501,4 +508,9 @@ func (rows obsoleteRevisionRows) toRevIDs() []string {
 		result[i] = fmt.Sprintf("%s/%s", row.SecretID, row.Revision)
 	}
 	return result
+}
+
+type count struct {
+	// Num is the number of rows.
+	Num int `db:"num"`
 }

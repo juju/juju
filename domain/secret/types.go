@@ -25,6 +25,19 @@ var (
 	NilSecretURI         = (*secrets.URI)(nil)
 )
 
+// These represent the kinds of secret owner.
+const (
+	ApplicationOwner = secrets.ApplicationOwner
+	UnitOwner        = secrets.UnitOwner
+	ModelOwner       = secrets.ModelOwner
+)
+
+// Owner is the owner of a secret.
+type Owner struct {
+	Kind secrets.OwnerKind
+	UUID string
+}
+
 // UpsertSecretParams are used to upsert a secret.
 // Only non-nil values are used.
 type UpsertSecretParams struct {

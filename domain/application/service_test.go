@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
@@ -127,15 +128,18 @@ func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
 	c.Assert(gotLife, gc.Equals, 1)
 }
 
-func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+func (s *serviceSuite) createSecrets(c *gc.C, appUUID coreapplication.ID, unitName string) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
 	ctx := context.Background()
 	appSecretURI = coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appName, sp)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		err := s.secretState.CreateCharmApplicationSecret(ctx, 1, appSecretURI, appUUID, sp)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
 	if unitName == "" {
 		return appSecretURI, unitSecretURI
 	}
@@ -145,8 +149,13 @@ func (s *serviceSuite) createSecrets(c *gc.C, appName, unitName string) (appSecr
 		Data:       coresecrets.SecretData{"foo": "bar"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err = s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitName, sp2)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.secretState.CreateCharmUnitSecret(ctx, 1, unitSecretURI, unitUUID, sp2)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	})
 	return appSecretURI, unitSecretURI
 }
 
@@ -154,8 +163,8 @@ func (s *serviceSuite) TestDeleteApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appID := s.createApplication(c, "foo")
-	s.createSecrets(c, "foo", "")
+	appUUID := s.createApplication(c, "foo")
+	s.createSecrets(c, appUUID, "")
 
 	err := s.svc.DeleteApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +180,7 @@ func (s *serviceSuite) TestDeleteApplication(c *gc.C) {
 			return err
 		}
 		err = tx.QueryRowContext(ctx,
-			"SELECT count(*) FROM secret_metadata sm JOIN secret_application_owner so ON sm.secret_id = so.secret_id WHERE application_uuid = ?", appID).
+			"SELECT count(*) FROM secret_metadata sm JOIN secret_application_owner so ON sm.secret_id = so.secret_id WHERE application_uuid = ?", appUUID).
 			Scan(&gotSecretCount)
 		if err != nil {
 			return err
@@ -304,8 +313,8 @@ func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", u)
-	s.createSecrets(c, "foo", "foo/666")
+	appUUID := s.createApplication(c, "foo", u)
+	s.createSecrets(c, appUUID, "foo/666")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)

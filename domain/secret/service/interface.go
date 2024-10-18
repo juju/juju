@@ -7,9 +7,11 @@ import (
 	"context"
 	"time"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -27,6 +29,24 @@ type AtomicState interface {
 	GetSecretsForOwners(
 		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.URI, error)
+
+	GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.ID, error)
+	GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error)
+	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (domainsecret.Owner, error)
+
+	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) (bool, error)
+	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.ID, label string) (bool, error)
+	CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID coreunit.UUID, label string) (bool, error)
+	CreateUserSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmApplicationSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, appUUID coreapplication.ID, secret domainsecret.UpsertSecretParams,
+	) error
+	CreateCharmUnitSecret(
+		ctx domain.AtomicContext, version int, uri *secrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams,
+	) error
+	UpdateSecret(ctx domain.AtomicContext, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 }
 
 // State describes retrieval and persistence methods needed for
@@ -35,16 +55,6 @@ type State interface {
 	AtomicState
 
 	GetModelUUID(ctx context.Context) (string, error)
-	CreateUserSecret(
-		ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmApplicationSecret(
-		ctx context.Context, version int, uri *secrets.URI, appName string, secret domainsecret.UpsertSecretParams,
-	) error
-	CreateCharmUnitSecret(
-		ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams,
-	) error
-	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)

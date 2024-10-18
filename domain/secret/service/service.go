@@ -12,10 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -245,7 +247,9 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err = s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
+	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.createSecret(ctx, params.Version, uri, secrets.Owner{Kind: secrets.ModelOwner}, p)
+	}); err != nil {
 		return errors.Annotatef(err, "cannot create user secret %q", uri.ID)
 	}
 	return nil
@@ -315,13 +319,15 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Trace(err)
 		}
-		err = s.secretState.CreateCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
-	} else {
-		err = s.secretState.CreateCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p)
 	}
-	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-		return errors.Errorf("secret with label %q is already being used", *params.Label)
-	}
+
+	err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		owner := secrets.Owner{
+			ID:   params.CharmOwner.ID,
+			Kind: secrets.OwnerKind(params.CharmOwner.Kind),
+		}
+		return s.createSecret(ctx, params.Version, uri, owner, p)
+	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create charm secret %q", uri.ID)
 	}
@@ -410,7 +416,10 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}()
 	}
 
-	if err := s.secretState.UpdateSecret(ctx, uri, p); err != nil {
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.updateSecret(ctx, uri, p)
+	})
+	if err != nil {
 		return errors.Annotatef(err, "cannot update user secret %q", uri.ID)
 	}
 	return nil
@@ -478,15 +487,97 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 		}()
 	}
-
-	err := s.secretState.UpdateSecret(ctx, uri, p)
-	if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-		return errors.Errorf("secret with label %q is already being used", *params.Label)
-	}
+	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return s.updateSecret(ctx, uri, p)
+	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot update charm secret %q", uri.ID)
 	}
 	return nil
+}
+
+func (s *SecretService) createSecret(
+	ctx domain.AtomicContext, version int, uri *secrets.URI, owner secrets.Owner, params domainsecret.UpsertSecretParams,
+) (err error) {
+	defer func() {
+		if err != nil {
+			if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
+				err = fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
+			}
+		}
+	}()
+
+	var createSecret func() error
+	var (
+		labelExists bool
+		labelErr    error
+	)
+	switch kind := owner.Kind; kind {
+	case secrets.ApplicationOwner:
+		appUUID, err := s.secretState.GetApplicationUUID(ctx, owner.ID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if params.Label != nil && *params.Label != "" {
+			labelExists, labelErr = s.secretState.CheckApplicationSecretLabelExists(ctx, appUUID, *params.Label)
+		}
+		createSecret = func() error { return s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID, params) }
+	case secrets.UnitOwner:
+		unitUUID, err := s.secretState.GetUnitUUID(ctx, owner.ID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if params.Label != nil && *params.Label != "" {
+			labelExists, labelErr = s.secretState.CheckUnitSecretLabelExists(ctx, unitUUID, *params.Label)
+		}
+		createSecret = func() error { return s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params) }
+	case secrets.ModelOwner:
+		if params.Label != nil && *params.Label != "" {
+			labelExists, labelErr = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
+		}
+		createSecret = func() error { return s.secretState.CreateUserSecret(ctx, version, uri, params) }
+	default:
+		// Should never happen.
+		return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
+	}
+
+	if labelErr != nil {
+		return errors.Trace(err)
+	}
+	if labelExists {
+		return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
+	}
+	return errors.Trace(createSecret())
+}
+
+func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI, params domainsecret.UpsertSecretParams) error {
+	if params.Label != nil && *params.Label != "" {
+		// Check to be sure a duplicate label won't be used.
+		owner, err := s.secretState.GetSecretOwner(ctx, uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var labelExists bool
+		switch kind := owner.Kind; kind {
+		case domainsecret.ApplicationOwner:
+			labelExists, err = s.secretState.CheckApplicationSecretLabelExists(ctx, coreapplication.ID(owner.UUID), *params.Label)
+		case domainsecret.UnitOwner:
+			labelExists, err = s.secretState.CheckUnitSecretLabelExists(ctx, coreunit.UUID(owner.UUID), *params.Label)
+		case domainsecret.ModelOwner:
+			labelExists, err = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
+		default:
+			// Should never happen.
+			return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if labelExists {
+			return fmt.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
+		}
+	}
+	err := s.secretState.UpdateSecret(ctx, uri, params)
+	return errors.Trace(err)
 }
 
 // GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
