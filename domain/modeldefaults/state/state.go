@@ -58,32 +58,32 @@ func (s *State) CloudDefaults(
 		return rval, errors.Trace(err)
 	}
 
-	cloudDefaultsStmt := `
-SELECT cloud_defaults.key, cloud_defaults.value
+	cloudUUID := cloudUUID{UUID: uuid.String()}
+	cloudDefaultsStmt, err := s.Prepare(`
+SELECT &keyValue.* 
 FROM cloud_defaults
-WHERE cloud_defaults.cloud_uuid = ?
-`
+WHERE cloud_defaults.cloud_uuid = $cloudUUID.uuid
+`, keyValue{}, cloudUUID)
+	if err != nil {
+		return nil, interrors.Errorf("preparing select cloud defaults statement: %w", err)
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, cloudDefaultsStmt, uuid)
-		if err != nil {
+	var kvs []keyValue
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, cloudDefaultsStmt, cloudUUID).GetAll(&kvs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return interrors.Errorf("fetching cloud defaults for model %q: %w", uuid, err)
 		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var key, val string
-			if err := rows.Scan(&key, &val); err != nil {
-				return interrors.Errorf("reading cloud defaults for model %q: %w", uuid, err)
-			}
-			rval[key] = val
-		}
-		return rows.Err()
+		return nil
 	})
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	for _, kv := range kvs {
+		rval[kv.Key] = kv.Value
+	}
+
 	return rval, nil
 }
 
@@ -249,20 +249,21 @@ func (s *State) ModelMetadataDefaults(
 		return nil, errors.Trace(err)
 	}
 
-	stmt := `
-SELECT m.name, ct.type
+	modelUUID := modelUUID{UUID: uuid.String()}
+	var result modelMetadata
+	stmt, err := s.Prepare(`
+SELECT (m.name, ct.type) AS (&modelMetadata.*)
 FROM model m
 JOIN cloud c ON m.cloud_uuid = c.uuid
 JOIN cloud_type ct ON c.cloud_type_id = ct.id
-WHERE m.uuid = ?
-`
+WHERE m.uuid = $modelUUID.uuid
+`, result, modelUUID)
+	if err != nil {
+		return nil, interrors.Errorf("preparing select model metadata statement: %w", err)
+	}
 
-	var (
-		modelName string
-		cloudType string
-	)
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &cloudType)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, modelUUID).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
 			return interrors.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 		} else if err != nil {
@@ -279,9 +280,9 @@ WHERE m.uuid = ?
 	}
 
 	return map[string]string{
-		config.NameKey: modelName,
+		config.NameKey: result.ModelName,
 		config.UUIDKey: uuid.String(),
-		config.TypeKey: cloudType,
+		config.TypeKey: result.CloudType,
 	}, nil
 }
 

@@ -3280,7 +3280,7 @@ func (st State) GetRevisionIDsForObsolete(
 }
 
 func (st State) getRevisionForObsolete(
-	ctx context.Context, runner coredatabase.TxnRunner,
+	ctx context.Context, runner domain.TxnRunner,
 	selectStmt string,
 	outputType, result any,
 	appOwners domainsecret.ApplicationOwners,
@@ -3613,7 +3613,7 @@ func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next ti
 }
 
 func (st State) getSecretsRotationChanges(
-	ctx context.Context, runner coredatabase.TxnRunner,
+	ctx context.Context, runner domain.TxnRunner,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	secretIDs ...string,
 ) ([]domainsecret.RotationInfo, error) {
@@ -3798,7 +3798,7 @@ func (st State) GetSecretsRotationChanges(
 }
 
 func (st State) getSecretsRevisionExpiryChanges(
-	ctx context.Context, runner coredatabase.TxnRunner,
+	ctx context.Context, runner domain.TxnRunner,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	revisionIDs ...string,
 ) ([]domainsecret.ExpiryInfo, error) {

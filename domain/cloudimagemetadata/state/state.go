@@ -112,7 +112,7 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 }
 
 // InsertMetadata inserts or updates metadata for cloud images in the database.
-func InsertMetadata(ctx context.Context, db database.TxnRunner, metadata []cloudimagemetadata.Metadata, createdAt time.Time) error {
+func InsertMetadata(ctx context.Context, db domain.TxnRunner, metadata []cloudimagemetadata.Metadata, createdAt time.Time) error {
 	// Prepare inputs
 	values := make([]inputMetadata, 0, len(metadata))
 	for _, m := range metadata {
