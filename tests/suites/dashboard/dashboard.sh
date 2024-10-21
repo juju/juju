@@ -6,8 +6,7 @@ run_dashboard_deploy() {
 	juju expose dashboard
 	juju relate dashboard controller
 
-	juju wait-for application dashboard
-	sleep 5 # short wait for relation data to update
+	wait_for "controller" "$(active_condition "dashboard")"
 	open_dashboard
 
 	# Switch to different model and test
@@ -17,7 +16,7 @@ run_dashboard_deploy() {
 
 	destroy_model "${model_name}"
 	juju switch controller
-	juju remove-application dashboard
+	juju remove-application dashboard --no-prompt
 }
 
 test_dashboard_deploy() {
