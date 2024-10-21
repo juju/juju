@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
@@ -60,13 +61,14 @@ import (
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
+	clock           clock.Clock
 	logger          logger.Logger
 	controllerDB    changestream.WatchableDBFactory
 	modelUUID       model.UUID
 	modelDB         changestream.WatchableDBFactory
 	providerFactory providertracker.ProviderFactory
 	objectstore     objectstore.ModelObjectStoreGetter
-	clock           clock.Clock
+	storageRegistry corestorage.ModelStorageRegistryGetter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -77,17 +79,19 @@ func NewModelFactory(
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
+	storageRegistry corestorage.ModelStorageRegistryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
+		clock:           clock,
 		logger:          logger,
 		controllerDB:    controllerDB,
 		modelUUID:       modelUUID,
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
 		objectstore:     objectStore,
-		clock:           clock,
+		storageRegistry: storageRegistry,
 	}
 }
 

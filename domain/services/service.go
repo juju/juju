@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/storage"
 )
 
 // DomainServices provides access to the services required by the apiserver.
@@ -29,10 +30,11 @@ func NewDomainServices(
 	deleterDB database.DBDeleter,
 	providerTracker providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
+	storageRegistry storage.ModelStorageRegistryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *DomainServices {
-	controllerServices := NewControllerServices(controllerDB, deleterDB, logger)
+	controllerServices := NewControllerServices(controllerDB, deleterDB, clock, logger)
 	return &DomainServices{
 		ControllerServices: controllerServices,
 		ModelFactory: NewModelFactory(
@@ -41,6 +43,7 @@ func NewDomainServices(
 			modelDB,
 			providerTracker,
 			objectStore,
+			storageRegistry,
 			clock,
 			logger,
 		),

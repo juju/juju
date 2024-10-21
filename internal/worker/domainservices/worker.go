@@ -17,7 +17,9 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/services"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Config is the configuration required for domain services worker.
@@ -33,6 +35,9 @@ type Config struct {
 
 	// ObjectStoreGetter is used to get object store instances.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
+
+	// StorageRegistryGetter is used to get storage registry instances.
+	StorageRegistryGetter storage.StorageRegistryGetter
 
 	// Logger is used to log messages.
 	Logger logger.Logger
@@ -59,6 +64,9 @@ func (config Config) Validate() error {
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
 	}
+	if config.StorageRegistryGetter == nil {
+		return errors.NotValidf("nil StorageRegistryGetter")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -83,7 +91,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ctrlFactory := config.NewControllerDomainServices(config.DBGetter, config.DBDeleter, config.Logger)
+	ctrlFactory := config.NewControllerDomainServices(config.DBGetter, config.DBDeleter, config.Clock, config.Logger)
 	w := &domainServicesWorker{
 		ctrlFactory: ctrlFactory,
 		servicesGetter: config.NewDomainServicesGetter(
@@ -92,6 +100,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.NewModelDomainServices,
 			config.ProviderFactory,
 			config.ObjectStoreGetter,
+			config.StorageRegistryGetter,
 			config.Clock,
 			config.Logger,
 		),
@@ -155,6 +164,7 @@ type domainServicesGetter struct {
 	newModelDomainServices ModelDomainServicesFn
 	providerFactory        providertracker.ProviderFactory
 	objectStoreGetter      objectstore.ObjectStoreGetter
+	storageRegistryGetter  storage.StorageRegistryGetter
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
@@ -168,6 +178,10 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 			modelObjectStoreGetter{
 				modelUUID:         modelUUID,
 				objectStoreGetter: s.objectStoreGetter,
+			},
+			modelStorageRegistryGetter{
+				modelUUID:             modelUUID,
+				storageRegistryGetter: s.storageRegistryGetter,
 			},
 			s.clock,
 			s.logger,
@@ -186,4 +200,18 @@ type modelObjectStoreGetter struct {
 // GetObjectStore returns a singular object store for the given namespace.
 func (s modelObjectStoreGetter) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
 	return s.objectStoreGetter.GetObjectStore(ctx, s.modelUUID.String())
+}
+
+// modelStorageRegistryGetter is a storage registry getter that returns a
+// singular storage registry for the given model uuid. This is to ensure that
+// service factories can't access storage registries for other models.
+type modelStorageRegistryGetter struct {
+	modelUUID             coremodel.UUID
+	storageRegistryGetter storage.StorageRegistryGetter
+}
+
+// GetStorageRegistry returns a singular storage registry for the given
+// namespace.
+func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (internalstorage.ProviderRegistry, error) {
+	return s.storageRegistryGetter.GetStorageRegistry(ctx, s.modelUUID.String())
 }

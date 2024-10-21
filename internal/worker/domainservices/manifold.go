@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/storage"
 	domainservicefactory "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -29,6 +30,7 @@ type ManifoldConfig struct {
 	ChangeStreamName            string
 	ProviderFactoryName         string
 	ObjectStoreName             string
+	StorageRegistryName         string
 	Logger                      logger.Logger
 	Clock                       clock.Clock
 	NewWorker                   func(Config) (worker.Worker, error)
@@ -44,6 +46,7 @@ type DomainServicesGetterFn func(
 	ModelDomainServicesFn,
 	providertracker.ProviderFactory,
 	objectstore.ObjectStoreGetter,
+	storage.StorageRegistryGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.DomainServicesGetter
@@ -53,6 +56,7 @@ type DomainServicesGetterFn func(
 type ControllerDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
+	clock.Clock,
 	logger.Logger,
 ) services.ControllerDomainServices
 
@@ -62,6 +66,7 @@ type ModelDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
 	objectstore.ModelObjectStoreGetter,
+	storage.ModelStorageRegistryGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -79,6 +84,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
+	}
+	if config.StorageRegistryName == "" {
+		return errors.NotValidf("empty StorageRegistryName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -110,6 +118,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DBAccessorName,
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
+			config.StorageRegistryName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -142,11 +151,17 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var storageRegistryGetter storage.StorageRegistryGetter
+	if err := getter.Get(config.StorageRegistryName, &storageRegistryGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
 		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
+		StorageRegistryGetter:       storageRegistryGetter,
 		Logger:                      config.Logger,
 		Clock:                       config.Clock,
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,
@@ -181,11 +196,13 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
+	clock clock.Clock,
 	logger logger.Logger,
 ) services.ControllerDomainServices {
 	return domainservicefactory.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
+		clock,
 		logger,
 	)
 }
@@ -197,6 +214,7 @@ func NewProviderTrackerModelDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
+	storageRegistry storage.ModelStorageRegistryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -206,27 +224,7 @@ func NewProviderTrackerModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
 		objectStore,
-		clock,
-		logger,
-	)
-}
-
-// NewModelDomainServices returns a new model domain services.
-// This creates a model domain services without a provider tracker. The provider
-// tracker will return not supported errors for all methods.
-func NewModelDomainServices(
-	modelUUID coremodel.UUID,
-	dbGetter changestream.WatchableDBGetter,
-	objectStore objectstore.ModelObjectStoreGetter,
-	logger logger.Logger,
-	clock clock.Clock,
-) services.ModelDomainServices {
-	return domainservicefactory.NewModelFactory(
-		modelUUID,
-		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
-		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
-		NoopProviderFactory{},
-		objectStore,
+		storageRegistry,
 		clock,
 		logger,
 	)
@@ -239,6 +237,7 @@ func NewDomainServicesGetter(
 	newModelDomainServices ModelDomainServicesFn,
 	providerFactory providertracker.ProviderFactory,
 	objectStoreGetter objectstore.ObjectStoreGetter,
+	storageRegistryGetter storage.StorageRegistryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.DomainServicesGetter {
@@ -250,11 +249,15 @@ func NewDomainServicesGetter(
 		newModelDomainServices: newModelDomainServices,
 		providerFactory:        providerFactory,
 		objectStoreGetter:      objectStoreGetter,
+		storageRegistryGetter:  storageRegistryGetter,
 	}
 }
 
+// NoopProviderFactory is a provider factory that returns not supported errors
+// for all methods.
 type NoopProviderFactory struct{}
 
+// ProviderForModel returns a not supported error.
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
 }
