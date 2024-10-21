@@ -39,7 +39,7 @@ type SystemState interface {
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	IsControllerModel() bool
-	AgentVersion() (version.Number, error)
+
 	Owner() names.UserTag
 	Name() string
 	MigrationMode() state.MigrationMode

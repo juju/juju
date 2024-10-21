@@ -48,7 +48,6 @@ type StateSuite struct {
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
 	InstancePrechecker        func(*gc.C, *state.State) environs.InstancePrechecker
-	ConfigSchemaSourceGetter  func(*gc.C) config.ConfigSchemaSourceGetter
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -99,10 +98,6 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.Model = model
 
 	s.Factory = factory.NewFactory(s.State, s.StatePool, s.ControllerConfig)
-
-	s.ConfigSchemaSourceGetter = func(c *gc.C) config.ConfigSchemaSourceGetter {
-		return state.NoopConfigSchemaSource
-	}
 }
 
 func (s *StateSuite) TearDownTest(c *gc.C) {

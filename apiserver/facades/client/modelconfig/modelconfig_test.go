@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type modelconfigSuite struct {
@@ -55,12 +54,6 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 		AdminTag: names.NewUserTag("bruce@local"),
 	}
 	s.backend = &mockBackend{
-		cfg: config.ConfigValues{
-			"type":          {Value: "dummy", Source: "model"},
-			"agent-version": {Value: "1.2.3.4", Source: "model"},
-			"ftp-proxy":     {Value: "http://proxy", Source: "model"},
-			"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
-		},
 		secretBackend: &coresecrets.SecretBackend{
 			ID:          "backend-1",
 			Name:        "backend-1",
@@ -494,8 +487,6 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackend(c *gc.C) {
 }
 
 type mockBackend struct {
-	cfg           config.ConfigValues
-	old           *config.Config
 	cons          constraints.Value
 	secretBackend *coresecrets.SecretBackend
 }
@@ -509,28 +500,8 @@ func (m *mockBackend) ModelConstraints() (constraints.Value, error) {
 	return m.cons, nil
 }
 
-func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
-	return m.cfg, nil
-}
-
 func (m *mockBackend) Sequences() (map[string]int, error) {
 	return nil, nil
-}
-
-func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string,
-	validate ...state.ValidateConfigFunc) error {
-	for _, validateFunc := range validate {
-		if err := validateFunc(update, remove, m.old); err != nil {
-			return err
-		}
-	}
-	for k, v := range update {
-		m.cfg[k] = config.ConfigValue{Value: v, Source: "model"}
-	}
-	for _, n := range remove {
-		delete(m.cfg, n)
-	}
-	return nil
 }
 
 func (m *mockBackend) ModelTag() names.ModelTag {

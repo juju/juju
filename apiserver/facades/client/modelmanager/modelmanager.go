@@ -82,9 +82,8 @@ type ModelManagerAPI struct {
 	networkService       NetworkService
 	secretBackendService SecretBackendService
 
-	configSchemaSource config.ConfigSchemaSourceGetter
-	modelExporter      func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
-	store              objectstore.ObjectStore
+	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	store         objectstore.ObjectStore
 
 	// ToolsFinder is used to find tools for a given version.
 	toolsFinder common.ToolsFinder
@@ -103,7 +102,6 @@ func NewModelManagerAPI(
 	ctlrSt common.ModelManagerBackend,
 	controllerUUID uuid.UUID,
 	services Services,
-	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -135,7 +133,6 @@ func NewModelManagerAPI(
 		networkService:       services.NetworkService,
 		machineService:       services.MachineService,
 		applicationService:   services.ApplicationService,
-		configSchemaSource:   configSchemaSource,
 		store:                services.ObjectStore,
 		getBroker:            getBroker,
 		check:                blockChecker,
@@ -1161,7 +1158,6 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 	if err == nil {
 		info.ProviderType = modelInfo.CloudType
-
 	}
 
 	modelAgentService := modelDomainServices.Agent()

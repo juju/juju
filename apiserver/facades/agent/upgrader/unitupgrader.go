@@ -5,30 +5,38 @@ package upgrader
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // UnitUpgraderAPI provides access to the UnitUpgrader API facade.
 type UnitUpgraderAPI struct {
 	*common.ToolsSetter
 
-	st         *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st                *state.State
+	authorizer        facade.Authorizer
+	modelAgentService ModelAgentService
+	watcherRegistry   facade.WatcherRegistry
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
-func NewUnitUpgraderAPI(ctx facade.ModelContext) (*UnitUpgraderAPI, error) {
+func NewUnitUpgraderAPI(
+	ctx facade.ModelContext,
+	modelAgentService ModelAgentService,
+	watcherRegistry facade.WatcherRegistry,
+) (*UnitUpgraderAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -40,51 +48,60 @@ func NewUnitUpgraderAPI(ctx facade.ModelContext) (*UnitUpgraderAPI, error) {
 
 	st := ctx.State()
 	return &UnitUpgraderAPI{
-		ToolsSetter: common.NewToolsSetter(st, getCanWrite),
-		st:          st,
-		resources:   ctx.Resources(),
-		authorizer:  authorizer,
+		ToolsSetter:       common.NewToolsSetter(st, getCanWrite),
+		st:                st,
+		authorizer:        authorizer,
+		modelAgentService: modelAgentService,
+		watcherRegistry:   watcherRegistry,
 	}, nil
 }
 
-func (u *UnitUpgraderAPI) watchAssignedMachine(unitTag names.Tag) (string, error) {
-	machine, err := u.getAssignedMachine(unitTag)
-	if err != nil {
-		return "", err
-	}
-	watch := machine.Watch()
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
-	}
-	return "", watcher.EnsureErr(watch)
-}
-
 // WatchAPIVersion starts a watcher to track if there is a new version
-// of the API that we want to upgrade to. The watcher tracks changes to
-// the unit's assigned machine since that's where the required agent version is stored.
+// of the API that we want to upgrade the unit agent to.
 func (u *UnitUpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		tag, err := names.ParseTag(agent.Tag)
+		tag, err := names.ParseUnitTag(agent.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if u.authorizer.AuthOwner(tag) {
-			var watcherId string
-			watcherId, err = u.watchAssignedMachine(tag)
-			if err == nil {
-				result.Results[i].NotifyWatcherId = watcherId
-			}
+		unitName := tag.Id()
+		unitAPIWatcher, err := u.modelAgentService.WatchUnitTargetAgentVersion(ctx, unitName)
+		switch {
+		case errors.Is(err, errors.NotValid):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeTagInvalid,
+				"invalid unit name %q",
+				unitName,
+			)
+			continue
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotFound,
+				"unit %q does not exist",
+				unitName,
+			)
+		case err != nil:
+			// We don't understand this error. At this stage we consider it an
+			// internal server error and bail out of the call completely.
+			return params.NotifyWatchResults{}, fmt.Errorf(
+				"cannot watch api version for unit %q: %w",
+				unitName, err,
+			)
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		result.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
+			ctx, u.watcherRegistry, unitAPIWatcher,
+		)
+		if err != nil {
+			return params.NotifyWatchResults{}, fmt.Errorf(
+				"registering unit %q api version watcher: %w",
+				unitName, err,
+			)
+		}
 	}
 	return result, nil
 }

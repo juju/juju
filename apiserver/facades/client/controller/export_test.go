@@ -26,6 +26,7 @@ func SetPrecheckResult(p patcher, err error) {
 		controllerConfigService ControllerConfigService,
 		cloudService common.CloudService,
 		credentialService common.CredentialService,
+		modelAgentService common.ModelAgentService,
 		modelConfigService common.ModelConfigService,
 		upgradeService UpgradeService,
 		modelService ModelService,

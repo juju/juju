@@ -63,10 +63,14 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
 	controllerConfigService := domainServices.ControllerConfig()
+	controllerAgentService := domainServices.Agent()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
+	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {
+		return domainServices.Agent()
+	}
 	modelConfigServiceGetter := func(modelID coremodel.UUID) common.ModelConfigService {
 		return domainServices.Config()
 	}
@@ -82,6 +86,8 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
 		environscloudspecGetter,
+		modelAgentServiceGetter,
+		controllerAgentService,
 		controllerConfigService,
 		domainServices.Upgrade(),
 		ctx.Logger().Child("modelupgrader"),

@@ -15,7 +15,6 @@ import (
 	migration "github.com/juju/juju/internal/migration"
 	state "github.com/juju/juju/state"
 	replicaset "github.com/juju/replicaset/v3"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,45 +39,6 @@ func NewMockPrecheckBackend(ctrl *gomock.Controller) *MockPrecheckBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPrecheckBackend) EXPECT() *MockPrecheckBackendMockRecorder {
 	return m.recorder
-}
-
-// AgentVersion mocks base method.
-func (m *MockPrecheckBackend) AgentVersion() (version.Number, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentVersion")
-	ret0, _ := ret[0].(version.Number)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AgentVersion indicates an expected call of AgentVersion.
-func (mr *MockPrecheckBackendMockRecorder) AgentVersion() *MockPrecheckBackendAgentVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockPrecheckBackend)(nil).AgentVersion))
-	return &MockPrecheckBackendAgentVersionCall{Call: call}
-}
-
-// MockPrecheckBackendAgentVersionCall wrap *gomock.Call
-type MockPrecheckBackendAgentVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockPrecheckBackendAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockPrecheckBackendAgentVersionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockPrecheckBackendAgentVersionCall) Do(f func() (version.Number, error)) *MockPrecheckBackendAgentVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPrecheckBackendAgentVersionCall) DoAndReturn(f func() (version.Number, error)) *MockPrecheckBackendAgentVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // AllApplications mocks base method.

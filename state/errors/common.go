@@ -5,12 +5,10 @@ package errors
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
@@ -176,36 +174,4 @@ func NewErrIncompatibleBase(supportedBases []base.Base, b base.Base, charmName s
 			strings.Join(transform.Slice(supportedBases, func(b base.Base) string { return b.DisplayString() }), ", ")),
 		IncompatibleBaseError,
 	)
-}
-
-// versionInconsistentError indicates one or more agents have a
-// different version from the current one (even empty, when not yet
-// set).
-type versionInconsistentError struct {
-	currentVersion version.Number
-	agents         []string
-}
-
-// NewVersionInconsistentError returns a new instance of
-// versionInconsistentError.
-func NewVersionInconsistentError(currentVersion version.Number, agents []string) *versionInconsistentError {
-	return &versionInconsistentError{currentVersion: currentVersion, agents: agents}
-}
-
-func (e *versionInconsistentError) Error() string {
-	sort.Strings(e.agents)
-	return fmt.Sprintf("some agents have not upgraded to the current model version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
-}
-
-// IsVersionInconsistentError returns if the given error is
-// versionInconsistentError.
-func IsVersionInconsistentError(e interface{}) bool {
-	value := e
-	// In case of a wrapped error, check the cause first.
-	cause := errors.Cause(e.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*versionInconsistentError)
-	return ok
 }

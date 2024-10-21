@@ -5,7 +5,6 @@ package upgradevalidation_test
 
 import (
 	"github.com/juju/collections/transform"
-	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/juju/core/base"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/state"
@@ -33,12 +31,13 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
-	model1ModelTag := coretesting.ModelTag
+	//ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
+	//model1ModelTag := coretesting.ModelTag
 	statePool := mocks.NewMockStatePool(ctrl)
 
 	ctrlState := mocks.NewMockState(ctrl)
 	ctrlModel := mocks.NewMockModel(ctrl)
+	agentVersion := mocks.NewMockModelAgentService(ctrl)
 
 	state1 := mocks.NewMockState(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
@@ -54,7 +53,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 
 	// 1. Check controller model.
 	// - check agent version;
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.666.1"), nil)
+	agentVersion.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("3.666.1"), nil)
 	// - check mongo status;
 	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 		Members: []replicaset.MemberStatus{
@@ -84,7 +83,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	server.EXPECT().ServerVersion().Return("5.2")
 	// 2. Check hosted models.
 	// - check agent version;
-	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	agentVersion.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
@@ -95,13 +94,13 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 
 	targetVersion := version.MustParse("3.666.2")
 	validators := upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudSpec.CloudSpec)
-	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(statePool, ctrlState, ctrlModel, agentVersion, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
 
 	validators = upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudSpec.CloudSpec)
-	checker = upgradevalidation.NewModelUpgradeCheck(model1ModelTag.Id(), statePool, state1, model1, validators...)
+	checker = upgradevalidation.NewModelUpgradeCheck(statePool, state1, model1, agentVersion, validators...)
 	blockers, err = checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
@@ -115,10 +114,11 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	modelTag := coretesting.ModelTag
+	//modelTag := coretesting.ModelTag
 	statePool := mocks.NewMockStatePool(ctrl)
 	st := mocks.NewMockState(ctrl)
 	model := mocks.NewMockModel(ctrl)
+	agentService := mocks.NewMockModelAgentService(ctrl)
 
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)
@@ -138,7 +138,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 
 	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec.CloudSpec)
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, st, model, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(statePool, st, model, agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)

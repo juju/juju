@@ -25,8 +25,6 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
@@ -141,11 +139,8 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	controller := &fakeImporter{}
-	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
-		return state.NoopConfigSchemaSource
-	}
 	importer := migration.NewModelImporter(
-		controller, scope, s.controllerConfigService, s.domainServicesGetter, configSchemaSource,
+		controller, scope, s.controllerConfigService, s.domainServicesGetter,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
@@ -219,11 +214,8 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
-	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
-		return state.NoopConfigSchemaSource
-	}
 	importer := migration.NewModelImporter(
-		controller, scope, s.controllerConfigService, s.domainServicesGetter, configSchemaSource,
+		controller, scope, s.controllerConfigService, s.domainServicesGetter,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
@@ -388,7 +380,7 @@ type fakeImporter struct {
 	controllerConfig controller.Config
 }
 
-func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config, _ config.ConfigSchemaSourceGetter) (*state.Model, *state.State, error) {
+func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config) (*state.Model, *state.State, error) {
 	i.model = model
 	i.controllerConfig = controllerConfig
 	return i.m, i.st, nil

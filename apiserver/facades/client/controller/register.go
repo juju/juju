@@ -45,6 +45,9 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		return nil, errors.Trace(err)
 	}
 
+	modelAgentServiceGetter := func(modelID model.UUID) common.ModelAgentService {
+		return ctx.DomainServicesForModel(modelID).Agent()
+	}
 	modelConfigServiceGetter := func(modelID model.UUID) common.ModelConfigService {
 		return ctx.DomainServicesForModel(modelID).Config()
 	}
@@ -77,6 +80,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.Model(),
 		domainServices.BlockCommand(),
 		applicationServiceGetter,
+		modelAgentServiceGetter,
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
 		domainServices.Proxy(),

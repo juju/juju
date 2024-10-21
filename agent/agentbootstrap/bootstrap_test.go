@@ -202,17 +202,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelCfg, err := model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add in the cloud attributes.
-	expectedCfg, err := config.New(config.UseDefaults, modelAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedAttrs := expectedCfg.AllAttrs()
-	expectedAttrs["apt-mirror"] = "http://mirror"
-	expectedAttrs["no-proxy"] = "value"
-	c.Check(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
-
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
@@ -61,7 +60,6 @@ type Model interface {
 	CloudName() string
 	CloudRegion() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	Config() (*config.Config, error)
 	Owner() names.UserTag
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
 	LatestToolsVersion() version.Number

@@ -4,9 +4,7 @@
 package state
 
 import (
-	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +18,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
-	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
@@ -33,9 +30,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/upgrade"
 	jujuversion "github.com/juju/juju/core/version"
-	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -466,54 +461,6 @@ type WatchParams struct {
 	IncludeOffers bool
 }
 
-func (st *State) checkCanUpgradeCAAS(currentVersion, newVersion string) error {
-	// TODO(caas)
-	return nil
-}
-
-func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
-	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
-	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
-	// Get all machines and units with a different or empty version.
-	sel := bson.D{{"$or", []bson.D{
-		{{"tools", bson.D{{"$exists", false}}}},
-		{{"$and", []bson.D{
-			{{"tools.version", bson.D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
-			{{"tools.version", bson.D{{"$not", bson.RegEx{matchNew, ""}}}}},
-		}}},
-	}}}
-	var agentTags []string
-	for _, name := range []string{machinesC, unitsC} {
-		collection, closer := st.db().GetCollection(name)
-		defer closer()
-		var doc struct {
-			DocID string `bson:"_id"`
-		}
-		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
-		defer iter.Close()
-		for iter.Next(&doc) {
-			localID, err := st.strictLocalID(doc.DocID)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			switch name {
-			case machinesC:
-				agentTags = append(agentTags, names.NewMachineTag(localID).String())
-			case unitsC:
-				agentTags = append(agentTags, names.NewUnitTag(localID).String())
-			}
-		}
-		if err := iter.Close(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if len(agentTags) > 0 {
-		err := newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // Upgrader is an interface that can be used to check if an upgrade is in
 // progress.
 type Upgrader interface {
@@ -525,89 +472,10 @@ type Upgrader interface {
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
 func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader Upgrader) (err error) {
-	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
-		return errors.Errorf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
-			newVersion.String(),
-			jujuversion.Current,
-		)
-	}
-
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	isCAAS := model.Type() == ModelTypeCAAS
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
-		if err != nil {
-			return nil, errors.Annotatef(err, "model %q", st.modelTag.Id())
-		}
-		agentVersion, ok := settings.Get("agent-version")
-		if !ok {
-			return nil, errors.Errorf("no agent version set in the model")
-		}
-		currentVersion, ok := agentVersion.(string)
-		if !ok {
-			return nil, errors.Errorf("invalid agent version format: expected string, got %v", agentVersion)
-		}
-		if newVersion.String() == currentVersion {
-			// Nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		}
-		agentStream, _ := settings.Get("agent-stream")
-		currentStream, _ := agentStream.(string)
-		newStream := currentStream
-		if stream != nil {
-			if (*stream != "" || currentStream != "released") && (*stream != "released" || currentStream != "") {
-				newStream = *stream
-			}
-		}
-
-		if !ignoreAgentVersions {
-			if isCAAS {
-				if err := st.checkCanUpgradeCAAS(currentVersion, newVersion.String()); err != nil {
-					return nil, errors.Trace(err)
-				}
-			} else {
-				if err := st.checkCanUpgradeIAAS(currentVersion, newVersion.String()); err != nil {
-					return nil, errors.Trace(err)
-				}
-			}
-		}
-
-		if upgrading, err := upgrader.IsUpgrading(); err != nil {
-			return nil, errors.Annotate(err, "setting agent version")
-		} else if upgrading {
-			return nil, errors.Trace(upgrade.ErrUpgradeInProgress)
-		}
-
-		ops := []txn.Op{
-			// Can't set agent-version if there's an active upgradeInfo doc.
-			{
-				C:      settingsC,
-				Id:     st.docID(modelGlobalKey),
-				Assert: bson.D{{"version", settings.version}},
-				Update: bson.D{
-					{"$set", bson.D{
-						{"settings.agent-version", newVersion.String()},
-						{"settings.agent-stream", newStream},
-					}},
-				},
-			},
-		}
-		return ops, nil
-	}
-	if err = st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
-		// Although there is a small chance of a race here, try to
-		// return a more helpful error message in the case of an
-		// active upgradeInfo document being in place.
-		if upgrading, err := upgrader.IsUpgrading(); err != nil {
-			return errors.Annotate(err, "setting agent version")
-		} else if upgrading {
-			return errors.Trace(upgrade.ErrUpgradeInProgress)
-		}
-	}
-	return errors.Trace(err)
+	// TODO - implement the equivalent in the ModelAgentService.
+	// Removed as state not longer contains model config. Therefore
+	// the modelGlobalKey will never be found in the settingsC again.
+	return nil
 }
 
 // ModelConstraints returns the current model constraints.
@@ -2446,8 +2314,4 @@ func TagFromDocID(docID string) names.Tag {
 	default:
 		return nil
 	}
-}
-
-func NoopConfigSchemaSource(ctx context.Context, cloudName string) (environsconfig.ConfigSchemaSource, error) {
-	return nil, errors.NotImplementedf("config schema source")
 }

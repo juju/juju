@@ -53,7 +53,6 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
-	environsconfig "github.com/juju/juju/environs/config"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -159,10 +158,6 @@ type ApiServerSuite struct {
 	// InstancePrechecker is used to validate instance creation.
 	// DEPRECATED: This will be removed in the future.
 	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
-
-	// ConfigSchemaSourceGetter is used to provide the config schema for the model.
-	// DEPRECATED: This will be removed in the future.
-	ConfigSchemaSourceGetter func(*gc.C) environsconfig.ConfigSchemaSourceGetter
 }
 
 type noopRegisterer struct {
@@ -281,8 +276,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 			controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
 		},
 		ControllerModelArgs: state.ModelArgs{
-			Type:            modelType,
-			Owner:           AdminUser,
+			Type:  modelType,
+			Owner: AdminUser,
+			// Pass the minimal model config needed for bootstrap, the rest
+			// should be added through the model config service.
 			Config:          controllerModelCfg,
 			CloudName:       DefaultCloud.Name,
 			CloudRegion:     DefaultCloudRegion,
@@ -292,7 +289,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
 		NewPolicy:     stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
-	}, environs.ProviderConfigSchemaSource(domainServices.Cloud()))
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
 
@@ -390,10 +387,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-
-	s.ConfigSchemaSourceGetter = func(c *gc.C) environsconfig.ConfigSchemaSourceGetter {
-		return state.NoopConfigSchemaSource
-	}
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())

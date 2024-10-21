@@ -81,7 +81,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	}
 
 	api := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineService,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
@@ -107,7 +107,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner})
 	defer st.Close()
 	api := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineService,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
@@ -167,7 +167,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 	modelStatusAPI := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineService,
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
@@ -284,7 +284,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
 	modelStatusAPI := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineService,
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
@@ -339,7 +339,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 		},
 	}
 	modelStatusAPI := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineService,
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
