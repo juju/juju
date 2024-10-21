@@ -102,31 +102,6 @@ func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string)
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
 
-// GetMachineOpenedPortsAndSubnets returns the opened port ranges, including the
-// subnet CIDRs they're open to, for each endpoint, for each unit on a machine.
-//
-// NOTE(jack-w-shaw): This method is a stub implementation, that always returns
-// nil for the endpoint SubnetCIDRs
-// TODO: Once endpoint bindings have been implemented into a DQLite domain, implement
-// this method properly to return the subnet CIDRs each endpoint is open to.
-func (s *Service) GetMachineOpenedPortsAndSubnets(ctx context.Context, machineUUID string) (map[unit.Name]port.GroupedPortRangesOnSubnets, error) {
-	byUnitByEndpoint, err := s.st.GetMachineOpenedPorts(ctx, machineUUID)
-	if err != nil {
-		return nil, errors.Errorf("failed to get opened ports for machine %s: %w", machineUUID, err)
-	}
-	res := make(map[unit.Name]port.GroupedPortRangesOnSubnets)
-	for unitName, ByEndpoint := range byUnitByEndpoint {
-		res[unitName] = make(port.GroupedPortRangesOnSubnets)
-		for endpoint, portRanges := range ByEndpoint {
-			res[unitName][endpoint] = port.PortRangesOnSubnet{
-				PortRanges:  portRanges,
-				SubnetCIDRs: nil,
-			}
-		}
-	}
-	return res, nil
-}
-
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit name and then by endpoint.
 func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[unit.Name]network.GroupedPortRanges, error) {

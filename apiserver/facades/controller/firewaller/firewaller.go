@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -61,8 +59,6 @@ type FirewallerAPI struct {
 	st                                       State
 	networkService                           NetworkService
 	applicationService                       ApplicationService
-	machineService                           MachineService
-	portService                              PortService
 	resources                                facade.Resources
 	watcherRegistry                          facade.WatcherRegistry
 	authorizer                               facade.Authorizer
@@ -90,7 +86,6 @@ func NewStateFirewallerAPI(
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	machineService MachineService,
-	portService PortService,
 	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -161,8 +156,6 @@ func NewStateFirewallerAPI(
 		modelConfigService:                       modelConfigService,
 		networkService:                           networkService,
 		applicationService:                       applicationService,
-		machineService:                           machineService,
-		portService:                              portService,
 		logger:                                   logger,
 	}, nil
 }
@@ -212,52 +205,6 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// WatchOpenedPorts returns a new StringsWatcher for each given
-// model tag.
-func (f *FirewallerAPI) WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canWatch, err := f.accessModel()
-	if err != nil {
-		return params.StringsWatchResults{}, errors.Errorf("getting auth function: %w", err)
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canWatch(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		watcherId, initial, err := f.watchOneModelOpenedPorts(ctx)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result.Results[i].StringsWatcherId = watcherId
-		result.Results[i].Changes = initial
-	}
-	return result, nil
-}
-
-func (f *FirewallerAPI) watchOneModelOpenedPorts(ctx context.Context) (string, []string, error) {
-	watch, err := f.portService.WatchMachineOpenedPorts(ctx)
-	if err != nil {
-		return "", nil, errors.Errorf("cannot watch opened ports: %w", err)
-	}
-	watcherID, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, f.watcherRegistry, watch)
-	if err != nil {
-		return "", nil, errors.Errorf("cannot register watcher: %w", err)
-	}
-	return watcherID, changes, nil
 }
 
 // ModelFirewallRules returns the firewall rules that this model is
@@ -481,69 +428,6 @@ func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// OpenedMachinePortRanges returns a list of the opened port ranges for the
-// specified machines where each result is broken down by unit. The list of
-// opened ports for each unit is further grouped by endpoint name and includes
-// the subnet CIDRs that belong to the space that each endpoint is bound to.
-func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params.Entities) (params.OpenMachinePortRangesResults, error) {
-	result := params.OpenMachinePortRangesResults{
-		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
-	}
-	canAccess, err := f.accessMachine()
-	if err != nil {
-		return result, err
-	}
-
-	for i, arg := range args.Entities {
-		machineTag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if !canAccess(machineTag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		machineUUID, err := f.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := f.openedPortRangesForOneMachine(ctx, machineUUID)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-
-		}
-		result.Results[i].UnitPortRanges = unitPortRanges
-	}
-	return result, nil
-}
-
-func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machineUUID string) (map[string][]params.OpenUnitPortRanges, error) {
-	machineOpenedPortRangesToSubnets, err := f.portService.GetMachineOpenedPortsAndSubnets(ctx, machineUUID)
-	if err != nil {
-		return nil, errors.Errorf("getting opened ports and subnets for machine %q: %w", machineUUID, err)
-	}
-	// Map the port ranges for each unit to one or more subnet CIDRs
-	// depending on the endpoints they apply to.
-	res := make(map[string][]params.OpenUnitPortRanges)
-	for unitName, unitOpenedPortRangesToSubnets := range machineOpenedPortRangesToSubnets {
-		unitTag := names.NewUnitTag(unitName.String()).String()
-		for endpoint, portRangesToSubnets := range unitOpenedPortRangesToSubnets {
-			res[unitTag] = append(res[unitTag], params.OpenUnitPortRanges{
-				Endpoint:    endpoint,
-				PortRanges:  transform.Slice(portRangesToSubnets.PortRanges, params.FromNetworkPortRange),
-				SubnetCIDRs: portRangesToSubnets.SubnetCIDRs,
-			})
-		}
-	}
-
-	return res, nil
 }
 
 // GetExposeInfo returns the expose flag and per-endpoint expose settings

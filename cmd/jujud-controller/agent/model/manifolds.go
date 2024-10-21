@@ -436,10 +436,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    storageprovisioner.NewStorageProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.firewaller"),
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			DomainServicesName: domainServicesName,
+			EnvironName:        providerTrackerName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
 			NewControllerConnection:      apicaller.NewExternalControllerConnection,
 			NewFirewallerWorker:          firewaller.NewWorker,

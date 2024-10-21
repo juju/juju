@@ -25,11 +25,6 @@ func (u *Unit) Name() string {
 	return u.tag.Id()
 }
 
-// Tag returns the unit tag.
-func (u *Unit) Tag() names.UnitTag {
-	return u.tag
-}
-
 // Life returns the unit's life cycle value.
 func (u *Unit) Life() life.Value {
 	return u.life

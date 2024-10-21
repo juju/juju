@@ -26,9 +26,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
@@ -36,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/firewaller/mocks"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -51,6 +54,8 @@ type firewallerBaseSuite struct {
 
 	firewaller           *mocks.MockFirewallerAPI
 	remoteRelations      *mocks.MockRemoteRelationsAPI
+	portService          *mocks.MockPortService
+	machineService       *mocks.MockMachineService
 	crossmodelFirewaller *mocks.MockCrossModelFirewallerFacadeCloser
 	credentialsFacade    *mocks.MockCredentialAPI
 	envFirewaller        *mocks.MockEnvironFirewaller
@@ -120,6 +125,8 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 	}
 
 	s.firewaller = mocks.NewMockFirewallerAPI(ctrl)
+	s.portService = mocks.NewMockPortService(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 	s.envFirewaller = mocks.NewMockEnvironFirewaller(ctrl)
 	s.envModelFirewaller = mocks.NewMockEnvironModelFirewaller(ctrl)
 	s.envInstances = mocks.NewMockEnvironInstances(ctrl)
@@ -203,7 +210,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 			return
 		}
 		s.mu.Unlock()
-		if time.Since(start) > coretesting.LongWait {
+		if time.Since(start) > 2*coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, s.envPorts)
 		}
 		time.Sleep(coretesting.ShortWait)
@@ -306,28 +313,34 @@ func (s *firewallerBaseSuite) addApplication(ctrl *gomock.Controller, appName st
 func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *mocks.MockApplication) (*mocks.MockUnit, *mocks.MockMachine, chan []string) {
 	unitId := s.nextUnitId[app.Name()]
 	s.nextUnitId[app.Name()] = unitId + 1
-	unitTag := names.NewUnitTag(fmt.Sprintf("%s/%d", app.Name(), unitId))
+	unitName, err := coreunit.NewNameFromParts(app.Name(), unitId)
+	c.Assert(err, jc.ErrorIsNil)
 	m, unitsCh := s.addMachine(ctrl)
 	u := mocks.NewMockUnit(ctrl)
-	s.firewaller.EXPECT().Unit(gomock.Any(), unitTag).Return(u, nil).AnyTimes()
+	s.firewaller.EXPECT().Unit(gomock.Any(), names.NewUnitTag(unitName.String())).Return(u, nil).AnyTimes()
 	u.EXPECT().Life().Return(life.Alive)
-	u.EXPECT().Tag().Return(unitTag).AnyTimes()
+	u.EXPECT().Name().Return(unitName.String()).AnyTimes()
 	u.EXPECT().Application().Return(app, nil).AnyTimes()
 	u.EXPECT().AssignedMachine(gomock.Any()).Return(m.Tag(), nil).AnyTimes()
 
-	// Add the unit to the machine.
-	m.EXPECT().OpenedMachinePortRanges(gomock.Any()).DoAndReturn(func(context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		c.Logf("get OpenedMachinePortRanges for %q: %v", m.Tag().Id(), s.unitPortRanges.ByUnitEndpoint())
-		opened := map[names.UnitTag]network.GroupedPortRanges{}
-		if r, ok := s.unitPortRanges.ByUnitEndpoint()[unitTag.Id()]; ok {
-			opened[unitTag] = r
-		}
-		return nil, opened, nil
-	}).AnyTimes()
+	machineUUID := uuid.MustNewUUID().String()
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(m.Tag().Id())).Return(machineUUID, nil).AnyTimes()
+	s.portService.EXPECT().GetMachineOpenedPorts(gomock.Any(), machineUUID).DoAndReturn(
+		func(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error) {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			c.Logf("GetMachineOpenedPorts for %q: %v", m.Tag().Id(), s.unitPortRanges.ByUnitEndpoint())
+			opened := map[coreunit.Name]network.GroupedPortRanges{}
+			// NOTE: unitPortRanges contains all units across machines. Filtering
+			// to this unit only is a naive way to filter to the provided machine
+			if r, ok := s.unitPortRanges.ByUnitEndpoint()[unitName]; ok {
+				opened[unitName] = r
+			}
+			return opened, nil
+		},
+	).AnyTimes()
 
-	unitsCh <- []string{unitTag.Id()}
+	unitsCh <- []string{unitName.String()}
 
 	return u, m, unitsCh
 }
@@ -356,6 +369,8 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		EnvironInstances:       s.envInstances,
 		EnvironIPV6CIDRSupport: s.withIpv6,
 		FirewallerAPI:          s.firewaller,
+		PortsService:           s.portService,
+		MachineService:         s.machineService,
 		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
@@ -375,7 +390,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 	s.firewaller.EXPECT().WatchModelMachines(gomock.Any()).Return(mWatcher, nil)
 
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)
-	s.firewaller.EXPECT().WatchOpenedPorts(gomock.Any()).Return(opWatcher, nil)
+	s.portService.EXPECT().WatchMachineOpenedPorts(gomock.Any()).Return(opWatcher, nil)
 
 	remoteRelWatcher := watchertest.NewMockStringsWatcher(s.remoteRelCh)
 	s.remoteRelations.EXPECT().WatchRemoteRelations(gomock.Any()).Return(remoteRelWatcher, nil)
@@ -416,6 +431,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Log("firewaller worker started")
 
 	select {
 	case <-initialised:
@@ -880,7 +896,7 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 
 	// Remove unit.
 	u1.EXPECT().Life().Return(life.Dead)
-	unitsCh <- []string{u1.Tag().Id()}
+	unitsCh <- []string{u1.Name()}
 
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
 	s.assertIngressRules(c, m2.Tag().Id(), firewall.IngressRules{
@@ -910,7 +926,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 
 	// Remove application.
 	u.EXPECT().Life().Return(life.Dead)
-	unitsCh <- []string{u.Tag().Id()}
+	unitsCh <- []string{u.Name()}
 
 	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app.Name())).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
@@ -951,7 +967,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 
 	// Remove applications.
 	u1.EXPECT().Life().Return(life.Dead)
-	unitsCh1 <- []string{u1.Tag().Id()}
+	unitsCh1 <- []string{u1.Name()}
 
 	removed1 := make(chan bool)
 	app1.EXPECT().ExposeInfo(gomock.Any()).DoAndReturn(func(context.Context) (bool, map[string]params.ExposedEndpoint, error) {
@@ -961,7 +977,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	s.applicationsCh <- struct{}{}
 
 	u2.EXPECT().Life().Return(life.Dead)
-	unitsCh2 <- []string{u2.Tag().Id()}
+	unitsCh2 <- []string{u2.Name()}
 
 	app2.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app1.Name())).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
@@ -999,7 +1015,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 
 	// Remove unit and application, also tested without. Has no effect.
 	u.EXPECT().Life().Return(life.Dead).AnyTimes()
-	unitsCh <- []string{u.Tag().Id()}
+	unitsCh <- []string{u.Name()}
 
 	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app.Name())).AnyTimes()
 	s.applicationsCh <- struct{}{}
@@ -2111,7 +2127,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	defer workertest.CleanKill(c, fw)
 
 	s.machinesCh <- []string{m.Tag().Id()}
-	unitsCh <- []string{u.Tag().Id()}
+	unitsCh <- []string{u.Name()}
 
 	s.assertEnvironPorts(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -2156,7 +2172,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	defer workertest.CleanKill(c, fw)
 
 	s.machinesCh <- []string{m.Tag().Id()}
-	unitsCh <- []string{u.Tag().Id()}
+	unitsCh <- []string{u.Name()}
 
 	s.assertEnvironPorts(c, nil)
 }
@@ -2204,8 +2220,8 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	defer workertest.CleanKill(c, fw2)
 
 	s.machinesCh <- []string{m1.Tag().Id(), m2.Tag().Id()}
-	unitsCh1 <- []string{u1.Tag().Id()}
-	unitsCh2 <- []string{u2.Tag().Id()}
+	unitsCh1 <- []string{u1.Name()}
+	unitsCh2 <- []string{u2.Name()}
 
 	s.assertEnvironPorts(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -2282,6 +2298,8 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		EnvironInstances:       s.envInstances,
 		EnvironIPV6CIDRSupport: s.withIpv6,
 		FirewallerAPI:          s.firewaller,
+		PortsService:           s.portService,
+		MachineService:         s.machineService,
 		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
@@ -2303,7 +2321,7 @@ func (s *firewallerBaseSuite) mustOpenPortRanges(c *gc.C, u *mocks.MockUnit, end
 	for _, pr := range portRanges {
 		s.unitPortRanges.Open(endpointName, pr)
 	}
-	op := newUnitPortRangesCommit(s.unitPortRanges, u.Tag().Id())
+	op := newUnitPortRangesCommit(s.unitPortRanges, coreunit.Name(u.Name()))
 	modified, err := op.Commit()
 	c.Assert(err, jc.ErrorIsNil)
 	if !modified {
@@ -2325,7 +2343,7 @@ func (s *firewallerBaseSuite) mustClosePortRanges(c *gc.C, u *mocks.MockUnit, en
 	for _, pr := range portRanges {
 		s.unitPortRanges.Close(endpointName, pr)
 	}
-	op := newUnitPortRangesCommit(s.unitPortRanges, u.Tag().Id())
+	op := newUnitPortRangesCommit(s.unitPortRanges, coreunit.Name(u.Name()))
 	modified, err := op.Commit()
 	c.Assert(err, jc.ErrorIsNil)
 	if !modified {

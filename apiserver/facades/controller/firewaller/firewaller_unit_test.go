@@ -17,16 +17,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -50,7 +46,6 @@ type RemoteFirewallerSuite struct {
 	networkService          *MockNetworkService
 	applicationService      *MockApplicationService
 	machineService          *MockMachineService
-	portService             *MockPortService
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -78,7 +73,6 @@ func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-	s.portService = NewMockPortService(ctrl)
 
 	return ctrl
 }
@@ -97,7 +91,6 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
-		s.portService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +187,6 @@ type FirewallerSuite struct {
 	networkService          *MockNetworkService
 	applicationService      *MockApplicationService
 	machineService          *MockMachineService
-	portService             *MockPortService
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -219,7 +211,6 @@ func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-	s.portService = NewMockPortService(ctrl)
 
 	return ctrl
 }
@@ -238,7 +229,6 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
-		s.portService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,65 +307,6 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
-}
-
-func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	machineUUID := uuid.MustNewUUID().String()
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machineUUID, nil)
-
-	s.portService.EXPECT().GetMachineOpenedPortsAndSubnets(gomock.Any(), machineUUID).Return(
-		map[unit.Name]port.GroupedPortRangesOnSubnets{
-			"wordpress/0": {
-				"": {
-					PortRanges:  []network.PortRange{network.MustParsePortRange("80/tcp")},
-					SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24"},
-				},
-			},
-			"mysql/0": {
-				"foo": {
-					PortRanges:  []network.PortRange{network.MustParsePortRange("3306/tcp")},
-					SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-				},
-			},
-		},
-		nil,
-	)
-
-	// Test call output
-	req := params.Entities{
-		Entities: []params.Entity{
-			{Tag: names.NewMachineTag("0").String()},
-		},
-	}
-	res, err := s.api.OpenedMachinePortRanges(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, map[string][]params.OpenUnitPortRanges{
-		"unit-wordpress-0": {
-			{
-				Endpoint:    "",
-				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24"},
-				PortRanges: []params.PortRange{
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-			},
-		},
-		"unit-mysql-0": {
-			{
-				Endpoint:    "foo",
-				SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-				PortRanges: []params.PortRange{
-					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
-				},
-			},
-		},
-	})
 }
 
 func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {

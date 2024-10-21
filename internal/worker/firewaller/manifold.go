@@ -18,16 +18,24 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/models"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/common"
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.
+//
+// TODO(jack-w-shaw): This is a model worker, so domain services can be accessed
+// directly instead of going via an API. However, not all dependencies are
+// available as domain services, so we still need to use the API for some things.
+// Once all dependencies are available as domain services, we can remove the
+// APICaller.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	EnvironName   string
-	Logger        logger.Logger
+	AgentName          string
+	APICallerName      string
+	DomainServicesName string
+	EnvironName        string
+	Logger             logger.Logger
 
 	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade     func(base.APICaller) *remoterelations.Client
@@ -43,6 +51,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			cfg.AgentName,
 			cfg.APICallerName,
 			cfg.EnvironName,
+			cfg.DomainServicesName,
 		},
 		Start: cfg.start,
 	}
@@ -100,6 +109,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
+	var domainServices services.DomainServices
+	if err := getter.Get(cfg.DomainServicesName, &domainServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Check if the env supports global firewalling.  If the
 	// configured mode is instance, we can ignore fwEnv being a
 	// nil value, as it won't be used.
@@ -142,6 +156,8 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		ModelUUID:               agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiConn),
 		FirewallerAPI:           firewallerAPI,
+		PortsService:            domainServices.Port(),
+		MachineService:          domainServices.Machine(),
 		EnvironFirewaller:       fwEnv,
 		EnvironModelFirewaller:  modelFw,
 		EnvironInstances:        environ,

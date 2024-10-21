@@ -45,7 +45,6 @@ func (s *unitSuite) TestUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Life(), gc.Equals, life.Alive)
 	c.Assert(u.Name(), jc.DeepEquals, "mysql/666")
-	c.Assert(u.Tag(), jc.DeepEquals, tag)
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {

@@ -93,30 +93,6 @@ func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
-	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Firewaller")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchOpenedPorts")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{Error: &params.Error{Message: "FAIL"}}},
-		}
-		callCount++
-		return nil
-	})
-	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.WatchOpenedPorts(context.Background())
-	c.Check(err, gc.ErrorMatches, "FAIL")
-	c.Check(callCount, gc.Equals, 1)
-}
-
 func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	var callCount int
 	relationTag := names.NewRelationTag("mediawiki:db mysql:db")

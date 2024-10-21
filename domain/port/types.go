@@ -50,14 +50,3 @@ func (prs UnitEndpointPortRanges) ByUnitByEndpoint() map[unit.Name]network.Group
 	}
 	return byUnitByEndpoint
 }
-
-// PortRangesOnSubnet represents a collections of ports, organised into port ranges,
-// coupled with a subnet, organised into CIDRs.
-type PortRangesOnSubnet struct {
-	PortRanges  []network.PortRange
-	SubnetCIDRs []string
-}
-
-// GroupedPortRangesOnSubnets represents a collections ports coupled with subnets,
-// grouped by a particular feature. (e.g. unit name)
-type GroupedPortRangesOnSubnets map[string]PortRangesOnSubnet

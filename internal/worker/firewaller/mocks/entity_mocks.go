@@ -15,7 +15,6 @@ import (
 
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
-	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
 	firewaller "github.com/juju/juju/internal/worker/firewaller"
 	params "github.com/juju/juju/rpc/params"
@@ -158,46 +157,6 @@ func (c *MockMachineLifeCall) Do(f func() life.Value) *MockMachineLifeCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineLifeCall) DoAndReturn(f func() life.Value) *MockMachineLifeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// OpenedMachinePortRanges mocks base method.
-func (m *MockMachine) OpenedMachinePortRanges(arg0 context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenedMachinePortRanges", arg0)
-	ret0, _ := ret[0].(map[names.UnitTag]network.GroupedPortRanges)
-	ret1, _ := ret[1].(map[names.UnitTag]network.GroupedPortRanges)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// OpenedMachinePortRanges indicates an expected call of OpenedMachinePortRanges.
-func (mr *MockMachineMockRecorder) OpenedMachinePortRanges(arg0 any) *MockMachineOpenedMachinePortRangesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedMachinePortRanges", reflect.TypeOf((*MockMachine)(nil).OpenedMachinePortRanges), arg0)
-	return &MockMachineOpenedMachinePortRangesCall{Call: call}
-}
-
-// MockMachineOpenedMachinePortRangesCall wrap *gomock.Call
-type MockMachineOpenedMachinePortRangesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineOpenedMachinePortRangesCall) Return(arg0, arg1 map[names.UnitTag]network.GroupedPortRanges, arg2 error) *MockMachineOpenedMachinePortRangesCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineOpenedMachinePortRangesCall) Do(f func(context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error)) *MockMachineOpenedMachinePortRangesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineOpenedMachinePortRangesCall) DoAndReturn(f func(context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error)) *MockMachineOpenedMachinePortRangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -490,44 +449,6 @@ func (c *MockUnitRefreshCall) Do(f func(context.Context) error) *MockUnitRefresh
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUnitRefreshCall) DoAndReturn(f func(context.Context) error) *MockUnitRefreshCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Tag mocks base method.
-func (m *MockUnit) Tag() names.UnitTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names.UnitTag)
-	return ret0
-}
-
-// Tag indicates an expected call of Tag.
-func (mr *MockUnitMockRecorder) Tag() *MockUnitTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockUnit)(nil).Tag))
-	return &MockUnitTagCall{Call: call}
-}
-
-// MockUnitTagCall wrap *gomock.Call
-type MockUnitTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitTagCall) Return(arg0 names.UnitTag) *MockUnitTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitTagCall) Do(f func() names.UnitTag) *MockUnitTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitTagCall) DoAndReturn(f func() names.UnitTag) *MockUnitTagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

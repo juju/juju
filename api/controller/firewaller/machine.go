@@ -13,7 +13,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -99,49 +98,4 @@ func (m *Machine) IsManual(ctx context.Context) (bool, error) {
 		return false, result.Error
 	}
 	return result.Result, nil
-}
-
-// OpenedMachinePortRanges queries the open port ranges for all units on this
-// machine and returns back two maps where keys are unit names and values are
-// open port range groupings by subnet CIDR and endpoint name.
-func (m *Machine) OpenedMachinePortRanges(ctx context.Context) (byUnitAndCIDR map[names.UnitTag]network.GroupedPortRanges, byUnitAndEndpoint map[names.UnitTag]network.GroupedPortRanges, err error) {
-	var results params.OpenMachinePortRangesResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	if err = m.client.facade.FacadeCall(ctx, "OpenedMachinePortRanges", args, &results); err != nil {
-		return nil, nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, nil, result.Error
-	}
-
-	byUnitAndCIDR = make(map[names.UnitTag]network.GroupedPortRanges)
-	byUnitAndEndpoint = make(map[names.UnitTag]network.GroupedPortRanges)
-	for unitTagStr, unitPortRangeList := range result.UnitPortRanges {
-		unitTag, err := names.ParseUnitTag(unitTagStr)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		byUnitAndCIDR[unitTag] = make(network.GroupedPortRanges)
-		byUnitAndEndpoint[unitTag] = make(network.GroupedPortRanges)
-
-		for _, unitPortRanges := range unitPortRangeList {
-			portList := make([]network.PortRange, len(unitPortRanges.PortRanges))
-			for i, pr := range unitPortRanges.PortRanges {
-				portList[i] = pr.NetworkPortRange()
-			}
-
-			byUnitAndEndpoint[unitTag][unitPortRanges.Endpoint] = append(byUnitAndEndpoint[unitTag][unitPortRanges.Endpoint], portList...)
-			for _, cidr := range unitPortRanges.SubnetCIDRs {
-				byUnitAndCIDR[unitTag][cidr] = append(byUnitAndCIDR[unitTag][cidr], portList...)
-			}
-		}
-	}
-	return byUnitAndCIDR, byUnitAndEndpoint, nil
 }
