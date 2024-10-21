@@ -49,14 +49,14 @@ func (s *stateSuite) TestStateBasePrepare(c *gc.C) {
 	stmt1, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
 	c.Assert(err, gc.IsNil)
 	// Validate prepared statement works as expected.
-	var name string
+	var name any
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		results := sqlair.M{}
 		err := tx.Query(ctx, stmt1).Get(results)
 		if err != nil {
 			return err
 		}
-		name = results["name"].(string)
+		name = results["name"]
 		return nil
 	})
 	c.Assert(err, gc.IsNil)
