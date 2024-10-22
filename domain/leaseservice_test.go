@@ -50,7 +50,6 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 
 	// Now check that the lease is still held once we've started waiting. If
 	// the wait is triggered before the check, the test will fail.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := LeaseService{
@@ -91,7 +90,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 		called = true
 		return ctx.Err()
 	})
-	c.Assert(err, gc.ErrorMatches, "not holding lease")
+	c.Assert(err, jc.ErrorIs, context.Canceled)
 	c.Check(called, jc.IsFalse)
 }
 
@@ -122,7 +121,6 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	})
 
 	// The lease is still held by the holder.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := LeaseService{
@@ -157,7 +155,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 
 		return ctx.Err()
 	})
-	c.Assert(err, gc.ErrorMatches, "not holding lease")
+	c.Assert(err, jc.ErrorIs, context.Canceled)
 	c.Check(called, jc.IsTrue)
 }
 
@@ -185,7 +183,6 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 	})
 
 	// The lease is still held by the holder.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(errors.Errorf("not holding lease"))
 
 	service := LeaseService{
