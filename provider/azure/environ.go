@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/core/arch"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
@@ -442,7 +442,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(
 		constraints.Arch,
-		[]string{arch.AMD64},
+		[]string{corearch.AMD64},
 	)
 	validator.RegisterVocabulary(
 		constraints.InstanceType,
@@ -557,6 +557,13 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		}
 		hypervisorGenErr, ok := errorutils.MaybeHypervisorGenNotSupportedError(err)
 		if ok && !preferGen1Image {
+			if arch == corearch.ARM64 {
+				// This is a fatal error for ARM64 instances.
+				// We cannot provision a generation 2 VM with an ARM64 image and there is no fallback
+				// to generation 1 images for ARM64.
+				return nil, errorutils.SimpleError(err)
+
+			}
 			logger.Warningf("hypervisor generation 2 not supported for %q error: %q", instanceSpec.InstanceType.Name, hypervisorGenErr.Error())
 			logger.Warningf("retrying with generation 1 image")
 			preferGen1Image = true
@@ -577,6 +584,7 @@ func (env *azureEnviron) startInstance(
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: instanceSpec.Image.Arch,
 	})
+	logger.Criticalf("startInstance instanceSpec.Image.Arch %q", instanceSpec.Image.Arch)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -642,9 +650,8 @@ func (env *azureEnviron) startInstance(
 		provisioningState: armresources.ProvisioningStateCreating,
 		env:               env,
 	}
-	amd64 := arch.AMD64
 	hc := &instance.HardwareCharacteristics{
-		Arch:     &amd64,
+		Arch:     &instanceSpec.Image.Arch,
 		Mem:      &instanceSpec.InstanceType.Mem,
 		RootDisk: &instanceSpec.InstanceType.RootDisk,
 		CpuCores: &instanceSpec.InstanceType.CpuCores,

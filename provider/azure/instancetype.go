@@ -533,14 +533,15 @@ func (env *azureEnviron) findInstanceSpec(
 
 	if constraint.Arch != arch.AMD64 {
 		// Azure only supports AMD64.
-		return nil, errors.NotFoundf("%s in arch constraints", arch.AMD64)
+		// return nil, errors.NotFoundf("%s in arch constraints", arch.AMD64)
+		logger.Criticalf("requested arch %q", constraint.Arch)
 	}
 
 	client, err := env.imagesClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	image, err := imageutils.BaseImage(ctx, constraint.Base, imageStream, constraint.Region, client, preferGen1Image)
+	image, err := imageutils.BaseImage(ctx, constraint.Base, imageStream, constraint.Region, constraint.Arch, client, preferGen1Image)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

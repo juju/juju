@@ -76,6 +76,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	if !cons.HasArch() && ic.Arch != "" {
 		cons.Arch = &ic.Arch
 	}
+	logger.Criticalf("requested arch %q", ic.Arch)
 	matchingTypes, err := MatchingInstanceTypes(allInstanceTypes, ic.Region, cons)
 	if err != nil {
 		return nil, err

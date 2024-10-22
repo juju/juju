@@ -160,6 +160,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	var controllerIds []string
 	for _, template := range templates {
 		mdoc, addOps, err := st.addMachineOps(template)
+		logger.Criticalf("mdoc: %v, addOps: %v, err: %v", mdoc, addOps, err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -170,6 +171,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		ops = append(ops, addOps...)
 	}
 	ssOps, err := st.maintainControllersOps(controllerIds, true)
+	logger.Criticalf("ssOps: %v, err: %v", ssOps, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,6 +183,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 				return nil, errors.Trace(err)
 			}
 		}
+		logger.Criticalf("err: %v", err)
 		return nil, errors.Trace(err)
 	}
 	return ms, nil
@@ -261,6 +264,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
 	template, err := st.effectiveMachineTemplate(template, st.IsController())
+	logger.Criticalf("template: %v, err: %v", template, err)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -284,6 +288,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	}
 	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
 	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
+	logger.Criticalf("prereqOps: %v, machineOp: %v, err: %v", prereqOps, machineOp, err)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
