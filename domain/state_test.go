@@ -28,7 +28,7 @@ func (s *stateSuite) TestStateBaseGetDB(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 }
 
@@ -42,12 +42,12 @@ func (s *stateSuite) TestStateBasePrepare(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Prepare new query.
 	stmt1, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Validate prepared statement works as expected.
 	var name any
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -59,12 +59,12 @@ func (s *stateSuite) TestStateBasePrepare(c *gc.C) {
 		name = results["name"]
 		return nil
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "schema")
 
 	// Retrieve previous statement.
 	stmt2, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stmt1, gc.Equals, stmt2)
 }
 
@@ -72,8 +72,8 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(db, gc.NotNil)
 
 	// Prepare statement with TestType.
 	{
@@ -81,7 +81,7 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *gc.C) {
 			WrongName string `db:"type"`
 		}
 		_, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema", TestType{})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Prepare statement with a different type of the same name, this will
@@ -90,28 +90,21 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *gc.C) {
 		Name string `db:"name"`
 	}
 	stmt, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema", TestType{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Try and run a query.
-	var name string
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		results := TestType{}
-		err := tx.Query(ctx, stmt).Get(&results)
-		if err != nil {
-			return err
-		}
-		name = results.Name
-		return nil
+		var results TestType
+		return tx.Query(ctx, stmt).Get(&results)
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot get result: parameter with type "domain.TestType" missing, have type with same name: "domain.TestType"`)
-	c.Assert(name, gc.Equals, "schema")
 }
 
 func (s *stateSuite) TestStateBaseRunAtomicTransactionExists(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the transaction is sent via the AtomicContext.
@@ -130,7 +123,7 @@ func (s *stateSuite) TestStateBaseRunAtomicPreventAtomicContextStoring(c *gc.C) 
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// If the AtomicContext is stored outside of the transaction, it should
@@ -154,7 +147,7 @@ func (s *stateSuite) TestStateBaseRunAtomicContextValue(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the context is passed through to the AtomicContext.
@@ -179,7 +172,7 @@ func (s *stateSuite) TestStateBaseRunAtomicCancel(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Make sure that the context symantics are respected in terms of
@@ -200,7 +193,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRun(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the Run method is called.
@@ -220,7 +213,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunMultipleTimes(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the Run method is called.
@@ -245,7 +238,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the run methods are correctly sequenced. Although there
@@ -322,7 +315,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunPreparedStatements(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the Run method can use sqlair prepared statements.
@@ -349,7 +342,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunDoesNotLeakError(c *gc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
 	db, err := base.DB()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
 	// Ensure that the Run method does not leak sql.ErrNoRows.

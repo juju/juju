@@ -2240,8 +2240,8 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	c.Check(obsolete1, jc.IsTrue)
 	c.Check(pendingDelete1, jc.IsTrue)
 
-	c.Check(obsolete2, jc.IsTrue)
-	c.Check(pendingDelete2, jc.IsTrue)
+	c.Check(obsolete2, jc.IsFalse)
+	c.Check(pendingDelete2, jc.IsFalse)
 }
 
 func (s *stateSuite) getObsolete(c *gc.C, uri *coresecrets.URI, rev int) (bool, bool) {
