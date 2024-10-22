@@ -42,6 +42,7 @@ type PooledState struct {
 	isSystemState bool
 	released      bool
 	itemKey       uint64
+	removing      chan struct{}
 }
 
 var _ PoolHelper = (*PooledState)(nil)
@@ -75,6 +76,12 @@ func (ps *PooledState) Release() bool {
 	return removed
 }
 
+// Removing returns a channel that is closed when the PooledState
+// should be released by the consumer.
+func (ps *PooledState) Removing() <-chan struct{} {
+	return ps.removing
+}
+
 // TODO: implement Close that hides the state.Close for a PooledState?
 
 // Annotate writes the supplied context information back to the pool item.
@@ -93,6 +100,7 @@ type PoolItem struct {
 	modelUUID        string
 	referenceSources map[uint64]string
 	remove           bool
+	removing         chan struct{}
 }
 
 func (i *PoolItem) refCount() int {
@@ -242,6 +250,7 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 		item.referenceSources[key] = source
 		ps := newPooledState(item.state, p, modelUUID, false)
 		ps.itemKey = key
+		ps.removing = item.removing
 		return ps, nil
 	}
 
@@ -256,15 +265,18 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	removing := make(chan struct{})
 	p.pool[modelUUID] = &PoolItem{
 		modelUUID: modelUUID,
 		state:     st,
 		referenceSources: map[uint64]string{
 			key: source,
 		},
+		removing: removing,
 	}
 	ps := newPooledState(st, p, modelUUID, false)
 	ps.itemKey = key
+	ps.removing = removing
 	return ps, nil
 }
 
@@ -355,7 +367,12 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 		// ignore unknown model uuids.
 		return false, nil
 	}
-	item.remove = true
+	if !item.remove {
+		item.remove = true
+		if item.removing != nil {
+			close(item.removing)
+		}
+	}
 	return p.maybeRemoveItem(item)
 }
 

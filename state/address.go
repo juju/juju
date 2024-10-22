@@ -169,7 +169,7 @@ func (st *State) isCAASController() (bool, error) {
 
 func (st *State) apiHostPortsForCAAS(controllerConfig controller.Config, public bool) (addresses []network.SpaceHostPorts, err error) {
 	defer func() {
-		logger.Debugf("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
+		logger.Tracef("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
 	}()
 
 	if st.ModelUUID() != st.controllerModelTag.Id() {

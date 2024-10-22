@@ -1148,9 +1148,11 @@ func (srv *Server) serveConn(
 	domainServices := srv.shared.domainServicesGetter.ServicesForModel(modelUUID)
 
 	var handler *apiHandler
+	var stateClosing <-chan struct{}
 	st, err := srv.shared.statePool.Get(modelUUID.String())
 	if err == nil {
 		defer st.Release()
+		stateClosing = st.Removing()
 		handler, err = newAPIHandler(
 			ctx,
 			srv,
@@ -1189,6 +1191,7 @@ func (srv *Server) serveConn(
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():
+	case <-stateClosing:
 	}
 	return conn.Close()
 }

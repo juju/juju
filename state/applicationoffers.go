@@ -259,6 +259,8 @@ func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
 		}
 		ops = append(ops, proxyOps...)
 	}
+
+	sortRemovalOpsLast(ops)
 	return ops, nil
 }
 

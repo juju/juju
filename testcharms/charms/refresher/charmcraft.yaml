@@ -11,27 +11,23 @@ bases:
         channel: "16.04"
         architectures:
           - amd64
-          - aarch64
           - arm64
           - s390x
       - name: "ubuntu"
         channel: "18.04"
         architectures:
           - amd64
-          - aarch64
           - arm64
           - s390x
       - name: "ubuntu"
         channel: "20.04"
         architectures:
           - amd64
-          - aarch64
           - arm64
           - s390x
       - name: "ubuntu"
         channel: "22.04"
         architectures:
           - amd64
-          - aarch64
           - arm64
           - s390x
