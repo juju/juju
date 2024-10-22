@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -69,10 +68,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.domainServices = s.ControllerDomainServices(c)
 
 	s.machineService = s.domainServices.Machine()
-	s.applicationService = s.domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	s.applicationService = s.domainServices.Application(applicationservice.NotImplementedSecretService{})
 	s.portService = s.domainServices.Port()
 	s.stubService = s.domainServices.Stub()
 }

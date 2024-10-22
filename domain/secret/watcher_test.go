@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -56,10 +57,13 @@ VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger)
-	svc := applicationservice.NewService(st, nil, applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	}, logger)
+	svc := applicationservice.NewService(st, nil,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return storage.NotImplementedProviderRegistry{}
+		}),
+		applicationservice.NotImplementedSecretService{},
+		logger,
+	)
 
 	unitName, err := unit.NewNameFromParts(appName, 0)
 	c.Assert(err, jc.ErrorIsNil)

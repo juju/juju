@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
@@ -30,6 +31,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -66,10 +68,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         secretService,
-		},
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
+		secretService,
 		loggertesting.WrapCheckLog(c),
 	)
 

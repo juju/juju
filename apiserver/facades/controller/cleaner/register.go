@@ -9,10 +9,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -31,20 +29,16 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 
 	domainServices := ctx.DomainServices()
 	backendService := domainServices.SecretBackend()
-	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		// For removing applications, we don't need a storage registry.
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets: domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
-		),
-	})
+	applicationService := domainServices.Application(domainServices.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	))
 	return &CleanerAPI{
 		st:             getState(ctx.State()),
 		resources:      ctx.Resources(),

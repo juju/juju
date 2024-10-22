@@ -20,6 +20,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/model"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
@@ -1093,16 +1094,16 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockApplicationState(ctrl)
 	s.charm = NewMockCharm(ctrl)
-	registry := storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	}
-	params := ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         NotImplementedSecretService{},
-	}
+	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+		return storage.ChainedProviderRegistry{
+			dummystorage.StorageProviders(),
+			provider.CommonStorageProviders(),
+		}
+	})
+
 	s.clock = testclock.NewClock(time.Time{})
-	s.service = NewApplicationService(s.state, params, loggertesting.WrapCheckLog(c))
+	secretService := NotImplementedSecretService{}
+	s.service = NewApplicationService(s.state, registry, secretService, loggertesting.WrapCheckLog(c))
 	s.service.clock = s.clock
 
 	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {

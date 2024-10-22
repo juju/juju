@@ -69,7 +69,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -62,10 +61,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 	defer release()
 
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "juju-controller"})
 	_, err := application.DeployApplication(
@@ -90,10 +86,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	app, err := application.DeployApplication(
 		context.Background(),
@@ -122,10 +115,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	_, err := application.DeployApplication(
@@ -156,10 +146,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
@@ -226,10 +213,7 @@ func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, 
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
@@ -284,10 +268,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	st := s.ControllerModel(c).State()
@@ -346,10 +327,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	_, err := application.DeployApplication(
@@ -382,10 +360,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	app, err := application.DeployApplication(
 		context.Background(),
@@ -417,10 +392,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	st := s.ControllerModel(c).State()
 	_, err := application.DeployApplication(
@@ -460,10 +432,7 @@ func sampleApplicationConfigSchema() environschema.Fields {
 
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	cfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"outlook":     "good",
@@ -498,10 +467,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	st := s.ControllerModel(c).State()
 	err := st.SetModelConstraints(constraints.MustParse("mem=2G"))
@@ -532,10 +498,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -568,10 +531,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -607,10 +567,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -645,10 +602,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -691,10 +645,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 	s.ProviderTracker = fakeProviderTracker{}
 
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
@@ -736,10 +687,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 	s.ProviderTracker = fakeProviderTracker{}
 
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
@@ -777,10 +725,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")

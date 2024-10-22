@@ -11,9 +11,8 @@ import (
 
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/core/network"
-	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/application/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 	testfactory "github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -233,10 +232,7 @@ func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
 		Application: app,
 	})
 
-	appService := s.ControllerDomainServices(c).Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	appService := s.ControllerDomainServices(c).Application(service.NotImplementedSecretService{})
 
 	unit0UUID, err := appService.GetUnitUUID(context.Background(), "wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)

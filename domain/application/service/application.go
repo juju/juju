@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -226,27 +227,24 @@ type ApplicationService struct {
 	logger logger.Logger
 	clock  clock.Clock
 
-	registry      storage.ProviderRegistry
-	secretService SecretService
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
+	secretService         SecretService
 }
 
 // NewApplicationService returns a new service reference wrapping the input state.
-func NewApplicationService(st ApplicationState, params ApplicationServiceParams, logger logger.Logger) *ApplicationService {
+func NewApplicationService(st ApplicationState, storageRegistryGetter corestorage.ModelStorageRegistryGetter, secrets SecretService, logger logger.Logger) *ApplicationService {
 	// Some uses of application service don't need to supply a storage registry,
 	// eg cleaner facade. In such cases it'd wasteful to create one as an
 	// environ instance would be needed.
-	if params.StorageRegistry == nil {
-		params.StorageRegistry = storage.NotImplementedProviderRegistry{}
-	}
-	if params.Secrets == nil {
-		params.Secrets = NotImplementedSecretService{}
+	if secrets == nil {
+		secrets = NotImplementedSecretService{}
 	}
 	return &ApplicationService{
-		st:            st,
-		logger:        logger,
-		clock:         clock.WallClock,
-		registry:      params.StorageRegistry,
-		secretService: params.Secrets,
+		st:                    st,
+		logger:                logger,
+		clock:                 clock.WallClock,
+		storageRegistryGetter: storageRegistryGetter,
+		secretService:         secrets,
 	}
 }
 
@@ -1123,7 +1121,12 @@ func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, mo
 }
 
 func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm internalcharm.Charm) error {
-	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, s.registry, s.st)
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, s.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1365,12 +1368,15 @@ type ProviderApplicationService struct {
 
 // NewProviderApplicationService returns a new Service for interacting with a models state.
 func NewProviderApplicationService(
-	st ApplicationState, params ApplicationServiceParams, logger logger.Logger,
+	st ApplicationState,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	secretService SecretService,
+	logger logger.Logger,
 ) *ProviderApplicationService {
-	service := NewApplicationService(st, params, logger)
+	service := NewApplicationService(st, storageRegistryGetter, secretService, logger)
 
 	return &ProviderApplicationService{
 		ApplicationService: *service,
@@ -1423,14 +1429,16 @@ type WatchableApplicationService struct {
 
 // NewWatchableApplicationService returns a new service reference wrapping the input state.
 func NewWatchableApplicationService(
-	st ApplicationState, watcherFactory WatcherFactory,
-	params ApplicationServiceParams,
-	logger logger.Logger,
+	st ApplicationState,
+	watcherFactory WatcherFactory,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	secretService SecretService,
+	logger logger.Logger,
 ) *WatchableApplicationService {
-	service := NewProviderApplicationService(st, params, logger, modelID, agentVersionGetter, provider)
+	service := NewProviderApplicationService(st, modelID, agentVersionGetter, provider, storageRegistryGetter, secretService, logger)
 
 	return &WatchableApplicationService{
 		ProviderApplicationService: *service,

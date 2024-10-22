@@ -11,10 +11,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -46,19 +44,16 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	controllerConfigGetter := ctx.DomainServices().ControllerConfig()
 	domainServices := ctx.DomainServices()
 	backendService := domainServices.SecretBackend()
-	applicationService := ctx.DomainServices().Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets: ctx.DomainServices().Secret(
-			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
-		),
-	})
+	applicationService := ctx.DomainServices().Application(ctx.DomainServices().Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	))
 
 	return NewDeployerAPI(controllerConfigGetter, applicationService, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)
 }

@@ -65,9 +65,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	"github.com/juju/juju/internal/storage/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -262,8 +259,8 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	// modelUUID param is not used so can pass in anything.
 	domainServices := s.ControllerDomainServices(c)
 
-	storageServiceGetter := func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Storage(registry)
+	storageServiceGetter := func(modelUUID coremodel.UUID) state.StoragePoolGetter {
+		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Storage()
 	}
 	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
 		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Config()
@@ -530,45 +527,22 @@ func (s *ApiServerSuite) StatePool() *state.StatePool {
 func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory, func() bool) {
 	var (
 		st       *state.State
-		model    *state.Model
 		releaser func() bool
 		err      error
 	)
 	if modelUUID == s.DomainServicesSuite.ControllerModelUUID.String() {
 		st, err = s.controller.SystemState()
 		c.Assert(err, jc.ErrorIsNil)
-		model = s.ControllerModel(c)
 		releaser = func() bool { return true }
 	} else {
 		pooledSt, err := s.controller.GetState(names.NewModelTag(modelUUID))
 		c.Assert(err, jc.ErrorIsNil)
 		releaser = pooledSt.Release
 		st = pooledSt.State
-		model, err = st.Model()
-		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	modelDomainServices := s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(coremodel.UUID(modelUUID))
-	var registry storage.ProviderRegistry
-	if model.Type() == state.ModelTypeIAAS {
-		registry = storage.ChainedProviderRegistry{
-			dummy.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	} else {
-		registry = storage.ChainedProviderRegistry{
-			storage.StaticProviderRegistry{
-				Providers: map[storage.ProviderType]storage.Provider{
-					"kubernetes": &dummy.StorageProvider{},
-				},
-			},
-			provider.CommonStorageProviders(),
-		}
-	}
-	applicationService := modelDomainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	applicationService := modelDomainServices.Application(applicationservice.NotImplementedSecretService{})
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(applicationService), releaser
 }

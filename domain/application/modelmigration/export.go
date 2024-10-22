@@ -14,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
@@ -66,10 +67,10 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), e.logger),
 		state.NewCharmState(scope.ModelDB()),
-		service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
-		},
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return storage.NotImplementedProviderRegistry{}
+		}),
+		service.NotImplementedSecretService{},
 		e.logger,
 	)
 	return nil

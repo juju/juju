@@ -106,11 +106,8 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	api, err := application.NewAPIBase(
 		application.GetState(st),

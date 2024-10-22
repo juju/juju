@@ -39,7 +39,6 @@ import (
 	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
-	"github.com/juju/juju/internal/storage"
 )
 
 // ControllerDomainServices provides access to the services required by the
@@ -92,7 +91,7 @@ type ModelDomainServices interface {
 	// BlockDevice returns the block device service.
 	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the application service.
-	Application(params applicationservice.ApplicationServiceParams) *applicationservice.WatchableService
+	Application(applicationservice.SecretService) *applicationservice.WatchableService
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of importing keys
@@ -103,7 +102,7 @@ type ModelDomainServices interface {
 	// Network returns the space service.
 	Network() *networkservice.WatchableService
 	// Storage returns the storage service.
-	Storage(registry storage.ProviderRegistry) *storageservice.Service
+	Storage() *storageservice.Service
 	// Secret returns the secret service.
 	Secret(secretservice.SecretServiceParams) *secretservice.WatchableService
 	// ModelInfo returns the model service for the model. The model info

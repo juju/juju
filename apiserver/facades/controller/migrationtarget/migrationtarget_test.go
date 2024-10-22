@@ -27,6 +27,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	corestorage "github.com/juju/juju/core/storage"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -645,7 +646,9 @@ func (s *Suite) expectImportModel(c *gc.C) {
 			scope,
 			s.controllerConfigService,
 			s.domainServicesGetter,
-			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+			corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+				return provider.CommonStorageProviders()
+			}),
 			loggertesting.WrapCheckLog(c),
 			clock.WallClock,
 		).ImportModel(ctx, bytes)

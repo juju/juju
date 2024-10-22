@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
@@ -37,7 +38,7 @@ import (
 
 type ExportSuite struct {
 	providerRegistry      *MockProviderRegistry
-	storageRegistryGetter func() (storage.ProviderRegistry, error)
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	operationsExporter    *MockOperationExporter
 	coordinator           *MockCoordinator
 	model                 *MockModel
@@ -57,7 +58,9 @@ func (s *ExportSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *ExportSuite) SetUpTest(c *gc.C) {
-	s.storageRegistryGetter = func() (storage.ProviderRegistry, error) { return s.providerRegistry, nil }
+	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+		return s.providerRegistry
+	})
 }
 
 func (s *ExportSuite) TestExportValidates(c *gc.C) {
@@ -141,7 +144,9 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	controller := &fakeImporter{}
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.domainServicesGetter,
-		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
@@ -216,7 +221,9 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.domainServicesGetter,
-		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)

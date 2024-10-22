@@ -13,7 +13,6 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -29,10 +28,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	resources := ctx.Resources()
 
 	domainServices := ctx.DomainServices()
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 

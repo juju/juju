@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -51,10 +50,7 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		ctx.DomainServices().Credential(),
 		ctx.DomainServices().Machine(),
 		ctx.DomainServices().Config(),
-		ctx.DomainServices().Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
-		}),
+		ctx.DomainServices().Application(service.NotImplementedSecretService{}),
 		ctx.WatcherRegistry(),
 	)
 }

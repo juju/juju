@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
@@ -25,7 +26,6 @@ import (
 	port "github.com/juju/juju/domain/port/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
-	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -39,10 +39,10 @@ type Coordinator interface {
 // to register all the import operations.
 func ImportOperations(
 	coordinator Coordinator,
-	logger logger.Logger,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
-	registry internalstorage.ProviderRegistry,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	clock clock.Clock,
+	logger logger.Logger,
 ) {
 	// Note: All the import operations are registered here.
 	// Order is important!
@@ -55,11 +55,11 @@ func ImportOperations(
 	access.RegisterImport(coordinator, logger.Child("access"))
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, logger.Child("machine"))
-	application.RegisterImport(coordinator, registry, logger.Child("application"))
+	application.RegisterImport(coordinator, storageRegistryGetter, logger.Child("application"))
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
-	storage.RegisterImport(coordinator, registry, logger.Child("storage"))
+	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 

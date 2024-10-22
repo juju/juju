@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
@@ -918,12 +919,13 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.H
 	return client, nil
 }
 
-var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderRegistry, error) {
-	return func() (storage.ProviderRegistry, error) {
+func storageRegistryGetter(ctx *facadeContext) corestorage.ModelStorageRegistryGetter {
+	return modelStorageRegistry(func(context.Context) (storage.ProviderRegistry, error) {
 		dbModel, err := ctx.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		domainServices := ctx.DomainServices()
 		return stateenvirons.NewStorageProviderRegistryForModel(
 			dbModel,
@@ -933,7 +935,14 @@ var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderReg
 			stateenvirons.GetNewEnvironFunc(environs.New),
 			stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		)
-	}
+	})
+}
+
+type modelStorageRegistry func(context.Context) (storage.ProviderRegistry, error)
+
+// GetStorageRegistry returns a storage registry for the given namespace.
+func (c modelStorageRegistry) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
+	return c(ctx)
 }
 
 // ModelExporter returns a model exporter for the current model.

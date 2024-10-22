@@ -141,7 +141,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage provider registry")
 	}
-	storagePoolGetter := domainServices.Storage(registry)
+	storagePoolGetter := domainServices.Storage()
 
 	var caasBroker caas.Broker
 	if model.Type() == state.ModelTypeCAAS {
@@ -176,19 +176,16 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	backendService := domainServices.SecretBackend()
-	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets: domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
-		),
-	})
+	applicationService := domainServices.Application(domainServices.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	))
 
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,

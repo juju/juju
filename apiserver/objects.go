@@ -18,7 +18,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/service"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -135,7 +135,7 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationService := domainServices.Application(service.ApplicationServiceParams{})
+	applicationService := domainServices.Application(applicationservice.NotImplementedSecretService{})
 
 	// Add a charm to the store provider.
 	charmURL, err := h.processPut(r, st.State, applicationService)

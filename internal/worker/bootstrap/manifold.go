@@ -13,11 +13,11 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	corestorage "github.com/juju/juju/core/storage"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // FlagService is the interface that is used to set the value of a
@@ -71,6 +70,7 @@ type ManifoldConfig struct {
 	DomainServicesName     string
 	CharmhubHTTPClientName string
 	ProviderFactoryName    string
+	StorageRegistryName    string
 
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -104,6 +104,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
 	}
+	if cfg.StorageRegistryName == "" {
+		return errors.NotValidf("empty StorageRegistryName")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -136,6 +139,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DomainServicesName,
 			config.CharmhubHTTPClientName,
 			config.ProviderFactoryName,
+			config.StorageRegistryName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -227,27 +231,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			controllerModelDomainServices := domainServicesGetter.ServicesForModel(controllerModel.UUID)
 
-			model, err := systemState.Model()
-			if err != nil {
-				_ = stTracker.Done()
-				return nil, errors.Trace(err)
-			}
-			registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-				model, controllerDomainServices.Cloud(),
-				controllerDomainServices.Credential(),
-				controllerModelDomainServices.Config(),
-				stateenvirons.GetNewEnvironFunc(environs.New),
-				stateenvirons.GetNewCAASBrokerFunc(caas.New),
-			)
-			if err != nil {
+			applicationService := controllerModelDomainServices.Application(applicationservice.NotImplementedSecretService{})
+
+			var storageRegistryGetter corestorage.StorageRegistryGetter
+			if err := getter.Get(config.StorageRegistryName, &storageRegistryGetter); err != nil {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
-			applicationService := controllerModelDomainServices.Application(applicationservice.ApplicationServiceParams{
-				StorageRegistry: registry,
-				Secrets:         applicationservice.NotImplementedSecretService{},
-			})
+			registry, err := storageRegistryGetter.GetStorageRegistry(ctx, controllerModel.UUID.String())
+			if err != nil {
+				_ = stTracker.Done()
+				return nil, errors.Trace(err)
+			}
 
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
@@ -255,7 +251,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerConfigService: controllerDomainServices.ControllerConfig(),
 				CloudService:            controllerDomainServices.Cloud(),
 				UserService:             controllerDomainServices.Access(),
-				StorageService:          controllerModelDomainServices.Storage(registry),
+				StorageService:          controllerModelDomainServices.Storage(),
 				ProviderRegistry:        registry,
 				ApplicationService:      applicationService,
 				ControllerModel:         controllerModel,

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -43,7 +44,9 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, provider.CommonStorageProviders(), loggertesting.WrapCheckLog(c))
+	RegisterImport(s.coordinator, corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+		return provider.CommonStorageProviders()
+	}), loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestNoStoragePools(c *gc.C) {

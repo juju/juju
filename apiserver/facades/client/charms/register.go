@@ -15,9 +15,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
-	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charm/services"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -45,10 +44,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 
 	domainServices := ctx.DomainServices()
-	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {

@@ -56,7 +56,6 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/storage"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
@@ -143,18 +142,19 @@ func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
 }
 
 // Application returns the model's application service.
-func (s *ModelFactory) Application(params applicationservice.ApplicationServiceParams) *applicationservice.WatchableService {
+func (s *ModelFactory) Application(secrets applicationservice.SecretService) *applicationservice.WatchableService {
 	return applicationservice.NewWatchableService(
 		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("application"),
 		),
 		applicationstate.NewCharmState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("application")),
-		params,
-		s.logger.Child("application"),
 		s.modelUUID,
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
+		s.storageRegistry,
+		secrets,
+		s.logger.Child("application"),
 	)
 }
 
@@ -214,11 +214,11 @@ func (s *ModelFactory) Annotation() *annotationService.Service {
 }
 
 // Storage returns the model's storage service.
-func (s *ModelFactory) Storage(registry storage.ProviderRegistry) *storageservice.Service {
+func (s *ModelFactory) Storage() *storageservice.Service {
 	return storageservice.NewService(
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("storage"),
-		registry,
+		s.storageRegistry,
 	)
 }
 

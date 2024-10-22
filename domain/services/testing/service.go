@@ -39,7 +39,6 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
 )
 
 // TestingDomainServices provides access to the services required by the apiserver.
@@ -159,7 +158,7 @@ func (s *TestingDomainServices) Annotation() *annotationservice.Service {
 }
 
 // Storage returns the storage service.
-func (s *TestingDomainServices) Storage(storage.ProviderRegistry) *storageservice.Service {
+func (s *TestingDomainServices) Storage() *storageservice.Service {
 	return nil
 }
 
@@ -212,7 +211,7 @@ func (s *TestingDomainServices) ModelSecretBackend() *secretbackendservice.Model
 }
 
 // Application returns the application service.
-func (s *TestingDomainServices) Application(applicationservice.ApplicationServiceParams) *applicationservice.WatchableService {
+func (s *TestingDomainServices) Application(applicationservice.SecretService) *applicationservice.WatchableService {
 	if s.applicationServiceGetter == nil {
 		return nil
 	}

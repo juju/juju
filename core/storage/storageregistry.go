@@ -33,3 +33,12 @@ type ModelStorageRegistryGetter interface {
 	// GetStorageRegistry returns a storage registry for the given namespace.
 	GetStorageRegistry(context.Context) (storage.ProviderRegistry, error)
 }
+
+// ConstModelStorageRegistry is a function that returns the same storage
+// registry every time it is called.
+type ConstModelStorageRegistry func() storage.ProviderRegistry
+
+// GetStorageRegistry returns a storage registry for the given namespace.
+func (c ConstModelStorageRegistry) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
+	return c(), nil
+}

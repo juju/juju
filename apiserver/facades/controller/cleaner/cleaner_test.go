@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	corestorage "github.com/juju/juju/core/storage"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
@@ -47,13 +48,19 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	}
 	s.st = &mockState{&testing.Stub{}, false}
 	cleaner.PatchState(s, s.st)
-	var err error
+
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil, nil)
-	s.applicationService = applicationservice.NewWatchableService(nil, nil, nil, applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	}, loggertesting.WrapCheckLog(c), "", nil, nil)
+	s.applicationService = applicationservice.NewWatchableService(
+		nil, nil, nil, "", nil, nil,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return storage.NotImplementedProviderRegistry{}
+		}),
+		applicationservice.NotImplementedSecretService{},
+		loggertesting.WrapCheckLog(c),
+	)
+
+	var err error
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,

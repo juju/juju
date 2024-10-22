@@ -14,8 +14,10 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 )
 
+// WatchableDBFactory is a function that returns a WatchableDB or an error.
 type WatchableDBFactory = func() (changestream.WatchableDB, error)
 
+// WatcherFactory is a factory for creating watchers.
 type WatcherFactory struct {
 	mu sync.Mutex
 
@@ -24,6 +26,7 @@ type WatcherFactory struct {
 	logger      logger.Logger
 }
 
+// NewWatcherFactory returns a new WatcherFactory.
 func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger logger.Logger) *WatcherFactory {
 	return &WatcherFactory{
 		getDB:  watchableDBFactory,
