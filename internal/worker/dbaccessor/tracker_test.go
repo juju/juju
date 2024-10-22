@@ -108,7 +108,9 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
-		c.Assert(tx, gc.NotNil)
+		if tx == nil {
+			return errors.New("nil transaction")
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -436,13 +438,17 @@ func readTableNames(c *gc.C, w coredatabase.TxnRunner) []string {
 	var tables []string
 	err := w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 		defer rows.Close()
 
 		for rows.Next() {
 			var table string
 			err = rows.Scan(&table)
-			c.Assert(err, jc.ErrorIsNil)
+			if err != nil {
+				return err
+			}
 			tables = append(tables, table)
 		}
 

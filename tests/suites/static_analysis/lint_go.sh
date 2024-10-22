@@ -88,6 +88,10 @@ run_go_fanout() {
 	done
 }
 
+run_go_txncheck() {
+	go run ./scripts/txncheck/main.go "$PWD" 2>&1
+}
+
 run_govulncheck() {
 	govulncheck "github.com/juju/juju/..."
 }
@@ -109,6 +113,7 @@ test_static_analysis_go() {
 		run_linter "run_go"
 		run_linter "run_go_tidy"
 		run_linter "run_go_fanout"
+		run_linter "run_go_txncheck"
 
 		# govulncheck static analysis
 		if which govulncheck >/dev/null 2>&1; then

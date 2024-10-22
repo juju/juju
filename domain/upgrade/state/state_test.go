@@ -457,8 +457,7 @@ WHERE upgrade_info_uuid = $M.info_uuid`
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return nodeInfos

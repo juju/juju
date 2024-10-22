@@ -42,20 +42,26 @@ func DumpChangeLogState(c *gc.C, runner database.TxnRunner) {
 	)
 	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT id, edit_type_id, namespace_id, changed, created_at FROM change_log")
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
 		defer rows.Close()
 
 		for rows.Next() {
 			var row changeLogRow
 			err := rows.Scan(&row.ID, &row.EditTypeID, &row.NamespaceID, &row.Changed, &row.CreatedAt)
-			c.Assert(err, jc.ErrorIsNil)
+			if err != nil {
+				return err
+			}
 			logs = append(logs, row)
 		}
 
 		row := tx.QueryRowContext(ctx, "SELECT controller_id, lower_bound, upper_bound, updated_at FROM change_log_witness")
 		err = row.Scan(&witness.ControllerID, &witness.LowerBound, &witness.UpperBound, &witness.UpdatedAt)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
