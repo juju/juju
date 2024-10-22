@@ -80,20 +80,20 @@ type ApplicationService interface {
 	DeleteApplication(ctx context.Context, name string) error
 
 	// DestroyUnit prepares a unit for removal from the model.
-	DestroyUnit(ctx context.Context, name string) error
+	DestroyUnit(context.Context, unit.Name) error
 
 	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
-	GetUnitLife(ctx context.Context, name string) (life.Value, error)
+	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 
 	// GetUnitUUID returns the UUID for the named unit.
-	GetUnitUUID(ctx context.Context, unitName string) (unit.UUID, error)
+	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
-	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)
+	GetSupportedFeatures(context.Context) (assumes.FeatureSet, error)
 }
 
 // ModelConfigService provides access to the model configuration.
@@ -120,7 +120,7 @@ type StubService interface {
 	//
 	// Deprecated: AssignUnitsToMachines will become redundant once the machine and
 	// application domains have become fully implemented.
-	AssignUnitsToMachines(context.Context, map[string][]string) error
+	AssignUnitsToMachines(context.Context, map[string][]unit.Name) error
 }
 
 // StoragePoolGetter instances get a storage pool by name.

@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -58,7 +59,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// Seed the model with an application, this will be used to allow the
 	// upserting of units.
 	domainServices := s.DefaultModelDomainServices(c)
-	unitName := "gitlab/0"
+	unitName := unit.Name("gitlab/0")
 	s.applicationService = domainServices.Application(service.ApplicationServiceParams{
 		StorageRegistry: provider.CommonStorageProviders(),
 		Secrets:         service.NotImplementedSecretService{},

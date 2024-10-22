@@ -24,6 +24,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -258,9 +259,10 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 
 		return s.application, nil
 	})
-	unitName := bootstrap.ControllerApplicationName + "/0"
+	unitName, err := unit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
+	c.Assert(err, jc.ErrorIsNil)
 	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
-	s.stateBackend.EXPECT().Unit(unitName).Return(s.unit, nil)
+	s.stateBackend.EXPECT().Unit(unitName.String()).Return(s.unit, nil)
 	s.applicationService.EXPECT().CreateApplication(
 		gomock.Any(),
 		bootstrap.ControllerApplicationName,

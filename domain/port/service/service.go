@@ -10,6 +10,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
@@ -49,14 +50,14 @@ type State interface {
 
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 	// grouped by endpoint.
-	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
+	GetUnitOpenedPorts(context.Context, coreunit.UUID) (network.GroupedPortRanges, error)
 
 	// GetAllOpenedPorts returns the opened ports in the model, grouped by unit name.
-	GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error)
+	GetAllOpenedPorts(context.Context) (port.UnitGroupedPortRanges, error)
 
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
 	// given machine. Opened ports are grouped first by unit name and then by endpoint.
-	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error)
 
 	// GetApplicationOpenedPorts returns the opened ports for all the units of the
 	// given application. We return opened ports paired with the unit UUIDs, grouped
@@ -88,7 +89,7 @@ func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID
 //
 // NOTE: We do not group by endpoint here. It is not needed. Instead, we just
 // group by unit name
-func (s *Service) GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error) {
+func (s *Service) GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRanges, error) {
 	return s.st.GetAllOpenedPorts(ctx)
 }
 
@@ -97,7 +98,7 @@ func (s *Service) GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRan
 // endpoint.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
-func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error) {
+func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error) {
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
 
@@ -108,12 +109,12 @@ func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string)
 // nil for the endpoint SubnetCIDRs
 // TODO: Once endpoint bindings have been implemented into a DQLite domain, implement
 // this method properly to return the subnet CIDRs each endpoint is open to.
-func (s *Service) GetMachineOpenedPortsAndSubnets(ctx context.Context, machineUUID string) (map[string]port.GroupedPortRangesOnSubnets, error) {
+func (s *Service) GetMachineOpenedPortsAndSubnets(ctx context.Context, machineUUID string) (map[unit.Name]port.GroupedPortRangesOnSubnets, error) {
 	byUnitByEndpoint, err := s.st.GetMachineOpenedPorts(ctx, machineUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for machine %s: %w", machineUUID, err)
 	}
-	res := make(map[string]port.GroupedPortRangesOnSubnets)
+	res := make(map[unit.Name]port.GroupedPortRangesOnSubnets)
 	for unitName, ByEndpoint := range byUnitByEndpoint {
 		res[unitName] = make(port.GroupedPortRangesOnSubnets)
 		for endpoint, portRanges := range ByEndpoint {
@@ -128,7 +129,7 @@ func (s *Service) GetMachineOpenedPortsAndSubnets(ctx context.Context, machineUU
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit name and then by endpoint.
-func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[string]network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[unit.Name]network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)

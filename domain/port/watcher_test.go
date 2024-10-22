@@ -6,7 +6,6 @@ package port_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -54,7 +53,7 @@ var (
 var (
 	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}
 	netNodeUUIDs = []string{"net-node-0-uuid", "net-node-1-uuid"}
-	appNames     = []string{"app-0-name", "app-1-name"}
+	appNames     = []string{"app-zero", "app-one"}
 )
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
@@ -87,8 +86,9 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 // to the net node with uuid `netNodeUUID`.
 func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
-	unitName := fmt.Sprintf("%s/%d", appName, s.unitCount)
-	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
+	c.Assert(err, jc.ErrorIsNil)
+	err = applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := applicationSt.GetApplicationID(ctx, appName)
 		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return err

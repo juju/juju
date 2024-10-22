@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
@@ -49,10 +50,10 @@ type ApplicationService interface {
 	GetApplicationScalingState(ctx context.Context, name string) (service.ScalingState, error)
 	GetApplicationScale(ctx context.Context, name string) (int, error)
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
-	GetUnitLife(ctx context.Context, name string) (life.Value, error)
-	DestroyUnit(ctx context.Context, name string) error
-	RemoveUnit(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
-	UpdateCAASUnit(ctx context.Context, unitName string, params service.UpdateCAASUnitParams) error
+	GetUnitLife(context.Context, unit.Name) (life.Value, error)
+	DestroyUnit(context.Context, unit.Name) error
+	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
+	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

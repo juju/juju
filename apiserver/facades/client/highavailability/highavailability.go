@@ -25,7 +25,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -183,7 +185,11 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	if len(addedUnits) > 0 {
 		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
 		for i := range addedUnits {
-			addUnitArgs[i].UnitName = addedUnits[i]
+			unitName, err := coreunit.NewName(addedUnits[i])
+			if err != nil {
+				return params.ControllersChanges{}, internalerrors.Errorf("parsing unit name %q: %v", addedUnits[i], err)
+			}
+			addUnitArgs[i].UnitName = unitName
 		}
 		if err := api.applicationService.AddUnits(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
 			return params.ControllersChanges{}, err

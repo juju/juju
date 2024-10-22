@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -3088,11 +3089,11 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]coreunit.Name{
 		"0": {"wordpress/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]coreunit.Name{
 		"0": {"mysql/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3558,7 +3559,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	})
 
 	// Verify state
-	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), unit.Tag().Id())
+	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), coreunit.Name(unit.Tag().Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	unitPortRanges, err := s.portService.GetUnitOpenedPorts(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3607,7 +3608,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		},
 	})
 
-	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), unit.Tag().Id())
+	unitUUID, err := s.applicationService.GetUnitUUID(context.Background(), coreunit.Name(unit.Tag().Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	portRanges, err := s.portService.GetUnitOpenedPorts(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)

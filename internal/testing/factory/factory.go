@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -615,7 +616,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	c.Assert(err, jc.ErrorIsNil)
 	if factory.applicationService != nil {
 		err = factory.applicationService.AddUnits(context.Background(), params.Application.Name(), applicationservice.AddUnitArg{
-			UnitName: unit.Name(),
+			UnitName: coreunit.Name(unit.Name()),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}

@@ -11,6 +11,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/state"
@@ -105,12 +106,16 @@ func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 // CompleteProcess is called when the bootstrap process is complete.
 func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit) error {
 	providerID := fmt.Sprintf("controller-%d", controllerUnit.UnitTag().Number())
-	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit.UnitTag().Id(), service.UpdateCAASUnitParams{
+	controllerUnitName, err := coreunit.NewName(controllerUnit.UnitTag().Id())
+	if err != nil {
+		return errors.Annotatef(err, "parsing controller unit name %q", controllerUnit.UnitTag().Id())
+	}
+	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnitName, service.UpdateCAASUnitParams{
 		ProviderId: &providerID,
 	}); err != nil {
 		return errors.Annotatef(err, "updating controller unit")
 	}
-	if err := d.applicationService.SetUnitPassword(ctx, controllerUnit.UnitTag().Id(), d.unitPassword); err != nil {
+	if err := d.applicationService.SetUnitPassword(ctx, controllerUnitName, d.unitPassword); err != nil {
 		return errors.Annotate(err, "setting controller unit password")
 	}
 

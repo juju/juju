@@ -12,6 +12,7 @@ package application
 import (
 	reflect "reflect"
 
+	unit "github.com/juju/juju/core/unit"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,7 +40,7 @@ func (m *MockRevoker) EXPECT() *MockRevokerMockRecorder {
 }
 
 // RevokeLeadership mocks base method.
-func (m *MockRevoker) RevokeLeadership(arg0, arg1 string) error {
+func (m *MockRevoker) RevokeLeadership(arg0 string, arg1 unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RevokeLeadership", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -65,13 +66,13 @@ func (c *MockRevokerRevokeLeadershipCall) Return(arg0 error) *MockRevokerRevokeL
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRevokerRevokeLeadershipCall) Do(f func(string, string) error) *MockRevokerRevokeLeadershipCall {
+func (c *MockRevokerRevokeLeadershipCall) Do(f func(string, unit.Name) error) *MockRevokerRevokeLeadershipCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRevokerRevokeLeadershipCall) DoAndReturn(f func(string, string) error) *MockRevokerRevokeLeadershipCall {
+func (c *MockRevokerRevokeLeadershipCall) DoAndReturn(f func(string, unit.Name) error) *MockRevokerRevokeLeadershipCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

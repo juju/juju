@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -60,7 +61,7 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +95,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/0"},
 	})
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
@@ -113,12 +114,12 @@ func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/0", "foo/1"},
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
@@ -140,7 +141,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/0", "foo/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +187,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +198,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]string{
+	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
 		"0": {"foo/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)

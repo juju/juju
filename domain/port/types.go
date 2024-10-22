@@ -7,12 +7,15 @@ import (
 	"sort"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 )
+
+type UnitGroupedPortRanges map[unit.Name][]network.PortRange
 
 // UnitPortRange represents a range of ports for a given protocol for a
 // given unit.
 type UnitEndpointPortRange struct {
-	UnitName  string
+	UnitName  unit.Name
 	Endpoint  string
 	PortRange network.PortRange
 }
@@ -35,15 +38,15 @@ func SortUnitEndpointPortRanges(portRanges UnitEndpointPortRanges) {
 
 type UnitEndpointPortRanges []UnitEndpointPortRange
 
-func (prs UnitEndpointPortRanges) ByUnitByEndpoint() map[string]network.GroupedPortRanges {
-	byUnitByEndpoint := make(map[string]network.GroupedPortRanges)
+func (prs UnitEndpointPortRanges) ByUnitByEndpoint() map[unit.Name]network.GroupedPortRanges {
+	byUnitByEndpoint := make(map[unit.Name]network.GroupedPortRanges)
 	for _, unitEnpointPortRange := range prs {
-		unitUUID := unitEnpointPortRange.UnitName
+		unitName := unitEnpointPortRange.UnitName
 		endpoint := unitEnpointPortRange.Endpoint
-		if _, ok := byUnitByEndpoint[unitUUID]; !ok {
-			byUnitByEndpoint[unitUUID] = network.GroupedPortRanges{}
+		if _, ok := byUnitByEndpoint[unitName]; !ok {
+			byUnitByEndpoint[unitName] = network.GroupedPortRanges{}
 		}
-		byUnitByEndpoint[unitUUID][endpoint] = append(byUnitByEndpoint[unitUUID][endpoint], unitEnpointPortRange.PortRange)
+		byUnitByEndpoint[unitName][endpoint] = append(byUnitByEndpoint[unitName][endpoint], unitEnpointPortRange.PortRange)
 	}
 	return byUnitByEndpoint
 }

@@ -796,7 +796,7 @@ func (s *applicationStateSuite) TestGetUnitUUIDs(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1, u2)
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName, u2.UnitName})
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName, u2.UnitName})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotUUIDs []coreunit.UUID
@@ -820,7 +820,7 @@ func (s *applicationStateSuite) TestGetUnitUUIDs(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetUnitUUIDsNotFound(c *gc.C) {
-	_, err := s.state.GetUnitUUIDs(context.Background(), []string{"foo/666"})
+	_, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{coreunit.Name("foo/666")})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -830,7 +830,7 @@ func (s *applicationStateSuite) TestGetUnitUUIDsOneNotFound(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	_, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName, "foo/667"})
+	_, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName, coreunit.Name("foo/667")})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -864,7 +864,7 @@ func (s *applicationStateSuite) TestGetUnitNames(c *gc.C) {
 	unitNames, err := s.state.GetUnitNames(context.Background(), unitUUIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitNames, gc.HasLen, 2)
-	c.Assert(unitNames, jc.SameContents, []string{u1.UnitName, u2.UnitName})
+	c.Assert(unitNames, jc.SameContents, []coreunit.Name{u1.UnitName, u2.UnitName})
 }
 
 func (s *applicationStateSuite) TestGetUnitNamesNotFound(c *gc.C) {
@@ -951,7 +951,7 @@ func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
 		},
 	}
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName})
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitUUIDs, gc.HasLen, 1)
 	unitUUID := unitUUIDs[0]
@@ -979,7 +979,7 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		},
 	}
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName})
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitUUIDs, gc.HasLen, 1)
 	unitUUID := unitUUIDs[0]
@@ -1007,7 +1007,7 @@ func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 		},
 	}
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []string{u1.UnitName})
+	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitUUIDs, gc.HasLen, 1)
 	unitUUID := unitUUIDs[0]
@@ -1319,7 +1319,7 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
 	s.createApplication(c, "foo", life.Alive, u1, u2)
 	s.createApplication(c, "bar", life.Alive, u3)
 
-	var unitID1, unitID2, unitID3 string
+	var unitID1, unitID2, unitID3 coreunit.UUID
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
 			return err
@@ -1337,20 +1337,20 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *gc.C) {
 
 	got, err := s.state.GetApplicationUnitLife(context.Background(), "foo", unitID2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+	c.Assert(got, jc.DeepEquals, map[coreunit.UUID]life.Life{
 		unitID2: life.Alive,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo", unitID1, unitID2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+	c.Assert(got, jc.DeepEquals, map[coreunit.UUID]life.Life{
 		unitID1: life.Dead,
 		unitID2: life.Alive,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(context.Background(), "foo", unitID2, unitID3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, map[string]life.Life{
+	c.Assert(got, jc.DeepEquals, map[coreunit.UUID]life.Life{
 		unitID2: life.Alive,
 	})
 

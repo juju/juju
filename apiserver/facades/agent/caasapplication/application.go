@@ -5,7 +5,6 @@ package caasapplication
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
@@ -42,7 +42,7 @@ type ApplicationService interface {
 	RegisterCAASUnit(ctx context.Context, appName string, unit applicationservice.RegisterCAASUnitParams) error
 	CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker applicationservice.Broker) (bool, error)
 	GetApplicationLife(ctx context.Context, appName string) (life.Value, error)
-	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
+	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -114,7 +114,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 	}
 
-	var unitName string
+	var unitName unit.Name
 	errResp := func(err error) (params.CAASUnitIntroductionResult, error) {
 		f.logger.Warningf("error introducing k8s pod %q: %v", args.PodName, err)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -158,8 +158,12 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		if err != nil {
 			return errResp(err)
 		}
-		unitName = fmt.Sprintf("%s/%d", appName, ord)
-		upsert.UnitName = &unitName
+		unitName, err = unit.NewNameFromParts(appName, ord)
+		if err != nil {
+			return errResp(err)
+		}
+		unitNameStr := unitName.String()
+		upsert.UnitName = &unitNameStr
 		upsert.OrderedId = ord
 		upsert.OrderedScale = true
 	default:
@@ -305,8 +309,12 @@ func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (param
 	if unitTag != tag {
 		return params.CAASUnitTerminationResult{}, apiservererrors.ErrPerm
 	}
+	unitName, err := unit.NewName(unitTag.Id())
+	if err != nil {
+		return errResp(err)
+	}
 
-	unitLife, err := f.applicationService.GetUnitLife(ctx, unitTag.Id())
+	unitLife, err := f.applicationService.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return errResp(err)
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -149,7 +150,11 @@ func DeployApplication(
 	}
 	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := 0; i < args.NumUnits; i++ {
-		unitArgs[i].UnitName = fmt.Sprintf("%s/%d", args.ApplicationName, nextUnitNum+i)
+		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitArgs[i].UnitName = unitName
 	}
 	app, err := st.AddApplication(asa, store)
 
@@ -190,7 +195,7 @@ func (api *APIBase) addUnits(
 		return nil, err
 	}
 
-	machineToUnitMap := make(map[string][]string)
+	machineToUnitMap := make(map[string][]coreunit.Name)
 
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
@@ -198,11 +203,14 @@ func (api *APIBase) addUnits(
 			AttachStorage: attachStorage,
 		})
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
+			return nil, internalerrors.Errorf("adding unit %d/%d to application %q: %w", i+1, n, appName, err)
 		}
-		unitName := unit.Name()
+		unitName, err := coreunit.NewName(unit.Name())
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
+		}
 		if err := api.applicationService.AddUnits(ctx, appName, applicationservice.AddUnitArg{UnitName: unitName}); err != nil {
-			return nil, errors.Annotatef(err, "cannot add unit %q to application %q", unitName, appName)
+			return nil, internalerrors.Errorf("adding unit %q to application %q: %w", unitName, appName, err)
 		}
 		units[i] = unit
 		if !assignUnits {
@@ -212,21 +220,21 @@ func (api *APIBase) addUnits(
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
 			if err := unit.AssignWithPolicy(policy); err != nil {
-				return nil, errors.Trace(err)
+				return nil, internalerrors.Errorf("acquiring machine for policy %q to host unit %q: %w", policy, unitName, err)
 			}
 		} else {
 			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {
-				return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
+				return nil, internalerrors.Errorf("acquiring machine for placement %q to host unit %q: %w", placement[i], unitName, err)
 			}
 		}
 
 		// Get assigned machine and ensure it exists in dqlite.
 		id, err := unit.AssignedMachineId()
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting assigned machine for unit: %q", unit.Name())
+			return nil, internalerrors.Errorf("getting assigned machine for unit %q: %w", unitName, err)
 		}
 		if err := saveMachineInfo(ctx, api.machineService, id); err != nil {
-			return nil, errors.Annotatef(err, "saving assigned machine %q for unit: %q", id, unit.Name())
+			return nil, internalerrors.Errorf("saving assigned machine %q for unit %q: %w", id, unitName, err)
 		}
 		machineToUnitMap[id] = append(machineToUnitMap[id], unitName)
 	}

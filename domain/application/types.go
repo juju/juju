@@ -6,6 +6,7 @@ package application
 import (
 	"time"
 
+	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -119,14 +120,14 @@ type ContainerAddress struct {
 
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
-	UnitName string
+	UnitName coreunit.Name
 	UnitStatusArg
 }
 
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
-	UnitName       string
+	UnitName       coreunit.Name
 	CloudContainer *CloudContainer
 	Password       *PasswordInfo
 	UnitStatusArg

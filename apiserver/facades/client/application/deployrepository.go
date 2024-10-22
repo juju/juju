@@ -26,6 +26,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -162,7 +163,11 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	if addApplicationErr == nil {
 		unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
 		for i := 0; i < dt.numUnits; i++ {
-			unitArgs[i].UnitName = fmt.Sprintf("%s/%d", dt.applicationName, nextUnitNum+i)
+			unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
+			if err != nil {
+				return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+			}
+			unitArgs[i].UnitName = unitName
 		}
 		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,

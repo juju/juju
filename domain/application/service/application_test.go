@@ -788,10 +788,11 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 func (s *applicationServiceSuite) TestGetUnitUUIDs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	names := []coreunit.Name{coreunit.Name("foo/666"), coreunit.Name("foo/667")}
 	uuids := []coreunit.UUID{unittesting.GenUnitUUID(c), unittesting.GenUnitUUID(c)}
-	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666", "foo/667"}).Return(uuids, nil)
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), names).Return(uuids, nil)
 
-	us, err := s.service.GetUnitUUIDs(context.Background(), []string{"foo/666", "foo/667"})
+	us, err := s.service.GetUnitUUIDs(context.Background(), names)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(us, gc.DeepEquals, uuids)
 }
@@ -799,9 +800,10 @@ func (s *applicationServiceSuite) TestGetUnitUUIDs(c *gc.C) {
 func (s *applicationServiceSuite) TestGetUnitUUIDsErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666", "foo/667"}).Return(nil, applicationerrors.UnitNotFound)
+	names := []coreunit.Name{coreunit.Name("foo/666"), coreunit.Name("foo/667")}
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), names).Return(nil, applicationerrors.UnitNotFound)
 
-	_, err := s.service.GetUnitUUIDs(context.Background(), []string{"foo/666", "foo/667"})
+	_, err := s.service.GetUnitUUIDs(context.Background(), names)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -809,9 +811,10 @@ func (s *applicationServiceSuite) TestGetUnitUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666"}).Return([]coreunit.UUID{uuid}, nil)
+	unitName := coreunit.Name("foo/666")
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []coreunit.Name{unitName}).Return([]coreunit.UUID{uuid}, nil)
 
-	u, err := s.service.GetUnitUUID(context.Background(), "foo/666")
+	u, err := s.service.GetUnitUUID(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(u, gc.Equals, uuid)
 }
@@ -819,21 +822,23 @@ func (s *applicationServiceSuite) TestGetUnitUUID(c *gc.C) {
 func (s *applicationServiceSuite) TestGetUnitUUIDErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []string{"foo/666"}).Return(nil, applicationerrors.UnitNotFound)
+	unitName := coreunit.Name("foo/666")
+	s.state.EXPECT().GetUnitUUIDs(gomock.Any(), []coreunit.Name{unitName}).Return(nil, applicationerrors.UnitNotFound)
 
-	_, err := s.service.GetUnitUUID(context.Background(), "foo/666")
+	_, err := s.service.GetUnitUUID(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationServiceSuite) TestGetUnitNames(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	names := []coreunit.Name{coreunit.Name("foo/666"), coreunit.Name("foo/667")}
 	uuids := []coreunit.UUID{unittesting.GenUnitUUID(c), unittesting.GenUnitUUID(c)}
-	s.state.EXPECT().GetUnitNames(gomock.Any(), uuids).Return([]string{"foo/666", "foo/667"}, nil)
+	s.state.EXPECT().GetUnitNames(gomock.Any(), uuids).Return(names, nil)
 
 	u, err := s.service.GetUnitNames(context.Background(), uuids)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(u, gc.DeepEquals, []string{"foo/666", "foo/667"})
+	c.Check(u, gc.DeepEquals, names)
 }
 
 func (s *applicationServiceSuite) TestGetUnitNamesErrors(c *gc.C) {
@@ -849,9 +854,11 @@ func (s *applicationServiceSuite) TestGetUnitNamesErrors(c *gc.C) {
 func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	unitName := coreunit.Name("foo/666")
+
 	s.state.EXPECT().GetApplicationID(domaintesting.IsAtomicContextChecker, "foo").Return("app-id", nil)
-	s.state.EXPECT().GetUnitLife(domaintesting.IsAtomicContextChecker, "foo/666").Return(life.Alive, nil)
-	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, "foo/666", &application.CloudContainer{
+	s.state.EXPECT().GetUnitLife(domaintesting.IsAtomicContextChecker, unitName).Return(life.Alive, nil)
+	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, unitName, &application.CloudContainer{
 		ProviderId: "provider-id",
 		Address: &application.ContainerAddress{
 			Device: application.ContainerDevice{
@@ -868,14 +875,14 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 		Ports: ptr([]string{"666"}),
 	})
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, unitName).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitPassword(domaintesting.IsAtomicContextChecker, unitUUID, application.PasswordInfo{
 		PasswordHash:  "passwordhash",
 		HashAlgorithm: 0,
 	})
 
 	p := RegisterCAASUnitParams{
-		UnitName:     "foo/666",
+		UnitName:     unitName,
 		PasswordHash: "passwordhash",
 		ProviderId:   "provider-id",
 		Address:      ptr("10.6.6.6"),
@@ -888,7 +895,7 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 }
 
 var unitParams = RegisterCAASUnitParams{
-	UnitName:     "foo/666",
+	UnitName:     coreunit.Name("foo/666"),
 	PasswordHash: "passwordhash",
 	ProviderId:   "provider-id",
 	OrderedScale: true,
@@ -936,8 +943,9 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
+	unitName := coreunit.Name("foo/666")
 	s.state.EXPECT().GetApplicationLife(domaintesting.IsAtomicContextChecker, "foo").Return(appID, life.Alive, nil)
-	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, "foo/666", &application.CloudContainer{
+	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, unitName, &application.CloudContainer{
 		ProviderId: "provider-id",
 		Address: &application.ContainerAddress{
 			Device: application.ContainerDevice{
@@ -953,7 +961,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 		},
 		Ports: ptr([]string{"666"}),
 	})
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, unitName).Return(unitUUID, nil)
 
 	now := time.Now()
 	s.state.EXPECT().SetUnitAgentStatus(domaintesting.IsAtomicContextChecker, unitUUID, application.UnitAgentStatusInfo{
@@ -981,7 +989,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 		},
 	})
 
-	err := s.service.UpdateCAASUnit(context.Background(), "foo/666", UpdateCAASUnitParams{
+	err := s.service.UpdateCAASUnit(context.Background(), unitName, UpdateCAASUnitParams{
 		ProviderId: ptr("provider-id"),
 		Address:    ptr("10.6.6.6"),
 		Ports:      ptr([]string{"666"}),
@@ -1013,7 +1021,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationLife(domaintesting.IsAtomicContextChecker, "foo").Return(id, life.Dying, nil)
 
-	err := s.service.UpdateCAASUnit(context.Background(), "foo/666", UpdateCAASUnitParams{})
+	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
@@ -1021,13 +1029,13 @@ func (s *applicationServiceSuite) TestSetUnitPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "foo/666").Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitPassword(domaintesting.IsAtomicContextChecker, unitUUID, application.PasswordInfo{
 		PasswordHash:  "password",
 		HashAlgorithm: 0,
 	})
 
-	err := s.service.SetUnitPassword(context.Background(), "foo/666", "password")
+	err := s.service.SetUnitPassword(context.Background(), coreunit.Name("foo/666"), "password")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

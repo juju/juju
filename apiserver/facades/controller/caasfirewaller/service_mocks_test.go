@@ -16,6 +16,7 @@ import (
 	application "github.com/juju/juju/core/application"
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
+	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -122,7 +123,7 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 }
 
 // GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -149,13 +150,13 @@ func (c *MockApplicationServiceGetUnitLifeCall) Return(arg0 life.Value, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

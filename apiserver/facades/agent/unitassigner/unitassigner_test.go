@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -26,7 +27,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	machineService := &fakeMachineService{}
-	stubService := &fakeStubService{assignments: map[string][]string{}}
+	stubService := &fakeStubService{assignments: map[string][]unit.Name{}}
 	api := API{
 		st:             f,
 		res:            common.NewResources(),
@@ -43,7 +44,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
 	c.Assert(machineService.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
-	c.Assert(stubService.assignments, jc.DeepEquals, map[string][]string{"1/lxd/2": {"foo/0"}})
+	c.Assert(stubService.assignments, jc.DeepEquals, map[string][]unit.Name{"1/lxd/2": {"foo/0"}})
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
@@ -88,10 +89,10 @@ func (f *fakeNetworkService) GetAllSpaces(_ context.Context) (network.SpaceInfos
 }
 
 type fakeStubService struct {
-	assignments map[string][]string
+	assignments map[string][]unit.Name
 }
 
-func (f *fakeStubService) AssignUnitsToMachines(_ context.Context, machineToUnitMap map[string][]string) error {
+func (f *fakeStubService) AssignUnitsToMachines(_ context.Context, machineToUnitMap map[string][]unit.Name) error {
 	for machine, units := range machineToUnitMap {
 		f.assignments[machine] = append(f.assignments[machine], units...)
 	}

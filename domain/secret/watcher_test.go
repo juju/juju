@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -60,8 +61,9 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		Secrets:         applicationservice.NotImplementedSecretService{},
 	}, logger)
 
-	unitName := fmt.Sprintf("%s/0", appName)
-	_, err := svc.CreateApplication(context.Background(),
+	unitName, err := unit.NewNameFromParts(appName, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = svc.CreateApplication(context.Background(),
 		appName,
 		&stubCharm{},
 		corecharm.Origin{

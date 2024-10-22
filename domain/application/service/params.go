@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -56,7 +57,7 @@ type AddressParams struct {
 
 // AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
-	UnitName string
+	UnitName coreunit.Name
 
 	// Storage params go here.
 }
@@ -64,7 +65,7 @@ type AddUnitArg struct {
 // ImportUnitArg contains parameters for inserting a fully
 // populated unit into the model, eg during migration.
 type ImportUnitArg struct {
-	UnitName       string
+	UnitName       coreunit.Name
 	PasswordHash   *string
 	AgentStatus    StatusParams
 	WorkloadStatus StatusParams
@@ -81,7 +82,7 @@ type ScalingState struct {
 // RegisterCAASUnitParams contains parameters for introducing
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitParams struct {
-	UnitName     string
+	UnitName     coreunit.Name
 	PasswordHash string
 	ProviderId   string
 	Address      *string

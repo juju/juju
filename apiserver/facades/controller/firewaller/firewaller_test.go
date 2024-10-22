@@ -21,6 +21,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -115,7 +116,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "foo/0").Return("", applicationerrors.UnitNotFound)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), unit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
 
 	s.testLife(c, s.firewaller)
 }

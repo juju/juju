@@ -395,7 +395,7 @@ func (c *MockApplicationServiceDestroyApplicationCall) DoAndReturn(f func(contex
 }
 
 // DestroyUnit mocks base method.
-func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 string) error {
+func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyUnit", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -421,13 +421,13 @@ func (c *MockApplicationServiceDestroyUnitCall) Return(arg0 error) *MockApplicat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDestroyUnitCall) Do(f func(context.Context, string) error) *MockApplicationServiceDestroyUnitCall {
+func (c *MockApplicationServiceDestroyUnitCall) Do(f func(context.Context, unit.Name) error) *MockApplicationServiceDestroyUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationServiceDestroyUnitCall {
+func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockApplicationServiceDestroyUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -511,7 +511,7 @@ func (c *MockApplicationServiceGetSupportedFeaturesCall) DoAndReturn(f func(cont
 }
 
 // GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -538,19 +538,19 @@ func (c *MockApplicationServiceGetUnitLifeCall) Return(arg0 life.Value, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitUUID mocks base method.
-func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 string) (unit.UUID, error) {
+func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
 	ret0, _ := ret[0].(unit.UUID)
@@ -577,13 +577,13 @@ func (c *MockApplicationServiceGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitUUIDCall) Do(f func(context.Context, string) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
+func (c *MockApplicationServiceGetUnitUUIDCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Context, string) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
+func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1075,7 +1075,7 @@ func (m *MockStubService) EXPECT() *MockStubServiceMockRecorder {
 }
 
 // AssignUnitsToMachines mocks base method.
-func (m *MockStubService) AssignUnitsToMachines(arg0 context.Context, arg1 map[string][]string) error {
+func (m *MockStubService) AssignUnitsToMachines(arg0 context.Context, arg1 map[string][]unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignUnitsToMachines", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1101,13 +1101,13 @@ func (c *MockStubServiceAssignUnitsToMachinesCall) Return(arg0 error) *MockStubS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStubServiceAssignUnitsToMachinesCall) Do(f func(context.Context, map[string][]string) error) *MockStubServiceAssignUnitsToMachinesCall {
+func (c *MockStubServiceAssignUnitsToMachinesCall) Do(f func(context.Context, map[string][]unit.Name) error) *MockStubServiceAssignUnitsToMachinesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStubServiceAssignUnitsToMachinesCall) DoAndReturn(f func(context.Context, map[string][]string) error) *MockStubServiceAssignUnitsToMachinesCall {
+func (c *MockStubServiceAssignUnitsToMachinesCall) DoAndReturn(f func(context.Context, map[string][]unit.Name) error) *MockStubServiceAssignUnitsToMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

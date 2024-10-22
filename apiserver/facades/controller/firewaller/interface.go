@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/rpc/params"
@@ -64,7 +65,7 @@ type MachineService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	GetUnitLife(context.Context, string) (life.Value, error)
+	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 }
 
 // PortService provides access to the port service.
@@ -76,7 +77,7 @@ type PortService interface {
 
 	// GetMachineOpenedPortsAndSubnets returns the opened port ranges, including the
 	// subnet CIDRs they're open to, for each endpoint, for each unit on a machine.
-	GetMachineOpenedPortsAndSubnets(context.Context, string) (map[string]port.GroupedPortRangesOnSubnets, error)
+	GetMachineOpenedPortsAndSubnets(context.Context, string) (map[unit.Name]port.GroupedPortRangesOnSubnets, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI

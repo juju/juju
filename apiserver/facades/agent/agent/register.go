@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/storage"
@@ -29,7 +30,7 @@ type CredentialService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	GetUnitLife(ctx context.Context, name string) (life.Value, error)
+	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
 }
 
 // NewAgentAPIV3 returns an object implementing version 3 of the Agent API

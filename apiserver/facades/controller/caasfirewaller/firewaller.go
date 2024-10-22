@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -31,7 +32,7 @@ type ApplicationService interface {
 	GetApplicationLife(context.Context, string) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
-	GetUnitLife(context.Context, string) (life.Value, error)
+	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 
 	// GetApplicationIDByName returns a application ID by application name. It
 	// returns an error if the application can not be found by the name.
@@ -211,9 +212,15 @@ func (f *Facade) Life(ctx context.Context, args params.Entities) (params.LifeRes
 				err = errors.NotFoundf("application %s", tag.Id())
 			}
 		case names.UnitTagKind:
-			lifeValue, err = f.applicationService.GetUnitLife(ctx, tag.Id())
+			var unitName unit.Name
+			unitName, err = unit.NewName(tag.Id())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			lifeValue, err = f.applicationService.GetUnitLife(ctx, unitName)
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", tag.Id())
+				err = errors.NotFoundf("unit %s", unitName)
 			}
 		default:
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)

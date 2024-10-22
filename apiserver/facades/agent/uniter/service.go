@@ -60,22 +60,19 @@ type ApplicationService interface {
 	GetApplicationLife(ctx context.Context, unitName string) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
-	GetUnitLife(ctx context.Context, unitName string) (life.Value, error)
+	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
 
 	// GetUnitUUID returns the UUID for the named unit.
-	GetUnitUUID(ctx context.Context, unitName string) (coreunit.UUID, error)
-
-	// GetUnitNames gets in bulk the names for the specified unit UUIDs.
-	GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]string, error)
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 
 	// EnsureUnitDead is called by the unit agent just before it terminates.
-	EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error
+	EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error
 
 	// DeleteUnit deletes the specified unit.
-	DeleteUnit(ctx context.Context, unitName string) error
+	DeleteUnit(ctx context.Context, unitName coreunit.Name) error
 
 	// DestroyUnit prepares a unit for removal from the model.
-	DestroyUnit(ctx context.Context, unitName string) error
+	DestroyUnit(ctx context.Context, unitName coreunit.Name) error
 }
 
 // UnitStateService describes the ability to retrieve and persist
@@ -96,7 +93,7 @@ type PortService interface {
 
 	// GetMachineOpenedPorts returns the opened ports for all the units on the
 	// machine. Opened ports are grouped first by unit name and then by endpoint.
-	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[string]network.GroupedPortRanges, error)
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error)
 
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped
 	// by endpoint.
