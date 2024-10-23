@@ -5,9 +5,9 @@ package domain
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/juju/core/lease"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // LeaseChecker is an interface that checks if a lease is held by a holder.
@@ -30,8 +30,10 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 	// Holding the lease is quite a complex operation, so we need to ensure that
 	// the context is not cancelled before we start the operation.
 	if err := ctx.Err(); err != nil {
-		return ctx.Err()
+		return internalerrors.Errorf("lease prechecking").Add(ctx.Err())
 	}
+
+	leaseChecker := s.leaseChecker()
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
 	// lease holder. This may or may not be the same as the holderName for the
@@ -39,29 +41,18 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 	leaseCtx, leaseCancel := context.WithCancel(ctx)
 	defer leaseCancel()
 
-	leaseChecker := s.leaseChecker()
-
-	// Check if the lease is held by the holder, if not, return immediately.
-	token := leaseChecker.Token(leaseName, holderName)
-	if err := token.Check(); err != nil {
-		return err
-	}
-
 	// Start will be closed when we start waiting for the lease to expire.
 	// If the lease is not held, the function will return immediately and
 	// the context will be cancelled.
 	start := make(chan struct{})
 
-	// WaitUntilExpired will be run against the leaseName, we've already
-	// checked that the lease is held by the holder, but there is a race
-	// between the prior check and the start of the lease waiting. To ensure
-	// that after we've waited that we still hold the lease, we need to check
-	// that the lease is still held by the holder. Then we can guarantee that
-	// the lease is held by the holder for the duration of the function.
-	// Although convoluted this is necessary to ensure that the lease is held
-	// by the holder for the duration of the function.
-	// The context will be cancelled when the lease is no longer held by
-	// the lease holder for the lease name.
+	// WaitUntilExpired will be run against the leaseName. To ensure that after
+	// we've waited that we still hold the lease, we need to check that the
+	// lease is still held by the holder. Then we can guarantee that the lease
+	// is held by the holder for the duration of the function. Although
+	// convoluted this is necessary to ensure that the lease is held by the
+	// holder for the duration of the function. The context will be cancelled
+	// when the lease is no longer held by the lease holder for the lease name.
 
 	waitCtx, waitCancel := context.WithCancel(ctx)
 	defer waitCancel()
@@ -83,20 +74,22 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 		select {
 		case <-waitCtx.Done():
 			return
-		case waitErr <- err:
+		case waitErr <- internalerrors.Errorf("waiting for lease to expire: %w", err):
 		}
 	}()
 
 	select {
 	case <-leaseCtx.Done():
-		return leaseCtx.Err()
+		// If the leaseCtx is cancelled, then the waiting for the lease to
+		// expire finished unexpectedly. Return the context error.
+		return internalerrors.Errorf("waiting for lease finished before execution").Add(leaseCtx.Err())
 	case err := <-waitErr:
 		if err == nil {
 			// This shouldn't happen, but if it does, we need to return an
 			// error. If we're attempting to wait whilst holding the lease,
 			// before running the function and then wait return nil, we don't
 			// know if the lease is held by the holder or what state we're in.
-			return fmt.Errorf("unable to wait for lease to expire whilst holding lease")
+			return internalerrors.Errorf("unable to wait for lease to expire whilst holding lease")
 		}
 		return err
 	case <-start:
@@ -105,12 +98,16 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 	// Ensure that the lease is held by the holder before proceeding.
 	// We're guaranteed that the lease is held by the holder, otherwise the
 	// context will have been cancelled.
+	token := leaseChecker.Token(leaseName, holderName)
 	if err := token.Check(); err != nil {
-		return err
+		return internalerrors.Errorf("checking lease token: %w", err)
 	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held. This
 	// will ensure that the function is cancelled when the lease is no longer
 	// held.
-	return fn(leaseCtx)
+	if err := fn(leaseCtx); err != nil {
+		return internalerrors.Errorf("executing lease func: %w", err)
+	}
+	return nil
 }

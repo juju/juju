@@ -31,10 +31,6 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	// Done is triggered when the lease function is done.
 	done := make(chan struct{})
 
-	// Check we already hold the lease.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
-	s.token.EXPECT().Check().Return(nil)
-
 	// Force the lease wait to be triggered.
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 		close(start)
@@ -48,8 +44,8 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 		return nil
 	})
 
-	// Now check that the lease is still held once we've started waiting. If
-	// the wait is triggered before the check, the test will fail.
+	// Check we correctly hold the lease.
+	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := LeaseService{
@@ -70,10 +66,6 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 
 func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	// Check we already hold the lease.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
-	s.token.EXPECT().Check().Return(nil)
 
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 		return fmt.Errorf("not holding lease")
@@ -100,10 +92,6 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	done := make(chan struct{})
 	running := make(chan struct{})
 
-	// Check we already hold the lease.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
-	s.token.EXPECT().Check().Return(nil)
-
 	// Cause the start to be triggered right away, but ensure that the
 	// lease has changed.
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
@@ -120,7 +108,8 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 		return fmt.Errorf("not holding lease")
 	})
 
-	// The lease is still held by the holder.
+	// Check we correctly hold the lease.
+	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := LeaseService{
@@ -165,10 +154,6 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	// Check we already hold the lease.
-	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
-	s.token.EXPECT().Check().Return(nil)
-
 	// Cause the start to be triggered right away, but ensure that the
 	// lease has changed.
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
@@ -182,7 +167,8 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 		return nil
 	})
 
-	// The lease is still held by the holder.
+	// Fail the lease check.
+	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(errors.Errorf("not holding lease"))
 
 	service := LeaseService{
@@ -198,7 +184,7 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, gc.ErrorMatches, "not holding lease")
+	c.Assert(err, gc.ErrorMatches, "checking lease token: not holding lease")
 	c.Check(called, jc.IsFalse)
 }
 
