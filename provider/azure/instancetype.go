@@ -441,7 +441,7 @@ var machineSizeCost = []string{
 }
 
 // newInstanceType creates an InstanceType based on a VirtualMachineSize.
-func newInstanceType(size armcompute.VirtualMachineSize) instances.InstanceType {
+func newInstanceType(isARMArch bool, size armcompute.VirtualMachineSize) instances.InstanceType {
 	sizeName := toValue(size.Name)
 	// Actual instance type names often are suffixed with _v3, _v4 etc. We always
 	// prefer the highest version number.
@@ -483,11 +483,15 @@ func newInstanceType(size armcompute.VirtualMachineSize) instances.InstanceType 
 	}
 
 	vtype := "Hyper-V"
+	instanceArch := arch.AMD64
+	if isARMArch {
+		instanceArch = arch.ARM64
+	}
 	return instances.InstanceType{
 		Id:   sizeName,
 		Name: sizeName,
 		// TODO(wallyworld) - add arm64 once supported
-		Arch:     arch.AMD64,
+		Arch:     instanceArch,
 		CpuCores: uint64(toValue(size.NumberOfCores)),
 		Mem:      uint64(toValue(size.MemoryInMB)),
 		// NOTE(axw) size.OsDiskSizeInMB is the *maximum*

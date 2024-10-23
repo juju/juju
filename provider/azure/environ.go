@@ -2385,12 +2385,17 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 					rootDisk = to.Ptr(int32(rootDiskValue))
 				}
 			}
-			instanceType := newInstanceType(armcompute.VirtualMachineSize{
-				Name:           resource.Name,
-				NumberOfCores:  cores,
-				OSDiskSizeInMB: rootDisk,
-				MemoryInMB:     mem,
-			})
+			instanceFamily := toValue(resource.Family)
+			instanceType := newInstanceType(
+				arm64InstanceFamilies.Contains(instanceFamily),
+				armcompute.VirtualMachineSize{
+					Name:           resource.Name,
+					NumberOfCores:  cores,
+					OSDiskSizeInMB: rootDisk,
+					MemoryInMB:     mem,
+				},
+			)
+
 			instanceTypes[instanceType.Name] = instanceType
 			// Create aliases for standard role sizes.
 			if strings.HasPrefix(instanceType.Name, "Standard_") {
@@ -2401,6 +2406,12 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 	env.instanceTypes = instanceTypes
 	return instanceTypes, nil
 }
+
+var arm64InstanceFamilies = set.NewStrings(
+	"standardDPSv5Family",
+	"standardDPLSv5Family",
+	"standardEPSv5Family",
+)
 
 // Region is specified in the HasRegion interface.
 func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
