@@ -4,6 +4,7 @@
 package config
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/juju/errors"
@@ -14,7 +15,6 @@ import (
 
 // AgentConf is an interface that provides access to the agent's configuration.
 type AgentConf interface {
-
 	// DataDir returns the directory where this agent should store its data.
 	DataDir() string
 
@@ -94,9 +94,15 @@ func (c *AgentConfig) CurrentConfig() agent.Config {
 
 // AgentConfigWriter encapsulates disk I/O operations with the agent
 // config.
-type AgentConfigWriter interface {
+type AgentConfigReader interface {
 	// ReadConfig reads the config for the given tag from disk.
 	ReadConfig(tag string) error
+}
+
+// AgentConfigWriter encapsulates disk I/O operations with the agent
+// config.
+type AgentConfigWriter interface {
+	AgentConfigReader
 	// ChangeConfig executes the given agent.ConfigMutator in a
 	// thread-safe context.
 	ChangeConfig(agent.ConfigMutator) error
@@ -106,12 +112,18 @@ type AgentConfigWriter interface {
 
 // ReadAgentConfig is a helper to read either machine or controller agent config,
 // whichever is there. Machine config gets precedence.
-func ReadAgentConfig(c AgentConfigWriter, agentId string) error {
+func ReadAgentConfig(c AgentConfigReader, agentId string) error {
 	var tag names.Tag = names.NewMachineTag(agentId)
-	err := c.ReadConfig(tag.String())
-	if err != nil {
-		tag = names.NewControllerAgentTag(agentId)
-		err = c.ReadConfig(tag.String())
+	machineErr := c.ReadConfig(tag.String())
+	if machineErr == nil {
+		return nil
 	}
-	return errors.Trace(err)
+
+	tag = names.NewControllerAgentTag(agentId)
+	ctrlErr := c.ReadConfig(tag.String())
+	if ctrlErr == nil {
+		return nil
+	}
+
+	return fmt.Errorf("reading agent config for %q: %w, %w", agentId, machineErr, ctrlErr)
 }
