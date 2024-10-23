@@ -104,7 +104,7 @@ func (m *leadershipService) BlockUntilLeadershipReleased(ctx context.Context, ap
 		return params.ErrorResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	if err := m.claimer.BlockUntilLeadershipReleased(ctx, applicationTag.Id(), ctx.Done()); err != nil {
+	if err := m.claimer.BlockUntilLeadershipReleased(ctx, applicationTag.Id()); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil

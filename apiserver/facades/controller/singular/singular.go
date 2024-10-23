@@ -78,7 +78,7 @@ func (facade *Facade) Wait(ctx context.Context, args params.Entities) (result pa
 		// TODO(axw) 2017-10-30 #1728594
 		// We should be waiting for the leases in parallel,
 		// so the waits do not affect one another.
-		err = facade.singularClaimer.WaitUntilExpired(leaseId, ctx.Done())
+		err = facade.singularClaimer.WaitUntilExpired(ctx, leaseId, nil)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result

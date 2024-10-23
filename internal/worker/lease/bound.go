@@ -5,6 +5,7 @@ package lease
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -71,17 +72,27 @@ func (b *boundManager) Revoke(leaseName, holderName string) error {
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (b *boundManager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
+func (b *boundManager) WaitUntilExpired(ctx context.Context, leaseName string, started chan<- struct{}) error {
 	key := b.leaseKey(leaseName)
 	if err := b.secretary.CheckLease(key); err != nil {
 		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
 	}
 
+	var once sync.Once
+
 	return block{
 		leaseKey: key,
 		unblock:  make(chan struct{}),
-		stop:     b.manager.tomb.Dying(),
-		cancel:   cancel,
+		started: func() {
+			once.Do(func() {
+				if started == nil {
+					return
+				}
+				close(started)
+			})
+		},
+		stop:   b.manager.tomb.Dying(),
+		cancel: ctx.Done(),
 	}.invoke(b.manager.blocks)
 }
 

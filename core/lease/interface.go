@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"context"
 	"time"
 )
 
@@ -21,8 +22,19 @@ const (
 	ObjectStoreNamespace = "object-store"
 )
 
+// Waiter exposes the lease expiry notification capabilities.
+type Waiter interface {
+	// WaitUntilExpired returns nil when the named lease is no longer held. If
+	// it returns any error, no reasonable inferences may be made. The supplied
+	// context can be used to cancel the request; in this case, the method will
+	// return ErrWaitCancelled.
+	// The started channel when non-nil is closed when the wait begins.
+	WaitUntilExpired(ctx context.Context, leaseName string, started chan<- struct{}) error
+}
+
 // Claimer exposes lease acquisition and expiry notification capabilities.
 type Claimer interface {
+	Waiter
 
 	// Claim acquires or extends the named lease for the named holder. If it
 	// succeeds, the holder is guaranteed to keep the lease until at least
@@ -30,12 +42,6 @@ type Claimer interface {
 	// the holder is guaranteed not to have the lease. If it returns any other
 	// error, no reasonable inferences may be made.
 	Claim(leaseName, holderName string, duration time.Duration) error
-
-	// WaitUntilExpired returns nil when the named lease is no longer held. If it
-	// returns any error, no reasonable inferences may be made. If the supplied
-	// cancel channel is non-nil, it can be used to cancel the request; in this
-	// case, the method will return ErrWaitCancelled.
-	WaitUntilExpired(leaseName string, cancel <-chan struct{}) error
 }
 
 // Revoker exposes lease revocation capabilities.
