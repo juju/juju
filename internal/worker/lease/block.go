@@ -40,7 +40,11 @@ type blocks map[lease.Key][]chan struct{}
 
 // add records the block's unblock channel under the block's lease key.
 func (b blocks) add(block block) {
-	block.started()
+	// The started function is potentially nil, but if it is not nil, it
+	// must be called before the unblock channel is added to the map.
+	if block.started != nil {
+		block.started()
+	}
 
 	b[block.leaseKey] = append(b[block.leaseKey], block.unblock)
 }

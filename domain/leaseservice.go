@@ -10,15 +10,16 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
-// LeaseChecker is an interface that checks if a lease is held by a holder.
-type LeaseChecker interface {
+// LeaseCheckerWaiter is an interface that checks and waits if a lease is held
+// by a holder.
+type LeaseCheckerWaiter interface {
 	lease.Waiter
 	lease.Checker
 }
 
 // LeaseService creates a base service that offers lease capabilities.
 type LeaseService struct {
-	leaseChecker func() LeaseChecker
+	leaseChecker func() LeaseCheckerWaiter
 }
 
 // WithLease executes the closure function if the holder to the lease is
