@@ -442,7 +442,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(
 		constraints.Arch,
-		[]string{corearch.AMD64},
+		[]string{corearch.AMD64, corearch.ARM64},
 	)
 	validator.RegisterVocabulary(
 		constraints.InstanceType,
@@ -453,10 +453,28 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 		[]string{
 			constraints.Mem,
 			constraints.Cores,
-			// TODO: move to a dynamic conflict for arch when azure supports more than amd64
-			//constraints.Arch,
+			constraints.Arch,
 		},
 	)
+	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
+		instanceTypeName := attrValues[constraints.InstanceType].(string)
+		arch := attrValues[constraints.Arch].(string)
+		for _, itype := range instanceTypes {
+			if itype.Name != instanceTypeName {
+				continue
+			}
+			if itype.Arch != arch {
+				return fmt.Errorf("%v=%q expected %v=%q not %q",
+					constraints.InstanceType, instanceTypeName,
+					constraints.Arch, itype.Arch, arch)
+			}
+			// The instance-type and arch are a valid combination.
+			return nil
+		}
+		// Should never get here as the instance type value should be already validated to be
+		// in instanceTypes.
+		return errors.NotFoundf("%v %q", constraints.InstanceType, instanceTypeName)
+	})
 	return validator, nil
 }
 
@@ -2325,6 +2343,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 		}
 	nextResource:
 		for _, resource := range next.Value {
+			logger.Criticalf("resource: %q %q %q %q %q", toValue(resource.Name), toValue(resource.Tier), toValue(resource.Kind), toValue(resource.Size), toValue(resource.Family))
 			if resource.ResourceType == nil || *resource.ResourceType != "virtualMachines" {
 				continue
 			}
