@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -40,7 +41,11 @@ type Config struct {
 	// StorageRegistryGetter is used to get storage registry instances.
 	StorageRegistryGetter storage.StorageRegistryGetter
 
+	// PublicKeyImporter is used to import public keys.
 	PublicKeyImporter domainservices.PublicKeyImporter
+
+	// LeaseManager is used to manage leases.
+	LeaseManager lease.Manager
 
 	// Logger is used to log messages.
 	Logger logger.Logger
@@ -72,6 +77,10 @@ func (config Config) Validate() error {
 	}
 	if config.PublicKeyImporter == nil {
 		return errors.NotValidf("nil PublicKeyImporter")
+	}
+
+	if config.LeaseManager == nil {
+		return errors.NotValidf("nil LeaseManager")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -108,6 +117,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.ObjectStoreGetter,
 			config.StorageRegistryGetter,
 			config.PublicKeyImporter,
+			config.LeaseManager,
 			config.Clock,
 			config.Logger,
 		),
@@ -173,6 +183,7 @@ type domainServicesGetter struct {
 	objectStoreGetter      objectstore.ObjectStoreGetter
 	storageRegistryGetter  storage.StorageRegistryGetter
 	publicKeyImporter      domainservices.PublicKeyImporter
+	leaseManager           lease.Manager
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
@@ -192,6 +203,10 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 				storageRegistryGetter: s.storageRegistryGetter,
 			},
 			s.publicKeyImporter,
+			modelApplicationLeaseManager{
+				modelUUID: modelUUID,
+				manager:   s.leaseManager,
+			},
 			s.clock,
 			s.logger,
 		),
@@ -223,4 +238,50 @@ type modelStorageRegistryGetter struct {
 // namespace.
 func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (internalstorage.ProviderRegistry, error) {
 	return s.storageRegistryGetter.GetStorageRegistry(ctx, s.modelUUID.String())
+}
+
+type modelApplicationLeaseManager struct {
+	modelUUID coremodel.UUID
+	manager   lease.Manager
+}
+
+// GetLeaseManager returns a lease manager for the given model UUID.
+func (s modelApplicationLeaseManager) GetLeaseManager() (lease.LeaseCheckerWaiter, error) {
+	// TODO (stickupkid): These aren't cheap to make, so we should cache them
+	// and reuse them where possible. I'm not sure these should be workers, I'd
+	// be happy with a sync.Pool at minimum though.
+	claimer, err := s.manager.Claimer(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	checker, err := s.manager.Checker(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &leaseManager{
+		claimer: claimer,
+		checker: checker,
+	}, nil
+}
+
+type leaseManager struct {
+	claimer lease.Claimer
+	checker lease.Checker
+}
+
+// WaitUntilExpired returns nil when the named lease is no longer held. If
+// it returns any error, no reasonable inferences may be made. The supplied
+// context can be used to cancel the request; in this case, the method will
+// return ErrWaitCancelled.
+// The started channel when non-nil is closed when the wait begins.
+func (m *leaseManager) WaitUntilExpired(ctx context.Context, leaseName string, started chan<- struct{}) error {
+	return m.claimer.WaitUntilExpired(ctx, leaseName, started)
+}
+
+// Token returns a Token that can be interrogated at any time to discover
+// whether the supplied lease is currently held by the supplied holder.
+func (m *leaseManager) Token(leaseName, holderName string) lease.Token {
+	return m.checker.Token(leaseName, holderName)
 }

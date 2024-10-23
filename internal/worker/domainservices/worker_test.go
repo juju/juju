@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -55,6 +56,14 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.StorageRegistryGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.LeaseManager = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewDomainServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -83,6 +92,7 @@ func (s *workerSuite) getConfig() Config {
 		ObjectStoreGetter:     s.objectStoreGetter,
 		StorageRegistryGetter: s.storageRegistryGetter,
 		PublicKeyImporter:     s.publicKeyImporter,
+		LeaseManager:          s.leaseManager,
 		Clock:                 s.clock,
 		Logger:                s.logger,
 		NewDomainServicesGetter: func(
@@ -93,6 +103,7 @@ func (s *workerSuite) getConfig() Config {
 			objectstore.ObjectStoreGetter,
 			storage.StorageRegistryGetter,
 			domainservices.PublicKeyImporter,
+			lease.Manager,
 			clock.Clock,
 			logger.Logger,
 		) services.DomainServicesGetter {
@@ -113,6 +124,7 @@ func (s *workerSuite) getConfig() Config {
 			objectstore.ModelObjectStoreGetter,
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
+			lease.ModelApplicationLeaseManagerGetter,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {

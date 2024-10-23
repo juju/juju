@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	lease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -48,11 +49,9 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(func() lease.LeaseCheckerWaiter {
+		return s.leaseCheckerWaiter
+	})
 
 	var called bool
 	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
@@ -71,11 +70,9 @@ func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 		return fmt.Errorf("not holding lease")
 	})
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(func() lease.LeaseCheckerWaiter {
+		return s.leaseCheckerWaiter
+	})
 
 	var called bool
 	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
@@ -112,11 +109,9 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(func() lease.LeaseCheckerWaiter {
+		return s.leaseCheckerWaiter
+	})
 
 	// Finish is used to ensure that the lease function has completed and not
 	// left running.
@@ -171,11 +166,9 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(errors.Errorf("not holding lease"))
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(func() lease.LeaseCheckerWaiter {
+		return s.leaseCheckerWaiter
+	})
 
 	// The lease function should be a long running function.
 

@@ -220,7 +220,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 	cfg := testing.DefaultServerConfig(c, nil)
 	cfg.GetAuditConfig = nil
-	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 
 	srv, err := apiserver.NewServer(context.Background(), cfg)
 	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")

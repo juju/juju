@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -98,6 +99,7 @@ func NewModelFactory(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
+	leaseManager lease.ModelApplicationLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelFactory {
