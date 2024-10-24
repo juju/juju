@@ -70,6 +70,8 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 		return errors.Trace(err)
 	}
 
+	// GetStorageRegistry result for a given model will be cached after the
+	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -198,6 +200,8 @@ func (s *StoragePoolService) validateNameCriteria(names []string) error {
 }
 
 func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, providers []string) error {
+	// GetStorageRegistry result for a given model will be cached after the
+	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -237,6 +241,8 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 }
 
 func (s *StoragePoolService) storageConfig(ctx context.Context, sp domainstorage.StoragePoolDetails) (*storage.Config, error) {
+	// GetStorageRegistry result for a given model will be cached after the
+	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
