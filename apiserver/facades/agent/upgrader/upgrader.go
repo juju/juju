@@ -111,19 +111,15 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		}
 
 		tagID := tag.Id()
-		var errMessage string
 		var upgraderAPIWatcher watcher.NotifyWatcher
 
 		switch tag.Kind() {
 		case names.ControllerTagKind, names.ModelTagKind:
-			errMessage = fmt.Sprintf("model %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchModelTargetAgentVersion(ctx)
 		case names.MachineTagKind:
-			errMessage = fmt.Sprintf("machine %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))
 		case names.UnitTagKind:
 			// Used in kubernetes models.
-			errMessage = fmt.Sprintf("unit %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, tagID)
 		default:
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
@@ -136,16 +132,13 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		case errors.Is(err, modelerrors.NotFound), errors.Is(err, applicationerrors.ApplicationNotFound),
 			errors.Is(err, machineerrors.MachineNotFound):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "%s", errMessage,
+				params.CodeNotFound, "%s", tag,
 			)
 			continue
 		case err != nil:
 			// We don't understand this error. At this stage we consider it an
 			// internal server error and bail out of the call completely.
-			return params.NotifyWatchResults{}, fmt.Errorf(
-				"cannot watch api version for %s: %w",
-				errMessage, err,
-			)
+			return params.NotifyWatchResults{}, fmt.Errorf("cannot watch api version for tag %q: %w", tag, err)
 		}
 
 		result.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
@@ -154,7 +147,7 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		if err != nil {
 			return params.NotifyWatchResults{}, fmt.Errorf(
 				"registering %s api version watcher: %w",
-				errMessage, err,
+				tag, err,
 			)
 		}
 	}
