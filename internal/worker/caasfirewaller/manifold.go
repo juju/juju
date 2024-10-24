@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.
@@ -96,17 +95,14 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
-		ControllerUUID: config.ControllerUUID,
-		ModelUUID:      config.ModelUUID,
-		FirewallerAPI:  client,
-		PortService:    domainServices.Port(),
-		ApplicationService: domainServices.Application(applicationservice.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         applicationservice.NotImplementedSecretService{},
-		}),
-		LifeGetter: client,
-		Broker:     broker,
-		Logger:     config.Logger,
+		ControllerUUID:     config.ControllerUUID,
+		ModelUUID:          config.ModelUUID,
+		FirewallerAPI:      client,
+		PortService:        domainServices.Port(),
+		ApplicationService: domainServices.Application(applicationservice.NotImplementedSecretService{}),
+		LifeGetter:         client,
+		Broker:             broker,
+		Logger:             config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

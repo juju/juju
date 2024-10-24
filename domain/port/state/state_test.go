@@ -58,7 +58,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 }
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
-// to the net node with uuid `netNodeUUID`.
+// to the net node with uuid `netNodeUUID` and application with name `appName`.
 func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreunit.Name, coreapplication.ID) {
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)

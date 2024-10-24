@@ -143,41 +143,41 @@ func (c *MockPortServiceGetApplicationOpenedPortsByEndpointCall) DoAndReturn(f f
 	return c
 }
 
-// WatchApplicationOpenedPorts mocks base method.
-func (m *MockPortService) WatchApplicationOpenedPorts(arg0 context.Context) (watcher.Watcher[[]string], error) {
+// WatchOpenedPortsForApplication mocks base method.
+func (m *MockPortService) WatchOpenedPortsForApplication(arg0 context.Context, arg1 application.ID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplicationOpenedPorts", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret := m.ctrl.Call(m, "WatchOpenedPortsForApplication", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchApplicationOpenedPorts indicates an expected call of WatchApplicationOpenedPorts.
-func (mr *MockPortServiceMockRecorder) WatchApplicationOpenedPorts(arg0 any) *MockPortServiceWatchApplicationOpenedPortsCall {
+// WatchOpenedPortsForApplication indicates an expected call of WatchOpenedPortsForApplication.
+func (mr *MockPortServiceMockRecorder) WatchOpenedPortsForApplication(arg0, arg1 any) *MockPortServiceWatchOpenedPortsForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationOpenedPorts", reflect.TypeOf((*MockPortService)(nil).WatchApplicationOpenedPorts), arg0)
-	return &MockPortServiceWatchApplicationOpenedPortsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPortsForApplication", reflect.TypeOf((*MockPortService)(nil).WatchOpenedPortsForApplication), arg0, arg1)
+	return &MockPortServiceWatchOpenedPortsForApplicationCall{Call: call}
 }
 
-// MockPortServiceWatchApplicationOpenedPortsCall wrap *gomock.Call
-type MockPortServiceWatchApplicationOpenedPortsCall struct {
+// MockPortServiceWatchOpenedPortsForApplicationCall wrap *gomock.Call
+type MockPortServiceWatchOpenedPortsForApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockPortServiceWatchApplicationOpenedPortsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockPortServiceWatchApplicationOpenedPortsCall {
+func (c *MockPortServiceWatchOpenedPortsForApplicationCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockPortServiceWatchOpenedPortsForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPortServiceWatchApplicationOpenedPortsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockPortServiceWatchApplicationOpenedPortsCall {
+func (c *MockPortServiceWatchOpenedPortsForApplicationCall) Do(f func(context.Context, application.ID) (watcher.Watcher[struct{}], error)) *MockPortServiceWatchOpenedPortsForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPortServiceWatchApplicationOpenedPortsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockPortServiceWatchApplicationOpenedPortsCall {
+func (c *MockPortServiceWatchOpenedPortsForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (watcher.Watcher[struct{}], error)) *MockPortServiceWatchOpenedPortsForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

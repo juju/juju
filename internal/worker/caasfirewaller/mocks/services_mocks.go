@@ -33,7 +33,6 @@ import (
 	service17 "github.com/juju/juju/domain/storage/service"
 	stub "github.com/juju/juju/domain/stub"
 	service18 "github.com/juju/juju/domain/unitstate/service"
-	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -175,7 +174,7 @@ func (c *MockModelDomainServicesAnnotationCall) DoAndReturn(f func() *service0.S
 }
 
 // Application mocks base method.
-func (m *MockModelDomainServices) Application(arg0 service1.ApplicationServiceParams) *service1.WatchableService {
+func (m *MockModelDomainServices) Application(arg0 service1.SecretService) *service1.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
 	ret0, _ := ret[0].(*service1.WatchableService)
@@ -201,13 +200,13 @@ func (c *MockModelDomainServicesApplicationCall) Return(arg0 *service1.Watchable
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesApplicationCall) Do(f func(service1.ApplicationServiceParams) *service1.WatchableService) *MockModelDomainServicesApplicationCall {
+func (c *MockModelDomainServicesApplicationCall) Do(f func(service1.SecretService) *service1.WatchableService) *MockModelDomainServicesApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesApplicationCall) DoAndReturn(f func(service1.ApplicationServiceParams) *service1.WatchableService) *MockModelDomainServicesApplicationCall {
+func (c *MockModelDomainServicesApplicationCall) DoAndReturn(f func(service1.SecretService) *service1.WatchableService) *MockModelDomainServicesApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -403,17 +402,17 @@ func (c *MockModelDomainServicesKeyManagerCall) DoAndReturn(f func() *service5.S
 }
 
 // KeyManagerWithImporter mocks base method.
-func (m *MockModelDomainServices) KeyManagerWithImporter(arg0 service5.PublicKeyImporter) *service5.ImporterService {
+func (m *MockModelDomainServices) KeyManagerWithImporter() *service5.ImporterService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyManagerWithImporter", arg0)
+	ret := m.ctrl.Call(m, "KeyManagerWithImporter")
 	ret0, _ := ret[0].(*service5.ImporterService)
 	return ret0
 }
 
 // KeyManagerWithImporter indicates an expected call of KeyManagerWithImporter.
-func (mr *MockModelDomainServicesMockRecorder) KeyManagerWithImporter(arg0 any) *MockModelDomainServicesKeyManagerWithImporterCall {
+func (mr *MockModelDomainServicesMockRecorder) KeyManagerWithImporter() *MockModelDomainServicesKeyManagerWithImporterCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManagerWithImporter", reflect.TypeOf((*MockModelDomainServices)(nil).KeyManagerWithImporter), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManagerWithImporter", reflect.TypeOf((*MockModelDomainServices)(nil).KeyManagerWithImporter))
 	return &MockModelDomainServicesKeyManagerWithImporterCall{Call: call}
 }
 
@@ -429,13 +428,13 @@ func (c *MockModelDomainServicesKeyManagerWithImporterCall) Return(arg0 *service
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesKeyManagerWithImporterCall) Do(f func(service5.PublicKeyImporter) *service5.ImporterService) *MockModelDomainServicesKeyManagerWithImporterCall {
+func (c *MockModelDomainServicesKeyManagerWithImporterCall) Do(f func() *service5.ImporterService) *MockModelDomainServicesKeyManagerWithImporterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesKeyManagerWithImporterCall) DoAndReturn(f func(service5.PublicKeyImporter) *service5.ImporterService) *MockModelDomainServicesKeyManagerWithImporterCall {
+func (c *MockModelDomainServicesKeyManagerWithImporterCall) DoAndReturn(f func() *service5.ImporterService) *MockModelDomainServicesKeyManagerWithImporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -783,17 +782,17 @@ func (c *MockModelDomainServicesSecretCall) DoAndReturn(f func(service15.SecretS
 }
 
 // Storage mocks base method.
-func (m *MockModelDomainServices) Storage(arg0 storage.ProviderRegistry) *service17.Service {
+func (m *MockModelDomainServices) Storage() *service17.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Storage", arg0)
+	ret := m.ctrl.Call(m, "Storage")
 	ret0, _ := ret[0].(*service17.Service)
 	return ret0
 }
 
 // Storage indicates an expected call of Storage.
-func (mr *MockModelDomainServicesMockRecorder) Storage(arg0 any) *MockModelDomainServicesStorageCall {
+func (mr *MockModelDomainServicesMockRecorder) Storage() *MockModelDomainServicesStorageCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Storage", reflect.TypeOf((*MockModelDomainServices)(nil).Storage), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Storage", reflect.TypeOf((*MockModelDomainServices)(nil).Storage))
 	return &MockModelDomainServicesStorageCall{Call: call}
 }
 
@@ -809,13 +808,13 @@ func (c *MockModelDomainServicesStorageCall) Return(arg0 *service17.Service) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesStorageCall) Do(f func(storage.ProviderRegistry) *service17.Service) *MockModelDomainServicesStorageCall {
+func (c *MockModelDomainServicesStorageCall) Do(f func() *service17.Service) *MockModelDomainServicesStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesStorageCall) DoAndReturn(f func(storage.ProviderRegistry) *service17.Service) *MockModelDomainServicesStorageCall {
+func (c *MockModelDomainServicesStorageCall) DoAndReturn(f func() *service17.Service) *MockModelDomainServicesStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

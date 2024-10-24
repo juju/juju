@@ -44,10 +44,10 @@ type LifeGetter interface {
 
 // PortService provides access to the port service.
 type PortService interface {
-	// WatchApplicationOpenedPorts returns a strings watcher for opened ports. This
-	// watcher emits for changes to the opened ports table. Each emitted event contains
-	// the app name which is associated with the changed port range.
-	WatchApplicationOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error)
+	// WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
+	// watcher emits events for changes to the opened ports table that are associated
+	// with the given application
+	WatchOpenedPortsForApplication(context.Context, application.ID) (watcher.NotifyWatcher, error)
 
 	// GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
 	// application, across all units, grouped by endpoint.

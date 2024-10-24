@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -34,7 +33,7 @@ type applicationWorker struct {
 	serviceUpdater ServiceUpdater
 
 	appWatcher   watcher.NotifyWatcher
-	portsWatcher watcher.StringsWatcher
+	portsWatcher watcher.NotifyWatcher
 
 	lifeGetter LifeGetter
 
@@ -97,7 +96,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	w.portsWatcher, err = w.portService.WatchApplicationOpenedPorts(ctx)
+	w.portsWatcher, err = w.portService.WatchOpenedPortsForApplication(ctx, w.appUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -149,13 +148,9 @@ func (w *applicationWorker) loop() (err error) {
 				}
 				return errors.Trace(err)
 			}
-		case changes, ok := <-w.portsWatcher.Changes():
+		case _, ok := <-w.portsWatcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
-			}
-			if !set.NewStrings(changes...).Contains(w.appName) {
-				w.logger.Debugf("port changes not for app %q, skipping event", w.appName)
-				continue
 			}
 			if err := w.onPortChanged(ctx); err != nil {
 				return errors.Trace(err)

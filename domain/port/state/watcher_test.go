@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -42,14 +43,9 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 
 	err := machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.unitUUIDs[0], _, s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
-	s.unitUUIDs[1], _, s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
-
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitUUIDs[2], _, _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 }
 
 func (s *watcherSuite) initialiseOpenPorts(c *gc.C, st *State) ([]string, map[string]string) {
@@ -95,7 +91,7 @@ FROM unit_endpoint
 }
 
 /*
-* The following tests are set up to run with the following context:
+* The following tests will run with the following context:
 * - 3 units are deployed (with uuids stored in s.unitUUIDs)
 * - 2 machines are deployed (with uuids stored in machineUUIDs)
 *   - machine 0 hosts units 0 & 1
@@ -111,37 +107,37 @@ FROM unit_endpoint
  */
 
 func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
+	s.unitUUIDs[0], _, s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUIDs[1], _, s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
+	s.unitUUIDs[2], _, _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
+
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	machineUUIDsForUnitEndpoints, err := st.GetMachineNamesForUnitEndpoints(ctx, endpointUUIDs)
+	machineUUIDsForEndpoint, err := st.GetMachineNamesForUnitEndpoints(ctx, endpointUUIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForUnitEndpoints, jc.SameContents, []machine.Name{"0", "1"})
+	c.Check(machineUUIDsForEndpoint, jc.SameContents, []machine.Name{"0", "1"})
 
-	machineUUIDsForUnitEndpoints, err = st.GetMachineNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
+	machineUUIDsForEndpoint, err = st.GetMachineNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForUnitEndpoints, jc.DeepEquals, []machine.Name{"0"})
-
-	machineUUIDsForUnitEndpoints, err = st.GetMachineNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"], endpointToUUIDMap["ep1"]})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(machineUUIDsForUnitEndpoints, jc.DeepEquals, []machine.Name{"0"})
+	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []machine.Name{"0"})
 }
 
-func (s *watcherSuite) TestGetApplicationForUnitEndpoints(c *gc.C) {
+func (s *watcherSuite) TestFilterEndpointForApplication(c *gc.C) {
+	s.unitUUIDs[0], _, s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUIDs[1], _, s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
+	s.unitUUIDs[2], _, _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
+
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	appNamesForUnitEndpoints, err := st.GetApplicationNamesForUnitEndpoints(ctx, endpointUUIDs)
+	filteredEndpointUUIDs, err := st.FilterEndpointsForApplication(ctx, endpointUUIDs, s.appUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appNamesForUnitEndpoints, jc.SameContents, []string{appNames[0], appNames[1]})
+	c.Check(filteredEndpointUUIDs, jc.DeepEquals, set.NewStrings(endpointToUUIDMap["ep0"]))
 
-	appNamesForUnitEndpoints, err = st.GetApplicationNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
+	filteredEndpointUUIDs, err = st.FilterEndpointsForApplication(ctx, endpointUUIDs, s.appUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appNamesForUnitEndpoints, jc.SameContents, []string{appNames[0]})
-
-	appNamesForUnitEndpoints, err = st.GetApplicationNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep1"], endpointToUUIDMap["ep2"]})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appNamesForUnitEndpoints, jc.SameContents, []string{appNames[1]})
+	c.Check(filteredEndpointUUIDs, jc.DeepEquals, set.NewStrings(endpointToUUIDMap["ep1"], endpointToUUIDMap["ep2"]))
 }

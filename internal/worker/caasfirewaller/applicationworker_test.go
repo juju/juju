@@ -39,10 +39,10 @@ type appWorkerSuite struct {
 	brokerApp     *caasmocks.MockApplication
 
 	applicationChanges chan struct{}
-	portsChanges       chan []string
+	portsChanges       chan struct{}
 
 	appsWatcher  watcher.NotifyWatcher
-	portsWatcher watcher.StringsWatcher
+	portsWatcher watcher.NotifyWatcher
 }
 
 var _ = gc.Suite(&appWorkerSuite{})
@@ -53,14 +53,14 @@ func (s *appWorkerSuite) SetUpTest(c *gc.C) {
 	s.appName = "app1"
 	s.appUUID = applicationtesting.GenApplicationUUID(c)
 	s.applicationChanges = make(chan struct{})
-	s.portsChanges = make(chan []string)
+	s.portsChanges = make(chan struct{})
 }
 
 func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.appsWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
-	s.portsWatcher = watchertest.NewMockStringsWatcher(s.portsChanges)
+	s.portsWatcher = watchertest.NewMockNotifyWatcher(s.portsChanges)
 
 	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
 	s.portService = mocks.NewMockPortService(ctrl)
@@ -96,14 +96,11 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	go func() {
 		// 1st port change event.
-		s.portsChanges <- []string{s.appName}
+		s.portsChanges <- struct{}{}
 		// 2nd port change event.
-		s.portsChanges <- []string{s.appName}
+		s.portsChanges <- struct{}{}
 		// 3rd port change event, including another application.
-		s.portsChanges <- []string{s.appName, "another-app"}
-
-		// port change event for another application.
-		s.portsChanges <- []string{"another-app"}
+		s.portsChanges <- struct{}{}
 
 		s.applicationChanges <- struct{}{}
 	}()
@@ -125,7 +122,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
-		s.portService.EXPECT().WatchApplicationOpenedPorts(gomock.Any()).Return(s.portsWatcher, nil),
+		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 
 		// initial fetch.
