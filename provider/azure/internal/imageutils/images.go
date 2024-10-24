@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/arch"
+	corearch "github.com/juju/juju/core/arch"
 	jujubase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/context"
@@ -33,8 +33,7 @@ const (
 	planV2               = "server"
 	planV1               = "server-gen1"
 	legacyPlanGen2Suffix = "-gen2"
-
-	planArm64Suffix = "-arm64"
+	planArm64Suffix      = "-arm64"
 )
 
 // BaseImage gets an instances.Image for the specified base, image stream
@@ -45,12 +44,12 @@ const (
 // for a series.
 func BaseImage(
 	ctx context.ProviderCallContext,
-	base jujubase.Base, stream, location, archRequested string,
+	base jujubase.Base, stream, location, arch string,
 	client *armcompute.VirtualMachineImagesClient,
 	preferGen1Image bool,
 ) (*instances.Image, error) {
-	if archRequested == "" {
-		archRequested = arch.AMD64
+	if arch == "" {
+		arch = corearch.AMD64
 	}
 
 	seriesOS := ostype.OSTypeForName(base.OS)
@@ -60,7 +59,7 @@ func BaseImage(
 	case ostype.Ubuntu:
 		publisher = ubuntuPublisher
 		var err error
-		sku, offering, err = ubuntuSKU(ctx, base, stream, location, archRequested, client, preferGen1Image)
+		sku, offering, err = ubuntuSKU(ctx, base, stream, location, arch, client, preferGen1Image)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
@@ -74,8 +73,8 @@ func BaseImage(
 		default:
 			return nil, errors.NotSupportedf("deploying %s", base)
 		}
-		if archRequested != "" && archRequested != arch.AMD64 {
-			return nil, errors.NotSupportedf("deploying %s", archRequested)
+		if arch != "" && arch != corearch.AMD64 {
+			return nil, errors.NotSupportedf("deploying %s", arch)
 		}
 
 	default:
@@ -84,7 +83,7 @@ func BaseImage(
 
 	return &instances.Image{
 		Id:       fmt.Sprintf("%s:%s:%s:latest", publisher, offering, sku),
-		Arch:     archRequested,
+		Arch:     arch,
 		VirtType: "Hyper-V",
 	}, nil
 }
@@ -134,11 +133,15 @@ func ubuntuBaseIslegacy(base jujubase.Base) bool {
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
 func ubuntuSKU(
-	ctx context.ProviderCallContext, base jujubase.Base, stream, location, archRequested string,
+	ctx context.ProviderCallContext, base jujubase.Base, stream, location, arch string,
 	client *armcompute.VirtualMachineImagesClient, preferGen1Image bool,
 ) (string, string, error) {
 	if ubuntuBaseIslegacy(base) {
-		return legacyUbuntuSKU(ctx, base, stream, location, archRequested, client, preferGen1Image)
+		return legacyUbuntuSKU(ctx, base, stream, location, arch, client, preferGen1Image)
+	}
+
+	if arch == corearch.ARM64 && preferGen1Image {
+		return "", "", errors.NotSupportedf("deploying %q with Gen1 retry", arch)
 	}
 
 	offer := fmt.Sprintf("ubuntu-%s", strings.ReplaceAll(base.Channel.Track, ".", "_"))
@@ -160,9 +163,16 @@ func ubuntuSKU(
 	var v1SKU string
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
-		if archRequested == arch.ARM64 && strings.HasSuffix(skuName, planArm64Suffix) {
-			logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, archRequested)
-			return skuName, offer, nil
+
+		if arch == corearch.ARM64 {
+			if strings.HasSuffix(skuName, planArm64Suffix) {
+				logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, arch)
+				return skuName, offer, nil
+			}
+			continue
+		}
+		if strings.HasSuffix(skuName, planArm64Suffix) {
+			continue
 		}
 
 		if skuName == planV2 && !preferGen1Image {
@@ -182,7 +192,7 @@ func ubuntuSKU(
 }
 
 func legacyUbuntuSKU(
-	ctx context.ProviderCallContext, base jujubase.Base, stream, location, archRequested string,
+	ctx context.ProviderCallContext, base jujubase.Base, stream, location, arch string,
 	client *armcompute.VirtualMachineImagesClient, preferGen1Image bool,
 ) (string, string, error) {
 	series, err := jujubase.GetSeriesFromBase(base)
@@ -195,15 +205,15 @@ func legacyUbuntuSKU(
 	}
 
 	logger.Debugf(
-		"listing SKUs: Base=%s, Series=%s, Location=%s, Stream=%s, Publisher=%s, Offer=%s",
-		base.Channel.Track, series, location, stream, ubuntuPublisher, offer,
+		"listing SKUs: Base=%s, Series=%s, Location=%s, Arch=%s, Stream=%s, Publisher=%s, Offer=%s",
+		base.Channel.Track, series, location, arch, stream, ubuntuPublisher, offer,
 	)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
 
-	skuName, err := selectUbuntuSKULegacy(base, series, stream, archRequested, result.VirtualMachineImageResourceArray, preferGen1Image)
+	skuName, err := selectUbuntuSKULegacy(base, series, stream, arch, result.VirtualMachineImageResourceArray, preferGen1Image)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -211,7 +221,7 @@ func legacyUbuntuSKU(
 }
 
 func selectUbuntuSKULegacy(
-	base jujubase.Base, series, stream, archRequested string,
+	base jujubase.Base, series, stream, arch string,
 	images []*armcompute.VirtualMachineImageResource, preferGen1Image bool,
 ) (string, error) {
 	// We prefer to use v2 SKU if available.
@@ -249,10 +259,15 @@ func selectUbuntuSKULegacy(
 			continue
 		}
 
-		if archRequested == arch.ARM64 && strings.HasSuffix(skuName, planArm64Suffix) {
-			// continue
-			logger.Criticalf("found Azure SKU Name: %q for arch %q", skuName, archRequested)
-			return skuName, nil
+		if arch == corearch.ARM64 {
+			if strings.HasSuffix(skuName, planArm64Suffix) && validStream(skuName) {
+				logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, arch)
+				return skuName, nil
+			}
+			continue
+		}
+		if strings.HasSuffix(skuName, planArm64Suffix) {
+			continue
 		}
 
 		if strings.HasSuffix(skuName, legacyPlanGen2Suffix) {

@@ -575,13 +575,6 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		}
 		hypervisorGenErr, ok := errorutils.MaybeHypervisorGenNotSupportedError(err)
 		if ok && !preferGen1Image {
-			if arch == corearch.ARM64 {
-				// This is a fatal error for ARM64 instances.
-				// We cannot provision a generation 2 VM with an ARM64 image and there is no fallback
-				// to generation 1 images for ARM64.
-				return nil, errorutils.SimpleError(err)
-
-			}
 			logger.Warningf("hypervisor generation 2 not supported for %q error: %q", instanceSpec.InstanceType.Name, hypervisorGenErr.Error())
 			logger.Warningf("retrying with generation 1 image")
 			preferGen1Image = true
@@ -602,7 +595,6 @@ func (env *azureEnviron) startInstance(
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: instanceSpec.Image.Arch,
 	})
-	logger.Criticalf("startInstance instanceSpec.Image.Arch %q", instanceSpec.Image.Arch)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2343,7 +2335,6 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 		}
 	nextResource:
 		for _, resource := range next.Value {
-			logger.Criticalf("resource: %q %q %q %q %q", toValue(resource.Name), toValue(resource.Tier), toValue(resource.Kind), toValue(resource.Size), toValue(resource.Family))
 			if resource.ResourceType == nil || *resource.ResourceType != "virtualMachines" {
 				continue
 			}
@@ -2385,9 +2376,8 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 					rootDisk = to.Ptr(int32(rootDiskValue))
 				}
 			}
-			instanceFamily := toValue(resource.Family)
 			instanceType := newInstanceType(
-				arm64InstanceFamilies.Contains(instanceFamily),
+				getArchFromResourceSKU(resource),
 				armcompute.VirtualMachineSize{
 					Name:           resource.Name,
 					NumberOfCores:  cores,
@@ -2407,11 +2397,21 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 	return instanceTypes, nil
 }
 
-var arm64InstanceFamilies = set.NewStrings(
-	"standardDPSv5Family",
-	"standardDPLSv5Family",
-	"standardEPSv5Family",
-)
+// getArchFromResourceSKU returns the architecture of the instance type based on the resource SKU.
+func getArchFromResourceSKU(resource *armcompute.ResourceSKU) corearch.Arch {
+	// These are the instance families that are ARM64 based in Azure for now.
+	arm64InstanceFamilies := set.NewStrings(
+		"standardDPSv5Family",
+		"standardDPLSv5Family",
+		"standardEPSv5Family",
+	)
+
+	instanceFamily := toValue(resource.Family)
+	if arm64InstanceFamilies.Contains(instanceFamily) {
+		return corearch.ARM64
+	}
+	return corearch.AMD64
+}
 
 // Region is specified in the HasRegion interface.
 func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
