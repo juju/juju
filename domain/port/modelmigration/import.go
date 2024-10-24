@@ -45,7 +45,7 @@ type PortService interface {
 }
 
 type ApplicationService interface {
-	GetUnitUUID(ctx context.Context, unitName string) (coreunit.UUID, error)
+	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
 }
 
 type importOperation struct {
@@ -106,7 +106,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 func (i *importOperation) importUnitPorts(
 	ctx context.Context, ports map[string]description.UnitPortRanges,
 ) error {
-	for unitName, unitPorts := range ports {
+	for unit, unitPorts := range ports {
+		unitName, err := coreunit.NewName(unit)
+		if err != nil {
+			return errors.Errorf("parsing unit name %s: %w", unitName, err)
+		}
 		openPorts := make(network.GroupedPortRanges)
 		for endpointName, portRanges := range unitPorts.ByEndpoint() {
 			portRangeList := transform.Slice(portRanges, func(pr description.UnitPortRange) network.PortRange {

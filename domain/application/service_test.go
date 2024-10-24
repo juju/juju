@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -270,15 +271,16 @@ func (s *serviceSuite) TestEnsureUnitDead(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	unitName := coreunit.Name("foo/666")
 	u := service.AddUnitArg{
-		UnitName: "foo/666",
+		UnitName: unitName,
 	}
 	s.createApplication(c, "foo", u)
 
 	revoker := application.NewMockRevoker(ctrl)
-	revoker.EXPECT().RevokeLeadership("foo", "foo/666")
+	revoker.EXPECT().RevokeLeadership("foo", unitName)
 
-	err := s.svc.EnsureUnitDead(context.Background(), "foo/666", revoker)
+	err := s.svc.EnsureUnitDead(context.Background(), unitName, revoker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotLife int
@@ -302,7 +304,7 @@ func (s *serviceSuite) TestEnsureUnitDeadNotFound(c *gc.C) {
 
 	revoker := application.NewMockRevoker(ctrl)
 
-	err := s.svc.EnsureUnitDead(context.Background(), "foo/666", revoker)
+	err := s.svc.EnsureUnitDead(context.Background(), coreunit.Name("foo/666"), revoker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -362,8 +364,9 @@ func (s *serviceSuite) TestRemoveUnit(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	unitName := coreunit.Name("foo/666")
 	u := service.AddUnitArg{
-		UnitName: "foo/666",
+		UnitName: unitName,
 	}
 	s.createApplication(c, "foo", u)
 
@@ -374,9 +377,9 @@ func (s *serviceSuite) TestRemoveUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	revoker := application.NewMockRevoker(ctrl)
-	revoker.EXPECT().RevokeLeadership("foo", "foo/666")
+	revoker.EXPECT().RevokeLeadership("foo", unitName)
 
-	err = s.svc.RemoveUnit(context.Background(), "foo/666", revoker)
+	err = s.svc.RemoveUnit(context.Background(), unitName, revoker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotCount int

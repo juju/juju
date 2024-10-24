@@ -711,7 +711,7 @@ func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 		NumUnits:        3,
 		Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
 	})
-	c.Assert(err, gc.ErrorMatches, `acquiring machine to host unit "dummy/0": machine 42 not found`)
+	c.Assert(err, gc.ErrorMatches, `acquiring machine for placement .* to host unit "dummy/0": machine 42 not found`)
 }
 
 func (s *applicationSuite) TestApplicationExpose(c *gc.C) {

@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
@@ -41,7 +42,7 @@ func (st *State) GetUnitOpenedPorts(ctx context.Context, unit coreunit.UUID) (ne
 		return nil, jujuerrors.Trace(err)
 	}
 
-	unitUUID := unitUUID{UUID: unit.String()}
+	unitUUID := unitUUID{UUID: unit}
 
 	query, err := st.Prepare(`
 SELECT &endpointPortRange.*
@@ -86,7 +87,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 //
 // NOTE: We do not group by endpoint here. It is not needed. Instead, we just
 // group by unit name
-func (s *State) GetAllOpenedPorts(ctx context.Context) (network.GroupedPortRanges, error) {
+func (s *State) GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRanges, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -115,7 +116,7 @@ JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
 		return nil, errors.Errorf("getting all opened ports: %w", err)
 	}
 
-	groupedPortRanges := network.GroupedPortRanges{}
+	groupedPortRanges := port.UnitGroupedPortRanges{}
 	for _, portRange := range results {
 		unitName := portRange.UnitName
 		groupedPortRanges[unitName] = append(groupedPortRanges[unitName], portRange.decode())
@@ -135,7 +136,7 @@ JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
 // So to join units to machines we go via their net_nodes.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
-func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[string]network.GroupedPortRanges, error) {
+func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[unit.Name]network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -180,7 +181,7 @@ func (st *State) GetApplicationOpenedPorts(ctx context.Context, application core
 		return nil, jujuerrors.Trace(err)
 	}
 
-	applicationUUID := applicationUUID{UUID: application.String()}
+	applicationUUID := applicationUUID{UUID: application}
 
 	query, err := st.Prepare(`
 SELECT &unitEndpointPortRange.*
@@ -213,7 +214,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 // GetColocatedOpenedPorts returns all the open ports for all units co-located with
 // the given unit. Units are considered co-located if they share the same net-node.
 func (st *State) GetColocatedOpenedPorts(ctx domain.AtomicContext, unit coreunit.UUID) ([]network.PortRange, error) {
-	unitUUID := unitUUID{UUID: unit.String()}
+	unitUUID := unitUUID{UUID: unit}
 
 	getOpenedPorts, err := st.Prepare(`
 SELECT &portRange.*
@@ -248,7 +249,7 @@ WHERE u2.uuid = $unitUUID.unit_uuid
 // GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
 // given unit.
 func (st *State) GetEndpointOpenedPorts(ctx domain.AtomicContext, unit coreunit.UUID, endpoint string) ([]network.PortRange, error) {
-	unitUUID := unitUUID{UUID: unit.String()}
+	unitUUID := unitUUID{UUID: unit}
 	endpointName := endpointName{Endpoint: endpoint}
 
 	query, err := st.Prepare(`
@@ -298,7 +299,7 @@ func (st *State) UpdateUnitPorts(
 	}
 	endpointsUnderAction := endpoints(endpointsUnderActionSet.Values())
 
-	unitUUID := unitUUID{UUID: unit.String()}
+	unitUUID := unitUUID{UUID: unit}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
@@ -559,7 +560,7 @@ WHERE uuid IN ($portRangeUUIDs[:])
 // Once it has been implemented, we should check the charm_relation table to get a
 // complete list of endpoints instead.
 func (st *State) GetEndpoints(ctx domain.AtomicContext, unit coreunit.UUID) ([]string, error) {
-	unitUUID := unitUUID{UUID: unit.String()}
+	unitUUID := unitUUID{UUID: unit}
 
 	getEndpoints, err := st.Prepare(`
 SELECT &endpointName.*

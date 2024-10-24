@@ -102,7 +102,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetUnitUUID mocks base method.
-func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 string) (unit.UUID, error) {
+func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
 	ret0, _ := ret[0].(unit.UUID)
@@ -129,13 +129,13 @@ func (c *MockApplicationServiceGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitUUIDCall) Do(f func(context.Context, string) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
+func (c *MockApplicationServiceGetUnitUUIDCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Context, string) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
+func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockApplicationServiceGetUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -25,9 +26,13 @@ import (
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, charm charm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
-	UpdateCAASUnit(ctx context.Context, unitName string, params applicationservice.UpdateCAASUnitParams) error
-	SetUnitPassword(ctx context.Context, unitName string, passwordHash string) error
+	CreateApplication(
+		ctx context.Context, name string, charm charm.Charm, origin corecharm.Origin,
+		params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg,
+	) (coreapplication.ID, error)
+
+	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
+	SetUnitPassword(ctx context.Context, unitName unit.Name, passwordHash string) error
 }
 
 // BakeryConfigService describes the service used to initialise the

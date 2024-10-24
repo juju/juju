@@ -8,6 +8,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -15,9 +16,14 @@ import (
 
 // ApplicationService instances create an application.
 type ApplicationService interface {
-	CreateApplication(context.Context, string, charm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
-	UpdateCAASUnit(ctx context.Context, unitName string, params applicationservice.UpdateCAASUnitParams) error
-	SetUnitPassword(ctx context.Context, unitName string, passwordHash string) error
+	CreateApplication(
+		context.Context, string, charm.Charm, corecharm.Origin,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+	) (coreapplication.ID, error)
+
+	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
+
+	SetUnitPassword(ctx context.Context, unitName unit.Name, passwordHash string) error
 }
 
 // ModelConfigService provides access to the model configuration.

@@ -16,6 +16,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
+	unit "github.com/juju/juju/core/unit"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -105,7 +106,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // EnsureUnitDead mocks base method.
-func (m *MockApplicationService) EnsureUnitDead(arg0 context.Context, arg1 string, arg2 leadership.Revoker) error {
+func (m *MockApplicationService) EnsureUnitDead(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureUnitDead", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -131,19 +132,19 @@ func (c *MockApplicationServiceEnsureUnitDeadCall) Return(arg0 error) *MockAppli
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceEnsureUnitDeadCall) Do(f func(context.Context, string, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
+func (c *MockApplicationServiceEnsureUnitDeadCall) Do(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Context, string, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
+func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -170,19 +171,19 @@ func (c *MockApplicationServiceGetUnitLifeCall) Return(arg0 life.Value, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RemoveUnit mocks base method.
-func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 string, arg2 leadership.Revoker) error {
+func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -208,13 +209,13 @@ func (c *MockApplicationServiceRemoveUnitCall) Return(arg0 error) *MockApplicati
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceRemoveUnitCall) Do(f func(context.Context, string, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
+func (c *MockApplicationServiceRemoveUnitCall) Do(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceRemoveUnitCall) DoAndReturn(f func(context.Context, string, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
+func (c *MockApplicationServiceRemoveUnitCall) DoAndReturn(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -35,7 +34,7 @@ type stateSuite struct {
 	baseSuite
 
 	unitUUID coreunit.UUID
-	unitName string
+	unitName coreunit.Name
 
 	appUUID coreapplication.ID
 }
@@ -45,7 +44,7 @@ var _ = gc.Suite(&stateSuite{})
 var (
 	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}
 	netNodeUUIDs = []string{"net-node-0-uuid", "net-node-1-uuid"}
-	appNames     = []string{"app-0-name", "app-1-name"}
+	appNames     = []string{"app-zero", "app-one"}
 )
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
@@ -60,11 +59,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, string, coreapplication.ID) {
-	unitName := fmt.Sprintf("%s/%d", appName, s.unitCount)
+func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreunit.Name, coreapplication.ID) {
+	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
+	c.Assert(err, jc.ErrorIsNil)
 
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
-	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+	err = applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := applicationSt.GetApplicationID(ctx, appName)
 		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return err
@@ -390,7 +390,7 @@ func (s *stateSuite) TestGetApplicationOpenedPortsAcrossTwoUnitsDifferentApplica
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	unit1UUID, unit1Name, app1UUID := s.createUnit(c, netNodeUUIDs[1], "app-name-1")
+	unit1UUID, unit1Name, app1UUID := s.createUnit(c, netNodeUUIDs[1], appNames[1])
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 			"endpoint": {

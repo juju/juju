@@ -19,6 +19,7 @@ import (
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
+	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
@@ -193,7 +194,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // DestroyUnit mocks base method.
-func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 string) error {
+func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyUnit", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -252,7 +253,7 @@ func (mr *MockApplicationServiceMockRecorder) GetApplicationScalingState(arg0, a
 }
 
 // GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -267,7 +268,7 @@ func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *gomoc
 }
 
 // RemoveUnit mocks base method.
-func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 string, arg2 leadership.Revoker) error {
+func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -295,7 +296,7 @@ func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(arg0, a
 }
 
 // UpdateCAASUnit mocks base method.
-func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 string, arg2 service.UpdateCAASUnitParams) error {
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

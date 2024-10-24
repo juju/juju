@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -31,9 +32,9 @@ type ControllerConfigGetter interface {
 
 // ApplicationService removes a unit from the dqlite database.
 type ApplicationService interface {
-	GetUnitLife(context.Context, string) (life.Value, error)
-	EnsureUnitDead(context.Context, string, leadership.Revoker) error
-	RemoveUnit(context.Context, string, leadership.Revoker) error
+	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
+	EnsureUnitDead(context.Context, coreunit.Name, leadership.Revoker) error
+	RemoveUnit(context.Context, coreunit.Name, leadership.Revoker) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -175,9 +176,14 @@ func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.Li
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		lifeValue, err := d.applicationService.GetUnitLife(ctx, tag.Id())
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		lifeValue, err := d.applicationService.GetUnitLife(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			err = errors.NotFoundf("unit %s", tag.Id())
+			err = errors.NotFoundf("unit %s", unitName)
 		}
 		result.Results[i].Life = lifeValue
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -244,19 +250,24 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 			continue
 		}
 
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		// Given the way dual write works, we need this for now.
-		if err = d.applicationService.EnsureUnitDead(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+		if err = d.applicationService.EnsureUnitDead(ctx, unitName, d.leadershipRevoker); err != nil {
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", tag.Id())
+				err = errors.NotFoundf("unit %s", unitName)
 			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// This is the call we will keep once mongo is removed.
 		// We will need to remove the alive check.
-		if err = d.applicationService.RemoveUnit(ctx, tag.Id(), d.leadershipRevoker); err != nil {
+		if err = d.applicationService.RemoveUnit(ctx, unitName, d.leadershipRevoker); err != nil {
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", tag.Id())
+				err = errors.NotFoundf("unit %s", unitName)
 			}
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
+
+	"github.com/juju/juju/core/unit"
 )
 
 // TODO (manadart 2018-10-05) Add interfaces to the end of this line,
@@ -74,7 +76,7 @@ type Claimer interface {
 type Revoker interface {
 	// RevokeLeadership revokes leadership of the named application
 	// on behalf of the named unit.
-	RevokeLeadership(applicationId, unitId string) error
+	RevokeLeadership(applicationName string, unitName unit.Name) error
 }
 
 // Pinner describes methods used to manage suspension of application leadership

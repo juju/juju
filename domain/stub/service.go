@@ -10,6 +10,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -41,7 +42,7 @@ func NewStubService(factory database.TxnRunnerFactory) *StubService {
 //
 // Deprecated: AssignUnitsToMachines will become redundant once the machine and
 // application domains have become fully implemented.
-func (s *StubService) AssignUnitsToMachines(ctx context.Context, groupedUnitsByMachine map[string][]string) error {
+func (s *StubService) AssignUnitsToMachines(ctx context.Context, groupedUnitsByMachine map[string][]unit.Name) error {
 	db, err := s.DB()
 	if err != nil {
 		return jujuerrors.Trace(err)

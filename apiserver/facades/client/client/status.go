@@ -29,7 +29,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -656,7 +658,7 @@ type statusContext struct {
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
 	// allOpenPortRanges: all open port ranges in the model, grouped by unit name.
-	allOpenPortRanges network.GroupedPortRanges
+	allOpenPortRanges port.UnitGroupedPortRanges
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
@@ -1535,7 +1537,9 @@ func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
 
 func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
-	if prs, ok := context.allOpenPortRanges[unit.Tag().Id()]; ok {
+	// unit.Name was retrieved from Mongo, so we can trust it's valid.
+	unitName := coreunit.Name(unit.Name())
+	if prs, ok := context.allOpenPortRanges[unitName]; ok {
 		result.OpenedPorts = transform.Slice(prs, network.PortRange.String)
 	}
 	if context.model.Type() == state.ModelTypeIAAS {

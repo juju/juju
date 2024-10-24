@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
@@ -266,7 +267,7 @@ type leadershipRevoker struct {
 	revoked set.Strings
 }
 
-func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
-	s.revoked.Add(unitId)
+func (s *leadershipRevoker) RevokeLeadership(applicationName string, unitName unit.Name) error {
+	s.revoked.Add(unitName.String())
 	return nil
 }

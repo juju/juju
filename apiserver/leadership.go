@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/unit"
 )
 
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
@@ -73,8 +74,8 @@ type leadershipRevoker struct {
 }
 
 // RevokeLeadership is part of the leadership.Claimer interface.
-func (m leadershipRevoker) RevokeLeadership(applicationName, unitName string) error {
-	err := m.claimer.Revoke(applicationName, unitName)
+func (m leadershipRevoker) RevokeLeadership(applicationName string, unitName unit.Name) error {
+	err := m.claimer.Revoke(applicationName, unitName.String())
 	if errors.Cause(err) == lease.ErrNotHeld {
 		return leadership.ErrClaimNotHeld
 	}

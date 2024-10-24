@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/environs/config"
@@ -327,7 +328,7 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machineUUID, nil)
 
 	s.portService.EXPECT().GetMachineOpenedPortsAndSubnets(gomock.Any(), machineUUID).Return(
-		map[string]port.GroupedPortRangesOnSubnets{
+		map[unit.Name]port.GroupedPortRangesOnSubnets{
 			"wordpress/0": {
 				"": {
 					PortRanges:  []network.PortRange{network.MustParsePortRange("80/tcp")},

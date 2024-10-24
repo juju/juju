@@ -816,13 +816,13 @@ func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `relation "123" not found`)
 }
 
-func (s *ApplicationSuite) expectUnit(ctrl *gomock.Controller, name string) *mocks.MockUnit {
+func (s *ApplicationSuite) expectUnit(ctrl *gomock.Controller, name coreunit.Name) *mocks.MockUnit {
 	unit := mocks.NewMockUnit(ctrl)
-	unit.EXPECT().Name().Return(name).AnyTimes()
-	unit.EXPECT().UnitTag().Return(names.NewUnitTag(name)).AnyTimes()
-	unit.EXPECT().Tag().Return(names.NewUnitTag(name)).AnyTimes()
-	appName := strings.Split(name, "/")[0]
-	machineId := strings.Split(name, "/")[1]
+	unit.EXPECT().Name().Return(name.String()).AnyTimes()
+	unit.EXPECT().UnitTag().Return(names.NewUnitTag(name.String())).AnyTimes()
+	unit.EXPECT().Tag().Return(names.NewUnitTag(name.String())).AnyTimes()
+	appName := strings.Split(name.String(), "/")[0]
+	machineId := strings.Split(name.String(), "/")[1]
 	unit.EXPECT().ApplicationName().Return(appName).AnyTimes()
 	unit.EXPECT().AssignedMachineId().Return(machineId, nil).AnyTimes()
 	unit.EXPECT().WorkloadVersion().Return("666", nil).AnyTimes()
@@ -878,8 +878,8 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
-		s.expectUnit(ctrl, "postgresql/0"),
-		s.expectUnit(ctrl, "postgresql/1"),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/0")),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/1")),
 	}, nil)
 	app.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -920,8 +920,8 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
-		s.expectUnit(ctrl, "postgresql/0"),
-		s.expectUnit(ctrl, "postgresql/1"),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/0")),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/1")),
 	}, nil)
 	app.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -952,8 +952,8 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	s.applicationService.EXPECT().DestroyApplication(gomock.Any(), "postgresql")
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
-		s.expectUnit(ctrl, "postgresql/0"),
-		s.expectUnit(ctrl, "postgresql/1"),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/0")),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/1")),
 	}, nil)
 	app.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -992,8 +992,8 @@ func (s *ApplicationSuite) TestDestroyApplicationDryRun(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AllUnits().Return([]application.Unit{
-		s.expectUnit(ctrl, "postgresql/0"),
-		s.expectUnit(ctrl, "postgresql/1"),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/0")),
+		s.expectUnit(ctrl, coreunit.Name("postgresql/1")),
 	}, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
@@ -1104,16 +1104,16 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
-	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/0")
-	unit0 := s.expectUnit(ctrl, "postgresql/0")
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), coreunit.Name("postgresql/0"))
+	unit0 := s.expectUnit(ctrl, coreunit.Name("postgresql/0"))
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{}).Return(nil)
 
 	// unit 1 loop
-	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/1")
-	unit1 := s.expectUnit(ctrl, "postgresql/1")
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), coreunit.Name("postgresql/1"))
+	unit1 := s.expectUnit(ctrl, coreunit.Name("postgresql/1"))
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
@@ -1172,8 +1172,8 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
-	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/0")
-	unit0 := s.expectUnit(ctrl, "postgresql/0")
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), coreunit.Name("postgresql/0"))
+	unit0 := s.expectUnit(ctrl, coreunit.Name("postgresql/0"))
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
@@ -1185,8 +1185,8 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	}}).Return(nil)
 
 	// unit 1 loop
-	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), "postgresql/1")
-	unit1 := s.expectUnit(ctrl, "postgresql/1")
+	s.applicationService.EXPECT().DestroyUnit(gomock.Any(), coreunit.Name("postgresql/1"))
+	unit1 := s.expectUnit(ctrl, coreunit.Name("postgresql/1"))
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
@@ -1226,7 +1226,7 @@ func (s *ApplicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	unit0 := s.expectUnit(ctrl, "subordinate/0")
+	unit0 := s.expectUnit(ctrl, coreunit.Name("subordinate/0"))
 	unit0.EXPECT().IsPrincipal().Return(false)
 	s.backend.EXPECT().Unit("subordinate/0").Return(unit0, nil)
 
@@ -1247,11 +1247,11 @@ func (s *ApplicationSuite) TestDestroyUnitDryRun(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
-	unit0 := s.expectUnit(ctrl, "postgresql/0")
+	unit0 := s.expectUnit(ctrl, coreunit.Name("postgresql/0"))
 	unit0.EXPECT().IsPrincipal().Return(true)
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
 
-	unit1 := s.expectUnit(ctrl, "postgresql/1")
+	unit1 := s.expectUnit(ctrl, coreunit.Name("postgresql/1"))
 	unit1.EXPECT().IsPrincipal().Return(true)
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
 
@@ -1948,7 +1948,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	unitName := "postgresql/99"
+	unitName := coreunit.Name("postgresql/99")
 	newUnit := s.expectUnit(ctrl, unitName)
 	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
 
@@ -1962,7 +1962,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 		gomock.Any(), "postgresql",
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
-	s.stubService.EXPECT().AssignUnitsToMachines(gomock.Any(), map[string][]string{
+	s.stubService.EXPECT().AssignUnitsToMachines(gomock.Any(), map[string][]coreunit.Name{
 		"99": {unitName},
 	})
 
@@ -1992,7 +1992,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	unitName := "postgresql/99"
+	unitName := coreunit.Name("postgresql/99")
 	newUnit := s.expectUnit(ctrl, unitName)
 	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
 
@@ -2008,7 +2008,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 		gomock.Any(), "postgresql",
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
-	s.stubService.EXPECT().AssignUnitsToMachines(gomock.Any(), map[string][]string{
+	s.stubService.EXPECT().AssignUnitsToMachines(gomock.Any(), map[string][]coreunit.Name{
 		"99": {unitName},
 	})
 
@@ -2809,7 +2809,7 @@ func (s *ApplicationSuite) expectCloudContainer(ctrl *gomock.Controller) *mocks.
 	return cloudContainer
 }
 
-func (s *ApplicationSuite) expectUnitWithCloudContainer(ctrl *gomock.Controller, cc state.CloudContainer, name string) *mocks.MockUnit {
+func (s *ApplicationSuite) expectUnitWithCloudContainer(ctrl *gomock.Controller, cc state.CloudContainer, name coreunit.Name) *mocks.MockUnit {
 	unit := s.expectUnit(ctrl, name)
 	unit.EXPECT().ContainerInfo().Return(cc, nil)
 	return unit
@@ -2833,7 +2833,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	unit := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), "postgresql/0")
+	unit := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), coreunit.Name("postgresql/0"))
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit, nil)
 
 	s.backend.EXPECT().Unit("mysql/0").Return(nil, errors.NotFoundf(`unit "mysql/0"`))
@@ -2851,7 +2851,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 
 	unitUUID, err := coreunit.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), "postgresql/0").Return(unitUUID, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("postgresql/0")).Return(unitUUID, nil)
 	s.portService.EXPECT().GetUnitOpenedPorts(gomock.Any(), unitUUID).Return(network.GroupedPortRanges{
 		"foo": []network.PortRange{network.MustParsePortRange("100-102/tcp")},
 	}, nil)
@@ -2901,8 +2901,8 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 
-	unit0 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), "postgresql/0")
-	unit1 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), "postgresql/1")
+	unit0 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), coreunit.Name("postgresql/0"))
+	unit1 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), coreunit.Name("postgresql/1"))
 	app.EXPECT().AllUnits().Return([]application.Unit{unit0, unit1}, nil)
 
 	rel := s.expectRelation(ctrl, "postgresql:db gitlab:server", false)
@@ -2920,8 +2920,8 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	postgress1UUID, err := coreunit.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), "postgresql/0").Return(postgress0UUID, nil)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), "postgresql/1").Return(postgress1UUID, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("postgresql/0")).Return(postgress0UUID, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("postgresql/1")).Return(postgress1UUID, nil)
 
 	s.portService.EXPECT().GetUnitOpenedPorts(gomock.Any(), postgress0UUID).Return(network.GroupedPortRanges{
 		"foo": []network.PortRange{network.MustParsePortRange("100-102/tcp")},

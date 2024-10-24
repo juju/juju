@@ -67,7 +67,7 @@ func (s *serviceSuite) TestGetUnitOpenedPorts(c *gc.C) {
 func (s *serviceSuite) TestGetAllOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	grp := network.GroupedPortRanges{
+	grp := port.UnitGroupedPortRanges{
 		"unit/0": {
 			network.MustParsePortRange("80/tcp"),
 			network.MustParsePortRange("443/tcp"),
@@ -87,7 +87,7 @@ func (s *serviceSuite) TestGetAllOpenedPorts(c *gc.C) {
 func (s *serviceSuite) TestGetMachineOpenedPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	grp := map[string]network.GroupedPortRanges{
+	grp := map[coreunit.Name]network.GroupedPortRanges{
 		"unit/1": {
 			"ep1": {
 				network.MustParsePortRange("80/tcp"),
@@ -121,7 +121,7 @@ func (s *serviceSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 		{Endpoint: "ep3", UnitName: "unit/2", PortRange: network.MustParsePortRange("8080/tcp")},
 	}
 
-	expected := map[string]network.GroupedPortRanges{
+	expected := map[coreunit.Name]network.GroupedPortRanges{
 		"unit/1": {
 			"ep1": {
 				network.MustParsePortRange("80/tcp"),

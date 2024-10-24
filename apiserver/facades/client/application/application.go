@@ -1484,7 +1484,11 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return &info, nil
 		}
 
-		if err := api.applicationService.DestroyUnit(ctx, name); err != nil {
+		unitName, err := coreunit.NewName(name)
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing unit name %q: %w", name, err)
+		}
+		if err := api.applicationService.DestroyUnit(ctx, unitName); err != nil {
 			if !errors.Is(err, applicationerrors.UnitNotFound) {
 				return nil, errors.Trace(err)
 			}
@@ -2562,14 +2566,18 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 		return nil, err
 	}
 
-	unitUUID, err := api.applicationService.GetUnitUUID(ctx, unit.Name())
+	unitName, err := coreunit.NewName(unit.Name())
+	if err != nil {
+		return nil, err
+	}
+	unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		err = errors.NotFoundf("unit %s", unit.Name())
+		err = errors.NotFoundf("unit %s", unitName)
 	}
 	if err != nil {
 		return nil, err
 	}
-	unitLife, err := api.applicationService.GetUnitLife(ctx, unit.Name())
+	unitLife, err := api.applicationService.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return nil, err
 	}

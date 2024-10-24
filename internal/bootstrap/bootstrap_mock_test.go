@@ -21,6 +21,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
+	unit "github.com/juju/juju/core/unit"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
 	charm0 "github.com/juju/juju/internal/charm"
@@ -2009,7 +2010,7 @@ func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context
 }
 
 // SetUnitPassword mocks base method.
-func (m *MockApplicationService) SetUnitPassword(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockApplicationService) SetUnitPassword(arg0 context.Context, arg1 unit.Name, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitPassword", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -2035,19 +2036,19 @@ func (c *MockApplicationServiceSetUnitPasswordCall) Return(arg0 error) *MockAppl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceSetUnitPasswordCall) Do(f func(context.Context, string, string) error) *MockApplicationServiceSetUnitPasswordCall {
+func (c *MockApplicationServiceSetUnitPasswordCall) Do(f func(context.Context, unit.Name, string) error) *MockApplicationServiceSetUnitPasswordCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceSetUnitPasswordCall) DoAndReturn(f func(context.Context, string, string) error) *MockApplicationServiceSetUnitPasswordCall {
+func (c *MockApplicationServiceSetUnitPasswordCall) DoAndReturn(f func(context.Context, unit.Name, string) error) *MockApplicationServiceSetUnitPasswordCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateCAASUnit mocks base method.
-func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 string, arg2 service.UpdateCAASUnitParams) error {
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -2073,13 +2074,13 @@ func (c *MockApplicationServiceUpdateCAASUnitCall) Return(arg0 error) *MockAppli
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceUpdateCAASUnitCall) Do(f func(context.Context, string, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+func (c *MockApplicationServiceUpdateCAASUnitCall) Do(f func(context.Context, unit.Name, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Context, string, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.Name, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

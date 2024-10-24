@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
@@ -194,9 +195,15 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 		var lifeValue life.Value
 		switch tag.Kind() {
 		case names.UnitTagKind:
-			lifeValue, err = f.applicationService.GetUnitLife(ctx, tag.Id())
+			var unitName coreunit.Name
+			unitName, err = coreunit.NewName(tag.Id())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			lifeValue, err = f.applicationService.GetUnitLife(ctx, unitName)
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = jujuerrors.NotFoundf("unit %q", tag.Id())
+				err = jujuerrors.NotFoundf("unit %q", unitName)
 			}
 		default:
 			lifeValue, err = f.LifeGetter.OneLife(tag)
@@ -526,7 +533,7 @@ func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machi
 	// depending on the endpoints they apply to.
 	res := make(map[string][]params.OpenUnitPortRanges)
 	for unitName, unitOpenedPortRangesToSubnets := range machineOpenedPortRangesToSubnets {
-		unitTag := names.NewUnitTag(unitName).String()
+		unitTag := names.NewUnitTag(unitName.String()).String()
 		for endpoint, portRangesToSubnets := range unitOpenedPortRangesToSubnets {
 			res[unitTag] = append(res[unitTag], params.OpenUnitPortRanges{
 				Endpoint:    endpoint,

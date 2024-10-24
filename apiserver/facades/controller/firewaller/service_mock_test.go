@@ -19,6 +19,7 @@ import (
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
+	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	port "github.com/juju/juju/domain/port"
 	config "github.com/juju/juju/environs/config"
@@ -313,7 +314,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 string) (life.Value, error) {
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -340,13 +341,13 @@ func (c *MockApplicationServiceGetUnitLifeCall) Return(arg0 life.Value, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -593,10 +594,10 @@ func (m *MockPortService) EXPECT() *MockPortServiceMockRecorder {
 }
 
 // GetMachineOpenedPortsAndSubnets mocks base method.
-func (m *MockPortService) GetMachineOpenedPortsAndSubnets(arg0 context.Context, arg1 string) (map[string]port.GroupedPortRangesOnSubnets, error) {
+func (m *MockPortService) GetMachineOpenedPortsAndSubnets(arg0 context.Context, arg1 string) (map[unit.Name]port.GroupedPortRangesOnSubnets, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineOpenedPortsAndSubnets", arg0, arg1)
-	ret0, _ := ret[0].(map[string]port.GroupedPortRangesOnSubnets)
+	ret0, _ := ret[0].(map[unit.Name]port.GroupedPortRangesOnSubnets)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -614,19 +615,19 @@ type MockPortServiceGetMachineOpenedPortsAndSubnetsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockPortServiceGetMachineOpenedPortsAndSubnetsCall) Return(arg0 map[string]port.GroupedPortRangesOnSubnets, arg1 error) *MockPortServiceGetMachineOpenedPortsAndSubnetsCall {
+func (c *MockPortServiceGetMachineOpenedPortsAndSubnetsCall) Return(arg0 map[unit.Name]port.GroupedPortRangesOnSubnets, arg1 error) *MockPortServiceGetMachineOpenedPortsAndSubnetsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPortServiceGetMachineOpenedPortsAndSubnetsCall) Do(f func(context.Context, string) (map[string]port.GroupedPortRangesOnSubnets, error)) *MockPortServiceGetMachineOpenedPortsAndSubnetsCall {
+func (c *MockPortServiceGetMachineOpenedPortsAndSubnetsCall) Do(f func(context.Context, string) (map[unit.Name]port.GroupedPortRangesOnSubnets, error)) *MockPortServiceGetMachineOpenedPortsAndSubnetsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPortServiceGetMachineOpenedPortsAndSubnetsCall) DoAndReturn(f func(context.Context, string) (map[string]port.GroupedPortRangesOnSubnets, error)) *MockPortServiceGetMachineOpenedPortsAndSubnetsCall {
+func (c *MockPortServiceGetMachineOpenedPortsAndSubnetsCall) DoAndReturn(f func(context.Context, string) (map[unit.Name]port.GroupedPortRangesOnSubnets, error)) *MockPortServiceGetMachineOpenedPortsAndSubnetsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

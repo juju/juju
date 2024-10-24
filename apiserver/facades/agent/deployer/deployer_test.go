@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -42,8 +43,8 @@ type mockLeadershipRevoker struct {
 	revoked set.Strings
 }
 
-func (s *mockLeadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
-	s.revoked.Add(unitId)
+func (s *mockLeadershipRevoker) RevokeLeadership(applicationName string, unitName coreunit.Name) error {
+	s.revoked.Add(unitName.String())
 	return nil
 }
 
@@ -262,9 +263,9 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeDeployerAPI(c)
 
-	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "mysql/0").Return(life.Alive, nil)
-	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "logging/0").Return(life.Dead, nil)
-	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), "logging/0").Return("", apiservererrors.ErrPerm)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), coreunit.Name("mysql/0")).Return(life.Alive, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), coreunit.Name("logging/0")).Return(life.Dead, nil)
+	s.applicationService.EXPECT().GetUnitLife(gomock.Any(), coreunit.Name("logging/0")).Return("", apiservererrors.ErrPerm)
 
 	err := s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -318,10 +319,10 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	s.makeDeployerAPI(c)
 
 	gomock.InOrder(
-		s.applicationService.EXPECT().EnsureUnitDead(gomock.Any(), "logging/0", gomock.Any()),
-		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), "logging/0", gomock.Any()).
-			DoAndReturn(func(ctx context.Context, unitName string, revoker leadership.Revoker) error {
-				appName, _ := names.UnitApplication(unitName)
+		s.applicationService.EXPECT().EnsureUnitDead(gomock.Any(), coreunit.Name("logging/0"), gomock.Any()),
+		s.applicationService.EXPECT().RemoveUnit(gomock.Any(), coreunit.Name("logging/0"), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, unitName coreunit.Name, revoker leadership.Revoker) error {
+				appName, _ := names.UnitApplication(unitName.String())
 				return revoker.RevokeLeadership(appName, unitName)
 			}),
 	)

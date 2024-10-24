@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
@@ -115,9 +116,14 @@ func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) para
 		// Handle units using the domain service.
 		// Eventually all entities will be supported via dqlite.
 		if tag.Kind() == names.UnitTagKind {
-			lifeValue, err := api.applicationService.GetUnitLife(ctx, tag.Id())
+			unitName, err := coreunit.NewName(tag.Id())
+			if err != nil {
+				results.Entities[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			lifeValue, err := api.applicationService.GetUnitLife(ctx, unitName)
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", tag.Id())
+				err = errors.NotFoundf("unit %s", unitName)
 			}
 			results.Entities[i].Life = lifeValue
 			results.Entities[i].Error = apiservererrors.ServerError(err)

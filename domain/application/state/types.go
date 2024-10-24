@@ -6,6 +6,8 @@ package state
 import (
 	"time"
 
+	coreapplication "github.com/juju/juju/core/application"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
 )
@@ -23,22 +25,22 @@ type KeyValue struct {
 
 // applicationID is used to get the ID (and life) of an application.
 type applicationID struct {
-	ID     string    `db:"uuid"`
-	LifeID life.Life `db:"life_id"`
+	ID     coreapplication.ID `db:"uuid"`
+	LifeID life.Life          `db:"life_id"`
 }
 
 type applicationChannel struct {
-	ApplicationID string `db:"application_uuid"`
-	Track         string `db:"track"`
-	Risk          string `db:"risk"`
-	Branch        string `db:"branch"`
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	Track         string             `db:"track"`
+	Risk          string             `db:"risk"`
+	Branch        string             `db:"branch"`
 }
 
 type applicationPlatform struct {
-	ApplicationID  string `db:"application_uuid"`
-	OSTypeID       int    `db:"os_id"`
-	Channel        string `db:"channel"`
-	ArchitectureID int    `db:"architecture_id"`
+	ApplicationID  coreapplication.ID `db:"application_uuid"`
+	OSTypeID       int                `db:"os_id"`
+	Channel        string             `db:"channel"`
+	ArchitectureID int                `db:"architecture_id"`
 }
 
 // applicationName is used to get the name of an application.
@@ -47,17 +49,17 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	ApplicationID string    `db:"uuid"`
-	Name          string    `db:"name"`
-	CharmID       string    `db:"charm_uuid"`
-	LifeID        life.Life `db:"life_id"`
+	ApplicationID coreapplication.ID `db:"uuid"`
+	Name          string             `db:"name"`
+	CharmID       string             `db:"charm_uuid"`
+	LifeID        life.Life          `db:"life_id"`
 }
 
 type applicationScale struct {
-	ApplicationID string `db:"application_uuid"`
-	Scaling       bool   `db:"scaling"`
-	Scale         int    `db:"scale"`
-	ScaleTarget   int    `db:"scale_target"`
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	Scaling       bool               `db:"scaling"`
+	Scale         int                `db:"scale"`
+	ScaleTarget   int                `db:"scale_target"`
 }
 
 func (as applicationScale) toScaleState() application.ScaleState {
@@ -69,36 +71,36 @@ func (as applicationScale) toScaleState() application.ScaleState {
 }
 
 type unitDetails struct {
-	UnitUUID                string    `db:"uuid"`
-	NetNodeID               string    `db:"net_node_uuid"`
-	Name                    string    `db:"name"`
-	ApplicationID           string    `db:"application_uuid"`
-	LifeID                  life.Life `db:"life_id"`
-	PasswordHash            string    `db:"password_hash"`
-	PasswordHashAlgorithmID int       `db:"password_hash_algorithm_id"`
+	UnitUUID                coreunit.UUID      `db:"uuid"`
+	NetNodeID               string             `db:"net_node_uuid"`
+	Name                    coreunit.Name      `db:"name"`
+	ApplicationID           coreapplication.ID `db:"application_uuid"`
+	LifeID                  life.Life          `db:"life_id"`
+	PasswordHash            string             `db:"password_hash"`
+	PasswordHashAlgorithmID int                `db:"password_hash_algorithm_id"`
 }
 
 type unitPassword struct {
-	UnitID                  string `db:"uuid"`
-	PasswordHash            string `db:"password_hash"`
-	PasswordHashAlgorithmID int    `db:"password_hash_algorithm_id"`
+	UnitUUID                coreunit.UUID `db:"uuid"`
+	PasswordHash            string        `db:"password_hash"`
+	PasswordHashAlgorithmID int           `db:"password_hash_algorithm_id"`
 }
 
 // unitNameAndUUID store the name & uuid of a unit
 type unitNameAndUUID struct {
-	UnitUUID string `db:"uuid"`
-	Name     string `db:"name"`
+	UnitUUID coreunit.UUID `db:"uuid"`
+	Name     coreunit.Name `db:"name"`
 }
 
-type unitNames []string
+type unitNames []coreunit.Name
 
-type unitUUIDs []string
+type unitUUIDs []coreunit.UUID
 
 type minimalUnit struct {
-	ID        string    `db:"uuid"`
-	NetNodeID string    `db:"net_node_uuid"`
-	Name      string    `db:"name"`
-	LifeID    life.Life `db:"life_id"`
+	UUID      coreunit.UUID `db:"uuid"`
+	NetNodeID string        `db:"net_node_uuid"`
+	Name      coreunit.Name `db:"name"`
+	LifeID    life.Life     `db:"life_id"`
 }
 
 type unitCount struct {
@@ -108,16 +110,16 @@ type unitCount struct {
 }
 
 type unitStatusInfo struct {
-	UnitUUID  string    `db:"unit_uuid"`
-	StatusID  int       `db:"status_id"`
-	Message   string    `db:"message"`
-	UpdatedAt time.Time `db:"updated_at"`
+	UnitUUID  coreunit.UUID `db:"unit_uuid"`
+	StatusID  int           `db:"status_id"`
+	Message   string        `db:"message"`
+	UpdatedAt time.Time     `db:"updated_at"`
 }
 
 type unitStatusData struct {
-	UnitUUID string `db:"unit_uuid"`
-	Key      string `db:"key"`
-	Data     string `db:"data"`
+	UnitUUID coreunit.UUID `db:"unit_uuid"`
+	Key      string        `db:"key"`
+	Data     string        `db:"data"`
 }
 
 type cloudContainer struct {
@@ -126,8 +128,8 @@ type cloudContainer struct {
 }
 
 type cloudService struct {
-	ApplicationID string `db:"application_uuid"`
-	ProviderID    string `db:"provider_id"`
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	ProviderID    string             `db:"provider_id"`
 }
 
 type applicationCharmUUID struct {

@@ -4,8 +4,10 @@
 package state
 
 import (
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/port"
 )
 
@@ -34,10 +36,10 @@ func (pr portRange) decode() network.PortRange {
 // unitNamePortRange represents a range of ports for a given protocol for a
 // given unit.
 type unitNamePortRange struct {
-	UnitName string `db:"name"`
-	Protocol string `db:"protocol"`
-	FromPort int    `db:"from_port"`
-	ToPort   int    `db:"to_port"`
+	UnitName unit.Name `db:"name"`
+	Protocol string    `db:"protocol"`
+	FromPort int       `db:"from_port"`
+	ToPort   int       `db:"to_port"`
 }
 
 // decode returns the network.PortRange representation of the unitNamePortRange.
@@ -87,11 +89,11 @@ func (p endpointPortRangeUUID) decode() network.PortRange {
 // unitEndpointPortRange represents a range of ports for a given protocol for
 // a given unit's endpoint, and unit UUID.
 type unitEndpointPortRange struct {
-	UnitName string `db:"unit_name"`
-	Protocol string `db:"protocol"`
-	FromPort int    `db:"from_port"`
-	ToPort   int    `db:"to_port"`
-	Endpoint string `db:"endpoint"`
+	UnitName unit.Name `db:"unit_name"`
+	Protocol string    `db:"protocol"`
+	FromPort int       `db:"from_port"`
+	ToPort   int       `db:"to_port"`
+	Endpoint string    `db:"endpoint"`
 }
 
 func (p unitEndpointPortRange) decodeToUnitEndpointPortRange() port.UnitEndpointPortRange {
@@ -138,14 +140,14 @@ type endpoints []string
 
 // unitEndpoint represents a unit's endpoint and its UUID.
 type unitEndpoint struct {
-	UUID     string `db:"uuid"`
-	Endpoint string `db:"endpoint"`
-	UnitUUID string `db:"unit_uuid"`
+	UUID     string    `db:"uuid"`
+	Endpoint string    `db:"endpoint"`
+	UnitUUID unit.UUID `db:"unit_uuid"`
 }
 
 // unitUUID represents a unit's UUID.
 type unitUUID struct {
-	UUID string `db:"unit_uuid"`
+	UUID unit.UUID `db:"unit_uuid"`
 }
 
 // machineUUID represents a machine's UUID.
@@ -160,7 +162,7 @@ type machineName struct {
 
 // applicationUUID represents an application's UUID.
 type applicationUUID struct {
-	UUID string `db:"application_uuid"`
+	UUID application.ID `db:"application_uuid"`
 }
 
 // applicationName represents an application's name.

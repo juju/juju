@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -49,6 +50,7 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -231,9 +233,15 @@ func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeR
 				err = errors.NotFoundf("application %s", tag.Id())
 			}
 		case names.UnitTagKind:
-			lifeValue, err = a.applicationService.GetUnitLife(ctx, tag.Id())
+			var unitName coreunit.Name
+			unitName, err = coreunit.NewName(tag.Id())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			lifeValue, err = a.applicationService.GetUnitLife(ctx, unitName)
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", tag.Id())
+				err = errors.NotFoundf("unit %s", unitName)
 			}
 		default:
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -323,8 +331,13 @@ func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorRes
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 
-		if err = a.applicationService.RemoveUnit(ctx, tag.Id(), a.leadershipRevoker); err != nil {
+		if err = a.applicationService.RemoveUnit(ctx, unitName, a.leadershipRevoker); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -1116,7 +1129,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		return nil
 	}
 
-	unitUpdateParams := make(map[string]applicationservice.UpdateCAASUnitParams, len(unitUpdates))
+	unitUpdateParams := make(map[coreunit.Name]applicationservice.UpdateCAASUnitParams, len(unitUpdates))
 	unitUpdate := state.UpdateUnitsOperation{}
 	processedFilesystemIds := set.NewStrings()
 	for _, unitParams := range unitUpdates {
@@ -1127,7 +1140,11 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		}
 
 		updateParams := processUnitParams(unitParams)
-		unitUpdateParams[unit.Tag().Id()] = updateParams
+		unitName, err := coreunit.NewName(unit.Tag().Id())
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing unit name %q", unit.Tag().Id())
+		}
+		unitUpdateParams[unitName] = updateParams
 		legacyParams := legacyUnitParams(&updateParams)
 		unitUpdate.Updates = append(unitUpdate.Updates, unit.UpdateOperation(legacyParams))
 
@@ -1566,22 +1583,26 @@ func (a *API) DestroyUnits(ctx context.Context, args params.DestroyUnitsParams) 
 func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (params.DestroyUnitResult, error) {
 	unitTag, err := names.ParseUnitTag(args.UnitTag)
 	if err != nil {
-		return params.DestroyUnitResult{}, fmt.Errorf("parsing unit tag: %w", err)
+		return params.DestroyUnitResult{}, internalerrors.Errorf("parsing unit tag: %w", err)
+	}
+	unitName, err := coreunit.NewName(unitTag.Id())
+	if err != nil {
+		return params.DestroyUnitResult{}, internalerrors.Errorf("parsing unit name: %w", err)
 	}
 
-	err = a.applicationService.DestroyUnit(ctx, unitTag.Id())
+	err = a.applicationService.DestroyUnit(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.DestroyUnitResult{}, nil
 	} else if err != nil {
-		return params.DestroyUnitResult{}, fmt.Errorf("destroying unit %q: %w", unitTag, err)
+		return params.DestroyUnitResult{}, internalerrors.Errorf("destroying unit %q: %w", unitName, err)
 	}
 
 	// TODO(units) - remove dual write to state
-	unit, err := a.state.Unit(unitTag.Id())
+	unit, err := a.state.Unit(unitName.String())
 	if errors.Is(err, errors.NotFound) {
 		return params.DestroyUnitResult{}, nil
 	} else if err != nil {
-		return params.DestroyUnitResult{}, fmt.Errorf("fetching unit %q state: %w", unitTag, err)
+		return params.DestroyUnitResult{}, internalerrors.Errorf("fetching unit %q state: %w", unitName, err)
 	}
 
 	//
@@ -1593,7 +1614,7 @@ func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (p
 	}
 
 	if err := a.state.ApplyOperation(op); err != nil {
-		return params.DestroyUnitResult{}, fmt.Errorf("destroying unit %q: %w", unitTag, err)
+		return params.DestroyUnitResult{}, internalerrors.Errorf("destroying unit %q: %w", unitName, err)
 	}
 
 	return params.DestroyUnitResult{}, nil

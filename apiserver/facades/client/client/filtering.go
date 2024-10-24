@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/state"
 )
 
@@ -187,7 +188,11 @@ func (c *Client) unitMatchExposure(ctx context.Context, u *state.Unit, patterns 
 }
 
 func (c *Client) unitMatchPort(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
-	unitUUID, err := c.applicationService.GetUnitUUID(ctx, u.Name())
+	unitName, err := coreunit.NewName(u.Name())
+	if err != nil {
+		return false, false, err
+	}
+	unitUUID, err := c.applicationService.GetUnitUUID(ctx, unitName)
 	if err != nil {
 		return false, false, err
 	}

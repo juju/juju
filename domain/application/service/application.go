@@ -59,7 +59,7 @@ type AtomicApplicationState interface {
 
 	// GetUnitUUID returns the UUID for the named unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error)
+	GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error)
 
 	// CreateApplication creates an application, returning an error satisfying
 	// [applicationerrors.ApplicationAlreadyExists] if the application already exists.
@@ -68,7 +68,7 @@ type AtomicApplicationState interface {
 	CreateApplication(domain.AtomicContext, string, application.AddApplicationArg) (coreapplication.ID, error)
 
 	// AddUnits adds the specified units to the application.
-	AddUnits(ctx domain.AtomicContext, appID coreapplication.ID, args ...application.AddUnitArg) error
+	AddUnits(domain.AtomicContext, coreapplication.ID, ...application.AddUnitArg) error
 
 	// InsertUnit insert the specified application unit, returning an error
 	// satisfying [applicationerrors.UnitAlreadyExists]
@@ -78,29 +78,29 @@ type AtomicApplicationState interface {
 	// UpdateUnitContainer updates the cloud container for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
-	UpdateUnitContainer(ctx domain.AtomicContext, unitName string, container *application.CloudContainer) error
+	UpdateUnitContainer(domain.AtomicContext, coreunit.Name, *application.CloudContainer) error
 
 	// SetUnitPassword updates the password for the specified unit UUID.
-	SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, passwordInfo application.PasswordInfo) error
+	SetUnitPassword(domain.AtomicContext, coreunit.UUID, application.PasswordInfo) error
 
 	// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error
+	SetCloudContainerStatus(domain.AtomicContext, coreunit.UUID, application.CloudContainerStatusStatusInfo) error
 
 	// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error
+	SetUnitAgentStatus(domain.AtomicContext, coreunit.UUID, application.UnitAgentStatusInfo) error
 
 	// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error
+	SetUnitWorkloadStatus(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
 
 	// GetApplicationLife looks up the life of the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
 	GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error)
 
 	// SetApplicationLife sets the life of the specified application.
-	SetApplicationLife(ctx domain.AtomicContext, appID coreapplication.ID, l life.Life) error
+	SetApplicationLife(domain.AtomicContext, coreapplication.ID, life.Life) error
 
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
@@ -112,14 +112,14 @@ type AtomicApplicationState interface {
 	SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified application.
-	SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error
+	SetDesiredApplicationScale(domain.AtomicContext, coreapplication.ID, int) error
 
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-	GetUnitLife(ctx domain.AtomicContext, unitName string) (life.Life, error)
+	GetUnitLife(domain.AtomicContext, coreunit.Name) (life.Life, error)
 
 	// SetUnitLife sets the life of the specified unit.
-	SetUnitLife(ctx domain.AtomicContext, unitName string, life life.Life) error
+	SetUnitLife(domain.AtomicContext, coreunit.Name, life.Life) error
 
 	// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
 	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
@@ -135,7 +135,7 @@ type AtomicApplicationState interface {
 	// other references to it exist, true is returned to
 	// indicate the application could be safely deleted.
 	// It will fail if the unit is not Dead.
-	DeleteUnit(ctx domain.AtomicContext, unitName string) (bool, error)
+	DeleteUnit(domain.AtomicContext, coreunit.Name) (bool, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -145,10 +145,10 @@ type ApplicationState interface {
 
 	// GetModelType returns the model type for the underlying model. If the model
 	// does not exist then an error satisfying [modelerrors.NotFound] will be returned.
-	GetModelType(ctx context.Context) (coremodel.ModelType, error)
+	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// StorageDefaults returns the default storage sources for a model.
-	StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error)
+	StorageDefaults(context.Context) (domainstorage.StorageDefaults, error)
 
 	// GetStoragePoolByName returns the storage pool with the specified name,
 	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
@@ -158,12 +158,12 @@ type ApplicationState interface {
 	// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if any of the units don't
 	// exist.
-	GetUnitUUIDs(ctx context.Context, unitNames []string) ([]coreunit.UUID, error)
+	GetUnitUUIDs(context.Context, []coreunit.Name) ([]coreunit.UUID, error)
 
 	// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning
 	// an error satisfying [applicationerrors.UnitNotFound] if any units are not
 	// found.
-	GetUnitNames(ctx context.Context, unitUUID []coreunit.UUID) ([]string, error)
+	GetUnitNames(context.Context, []coreunit.UUID) ([]coreunit.Name, error)
 
 	// UpsertCloudService updates the cloud service for the specified
 	// application, returning an error satisfying
@@ -174,7 +174,7 @@ type ApplicationState interface {
 	// GetApplicationUnitLife returns the life values for the specified units of
 	// the given application. The supplied ids may belong to a different
 	// application; the application name is used to filter.
-	GetApplicationUnitLife(ctx context.Context, appName string, unitIDs ...string) (map[string]life.Life, error)
+	GetApplicationUnitLife(ctx context.Context, appName string, unitUUIDs ...coreunit.UUID) (map[coreunit.UUID]life.Life, error)
 
 	// GetCharmByApplicationID returns the charm, charm origin and charm
 	// platform for the specified application ID.
@@ -507,7 +507,7 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
 // satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
-func (s *ApplicationService) GetUnitUUIDs(ctx context.Context, unitNames []string) ([]coreunit.UUID, error) {
+func (s *ApplicationService) GetUnitUUIDs(ctx context.Context, unitNames []coreunit.Name) ([]coreunit.UUID, error) {
 	uuids, err := s.st.GetUnitUUIDs(ctx, unitNames)
 	if err != nil {
 		return nil, internalerrors.Errorf("failed to get unit UUIDs: %w", err)
@@ -517,8 +517,8 @@ func (s *ApplicationService) GetUnitUUIDs(ctx context.Context, unitNames []strin
 
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName string) (coreunit.UUID, error) {
-	uuids, err := s.GetUnitUUIDs(ctx, []string{unitName})
+func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+	uuids, err := s.GetUnitUUIDs(ctx, []coreunit.Name{unitName})
 	if err != nil {
 		return "", err
 	}
@@ -527,7 +527,7 @@ func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName string) (
 
 // GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an
 // error satisfying [applicationerrors.UnitNotFound] if any units are not found.
-func (s *ApplicationService) GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]string, error) {
+func (s *ApplicationService) GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]coreunit.Name, error) {
 	names, err := s.st.GetUnitNames(ctx, unitUUIDs)
 	if err != nil {
 		return nil, internalerrors.Errorf("failed to get unit names: %w", err)
@@ -537,7 +537,7 @@ func (s *ApplicationService) GetUnitNames(ctx context.Context, unitUUIDs []coreu
 
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
-func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName string) (corelife.Value, error) {
+func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName coreunit.Name) (corelife.Value, error) {
 	var result corelife.Value
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
@@ -552,7 +552,7 @@ func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName string) (
 // This method is called (mostly during cleanup) after a unit
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
-func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) error {
+func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
 	var cleanups []func(context.Context)
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
@@ -568,11 +568,11 @@ func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName string) er
 	return nil
 }
 
-func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName string) ([]func(context.Context), error) {
+func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) ([]func(context.Context), error) {
 	// Get unit owned secrets.
 	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
 		Kind: secretservice.UnitOwner,
-		ID:   unitName,
+		ID:   unitName.String(),
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
@@ -584,7 +584,7 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName strin
 		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
 			Accessor: secretservice.SecretAccessor{
 				Kind: secretservice.UnitAccessor,
-				ID:   unitName,
+				ID:   unitName.String(),
 			},
 		})
 		if err != nil {
@@ -615,7 +615,7 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName strin
 // DestroyUnit prepares a unit for removal from the model
 // returning an error  satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
-func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName string) error {
+func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
 	// For now, all we do is advance the unit's life to Dying.
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.st.SetUnitLife(ctx, unitName, life.Dying)
@@ -631,7 +631,7 @@ func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName string) e
 // This method is also called during cleanup from various cleanup jobs.
 // If the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
-func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
+func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.ensureUnitDead(ctx, unitName)
 	})
@@ -639,7 +639,7 @@ func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string
 		return nil
 	}
 	if err == nil {
-		appName, _ := names.UnitApplication(unitName)
+		appName, _ := names.UnitApplication(unitName.String())
 		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 			s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
 		}
@@ -647,7 +647,7 @@ func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName string
 	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
 }
 
-func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName string) (err error) {
+func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName coreunit.Name) (err error) {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return errors.Trace(err)
@@ -671,7 +671,7 @@ func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName s
 // If the unit is still alive, an error satisfying [applicationerrors.UnitIsAlive]
 // is returned. If the unit is not found, an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
-func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, leadershipRevoker leadership.Revoker) error {
+func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	var cleanups []func(context.Context)
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
@@ -687,7 +687,7 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, le
 	if err != nil {
 		return errors.Annotatef(err, "removing unit %q", unitName)
 	}
-	appName, _ := names.UnitApplication(unitName)
+	appName, _ := names.UnitApplication(unitName.String())
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
 	}
@@ -697,7 +697,7 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName string, le
 	return nil
 }
 
-func makeCloudContainerArg(unitName string, cloudContainer CloudContainerParams) *application.CloudContainer {
+func makeCloudContainerArg(unitName coreunit.Name, cloudContainer CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderId: cloudContainer.ProviderId,
 		Ports:      cloudContainer.Ports,
@@ -814,7 +814,7 @@ func (s *ApplicationService) insertCAASUnit(
 // UpdateCAASUnit updates the specified CAAS unit, returning an error
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
-func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string, params UpdateCAASUnitParams) error {
+func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
 	var cloudContainer *application.CloudContainer
 	if params.ProviderId != nil {
 		cloudContainerParams := CloudContainerParams{
@@ -829,7 +829,7 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string
 		}
 		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
 	}
-	appName, err := names.UnitApplication(unitName)
+	appName, err := names.UnitApplication(unitName.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -905,7 +905,7 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName string
 
 // SetUnitPassword updates the password for the specified unit, returning an error
 // satisfying [applicationerrors.NotNotFound] if the unit doesn't exist.
-func (s *ApplicationService) SetUnitPassword(ctx context.Context, unitName string, password string) error {
+func (s *ApplicationService) SetUnitPassword(ctx context.Context, unitName coreunit.Name, password string) error {
 	return s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
 		if err != nil {
@@ -1441,7 +1441,19 @@ func NewWatchableApplicationService(
 // WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
 func (s *WatchableApplicationService) WatchApplicationUnitLife(appName string) (watcher.StringsWatcher, error) {
 	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
-		return s.st.GetApplicationUnitLife(ctx, appName, ids...)
+		unitUUIDs, err := transform.SliceOrErr(ids, coreunit.ParseID)
+		if err != nil {
+			return nil, err
+		}
+		unitLifes, err := s.st.GetApplicationUnitLife(ctx, appName, unitUUIDs...)
+		if err != nil {
+			return nil, err
+		}
+		result := make(map[string]life.Life, len(unitLifes))
+		for unitUUID, life := range unitLifes {
+			result[unitUUID.String()] = life
+		}
+		return result, nil
 	}
 	lifeMapper := domain.LifeStringsWatcherMapperFunc(s.logger, lifeGetter)
 

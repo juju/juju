@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -123,7 +124,12 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 			continue
 		}
 
-		if err := u.applicationService.EnsureUnitDead(ctx, tag.Id(), u.leadershipRevoker); err != nil {
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := u.applicationService.EnsureUnitDead(ctx, unitName, u.leadershipRevoker); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -150,7 +156,7 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args 
 
 		result.Results[i].UnitPortRanges = make(map[string][]params.OpenUnitPortRangesByEndpoint)
 		for unitName, groupedPortRanges := range machPortRanges {
-			unitTag := names.NewUnitTag(unitName).String()
+			unitTag := names.NewUnitTag(unitName.String()).String()
 			for endpointName, portRanges := range groupedPortRanges {
 				result.Results[i].UnitPortRanges[unitTag] = append(
 					result.Results[i].UnitPortRanges[unitTag],
@@ -170,7 +176,7 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args 
 	return result, nil
 }
 
-func (u *UniterAPI) getOneMachineOpenedPortRanges(ctx context.Context, canAccess common.AuthFunc, machineTag string) (map[string]network.GroupedPortRanges, error) {
+func (u *UniterAPI) getOneMachineOpenedPortRanges(ctx context.Context, canAccess common.AuthFunc, machineTag string) (map[coreunit.Name]network.GroupedPortRanges, error) {
 	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
@@ -203,7 +209,12 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint(ctx context.Context) (params.Open
 		return result, nil
 	}
 
-	unitUUID, err := u.applicationService.GetUnitUUID(ctx, authTag.Id())
+	unitName, err := coreunit.NewName(authTag.Id())
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitName)
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -507,10 +518,16 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var (
-				unit    *state.Unit
-				removed bool
+				unitName coreunit.Name
+				unit     *state.Unit
+				removed  bool
 			)
-			err = u.applicationService.DestroyUnit(ctx, tag.Id())
+			unitName, err = coreunit.NewName(tag.Id())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			err = u.applicationService.DestroyUnit(ctx, unitName)
 			if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -521,7 +538,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			if err == nil {
 				removed, err = unit.DestroyMaybeRemove(u.store)
 				if err == nil && removed {
-					err = u.applicationService.DeleteUnit(ctx, unit.Name())
+					err = u.applicationService.DeleteUnit(ctx, unitName)
 				}
 			}
 		}
@@ -1133,9 +1150,15 @@ func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.Life
 				err = errors.NotFoundf("application %s", tag.Id())
 			}
 		case names.UnitTagKind:
-			lifeValue, err = u.applicationService.GetUnitLife(ctx, tag.Id())
+			var unitName coreunit.Name
+			unitName, err = coreunit.NewName(tag.Id())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			}
+			lifeValue, err = u.applicationService.GetUnitLife(ctx, unitName)
 			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", tag.Id())
+				err = errors.NotFoundf("unit %s", unitName)
 			}
 		default:
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -1860,14 +1883,18 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
-	for _, subName := range subordinates {
-		err := u.applicationService.DestroyUnit(ctx, subName)
+	for _, sub := range subordinates {
+		subName, err := coreunit.NewName(sub)
+		if err != nil {
+			return err
+		}
+		err = u.applicationService.DestroyUnit(ctx, subName)
 		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
 			return err
 		}
 
 		// TODO(units) - remove dual write to state
-		unit, err := u.getUnit(names.NewUnitTag(subName))
+		unit, err := u.getUnit(names.NewUnitTag(subName.String()))
 		if err != nil {
 			return err
 		}
@@ -2637,13 +2664,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			closePorts[r.Endpoint] = append(closePorts[r.Endpoint], portRange)
 		}
 
-		unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitTag.Id())
+		unitName, err := coreunit.NewName(unitTag.Id())
 		if err != nil {
-			return internalerrors.Errorf("failed to get UUID of unit %q: %w", unitTag.Id(), err)
+			return internalerrors.Errorf("parsing unit name: %w", err)
+		}
+		unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitName)
+		if err != nil {
+			return internalerrors.Errorf("getting UUID of unit %q: %w", unitName, err)
 		}
 		err = u.portService.UpdateUnitPorts(ctx, unitUUID, openPorts, closePorts)
 		if err != nil {
-			return internalerrors.Errorf("failed to update unit ports of unit %q: %w", unitTag.Id(), err)
+			return internalerrors.Errorf("updating unit ports of unit %q: %w", unitName, err)
 		}
 	}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -106,8 +107,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	for _, app := range model.Applications() {
 		unitArgs := make([]service.ImportUnitArg, 0, len(app.Units()))
 		for _, unit := range app.Units() {
+			unitName, err := coreunit.NewName(unit.Name())
+			if err != nil {
+				return err
+			}
 			arg := service.ImportUnitArg{
-				UnitName: unit.Name(),
+				UnitName: unitName,
 			}
 			if unit.PasswordHash() != "" {
 				arg.PasswordHash = ptr(unit.PasswordHash())

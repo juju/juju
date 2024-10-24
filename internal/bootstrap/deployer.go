@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -389,7 +390,10 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitName := bootstrap.ControllerApplicationName + "/0"
+	unitName, err := unit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	_, err = b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		ch, origin,
