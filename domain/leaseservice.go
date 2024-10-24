@@ -12,11 +12,11 @@ import (
 
 // LeaseService creates a base service that offers lease capabilities.
 type LeaseService struct {
-	leaseChecker func() lease.LeaseCheckerWaiter
+	leaseChecker lease.ModelApplicationLeaseManagerGetter
 }
 
 // NewLeaseService creates a new LeaseService.
-func NewLeaseService(leaseChecker func() lease.LeaseCheckerWaiter) *LeaseService {
+func NewLeaseService(leaseChecker lease.ModelApplicationLeaseManagerGetter) *LeaseService {
 	return &LeaseService{
 		leaseChecker: leaseChecker,
 	}
@@ -34,7 +34,10 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 		return internalerrors.Errorf("lease prechecking").Add(ctx.Err())
 	}
 
-	leaseChecker := s.leaseChecker()
+	leaseChecker, err := s.leaseChecker.GetLeaseManager()
+	if err != nil {
+		return internalerrors.Errorf("getting lease manager: %w", err)
+	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
 	// lease holder. This may or may not be the same as the holderName for the

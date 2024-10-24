@@ -87,6 +87,7 @@ type ModelFactory struct {
 	objectstore       objectstore.ModelObjectStoreGetter
 	storageRegistry   corestorage.ModelStorageRegistryGetter
 	publicKeyImporter PublicKeyImporter
+	leaseManager      lease.ModelApplicationLeaseManagerGetter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -113,6 +114,7 @@ func NewModelFactory(
 		objectstore:       objectStore,
 		storageRegistry:   storageRegistry,
 		publicKeyImporter: publicKeyImporter,
+		leaseManager:      leaseManager,
 	}
 }
 
