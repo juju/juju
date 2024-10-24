@@ -456,7 +456,7 @@ const (
 
 	// DefaultOpenTelemetryTailSamplingThreshold is the default value for the
 	// tail sampling threshold for open telemetry.
-	DefaultOpenTelemetryTailSamplingThreshold = 1 * time.Microsecond
+	DefaultOpenTelemetryTailSamplingThreshold = 1 * time.Millisecond
 
 	// JujudControllerSnapSource is the default value for the jujud controller
 	// snap source, which is the snapstore.
