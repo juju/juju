@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	coreconfig "github.com/juju/juju/core/config"
@@ -209,16 +208,6 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		mod,
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Config(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	api, err := application.NewAPIBase(
@@ -242,7 +231,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		domainServices.Storage(),
-		registry,
+		nil,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),

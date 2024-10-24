@@ -124,7 +124,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	registry, err := NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, modelConfigService, p.getEnviron, p.getBroker)
+	registry, err := newStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, modelConfigService, p.getEnviron, p.getBroker)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 
 // NewStorageProviderRegistryForModel returns a storage provider registry
 // for the specified model.
-func NewStorageProviderRegistryForModel(
+func newStorageProviderRegistryForModel(
 	model *state.Model,
 	cloudService CloudService,
 	credentialService CredentialService,
