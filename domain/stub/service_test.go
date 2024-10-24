@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -20,6 +21,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
 )
 
@@ -29,6 +31,9 @@ type stubSuite struct {
 	srv          *StubService
 	appState     *applicationstate.ApplicationState
 	machineState *machinestate.State
+
+	storageRegistryGetter *MockModelStorageRegistryGetter
+	storageRegistry       *MockProviderRegistry
 }
 
 var _ = gc.Suite(&stubSuite{})
@@ -41,14 +46,9 @@ var addApplicationArg = application.AddApplicationArg{
 	},
 }
 
-func (s *stubSuite) SetUpTest(c *gc.C) {
-	s.ModelSuite.SetUpTest(c)
-	s.srv = NewStubService(s.TxnRunnerFactory())
-	s.appState = applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
-	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
-}
-
 func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -87,6 +87,8 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -103,6 +105,8 @@ func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -127,6 +131,8 @@ func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -175,6 +181,8 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	var appID coreapplication.ID
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
@@ -230,4 +238,36 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unitNodeUUID0, gc.Equals, machineNodeUUID)
 	c.Check(unitNodeUUID1, gc.Equals, machineNodeUUID)
+}
+
+func (s *stubSuite) TestStorageRegistry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(s.storageRegistry, nil)
+
+	reg, err := s.srv.StorageRegistry(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reg, gc.Equals, s.storageRegistry)
+}
+
+func (s *stubSuite) TestStorageRegistryError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.srv.StorageRegistry(context.Background())
+	c.Assert(err, gc.ErrorMatches, "getting storage registry: boom")
+}
+
+func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
+	s.storageRegistry = NewMockProviderRegistry(ctrl)
+
+	s.srv = NewStubService(s.TxnRunnerFactory(), s.storageRegistryGetter)
+	s.appState = applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+
+	return ctrl
 }

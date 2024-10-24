@@ -10,11 +10,13 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 )
 
 // StubService is a special service that collects temporary methods required for
@@ -28,12 +30,17 @@ import (
 // then.
 type StubService struct {
 	*domain.StateBase
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 }
 
 // NewStubService returns a new StubService.
-func NewStubService(factory database.TxnRunnerFactory) *StubService {
+func NewStubService(
+	factory database.TxnRunnerFactory,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+) *StubService {
 	return &StubService{
-		StateBase: domain.NewStateBase(factory),
+		StateBase:             domain.NewStateBase(factory),
+		storageRegistryGetter: storageRegistryGetter,
 	}
 }
 
@@ -54,7 +61,7 @@ FROM machine
 WHERE name = $machine.name
 `, netNodeUUID{}, machine{})
 	if err != nil {
-		return errors.Errorf("failed to prepare machine query: %v", err)
+		return errors.Errorf("preparing machine query: %v", err)
 	}
 
 	verifyUnitsExistQuery, err := s.Prepare(`
@@ -63,7 +70,7 @@ FROM unit
 WHERE name IN ($units[:])
 `, count{}, units{})
 	if err != nil {
-		return errors.Errorf("failed to prepare verify units exist query: %v", err)
+		return errors.Errorf("preparing verify units exist query: %v", err)
 	}
 
 	setUnitsNetNodeQuery, err := s.Prepare(`
@@ -72,7 +79,7 @@ SET net_node_uuid = $netNodeUUID.net_node_uuid
 WHERE name IN ($units[:])
 `, netNodeUUID{}, units{})
 	if err != nil {
-		return errors.Errorf("failed to prepare set units query: %v", err)
+		return errors.Errorf("preparing set units query: %v", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -83,28 +90,41 @@ WHERE name IN ($units[:])
 				return errors.Errorf("%w: %v", machineerrors.MachineNotFound, machine.MachineName)
 			}
 			if err != nil {
-				return errors.Errorf("failed to get machine net node: %v", err)
+				return errors.Errorf("getting machine net node: %v", err)
 			}
 
 			var count count
 			err = tx.Query(ctx, verifyUnitsExistQuery, units).Get(&count)
 			if err != nil {
-				return errors.Errorf("failed to verify units exist: %v", err)
+				return errors.Errorf("verifying units exist: %v", err)
 			}
 			if count.Count != len(units) {
-				return errors.Errorf("not all units found %q%w", units, jujuerrors.Hide(applicationerrors.UnitNotFound))
+				return errors.Errorf("not all units found %q", units).
+					Add(applicationerrors.UnitNotFound)
 			}
 
 			err = tx.Query(ctx, setUnitsNetNodeQuery, netNodeUUID, units).Run()
 			if err != nil {
-				return errors.Errorf("failed to set unit: %v", err)
+				return errors.Errorf("setting unit: %v", err)
 			}
 		}
 		return nil
 	})
 
 	if err != nil {
-		return errors.Errorf("failed to assign units to machines: %w", err)
+		return errors.Errorf("assigning units to machines: %w", err)
 	}
 	return err
+}
+
+// StorageRegistry returns the storage registry for the model.
+//
+// Deprecated: This method will be removed once the storage registry is fully
+// implemented in each service.
+func (s *StubService) StorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting storage registry: %w", err)
+	}
+	return registry, nil
 }
