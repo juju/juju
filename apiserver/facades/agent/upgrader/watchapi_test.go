@@ -175,6 +175,22 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionTagInvalid(c *gc.C) {
 	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeTagInvalid)
 }
 
+func (s *upgraderWatchSuite) TestWatchAPIVersionWrongTypeTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Application can be a valid tag, however it's not valid for
+	// this method.
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag("testme").String()}},
+	}
+	results, err := s.api().WatchAPIVersion(context.Background(), args)
+	// It is not an error to make the request, but the specific item is rejected
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, gc.Equals, "")
+	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeNotValid)
+}
+
 func (s *upgraderWatchSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

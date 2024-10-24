@@ -126,7 +126,10 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 			errMessage = fmt.Sprintf("unit %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, tagID)
 		default:
-			err = errors.NotValidf("%s", tag.String())
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotValid, "%s", tag.String(),
+			)
+			continue
 		}
 
 		switch {
