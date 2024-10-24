@@ -43,7 +43,7 @@ jobs:
         sudo chmod +x /usr/bin/shfmt
         
         go install github.com/google/go-licenses@latest
-    
+
     - name: Download Go Dependencies
       run: go mod download
 
@@ -54,5 +54,7 @@ jobs:
     name: Check conventional commits
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: wagoid/commitlint-github-action@v6
+        - uses: actions/checkout@v4
+        - uses: wagoid/commitlint-github-action@v6
+          with:
+            configFile: .github/commitlint.config.mjs

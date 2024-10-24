@@ -708,11 +708,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 
 	httpCtxt := httpContext{srv: srv}
-	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
-	healthHandler := http.HandlerFunc(srv.healthHandler)
-	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
-	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
-	debugLogHandler := newDebugLogDBHandler(
+	mainAPIHandler := srv.monitoredHandler(http.HandlerFunc(srv.apiHandler), "api")
+	healthHandler := srv.monitoredHandler(http.HandlerFunc(srv.healthHandler), "health")
+	logStreamHandler := srv.monitoredHandler(newLogStreamEndpointHandler(httpCtxt), "logstream")
+	embeddedCLIHandler := srv.monitoredHandler(newEmbeddedCLIHandler(httpCtxt), "commands")
+	debugLogHandler := srv.monitoredHandler(newDebugLogDBHandler(
 		httpCtxt,
 		httpAuthenticator,
 		tagKindAuthorizer{
@@ -721,8 +721,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			names.UserTagKind,
 			names.ApplicationTagKind,
 		},
-	)
-	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
+	), "log")
+	pubsubHandler := srv.monitoredHandler(newPubSubHandler(httpCtxt, srv.shared.centralHub), "pubsub")
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
 		httpCtxt.stop(),
@@ -744,37 +744,37 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:    httpCtxt,
 		dataDir: srv.dataDir,
 	}
-	modelRestServer := &RestHTTPHandler{
+	modelRestServer := srv.monitoredHandler(&RestHTTPHandler{
 		GetHandler: modelRestHandler.ServeGet,
-	}
+	}, "rest")
 	modelCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
-	modelCharmsHTTPHandler := &CharmsHTTPHandler{
+	modelCharmsHTTPHandler := srv.monitoredHandler(&CharmsHTTPHandler{
 		PostHandler: modelCharmsHandler.ServePost,
 		GetHandler:  modelCharmsHandler.ServeGet,
-	}
+	}, "charms")
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
 	modelObjectsCharmsHandler := &objectsCharmHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
-	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
+	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
 		GetHandler:          modelObjectsCharmsHandler.ServeGet,
 		PutHandler:          modelObjectsCharmsHandler.ServePut,
 		LegacyCharmsHandler: modelCharmsHTTPHandler,
-	}
+	}, "charms")
 
-	modelToolsUploadHandler := &toolsUploadHandler{
+	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
-	}
+	}, "tools")
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
-	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
-	resourcesHandler := &ResourcesHandler{
+	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
+	resourcesHandler := srv.monitoredHandler(&ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag,
 			error) {
 			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
@@ -798,8 +798,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			}
 			return nil
 		},
-	}
-	unitResourcesHandler := &UnitResourcesHandler{
+	}, "applications")
+	unitResourcesHandler := srv.monitoredHandler(&UnitResourcesHandler{
 		NewOpener: func(req *http.Request, tagKinds ...string) (resources.Opener, state.PoolHelper, error) {
 			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
@@ -817,7 +817,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			}
 			return opener, st, nil
 		},
-	}
+	}, "units")
 
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: systemState.ControllerTag(),
@@ -835,21 +835,21 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}
-	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
+	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
 		PutHandler:          migrateObjectsCharmsHandler.ServePut,
 		GetHandler:          migrateObjectsCharmsHandler.ServeUnsupported,
 		LegacyCharmsHandler: migrateCharmsHTTPHandler,
-	}
-	migrateToolsUploadHandler := &toolsUploadHandler{
+	}, "charms")
+	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
-	}
-	resourcesMigrationUploadHandler := &resourcesMigrationUploadHandler{
+	}, "tools")
+	resourcesMigrationUploadHandler := srv.monitoredHandler(&resourcesMigrationUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
-	}
-	backupHandler := &backupHandler{ctxt: httpCtxt}
-	registerHandler := &registerUserHandler{ctxt: httpCtxt}
+	}, "resources")
+	backupHandler := srv.monitoredHandler(&backupHandler{ctxt: httpCtxt}, "backups")
+	registerHandler := srv.monitoredHandler(&registerUserHandler{ctxt: httpCtxt}, "register")
 
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
@@ -924,7 +924,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		// Legacy migration endpoint. Used by Juju 3.3 and prior
 		pattern:    "/migrate/charms",
-		handler:    migrateCharmsHTTPHandler,
+		handler:    srv.monitoredHandler(migrateCharmsHTTPHandler, "charms"),
 		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:    "/migrate/charms/:object",
@@ -1013,7 +1013,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		add := func(subpath string, h http.Handler) {
 			handlers = append(handlers, handler{
 				pattern: path.Join("/introspection/", subpath),
-				handler: introspectionHandler{httpCtxt, h},
+				handler: srv.monitoredHandler(introspectionHandler{httpCtxt, h}, "introspection"),
 			})
 		}
 		srv.registerIntrospectionHandlers(add)
@@ -1074,12 +1074,6 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	srv.metricsCollector.TotalConnections.Inc()
-
-	gauge := srv.metricsCollector.APIConnections.WithLabelValues("api")
-	gauge.Inc()
-	defer gauge.Dec()
-
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 
 	apiObserver := srv.newObserver()
@@ -1181,4 +1175,16 @@ func serverError(err error) error {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
+}
+
+// monitoredHandler wraps an HTTP handler for tracking metrics with given label.
+// It increments and decrements connection counters for monitoring purposes.
+func (srv *Server) monitoredHandler(handler http.Handler, label string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.metricsCollector.TotalConnections.Inc()
+		gauge := srv.metricsCollector.APIConnections.WithLabelValues(label)
+		gauge.Inc()
+		defer gauge.Dec()
+		handler.ServeHTTP(w, r)
+	})
 }
