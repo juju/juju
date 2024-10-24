@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
@@ -28,12 +27,10 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
 	domainmodelmigration "github.com/juju/juju/domain/modelmigration"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/services"
@@ -41,7 +38,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type objectKey struct {
@@ -919,25 +915,6 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.H
 	return client, nil
 }
 
-func storageRegistryGetter(ctx *facadeContext) corestorage.ModelStorageRegistryGetter {
-	return modelStorageRegistry(func(context.Context) (storage.ProviderRegistry, error) {
-		dbModel, err := ctx.State().Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		domainServices := ctx.DomainServices()
-		return stateenvirons.NewStorageProviderRegistryForModel(
-			dbModel,
-			domainServices.Cloud(),
-			domainServices.Credential(),
-			domainServices.Config(),
-			stateenvirons.GetNewEnvironFunc(environs.New),
-			stateenvirons.GetNewCAASBrokerFunc(caas.New),
-		)
-	})
-}
-
 type modelStorageRegistry func(context.Context) (storage.ProviderRegistry, error)
 
 // GetStorageRegistry returns a storage registry for the given namespace.
@@ -948,14 +925,20 @@ func (c modelStorageRegistry) GetStorageRegistry(ctx context.Context) (storage.P
 // ModelExporter returns a model exporter for the current model.
 func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.LegacyStateExporter) facade.ModelExporter {
 	logger := ctx.Logger()
-	coordinator := modelmigration.NewCoordinator(logger)
 	clock := ctx.r.clock
+
+	domainServices := ctx.DomainServicesForModel(modelUUID)
+	coordinator := modelmigration.NewCoordinator(logger)
+
 	exporter := domainmodelmigration.NewExporter(coordinator, logger, clock)
 	return migration.NewModelExporter(
 		exporter,
 		backend,
 		ctx.migrationScope(modelUUID),
-		storageRegistryGetter(ctx),
+		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
+			stubService := domainServices.Stub()
+			return stubService.GetStorageRegistry(ctx)
+		}),
 		coordinator,
 		logger,
 		clock,
@@ -964,13 +947,18 @@ func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.Leg
 
 // ModelImporter returns a model importer.
 func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
+	domainServices := ctx.DomainServices()
+
 	pool := ctx.r.shared.statePool
 	return migration.NewModelImporter(
 		state.NewController(pool),
 		ctx.migrationScope,
 		ctx.DomainServices().ControllerConfig(),
 		ctx.r.domainServicesGetter,
-		storageRegistryGetter(ctx),
+		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
+			stubService := domainServices.Stub()
+			return stubService.GetStorageRegistry(ctx)
+		}),
 		ctx.Logger(),
 		ctx.r.clock,
 	)

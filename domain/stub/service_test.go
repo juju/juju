@@ -240,12 +240,12 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	c.Check(unitNodeUUID1, gc.Equals, machineNodeUUID)
 }
 
-func (s *stubSuite) TestStorageRegistry(c *gc.C) {
+func (s *stubSuite) TestGetStorageRegistry(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(s.storageRegistry, nil)
 
-	reg, err := s.srv.StorageRegistry(context.Background())
+	reg, err := s.srv.GetStorageRegistry(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(reg, gc.Equals, s.storageRegistry)
 }
@@ -255,7 +255,7 @@ func (s *stubSuite) TestStorageRegistryError(c *gc.C) {
 
 	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(nil, errors.Errorf("boom"))
 
-	_, err := s.srv.StorageRegistry(context.Background())
+	_, err := s.srv.GetStorageRegistry(context.Background())
 	c.Assert(err, gc.ErrorMatches, "getting storage registry: boom")
 }
 

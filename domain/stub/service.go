@@ -117,11 +117,11 @@ WHERE name IN ($units[:])
 	return err
 }
 
-// StorageRegistry returns the storage registry for the model.
+// GetStorageRegistry returns the storage registry for the model.
 //
 // Deprecated: This method will be removed once the storage registry is fully
 // implemented in each service.
-func (s *StubService) StorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
+func (s *StubService) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
 	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting storage registry: %w", err)
