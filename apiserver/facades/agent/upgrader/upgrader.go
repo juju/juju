@@ -118,9 +118,6 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		case names.ControllerTagKind, names.ModelTagKind:
 			errMessage = fmt.Sprintf("model %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchModelTargetAgentVersion(ctx)
-		case names.ApplicationTagKind:
-			errMessage = fmt.Sprintf("application %q", tagID)
-			upgraderAPIWatcher, err = u.modelAgentService.WatchApplicationTargetAgentVersion(ctx, tagID)
 		case names.MachineTagKind:
 			errMessage = fmt.Sprintf("machine %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))

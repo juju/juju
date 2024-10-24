@@ -104,44 +104,6 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
-// CheckApplicationExists mocks base method.
-func (m *MockModelState) CheckApplicationExists(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckApplicationExists", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckApplicationExists indicates an expected call of CheckApplicationExists.
-func (mr *MockModelStateMockRecorder) CheckApplicationExists(arg0, arg1 any) *MockModelStateCheckApplicationExistsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckApplicationExists", reflect.TypeOf((*MockModelState)(nil).CheckApplicationExists), arg0, arg1)
-	return &MockModelStateCheckApplicationExistsCall{Call: call}
-}
-
-// MockModelStateCheckApplicationExistsCall wrap *gomock.Call
-type MockModelStateCheckApplicationExistsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateCheckApplicationExistsCall) Return(arg0 error) *MockModelStateCheckApplicationExistsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateCheckApplicationExistsCall) Do(f func(context.Context, string) error) *MockModelStateCheckApplicationExistsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateCheckApplicationExistsCall) DoAndReturn(f func(context.Context, string) error) *MockModelStateCheckApplicationExistsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CheckMachineExists mocks base method.
 func (m *MockModelState) CheckMachineExists(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()

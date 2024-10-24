@@ -75,42 +75,6 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *gc.C) {
 	})
 }
 
-func (s *upgraderWatchSuite) TestWatchAPIVersionApplication(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	done := make(chan struct{})
-	defer close(done)
-	ch := make(chan struct{})
-	w := watchertest.NewMockNotifyWatcher(ch)
-
-	tag := names.NewApplicationTag("test")
-
-	s.agentService.EXPECT().WatchApplicationTargetAgentVersion(gomock.Any(), tag.Id()).DoAndReturn(func(_ context.Context, _ string) (watcher.Watcher[struct{}], error) {
-		time.AfterFunc(coretesting.ShortWait, func() {
-			// Send initial event.
-			select {
-			case ch <- struct{}{}:
-			case <-done:
-				c.ExpectFailure("watcher (unit) did not fire")
-			}
-		})
-		return w, nil
-	})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
-
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: tag.String()},
-		}}
-	results, err := s.api().WatchAPIVersion(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{NotifyWatcherId: "42"},
-		},
-	})
-}
-
 func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

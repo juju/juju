@@ -36,14 +36,6 @@ type ModelAgentService interface {
 	// the unit belongs to no longer exists.
 	GetUnitTargetAgentVersion(context.Context, string) (version.Number, error)
 
-	/// WatchApplicationTargetAgentVersion is responsible for watching the target
-	// agent version for an application and reporting when there has been a change
-	// via a [watcher.NotifyWatcher]. The following errors can be expected:
-	// - [applicationerrors.ApplicationNotFound] - When the application does not
-	// exist.
-	// - [modelerrors.NotFound] - When the model of the machine no longer exists.
-	WatchApplicationTargetAgentVersion(ctx context.Context, applicationName string) (watcher.NotifyWatcher, error)
-
 	// WatchMachineTargetAgentVersion is responsible for watching the target agent
 	// version for machine and reporting when there has been a change via a
 	// [watcher.NotifyWatcher]. The following errors can be expected:

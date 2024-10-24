@@ -8,12 +8,6 @@ type dbAgentVersion struct {
 	TargetAgentVersion string `db:"target_agent_version"`
 }
 
-// applicationName represents the single column of an application that is the
-// applications name.
-type applicationName struct {
-	Name string `db:"name"`
-}
-
 // machineName represents the single column of a machine that is the machines
 // name.
 type machineName struct {

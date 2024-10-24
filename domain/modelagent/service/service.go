@@ -19,11 +19,6 @@ import (
 )
 
 type ModelState interface {
-	// CheckApplicationExists check to see if the given machine exists in the
-	// model. If the machine does not exist an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	CheckApplicationExists(context.Context, string) error
-
 	// CheckMachineExists check to see if the given machine exists in the model. If
 	// the machine does not exist an error satisfying
 	// [machineerrors.MachineNotFound] is returned.
@@ -176,38 +171,6 @@ func (s *ModelService) GetUnitTargetAgentVersion(
 	}
 
 	return s.Service.st.GetModelTargetAgentVersion(ctx, modelUUID)
-}
-
-// WatchApplicationTargetAgentVersion is responsible for watching the target
-// agent version for an application and reporting when there has been a change
-// via a [watcher.NotifyWatcher]. The following errors can be expected:
-// - [applicationerrors.ApplicationNotFound] - When the application does not
-// exist.
-// - [modelerrors.NotFound] - When the model of the machine no longer exists.
-func (s *ModelService) WatchApplicationTargetAgentVersion(
-	ctx context.Context,
-	applicationName string,
-) (watcher.NotifyWatcher, error) {
-	err := s.st.CheckApplicationExists(ctx, applicationName)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, errors.Errorf(
-			"application %q does not exist", applicationName,
-		).Add(applicationerrors.ApplicationNotFound)
-	} else if err != nil {
-		return nil, errors.Errorf(
-			"checking if application %q exists when watching target agent version: %w",
-			applicationName, err,
-		)
-	}
-
-	w, err := s.WatchModelTargetAgentVersion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"getting watcher for application %q model target agent version: %w",
-			applicationName, err,
-		)
-	}
-	return w, nil
 }
 
 // WatchMachineTargetAgentVersion is responsible for watching the target agent
