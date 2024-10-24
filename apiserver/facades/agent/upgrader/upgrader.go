@@ -122,7 +122,7 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 			errMessage = fmt.Sprintf("machine %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))
 		case names.UnitTagKind:
-			// Used for non sidecar applications in a kubernetes model.
+			// Used in kubernetes models.
 			errMessage = fmt.Sprintf("unit %q", tagID)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, tagID)
 		default:
