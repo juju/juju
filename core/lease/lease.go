@@ -12,16 +12,17 @@ type LeaseCheckerWaiter interface {
 	Checker
 }
 
-// ApplicationLeaseManagerGetter is an interface that provides a method to get a
-// lease manager for a given application using its UUID.
-type ApplicationLeaseManagerGetter interface {
+// LeaseManagerGetter is an interface that provides a method to get a lease
+// manager for a given lease using its UUID. The lease namespace could be a
+// model or an application.
+type LeaseManagerGetter interface {
 	// GetLeaseManager returns a lease manager for the given model UUID.
 	GetLeaseManager(model.UUID) (LeaseCheckerWaiter, error)
 }
 
-// ModelApplicationLeaseManagerGetter is an interface that provides a method to
+// ModelLeaseManagerGetter is an interface that provides a method to
 // get a lease manager in the scope of a model.
-type ModelApplicationLeaseManagerGetter interface {
+type ModelLeaseManagerGetter interface {
 	// GetLeaseManager returns a lease manager for the given model UUID.
 	GetLeaseManager() (LeaseCheckerWaiter, error)
 }

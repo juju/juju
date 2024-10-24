@@ -82,12 +82,6 @@ func (config Config) Validate() error {
 	if config.LeaseManager == nil {
 		return errors.NotValidf("nil LeaseManager")
 	}
-	if config.Logger == nil {
-		return errors.NotValidf("nil Logger")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
 	if config.NewDomainServicesGetter == nil {
 		return errors.NotValidf("nil NewDomainServicesGetter")
 	}
@@ -96,6 +90,12 @@ func (config Config) Validate() error {
 	}
 	if config.NewModelDomainServices == nil {
 		return errors.NotValidf("nil NewModelDomainServices")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -240,6 +240,8 @@ func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (int
 	return s.storageRegistryGetter.GetStorageRegistry(ctx, s.modelUUID.String())
 }
 
+// modelApplicationLeaseManager is a lease manager that is specific to
+// an application scope.
 type modelApplicationLeaseManager struct {
 	modelUUID coremodel.UUID
 	manager   lease.Manager
@@ -252,12 +254,12 @@ func (s modelApplicationLeaseManager) GetLeaseManager() (lease.LeaseCheckerWaite
 	// be happy with a sync.Pool at minimum though.
 	claimer, err := s.manager.Claimer(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("getting claim lease manager: %w", err)
 	}
 
 	checker, err := s.manager.Checker(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("getting checker lease manager: %w", err)
 	}
 
 	return &leaseManager{

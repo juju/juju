@@ -12,11 +12,11 @@ import (
 
 // LeaseService creates a base service that offers lease capabilities.
 type LeaseService struct {
-	leaseChecker lease.ModelApplicationLeaseManagerGetter
+	leaseChecker lease.ModelLeaseManagerGetter
 }
 
 // NewLeaseService creates a new LeaseService.
-func NewLeaseService(leaseChecker lease.ModelApplicationLeaseManagerGetter) *LeaseService {
+func NewLeaseService(leaseChecker lease.ModelLeaseManagerGetter) *LeaseService {
 	return &LeaseService{
 		leaseChecker: leaseChecker,
 	}
@@ -31,7 +31,7 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 	// Holding the lease is quite a complex operation, so we need to ensure that
 	// the context is not cancelled before we start the operation.
 	if err := ctx.Err(); err != nil {
-		return internalerrors.Errorf("lease prechecking").Add(ctx.Err())
+		return internalerrors.Errorf("lease pre-checking").Add(ctx.Err())
 	}
 
 	leaseChecker, err := s.leaseChecker.GetLeaseManager()

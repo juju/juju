@@ -19,7 +19,7 @@ import (
 type leaseServiceSuite struct {
 	testing.IsolationSuite
 
-	modelLeaseManager  *MockModelApplicationLeaseManagerGetter
+	modelLeaseManager  *MockModelLeaseManagerGetter
 	leaseCheckerWaiter *MockLeaseCheckerWaiter
 	token              *MockToken
 }
@@ -176,7 +176,7 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 func (s *leaseServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelLeaseManager = NewMockModelApplicationLeaseManagerGetter(ctrl)
+	s.modelLeaseManager = NewMockModelLeaseManagerGetter(ctrl)
 	s.leaseCheckerWaiter = NewMockLeaseCheckerWaiter(ctrl)
 	s.token = NewMockToken(ctrl)
 

@@ -33,7 +33,7 @@ func NewDomainServices(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
-	leaseManager lease.ModelApplicationLeaseManagerGetter,
+	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *DomainServices {

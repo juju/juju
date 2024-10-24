@@ -75,7 +75,7 @@ type ModelDomainServicesFn func(
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
-	lease.ModelApplicationLeaseManagerGetter,
+	lease.ModelLeaseManagerGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -250,7 +250,7 @@ func NewProviderTrackerModelDomainServices(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
-	leaseManager lease.ModelApplicationLeaseManagerGetter,
+	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {

@@ -32,7 +32,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination http_mock_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
-//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination lease_mock_test.go github.com/juju/juju/core/lease LeaseCheckerWaiter,Manager,ApplicationLeaseManagerGetter,ModelApplicationLeaseManagerGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination lease_mock_test.go github.com/juju/juju/core/lease LeaseCheckerWaiter,Manager,LeaseManagerGetter,ModelLeaseManagerGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -63,9 +63,9 @@ type baseSuite struct {
 	httpClientGetter *MockHTTPClientGetter
 	httpClient       *MockHTTPClient
 
-	leaseManager                       *MockManager
-	applicationLeaseManagerGetter      *MockApplicationLeaseManagerGetter
-	modelApplicationLeaseManagerGetter *MockModelApplicationLeaseManagerGetter
+	leaseManager            *MockManager
+	leaseManagerGetter      *MockLeaseManagerGetter
+	modelLeaseManagerGetter *MockModelLeaseManagerGetter
 
 	publicKeyImporter *sshimporter.Importer
 }
@@ -96,8 +96,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.httpClient = NewMockHTTPClient(ctrl)
 
 	s.leaseManager = NewMockManager(ctrl)
-	s.applicationLeaseManagerGetter = NewMockApplicationLeaseManagerGetter(ctrl)
-	s.modelApplicationLeaseManagerGetter = NewMockModelApplicationLeaseManagerGetter(ctrl)
+	s.leaseManagerGetter = NewMockLeaseManagerGetter(ctrl)
+	s.modelLeaseManagerGetter = NewMockModelLeaseManagerGetter(ctrl)
 
 	s.publicKeyImporter = sshimporter.NewImporter(&http.Client{})
 
@@ -113,7 +113,7 @@ func NewModelDomainServices(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
-	leaseManager lease.ModelApplicationLeaseManagerGetter,
+	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {

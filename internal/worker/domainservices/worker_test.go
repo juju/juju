@@ -124,7 +124,7 @@ func (s *workerSuite) getConfig() Config {
 			objectstore.ModelObjectStoreGetter,
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
-			lease.ModelApplicationLeaseManagerGetter,
+			lease.ModelLeaseManagerGetter,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {
