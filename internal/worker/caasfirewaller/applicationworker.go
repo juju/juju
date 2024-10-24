@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -23,8 +24,10 @@ type applicationWorker struct {
 	controllerUUID string
 	modelUUID      string
 	appName        string
+	appUUID        application.ID
 
 	firewallerAPI CAASFirewallerAPI
+	portService   PortService
 
 	broker         CAASBroker
 	portMutator    PortMutator
@@ -47,7 +50,9 @@ func newApplicationWorker(
 	controllerUUID string,
 	modelUUID string,
 	appName string,
+	appUUID application.ID,
 	firewallerAPI CAASFirewallerAPI,
+	portService PortService,
 	broker CAASBroker,
 	lifeGetter LifeGetter,
 	logger logger.Logger,
@@ -56,7 +61,9 @@ func newApplicationWorker(
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
 		appName:        appName,
+		appUUID:        appUUID,
 		firewallerAPI:  firewallerAPI,
+		portService:    portService,
 		broker:         broker,
 		lifeGetter:     lifeGetter,
 		initial:        true,
@@ -90,7 +97,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	w.portsWatcher, err = w.firewallerAPI.WatchOpenedPorts(ctx)
+	w.portsWatcher, err = w.portService.WatchApplicationOpenedPorts(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -103,7 +110,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	if w.currentPorts, err = w.firewallerAPI.GetOpenedPorts(ctx, w.appName); err != nil {
+	if w.currentPorts, err = w.portService.GetApplicationOpenedPortsByEndpoint(ctx, w.appUUID); err != nil {
 		return errors.Annotatef(err, "failed to get initial openned ports for application")
 	}
 
@@ -174,7 +181,7 @@ func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 }
 
 func (w *applicationWorker) onPortChanged(ctx context.Context) error {
-	changedPortRanges, err := w.firewallerAPI.GetOpenedPorts(ctx, w.appName)
+	changedPortRanges, err := w.portService.GetApplicationOpenedPortsByEndpoint(ctx, w.appUUID)
 	if err != nil {
 		return err
 	}

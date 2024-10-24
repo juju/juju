@@ -7,6 +7,7 @@ import (
 	"context"
 
 	charmscommon "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -28,8 +29,6 @@ type Client interface {
 type CAASFirewallerAPI interface {
 	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
-	WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error)
-	GetOpenedPorts(ctx context.Context, appName string) (network.GroupedPortRanges, error)
 
 	IsExposed(context.Context, string) (bool, error)
 	ApplicationConfig(context.Context, string) (config.ConfigAttributes, error)
@@ -41,4 +40,26 @@ type CAASFirewallerAPI interface {
 // lifecycle state value for an application.
 type LifeGetter interface {
 	Life(context.Context, string) (life.Value, error)
+}
+
+// PortService provides access to the port service.
+type PortService interface {
+	// WatchApplicationOpenedPorts returns a strings watcher for opened ports. This
+	// watcher emits for changes to the opened ports table. Each emitted event contains
+	// the app name which is associated with the changed port range.
+	WatchApplicationOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
+	// application, across all units, grouped by endpoint.
+	//
+	// NOTE: The returned port ranges are atomised, meaning we guarantee that each
+	// port range is of unit length.
+	GetApplicationOpenedPortsByEndpoint(context.Context, application.ID) (network.GroupedPortRanges, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	// GetApplicationIDByName returns a application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
 }

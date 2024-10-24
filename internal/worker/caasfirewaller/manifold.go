@@ -13,12 +13,16 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/storage"
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
-	APICallerName string
-	BrokerName    string
+	APICallerName      string
+	BrokerName         string
+	DomainServicesName string
 
 	ControllerUUID string
 	ModelUUID      string
@@ -34,6 +38,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			cfg.APICallerName,
 			cfg.BrokerName,
+			cfg.DomainServicesName,
 		},
 		Start: cfg.start,
 	}
@@ -52,6 +57,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
+	}
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.NewClient == nil {
 		return errors.NotValidf("nil NewClient")
@@ -81,14 +89,24 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var domainServices services.ModelDomainServices
+	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
 		ControllerUUID: config.ControllerUUID,
 		ModelUUID:      config.ModelUUID,
 		FirewallerAPI:  client,
-		LifeGetter:     client,
-		Broker:         broker,
-		Logger:         config.Logger,
+		PortService:    domainServices.Port(),
+		ApplicationService: domainServices.Application(applicationservice.ApplicationServiceParams{
+			StorageRegistry: storage.NotImplementedProviderRegistry{},
+			Secrets:         applicationservice.NotImplementedSecretService{},
+		}),
+		LifeGetter: client,
+		Broker:     broker,
+		Logger:     config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

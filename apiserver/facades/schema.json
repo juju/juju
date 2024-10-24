@@ -8091,18 +8091,6 @@
                     },
                     "description": "CharmInfo returns information about the requested charm."
                 },
-                "GetOpenedPorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entity"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ApplicationOpenedPortsResults"
-                        }
-                    },
-                    "description": "GetOpenedPorts returns all the opened ports for each given application tag."
-                },
                 "IsExposed": {
                     "type": "object",
                     "properties": {
@@ -8147,18 +8135,6 @@
                         }
                     },
                     "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
-                },
-                "WatchOpenedPorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResults"
-                        }
-                    },
-                    "description": "WatchOpenedPorts returns a new StringsWatcher for each given\nmodel tag."
                 }
             },
             "definitions": {
@@ -8175,58 +8151,6 @@
                     "additionalProperties": false,
                     "required": [
                         "Results"
-                    ]
-                },
-                "ApplicationOpenedPorts": {
-                    "type": "object",
-                    "properties": {
-                        "endpoint": {
-                            "type": "string"
-                        },
-                        "port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/PortRange"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "endpoint",
-                        "port-ranges"
-                    ]
-                },
-                "ApplicationOpenedPortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "application-port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ApplicationOpenedPorts"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application-port-ranges"
-                    ]
-                },
-                "ApplicationOpenedPortsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ApplicationOpenedPortsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "BoolResult": {
@@ -8885,26 +8809,6 @@
                         "results"
                     ]
                 },
-                "PortRange": {
-                    "type": "object",
-                    "properties": {
-                        "from-port": {
-                            "type": "integer"
-                        },
-                        "protocol": {
-                            "type": "string"
-                        },
-                        "to-port": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "from-port",
-                        "to-port",
-                        "protocol"
-                    ]
-                },
                 "StringsWatchResult": {
                     "type": "object",
                     "properties": {
@@ -8924,21 +8828,6 @@
                     "additionalProperties": false,
                     "required": [
                         "watcher-id"
-                    ]
-                },
-                "StringsWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringsWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 }
             }

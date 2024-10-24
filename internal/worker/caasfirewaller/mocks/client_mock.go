@@ -16,7 +16,6 @@ import (
 	charms "github.com/juju/juju/api/common/charms"
 	config "github.com/juju/juju/core/config"
 	life "github.com/juju/juju/core/life"
-	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -118,45 +117,6 @@ func (c *MockClientApplicationConfigCall) Do(f func(context.Context, string) (co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockClientApplicationConfigCall) DoAndReturn(f func(context.Context, string) (config.ConfigAttributes, error)) *MockClientApplicationConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetOpenedPorts mocks base method.
-func (m *MockClient) GetOpenedPorts(arg0 context.Context, arg1 string) (network.GroupedPortRanges, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOpenedPorts", arg0, arg1)
-	ret0, _ := ret[0].(network.GroupedPortRanges)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetOpenedPorts indicates an expected call of GetOpenedPorts.
-func (mr *MockClientMockRecorder) GetOpenedPorts(arg0, arg1 any) *MockClientGetOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOpenedPorts", reflect.TypeOf((*MockClient)(nil).GetOpenedPorts), arg0, arg1)
-	return &MockClientGetOpenedPortsCall{Call: call}
-}
-
-// MockClientGetOpenedPortsCall wrap *gomock.Call
-type MockClientGetOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockClientGetOpenedPortsCall) Return(arg0 network.GroupedPortRanges, arg1 error) *MockClientGetOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockClientGetOpenedPortsCall) Do(f func(context.Context, string) (network.GroupedPortRanges, error)) *MockClientGetOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientGetOpenedPortsCall) DoAndReturn(f func(context.Context, string) (network.GroupedPortRanges, error)) *MockClientGetOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -317,45 +277,6 @@ func (c *MockClientWatchApplicationsCall) DoAndReturn(f func(context.Context) (w
 	return c
 }
 
-// WatchOpenedPorts mocks base method.
-func (m *MockClient) WatchOpenedPorts(arg0 context.Context) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchOpenedPorts", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchOpenedPorts indicates an expected call of WatchOpenedPorts.
-func (mr *MockClientMockRecorder) WatchOpenedPorts(arg0 any) *MockClientWatchOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPorts", reflect.TypeOf((*MockClient)(nil).WatchOpenedPorts), arg0)
-	return &MockClientWatchOpenedPortsCall{Call: call}
-}
-
-// MockClientWatchOpenedPortsCall wrap *gomock.Call
-type MockClientWatchOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockClientWatchOpenedPortsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockClientWatchOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockClientWatchOpenedPortsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockClientWatchOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientWatchOpenedPortsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockClientWatchOpenedPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockCAASFirewallerAPI is a mock of CAASFirewallerAPI interface.
 type MockCAASFirewallerAPI struct {
 	ctrl     *gomock.Controller
@@ -453,45 +374,6 @@ func (c *MockCAASFirewallerAPIApplicationConfigCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCAASFirewallerAPIApplicationConfigCall) DoAndReturn(f func(context.Context, string) (config.ConfigAttributes, error)) *MockCAASFirewallerAPIApplicationConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetOpenedPorts mocks base method.
-func (m *MockCAASFirewallerAPI) GetOpenedPorts(arg0 context.Context, arg1 string) (network.GroupedPortRanges, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOpenedPorts", arg0, arg1)
-	ret0, _ := ret[0].(network.GroupedPortRanges)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetOpenedPorts indicates an expected call of GetOpenedPorts.
-func (mr *MockCAASFirewallerAPIMockRecorder) GetOpenedPorts(arg0, arg1 any) *MockCAASFirewallerAPIGetOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOpenedPorts", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).GetOpenedPorts), arg0, arg1)
-	return &MockCAASFirewallerAPIGetOpenedPortsCall{Call: call}
-}
-
-// MockCAASFirewallerAPIGetOpenedPortsCall wrap *gomock.Call
-type MockCAASFirewallerAPIGetOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASFirewallerAPIGetOpenedPortsCall) Return(arg0 network.GroupedPortRanges, arg1 error) *MockCAASFirewallerAPIGetOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASFirewallerAPIGetOpenedPortsCall) Do(f func(context.Context, string) (network.GroupedPortRanges, error)) *MockCAASFirewallerAPIGetOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASFirewallerAPIGetOpenedPortsCall) DoAndReturn(f func(context.Context, string) (network.GroupedPortRanges, error)) *MockCAASFirewallerAPIGetOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -609,45 +491,6 @@ func (c *MockCAASFirewallerAPIWatchApplicationsCall) Do(f func(context.Context) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCAASFirewallerAPIWatchApplicationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockCAASFirewallerAPIWatchApplicationsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchOpenedPorts mocks base method.
-func (m *MockCAASFirewallerAPI) WatchOpenedPorts(arg0 context.Context) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchOpenedPorts", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchOpenedPorts indicates an expected call of WatchOpenedPorts.
-func (mr *MockCAASFirewallerAPIMockRecorder) WatchOpenedPorts(arg0 any) *MockCAASFirewallerAPIWatchOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPorts", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).WatchOpenedPorts), arg0)
-	return &MockCAASFirewallerAPIWatchOpenedPortsCall{Call: call}
-}
-
-// MockCAASFirewallerAPIWatchOpenedPortsCall wrap *gomock.Call
-type MockCAASFirewallerAPIWatchOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASFirewallerAPIWatchOpenedPortsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockCAASFirewallerAPIWatchOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASFirewallerAPIWatchOpenedPortsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockCAASFirewallerAPIWatchOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASFirewallerAPIWatchOpenedPortsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockCAASFirewallerAPIWatchOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

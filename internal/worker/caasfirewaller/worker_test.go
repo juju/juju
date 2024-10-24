@@ -12,6 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
+	coreapplication "github.com/juju/juju/core/application"
+	testingapplication "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -28,9 +30,11 @@ type workerSuite struct {
 
 	config caasfirewaller.Config
 
-	firewallerAPI *mocks.MockCAASFirewallerAPI
-	lifeGetter    *mocks.MockLifeGetter
-	broker        *mocks.MockCAASBroker
+	firewallerAPI      *mocks.MockCAASFirewallerAPI
+	applicationService *mocks.MockApplicationService
+	portService        *mocks.MockPortService
+	lifeGetter         *mocks.MockLifeGetter
+	broker             *mocks.MockCAASBroker
 
 	applicationChanges chan []string
 
@@ -63,16 +67,21 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
 	s.firewallerAPI.EXPECT().WatchApplications(gomock.Any()).AnyTimes().Return(s.appsWatcher, nil)
 
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.portService = mocks.NewMockPortService(ctrl)
+
 	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
 
 	s.config = caasfirewaller.Config{
-		ControllerUUID: testing.ControllerTag.Id(),
-		ModelUUID:      testing.ModelTag.Id(),
-		FirewallerAPI:  s.firewallerAPI,
-		Broker:         s.broker,
-		LifeGetter:     s.lifeGetter,
-		Logger:         loggertesting.WrapCheckLog(c),
+		ControllerUUID:     testing.ControllerTag.Id(),
+		ModelUUID:          testing.ModelTag.Id(),
+		FirewallerAPI:      s.firewallerAPI,
+		ApplicationService: s.applicationService,
+		PortService:        s.portService,
+		Broker:             s.broker,
+		LifeGetter:         s.lifeGetter,
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 	return ctrl
 }
@@ -129,7 +138,9 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		controllerUUID string,
 		modelUUID string,
 		appName string,
+		appUUID coreapplication.ID,
 		firewallerAPI caasfirewaller.CAASFirewallerAPI,
+		portService caasfirewaller.PortService,
 		broker caasfirewaller.CAASBroker,
 		lifeGetter caasfirewaller.LifeGetter,
 		logger logger.Logger,
@@ -141,6 +152,12 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		}
 		return nil, errors.New("never happen")
 	}
+
+	app1UUID := testingapplication.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "app1").Return(app1UUID, nil).MinTimes(1)
+
+	app2UUID := testingapplication.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "app2").Return(app2UUID, nil).MinTimes(1)
 
 	charmInfo := &charms.CharmInfo{
 		Meta:     &charm.Meta{},

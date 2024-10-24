@@ -5,7 +5,6 @@ package caasfirewaller
 
 import (
 	"context"
-	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -14,14 +13,10 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
-	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -39,21 +34,6 @@ type ApplicationService interface {
 	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
 }
 
-// PortService provides access to the port service.
-type PortService interface {
-	// WatchApplicationOpenedPorts returns a strings watcher for opened ports. This
-	// watcher emits for changes to the opened ports table. Each emitted event contains
-	// the app name which is associated with the changed port range.
-	WatchApplicationOpenedPorts(context.Context) (corewatcher.StringsWatcher, error)
-
-	// GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
-	// application, across all units, grouped by endpoint.
-	//
-	// NOTE: The returned port ranges are atomised, meaning we guarantee that each
-	// port range is of unit length.
-	GetApplicationOpenedPortsByEndpoint(context.Context, application.ID) (network.GroupedPortRanges, error)
-}
-
 type Facade struct {
 	*common.AgentEntityWatcher
 	resources       facade.Resources
@@ -65,7 +45,6 @@ type Facade struct {
 	accessUnit      common.GetAuthFunc
 
 	applicationService ApplicationService
-	portService        PortService
 }
 
 // CharmInfo returns information about the requested charm.
@@ -153,7 +132,6 @@ func NewFacade(
 	commonCharmsAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 	applicationService ApplicationService,
-	portService PortService,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -178,7 +156,6 @@ func NewFacade(
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		applicationService: applicationService,
-		portService:        portService,
 	}, nil
 }
 
@@ -230,99 +207,4 @@ func (f *Facade) Life(ctx context.Context, args params.Entities) (params.LifeRes
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// WatchOpenedPorts returns a new StringsWatcher for each given
-// model tag.
-func (f *Facade) WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canWatch, err := f.accessModel()
-	if err != nil {
-		return params.StringsWatchResults{}, errors.Trace(err)
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canWatch(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		watcherID, initial, err := f.watchOneModelOpenedPorts(ctx)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result.Results[i].StringsWatcherId = watcherID
-		result.Results[i].Changes = initial
-	}
-	return result, nil
-}
-
-func (f *Facade) watchOneModelOpenedPorts(ctx context.Context) (string, []string, error) {
-	watch, err := f.portService.WatchApplicationOpenedPorts(ctx)
-	if err != nil {
-		return "", nil, internalerrors.Errorf("cannot watch opened ports: %w", err)
-	}
-	watcherID, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, f.watcherRegistry, watch)
-	if err != nil {
-		return "", nil, internalerrors.Errorf("cannot register watcher: %w", err)
-	}
-	return watcherID, changes, nil
-}
-
-// GetOpenedPorts returns all the opened ports for each given application tag.
-func (f *Facade) GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
-	result := params.ApplicationOpenedPortsResults{
-		Results: make([]params.ApplicationOpenedPortsResult, 1),
-	}
-
-	appTag, err := names.ParseApplicationTag(arg.Tag)
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	appUUID, err := f.applicationService.GetApplicationIDByName(ctx, appTag.Id())
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	openedPortRanges, err := f.portService.GetApplicationOpenedPortsByEndpoint(ctx, appUUID)
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	for endpointName, pgs := range openedPortRanges {
-		result.Results[0].ApplicationPortRanges = append(
-			result.Results[0].ApplicationPortRanges,
-			f.applicationOpenedPortsForEndpoint(endpointName, pgs),
-		)
-	}
-	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
-		// For test.
-		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
-	})
-	return result, nil
-}
-
-func (f *Facade) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
-	network.SortPortRanges(pgs)
-	o := params.ApplicationOpenedPorts{
-		Endpoint:   endpointName,
-		PortRanges: make([]params.PortRange, len(pgs)),
-	}
-	for i, pg := range pgs {
-		o.PortRanges[i] = params.FromNetworkPortRange(pg)
-	}
-	return o
 }

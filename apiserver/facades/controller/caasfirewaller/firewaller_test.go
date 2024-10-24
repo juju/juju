@@ -17,9 +17,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -40,7 +38,6 @@ type firewallerSuite struct {
 
 	charmService *MockCharmService
 	appService   *MockApplicationService
-	portService  *MockPortService
 
 	modelTag names.ModelTag
 }
@@ -73,78 +70,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	openPortsChanges := []string{"port1", "port2"}
-
-	w := newMockStringsWatcher()
-	defer workertest.CleanKill(c, w)
-	w.changes <- openPortsChanges
-	s.portService.EXPECT().WatchApplicationOpenedPorts(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
-
-	results, err := s.facade.WatchOpenedPorts(context.Background(), params.Entities{
-		Entities: []params.Entity{{
-			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, openPortsChanges)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertNoChange()
-}
-
-func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID, err := application.NewID()
-	c.Assert(err, jc.ErrorIsNil)
-	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appUUID, nil)
-	s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), appUUID).Return(network.GroupedPortRanges{
-		"": []network.PortRange{
-			{
-				FromPort: 80,
-				ToPort:   80,
-				Protocol: "tcp",
-			},
-		},
-		"endport-1": []network.PortRange{
-			{
-				FromPort: 8888,
-				ToPort:   8888,
-				Protocol: "tcp",
-			},
-		},
-	}, nil)
-
-	results, err := s.facade.GetOpenedPorts(context.Background(), params.Entity{
-		Tag: "application-gitlab",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.ApplicationPortRanges, gc.DeepEquals, []params.ApplicationOpenedPorts{
-		{
-			PortRanges: []params.PortRange{
-				{FromPort: 80, ToPort: 80, Protocol: "tcp"},
-			},
-		},
-		{
-			Endpoint: "endport-1",
-			PortRanges: []params.PortRange{
-				{FromPort: 8888, ToPort: 8888, Protocol: "tcp"},
-			},
-		},
-	})
-}
-
 func (s *firewallerSuite) TestPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -165,7 +90,6 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 		commonCharmsAPI,
 		appCharmInfoAPI,
 		s.appService,
-		s.portService,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -277,7 +201,6 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.charmService = NewMockCharmService(ctrl)
 	s.appService = NewMockApplicationService(ctrl)
-	s.portService = NewMockPortService(ctrl)
 
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -292,7 +215,6 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		commonCharmsAPI,
 		appCharmInfoAPI,
 		s.appService,
-		s.portService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -308,6 +230,4 @@ type facadeSidecar interface {
 	Life(ctx context.Context, args params.Entities) (params.LifeResults, error)
 	Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 	ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error)
-	WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error)
-	GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }
