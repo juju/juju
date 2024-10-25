@@ -19,6 +19,10 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -91,34 +95,50 @@ func NewUpgraderAPI(
 }
 
 // WatchAPIVersion starts a watcher to track if there is a new version
-// of the API that we want to upgrade a machine to.
+// of the API that we want to upgrade an application, machine, model or
+// unit to.
 func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		tag, err := names.ParseMachineTag(agent.Tag)
+		tag, err := names.ParseTag(agent.Tag)
 		if err != nil {
-			return params.NotifyWatchResults{}, errors.Trace(err)
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeTagInvalid, "%s", err,
+			)
+			continue
 		}
+
 		tagID := tag.Id()
-		upgraderAPIWatcher, err := u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))
+		var upgraderAPIWatcher watcher.NotifyWatcher
+
+		switch tag.Kind() {
+		case names.ControllerTagKind, names.ModelTagKind:
+			upgraderAPIWatcher, err = u.modelAgentService.WatchModelTargetAgentVersion(ctx)
+		case names.MachineTagKind:
+			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))
+		case names.UnitTagKind:
+			// Used in kubernetes models.
+			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, tagID)
+		default:
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotValid, "%s", tag.String(),
+			)
+			continue
+		}
 
 		switch {
-		case errors.Is(err, errors.NotValid):
+		case errors.Is(err, modelerrors.NotFound), errors.Is(err, applicationerrors.UnitNotFound),
+			errors.Is(err, machineerrors.MachineNotFound):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
-				params.CodeMachineInvalidID,
-				"invalid machine ID %q",
-				tagID,
+				params.CodeNotFound, "%s", tag,
 			)
 			continue
 		case err != nil:
 			// We don't understand this error. At this stage we consider it an
 			// internal server error and bail out of the call completely.
-			return params.NotifyWatchResults{}, fmt.Errorf(
-				"cannot watch api version for machine %q: %w",
-				tagID, err,
-			)
+			return params.NotifyWatchResults{}, fmt.Errorf("cannot watch api version for tag %q: %w", tag, err)
 		}
 
 		result.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
@@ -126,8 +146,8 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		)
 		if err != nil {
 			return params.NotifyWatchResults{}, fmt.Errorf(
-				"registering machine %q api version watcher: %w",
-				tagID, err,
+				"registering %s api version watcher: %w",
+				tag, err,
 			)
 		}
 	}

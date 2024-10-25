@@ -21,16 +21,6 @@ type modelStateSuite struct {
 
 var _ = gc.Suite(&modelStateSuite{})
 
-// TestCheckApplicationDoesNotExist is asserting that if no application exists
-// we get back an error satisfying [applicationerrors.ApplicationNotFound].
-func (s *modelStateSuite) TestCheckApplicationDoesNotExist(c *gc.C) {
-	err := NewModelState(s.TxnRunnerFactory()).CheckApplicationExists(
-		context.Background(),
-		"noexist",
-	)
-	c.Check(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
-}
-
 // TestCheckMachineDoesNotExist is asserting that if no machine exists we get
 // back an error satisfying [machineerrors.MachineNotFound].
 func (s *modelStateSuite) TestCheckMachineDoesNotExist(c *gc.C) {

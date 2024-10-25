@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -149,4 +150,53 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 		"foo/0",
 	)
 	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestWatchUnitTargetAgentVersionNotFound is testing that the service
+// returns a [applicationerrors.UnitNotFound] error when no unit exists for
+// a given name.
+func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(
+		applicationerrors.UnitNotFound,
+	)
+
+	_, err := NewModelService(s.modelState, s.state, nil).WatchUnitTargetAgentVersion(
+		context.Background(),
+		"foo/0",
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestWatchMachineTargetAgentVersionNotFound is testing that the service
+// returns a [machineerrors.MachineNotFound] error when no machine exists for
+// a given name.
+func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
+		machineerrors.MachineNotFound,
+	)
+
+	_, err := NewModelService(s.modelState, s.state, nil).WatchMachineTargetAgentVersion(
+		context.Background(),
+		machine.Name("0"),
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// WatchModelTargetAgentVersion tests that ModelService.WatchModelTargetAgentVersion
+// returns an appropriate error when the specified model cannot be found.
+func (s *suite) TestWatchModelTargetAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelID := modeltesting.GenModelUUID(c)
+	modelNotFoundErr := fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
+	s.modelState.EXPECT().GetModelUUID(context.Background()).Return(model.UUID(""), modelNotFoundErr)
+
+	_, err := NewModelService(s.modelState, s.state, nil).WatchModelTargetAgentVersion(
+		context.Background(),
+	)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }

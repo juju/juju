@@ -43,10 +43,15 @@ type ModelAgentService interface {
 	// - [modelerrors.NotFound] - When the model of the machine no longer exists.
 	WatchMachineTargetAgentVersion(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error)
 
+	// WatchModelTargetAgentVersion is responsible for watching the target agent
+	// version of this model and reporting when a change has happened in the
+	// version.
+	WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error)
+
 	// WatchUnitTargetAgentVersion is responsible for watching the target agent
 	// version for unit and reporting when there has been a change via a
 	// [watcher.NotifyWatcher]. The following errors can be expected:
-	// - [applicationerrors.NotFound] - When no unit exists for the provided name.
+	// - [applicationerrors.UnitNotFound] - When no unit exists for the provided name.
 	// - [modelerrors.NotFound] - When the model of the unit no longer exists.
 	WatchUnitTargetAgentVersion(ctx context.Context, unitName string) (watcher.NotifyWatcher, error)
 }

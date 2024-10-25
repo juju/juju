@@ -74,7 +74,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		)
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
-			// For sidecar applications.
 			return NewUpgraderAPI(
 				controllerConfigGetter,
 				ctrlSt,

@@ -28,52 +28,6 @@ func NewModelState(factory database.TxnRunnerFactory) *ModelState {
 	}
 }
 
-// CheckApplicationExists check to see if the given machine exists in the
-// model. If the machine does not exist an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (m *ModelState) CheckApplicationExists(
-	ctx context.Context,
-	name string,
-) error {
-	db, err := m.DB()
-	if err != nil {
-		return errors.Errorf(
-			"getting database to check application %q exists: %w",
-			name, err,
-		)
-	}
-
-	applicationName := applicationName{name}
-	stmt, err := m.Prepare(`
-SELECT &applicationName.*
-FROM application
-WHERE name = $applicationName.name
-`, applicationName)
-
-	if err != nil {
-		return errors.Errorf(
-			"preparing application %q selection statement: %w", name, err,
-		)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, applicationName).Get(&applicationName)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"application %q does not exist", name,
-			).Add(applicationerrors.ApplicationNotFound)
-		} else if err != nil {
-			return errors.Errorf(
-				"checking if application %q exists: %w", name, err,
-			)
-		}
-
-		return nil
-	})
-
-	return err
-}
-
 // CheckMachineExists check to see if the given machine exists in the model. If
 // the machine does not exist an error satisfying
 // [machineerrors.MachineNotFound] is returned.
