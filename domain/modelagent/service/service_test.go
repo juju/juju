@@ -150,3 +150,18 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 	)
 	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
+
+// TestWatchUnitTargetAgentVersion is testing that the service returns a
+func (s *suite) TestWatchUnitTargetAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().CheckUnitExists(gomock.Any(), "foo-0").Return(
+		applicationerrors.UnitNotFound,
+	)
+
+	_, err := NewModelService(s.modelState, s.state, nil).WatchUnitTargetAgentVersion(
+		context.Background(),
+		"foo-0",
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}

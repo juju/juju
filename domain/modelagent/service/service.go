@@ -270,7 +270,8 @@ func (s *ModelService) WatchModelTargetAgentVersion(
 // WatchUnitTargetAgentVersion is responsible for watching the target agent
 // version for unit and reporting when there has been a change via a
 // [watcher.NotifyWatcher]. The following errors can be expected:
-// - [applicationerrors.NotFound] - When no unit exists for the provided name.
+// - [applicationerrors.UnitNotFound] - When no unit exists for the provided
+// name.
 // - [modelerrors.NotFound] - When the model of the unit no longer exists.
 func (s *ModelService) WatchUnitTargetAgentVersion(
 	ctx context.Context,
@@ -280,7 +281,7 @@ func (s *ModelService) WatchUnitTargetAgentVersion(
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.Errorf(
 			"unit %q does not exist", unitName,
-		).Add(machineerrors.MachineNotFound)
+		).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
 		return nil, errors.Errorf(
 			"checking if unit %q exists when watching target agent version: %w",
