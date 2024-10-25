@@ -129,7 +129,7 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		}
 
 		switch {
-		case errors.Is(err, modelerrors.NotFound), errors.Is(err, applicationerrors.ApplicationNotFound),
+		case errors.Is(err, modelerrors.NotFound), errors.Is(err, applicationerrors.UnitNotFound),
 			errors.Is(err, machineerrors.MachineNotFound):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeNotFound, "%s", tag,
