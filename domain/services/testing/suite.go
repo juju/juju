@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/storage/provider/dummy"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -243,7 +244,13 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 				return objectStore, nil
 			}),
 			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
-				return provider.CommonStorageProviders(), nil
+				// Using the dummy storage provider for testing purposes isn't
+				// ideal. We should potentially use a mock storage provider
+				// instead.
+				return storage.ChainedProviderRegistry{
+					dummy.StorageProviders(),
+					provider.CommonStorageProviders(),
+				}, nil
 			}),
 			clock.WallClock,
 			loggertesting.WrapCheckLog(c),

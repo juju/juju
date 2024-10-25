@@ -94,8 +94,9 @@ func NewModelExporter(
 	clock clock.Clock,
 ) *ModelExporter {
 	return &ModelExporter{
-		operationExporter:   operationExporter,
-		legacyStateExporter: legacyStateExporter, scope: scope,
+		operationExporter:     operationExporter,
+		legacyStateExporter:   legacyStateExporter,
+		scope:                 scope,
 		storageRegistryGetter: storageRegistryGetter,
 		coordinator:           coordinator,
 		logger:                logger,

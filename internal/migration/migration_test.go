@@ -37,8 +37,7 @@ import (
 )
 
 type ExportSuite struct {
-	providerRegistry      *MockProviderRegistry
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
+	storageRegistryGetter *MockModelStorageRegistryGetter
 	operationsExporter    *MockOperationExporter
 	coordinator           *MockCoordinator
 	model                 *MockModel
@@ -49,18 +48,12 @@ var _ = gc.Suite(&ExportSuite{})
 func (s *ExportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.providerRegistry = NewMockProviderRegistry(ctrl)
+	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 	s.operationsExporter = NewMockOperationExporter(ctrl)
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.model = NewMockModel(ctrl)
 
 	return ctrl
-}
-
-func (s *ExportSuite) SetUpTest(c *gc.C) {
-	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return s.providerRegistry
-	})
 }
 
 func (s *ExportSuite) TestExportValidates(c *gc.C) {
@@ -79,7 +72,7 @@ func (s *ExportSuite) TestExportValidates(c *gc.C) {
 	// The order of the expectations is important here. We expect that the
 	// validation is the last thing that happens.
 	gomock.InOrder(
-		s.operationsExporter.EXPECT().ExportOperations(s.providerRegistry),
+		s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter),
 		s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil),
 		s.model.EXPECT().Validate().Return(nil),
 	)
@@ -101,7 +94,7 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 		nil, nil,
 	)
 
-	s.operationsExporter.EXPECT().ExportOperations(s.providerRegistry)
+	s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter)
 	s.model.EXPECT().Validate().Return(errors.New("boom"))
 	s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil)
 

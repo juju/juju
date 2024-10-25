@@ -22,6 +22,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,KeyManagerService,MachineService
 
@@ -42,6 +43,7 @@ type baseSuite struct {
 	stateTracker            *MockStateTracker
 	objectStore             *MockObjectStore
 	objectStoreGetter       *MockObjectStoreGetter
+	storageRegistryGetter   *MockStorageRegistryGetter
 	bootstrapUnlocker       *MockUnlocker
 	controllerConfigService *MockControllerConfigService
 	cloudService            *MockCloudService
@@ -70,6 +72,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.stateTracker = NewMockStateTracker(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
+	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
 	s.bootstrapUnlocker = NewMockUnlocker(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.cloudService = NewMockCloudService(ctrl)

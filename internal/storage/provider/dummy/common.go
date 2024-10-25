@@ -9,7 +9,7 @@ import "github.com/juju/juju/internal/storage"
 // well-defined dummy storage providers.
 func StorageProviders() storage.ProviderRegistry {
 	return storage.StaticProviderRegistry{
-		map[storage.ProviderType]storage.Provider{
+		Providers: map[storage.ProviderType]storage.Provider{
 			"static": &StorageProvider{IsDynamic: false},
 			"modelscoped": &StorageProvider{
 				StorageScope: storage.ScopeEnviron,
