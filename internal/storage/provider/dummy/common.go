@@ -33,6 +33,13 @@ func StorageProviders() storage.ProviderRegistry {
 				StorageScope: storage.ScopeMachine,
 				IsDynamic:    true,
 			},
+			// TODO (stickupkid): This shouldn't be here, but we're in the
+			// processing of up-ending the storage provider registry. The
+			// testing factory is very coupled to the fact it can just do
+			// anything it wants at any moment.
+			// For now hard code the k8s provider, we can fix once the testing
+			// factory is removed.
+			"kubernetes": &StorageProvider{},
 		},
 	}
 }

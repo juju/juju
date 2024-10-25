@@ -68,7 +68,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, domainServices.Cloud(), domainServices.Credential(), s.DefaultModelDomainServices(c).Config())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	domainServicesGetter := s.DomainServicesGetterWithStorageRegistry(c, s.NoopObjectStore(c), registry)
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
