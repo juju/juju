@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -67,7 +68,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, domainServices.Cloud(), domainServices.Credential(), s.DefaultModelDomainServices(c).Config())
 	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	registry := storageprovider.NewStorageProviderRegistry(broker)
 	domainServicesGetter := s.DomainServicesGetterWithStorageRegistry(c, s.NoopObjectStore(c), registry)
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage()
 

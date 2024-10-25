@@ -13,8 +13,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
 )
 
@@ -104,59 +102,11 @@ func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallCon
 }
 
 // StorageServices implements state.Policy.
-func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage.ProviderRegistry, error) {
-	if p.credentialService == nil {
-		return nil, nil, errors.NotSupportedf("StorageServices check without credential service")
-	}
-	if p.storageServiceGetter == nil {
-		return nil, nil, errors.NotSupportedf("StorageServices check without storage pool getter")
-	}
-	if p.modelConfigServiceGetter == nil {
-		return nil, nil, errors.NotSupportedf("StorageServices check without model config service getter")
-	}
-
+func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, error) {
 	model, err := p.st.Model()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	modelConfigService := p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
-
-	// ProviderRegistry doesn't make any calls to fetch instance types,
-	// so it doesn't help to use getDeployChecker() here.
-	registry, err := newStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, modelConfigService, p.getEnviron, p.getBroker)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	storageService := p.storageServiceGetter(coremodel.UUID(model.UUID()))
-	return storageService, registry, nil
-}
-
-// NewStorageProviderRegistryForModel returns a storage provider registry
-// for the specified model.
-func newStorageProviderRegistryForModel(
-	model *state.Model,
-	cloudService CloudService,
-	credentialService CredentialService,
-	modelConfigService ModelConfigService,
-	newEnv NewEnvironFunc,
-	newBroker NewCAASBrokerFunc,
-) (_ storage.ProviderRegistry, err error) {
-	var reg storage.ProviderRegistry
-	if model.Type() == state.ModelTypeIAAS {
-		if reg, err = newEnv(model, cloudService, credentialService, modelConfigService); err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		if reg, err = newBroker(model, cloudService, credentialService, modelConfigService); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return NewStorageProviderRegistry(reg), nil
-}
-
-// NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
-// the provided registry with the common storage providers.
-func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
-	return storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
+	return p.storageServiceGetter(coremodel.UUID(model.UUID())), nil
 }

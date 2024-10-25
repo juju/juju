@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -68,7 +69,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), s.DefaultModelDomainServices(c).Config())
 	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+	registry := storageprovider.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage()

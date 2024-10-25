@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -158,7 +159,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
 		stdCtx, st, domainServices.Cloud(), domainServices.Network(), getCanModify)

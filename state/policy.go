@@ -33,7 +33,7 @@ type Policy interface {
 	ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error)
 
 	// StorageServices returns a StoragePoolGetter, storage.ProviderRegistry or an error.
-	StorageServices() (StoragePoolGetter, storage.ProviderRegistry, error)
+	StorageServices() (StoragePoolGetter, error)
 }
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {
@@ -83,13 +83,17 @@ func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
 // Used for tests.
 type noopStoragePoolGetter struct{}
 
+func (noopStoragePoolGetter) GetStorageRegistry(ctx stdcontext.Context) (storage.ProviderRegistry, error) {
+	return storage.StaticProviderRegistry{}, nil
+}
+
 func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
 	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
-func (st *State) storageServices() (StoragePoolGetter, storage.ProviderRegistry, error) {
+func (st *State) storageServices() (StoragePoolGetter, error) {
 	if st.policy == nil {
-		return noopStoragePoolGetter{}, storage.StaticProviderRegistry{}, nil
+		return noopStoragePoolGetter{}, nil
 	}
 	return st.policy.StorageServices()
 }

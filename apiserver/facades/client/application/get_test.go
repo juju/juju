@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -60,7 +61,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
 	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+	registry := storageprovider.NewStorageProviderRegistry(env)
 
 	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 

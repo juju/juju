@@ -53,6 +53,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -109,7 +110,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
-	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	registry := provider.NewStorageProviderRegistry(broker)
 
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()

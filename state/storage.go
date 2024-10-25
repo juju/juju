@@ -102,7 +102,7 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		machine:         st.Machine,
 	}
 	sb.registryInit = func() {
-		sb.storagePoolGetter, sb.spRegistry, sb.spRegistryErr = st.storageServices()
+		sb.storagePoolGetter, sb.spRegistryErr = st.storageServices()
 	}
 	return sb, nil
 }
@@ -124,6 +124,7 @@ func NewStorageConfigBackend(
 
 // StoragePoolGetter instances get a storage pool by name.
 type StoragePoolGetter interface {
+	GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error)
 	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
 }
 
@@ -139,7 +140,6 @@ type storageBackend struct {
 	settings  *StateSettings
 
 	storagePoolGetter StoragePoolGetter
-	spRegistry        storage.ProviderRegistry
 	spRegistryErr     error
 	registryOnce      sync.Once
 	registryInit      func()
@@ -294,9 +294,9 @@ func storageAttachmentId(unit string, storageInstanceId string) string {
 	return fmt.Sprintf("%s#%s", unitGlobalKey(unit), storageInstanceId)
 }
 
-func (sb *storageBackend) storageServices() (StoragePoolGetter, storage.ProviderRegistry, error) {
+func (sb *storageBackend) storageServices() (StoragePoolGetter, error) {
 	sb.registryOnce.Do(sb.registryInit)
-	return sb.storagePoolGetter, sb.spRegistry, sb.spRegistryErr
+	return sb.storagePoolGetter, sb.spRegistryErr
 }
 
 // StorageInstance returns the StorageInstance with the specified tag.
@@ -1894,10 +1894,16 @@ func validateStoragePool(
 }
 
 func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
-	storageService, registry, err := sb.storageServices()
+	storageService, err := sb.storageServices()
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
+
+	registry, err := storageService.GetStorageRegistry(context.TODO())
+	if err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
+
 	pool, err := storageService.GetStoragePoolByName(context.TODO(), poolName)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type
