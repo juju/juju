@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
 	domainservices "github.com/juju/juju/domain/services"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -254,12 +255,12 @@ func (s modelApplicationLeaseManager) GetLeaseManager() (lease.LeaseCheckerWaite
 	// be happy with a sync.Pool at minimum though.
 	claimer, err := s.manager.Claimer(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
 	if err != nil {
-		return nil, errors.Errorf("getting claim lease manager: %w", err)
+		return nil, internalerrors.Errorf("getting claim lease manager: %w", err)
 	}
 
 	checker, err := s.manager.Checker(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
 	if err != nil {
-		return nil, errors.Errorf("getting checker lease manager: %w", err)
+		return nil, internalerrors.Errorf("getting checker lease manager: %w", err)
 	}
 
 	return &leaseManager{

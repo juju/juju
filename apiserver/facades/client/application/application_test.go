@@ -105,7 +105,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 		Type: model.IAAS,
 	}
 	registry := provider.NewStorageProviderRegistry(env)
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
 	applicationService := domainServices.Application()
 
