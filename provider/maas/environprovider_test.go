@@ -59,6 +59,19 @@ func (s *EnvironProviderSuite) TestPrepareConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *EnvironProviderSuite) TestPrepareConfigSkipTLSVerify(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	cloud := s.cloudSpec()
+	cloud.SkipTLSVerify = true
+	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+		Config: config,
+		Cloud:  cloud,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *EnvironProviderSuite) TestPrepareConfigInvalidOAuth(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
@@ -108,7 +121,7 @@ func createTempFile(c *gc.C, content []byte) string {
 	defer file.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	filename := file.Name()
-	err = os.WriteFile(filename, content, 0644)
+	err = os.WriteFile(filename, content, 0o644)
 	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }
