@@ -53,7 +53,9 @@ func (s *storagePoolServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *storagePoolServiceSuite) service(c *gc.C) *Service {
-	return NewService(s.state, loggertesting.WrapCheckLog(c), s.registry)
+	return NewService(s.state, loggertesting.WrapCheckLog(c), modelStorageRegistryGetter(func() storage.ProviderRegistry {
+		return s.registry
+	}))
 }
 
 func (s *storagePoolServiceSuite) TestCreateStoragePool(c *gc.C) {

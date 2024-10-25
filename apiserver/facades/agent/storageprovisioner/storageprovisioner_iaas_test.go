@@ -71,7 +71,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(s.st.ModelUUID())).Storage()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),

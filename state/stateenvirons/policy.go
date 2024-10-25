@@ -39,7 +39,7 @@ type deployChecker interface {
 	environs.ConstraintsChecker
 }
 
-type storageServiceGetter func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter
+type storageServiceGetter func(modelUUID coremodel.UUID) state.StoragePoolGetter
 type modelConfigServiceGetter func(modelUUID coremodel.UUID) ModelConfigService
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
@@ -128,7 +128,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	storageService := p.storageServiceGetter(coremodel.UUID(model.UUID()), registry)
+	storageService := p.storageServiceGetter(coremodel.UUID(model.UUID()))
 	return storageService, registry, nil
 }
 

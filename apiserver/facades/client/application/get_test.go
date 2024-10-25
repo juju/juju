@@ -63,10 +63,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	api, err := application.NewAPIBase(
 		application.GetState(st),
@@ -88,7 +85,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		domainServices.Storage(registry),
+		domainServices.Storage(),
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
@@ -222,10 +219,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	api, err := application.NewAPIBase(
 		application.GetState(st),
@@ -247,7 +241,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		domainServices.Storage(registry),
+		domainServices.Storage(),
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.

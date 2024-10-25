@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -34,7 +34,7 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator, registry storage.ProviderRegistry, logger logger.Logger) {
+func RegisterImport(coordinator Coordinator, registry corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
 	coordinator.Add(&importOperation{
 		registry:     registry,
 		logger:       logger,
@@ -48,7 +48,7 @@ type importOperation struct {
 	logger logger.Logger
 
 	service  ImportService
-	registry storage.ProviderRegistry
+	registry corestorage.ModelStorageRegistryGetter
 
 	charmOrigins map[string]*corecharm.Origin
 }
@@ -73,10 +73,8 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), i.logger),
 		state.NewCharmState(scope.ModelDB()),
-		service.ApplicationServiceParams{
-			StorageRegistry: i.registry,
-			Secrets:         service.NotImplementedSecretService{},
-		},
+		i.registry,
+		service.NotImplementedSecretService{},
 		i.logger,
 	)
 	return nil

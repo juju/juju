@@ -45,6 +45,9 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.BootstrapGateName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg.StorageRegistryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
 	cfg.CharmhubHTTPClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -81,6 +84,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		DomainServicesName:     "domain-services",
 		ProviderFactoryName:    "provider-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
+		StorageRegistryName:    "storage-registry",
 		Logger:                 s.logger,
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
@@ -108,6 +112,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"bootstrap-gate":       s.bootstrapUnlocker,
 		"charmhub-http-client": s.httpClient,
 		"domain-services":      testing.NewTestingDomainServices(),
+		"storage-registry":     s.storageRegistryGetter,
 	}
 	return dependencytesting.StubGetter(resources)
 }
@@ -120,6 +125,7 @@ var expectedInputs = []string{
 	"domain-services",
 	"charmhub-http-client",
 	"provider-factory",
+	"storage-registry",
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {

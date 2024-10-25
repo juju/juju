@@ -102,7 +102,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			SecretBackendService: secretBackendService,
 			NetworkService:       domainServices.Network(),
 			MachineService:       domainServices.Machine(),
-			ApplicationService:   domainServices.Application(service.ApplicationServiceParams{}),
+			ApplicationService:   domainServices.Application(service.NotImplementedSecretService{}),
 		},
 		toolsFinder,
 		caas.New,

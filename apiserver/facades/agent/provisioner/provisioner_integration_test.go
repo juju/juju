@@ -30,9 +30,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
@@ -1327,14 +1324,10 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
-	registry := storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	}
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage(registry)
+	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]any{

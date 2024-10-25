@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
@@ -36,8 +37,7 @@ import (
 )
 
 type ExportSuite struct {
-	providerRegistry      *MockProviderRegistry
-	storageRegistryGetter func() (storage.ProviderRegistry, error)
+	storageRegistryGetter *MockModelStorageRegistryGetter
 	operationsExporter    *MockOperationExporter
 	coordinator           *MockCoordinator
 	model                 *MockModel
@@ -48,16 +48,12 @@ var _ = gc.Suite(&ExportSuite{})
 func (s *ExportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.providerRegistry = NewMockProviderRegistry(ctrl)
+	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 	s.operationsExporter = NewMockOperationExporter(ctrl)
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.model = NewMockModel(ctrl)
 
 	return ctrl
-}
-
-func (s *ExportSuite) SetUpTest(c *gc.C) {
-	s.storageRegistryGetter = func() (storage.ProviderRegistry, error) { return s.providerRegistry, nil }
 }
 
 func (s *ExportSuite) TestExportValidates(c *gc.C) {
@@ -76,7 +72,7 @@ func (s *ExportSuite) TestExportValidates(c *gc.C) {
 	// The order of the expectations is important here. We expect that the
 	// validation is the last thing that happens.
 	gomock.InOrder(
-		s.operationsExporter.EXPECT().ExportOperations(s.providerRegistry),
+		s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter),
 		s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil),
 		s.model.EXPECT().Validate().Return(nil),
 	)
@@ -98,7 +94,7 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 		nil, nil,
 	)
 
-	s.operationsExporter.EXPECT().ExportOperations(s.providerRegistry)
+	s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter)
 	s.model.EXPECT().Validate().Return(errors.New("boom"))
 	s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil)
 
@@ -141,7 +137,9 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	controller := &fakeImporter{}
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.domainServicesGetter,
-		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
@@ -216,7 +214,9 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.domainServicesGetter,
-		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)

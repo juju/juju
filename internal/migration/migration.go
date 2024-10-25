@@ -25,13 +25,12 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
+	corestorage "github.com/juju/juju/core/storage"
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
-	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -51,7 +50,7 @@ type LegacyStateExporter interface {
 // method.
 type OperationExporter interface {
 	// ExportOperations registers the export operations with the given coordinator.
-	ExportOperations(registry internalstorage.ProviderRegistry)
+	ExportOperations(registry corestorage.ModelStorageRegistryGetter)
 }
 
 // Coordinator describes the interface required for coordinating model
@@ -67,14 +66,12 @@ type Coordinator interface {
 	Perform(ctx context.Context, scope modelmigration.Scope, model description.Model) (err error)
 }
 
-type storageRegistryGetter func() (storage.ProviderRegistry, error)
-
 // ModelExporter facilitates partial and full export of a model.
 type ModelExporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
 	legacyStateExporter   LegacyStateExporter
-	storageRegistryGetter storageRegistryGetter
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	operationExporter     OperationExporter
 
 	scope       modelmigration.Scope
@@ -91,14 +88,15 @@ func NewModelExporter(
 	operationExporter OperationExporter,
 	legacyStateExporter LegacyStateExporter,
 	scope modelmigration.Scope,
-	storageRegistryGetter storageRegistryGetter,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	coordinator Coordinator,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelExporter {
 	return &ModelExporter{
-		operationExporter:   operationExporter,
-		legacyStateExporter: legacyStateExporter, scope: scope,
+		operationExporter:     operationExporter,
+		legacyStateExporter:   legacyStateExporter,
+		scope:                 scope,
 		storageRegistryGetter: storageRegistryGetter,
 		coordinator:           coordinator,
 		logger:                logger,
@@ -131,11 +129,7 @@ func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]stri
 
 // Export serializes a model description from the database contents.
 func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
-	registry, err := e.storageRegistryGetter()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	e.operationExporter.ExportOperations(registry)
+	e.operationExporter.ExportOperations(e.storageRegistryGetter)
 	if err := e.coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -166,7 +160,7 @@ type ModelImporter struct {
 	legacyStateImporter     legacyStateImporter
 	controllerConfigService ControllerConfigService
 	domainServices          services.DomainServicesGetter
-	storageRegistryGetter   storageRegistryGetter
+	storageRegistryGetter   corestorage.ModelStorageRegistryGetter
 
 	scope  modelmigration.ScopeForModel
 	logger corelogger.Logger
@@ -181,7 +175,7 @@ func NewModelImporter(
 	scope modelmigration.ScopeForModel,
 	controllerConfigService ControllerConfigService,
 	domainServices services.DomainServicesGetter,
-	storageRegistryGetter storageRegistryGetter,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
@@ -221,12 +215,8 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	modelDefaults := domainServices.ModelDefaults()
 	modelDefaultsProvider := modelDefaults.ModelDefaultsProvider(modelUUID)
 
-	registry, err := i.storageRegistryGetter()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(coordinator, i.logger, modelDefaultsProvider, registry, i.clock)
+	migrations.ImportOperations(coordinator, modelDefaultsProvider, i.storageRegistryGetter, i.clock, i.logger)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}

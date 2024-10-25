@@ -76,7 +76,6 @@ import (
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/looputil"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
@@ -1134,8 +1133,8 @@ func openStatePool(
 		credService = domainServices.Credential()
 		cloudService = domainServices.Cloud()
 	}
-	storageServiceGetter := func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
-		return domainServicesGetter.ServicesForModel(modelUUID).Storage(registry)
+	storageServiceGetter := func(modelUUID coremodel.UUID) state.StoragePoolGetter {
+		return domainServicesGetter.ServicesForModel(modelUUID).Storage()
 	}
 	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
 		return domainServicesGetter.ServicesForModel(modelUUID).Config()

@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/storage/provider/dummy"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -230,8 +231,21 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 }
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
-// interface to use in tests.
+// interface to use in tests. This includes the dummy storage registry.
 func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobjectstore.ObjectStore) DomainServicesGetterFunc {
+	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, storage.ChainedProviderRegistry{
+		// Using the dummy storage provider for testing purposes isn't
+		// ideal. We should potentially use a mock storage provider
+		// instead.
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
+}
+
+// DomainServicesGetterWithStorageRegistry provides an implementation of the
+// DomainServicesGetterWithStorageRegistry interface to use in tests with the
+// additional storage provider.
+func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore coreobjectstore.ObjectStore, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
 	return func(modelUUID coremodel.UUID) services.DomainServices {
 		return domainservicefactory.NewDomainServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
@@ -243,7 +257,7 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 				return objectStore, nil
 			}),
 			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
-				return provider.CommonStorageProviders(), nil
+				return storageRegistry, nil
 			}),
 			clock.WallClock,
 			loggertesting.WrapCheckLog(c),

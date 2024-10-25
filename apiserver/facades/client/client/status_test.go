@@ -28,14 +28,13 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/version"
-	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/application/service"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 	testfactory "github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -846,10 +845,7 @@ func (s *statusUnitTestSuite) TestUnitsWithOpenedPortsSent(c *gc.C) {
 		Application: app,
 	})
 
-	appService := s.ControllerDomainServices(c).Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	appService := s.ControllerDomainServices(c).Application(service.NotImplementedSecretService{})
 
 	unitUUID, err := appService.GetUnitUUID(context.Background(), "wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)

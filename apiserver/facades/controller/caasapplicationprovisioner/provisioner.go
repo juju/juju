@@ -114,21 +114,18 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()
 	modelInfoService := domainServices.ModelInfo()
-	storageService := domainServices.Storage(registry)
+	storageService := domainServices.Storage()
 	backendService := domainServices.SecretBackend()
-	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: registry,
-		Secrets: domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
-		),
-	})
+	applicationService := domainServices.Application(domainServices.Secret(
+		secretservice.SecretServiceParams{
+			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
+				backendService, ctx.ModelUUID(),
+			),
+		},
+	))
 
 	sb, err := state.NewStorageBackend(ctx.State())
 	if err != nil {

@@ -15,7 +15,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -72,10 +71,7 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		domainServices.Config(),
 		domainServices.ModelInfo(),
 		domainServices.Model(),
-		domainServices.Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
-		}),
+		domainServices.Application(service.NotImplementedSecretService{}),
 		domainServices.Upgrade(),
 		domainServices.Agent(),
 	)

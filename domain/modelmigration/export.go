@@ -7,6 +7,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/logger"
+	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
@@ -20,7 +21,6 @@ import (
 	network "github.com/juju/juju/domain/network/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
-	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Exporter defines the instance of the coordinator on which we'll register
@@ -50,7 +50,7 @@ func NewExporter(
 // ExportOperations registers the export operations with the given coordinator.
 // This is a convenience function that can be used by the main migration package
 // to register all the export operations.
-func (e *Exporter) ExportOperations(registry internalstorage.ProviderRegistry) {
+func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGetter) {
 	blockcommand.RegisterExport(e.coordinator, e.logger.Child("blockcommand"))
 	modelconfig.RegisterExport(e.coordinator)
 	access.RegisterExport(e.coordinator, e.logger.Child("access"))

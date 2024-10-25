@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -89,13 +90,19 @@ func (t successfulToken) Check() error {
 
 func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) (*coresecrets.URI, string) {
 	ctx := context.Background()
-	appService := applicationservice.NewApplicationService(
-		applicationstate.NewApplicationState(
-			func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
-		applicationservice.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         applicationservice.NotImplementedSecretService{},
+	factory := applicationstate.NewApplicationState(
+		func() (database.TxnRunner, error) {
+			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 		},
+		loggertesting.WrapCheckLog(c),
+	)
+
+	appService := applicationservice.NewApplicationService(
+		factory,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return storage.NotImplementedProviderRegistry{}
+		}),
+		applicationservice.NotImplementedSecretService{},
 		loggertesting.WrapCheckLog(c),
 	)
 	u := applicationservice.AddUnitArg{

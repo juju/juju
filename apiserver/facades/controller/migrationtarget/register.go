@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -55,10 +54,7 @@ func makeFacade(
 		auth,
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
-		domainServices.Application(service.ApplicationServiceParams{
-			StorageRegistry: storage.NotImplementedProviderRegistry{},
-			Secrets:         service.NotImplementedSecretService{},
-		}),
+		domainServices.Application(service.NotImplementedSecretService{}),
 		domainServices.Upgrade(),
 		modelAgentServiceGetter,
 		modelMigrationServiceGetter,

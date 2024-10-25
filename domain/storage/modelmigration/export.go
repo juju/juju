@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
@@ -19,10 +20,10 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, registry internalstorage.ProviderRegistry, logger logger.Logger) {
+func RegisterExport(coordinator Coordinator, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
 	coordinator.Add(&exportOperation{
-		registry: registry,
-		logger:   logger,
+		storageRegistryGetter: storageRegistryGetter,
+		logger:                logger,
 	})
 }
 
@@ -37,9 +38,9 @@ type ExportService interface {
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	registry internalstorage.ProviderRegistry
-	service  ExportService
-	logger   logger.Logger
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
+	service               ExportService
+	logger                logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -50,7 +51,7 @@ func (e *exportOperation) Name() string {
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(
-		state.NewState(scope.ModelDB()), e.logger, e.registry)
+		state.NewState(scope.ModelDB()), e.logger, e.storageRegistryGetter)
 	return nil
 }
 

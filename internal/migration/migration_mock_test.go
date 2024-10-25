@@ -17,7 +17,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	life "github.com/juju/juju/core/life"
 	modelmigration "github.com/juju/juju/core/modelmigration"
-	storage "github.com/juju/juju/internal/storage"
+	storage "github.com/juju/juju/core/storage"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -232,7 +232,7 @@ func (m *MockOperationExporter) EXPECT() *MockOperationExporterMockRecorder {
 }
 
 // ExportOperations mocks base method.
-func (m *MockOperationExporter) ExportOperations(arg0 storage.ProviderRegistry) {
+func (m *MockOperationExporter) ExportOperations(arg0 storage.ModelStorageRegistryGetter) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "ExportOperations", arg0)
 }
@@ -256,13 +256,13 @@ func (c *MockOperationExporterExportOperationsCall) Return() *MockOperationExpor
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationExporterExportOperationsCall) Do(f func(storage.ProviderRegistry)) *MockOperationExporterExportOperationsCall {
+func (c *MockOperationExporterExportOperationsCall) Do(f func(storage.ModelStorageRegistryGetter)) *MockOperationExporterExportOperationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationExporterExportOperationsCall) DoAndReturn(f func(storage.ProviderRegistry)) *MockOperationExporterExportOperationsCall {
+func (c *MockOperationExporterExportOperationsCall) DoAndReturn(f func(storage.ModelStorageRegistryGetter)) *MockOperationExporterExportOperationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

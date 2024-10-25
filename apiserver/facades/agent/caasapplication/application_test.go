@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -60,10 +59,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// upserting of units.
 	domainServices := s.DefaultModelDomainServices(c)
 	unitName := unit.Name("gitlab/0")
-	s.applicationService = domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: provider.CommonStorageProviders(),
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	s.applicationService = domainServices.Application(service.NotImplementedSecretService{})
 
 	origin := corecharm.Origin{
 		Source: corecharm.CharmHub,

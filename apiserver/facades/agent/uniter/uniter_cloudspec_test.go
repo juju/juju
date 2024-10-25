@@ -16,7 +16,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -42,10 +41,7 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 	domainServices := s.ControllerDomainServices(c)
 
 	facadeContext := s.facadeContext(c)
-	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(applicationservice.NotImplementedSecretService{})
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
 		domainServices.ControllerConfig(),
@@ -85,10 +81,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	facadeContext.State_ = cm.State()
 
 	domainServices := facadeContext.DomainServices()
-	applicationService := domainServices.Application(applicationservice.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         applicationservice.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(applicationservice.NotImplementedSecretService{})
 
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,

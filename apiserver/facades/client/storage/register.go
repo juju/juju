@@ -44,7 +44,7 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		return domainServices.Storage(registry), registry, nil
+		return domainServices.Storage(), registry, nil
 	}
 
 	domainServices := ctx.DomainServices()

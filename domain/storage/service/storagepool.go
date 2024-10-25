@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
+	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
@@ -27,9 +28,9 @@ type StoragePoolState interface {
 
 // StoragePoolService defines a service for interacting with the underlying state.
 type StoragePoolService struct {
-	st       StoragePoolState
-	logger   logger.Logger
-	registry storage.ProviderRegistry
+	st             StoragePoolState
+	logger         logger.Logger
+	registryGetter corestorage.ModelStorageRegistryGetter
 }
 
 // PoolAttrs define the attributes of a storage pool.
@@ -38,7 +39,7 @@ type PoolAttrs map[string]any
 // CreateStoragePool creates a storage pool, returning an error satisfying [errors.AlreadyExists]
 // if a pool with the same name already exists.
 func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
-	err := s.validateConfig(name, providerType, attrs)
+	err := s.validateConfig(ctx, name, providerType, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -53,7 +54,7 @@ func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string,
 	return errors.Annotatef(err, "creating storage pool %q", name)
 }
 
-func (s *StoragePoolService) validateConfig(name string, providerType storage.ProviderType, attrs map[string]interface{}) error {
+func (s *StoragePoolService) validateConfig(ctx context.Context, name string, providerType storage.ProviderType, attrs map[string]interface{}) error {
 	if name == "" {
 		return storageerrors.MissingPoolNameError
 	}
@@ -63,15 +64,20 @@ func (s *StoragePoolService) validateConfig(name string, providerType storage.Pr
 	if providerType == "" {
 		return storageerrors.MissingPoolTypeError
 	}
-	if s.registry == nil {
-		return errors.Errorf("cannot validate storage provider config for %q without a registry", name)
-	}
 
 	cfg, err := storage.NewConfig(name, providerType, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	p, err := s.registry.StorageProvider(providerType)
+
+	// GetStorageRegistry result for a given model will be cached after the
+	// initial call, so this should be cheap to call.
+	registry, err := s.registryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	p, err := registry.StorageProvider(providerType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +133,7 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 		providerType = storage.ProviderType(existingConfig.Provider)
 	}
 
-	err := s.validateConfig(name, providerType, attrs)
+	err := s.validateConfig(ctx, name, providerType, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -149,7 +155,7 @@ func (s *StoragePoolService) AllStoragePools(ctx context.Context) ([]*storage.Co
 
 // ListStoragePools returns the storage pools matching the specified filter.
 func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error) {
-	if err := s.validatePoolListFilterTerms(names, providers); err != nil {
+	if err := s.validatePoolListFilterTerms(ctx, names, providers); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -166,7 +172,7 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domains
 
 	results := make([]*storage.Config, len(pools))
 	for i, p := range pools {
-		results[i], err = s.toStorageConfig(p)
+		results[i], err = s.storageConfig(ctx, p)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -174,8 +180,8 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domains
 	return results, nil
 }
 
-func (s *StoragePoolService) validatePoolListFilterTerms(names domainstorage.Names, providers domainstorage.Providers) error {
-	if err := s.validateProviderCriteria(providers); err != nil {
+func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
+	if err := s.validateProviderCriteria(ctx, providers); err != nil {
 		return errors.Trace(err)
 	}
 	if err := s.validateNameCriteria(names); err != nil {
@@ -193,12 +199,16 @@ func (s *StoragePoolService) validateNameCriteria(names []string) error {
 	return nil
 }
 
-func (s *StoragePoolService) validateProviderCriteria(providers []string) error {
-	if s.registry == nil {
-		return errors.New("cannot filter storage providers without a registry")
+func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, providers []string) error {
+	// GetStorageRegistry result for a given model will be cached after the
+	// initial call, so this should be cheap to call.
+	registry, err := s.registryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return errors.Trace(err)
 	}
+
 	for _, p := range providers {
-		_, err := s.registry.StorageProvider(storage.ProviderType(p))
+		_, err := registry.StorageProvider(storage.ProviderType(p))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -219,20 +229,25 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 	}
 	for _, p := range builtIn {
 		if p.Name == name {
-			return s.toStorageConfig(p)
+			return s.storageConfig(ctx, p)
 		}
 	}
+
 	sp, err := s.st.GetStoragePoolByName(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.toStorageConfig(sp)
+	return s.storageConfig(ctx, sp)
 }
 
-func (s *StoragePoolService) toStorageConfig(sp domainstorage.StoragePoolDetails) (*storage.Config, error) {
-	if s.registry == nil {
-		return nil, errors.New("cannot load storage pools without a registry")
+func (s *StoragePoolService) storageConfig(ctx context.Context, sp domainstorage.StoragePoolDetails) (*storage.Config, error) {
+	// GetStorageRegistry result for a given model will be cached after the
+	// initial call, so this should be cheap to call.
+	registry, err := s.registryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	var attr map[string]any
 	if len(sp.Attrs) > 0 {
 		attr = transform.Map(sp.Attrs, func(k, v string) (string, any) { return k, v })
@@ -241,7 +256,7 @@ func (s *StoragePoolService) toStorageConfig(sp domainstorage.StoragePoolDetails
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	p, err := s.registry.StorageProvider(cfg.Provider())
+	p, err := registry.StorageProvider(cfg.Provider())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

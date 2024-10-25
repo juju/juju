@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/testing"
 )
 
@@ -55,10 +54,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	domainServices := s.ControllerDomainServices(c)
-	applicationService := domainServices.Application(service.ApplicationServiceParams{
-		StorageRegistry: storage.NotImplementedProviderRegistry{},
-		Secrets:         service.NotImplementedSecretService{},
-	})
+	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 	_, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
 		domainServices.ControllerConfig(),

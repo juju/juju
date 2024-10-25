@@ -97,5 +97,5 @@ type modelDomainServices struct {
 }
 
 func (f *modelDomainServices) Application() ApplicationService {
-	return f.domainServices.Application(service.ApplicationServiceParams{})
+	return f.domainServices.Application(service.NotImplementedSecretService{})
 }

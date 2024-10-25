@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -24,6 +25,7 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -52,21 +54,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
-	svc := service.NewWatchableService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		domain.NewWatcherFactory(factory,
-			loggertesting.WrapCheckLog(c),
-		),
-		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
-		},
-		loggertesting.WrapCheckLog(c),
-		"", nil, nil,
-	)
+	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchCharms()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -122,19 +110,7 @@ func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name str
 func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
-	svc := service.NewWatchableService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
-		state.NewCharmState(func() (database.TxnRunner, error) { return factory() }),
-		domain.NewWatcherFactory(factory,
-			loggertesting.WrapCheckLog(c),
-		),
-		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
-		},
-		loggertesting.WrapCheckLog(c),
-		"", nil, nil,
-	)
+	svc := s.setupService(c, factory)
 
 	s.createApplication(c, &svc.Service, "foo")
 	s.createApplication(c, &svc.Service, "bar")
@@ -322,19 +298,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
-	svc := service.NewWatchableService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
-		state.NewCharmState(func() (database.TxnRunner, error) { return factory() }),
-		domain.NewWatcherFactory(factory,
-			loggertesting.WrapCheckLog(c),
-		),
-		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
-		},
-		loggertesting.WrapCheckLog(c),
-		"", nil, nil,
-	)
+	svc := s.setupService(c, factory)
 
 	var unitID1, unitID2 string
 	setup := func(c *gc.C) {
@@ -381,19 +345,8 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_scale")
 
-	svc := service.NewWatchableService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
-		state.NewCharmState(func() (database.TxnRunner, error) { return factory() }),
-		domain.NewWatcherFactory(factory,
-			loggertesting.WrapCheckLog(c),
-		),
-		service.ApplicationServiceParams{
-			StorageRegistry: provider.CommonStorageProviders(),
-			Secrets:         service.NotImplementedSecretService{},
-		},
-		loggertesting.WrapCheckLog(c),
-		"", nil, nil,
-	)
+	svc := s.setupService(c, factory)
+
 	s.createApplication(c, &svc.Service, "foo")
 	s.createApplication(c, &svc.Service, "bar")
 
@@ -432,6 +385,24 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 	})
 
 	harness.Run(c)
+}
+
+func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
+	return service.NewWatchableService(
+		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
+		state.NewCharmState(func() (database.TxnRunner, error) {
+			return s.ModelTxnRunner(), nil
+		}),
+		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		"", nil, nil,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
+		service.NotImplementedSecretService{},
+		loggertesting.WrapCheckLog(c),
+	)
 }
 
 type stubCharm struct{}
