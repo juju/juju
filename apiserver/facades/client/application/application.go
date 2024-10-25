@@ -129,9 +129,9 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 	stateCharm := CharmToStateCharm
 
-	storagePoolGetter := domainServices.Storage()
+	storageService := domainServices.Storage()
 
-	registry, err := domainServices.Stub().GetStorageRegistry(stdCtx)
+	registry, err := storageService.GetStorageRegistry(stdCtx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage registry")
 	}
@@ -190,7 +190,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		applicationService: applicationService,
 		registry:           registry,
 		state:              state,
-		storagePoolGetter:  storagePoolGetter,
+		storagePoolGetter:  storageService,
 		logger:             repoLogger,
 	}
 
@@ -222,7 +222,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
-		storagePoolGetter,
+		storageService,
 		registry,
 		resources,
 		caasBroker,

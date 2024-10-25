@@ -10,13 +10,11 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // StubService is a special service that collects temporary methods required for
@@ -30,17 +28,14 @@ import (
 // then.
 type StubService struct {
 	*domain.StateBase
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 }
 
 // NewStubService returns a new StubService.
 func NewStubService(
 	factory database.TxnRunnerFactory,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 ) *StubService {
 	return &StubService{
-		StateBase:             domain.NewStateBase(factory),
-		storageRegistryGetter: storageRegistryGetter,
+		StateBase: domain.NewStateBase(factory),
 	}
 }
 
@@ -115,16 +110,4 @@ WHERE name IN ($units[:])
 		return errors.Errorf("assigning units to machines: %w", err)
 	}
 	return err
-}
-
-// GetStorageRegistry returns the storage registry for the model.
-//
-// Deprecated: This method will be removed once the storage registry is fully
-// implemented in each service.
-func (s *StubService) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
-	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return nil, errors.Errorf("getting storage registry: %w", err)
-	}
-	return registry, nil
 }

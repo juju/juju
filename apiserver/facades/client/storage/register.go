@@ -31,8 +31,8 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 	}
 	storageMetadata := func(stdCtx context.Context) (StorageService, storage.ProviderRegistry, error) {
 		domainServices := ctx.DomainServices()
-		stubService := domainServices.Stub()
-		registry, err := stubService.GetStorageRegistry(stdCtx)
+		storageService := domainServices.Storage()
+		registry, err := storageService.GetStorageRegistry(stdCtx)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting storage registry")
 		}

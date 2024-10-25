@@ -316,7 +316,6 @@ func (s *ModelFactory) Port() *portservice.WatchableService {
 func (s *ModelFactory) Stub() *stubservice.StubService {
 	return stubservice.NewStubService(
 		changestream.NewTxnRunnerFactory(s.modelDB),
-		s.storageRegistry,
 	)
 }
 

@@ -936,8 +936,8 @@ func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.Leg
 		backend,
 		ctx.migrationScope(modelUUID),
 		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
-			stubService := domainServices.Stub()
-			return stubService.GetStorageRegistry(ctx)
+			storageService := domainServices.Storage()
+			return storageService.GetStorageRegistry(ctx)
 		}),
 		coordinator,
 		logger,
@@ -956,8 +956,8 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.DomainServices().ControllerConfig(),
 		ctx.r.domainServicesGetter,
 		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
-			stubService := domainServices.Stub()
-			return stubService.GetStorageRegistry(ctx)
+			storageService := domainServices.Storage()
+			return storageService.GetStorageRegistry(ctx)
 		}),
 		ctx.Logger(),
 		ctx.r.clock,

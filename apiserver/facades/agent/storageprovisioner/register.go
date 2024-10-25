@@ -24,9 +24,9 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	st := ctx.State()
 
 	domainServices := ctx.DomainServices()
-	stubService := domainServices.Stub()
+	storageService := domainServices.Storage()
 
-	registry, err := stubService.GetStorageRegistry(stdCtx)
+	registry, err := storageService.GetStorageRegistry(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,7 +52,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		ctx.Resources(),
 		ctx.Auth(),
 		registry,
-		domainServices.Storage(),
+		storageService,
 		ctx.Logger().Child("storageprovisioner"),
 		modelInfo.UUID,
 		ctx.ControllerUUID(),

@@ -8,7 +8,7 @@ import (
 	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -21,7 +21,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
 )
 
@@ -31,9 +30,6 @@ type stubSuite struct {
 	srv          *StubService
 	appState     *applicationstate.ApplicationState
 	machineState *machinestate.State
-
-	storageRegistryGetter *MockModelStorageRegistryGetter
-	storageRegistry       *MockProviderRegistry
 }
 
 var _ = gc.Suite(&stubSuite{})
@@ -240,32 +236,10 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	c.Check(unitNodeUUID1, gc.Equals, machineNodeUUID)
 }
 
-func (s *stubSuite) TestGetStorageRegistry(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(s.storageRegistry, nil)
-
-	reg, err := s.srv.GetStorageRegistry(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(reg, gc.Equals, s.storageRegistry)
-}
-
-func (s *stubSuite) TestStorageRegistryError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(nil, errors.Errorf("boom"))
-
-	_, err := s.srv.GetStorageRegistry(context.Background())
-	c.Assert(err, gc.ErrorMatches, "getting storage registry: boom")
-}
-
 func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
-	s.storageRegistry = NewMockProviderRegistry(ctrl)
-
-	s.srv = NewStubService(s.TxnRunnerFactory(), s.storageRegistryGetter)
+	s.srv = NewStubService(s.TxnRunnerFactory())
 	s.appState = applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
 
