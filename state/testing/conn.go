@@ -34,22 +34,6 @@ type InitializeArgs struct {
 	Clock                     clock.Clock
 }
 
-// Initialize initializes the state and returns it. If state was not
-// already initialized, and cfg is nil, the minimal default model
-// configuration will be used.
-// This provides for tests still using a real clock from utils as tests are
-// migrated to use the testing clock
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.Controller {
-	return InitializeWithArgs(c, InitializeArgs{
-		Owner:                     owner,
-		InitialConfig:             cfg,
-		ControllerInheritedConfig: controllerInheritedConfig,
-		RegionConfig:              regionConfig,
-		NewPolicy:                 newPolicy,
-		Clock:                     &clock.WallClock,
-	})
-}
-
 // InitializeWithArgs initializes the state and returns it. If state was not
 // already initialized, and args.Config is nil, the minimal default model
 // configuration will be used.
