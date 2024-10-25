@@ -14,7 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
-	sshimporter "github.com/juju/juju/internal/ssh/importer"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -51,17 +50,8 @@ func makeFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*KeyManagerA
 		return nil, fmt.Errorf("expected authed entity to be user, got %s", ctx.Auth().GetAuthTag())
 	}
 
-	keyImporterHTTPClient, err := ctx.HTTPClient(facade.HTTPClientPurposeUserSSHImport)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"getting key importer http client: %w",
-			err,
-		)
-	}
-
-	keyImporter := sshimporter.NewImporter(keyImporterHTTPClient)
 	return newKeyManagerAPI(
-		domainServices.KeyManagerWithImporter(keyImporter),
+		domainServices.KeyManagerWithImporter(),
 		domainServices.Access(),
 		authorizer,
 		common.NewBlockChecker(domainServices.BlockCommand()),

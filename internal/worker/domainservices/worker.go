@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
+	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -38,6 +40,8 @@ type Config struct {
 
 	// StorageRegistryGetter is used to get storage registry instances.
 	StorageRegistryGetter storage.StorageRegistryGetter
+
+	SSHImporter *sshimporter.Importer
 
 	// Logger is used to log messages.
 	Logger logger.Logger
@@ -66,6 +70,9 @@ func (config Config) Validate() error {
 	}
 	if config.StorageRegistryGetter == nil {
 		return errors.NotValidf("nil StorageRegistryGetter")
+	}
+	if config.SSHImporter == nil {
+		return errors.NotValidf("nil SSHImporter")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -101,6 +108,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.ProviderFactory,
 			config.ObjectStoreGetter,
 			config.StorageRegistryGetter,
+			config.SSHImporter,
 			config.Clock,
 			config.Logger,
 		),
@@ -165,6 +173,7 @@ type domainServicesGetter struct {
 	providerFactory        providertracker.ProviderFactory
 	objectStoreGetter      objectstore.ObjectStoreGetter
 	storageRegistryGetter  storage.StorageRegistryGetter
+	publicKeyImporter      domainservices.PublicKeyImporter
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
@@ -183,6 +192,7 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 				modelUUID:             modelUUID,
 				storageRegistryGetter: s.storageRegistryGetter,
 			},
+			s.publicKeyImporter,
 			s.clock,
 			s.logger,
 		),

@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/juju/clock"
@@ -41,23 +40,22 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	controllerConfig := testing.FakeControllerConfig()
 
 	s.config = sharedServerConfig{
-		statePool:             s.StatePool,
-		centralHub:            s.hub,
-		presence:              presence.New(clock.WallClock),
-		leaseManager:          &lease.Manager{},
-		controllerConfig:      controllerConfig,
-		logger:                loggertesting.WrapCheckLog(c),
-		dbGetter:              StubDBGetter{},
-		dbDeleter:             StubDBDeleter{},
-		domainServicesGetter:  &StubDomainServicesGetter{},
-		tracerGetter:          &StubTracerGetter{},
-		objectStoreGetter:     &StubObjectStoreGetter{},
-		machineTag:            names.NewMachineTag("0"),
-		dataDir:               c.MkDir(),
-		logDir:                c.MkDir(),
-		controllerUUID:        testing.ControllerTag.Id(),
-		controllerModelUUID:   model.UUID(testing.ModelTag.Id()),
-		sshImporterHTTPClient: &http.Client{},
+		statePool:            s.StatePool,
+		centralHub:           s.hub,
+		presence:             presence.New(clock.WallClock),
+		leaseManager:         &lease.Manager{},
+		controllerConfig:     controllerConfig,
+		logger:               loggertesting.WrapCheckLog(c),
+		dbGetter:             StubDBGetter{},
+		dbDeleter:            StubDBDeleter{},
+		domainServicesGetter: &StubDomainServicesGetter{},
+		tracerGetter:         &StubTracerGetter{},
+		objectStoreGetter:    &StubObjectStoreGetter{},
+		machineTag:           names.NewMachineTag("0"),
+		dataDir:              c.MkDir(),
+		logDir:               c.MkDir(),
+		controllerUUID:       testing.ControllerTag.Id(),
+		controllerModelUUID:  model.UUID(testing.ModelTag.Id()),
 	}
 }
 

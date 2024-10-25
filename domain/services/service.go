@@ -31,6 +31,7 @@ func NewDomainServices(
 	providerTracker providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
+	publicKeyImporter PublicKeyImporter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *DomainServices {
@@ -44,6 +45,7 @@ func NewDomainServices(
 			providerTracker,
 			objectStore,
 			storageRegistry,
+			publicKeyImporter,
 			clock,
 			logger,
 		),

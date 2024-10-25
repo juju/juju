@@ -41,6 +41,7 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/services"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
@@ -650,19 +651,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:                 agentName,
-			AuthenticatorName:         httpServerArgsName,
-			ClockName:                 clockName,
-			StateName:                 stateName,
-			LogSinkName:               logSinkName,
-			MuxName:                   httpServerArgsName,
-			LeaseManagerName:          leaseManagerName,
-			UpgradeGateName:           upgradeStepsGateName,
-			AuditConfigUpdaterName:    auditConfigUpdaterName,
-			CharmhubHTTPClientName:    charmhubHTTPClientName,
-			SSHImporterHTTPClientName: sshImporterHTTPClientName,
-			TraceName:                 traceName,
-			ObjectStoreName:           objectStoreName,
+			AgentName:              agentName,
+			AuthenticatorName:      httpServerArgsName,
+			ClockName:              clockName,
+			StateName:              stateName,
+			LogSinkName:            logSinkName,
+			MuxName:                httpServerArgsName,
+			LeaseManagerName:       leaseManagerName,
+			UpgradeGateName:        upgradeStepsGateName,
+			AuditConfigUpdaterName: auditConfigUpdaterName,
+			CharmhubHTTPClientName: charmhubHTTPClientName,
+			TraceName:              traceName,
+			ObjectStoreName:        objectStoreName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -695,9 +695,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		}),
 
-		sshImporterHTTPClientName: dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.SSHImporterHTTPClient)
+		sshImporterName: dependency.Manifold{
+			Start: func(ctx context.Context, get dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(sshimporter.NewImporter(config.SSHImporterHTTPClient))
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -733,6 +733,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderFactoryName:         providerTrackerName,
 			ObjectStoreName:             objectStoreName,
 			StorageRegistryName:         storageRegistryName,
+			SSHImporterName:             sshImporterName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
 			NewWorker:                   workerdomainservices.NewWorker,
@@ -1359,6 +1360,7 @@ const (
 	proxyConfigUpdater            = "proxy-config-updater"
 	queryLoggerName               = "query-logger"
 	rebootName                    = "reboot-executor"
+	sshImporterName               = "ssh-importer"
 	stateConverterName            = "state-converter"
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"
@@ -1380,9 +1382,8 @@ const (
 
 	brokerTrackerName = "broker-tracker"
 
-	charmhubHTTPClientName    = "charmhub-http-client"
-	s3HTTPClientName          = "s3-http-client"
-	sshImporterHTTPClientName = "ssh-importer-http-client"
+	charmhubHTTPClientName = "charmhub-http-client"
+	s3HTTPClientName       = "s3-http-client"
 
 	controlSocketName = "control-socket"
 )

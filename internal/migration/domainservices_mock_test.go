@@ -819,17 +819,17 @@ func (c *MockDomainServicesKeyManagerCall) DoAndReturn(f func() *service14.Servi
 }
 
 // KeyManagerWithImporter mocks base method.
-func (m *MockDomainServices) KeyManagerWithImporter(arg0 service14.PublicKeyImporter) *service14.ImporterService {
+func (m *MockDomainServices) KeyManagerWithImporter() *service14.ImporterService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyManagerWithImporter", arg0)
+	ret := m.ctrl.Call(m, "KeyManagerWithImporter")
 	ret0, _ := ret[0].(*service14.ImporterService)
 	return ret0
 }
 
 // KeyManagerWithImporter indicates an expected call of KeyManagerWithImporter.
-func (mr *MockDomainServicesMockRecorder) KeyManagerWithImporter(arg0 any) *MockDomainServicesKeyManagerWithImporterCall {
+func (mr *MockDomainServicesMockRecorder) KeyManagerWithImporter() *MockDomainServicesKeyManagerWithImporterCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManagerWithImporter", reflect.TypeOf((*MockDomainServices)(nil).KeyManagerWithImporter), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyManagerWithImporter", reflect.TypeOf((*MockDomainServices)(nil).KeyManagerWithImporter))
 	return &MockDomainServicesKeyManagerWithImporterCall{Call: call}
 }
 
@@ -845,13 +845,13 @@ func (c *MockDomainServicesKeyManagerWithImporterCall) Return(arg0 *service14.Im
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesKeyManagerWithImporterCall) Do(f func(service14.PublicKeyImporter) *service14.ImporterService) *MockDomainServicesKeyManagerWithImporterCall {
+func (c *MockDomainServicesKeyManagerWithImporterCall) Do(f func() *service14.ImporterService) *MockDomainServicesKeyManagerWithImporterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesKeyManagerWithImporterCall) DoAndReturn(f func(service14.PublicKeyImporter) *service14.ImporterService) *MockDomainServicesKeyManagerWithImporterCall {
+func (c *MockDomainServicesKeyManagerWithImporterCall) DoAndReturn(f func() *service14.ImporterService) *MockDomainServicesKeyManagerWithImporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

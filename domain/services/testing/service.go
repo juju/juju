@@ -100,7 +100,7 @@ func (s *TestingDomainServices) KeyManager() *keymanagerservice.Service {
 
 // KeyManagerWithImporter returns the model key manager serivce that is capable
 // of importing keys from an external source.
-func (s *TestingDomainServices) KeyManagerWithImporter(_ keymanagerservice.PublicKeyImporter) *keymanagerservice.ImporterService {
+func (s *TestingDomainServices) KeyManagerWithImporter() *keymanagerservice.ImporterService {
 	return nil
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
+	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -86,6 +87,7 @@ func (s *workerSuite) getConfig() Config {
 			providertracker.ProviderFactory,
 			objectstore.ObjectStoreGetter,
 			storage.StorageRegistryGetter,
+			domainservices.PublicKeyImporter,
 			clock.Clock,
 			logger.Logger,
 		) services.DomainServicesGetter {
@@ -105,6 +107,7 @@ func (s *workerSuite) getConfig() Config {
 			providertracker.ProviderFactory,
 			objectstore.ModelObjectStoreGetter,
 			storage.ModelStorageRegistryGetter,
+			domainservices.PublicKeyImporter,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {

@@ -49,10 +49,6 @@ type sharedServerContext struct {
 	logger             corelogger.Logger
 	charmhubHTTPClient facade.HTTPClient
 
-	// sshImporterHTTPClient is the http client used for ssh public key import
-	// operations.
-	sshImporterHTTPClient facade.HTTPClient
-
 	// dbGetter is used to access databases from the API server. Along with
 	// creating a new database for new models and during model migrations.
 	dbGetter changestream.WatchableDBGetter
@@ -99,10 +95,6 @@ type sharedServerConfig struct {
 	controllerConfig    jujucontroller.Config
 	logger              corelogger.Logger
 	charmhubHTTPClient  facade.HTTPClient
-
-	// sshImporterHTTPClient is the http client used for ssh public key import
-	// operations.
-	sshImporterHTTPClient facade.HTTPClient
 
 	dbGetter             changestream.WatchableDBGetter
 	dbDeleter            database.DBDeleter
@@ -151,9 +143,6 @@ func (c *sharedServerConfig) validate() error {
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
-	if c.sshImporterHTTPClient == nil {
-		return errors.NotValidf("empty sshImporterHTTPClient")
-	}
 	return nil
 }
 
@@ -162,24 +151,23 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	ctx := &sharedServerContext{
-		statePool:             config.statePool,
-		centralHub:            config.centralHub,
-		presence:              config.presence,
-		leaseManager:          config.leaseManager,
-		logger:                config.logger,
-		controllerUUID:        config.controllerUUID,
-		controllerModelUUID:   config.controllerModelUUID,
-		controllerConfig:      config.controllerConfig,
-		charmhubHTTPClient:    config.charmhubHTTPClient,
-		sshImporterHTTPClient: config.sshImporterHTTPClient,
-		dbGetter:              config.dbGetter,
-		dbDeleter:             config.dbDeleter,
-		domainServicesGetter:  config.domainServicesGetter,
-		tracerGetter:          config.tracerGetter,
-		objectStoreGetter:     config.objectStoreGetter,
-		machineTag:            config.machineTag,
-		dataDir:               config.dataDir,
-		logDir:                config.logDir,
+		statePool:            config.statePool,
+		centralHub:           config.centralHub,
+		presence:             config.presence,
+		leaseManager:         config.leaseManager,
+		logger:               config.logger,
+		controllerUUID:       config.controllerUUID,
+		controllerModelUUID:  config.controllerModelUUID,
+		controllerConfig:     config.controllerConfig,
+		charmhubHTTPClient:   config.charmhubHTTPClient,
+		dbGetter:             config.dbGetter,
+		dbDeleter:            config.dbDeleter,
+		domainServicesGetter: config.domainServicesGetter,
+		tracerGetter:         config.tracerGetter,
+		objectStoreGetter:    config.objectStoreGetter,
+		machineTag:           config.machineTag,
+		dataDir:              config.dataDir,
+		logDir:               config.logDir,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

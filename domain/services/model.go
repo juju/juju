@@ -4,6 +4,9 @@
 package services
 
 import (
+	"context"
+	"net/url"
+
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
@@ -58,16 +61,31 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+// PublicKeyImporter describes a service that is capable of fetching and
+// providing public keys for a subject from a set of well known sources that
+// don't need to be understood by this service.
+type PublicKeyImporter interface {
+	// FetchPublicKeysForSubject is responsible for gathering all of the
+	// public keys available for a specified subject.
+	// The following errors can be expected:
+	// - [importererrors.NoResolver] when there is import resolver the subject
+	// schema.
+	// - [importerrors.SubjectNotFound] when the resolver has reported that no
+	// subject exists.
+	FetchPublicKeysForSubject(context.Context, *url.URL) ([]string, error)
+}
+
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
-	clock           clock.Clock
-	logger          logger.Logger
-	controllerDB    changestream.WatchableDBFactory
-	modelUUID       model.UUID
-	modelDB         changestream.WatchableDBFactory
-	providerFactory providertracker.ProviderFactory
-	objectstore     objectstore.ModelObjectStoreGetter
-	storageRegistry corestorage.ModelStorageRegistryGetter
+	clock             clock.Clock
+	logger            logger.Logger
+	controllerDB      changestream.WatchableDBFactory
+	modelUUID         model.UUID
+	modelDB           changestream.WatchableDBFactory
+	providerFactory   providertracker.ProviderFactory
+	objectstore       objectstore.ModelObjectStoreGetter
+	storageRegistry   corestorage.ModelStorageRegistryGetter
+	publicKeyImporter PublicKeyImporter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -79,18 +97,20 @@ func NewModelFactory(
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
+	publicKeyImporter PublicKeyImporter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
-		clock:           clock,
-		logger:          logger,
-		controllerDB:    controllerDB,
-		modelUUID:       modelUUID,
-		modelDB:         modelDB,
-		providerFactory: providerFactory,
-		objectstore:     objectStore,
-		storageRegistry: storageRegistry,
+		clock:             clock,
+		logger:            logger,
+		controllerDB:      controllerDB,
+		modelUUID:         modelUUID,
+		modelDB:           modelDB,
+		providerFactory:   providerFactory,
+		objectstore:       objectStore,
+		storageRegistry:   storageRegistry,
+		publicKeyImporter: publicKeyImporter,
 	}
 }
 
@@ -170,12 +190,10 @@ func (s *ModelFactory) KeyManager() *keymanagerservice.Service {
 // KeyManagerWithImporter returns the model's user public ssh key manager with
 // the ability to import ssh public keys from external sources. Use this service
 // when wanting to modify a user's public ssh keys within a model.
-func (s *ModelFactory) KeyManagerWithImporter(
-	importer keymanagerservice.PublicKeyImporter,
-) *keymanagerservice.ImporterService {
+func (s *ModelFactory) KeyManagerWithImporter() *keymanagerservice.ImporterService {
 	return keymanagerservice.NewImporterService(
 		s.modelUUID,
-		importer,
+		s.publicKeyImporter,
 		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

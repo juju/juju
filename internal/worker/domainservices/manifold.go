@@ -18,8 +18,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
-	domainservicefactory "github.com/juju/juju/domain/services"
+	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/worker/common"
 )
 
@@ -31,6 +32,7 @@ type ManifoldConfig struct {
 	ProviderFactoryName         string
 	ObjectStoreName             string
 	StorageRegistryName         string
+	SSHImporterName             string
 	Logger                      logger.Logger
 	Clock                       clock.Clock
 	NewWorker                   func(Config) (worker.Worker, error)
@@ -47,6 +49,7 @@ type DomainServicesGetterFn func(
 	providertracker.ProviderFactory,
 	objectstore.ObjectStoreGetter,
 	storage.StorageRegistryGetter,
+	domainservices.PublicKeyImporter,
 	clock.Clock,
 	logger.Logger,
 ) services.DomainServicesGetter
@@ -67,6 +70,7 @@ type ModelDomainServicesFn func(
 	providertracker.ProviderFactory,
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
+	domainservices.PublicKeyImporter,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -87,6 +91,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StorageRegistryName == "" {
 		return errors.NotValidf("empty StorageRegistryName")
+	}
+	if config.SSHImporterName == "" {
+		return errors.NotValidf("empty SSHImporterName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -119,6 +126,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
 			config.StorageRegistryName,
+			config.SSHImporterName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -156,12 +164,18 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var sshImporter *sshimporter.Importer
+	if err := getter.Get(config.SSHImporterName, &sshImporter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
 		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
+		SSHImporter:                 sshImporter,
 		Logger:                      config.Logger,
 		Clock:                       config.Clock,
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,
@@ -199,7 +213,7 @@ func NewControllerDomainServices(
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ControllerDomainServices {
-	return domainservicefactory.NewControllerServices(
+	return domainservices.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
 		clock,
@@ -215,16 +229,18 @@ func NewProviderTrackerModelDomainServices(
 	providerFactory providertracker.ProviderFactory,
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
+	publicKeyImporter domainservices.PublicKeyImporter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
-	return domainservicefactory.NewModelFactory(
+	return domainservices.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
 		objectStore,
 		storageRegistry,
+		publicKeyImporter,
 		clock,
 		logger,
 	)
@@ -238,6 +254,7 @@ func NewDomainServicesGetter(
 	providerFactory providertracker.ProviderFactory,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	storageRegistryGetter storage.StorageRegistryGetter,
+	publicKeyImporter domainservices.PublicKeyImporter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.DomainServicesGetter {
@@ -250,6 +267,7 @@ func NewDomainServicesGetter(
 		providerFactory:        providerFactory,
 		objectStoreGetter:      objectStoreGetter,
 		storageRegistryGetter:  storageRegistryGetter,
+		publicKeyImporter:      publicKeyImporter,
 	}
 }
 
