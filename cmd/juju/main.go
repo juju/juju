@@ -11,8 +11,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/internal/debug/coveruploader"
 	_ "github.com/juju/juju/provider/all" // Import the providers.
 )
 

@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/debug/coveruploader"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
@@ -48,7 +49,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/internal/debug/coveruploader"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

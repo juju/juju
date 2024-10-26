@@ -20,9 +20,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/internal/debug/coveruploader"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
