@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/internal/debug/coveruploader"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -169,6 +170,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 }
 
 func main() {
+	coveruploader.Enable()
 	os.Exit(Main(os.Args))
 }
 
