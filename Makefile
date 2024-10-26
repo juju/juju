@@ -79,13 +79,13 @@ BUILD_TAGS ?=
 # EXTRA_BUILD_TAGS is not passed in, but built up from context.
 EXTRA_BUILD_TAGS =
 ifeq (,$(findstring no-dqlite,$(BUILD_TAGS)))
-EXTRA_BUILD_TAGS += libsqlite3
-EXTRA_BUILD_TAGS += dqlite
+    EXTRA_BUILD_TAGS += libsqlite3
+    EXTRA_BUILD_TAGS += dqlite
 endif
 
 # Enable coverage collection.
 ifneq ($(COVERAGE_COLLECT_URL),)
-EXTRA_BUILD_TAGS += cover
+    EXTRA_BUILD_TAGS += cover
 endif
 
 # FINAL_BUILD_TAGS is the final list of build tags.
@@ -149,37 +149,37 @@ endef
 
 # Windows doesn't support the agent binaries
 ifeq ($(GOOS), windows)
-	INSTALL_TARGETS = juju \
+    INSTALL_TARGETS = juju \
                       juju-metadata
 endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
-	INSTALL_TARGETS += pebble
+    INSTALL_TARGETS += pebble
 endif
 
 # Allow the tests to take longer on restricted platforms.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
-	TEST_TIMEOUT ?= 5400s
+    TEST_TIMEOUT ?= 5400s
 else
-	TEST_TIMEOUT ?= 2700s
+    TEST_TIMEOUT ?= 2700s
 endif
 TEST_TIMEOUT := $(TEST_TIMEOUT)
 
 TEST_ARGS ?=
 # Limit concurrency on s390x.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
-	TEST_ARGS += -p 4
+    TEST_ARGS += -p 4
 endif
 
 # Enable coverage testing.
 ifeq ($(COVERAGE_CHECK), 1)
-	TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
+    TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
 endif
 
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
-	CHECK_ARGS = -v
+    CHECK_ARGS = -v
 endif
 
 define link_flags_version
@@ -192,20 +192,20 @@ endef
 
 # Enable coverage collection.
 ifneq ($(COVERAGE_COLLECT_URL),)
-	COVER_COMPILE_FLAGS = -cover -covermode=atomic
-	COVER_LINK_FLAGS = -checklinkname=0
-	COVER_CGO_LINK_FLAGS = -checklinkname=0
+    COVER_COMPILE_FLAGS = -cover -covermode=atomic
+    COVER_LINK_FLAGS = -checklinkname=0
+    COVER_CGO_LINK_FLAGS = -checklinkname=0
 endif
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
     LINK_FLAGS = "$(COVER_LINK_FLAGS) $(link_flags_version)"
-	CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
-	COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
+    COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
     LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
-	CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 endif
 
 define DEPENDENCIES
