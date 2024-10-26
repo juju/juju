@@ -74,13 +74,18 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
-BUILD_TAGS ?= 
+BUILD_TAGS ?=
 
 # EXTRA_BUILD_TAGS is not passed in, but built up from context.
 EXTRA_BUILD_TAGS =
 ifeq (,$(findstring no-dqlite,$(BUILD_TAGS)))
 EXTRA_BUILD_TAGS += libsqlite3
 EXTRA_BUILD_TAGS += dqlite
+endif
+
+# Enable coverage collection.
+ifneq ($(COVERAGE_COLLECT_URL),)
+EXTRA_BUILD_TAGS += cover
 endif
 
 # FINAL_BUILD_TAGS is the final list of build tags.
@@ -181,17 +186,26 @@ define link_flags_version
 -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
 -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
 -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
--X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
+-X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS) \
+-X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)
 endef
+
+# Enable coverage collection.
+ifneq ($(COVERAGE_COLLECT_URL),)
+	COVER_COMPILE_FLAGS = -cover -covermode=atomic
+	COVER_LINK_FLAGS = -checklinkname=0
+	COVER_CGO_LINK_FLAGS = -checklinkname=0
+endif
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
-    COMPILE_FLAGS = -gcflags "all=-N -l"
-    LINK_FLAGS =  "$(link_flags_version)"
-	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
+    LINK_FLAGS = "$(COVER_LINK_FLAGS) $(link_flags_version)"
+	CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
-    LINK_FLAGS = "-s -w -extldflags '-static' $(link_flags_version)"
-	CGO_LINK_FLAGS = "-s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+	COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
+    LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
+	CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 endif
 
 define DEPENDENCIES
@@ -497,12 +511,12 @@ rebuild-schema:
 	@echo "Generating facade schema..."
 # GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
 else
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
 		./apiserver/facades/schema.json
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
 		./apiserver/facades/agent-schema.json
 endif
 
@@ -713,5 +727,3 @@ docs-%:
 ## docs-run: Build and serve the documentation
 ## docs-clean: Clean the docs build artifacts
 	cd docs && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
-
-

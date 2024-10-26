@@ -48,6 +48,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/internal/debug/coveruploader"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -292,6 +293,7 @@ func MainWrapper(args []string) {
 }
 
 func main() {
+	coveruploader.Enable()
 	MainWrapper(os.Args)
 }
 
