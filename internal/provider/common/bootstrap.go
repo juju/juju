@@ -537,6 +537,8 @@ func ConfigureMachine(
 		return err
 	}
 
+	ctx.Infof("Bootstrap script: %s", configScript)
+
 	// Wait for the files to be sent to the machine.
 	if err := ft.Dispatch(ctx); err != nil {
 		return errors.Annotate(err, "transporting files to machine")

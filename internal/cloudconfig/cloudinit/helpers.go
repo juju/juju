@@ -13,22 +13,24 @@ import (
 func addPackageCommandsCommon(
 	cfg CloudConfig,
 	proxyCfg PackageManagerProxyConfig,
-	addUpdateScripts bool,
-	addUpgradeScripts bool,
 ) error {
 	// Set the package mirror.
 	cfg.SetPackageMirror(proxyCfg.AptMirror())
 
 	// Bring packages up-to-date.
-	cfg.SetSystemUpdate(addUpdateScripts)
-	cfg.SetSystemUpgrade(addUpgradeScripts)
+	// cfg.SetSystemUpdate(addUpdateScripts)
+	// cfg.SetSystemUpgrade(addUpgradeScripts)
 
-	// Always run this step - this is where we install packages that juju
-	// requires.
-	cfg.addRequiredPackages()
+	cfg.waitForSnap()
 
 	// TODO(bogdanteleaga): Deal with proxy settings on CentOS
-	return cfg.updateProxySettings(proxyCfg)
+	if err := cfg.updateProxySettings(proxyCfg); err != nil {
+		return err
+	}
+
+	cfg.installSnapPackages()
+
+	return nil
 }
 
 // renderScriptCommon is a helper function which generates a bash script that

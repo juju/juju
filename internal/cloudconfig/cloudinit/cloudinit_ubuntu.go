@@ -121,14 +121,10 @@ func (cfg *ubuntuCloudConfig) RenderScript() (string, error) {
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
 func (cfg *ubuntuCloudConfig) AddPackageCommands(
 	proxyCfg PackageManagerProxyConfig,
-	addUpdateScripts bool,
-	addUpgradeScripts bool,
 ) error {
 	return addPackageCommandsCommon(
 		cfg,
 		proxyCfg,
-		addUpdateScripts,
-		addUpgradeScripts,
 	)
 }
 
@@ -178,16 +174,16 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	cmds = append(cmds, config.PackageManagerLoopFunction)
 	looper := "package_manager_loop "
 
-	if cfg.SystemUpdate() {
-		cmds = append(cmds, LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, looper+pkgCmder.UpdateCmd())
-	}
-	if cfg.SystemUpgrade() {
-		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
-		cmds = append(cmds, looper+"apt-mark hold cloud-init")
-		cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
-		cmds = append(cmds, looper+"apt-mark unhold cloud-init")
-	}
+	// if cfg.SystemUpdate() {
+	// 	cmds = append(cmds, LogProgressCmd("Running apt-get update"))
+	// 	cmds = append(cmds, looper+pkgCmder.UpdateCmd())
+	// }
+	// if cfg.SystemUpgrade() {
+	// 	cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
+	// 	cmds = append(cmds, looper+"apt-mark hold cloud-init")
+	// 	cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
+	// 	cmds = append(cmds, looper+"apt-mark unhold cloud-init")
+	// }
 
 	var pkgCmds []string
 	var pkgNames []string
@@ -233,22 +229,13 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 }
 
-// addRequiredPackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *ubuntuCloudConfig) addRequiredPackages() {
-	packages := []string{
-		"curl",
-		"tmux",
-	}
-	for _, pack := range packages {
-		cfg.AddPackage(pack)
-	}
-}
-
-var waitSnapSeeded = `
+// Wait for snap to seed, ensures that snapd is ready to be used.
+func (cfg *ubuntuCloudConfig) waitForSnap() {
+	cfg.AddRunCmd(`
 n=1
 while true; do
 
-echo "Attempt $n to wait for snapd to be seeded...\n"
+echo "Attempt $n to wait for snapd to be seeded..."
 snap wait core seed.loaded && break
 if [ $n -eq 5 ]; then
   echo "snapd not initialised"
@@ -259,7 +246,8 @@ echo "Wait for snapd failed, retrying in 5s"
 sleep 5
 n=$((n+1))
 done
-`[1:]
+`)
+}
 
 // Updates proxy settings used when rendering the conf as a script
 func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
@@ -273,17 +261,8 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 			filename))
 	}
 
-	once := false
-	addWaitSnapSeeded := func() {
-		if once {
-			return
-		}
-		cfg.AddRunCmd(waitSnapSeeded)
-		once = true
-	}
 	// Write out the snap http/https proxy settings
 	if snapProxy := proxyCfg.SnapProxy(); (snapProxy != proxy.Settings{}) {
-		addWaitSnapSeeded()
 		pkgCmder := cfg.paccmder[packaging.SnapPackageManager]
 		for _, cmd := range pkgCmder.SetProxyCmds(snapProxy) {
 			cfg.AddRunCmd(cmd)
@@ -298,10 +277,8 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 		}
 		logger.Infof("auto-detected snap store assertions from proxy")
 		logger.Infof("auto-detected snap store ID as %q", storeID)
-		addWaitSnapSeeded()
 		cfg.genSnapStoreProxyCmds(assertions, storeID)
 	} else if proxyCfg.SnapStoreAssertions() != "" && proxyCfg.SnapStoreProxyID() != "" {
-		addWaitSnapSeeded()
 		cfg.genSnapStoreProxyCmds(proxyCfg.SnapStoreAssertions(), proxyCfg.SnapStoreProxyID())
 	}
 
@@ -313,4 +290,9 @@ func (cfg *ubuntuCloudConfig) genSnapStoreProxyCmds(assertions, storeID string) 
 	cfg.AddRunCmd("snap ack /etc/snap.assertions")
 	cfg.AddRunCmd("rm /etc/snap.assertions")
 	cfg.AddRunCmd("snap set core proxy.store=" + storeID)
+}
+
+func (cfg *ubuntuCloudConfig) installSnapPackages() {
+	cfg.AddRunCmd(`snap install curl`)
+	cfg.AddRunCmd(`snap install tmux --classic`)
 }

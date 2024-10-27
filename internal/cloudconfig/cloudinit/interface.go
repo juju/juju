@@ -356,21 +356,21 @@ type AdvancedPackagingConfig interface {
 	// each OS is they are necessary.
 	AddPackageCommands(
 		proxyCfg PackageManagerProxyConfig,
-		addUpdateScripts bool,
-		addUpgradeScripts bool,
 	) error
 
 	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig
 	// for the specified package manager.
 	getPackagingConfigurer(jujupackaging.PackageManagerName) config.PackagingConfigurer
 
-	// addRequiredPackages is a helper to add packages that juju requires in
-	// order to operate.
-	addRequiredPackages()
+	// waitForSnap waits for the snap package manager to be ready.
+	waitForSnap()
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
 	updateProxySettings(PackageManagerProxyConfig) error
+
+	// install snap packages, these are required for the cloudinit to work
+	installSnapPackages()
 }
 
 type User struct {
