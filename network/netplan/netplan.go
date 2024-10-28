@@ -76,7 +76,7 @@ type Wifi struct {
 
 type BridgeParameters struct {
 	AgeingTime   *int           `yaml:"ageing-time,omitempty"`
-	ForwardDelay *int           `yaml:"forward-delay,omitempty"`
+	ForwardDelay IntString      `yaml:"forward-delay,omitempty"`
 	HelloTime    *int           `yaml:"hello-time,omitempty"`
 	MaxAge       *int           `yaml:"max-age,omitempty"`
 	PathCost     map[string]int `yaml:"path-cost,omitempty"`
@@ -142,9 +142,10 @@ type Netplan struct {
 
 // VLAN represents the structures for defining VLAN sections
 type VLAN struct {
-	Id        *int   `yaml:"id,omitempty"`
-	Link      string `yaml:"link,omitempty"`
-	Interface `yaml:",inline"`
+	Id            *int   `yaml:"id,omitempty"`
+	Link          string `yaml:"link,omitempty"`
+	Interface     `yaml:",inline"`
+	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 // Bond is the interface definition of the bonds: section of netplan
