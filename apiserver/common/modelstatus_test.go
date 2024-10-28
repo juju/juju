@@ -355,7 +355,7 @@ func (noopStoragePoolGetter) GetStorageRegistry(_ context.Context) (storage.Prov
 	return storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
-	}, errors.NotImplementedf("GetStorageRegistry")
+	}, nil
 }
 
 func (noopStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
