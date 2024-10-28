@@ -131,6 +131,13 @@ func (cfg *ubuntuCloudConfig) AddPackageCommands(
 // getCommandsForAddingPackages is a helper function for generating a script
 // for adding all packages configured in this CloudConfig.
 func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
+	// If there are no packages to install, then we don't need to do anything.
+	// This is because, the packages are getting side-loaded via
+	// snap.
+	if len(cfg.Packages()) == 0 && len(cfg.PackageSources()) == 0 {
+		return nil, nil
+	}
+
 	if !cfg.SystemUpdate() && len(cfg.PackageSources()) > 0 {
 		return nil, errors.New("update sources were specified, but OS updates have been disabled.")
 	}
@@ -174,16 +181,16 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	cmds = append(cmds, config.PackageManagerLoopFunction)
 	looper := "package_manager_loop "
 
-	// if cfg.SystemUpdate() {
-	// 	cmds = append(cmds, LogProgressCmd("Running apt-get update"))
-	// 	cmds = append(cmds, looper+pkgCmder.UpdateCmd())
-	// }
-	// if cfg.SystemUpgrade() {
-	// 	cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
-	// 	cmds = append(cmds, looper+"apt-mark hold cloud-init")
-	// 	cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
-	// 	cmds = append(cmds, looper+"apt-mark unhold cloud-init")
-	// }
+	if cfg.SystemUpdate() {
+		cmds = append(cmds, LogProgressCmd("Running apt-get update"))
+		cmds = append(cmds, looper+pkgCmder.UpdateCmd())
+	}
+	if cfg.SystemUpgrade() {
+		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
+		cmds = append(cmds, looper+"apt-mark hold cloud-init")
+		cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
+		cmds = append(cmds, looper+"apt-mark unhold cloud-init")
+	}
 
 	var pkgCmds []string
 	var pkgNames []string
