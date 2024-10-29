@@ -5,7 +5,9 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -189,6 +191,51 @@ func (s *stateSuite) TestEnsurePublicKeysForUser(c *gc.C) {
 
 	// Run all of the operations again and confirm that there exists no errors.
 	err = state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+}
+
+// TestEnsurePublicKeysForUser is asserting the ensure user after keys have
+// been stripped of the comments. This should ensure that we're checking against
+// the fingerprint and not the public key.
+// [State.EnsurePublicKeysForUser].
+func (s *stateSuite) TestEnsurePublicKeysForUserForStrippedComments(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	err := state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(keys, jc.DeepEquals, testingPublicKeys)
+
+	// Run all of the operations again and confirm that there exists no errors.
+
+	stripped := make([]keymanager.PublicKey, len(keysToAdd))
+	for i, key := range keysToAdd {
+
+		newKey := key.Key
+		if parts := strings.Split(key.Key, " "); len(parts) > 2 {
+			newKey = fmt.Sprintf("%s %s", parts[0], parts[1])
+		}
+
+		stripped[i] = keymanager.PublicKey{
+			Comment:         key.Comment,
+			FingerprintHash: key.FingerprintHash,
+			Fingerprint:     key.Fingerprint,
+			Key:             newKey,
+		}
+	}
+
+	err = state.EnsurePublicKeysForUser(context.Background(), s.modelId, s.userId, stripped)
 	c.Check(err, jc.ErrorIsNil)
 
 	keys, err = state.GetPublicKeysDataForUser(context.Background(), s.modelId, s.userId)
