@@ -62,6 +62,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.SSHImporterName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -91,7 +95,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
 		"storageregistry": s.storageRegistryGetter,
-		"sshimporter":     s.sshImporter,
+		"sshimporter":     s.publicKeyImporter,
 	}
 
 	manifold := Manifold(ManifoldConfig{
@@ -125,7 +129,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
-		SSHImporter:                 s.sshImporter,
+		PublicKeyImporter:           s.publicKeyImporter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -151,7 +155,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
-		SSHImporter:                 s.sshImporter,
+		PublicKeyImporter:           s.publicKeyImporter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -177,7 +181,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
-		SSHImporter:                 s.sshImporter,
+		PublicKeyImporter:           s.publicKeyImporter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -204,7 +208,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.dbGetter,
 		s.modelObjectStoreGetter,
 		s.modelStorageRegistryGetter,
-		s.sshImporter,
+		s.publicKeyImporter,
 		s.clock,
 		s.logger,
 	)
@@ -220,7 +224,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		nil,
 		s.objectStoreGetter,
 		s.storageRegistryGetter,
-		s.sshImporter,
+		s.publicKeyImporter,
 		s.clock,
 		s.logger,
 	)
@@ -237,6 +241,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ProviderFactoryName: "providerfactory",
 		ObjectStoreName:     "objectstore",
 		StorageRegistryName: "storageregistry",
+		SSHImporterName:     "sshimporter",
 		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {

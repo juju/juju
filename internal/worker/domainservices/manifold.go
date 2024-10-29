@@ -175,7 +175,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
-		SSHImporter:                 sshImporter,
+		PublicKeyImporter:           sshImporter,
 		Logger:                      config.Logger,
 		Clock:                       config.Clock,
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,

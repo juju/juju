@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/storage"
 	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
-	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -41,7 +40,7 @@ type Config struct {
 	// StorageRegistryGetter is used to get storage registry instances.
 	StorageRegistryGetter storage.StorageRegistryGetter
 
-	SSHImporter *sshimporter.Importer
+	PublicKeyImporter domainservices.PublicKeyImporter
 
 	// Logger is used to log messages.
 	Logger logger.Logger
@@ -71,8 +70,8 @@ func (config Config) Validate() error {
 	if config.StorageRegistryGetter == nil {
 		return errors.NotValidf("nil StorageRegistryGetter")
 	}
-	if config.SSHImporter == nil {
-		return errors.NotValidf("nil SSHImporter")
+	if config.PublicKeyImporter == nil {
+		return errors.NotValidf("nil PublicKeyImporter")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -108,7 +107,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.ProviderFactory,
 			config.ObjectStoreGetter,
 			config.StorageRegistryGetter,
-			config.SSHImporter,
+			config.PublicKeyImporter,
 			config.Clock,
 			config.Logger,
 		),

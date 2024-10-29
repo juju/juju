@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/storage"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/services"
+	domainservices "github.com/juju/juju/domain/services"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	services "github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
@@ -57,7 +58,7 @@ type baseSuite struct {
 	storageRegistryGetter      *MockStorageRegistryGetter
 	modelStorageRegistryGetter *MockModelStorageRegistryGetter
 
-	sshImporter *sshimporter.Importer
+	publicKeyImporter *sshimporter.Importer
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -82,7 +83,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
 	s.modelStorageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 
-	s.sshImporter = sshimporter.NewImporter(&http.Client{})
+	s.publicKeyImporter = sshimporter.NewImporter(&http.Client{})
 
 	return ctrl
 }
@@ -95,7 +96,7 @@ func NewModelDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
-	sshImporter *sshimporter.Importer,
+	publicKeyImporter domainservices.PublicKeyImporter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -106,7 +107,7 @@ func NewModelDomainServices(
 		NoopProviderFactory{},
 		objectStore,
 		storageRegistry,
-		sshImporter,
+		publicKeyImporter,
 		clock,
 		logger,
 	)

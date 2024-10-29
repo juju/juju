@@ -69,6 +69,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.PublicKeyImporter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -78,6 +82,7 @@ func (s *workerSuite) getConfig() Config {
 		ProviderFactory:       s.providerFactory,
 		ObjectStoreGetter:     s.objectStoreGetter,
 		StorageRegistryGetter: s.storageRegistryGetter,
+		PublicKeyImporter:     s.publicKeyImporter,
 		Clock:                 s.clock,
 		Logger:                s.logger,
 		NewDomainServicesGetter: func(
