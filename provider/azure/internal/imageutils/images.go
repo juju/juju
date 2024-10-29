@@ -30,10 +30,13 @@ const (
 
 	dailyStream = "daily"
 
-	planV2               = "server"
-	planV1               = "server-gen1"
-	legacyPlanGen2Suffix = "-gen2"
-	planArm64Suffix      = "-arm64"
+	// SKUs we prefer for 24.04 LTS and newer bases.
+	planV2    = "server"
+	planARM64 = "server-arm64"
+	planV1    = "server-gen1"
+
+	legacyPlanGen2Suffix  = "-gen2"
+	legacyPlanArm64Suffix = "-arm64"
 )
 
 // BaseImage gets an instances.Image for the specified base, image stream
@@ -163,15 +166,14 @@ func ubuntuSKU(
 	var v1SKU string
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
-
 		if arch == corearch.ARM64 {
-			if strings.HasSuffix(skuName, planArm64Suffix) {
+			if skuName == planARM64 {
 				logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, arch)
 				return skuName, offer, nil
 			}
 			continue
 		}
-		if strings.HasSuffix(skuName, planArm64Suffix) {
+		if skuName == planARM64 {
 			continue
 		}
 
@@ -260,13 +262,13 @@ func selectUbuntuSKULegacy(
 		}
 
 		if arch == corearch.ARM64 {
-			if strings.HasSuffix(skuName, planArm64Suffix) && validStream(skuName) {
+			if strings.HasSuffix(skuName, legacyPlanArm64Suffix) && validStream(skuName) {
 				logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, arch)
 				return skuName, nil
 			}
 			continue
 		}
-		if strings.HasSuffix(skuName, planArm64Suffix) {
+		if strings.HasSuffix(skuName, legacyPlanArm64Suffix) {
 			continue
 		}
 
