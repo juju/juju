@@ -36,7 +36,9 @@ const (
 	planV1    = "server-gen1"
 
 	legacyPlanGen2Suffix  = "-gen2"
-	legacyPlanArm64Suffix = "-arm64"
+	legacyPlanARM64Suffix = "-arm64"
+
+	defaultArchitecture = corearch.AMD64
 )
 
 // BaseImage gets an instances.Image for the specified base, image stream
@@ -52,7 +54,7 @@ func BaseImage(
 	preferGen1Image bool,
 ) (*instances.Image, error) {
 	if arch == "" {
-		arch = corearch.AMD64
+		arch = defaultArchitecture
 	}
 
 	seriesOS := ostype.OSTypeForName(base.OS)
@@ -143,8 +145,8 @@ func ubuntuSKU(
 		return legacyUbuntuSKU(ctx, base, stream, location, arch, client, preferGen1Image)
 	}
 
-	if arch == corearch.ARM64 && preferGen1Image {
-		return "", "", errors.NotSupportedf("deploying %q with Gen1 retry", arch)
+	if arch != corearch.AMD64 && preferGen1Image {
+		return "", "", errors.NotSupportedf("deploying %q with Gen1 image", arch)
 	}
 
 	offer := fmt.Sprintf("ubuntu-%s", strings.ReplaceAll(base.Channel.Track, ".", "_"))
@@ -166,14 +168,15 @@ func ubuntuSKU(
 	var v1SKU string
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
-		if arch == corearch.ARM64 {
-			if skuName == planARM64 {
+
+		if skuName == planARM64 {
+			if arch == corearch.ARM64 {
 				logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, arch)
 				return skuName, offer, nil
 			}
 			continue
 		}
-		if skuName == planARM64 {
+		if arch == corearch.ARM64 {
 			continue
 		}
 
@@ -261,14 +264,13 @@ func selectUbuntuSKULegacy(
 			continue
 		}
 
-		if arch == corearch.ARM64 {
-			if strings.HasSuffix(skuName, legacyPlanArm64Suffix) && validStream(skuName) {
-				logger.Debugf("found Azure SKU Name: %q for arch %q", skuName, arch)
+		if strings.HasSuffix(skuName, legacyPlanARM64Suffix) {
+			if arch == corearch.ARM64 && validStream(skuName) {
 				return skuName, nil
 			}
 			continue
 		}
-		if strings.HasSuffix(skuName, legacyPlanArm64Suffix) {
+		if arch == corearch.ARM64 {
 			continue
 		}
 
