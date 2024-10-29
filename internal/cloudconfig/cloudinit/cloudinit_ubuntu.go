@@ -138,7 +138,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	// If there are no packages to install, then we don't need to do anything.
 	// This is because, the packages are getting side-loaded via
 	// snap.
-	if len(cfg.Packages()) == 0 && len(cfg.PackageSources()) == 0 {
+	if len(cfg.Packages()) == 0 && len(cfg.PackageSources()) == 0 && cfg.PackageMirror() == "" {
 		return nil, nil
 	}
 
@@ -316,9 +316,4 @@ func (cfg *ubuntuCloudConfig) genSnapStoreProxyCmds(assertions, storeID string) 
 	cfg.AddRunCmd("snap ack /etc/snap.assertions")
 	cfg.AddRunCmd("rm /etc/snap.assertions")
 	cfg.AddRunCmd("snap set core proxy.store=" + storeID)
-}
-
-func (cfg *ubuntuCloudConfig) installSnapPackages() {
-	cfg.AddRunCmd(`snap install curl`)
-	cfg.AddRunCmd(`snap install tmux --classic`)
 }

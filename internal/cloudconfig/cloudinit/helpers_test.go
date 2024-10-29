@@ -40,7 +40,7 @@ func (f *fakeCfg) SetSystemUpgrade(b bool) {
 	f.addUpgradeScripts = b
 }
 
-func (f *fakeCfg) addRequiredPackages() {
+func (f *fakeCfg) AddSnap(name string) {
 	f.calledAddReq = true
 }
 

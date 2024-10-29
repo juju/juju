@@ -305,6 +305,19 @@ var ctests = []struct {
 		return nil
 	},
 }, {
+	"Snaps",
+	map[string]any{
+		"snaps": []string{
+			"juju",
+			"ubuntu",
+		},
+	},
+	func(cfg cloudinit.CloudConfig) error {
+		cfg.AddSnap("juju")
+		cfg.AddSnap("ubuntu")
+		return nil
+	},
+}, {
 	"BootCmd",
 	map[string]any{
 		"bootcmd": []string{
@@ -535,6 +548,16 @@ func (S) TestPackages(c *gc.C) {
 	cfg.AddPackage("d!")
 	expectedPackages := []string{"a b c", "d!"}
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
+}
+
+func (S) TestSnaps(c *gc.C) {
+	cfg, err := cloudinit.New("ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Snaps(), gc.HasLen, 0)
+	cfg.AddSnap("a b c")
+	cfg.AddSnap("d!")
+	expectedSnaps := []string{"a b c", "d!"}
+	c.Assert(cfg.Snaps(), gc.DeepEquals, expectedSnaps)
 }
 
 func (S) TestSetOutput(c *gc.C) {

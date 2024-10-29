@@ -388,9 +388,6 @@ type AdvancedPackagingConfig interface {
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
 	updateProxySettings(PackageManagerProxyConfig) error
-
-	// install snap packages, these are required for the cloudinit to work
-	installSnapPackages()
 }
 
 type User struct {

@@ -47,6 +47,10 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We need to have a package for the update to be run. If no packages
+	// or package sources are specified, the update is not run.
+	cfg.AddPackage("curl")
+
 	c.Assert(cfg.SystemUpdate(), jc.IsFalse)
 	c.Assert(cfg.PackageSources(), gc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
