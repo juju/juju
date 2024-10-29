@@ -1,0 +1,19 @@
+name: Periodic Style Checks
+
+on:
+  schedule:
+    - cron: "0 1 * * 4" # Runs at 01:00 AM on every Wednesday
+
+jobs:
+  vale:
+    name: Style checker
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+        working-directory: "sp-docs"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run vale
+        run: |
+          make vale

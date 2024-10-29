@@ -704,3 +704,7 @@ static-analysis: dqlite-install-if-missing
 	@cd tests && CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+doc-%:
+## Build the sphinx documentation
+	cd doc && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
+

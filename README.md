@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="doc/juju-logo-dark.png?raw=true">
-  <source media="(prefers-color-scheme: light)" srcset="doc/juju-logo.png?raw=true">
-  <img alt="Juju logo next to the text Canonical Juju" src="doc/juju-logo.png?raw=true" width="30%">
+  <source media="(prefers-color-scheme: dark)" srcset="doc/logos/juju-logo-dark.png?raw=true">
+  <source media="(prefers-color-scheme: light)" srcset="doc/logos/juju-logo.png?raw=true">
+  <img alt="Juju logo next to the text Canonical Juju" src="doc/logos/juju-logo.png?raw=true" width="30%">
 </picture>
 
 Juju is an open source application orchestration engine that enables any application operation (deployment, integration, lifecycle management) on any infrastructure (Kubernetes or otherwise) at any scale (development or production) in the same easy way (typically, one line of code), through special operators called ‘charms’.
