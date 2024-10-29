@@ -121,10 +121,14 @@ func (cfg *ubuntuCloudConfig) RenderScript() (string, error) {
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
 func (cfg *ubuntuCloudConfig) AddPackageCommands(
 	proxyCfg PackageManagerProxyConfig,
+	addUpdateScripts bool,
+	addUpgradeScripts bool,
 ) error {
 	return addPackageCommandsCommon(
 		cfg,
 		proxyCfg,
+		addUpdateScripts,
+		addUpgradeScripts,
 	)
 }
 
@@ -233,12 +237,27 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	return cmds, nil
+}
 
+func (cfg *ubuntuCloudConfig) getCommandsForAddingSnaps() ([]string, error) {
+	if len(cfg.Snaps()) == 0 {
+		return nil, nil
+	}
+
+	var cmds []string
+	pkgCmder := cfg.paccmder[packaging.SnapPackageManager]
+
+	for _, snap := range cfg.Snaps() {
+		cmds = append(cmds, LogProgressCmd("Installing snap package: %s", snap))
+		cmds = append(cmds, pkgCmder.InstallCmd(snap))
+	}
+
+	return cmds, nil
 }
 
 // Wait for snap to seed, ensures that snapd is ready to be used.
-func (cfg *ubuntuCloudConfig) waitForSnap() {
-	cfg.AddRunCmd(`
+func (cfg *ubuntuCloudConfig) waitForSnap() string {
+	return `
 n=1
 while true; do
 
@@ -253,7 +272,7 @@ echo "Wait for snapd failed, retrying in 5s"
 sleep 5
 n=$((n+1))
 done
-`)
+`
 }
 
 // Updates proxy settings used when rendering the conf as a script

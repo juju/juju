@@ -13,22 +13,23 @@ import (
 func addPackageCommandsCommon(
 	cfg CloudConfig,
 	proxyCfg PackageManagerProxyConfig,
+	addUpdateScripts bool,
+	addUpgradeScripts bool,
 ) error {
 	// Set the package mirror.
 	cfg.SetPackageMirror(proxyCfg.AptMirror())
 
 	// Bring packages up-to-date.
-	// cfg.SetSystemUpdate(addUpdateScripts)
-	// cfg.SetSystemUpgrade(addUpgradeScripts)
-
-	cfg.waitForSnap()
+	cfg.SetSystemUpdate(addUpdateScripts)
+	cfg.SetSystemUpgrade(addUpgradeScripts)
 
 	// TODO(bogdanteleaga): Deal with proxy settings on CentOS
 	if err := cfg.updateProxySettings(proxyCfg); err != nil {
 		return err
 	}
 
-	cfg.installSnapPackages()
+	cfg.AddSnap("curl")
+	cfg.AddSnap("tmux --classic")
 
 	return nil
 }
@@ -56,6 +57,11 @@ func renderScriptCommon(cfg CloudConfig) (string, error) {
 		return "", err
 	}
 
+	snapcmds, err := cfg.getCommandsForAddingSnaps()
+	if err != nil {
+		return "", err
+	}
+
 	// Runcmds come last.
 	runcmds := cfg.RunCmds()
 
@@ -72,7 +78,11 @@ func renderScriptCommon(cfg CloudConfig) (string, error) {
 		script = append(script, "(")
 	}
 	script = append(script, bootcmds...)
+
+	script = append(script, cfg.waitForSnap())
+
 	script = append(script, pkgcmds...)
+	script = append(script, snapcmds...)
 	script = append(script, runcmds...)
 	if stderr != "" {
 		script = append(script, ") "+stdout)

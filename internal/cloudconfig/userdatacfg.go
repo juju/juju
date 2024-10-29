@@ -326,6 +326,8 @@ func (w *userdataConfig) ConfigureJuju() error {
 			snapStoreProxyID:    w.icfg.SnapStoreProxyID,
 			snapStoreProxyURL:   w.icfg.SnapStoreProxyURL,
 		},
+		w.icfg.EnableOSRefreshUpdate,
+		w.icfg.EnableOSUpgrade,
 	); err != nil {
 		return errors.Trace(err)
 	}

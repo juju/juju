@@ -42,6 +42,7 @@ type CloudConfig interface {
 	PackageMirrorConfig
 	PackageSourcesConfig
 	PackagingConfig
+	SnapConfig
 	RunCmdsConfig
 	BootCmdsConfig
 	EC2MetadataConfig
@@ -150,6 +151,19 @@ type PackagingConfig interface {
 
 	// Packages returns a list of all packages that will be installed.
 	Packages() []string
+}
+
+// SnapConfig is the interface for all snappy-related operations.
+type SnapConfig interface {
+	// AddSnap adds a snap to be installed on *first* boot.
+	AddSnap(string)
+
+	// RemoveSnap removes a snap from the list of to be installed snaps
+	// If the snap has not been previously installed, no error occurs.
+	RemoveSnap(string)
+
+	// Snaps returns a list of all snaps that will be installed.
+	Snaps() []string
 }
 
 // RunCmdsConfig is the interface for all operations on first-boot commands.
@@ -337,6 +351,10 @@ type RenderConfig interface {
 	// getCommandsForAddingPackages is a helper function which returns all the
 	// necessary shell commands for adding all the configured package settings.
 	getCommandsForAddingPackages() ([]string, error)
+
+	// getCommandsForAddingSnaps is a helper function which returns all the
+	// necessary shell commands for adding all the configured snap settings.
+	getCommandsForAddingSnaps() ([]string, error)
 }
 
 // PackageManagerProxyConfig provides access to the proxy settings for various
@@ -356,6 +374,8 @@ type AdvancedPackagingConfig interface {
 	// each OS is they are necessary.
 	AddPackageCommands(
 		proxyCfg PackageManagerProxyConfig,
+		addUpdateScripts bool,
+		addUpgradeScripts bool,
 	) error
 
 	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig
@@ -363,7 +383,7 @@ type AdvancedPackagingConfig interface {
 	getPackagingConfigurer(jujupackaging.PackageManagerName) config.PackagingConfigurer
 
 	// waitForSnap waits for the snap package manager to be ready.
-	waitForSnap()
+	waitForSnap() string
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used

@@ -43,6 +43,7 @@ type cloudConfig struct {
 	// package_update		bool
 	// package_upgrade		bool
 	// packages				[]string
+	// snaps 				[]string
 	// runcmd				[]string
 	// bootcmd				[]string
 	// disable_ec2_metadata	bool
@@ -209,6 +210,22 @@ func (cfg *cloudConfig) RemovePackage(pack string) {
 func (cfg *cloudConfig) Packages() []string {
 	packs, _ := cfg.attrs["packages"].([]string)
 	return packs
+}
+
+// AddSnap is defined on the SnapConfig interface.
+func (cfg *cloudConfig) AddSnap(snap string) {
+	cfg.attrs["snaps"] = append(cfg.Snaps(), snap)
+}
+
+// RemoveSnap is defined on the SnapConfig interface.
+func (cfg *cloudConfig) RemoveSnap(snap string) {
+	cfg.attrs["snaps"] = removeStringFromSlice(cfg.Snaps(), snap)
+}
+
+// Snaps is defined on the SnapConfig interface.
+func (cfg *cloudConfig) Snaps() []string {
+	snaps, _ := cfg.attrs["snaps"].([]string)
+	return snaps
 }
 
 // AddRunCmd is defined on the RunCmdsConfig interface.
