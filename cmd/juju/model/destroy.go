@@ -576,13 +576,13 @@ func getModelStatus(modelTag names.ModelTag, api DestroyModelAPI) (*base.ModelSt
 		return nil, errors.Errorf("error finding model status: expected one result, got %d", l)
 	}
 	modelStatus := modelStatuses[0]
+	if errors.Is(modelStatus.Error, errors.NotFound) {
+		// This most likely occurred because a model was
+		// destroyed half-way through the call.
+		return nil, errors.Errorf("model not found, it may have been destroyed during this operation")
+	}
 	if modelStatus.Error != nil {
-		if errors.IsNotFound(modelStatus.Error) {
-			// This most likely occurred because a model was
-			// destroyed half-way through the call.
-			return nil, errors.Errorf("model not found, it may have been destroyed during this operation")
-		}
-		return nil, errors.Annotate(err, "getting model status")
+		return nil, errors.Annotate(modelStatus.Error, "getting model status")
 	}
 	return &modelStatus, nil
 }
