@@ -7,13 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/juju/errors"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Conversion code is used to decode charm.Metadata code to non-domain
@@ -335,7 +336,7 @@ func decodeMetadataAssumes(bytes []byte) (*assumes.ExpressionTree, error) {
 		Assumes *assumes.ExpressionTree `json:"assumes"`
 	}{}
 	if err := json.Unmarshal(bytes, &dst); err != nil {
-		return nil, errors.Annotate(err, "unmarshal assumes")
+		return nil, errors.Errorf("unmarshal assumes: %w", err)
 	}
 	return dst.Assumes, nil
 }
@@ -358,6 +359,11 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 	peers, err := encodeMetadataRelation(metadata.Peers)
 	if err != nil {
 		return charm.Metadata{}, fmt.Errorf("encode peers relation: %w", err)
+	}
+
+	err = verifyRelations(provides, requires, peers)
+	if err != nil {
+		return charm.Metadata{}, err
 	}
 
 	storage, err := encodeMetadataStorage(metadata.Storage)
@@ -470,6 +476,30 @@ func encodeMetadataScope(scope internalcharm.RelationScope) (charm.RelationScope
 	default:
 		return "", errors.Errorf("unknown scope %q", scope)
 	}
+}
+
+func verifyRelations(provides, requires, peers map[string]charm.Relation) error {
+	seenKeys := set.NewStrings()
+	conflicts := set.NewStrings()
+	for k := range provides {
+		seenKeys.Add(k)
+	}
+	for k := range requires {
+		if seenKeys.Contains(k) {
+			conflicts.Add(k)
+		} else {
+			seenKeys.Add(k)
+		}
+	}
+	for k := range peers {
+		if seenKeys.Contains(k) {
+			conflicts.Add(k)
+		}
+	}
+	if conflicts.Size() > 0 {
+		return errors.Errorf("%w %q", applicationerrors.CharmRelationNameConflict, conflicts.Values())
+	}
+	return nil
 }
 
 func encodeMetadataStorage(storage map[string]internalcharm.Storage) (map[string]charm.Storage, error) {

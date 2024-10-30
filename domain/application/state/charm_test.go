@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type charmStateSuite struct {
@@ -547,25 +548,29 @@ func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 	st := NewCharmState(s.TxnRunnerFactory())
 
 	id := charmtesting.GenCharmID(c)
-	uuid := id.String()
+	charmUUID := id.String()
 
 	// Ensure that relations are correctly extracted.
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
-		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+		if expected, err = insertCharmMetadata(ctx, c, tx, charmUUID); err != nil {
 			return errors.Trace(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_relation (charm_uuid, kind_id, key, name, role_id, scope_id) 
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, key, name, role_id, scope_id) 
 VALUES 
-    (?, 0, 'foo', 'baz', 0, 0),
-    (?, 0, 'fred', 'bar', 0, 1),
-    (?, 1, 'foo', 'baz', 1, 1),
-    (?, 2, 'foo', 'baz', 2, 0);`,
-			uuid, uuid, uuid, uuid)
+    (?, ?, 0, 'foo', 'baz', 0, 0),
+    (?, ?, 0, 'fred', 'bar', 0, 1),
+    (?, ?, 1, 'faa', 'baz', 1, 1),
+    (?, ?, 2, 'fee', 'baz', 2, 0);`,
+			uuid.MustNewUUID().String(), charmUUID,
+			uuid.MustNewUUID().String(), charmUUID,
+			uuid.MustNewUUID().String(), charmUUID,
+			uuid.MustNewUUID().String(), charmUUID,
+		)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -593,16 +598,16 @@ VALUES
 			},
 		}
 		expected.Requires = map[string]charm.Relation{
-			"foo": {
-				Key:   "foo",
+			"faa": {
+				Key:   "faa",
 				Name:  "baz",
 				Role:  charm.RoleRequirer,
 				Scope: charm.ScopeContainer,
 			},
 		}
 		expected.Peers = map[string]charm.Relation{
-			"foo": {
-				Key:   "foo",
+			"fee": {
+				Key:   "fee",
 				Name:  "baz",
 				Role:  charm.RolePeer,
 				Scope: charm.ScopeGlobal,
@@ -1451,16 +1456,16 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 			},
 		},
 		Requires: map[string]charm.Relation{
-			"foo": {
-				Key:   "foo",
+			"fee": {
+				Key:   "fee",
 				Name:  "baz",
 				Role:  charm.RoleRequirer,
 				Scope: charm.ScopeContainer,
 			},
 		},
 		Peers: map[string]charm.Relation{
-			"foo": {
-				Key:   "foo",
+			"faa": {
+				Key:   "faa",
 				Name:  "baz",
 				Role:  charm.RolePeer,
 				Scope: charm.ScopeGlobal,
@@ -2342,6 +2347,33 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
 	got, err := st.GetCharmArchivePath(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, "archive")
+}
+
+func (s *charmStateSuite) TestSetCharmWithDuplicatedEndpointNames(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	_, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Provides: map[string]charm.Relation{
+				"foo": {
+					Key:   "foo",
+					Name:  "baz",
+					Role:  charm.RoleProvider,
+					Scope: charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"foo": {
+					Key:   "foo",
+					Name:  "baz",
+					Role:  charm.RoleProvider,
+					Scope: charm.ScopeGlobal,
+				},
+			},
+		},
+	}, setStateArgs("ubuntu"))
+
+	c.Assert(err, gc.ErrorMatches, `.*failed to insert charm relations.*`)
 }
 
 func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {

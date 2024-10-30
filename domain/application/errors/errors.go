@@ -114,6 +114,10 @@ const (
 	// base name is not supported.
 	CharmBaseNameNotSupported = errors.ConstError("charm base name not supported")
 
+	// CharmRelationKeyConflict describes an error that occurs when the charm
+	// has multiple relations with the same name
+	CharmRelationNameConflict = errors.ConstError("charm relation name conflict")
+
 	// ResourceNotFound describes an error that occurs when a resource is
 	// not found.
 	ResourceNotFound = errors.ConstError("resource not found")

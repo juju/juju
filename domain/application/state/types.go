@@ -304,6 +304,7 @@ type charmRelation struct {
 
 // setCharmRelation is used to set the relations of a charm.
 type setCharmRelation struct {
+	UUID      string `db:"uuid"`
 	CharmUUID string `db:"charm_uuid"`
 	KindID    int    `db:"kind_id"`
 	Key       string `db:"key"`
