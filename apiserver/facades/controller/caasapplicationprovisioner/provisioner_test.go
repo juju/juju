@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -54,7 +52,6 @@ type CAASApplicationProvisionerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	modelInfoService        *MockModelInfoService
-	machineService          *MockMachineService
 	applicationService      *MockApplicationService
 	leadershipRevoker       *MockRevoker
 	registry                *mockStorageRegistry
@@ -94,7 +91,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.leadershipRevoker = NewMockRevoker(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
 
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
@@ -108,7 +104,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.modelInfoService,
-		s.machineService,
 		s.applicationService,
 		s.leadershipRevoker,
 		s.registry,
@@ -134,7 +129,6 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.controllerConfigService,
 		s.modelConfigService,
 		s.modelInfoService,
-		s.machineService,
 		s.applicationService,
 		s.leadershipRevoker,
 		s.registry,
@@ -436,30 +430,33 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/1")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/2")] = names.NewStorageTag("data/2")
 
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("gitlab/1")).Return("uuid-m-1", nil).Times(2)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-m-1").Return(instance.Id("instance-id-m-1"), nil).Times(2)
-
 	units := []params.ApplicationUnitParams{
-		{ProviderId: "gitlab-0", Address: "address", Ports: []string{"port"},
+		{
+			ProviderId: "gitlab-0", Address: "address", Ports: []string{"port"},
 			Status: "running", Info: "message", Stateful: true,
 			FilesystemInfo: []params.KubernetesFilesystemInfo{
-				{StorageName: "data", FilesystemId: "fs-id", Size: 100, MountPoint: "/path/to/here", ReadOnly: true,
+				{
+					StorageName: "data", FilesystemId: "fs-id", Size: 100, MountPoint: "/path/to/here", ReadOnly: true,
 					Status: "pending", Info: "not ready",
 					Volume: params.KubernetesVolumeInfo{
 						VolumeId: "vol-id", Size: 100, Persistent: true,
 						Status: "pending", Info: "vol not ready",
-					}},
+					},
+				},
 			},
 		},
-		{ProviderId: "gitlab-1", Address: "another-address", Ports: []string{"another-port"},
+		{
+			ProviderId: "gitlab-1", Address: "another-address", Ports: []string{"another-port"},
 			Status: "running", Info: "another message", Stateful: true,
 			FilesystemInfo: []params.KubernetesFilesystemInfo{
-				{StorageName: "data", FilesystemId: "fs-id2", Size: 200, MountPoint: "/path/to/there", ReadOnly: true,
+				{
+					StorageName: "data", FilesystemId: "fs-id2", Size: 200, MountPoint: "/path/to/there", ReadOnly: true,
 					Status: "attached", Info: "ready",
 					Volume: params.KubernetesVolumeInfo{
 						VolumeId: "vol-id2", Size: 200, Persistent: true,
 						Status: "attached", Info: "vol ready",
-					}},
+					},
+				},
 			},
 		},
 	}
