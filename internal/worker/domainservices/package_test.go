@@ -4,6 +4,7 @@
 package domainservices
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/juju/clock"
@@ -18,8 +19,10 @@ import (
 	"github.com/juju/juju/core/storage"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/services"
+	domainservices "github.com/juju/juju/domain/services"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	services "github.com/juju/juju/internal/services"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination domainservices_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices,ModelDomainServices,DomainServices,DomainServicesGetter
@@ -54,6 +57,8 @@ type baseSuite struct {
 
 	storageRegistryGetter      *MockStorageRegistryGetter
 	modelStorageRegistryGetter *MockModelStorageRegistryGetter
+
+	publicKeyImporter *sshimporter.Importer
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -78,6 +83,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
 	s.modelStorageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 
+	s.publicKeyImporter = sshimporter.NewImporter(&http.Client{})
+
 	return ctrl
 }
 
@@ -89,6 +96,7 @@ func NewModelDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
+	publicKeyImporter domainservices.PublicKeyImporter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -99,6 +107,7 @@ func NewModelDomainServices(
 		NoopProviderFactory{},
 		objectStore,
 		storageRegistry,
+		publicKeyImporter,
 		clock,
 		logger,
 	)

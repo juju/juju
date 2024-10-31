@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
+	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -61,6 +62,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.SSHImporterName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -90,6 +95,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
 		"storageregistry": s.storageRegistryGetter,
+		"sshimporter":     s.publicKeyImporter,
 	}
 
 	manifold := Manifold(ManifoldConfig{
@@ -98,6 +104,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		ProviderFactoryName:         "providerfactory",
 		ObjectStoreName:             "objectstore",
 		StorageRegistryName:         "storageregistry",
+		SSHImporterName:             "sshimporter",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
@@ -122,6 +129,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
+		PublicKeyImporter:           s.publicKeyImporter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -147,6 +155,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
+		PublicKeyImporter:           s.publicKeyImporter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -172,6 +181,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
+		PublicKeyImporter:           s.publicKeyImporter,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -198,6 +208,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.dbGetter,
 		s.modelObjectStoreGetter,
 		s.modelStorageRegistryGetter,
+		s.publicKeyImporter,
 		s.clock,
 		s.logger,
 	)
@@ -213,6 +224,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		nil,
 		s.objectStoreGetter,
 		s.storageRegistryGetter,
+		s.publicKeyImporter,
 		s.clock,
 		s.logger,
 	)
@@ -229,6 +241,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ProviderFactoryName: "providerfactory",
 		ObjectStoreName:     "objectstore",
 		StorageRegistryName: "storageregistry",
+		SSHImporterName:     "sshimporter",
 		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
@@ -247,6 +260,7 @@ func noopDomainServicesGetter(
 	providertracker.ProviderFactory,
 	objectstore.ObjectStoreGetter,
 	storage.StorageRegistryGetter,
+	domainservices.PublicKeyImporter,
 	clock.Clock,
 	logger.Logger,
 ) services.DomainServicesGetter {
@@ -268,6 +282,7 @@ func noopModelDomainServices(
 	providertracker.ProviderFactory,
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
+	domainservices.PublicKeyImporter,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices {

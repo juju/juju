@@ -141,7 +141,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		MetricsCollector:           s.metricsCollector,
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
-		SSHImporterHTTPClient:      s.sshimporterHTTPClient,
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
 		DomainServicesGetter:       s.domainServicesGetter,

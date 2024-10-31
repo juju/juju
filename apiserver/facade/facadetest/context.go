@@ -40,7 +40,6 @@ type ModelContext struct {
 	LeadershipReader_      leadership.Reader
 	SingularClaimer_       lease.Claimer
 	CharmhubHTTPClient_    facade.HTTPClient
-	SSHImporterHTTPClient_ facade.HTTPClient
 	DomainServices_        services.DomainServices
 	DomainServicesGetter_  services.DomainServicesGetter
 	ModelExporter_         facade.ModelExporter
@@ -181,8 +180,6 @@ func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPC
 	switch purpose {
 	case facade.CharmhubHTTPClient:
 		client = c.CharmhubHTTPClient_
-	case facade.HTTPClientPurposeUserSSHImport:
-		client = c.SSHImporterHTTPClient_
 	default:
 		return nil, fmt.Errorf(
 			"cannot get http client for purpose %q, purpose is not understood by the facade context%w",

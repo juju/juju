@@ -900,8 +900,6 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.H
 	switch purpose {
 	case facade.CharmhubHTTPClient:
 		client = ctx.r.shared.charmhubHTTPClient
-	case facade.HTTPClientPurposeUserSSHImport:
-		client = ctx.r.shared.sshImporterHTTPClient
 	default:
 		return nil, fmt.Errorf(
 			"cannot get http client for purpose %q, purpose is not understood by the facade context%w",

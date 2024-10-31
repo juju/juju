@@ -50,10 +50,6 @@ type Config struct {
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
 
-	// SSHImporterHTTPClient is the client used for performing ssh key import
-	// operations.
-	SSHImporterHTTPClient HTTPClient
-
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter                changestream.WatchableDBGetter
 	DBDeleter               database.DBDeleter
@@ -115,9 +111,6 @@ func (config Config) Validate() error {
 	}
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
-	}
-	if config.SSHImporterHTTPClient == nil {
-		return errors.NotValidf("nil SSHImporterHTTPClient")
 	}
 	if config.DomainServicesGetter == nil {
 		return errors.NotValidf("nil DomainServicesGetter")
@@ -209,7 +202,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		DomainServicesGetter:          config.DomainServicesGetter,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
-		SSHImporterHTTPClient:         config.SSHImporterHTTPClient,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
+	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -68,6 +69,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.PublicKeyImporter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -77,6 +82,7 @@ func (s *workerSuite) getConfig() Config {
 		ProviderFactory:       s.providerFactory,
 		ObjectStoreGetter:     s.objectStoreGetter,
 		StorageRegistryGetter: s.storageRegistryGetter,
+		PublicKeyImporter:     s.publicKeyImporter,
 		Clock:                 s.clock,
 		Logger:                s.logger,
 		NewDomainServicesGetter: func(
@@ -86,6 +92,7 @@ func (s *workerSuite) getConfig() Config {
 			providertracker.ProviderFactory,
 			objectstore.ObjectStoreGetter,
 			storage.StorageRegistryGetter,
+			domainservices.PublicKeyImporter,
 			clock.Clock,
 			logger.Logger,
 		) services.DomainServicesGetter {
@@ -105,6 +112,7 @@ func (s *workerSuite) getConfig() Config {
 			providertracker.ProviderFactory,
 			objectstore.ModelObjectStoreGetter,
 			storage.ModelStorageRegistryGetter,
+			domainservices.PublicKeyImporter,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {

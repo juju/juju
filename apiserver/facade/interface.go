@@ -314,9 +314,4 @@ type HTTPClientPurpose string
 
 const (
 	CharmhubHTTPClient HTTPClientPurpose = "charmhub"
-
-	// HTTPClientPurposeUserSSHImport describes a http client purpose for
-	// fetching and importing user ssh keys from an external source. This was
-	// established for use in the keymanager facade.
-	HTTPClientPurposeUserSSHImport HTTPClientPurpose = "ssh-key-import"
 )

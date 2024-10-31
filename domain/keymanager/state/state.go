@@ -143,7 +143,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 SELECT &userPublicKeyId.id
 FROM user_public_ssh_key
 WHERE user_uuid = $userPublicKeyInsert.user_uuid
-AND public_key = $userPublicKeyInsert.public_key
+AND fingerprint = $userPublicKeyInsert.fingerprint
 `, userPublicKeyId{}, userPublicKeyInsert{})
 
 	if err != nil {

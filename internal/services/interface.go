@@ -96,7 +96,7 @@ type ModelDomainServices interface {
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of importing keys
 	// from an external source.
-	KeyManagerWithImporter(keymanagerservice.PublicKeyImporter) *keymanagerservice.ImporterService
+	KeyManagerWithImporter() *keymanagerservice.ImporterService
 	// KeyUpdater returns the key updater service.
 	KeyUpdater() *keyupdaterservice.WatchableService
 	// Network returns the space service.

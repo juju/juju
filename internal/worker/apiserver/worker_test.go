@@ -44,7 +44,6 @@ type workerFixture struct {
 	metricsCollector        *coreapiserver.Collector
 	logSink                 corelogger.ModelLogger
 	charmhubHTTPClient      *http.Client
-	sshimporterHTTPClient   *http.Client
 	dbGetter                stubWatchableDBGetter
 	dbDeleter               stubDBDeleter
 	tracerGetter            stubTracerGetter
@@ -73,7 +72,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
-	s.sshimporterHTTPClient = &http.Client{}
 	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.controllerUUID = coretesting.ControllerTag.Id()
 	s.controllerModelUUID = modeltesting.GenModelUUID(c)
@@ -94,7 +92,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		MetricsCollector:                  s.metricsCollector,
 		LogSink:                           s.logSink,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
-		SSHImporterHTTPClient:             s.sshimporterHTTPClient,
 		DBGetter:                          s.dbGetter,
 		DBDeleter:                         s.dbDeleter,
 		ControllerConfigService:           s.controllerConfigService,

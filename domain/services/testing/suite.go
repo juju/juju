@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"io"
+	"net/http"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -41,6 +42,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/storage/provider/dummy"
@@ -259,6 +261,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
 				return storageRegistry, nil
 			}),
+			sshimporter.NewImporter(&http.Client{}),
 			clock.WallClock,
 			loggertesting.WrapCheckLog(c),
 		)

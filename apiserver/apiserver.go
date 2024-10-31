@@ -216,10 +216,6 @@ type ServerConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
 
-	// SSHImporterHTTPClient is the HTTP client used for ssh key import
-	// operations.
-	SSHImporterHTTPClient facade.HTTPClient
-
 	// DomainServicesGetter provides access to the services.
 	DomainServicesGetter services.DomainServicesGetter
 
@@ -299,9 +295,6 @@ func (c ServerConfig) Validate() error {
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("missing ObjectStoreGetter")
 	}
-	if c.SSHImporterHTTPClient == nil {
-		return errors.NotValidf("missing SSHImporterHTTPClient")
-	}
 	return nil
 }
 
@@ -348,24 +341,23 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:             cfg.StatePool,
-		centralHub:            cfg.Hub,
-		presence:              cfg.Presence,
-		leaseManager:          cfg.LeaseManager,
-		controllerUUID:        cfg.ControllerUUID,
-		controllerModelUUID:   cfg.ControllerModelUUID,
-		controllerConfig:      controllerConfig,
-		logger:                internallogger.GetLogger("juju.apiserver"),
-		charmhubHTTPClient:    cfg.CharmhubHTTPClient,
-		sshImporterHTTPClient: cfg.SSHImporterHTTPClient,
-		dbGetter:              cfg.DBGetter,
-		dbDeleter:             cfg.DBDeleter,
-		domainServicesGetter:  cfg.DomainServicesGetter,
-		tracerGetter:          cfg.TracerGetter,
-		objectStoreGetter:     cfg.ObjectStoreGetter,
-		machineTag:            cfg.Tag,
-		dataDir:               cfg.DataDir,
-		logDir:                cfg.LogDir,
+		statePool:            cfg.StatePool,
+		centralHub:           cfg.Hub,
+		presence:             cfg.Presence,
+		leaseManager:         cfg.LeaseManager,
+		controllerUUID:       cfg.ControllerUUID,
+		controllerModelUUID:  cfg.ControllerModelUUID,
+		controllerConfig:     controllerConfig,
+		logger:               internallogger.GetLogger("juju.apiserver"),
+		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
+		dbGetter:             cfg.DBGetter,
+		dbDeleter:            cfg.DBDeleter,
+		domainServicesGetter: cfg.DomainServicesGetter,
+		tracerGetter:         cfg.TracerGetter,
+		objectStoreGetter:    cfg.ObjectStoreGetter,
+		machineTag:           cfg.Tag,
+		dataDir:              cfg.DataDir,
+		logDir:               cfg.LogDir,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
