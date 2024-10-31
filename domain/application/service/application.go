@@ -204,6 +204,8 @@ type ApplicationState interface {
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
 type DeleteSecretState interface {
+	// DeleteSecret deletes the specified secret revisions.
+	// If revisions is nil the last remaining revisions are removed.
 	DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error
 }
 

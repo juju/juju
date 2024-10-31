@@ -3316,8 +3316,7 @@ type (
 )
 
 // DeleteSecret deletes the specified secret revisions.
-// If revisions is nil or the last remaining revisions are removed.
-// It returns the string format UUID of the deleted revisions.
+// If revisions is nil the last remaining revisions are removed.
 func (st State) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error {
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error

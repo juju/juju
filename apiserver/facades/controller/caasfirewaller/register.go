@@ -6,10 +6,10 @@ package caasfirewaller
 import (
 	"context"
 	"reflect"
-	
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	
+
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
 )

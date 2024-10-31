@@ -6,9 +6,9 @@ package highavailability
 import (
 	"context"
 	"reflect"
-	
+
 	"github.com/juju/errors"
-	
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	oldstate "github.com/juju/juju/state"

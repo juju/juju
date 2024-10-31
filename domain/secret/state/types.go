@@ -387,17 +387,6 @@ func (rows secretValues) toSecretData() coresecrets.SecretData {
 
 type secretValueRefs []secretValueRef
 
-func (rows secretValueRefs) toValueRefs() []coresecrets.ValueRef {
-	result := make([]coresecrets.ValueRef, len(rows))
-	for i, row := range rows {
-		result[i] = coresecrets.ValueRef{
-			BackendID:  row.BackendUUID,
-			RevisionID: row.RevisionID,
-		}
-	}
-	return result
-}
-
 type secretRemoteUnitConsumers []secretRemoteUnitConsumer
 
 func (rows secretRemoteUnitConsumers) toSecretConsumers() []*coresecrets.SecretConsumerMetadata {

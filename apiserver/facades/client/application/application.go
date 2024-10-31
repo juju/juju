@@ -43,7 +43,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
