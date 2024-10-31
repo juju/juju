@@ -69,6 +69,7 @@ CREATE VIEW v_model AS
 SELECT
     m.uuid,
     m.cloud_uuid,
+    c.uuid AS cloud_uuid,
     c.name AS cloud_name,
     ct.type AS cloud_type,
     c.endpoint AS cloud_endpoint,
