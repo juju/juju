@@ -58,7 +58,7 @@ const (
 const (
 	schema = `
 CREATE TABLE agent (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     model_name TEXT NOT NULL,
     status TEXT NOT NULL
 );

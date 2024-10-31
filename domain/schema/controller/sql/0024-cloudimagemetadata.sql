@@ -1,5 +1,5 @@
 CREATE TABLE cloud_image_metadata (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     created_at DATETIME NOT NULL,
     source TEXT NOT NULL,
     stream TEXT NOT NULL,

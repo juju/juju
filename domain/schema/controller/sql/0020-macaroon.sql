@@ -14,7 +14,7 @@ CREATE TABLE bakery_config (
 CREATE UNIQUE INDEX idx_singleton_bakery_config ON bakery_config ((1));
 
 CREATE TABLE macaroon_root_key (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY,
     created_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     root_key TEXT NOT NULL

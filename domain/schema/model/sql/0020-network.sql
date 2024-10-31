@@ -1,5 +1,5 @@
 CREATE TABLE net_node (
-    uuid TEXT PRIMARY KEY
+    uuid TEXT NOT NULL PRIMARY KEY
 );
 
 CREATE TABLE link_layer_device_type (

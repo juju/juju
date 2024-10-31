@@ -69,7 +69,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			CREATE TABLE some_namespace (
-				uuid TEXT PRIMARY KEY
+				uuid TEXT NOT NULL PRIMARY KEY
 			);
 		`)
 		return err
@@ -104,7 +104,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *gc.C) {
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			CREATE TABLE some_namespace (
-				uuid TEXT PRIMARY KEY
+				uuid TEXT NOT NULL PRIMARY KEY
 			);
 		`)
 		return err

@@ -9,7 +9,7 @@ INSERT INTO protocol VALUES
 (2, 'udp');
 
 CREATE TABLE port_range (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     unit_endpoint_uuid TEXT NOT NULL,
     protocol_id INT NOT NULL,
     from_port INT,
@@ -29,7 +29,7 @@ CREATE TABLE port_range (
 CREATE UNIQUE INDEX idx_port_range_endpoint_port_range ON port_range (unit_endpoint_uuid, protocol_id, from_port);
 
 CREATE TABLE unit_endpoint (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     endpoint TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
     CONSTRAINT fk_endpoint_unit
