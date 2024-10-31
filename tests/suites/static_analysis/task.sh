@@ -13,6 +13,7 @@ test_static_analysis() {
 	test_static_analysis_shell
 	test_static_analysis_python
 	test_schema
+	test_text_primary_key
 
 	# slow ones go last
 	test_static_analysis_go
