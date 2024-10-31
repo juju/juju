@@ -10045,7 +10045,7 @@
                             "$ref": "#/definitions/CharmsListResult"
                         }
                     },
-                    "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will\nbe filtered to return only the charms with supplied names."
+                    "description": "List returns a list of charm URLs currently in the state. If supplied\nparameter contains any names, the result will be filtered to return only the\ncharms with supplied names. The order of the charms is not guaranteed to be\nthe same as the order of the names passed in."
                 },
                 "ListCharmResources": {
                     "type": "object",
