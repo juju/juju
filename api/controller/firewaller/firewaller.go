@@ -108,31 +108,6 @@ func (c *Client) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher
 	return w, nil
 }
 
-// WatchOpenedPorts returns a StringsWatcher that notifies of
-// changes to the opened ports for the current model.
-func (c *Client) WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
-	modelTag, ok := c.ModelTag()
-	if !ok {
-		return nil, errors.New("API connection is controller-only (should never happen)")
-	}
-	var results params.StringsWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: modelTag.String()}},
-	}
-	if err := c.facade.FacadeCall(ctx, "WatchOpenedPorts", args, &results); err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if err := result.Error; err != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
-}
-
 // ModelFirewallRules returns the firewall rules that this model is
 // configured to open
 func (c *Client) ModelFirewallRules(ctx context.Context) (firewall.IngressRules, error) {

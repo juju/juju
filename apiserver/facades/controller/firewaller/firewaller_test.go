@@ -5,11 +5,8 @@ package firewaller_test
 
 import (
 	"context"
-	"sort"
 
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +19,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -43,7 +39,6 @@ type firewallerSuite struct {
 	networkService          *MockNetworkService
 	machineService          *MockMachineService
 	applicationService      *MockApplicationService
-	portService             *MockPortService
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -60,7 +55,6 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-	s.portService = NewMockPortService(ctrl)
 
 	return ctrl
 }
@@ -92,7 +86,6 @@ func (s *firewallerSuite) setupAPI(c *gc.C) {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
-		s.portService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,56 +160,6 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	s.setupAPI(c)
 
 	s.testGetAssignedMachine(c, s.firewaller)
-}
-
-func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	expectChanges := []string{ // machine IDs
-		"0",
-		"2",
-	}
-
-	w := newMockStringsWatcher()
-	defer workertest.CleanKill(c, w)
-	w.changes <- expectChanges
-	s.portService.EXPECT().WatchMachineOpenedPorts(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
-
-	fakeModelTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
-	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: fakeModelTag.String()},
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.application.Tag().String()},
-		{Tag: s.units[0].Tag().String()},
-	}})
-	result, err := s.firewaller.WatchOpenedPorts(context.Background(), args)
-	sort.Strings(result.Results[0].Changes)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
-		Results: []params.StringsWatchResult{
-			{Changes: expectChanges, StringsWatcherId: "1"},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertNoChange()
 }
 
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {

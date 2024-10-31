@@ -559,45 +559,6 @@ func (c *MockFirewallerAPIWatchModelMachinesCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// WatchOpenedPorts mocks base method.
-func (m *MockFirewallerAPI) WatchOpenedPorts(arg0 context.Context) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchOpenedPorts", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchOpenedPorts indicates an expected call of WatchOpenedPorts.
-func (mr *MockFirewallerAPIMockRecorder) WatchOpenedPorts(arg0 any) *MockFirewallerAPIWatchOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPorts", reflect.TypeOf((*MockFirewallerAPI)(nil).WatchOpenedPorts), arg0)
-	return &MockFirewallerAPIWatchOpenedPortsCall{Call: call}
-}
-
-// MockFirewallerAPIWatchOpenedPortsCall wrap *gomock.Call
-type MockFirewallerAPIWatchOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFirewallerAPIWatchOpenedPortsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockFirewallerAPIWatchOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFirewallerAPIWatchOpenedPortsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockFirewallerAPIWatchOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerAPIWatchOpenedPortsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockFirewallerAPIWatchOpenedPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchSubnets mocks base method.
 func (m *MockFirewallerAPI) WatchSubnets(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()

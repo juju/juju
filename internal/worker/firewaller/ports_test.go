@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 )
 
 // This is a subset of the port range logic from state.
@@ -15,7 +16,7 @@ import (
 // code and moved to core.
 
 type unitPortRanges struct {
-	unitRanges map[string]network.GroupedPortRanges
+	unitRanges map[unit.Name]network.GroupedPortRanges
 
 	pendingOpenRanges  network.GroupedPortRanges
 	pendingCloseRanges network.GroupedPortRanges
@@ -36,8 +37,8 @@ func (p *unitPortRanges) Close(endpoint string, portRange network.PortRange) {
 	p.pendingCloseRanges[endpoint] = append(p.pendingCloseRanges[endpoint], portRange)
 }
 
-func (p *unitPortRanges) ByUnitEndpoint() map[string]network.GroupedPortRanges {
-	result := map[string]network.GroupedPortRanges{}
+func (p *unitPortRanges) ByUnitEndpoint() map[unit.Name]network.GroupedPortRanges {
+	result := map[unit.Name]network.GroupedPortRanges{}
 	for u, r := range p.unitRanges {
 		result[u] = r
 	}
@@ -45,18 +46,18 @@ func (p *unitPortRanges) ByUnitEndpoint() map[string]network.GroupedPortRanges {
 }
 
 type unitPortRangesCommit struct {
-	unitName              string
+	unitName              unit.Name
 	upr                   *unitPortRanges
-	updatedUnitPortRanges map[string]network.GroupedPortRanges
+	updatedUnitPortRanges map[unit.Name]network.GroupedPortRanges
 }
 
-func newUnitPortRangesCommit(upr *unitPortRanges, unitName string) *unitPortRangesCommit {
+func newUnitPortRangesCommit(upr *unitPortRanges, unitName unit.Name) *unitPortRangesCommit {
 	op := &unitPortRangesCommit{upr: upr, unitName: unitName}
 	return op
 }
 
 func (op *unitPortRangesCommit) cloneExistingUnitPortRanges() {
-	op.updatedUnitPortRanges = make(map[string]network.GroupedPortRanges)
+	op.updatedUnitPortRanges = make(map[unit.Name]network.GroupedPortRanges)
 	for unitName, existingDoc := range op.upr.unitRanges {
 		rangesCopy := make(network.GroupedPortRanges)
 		for endpointName, portRanges := range existingDoc {

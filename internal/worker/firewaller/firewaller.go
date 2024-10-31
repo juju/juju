@@ -12,6 +12,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -42,6 +45,8 @@ type Config struct {
 	Mode                   string
 	FirewallerAPI          FirewallerAPI
 	RemoteRelationsApi     RemoteRelationsAPI
+	PortsService           PortService
+	MachineService         MachineService
 	EnvironFirewaller      EnvironFirewaller
 	EnvironModelFirewaller EnvironModelFirewaller
 	EnvironInstances       EnvironInstances
@@ -79,6 +84,12 @@ func (cfg Config) Validate() error {
 	if cfg.RemoteRelationsApi == nil {
 		return errors.NotValidf("nil RemoteRelations Facade")
 	}
+	if cfg.PortsService == nil {
+		return errors.NotValidf("nil PortsService")
+	}
+	if cfg.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
+	}
 	if cfg.Mode == config.FwGlobal && cfg.EnvironFirewaller == nil {
 		return errors.NotValidf("nil EnvironFirewaller")
 	}
@@ -104,6 +115,8 @@ type Firewaller struct {
 	catacomb               catacomb.Catacomb
 	firewallerApi          FirewallerAPI
 	remoteRelationsApi     RemoteRelationsAPI
+	portService            PortService
+	machineService         MachineService
 	environFirewaller      EnvironFirewaller
 	environModelFirewaller EnvironModelFirewaller
 	environInstances       EnvironInstances
@@ -114,7 +127,7 @@ type Firewaller struct {
 	modelFirewallWatcher watcher.NotifyWatcher
 	machineds            map[names.MachineTag]*machineData
 	unitsChange          chan *unitsChange
-	unitds               map[names.UnitTag]*unitData
+	unitds               map[coreunit.Name]*unitData
 	applicationids       map[names.ApplicationTag]*applicationData
 	exposedChange        chan *exposedChange
 	spaceInfos           network.SpaceInfos
@@ -155,6 +168,8 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	fw := &Firewaller{
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
+		portService:                cfg.PortsService,
+		machineService:             cfg.MachineService,
 		environFirewaller:          cfg.EnvironFirewaller,
 		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
@@ -163,7 +178,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		modelUUID:                  cfg.ModelUUID,
 		machineds:                  make(map[names.MachineTag]*machineData),
 		unitsChange:                make(chan *unitsChange),
-		unitds:                     make(map[names.UnitTag]*unitData),
+		unitds:                     make(map[coreunit.Name]*unitData),
 		applicationids:             make(map[names.ApplicationTag]*applicationData),
 		exposedChange:              make(chan *exposedChange),
 		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
@@ -217,7 +232,7 @@ func (fw *Firewaller) setUp(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	fw.portsWatcher, err = fw.firewallerApi.WatchOpenedPorts(ctx)
+	fw.portsWatcher, err = fw.portService.WatchMachineOpenedPorts(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "failed to start ports watcher")
 	}
@@ -445,7 +460,7 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 	machined := &machineData{
 		fw:     fw,
 		tag:    tag,
-		unitds: make(map[names.UnitTag]*unitData),
+		unitds: make(map[coreunit.Name]*unitData),
 	}
 	m, err := machined.machine(ctx)
 	if params.IsCodeNotFound(err) {
@@ -485,8 +500,12 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 		if !ok {
 			return errors.New("machine units watcher closed")
 		}
+		unitNames, err := transform.SliceOrErr(change, coreunit.NewName)
+		if err != nil {
+			return err
+		}
 		fw.machineds[tag] = machined
-		err = fw.unitsChanged(ctx, &unitsChange{machined, change})
+		err = fw.unitsChanged(ctx, &unitsChange{machined: machined, units: unitNames})
 		if err != nil {
 			delete(fw.machineds, tag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q, %q", tag, fw.modelUUID)
@@ -526,26 +545,29 @@ func (fw *Firewaller) startUnit(ctx context.Context, unit Unit, machineTag names
 	}
 
 	applicationTag := application.Tag()
-	unitTag := unit.Tag()
+	unitName, err := coreunit.NewName(unit.Name())
+	if err != nil {
+		return err
+	}
 	unitd := &unitData{
 		fw:   fw,
 		unit: unit,
-		tag:  unitTag,
+		name: unitName,
 	}
-	fw.unitds[unitTag] = unitd
+	fw.unitds[unitName] = unitd
 
 	unitd.machined = fw.machineds[machineTag]
-	unitd.machined.unitds[unitTag] = unitd
+	unitd.machined.unitds[unitName] = unitd
 	if fw.applicationids[applicationTag] == nil {
 		err := fw.startApplication(ctx, application)
 		if err != nil {
-			delete(fw.unitds, unitTag)
-			delete(unitd.machined.unitds, unitTag)
+			delete(fw.unitds, unitName)
+			delete(unitd.machined.unitds, unitName)
 			return err
 		}
 	}
 	unitd.applicationd = fw.applicationids[applicationTag]
-	unitd.applicationd.unitds[unitTag] = unitd
+	unitd.applicationd.unitds[unitName] = unitd
 
 	if err = fw.openedPortsChanged(ctx, machineTag); err != nil {
 		return errors.Trace(err)
@@ -566,7 +588,7 @@ func (fw *Firewaller) startApplication(ctx context.Context, app Application) err
 		application:      app,
 		exposed:          exposed,
 		exposedEndpoints: exposedEndpoints,
-		unitds:           make(map[names.UnitTag]*unitData),
+		unitds:           make(map[coreunit.Name]*unitData),
 	}
 	fw.applicationids[app.Tag()] = applicationd
 
@@ -692,9 +714,8 @@ func (fw *Firewaller) reconcileInstances(ctx context.Context) error {
 // unitsChanged responds to changes to the assigned units.
 func (fw *Firewaller) unitsChanged(ctx context.Context, change *unitsChange) error {
 	changed := []*unitData{}
-	for _, name := range change.units {
-		unitTag := names.NewUnitTag(name)
-		unit, err := fw.firewallerApi.Unit(ctx, unitTag)
+	for _, unitName := range change.units {
+		unit, err := fw.firewallerApi.Unit(ctx, names.NewUnitTag(unitName.String()))
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}
@@ -707,12 +728,12 @@ func (fw *Firewaller) unitsChanged(ctx context.Context, change *unitsChange) err
 				return err
 			}
 		}
-		if unitd, known := fw.unitds[unitTag]; known {
-			knownMachineTag := fw.unitds[unitTag].machined.tag
+		if unitd, known := fw.unitds[unitName]; known {
+			knownMachineTag := fw.unitds[unitName].machined.tag
 			if unit == nil || unit.Life() == life.Dead || machineTag != knownMachineTag {
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
-				fw.logger.Debugf("stopped watching unit %s", name)
+				fw.logger.Debugf("stopped watching unit %s", unitName)
 			}
 		} else if unit != nil && unit.Life() != life.Dead && fw.machineds[machineTag] != nil {
 			err = fw.startUnit(ctx, unit, machineTag)
@@ -722,8 +743,8 @@ func (fw *Firewaller) unitsChanged(ctx context.Context, change *unitsChange) err
 			if err != nil {
 				return err
 			}
-			changed = append(changed, fw.unitds[unitTag])
-			fw.logger.Debugf("started watching %q", unitTag)
+			changed = append(changed, fw.unitds[unitName])
+			fw.logger.Debugf("started watching %q", unitName)
 		}
 	}
 	if err := fw.flushUnits(ctx, changed); err != nil {
@@ -745,41 +766,42 @@ func (fw *Firewaller) openedPortsChanged(ctx context.Context, machineTag names.M
 		// registering the machine, so if a machine is not found in
 		// firewaller's list, just skip the change.  Look up will also
 		// fail if it's a manual machine.
-		fw.logger.Debugf("failed to lookup %q, skipping port change", machineTag)
+		fw.logger.Debugf("failed to lookup machine %q, skipping port change", machineTag)
 		return nil
 	}
 
-	m, err := machined.machine(ctx)
+	machineUUID, err := fw.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
 	if err != nil {
 		return err
 	}
 
-	_, opendPortRangesByEndpoint, err := m.OpenedMachinePortRanges(ctx)
+	openedPortRangesByEndpoint, err := fw.portService.GetMachineOpenedPorts(ctx, machineUUID)
 	if err != nil {
 		return err
 	}
 
 	// Check for missing units and defer the handling of this change for
 	// the future.
-	for unitTag := range opendPortRangesByEndpoint {
-		if _, ok := machined.unitds[unitTag]; !ok {
+	for unitName := range openedPortRangesByEndpoint {
+		if _, ok := machined.unitds[unitName]; !ok {
 			// It is common to receive port change notification before
 			// registering a unit. Skip handling the port change - it will
 			// be handled when the unit is registered.
-			fw.logger.Debugf("failed to lookup %q, skipping port change", unitTag)
+			fw.logger.Debugf("machine %v has units: %+v", machined.tag, machined.unitds)
+			fw.logger.Debugf("failed to lookup unit %q, skipping port change", unitName)
 			return nil
 		}
 	}
 
-	if equalGroupedPortRanges(machined.openedPortRangesByEndpoint, opendPortRangesByEndpoint) {
+	if equalGroupedPortRanges(machined.openedPortRangesByEndpoint, openedPortRangesByEndpoint) {
 		return nil // no change
 	}
 
-	machined.openedPortRangesByEndpoint = opendPortRangesByEndpoint
+	machined.openedPortRangesByEndpoint = openedPortRangesByEndpoint
 	return fw.flushMachine(ctx, machined)
 }
 
-func equalGroupedPortRanges(a, b map[names.UnitTag]network.GroupedPortRanges) bool {
+func equalGroupedPortRanges(a, b map[coreunit.Name]network.GroupedPortRanges) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -860,7 +882,7 @@ func (fw *Firewaller) gatherIngressRules(ctx context.Context, machines ...*machi
 }
 
 func (fw *Firewaller) ingressRulesForMachineUnit(ctx context.Context, machine *machineData, unit *unitData) (firewall.IngressRules, error) {
-	unitPortRanges := machine.openedPortRangesByEndpoint[unit.tag]
+	unitPortRanges := machine.openedPortRangesByEndpoint[unit.name]
 	if len(unitPortRanges) == 0 {
 		return nil, nil // no ports opened by the charm
 	}
@@ -882,7 +904,7 @@ func (fw *Firewaller) ingressRulesForMachineUnit(ctx context.Context, machine *m
 	// De-dup and sort rules before returning them back.
 	rules = rules.UniqueRules()
 	sort.Slice(rules, func(i, j int) bool { return rules[i].LessThan(rules[j]) })
-	fw.logger.Debugf("ingress rules for %q: %v", unit.tag, rules)
+	fw.logger.Debugf("ingress rules for %q: %v", unit.name, rules)
 	return rules, nil
 }
 
@@ -1204,7 +1226,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	// If it's the last unit in the application, we'll need to stop the applicationd.
 	stoppedApplication := false
 	if len(applicationd.unitds) == 1 {
-		if _, found := applicationd.unitds[unitd.tag]; found {
+		if _, found := applicationd.unitds[unitd.name]; found {
 			// Unusually, it's fine to ignore this error, because we know the
 			// applicationd is being tracked in fw.catacomb. But we do still want
 			// to wait until the watch loop has stopped before we nuke the last
@@ -1215,10 +1237,10 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	}
 
 	// Clean up after stopping.
-	delete(fw.unitds, unitd.tag)
-	delete(machined.unitds, unitd.tag)
-	delete(applicationd.unitds, unitd.tag)
-	fw.logger.Debugf("stopped watching %q", unitd.tag)
+	delete(fw.unitds, unitd.name)
+	delete(machined.unitds, unitd.name)
+	delete(applicationd.unitds, unitd.name)
+	fw.logger.Debugf("stopped watching %q", unitd.name)
 	if stoppedApplication {
 		applicationTag := applicationd.application.Tag()
 		delete(fw.applicationids, applicationTag)
@@ -1243,7 +1265,7 @@ func (fw *Firewaller) scopedContext() (context.Context, context.CancelFunc) {
 // unitsChange contains the changed units for one specific machine.
 type unitsChange struct {
 	machined *machineData
-	units    []string
+	units    []coreunit.Name
 }
 
 // machineData holds machine details and watches units added or removed.
@@ -1251,10 +1273,10 @@ type machineData struct {
 	catacomb     catacomb.Catacomb
 	fw           *Firewaller
 	tag          names.MachineTag
-	unitds       map[names.UnitTag]*unitData
+	unitds       map[coreunit.Name]*unitData
 	ingressRules firewall.IngressRules
 	// ports defined by units on this machine
-	openedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+	openedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
 }
 
 func (md *machineData) machine(ctx context.Context) (Machine, error) {
@@ -1274,10 +1296,14 @@ func (md *machineData) watchLoop(unitw watcher.StringsWatcher) error {
 			if !ok {
 				return errors.New("machine units watcher closed")
 			}
+			unitNames, err := transform.SliceOrErr(change, coreunit.NewName)
+			if err != nil {
+				return err
+			}
 			select {
 			case <-md.catacomb.Dying():
 				return md.catacomb.ErrDying()
-			case md.fw.unitsChange <- &unitsChange{md, change}:
+			case md.fw.unitsChange <- &unitsChange{machined: md, units: unitNames}:
 			}
 		}
 	}
@@ -1296,7 +1322,7 @@ func (md *machineData) Wait() error {
 // unitData holds unit details.
 type unitData struct {
 	fw           *Firewaller
-	tag          names.UnitTag
+	name         coreunit.Name
 	unit         Unit
 	applicationd *applicationData
 	machined     *machineData
@@ -1316,7 +1342,7 @@ type applicationData struct {
 	application      Application
 	exposed          bool
 	exposedEndpoints map[string]params.ExposedEndpoint
-	unitds           map[names.UnitTag]*unitData
+	unitds           map[coreunit.Name]*unitData
 }
 
 // watchLoop watches the application's exposed flag for changes.

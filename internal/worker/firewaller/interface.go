@@ -14,9 +14,11 @@ import (
 	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,7 +31,6 @@ import (
 // FirewallerAPI exposes functionality off the firewaller API facade to a worker.
 type FirewallerAPI interface {
 	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
-	WatchOpenedPorts(context.Context) (watcher.StringsWatcher, error)
 	WatchModelFirewallRules(context.Context) (watcher.NotifyWatcher, error)
 	ModelFirewallRules(context.Context) (firewall.IngressRules, error)
 	ModelConfig(context.Context) (*config.Config, error)
@@ -67,6 +68,26 @@ type RemoteRelationsAPI interface {
 	WatchRemoteRelations(context.Context) (watcher.StringsWatcher, error)
 }
 
+// PortService provides methods to query opened ports for machines
+type PortService interface {
+	// WatchMachineOpenedPorts returns a strings watcher for opened ports. This watcher
+	// emits events for changes to the opened ports table. Each emitted event
+	// contains the machine name which is associated with the changed port range.
+	WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// GetMachineOpenedPorts returns the opened ports for all endpoints, for all the
+	// units on the machine. Opened ports are grouped first by unit name and then by
+	// endpoint.
+	GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[unit.Name]network.GroupedPortRanges, error)
+}
+
+// MachineService provides methods to query machines.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+}
+
 // EnvironFirewaller defines methods to allow the worker to perform
 // firewall operations (open/close ports) on a Juju global firewall.
 type EnvironFirewaller interface {
@@ -98,13 +119,11 @@ type Machine interface {
 	InstanceId(context.Context) (instance.Id, error)
 	Life() life.Value
 	IsManual(context.Context) (bool, error)
-	OpenedMachinePortRanges(context.Context) (byUnitAndCIDR map[names.UnitTag]network.GroupedPortRanges, byUnitAndEndpoint map[names.UnitTag]network.GroupedPortRanges, err error)
 }
 
 // Unit represents a model unit.
 type Unit interface {
 	Name() string
-	Tag() names.UnitTag
 	Life() life.Value
 	Refresh(ctx context.Context) error
 	Application() (Application, error)
