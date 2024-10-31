@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
@@ -41,7 +40,7 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 	domainServices := s.ControllerDomainServices(c)
 
 	facadeContext := s.facadeContext(c)
-	applicationService := domainServices.Application(applicationservice.NotImplementedSecretService{})
+	applicationService := domainServices.Application()
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,
 		domainServices.ControllerConfig(),
@@ -81,7 +80,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	facadeContext.State_ = cm.State()
 
 	domainServices := facadeContext.DomainServices()
-	applicationService := domainServices.Application(applicationservice.NotImplementedSecretService{})
+	applicationService := domainServices.Application()
 
 	uniterAPI, err := uniter.NewUniterAPIWithServices(
 		context.Background(), facadeContext,

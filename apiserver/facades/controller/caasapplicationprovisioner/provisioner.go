@@ -39,8 +39,6 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -99,17 +97,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	modelConfigService := domainServices.Config()
 	modelInfoService := domainServices.ModelInfo()
 	storageService := domainServices.Storage()
-	backendService := domainServices.SecretBackend()
-	applicationService := domainServices.Application(domainServices.Secret(
-		secretservice.SecretServiceParams{
-			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
-			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
-		},
-	))
+	applicationService := domainServices.Application()
 
 	sb, err := state.NewStorageBackend(st)
 	if err != nil {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/application/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -51,7 +50,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		return ctx.DomainServicesForModel(modelID).Config()
 	}
 	applicationServiceGetter := func(modelID model.UUID) ApplicationService {
-		return ctx.DomainServicesForModel(modelID).Application(service.NotImplementedSecretService{})
+		return ctx.DomainServicesForModel(modelID).Application()
 	}
 	blockCommandServiceGetter := func(modelID model.UUID) BlockCommandService {
 		return ctx.DomainServicesForModel(modelID).BlockCommand()

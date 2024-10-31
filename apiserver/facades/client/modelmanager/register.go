@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -102,7 +101,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			SecretBackendService: secretBackendService,
 			NetworkService:       domainServices.Network(),
 			MachineService:       domainServices.Machine(),
-			ApplicationService:   domainServices.Application(service.NotImplementedSecretService{}),
+			ApplicationService:   domainServices.Application(),
 		},
 		toolsFinder,
 		caas.New,

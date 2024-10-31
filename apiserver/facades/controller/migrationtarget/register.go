@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -54,7 +53,7 @@ func makeFacade(
 		auth,
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
-		domainServices.Application(service.NotImplementedSecretService{}),
+		domainServices.Application(),
 		domainServices.Upgrade(),
 		modelAgentServiceGetter,
 		modelMigrationServiceGetter,

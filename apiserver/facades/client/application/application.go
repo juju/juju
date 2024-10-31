@@ -43,8 +43,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -168,17 +167,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
 
-	backendService := domainServices.SecretBackend()
-	applicationService := domainServices.Application(domainServices.Secret(
-		secretservice.SecretServiceParams{
-			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
-			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
-		},
-	))
+	applicationService := domainServices.Application()
 
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,

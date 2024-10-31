@@ -211,7 +211,7 @@ func (s *TestingDomainServices) ModelSecretBackend() *secretbackendservice.Model
 }
 
 // Application returns the application service.
-func (s *TestingDomainServices) Application(applicationservice.SecretService) *applicationservice.WatchableService {
+func (s *TestingDomainServices) Application() *applicationservice.WatchableService {
 	if s.applicationServiceGetter == nil {
 		return nil
 	}

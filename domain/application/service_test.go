@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -54,24 +53,17 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
-	secretService := secretservice.NewSecretService(
-		s.secretState,
-		secretservice.NoopImplementedBackendReferenceMutator{},
-		loggertesting.WrapCheckLog(c),
-		secretservice.SecretServiceParams{
-			BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
-			BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-		},
-	)
 	s.svc = service.NewService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		secretService,
 		loggertesting.WrapCheckLog(c),
 	)
 

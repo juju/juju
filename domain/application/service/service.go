@@ -29,14 +29,13 @@ type Service struct {
 // NewService returns a new Service for interacting with the underlying
 // application state.
 func NewService(
-	appSt ApplicationState, charmSt CharmState,
+	appSt ApplicationState, deleteSecretSt DeleteSecretState, charmSt CharmState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	secretService SecretService,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
 		CharmService:       NewCharmService(charmSt, logger),
-		ApplicationService: NewApplicationService(appSt, storageRegistryGetter, secretService, logger),
+		ApplicationService: NewApplicationService(appSt, deleteSecretSt, storageRegistryGetter, logger),
 	}
 }
 
@@ -51,17 +50,18 @@ type WatchableService struct {
 // NewWatchableService returns a new service reference wrapping the input state.
 func NewWatchableService(
 	appSt ApplicationState,
+	deleteSecretSt DeleteSecretState,
 	charmSt CharmState,
 	watcherFactory WatcherFactory,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	secretService SecretService,
 	logger logger.Logger,
 ) *WatchableService {
 	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
-	watchableApplicationService := NewWatchableApplicationService(appSt, watcherFactory, modelID, agentVersionGetter, provider, storageRegistryGetter, secretService, logger)
+	watchableApplicationService := NewWatchableApplicationService(
+		appSt, deleteSecretSt, watcherFactory, modelID, agentVersionGetter, provider, storageRegistryGetter, logger)
 	return &WatchableService{
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,

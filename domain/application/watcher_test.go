@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -392,6 +393,9 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
+		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		state.NewCharmState(func() (database.TxnRunner, error) {
 			return s.ModelTxnRunner(), nil
 		}),
@@ -400,7 +404,6 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		service.NotImplementedSecretService{},
 		loggertesting.WrapCheckLog(c),
 	)
 }

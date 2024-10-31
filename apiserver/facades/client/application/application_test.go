@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
@@ -108,7 +107,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) {
 	registry := provider.NewStorageProviderRegistry(env)
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c))
 	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
-	applicationService := domainServices.Application(service.NotImplementedSecretService{})
+	applicationService := domainServices.Application()
 
 	api, err := application.NewAPIBase(
 		application.GetState(st),

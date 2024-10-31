@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/services"
@@ -231,7 +230,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			controllerModelDomainServices := domainServicesGetter.ServicesForModel(controllerModel.UUID)
 
-			applicationService := controllerModelDomainServices.Application(applicationservice.NotImplementedSecretService{})
+			applicationService := controllerModelDomainServices.Application()
 
 			var storageRegistryGetter corestorage.StorageRegistryGetter
 			if err := getter.Get(config.StorageRegistryName, &storageRegistryGetter); err != nil {

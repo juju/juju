@@ -91,7 +91,7 @@ type ModelDomainServices interface {
 	// BlockDevice returns the block device service.
 	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the application service.
-	Application(applicationservice.SecretService) *applicationservice.WatchableService
+	Application() *applicationservice.WatchableService
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of importing keys

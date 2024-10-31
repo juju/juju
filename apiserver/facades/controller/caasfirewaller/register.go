@@ -6,13 +6,12 @@ package caasfirewaller
 import (
 	"context"
 	"reflect"
-
+	
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-
+	
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/domain/application/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -28,7 +27,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	resources := ctx.Resources()
 
 	domainServices := ctx.DomainServices()
-	applicationService := domainServices.Application(service.NotImplementedSecretService{})
+	applicationService := domainServices.Application()
 
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 

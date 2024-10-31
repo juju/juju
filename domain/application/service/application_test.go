@@ -45,6 +45,7 @@ type applicationServiceSuite struct {
 
 	state   *MockApplicationState
 	charm   *MockCharm
+	secret  *MockDeleteSecretState
 	clock   *testclock.Clock
 	service *ApplicationService
 }
@@ -1094,6 +1095,7 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockApplicationState(ctrl)
 	s.charm = NewMockCharm(ctrl)
+	s.secret = NewMockDeleteSecretState(ctrl)
 	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{
 			dummystorage.StorageProviders(),
@@ -1102,8 +1104,7 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	})
 
 	s.clock = testclock.NewClock(time.Time{})
-	secretService := NotImplementedSecretService{}
-	s.service = NewApplicationService(s.state, registry, secretService, loggertesting.WrapCheckLog(c))
+	s.service = NewApplicationService(s.state, s.secret, registry, loggertesting.WrapCheckLog(c))
 	s.service.clock = s.clock
 
 	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {

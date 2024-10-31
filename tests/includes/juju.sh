@@ -133,7 +133,7 @@ bootstrap() {
 			export BOOTSTRAP_REUSE="false"
 		fi
 	fi
-	if [[ ${BOOTSTRAP_REUSE} == "true" && ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+	if [[ ${BOOTSTRAP_REUSE} == "true" && ${BOOTSTRAP_PROVIDER} != "k8s" && ${BOOTSTRAP_PROVIDER} != "microk8s" ]]; then
 		# juju show-machine not supported with k8s controllers
 		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r '.machines | .[] | .base | (.name + "@" + .channel)')
 		if [[ -n ${OUT} ]]; then
@@ -259,7 +259,7 @@ juju_bootstrap() {
 	shift
 
 	base=
-	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" && ${BOOTSTRAP_PROVIDER} != "microk8s" ]]; then
 		case "${BOOTSTRAP_BASE}" in
 		"${CURRENT_LTS}")
 			base="--bootstrap-base=${BOOTSTRAP_BASE} --config image-stream=daily --force"
@@ -281,7 +281,7 @@ juju_bootstrap() {
 	bash -c "exec ${command} $*" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
-	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" && ${BOOTSTRAP_PROVIDER} != "microk8s" ]]; then
 		juju switch "${name}:controller"
 		wait_for_machine_agent_status "0" "started"
 	fi

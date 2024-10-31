@@ -14,7 +14,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
@@ -45,6 +47,13 @@ type ExportService interface {
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error)
 }
 
+// NotImplementedDeleteSecretState defines a secret state which does nothing.
+type NotImplementedDeleteSecretState struct{}
+
+func (NotImplementedDeleteSecretState) DeleteSecret(domain.AtomicContext, *coresecrets.URI, []int) error {
+	return nil
+}
+
 // exportOperation describes a way to execute a migration for
 // exporting applications.
 type exportOperation struct {
@@ -66,11 +75,11 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// so that we can create the appropriate storage instances.
 	e.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), e.logger),
+		NotImplementedDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		service.NotImplementedSecretService{},
 		e.logger,
 	)
 	return nil

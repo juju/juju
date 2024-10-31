@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/migration"
 )
 
@@ -71,7 +70,7 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		domainServices.Config(),
 		domainServices.ModelInfo(),
 		domainServices.Model(),
-		domainServices.Application(service.NotImplementedSecretService{}),
+		domainServices.Application(),
 		domainServices.Upgrade(),
 		domainServices.Agent(),
 	)

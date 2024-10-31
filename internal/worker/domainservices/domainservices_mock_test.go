@@ -743,17 +743,17 @@ func (c *MockModelDomainServicesAnnotationCall) DoAndReturn(f func() *service1.S
 }
 
 // Application mocks base method.
-func (m *MockModelDomainServices) Application(arg0 service2.SecretService) *service2.WatchableService {
+func (m *MockModelDomainServices) Application() *service2.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application", arg0)
+	ret := m.ctrl.Call(m, "Application")
 	ret0, _ := ret[0].(*service2.WatchableService)
 	return ret0
 }
 
 // Application indicates an expected call of Application.
-func (mr *MockModelDomainServicesMockRecorder) Application(arg0 any) *MockModelDomainServicesApplicationCall {
+func (mr *MockModelDomainServicesMockRecorder) Application() *MockModelDomainServicesApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockModelDomainServices)(nil).Application), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockModelDomainServices)(nil).Application))
 	return &MockModelDomainServicesApplicationCall{Call: call}
 }
 
@@ -769,13 +769,13 @@ func (c *MockModelDomainServicesApplicationCall) Return(arg0 *service2.Watchable
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesApplicationCall) Do(f func(service2.SecretService) *service2.WatchableService) *MockModelDomainServicesApplicationCall {
+func (c *MockModelDomainServicesApplicationCall) Do(f func() *service2.WatchableService) *MockModelDomainServicesApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesApplicationCall) DoAndReturn(f func(service2.SecretService) *service2.WatchableService) *MockModelDomainServicesApplicationCall {
+func (c *MockModelDomainServicesApplicationCall) DoAndReturn(f func() *service2.WatchableService) *MockModelDomainServicesApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1640,17 +1640,17 @@ func (c *MockDomainServicesAnnotationCall) DoAndReturn(f func() *service1.Servic
 }
 
 // Application mocks base method.
-func (m *MockDomainServices) Application(arg0 service2.SecretService) *service2.WatchableService {
+func (m *MockDomainServices) Application() *service2.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application", arg0)
+	ret := m.ctrl.Call(m, "Application")
 	ret0, _ := ret[0].(*service2.WatchableService)
 	return ret0
 }
 
 // Application indicates an expected call of Application.
-func (mr *MockDomainServicesMockRecorder) Application(arg0 any) *MockDomainServicesApplicationCall {
+func (mr *MockDomainServicesMockRecorder) Application() *MockDomainServicesApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockDomainServices)(nil).Application), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockDomainServices)(nil).Application))
 	return &MockDomainServicesApplicationCall{Call: call}
 }
 
@@ -1666,13 +1666,13 @@ func (c *MockDomainServicesApplicationCall) Return(arg0 *service2.WatchableServi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesApplicationCall) Do(f func(service2.SecretService) *service2.WatchableService) *MockDomainServicesApplicationCall {
+func (c *MockDomainServicesApplicationCall) Do(f func() *service2.WatchableService) *MockDomainServicesApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesApplicationCall) DoAndReturn(f func(service2.SecretService) *service2.WatchableService) *MockDomainServicesApplicationCall {
+func (c *MockDomainServicesApplicationCall) DoAndReturn(f func() *service2.WatchableService) *MockDomainServicesApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -42,8 +41,6 @@ type serviceSuite struct {
 
 	backendConfigGetter service.BackendAdminConfigGetter
 
-	secretsBackendProvider        *secret.MockSecretBackendProvider
-	secretsBackend                *secret.MockSecretsBackend
 	secretBackendReferenceMutator *secret.MockSecretBackendReferenceMutator
 }
 
@@ -67,8 +64,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.secretsBackendProvider = secret.NewMockSecretBackendProvider(ctrl)
-	s.secretsBackend = secret.NewMockSecretsBackend(ctrl)
 	s.secretBackendReferenceMutator = secret.NewMockSecretBackendReferenceMutator(ctrl)
 
 	s.svc = service.NewSecretService(
@@ -76,7 +71,6 @@ func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
 		secretbackendstate.NewState(func() (database.TxnRunner, error) { return s.ControllerTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
 		loggertesting.WrapCheckLog(c),
 		service.SecretServiceParams{BackendAdminConfigGetter: s.backendConfigGetter}).
-		WithProviderGetter(func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil }).
 		WithBackendRefMutator(s.secretBackendReferenceMutator)
 
 	return ctrl
@@ -88,7 +82,13 @@ func (t successfulToken) Check() error {
 	return nil
 }
 
-func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) (*coresecrets.URI, string) {
+type noopSecretDeleter struct{}
+
+func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error {
+	return nil
+}
+
+func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
 	ctx := context.Background()
 	factory := applicationstate.NewApplicationState(
 		func() (database.TxnRunner, error) {
@@ -99,10 +99,10 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 
 	appService := applicationservice.NewApplicationService(
 		factory,
+		noopSecretDeleter{},
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		applicationservice.NotImplementedSecretService{},
 		loggertesting.WrapCheckLog(c),
 	)
 	u := applicationservice.AddUnitArg{
@@ -133,24 +133,14 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	var revisionID string
-	err = s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-			SELECT uuid FROM secret_revision WHERE secret_id = ?
-		`, uri.ID).Scan(&revisionID)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return uri, revisionID
+	return uri
 }
 
 func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
-	uri, revisionID := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
-
-	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), []string{revisionID})
+	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
 
 	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
 		LeaderToken: successfulToken{},
@@ -198,18 +188,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 		RevisionID: "rev-id",
 	}
 	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
-	uri, revisionID := s.createSecret(c, nil, ref)
-
-	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), []string{revisionID})
-
-	s.secretsBackendProvider.EXPECT().Type().Return("active-type").AnyTimes()
-	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		return s.secretsBackend, nil
-	})
-	s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id")
-	s.secretsBackendProvider.EXPECT().CleanupSecrets(gomock.Any(), ptr(backendConfigs.Configs["backend-id"]), "mariadb/0", provider.SecretRevisions{
-		uri.ID: set.NewStrings("rev-id"),
-	})
+	uri := s.createSecret(c, nil, ref)
 
 	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
 		LeaderToken: successfulToken{},
@@ -223,28 +202,4 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 
 	_, err = s.svc.GetSecret(context.Background(), uri)
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
-}
-
-func (s *serviceSuite) TestGetSecretsForOwners(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	ref := &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "rev-id",
-	}
-	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
-	uri, _ := s.createSecret(c, nil, ref)
-
-	var uris []*coresecrets.URI
-	st := state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c))
-	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		uris, err = s.svc.GetSecretsForOwners(ctx, service.CharmSecretOwner{
-			Kind: service.UnitOwner,
-			ID:   "mariadb/0",
-		})
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uris, jc.SameContents, []*coresecrets.URI{uri})
 }

@@ -24,8 +24,7 @@ import (
 type AtomicState interface {
 	domain.AtomicStateBase
 
-	ListExternalSecretRevisions(ctx domain.AtomicContext, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
-	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) ([]string, error)
+	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) error
 	GetSecretsForOwners(
 		ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.URI, error)

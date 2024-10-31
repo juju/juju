@@ -29,7 +29,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -199,7 +198,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		modelConfigService:          domainServices.Config(),
 		modelInfoService:            modelInfoService,
 		machineService:              domainServices.Machine(),
-		applicationService:          domainServices.Application(service.NotImplementedSecretService{}),
+		applicationService:          domainServices.Application(),
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,

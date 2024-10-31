@@ -68,7 +68,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.domainServices = s.ControllerDomainServices(c)
 
 	s.machineService = s.domainServices.Machine()
-	s.applicationService = s.domainServices.Application(applicationservice.NotImplementedSecretService{})
+	s.applicationService = s.domainServices.Application()
 	s.portService = s.domainServices.Port()
 	s.stubService = s.domainServices.Stub()
 }

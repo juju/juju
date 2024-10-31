@@ -42,7 +42,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			),
 		},
 	)
-	applicationService := domainServices.Application(secretService)
+	applicationService := domainServices.Application()
 
 	return newUniterAPIWithServices(
 		stdCtx, ctx,

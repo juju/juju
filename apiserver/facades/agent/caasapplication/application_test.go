@@ -59,7 +59,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	// upserting of units.
 	domainServices := s.DefaultModelDomainServices(c)
 	unitName := unit.Name("gitlab/0")
-	s.applicationService = domainServices.Application(service.NotImplementedSecretService{})
+	s.applicationService = domainServices.Application()
 
 	origin := corecharm.Origin{
 		Source: corecharm.CharmHub,
