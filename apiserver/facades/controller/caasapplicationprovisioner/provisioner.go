@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -85,7 +84,6 @@ type API struct {
 	controllerConfigService ControllerConfigService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
-	machineService          MachineService
 	applicationService      ApplicationService
 	leadershipRevoker       leadership.Revoker
 	registry                storage.ProviderRegistry
@@ -171,7 +169,6 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		controllerConfigService,
 		modelConfigService,
 		modelInfoService,
-		ctx.DomainServices().Machine(),
 		applicationService,
 		leadershipRevoker,
 		registry,
@@ -272,7 +269,6 @@ func NewCAASApplicationProvisionerAPI(
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
-	machineService MachineService,
 	applicationService ApplicationService,
 	leadershipRevoker leadership.Revoker,
 	registry storage.ProviderRegistry,
@@ -296,7 +292,6 @@ func NewCAASApplicationProvisionerAPI(
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
-		machineService:          machineService,
 		applicationService:      applicationService,
 		leadershipRevoker:       leadershipRevoker,
 		registry:                registry,
@@ -805,7 +800,6 @@ func filesystemParams(
 	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (*params.KubernetesFilesystemParams, error) {
-
 	filesystemTags, err := storagecommon.StorageTags(nil, modelUUID.String(), controllerUUID, modelConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "computing storage tags")
@@ -1180,11 +1174,11 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 	}
 
 	// First do the volume updates as volumes need to be attached before the filesystem updates.
-	if err := a.updateVolumeInfo(ctx, volumeUpdates, volumeStatus); err != nil {
+	if err := a.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
 		return nil, errors.Annotatef(err, "updating volume information for %v", appName)
 	}
 
-	if err := a.updateFilesystemInfo(ctx, filesystemUpdates, filesystemStatus); err != nil {
+	if err := a.updateFilesystemInfo(filesystemUpdates, filesystemStatus); err != nil {
 		return nil, errors.Annotatef(err, "updating filesystem information for %v", appName)
 	}
 
@@ -1251,7 +1245,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 	return nil
 }
 
-func (a *API) updateVolumeInfo(ctx context.Context, volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
+func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var volTags []string
 	for tag := range volumeUpdates {
@@ -1284,14 +1278,6 @@ func (a *API) updateVolumeInfo(ctx context.Context, volumeUpdates map[string]vol
 			if err != nil {
 				return errors.Trace(err)
 			}
-		}
-		// Check that the machine is provisioned.
-		machineUUID, err := a.machineService.GetMachineUUID(ctx, machine.Name(volData.unitTag.Id()))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if _, err := a.machineService.InstanceID(ctx, machineUUID); err != nil {
-			return errors.Trace(err)
 		}
 		err = a.storage.SetVolumeAttachmentInfo(volData.unitTag, volTag, state.VolumeAttachmentInfo{
 			ReadOnly: volData.readOnly,
@@ -1331,7 +1317,7 @@ func (a *API) updateVolumeInfo(ctx context.Context, volumeUpdates map[string]vol
 	return nil
 }
 
-func (a *API) updateFilesystemInfo(ctx context.Context, filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
+func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var fsTags []string
 	for tag := range filesystemUpdates {
@@ -1363,15 +1349,6 @@ func (a *API) updateFilesystemInfo(ctx context.Context, filesystemUpdates map[st
 			if err != nil {
 				return errors.Trace(err)
 			}
-		}
-
-		// Check that the machine is provisioned before setting attachment info.
-		machineUUID, err := a.machineService.GetMachineUUID(ctx, machine.Name(fsData.unitTag.Id()))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if _, err := a.machineService.InstanceID(ctx, machineUUID); err != nil {
-			return errors.Trace(err)
 		}
 
 		err = a.storage.SetFilesystemAttachmentInfo(fsData.unitTag, fsTag, state.FilesystemAttachmentInfo{

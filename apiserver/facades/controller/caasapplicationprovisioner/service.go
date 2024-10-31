@@ -7,10 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -54,13 +52,4 @@ type ApplicationService interface {
 	DestroyUnit(context.Context, unit.Name) error
 	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
-}
-
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
 }
