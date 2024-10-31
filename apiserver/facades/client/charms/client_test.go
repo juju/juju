@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charms_test
+package charms
 
 import (
 	"context"
@@ -13,14 +13,15 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
@@ -490,8 +491,32 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 	c.Assert(result.OneError(), gc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
 }
 
-func (s *charmsMockSuite) api(c *gc.C) *charms.API {
-	api, err := charms.NewCharmsAPI(
+// NewCharmsAPI is only used for testing.
+func NewCharmsAPI(
+	authorizer facade.Authorizer,
+	st interfaces.BackendState,
+	modelConfigService ModelConfigService,
+	applicationService ApplicationService,
+	machineService MachineService,
+	modelTag names.ModelTag,
+	repoFactory corecharm.RepositoryFactory,
+	logger corelogger.Logger,
+) (*API, error) {
+	return &API{
+		authorizer:         authorizer,
+		backendState:       st,
+		modelConfigService: modelConfigService,
+		applicationService: applicationService,
+		machineService:     machineService,
+		tag:                modelTag,
+		requestRecorder:    noopRequestRecorder{},
+		repoFactory:        repoFactory,
+		logger:             logger,
+	}, nil
+}
+
+func (s *charmsMockSuite) api(c *gc.C) *API {
+	api, err := NewCharmsAPI(
 		s.authorizer,
 		s.state,
 		s.modelConfigService,

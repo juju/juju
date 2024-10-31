@@ -66,30 +66,6 @@ type API struct {
 	machineService     MachineService
 }
 
-// NewCharmsAPI is only used for testing.
-func NewCharmsAPI(
-	authorizer facade.Authorizer,
-	st charmsinterfaces.BackendState,
-	modelConfigService ModelConfigService,
-	applicationService ApplicationService,
-	machineService MachineService,
-	modelTag names.ModelTag,
-	repoFactory corecharm.RepositoryFactory,
-	logger corelogger.Logger,
-) (*API, error) {
-	return &API{
-		authorizer:         authorizer,
-		backendState:       st,
-		modelConfigService: modelConfigService,
-		applicationService: applicationService,
-		machineService:     machineService,
-		tag:                modelTag,
-		requestRecorder:    noopRequestRecorder{},
-		repoFactory:        repoFactory,
-		logger:             logger,
-	}, nil
-}
-
 // CharmInfo returns information about the requested charm.
 func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(ctx, args)
