@@ -59,7 +59,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 	// The EventQueue is mocked, but we use a real Sqlite DB from which the
 	// initial state is read. Insert some data to verify.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT PRIMARY KEY)"); err != nil {
+		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT NOT NULL PRIMARY KEY)"); err != nil {
 			return err
 		}
 
@@ -109,7 +109,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
 	// The EventQueue is mocked, but we use a real Sqlite DB from which the
 	// initial state is read. Insert some data to verify.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT PRIMARY KEY)"); err != nil {
+		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT NOT NULL PRIMARY KEY)"); err != nil {
 			return err
 		}
 
@@ -389,7 +389,7 @@ func (schemaDDLApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnR
 	schema := schema.New(
 		schema.MakePatch(`
 CREATE TABLE external_controller (
-	uuid            TEXT PRIMARY KEY,
+	uuid            TEXT NOT NULL PRIMARY KEY,
 	alias           TEXT,
 	ca_cert         TEXT NOT NULL
 );

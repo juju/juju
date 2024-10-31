@@ -12,7 +12,7 @@ INSERT INTO block_command_type VALUES
 (2, 'change');
 
 CREATE TABLE block_command (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     block_command_type_id INT NOT NULL,
     message TEXT,
     CONSTRAINT fk_block_command_type

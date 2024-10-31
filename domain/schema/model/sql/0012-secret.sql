@@ -19,7 +19,7 @@ INSERT INTO secret_rotate_policy VALUES
 (6, 'yearly');
 
 CREATE TABLE secret (
-    id TEXT PRIMARY KEY
+    id TEXT NOT NULL PRIMARY KEY
 );
 
 -- secret_reference stores details about

@@ -23,7 +23,7 @@ var _ = gc.Suite(&migrationSuite{})
 func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 	patches := schema.New()
 	patches.Add(
-		schema.MakePatch("CREATE TABLE band(name TEXT PRIMARY KEY);"),
+		schema.MakePatch("CREATE TABLE band(name TEXT NOT NULL PRIMARY KEY);"),
 		schema.MakePatch("INSERT INTO band VALUES (?);", "Blood Incantation"),
 	)
 
