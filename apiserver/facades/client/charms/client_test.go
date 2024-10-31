@@ -5,8 +5,6 @@ package charms_test
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -15,13 +13,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -30,65 +25,9 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing/factory"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-type charmsSuite struct {
-	// TODO(anastasiamac) mock to remove ApiServerSuite
-	jujutesting.ApiServerSuite
-	api  *charms.API
-	auth facade.Authorizer
-}
-
-var _ = gc.Suite(&charmsSuite{})
-
-func (s *charmsSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
-
-	s.auth = apiservertesting.FakeAuthorizer{
-		Tag:        jujutesting.AdminUser,
-		Controller: true,
-	}
-
-	var err error
-	s.api, err = charms.NewFacade(context.Background(), facadetest.ModelContext{
-		Auth_:               s.auth,
-		State_:              s.ControllerModel(c).State(),
-		Logger_:             loggertesting.WrapCheckLog(c),
-		DomainServices_:     s.DefaultModelDomainServices(c),
-		CharmhubHTTPClient_: &http.Client{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *charmsSuite) TestListCharmsNoFilter(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:quantal/dummy-1"})
-}
-
-func (s *charmsSuite) TestListCharmsWithFilterMatchingNone(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy"}, []string{"notdummy"}, []string{})
-}
-
-func (s *charmsSuite) TestListCharmsFilteredOnly(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy", "wordpress"}, []string{"dummy"}, []string{"local:quantal/dummy-1"})
-}
-
-func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []string) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	for _, aCharm := range someCharms {
-		f.MakeCharm(c, &factory.CharmParams{
-			Name: aCharm, URL: fmt.Sprintf("local:quantal/%s-1", aCharm),
-		})
-	}
-	found, err := s.api.List(context.Background(), params.CharmsList{Names: args})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(found.CharmURLs, gc.HasLen, len(expected))
-	c.Check(found.CharmURLs, jc.DeepEquals, expected)
-}
 
 type charmsMockSuite struct {
 	state        *mocks.MockBackendState
@@ -108,6 +47,57 @@ type charmsMockSuite struct {
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
+
+func (s *charmsMockSuite) TestListCharmsNoNames(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.applicationService.EXPECT().ListCharmsWithOriginByNames(gomock.Any(), []string{}).Return([]domaincharm.CharmWithOrigin{{
+		Name: "dummy",
+		CharmOrigin: domaincharm.CharmOrigin{
+			Source:        domaincharm.CharmHubSource,
+			ReferenceName: "dummy",
+			Revision:      1,
+			Platform: domaincharm.Platform{
+				Architecture: domaincharm.AMD64,
+			},
+		},
+	}}, nil)
+
+	api := s.api(c)
+	found, err := api.List(context.Background(), params.CharmsList{Names: []string{}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(found.CharmURLs, gc.HasLen, 1)
+	c.Check(found, gc.DeepEquals, params.CharmsListResult{
+		CharmURLs: []string{"ch:amd64/dummy-1"},
+	})
+}
+
+func (s *charmsMockSuite) TestListCharmsWithNames(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// We only return one of the names, because we couldn't find foo. This
+	// shouldn't stop us from returning the other charm url.
+
+	s.applicationService.EXPECT().ListCharmsWithOriginByNames(gomock.Any(), []string{"dummy", "foo"}).Return([]domaincharm.CharmWithOrigin{{
+		Name: "dummy",
+		CharmOrigin: domaincharm.CharmOrigin{
+			Source:        domaincharm.CharmHubSource,
+			ReferenceName: "dummy",
+			Revision:      1,
+			Platform: domaincharm.Platform{
+				Architecture: domaincharm.AMD64,
+			},
+		},
+	}}, nil)
+
+	api := s.api(c)
+	found, err := api.List(context.Background(), params.CharmsList{Names: []string{"dummy", "foo"}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(found.CharmURLs, gc.HasLen, 1)
+	c.Check(found, gc.DeepEquals, params.CharmsListResult{
+		CharmURLs: []string{"ch:amd64/dummy-1"},
+	})
+}
 
 func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	defer s.setupMocks(c).Finish()

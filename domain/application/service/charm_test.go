@@ -524,6 +524,54 @@ func (s *charmServiceSuite) TestDeleteCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *charmServiceSuite) TestListAllCharms(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := []domaincharm.CharmWithOrigin{{
+		Name: "foo",
+		CharmOrigin: domaincharm.CharmOrigin{
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      1,
+			Platform: domaincharm.Platform{
+				Architecture: domaincharm.ARM64,
+			},
+		},
+	}}
+	s.state.EXPECT().ListCharmsWithOriginByNames(gomock.Any(), []string{"foo"}).Return(expected, nil)
+
+	results, err := s.service.ListCharmsWithOriginByNames(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 1)
+	c.Check(results, gc.DeepEquals, expected)
+}
+
+func (s *charmServiceSuite) TestListAllCharmsByNames(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// If no names are passed in, we call a different state method.
+	// This simplifies the API for the caller, but makes the state methods
+	// very easy to implement.
+
+	expected := []domaincharm.CharmWithOrigin{{
+		Name: "foo",
+		CharmOrigin: domaincharm.CharmOrigin{
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      1,
+			Platform: domaincharm.Platform{
+				Architecture: domaincharm.ARM64,
+			},
+		},
+	}}
+	s.state.EXPECT().ListCharmsWithOrigin(gomock.Any()).Return(expected, nil)
+
+	results, err := s.service.ListCharmsWithOriginByNames(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 1)
+	c.Check(results, gc.DeepEquals, expected)
+}
+
 func (s *charmServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

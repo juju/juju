@@ -28,7 +28,8 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
-	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
@@ -65,32 +66,7 @@ type API struct {
 	machineService     MachineService
 }
 
-// CharmInfo returns information about the requested charm.
-func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
-	return a.charmInfoAPI.CharmInfo(ctx, args)
-}
-
-func (a *API) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.tag)
-	return err
-}
-
-func (a *API) checkCanWrite(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backendState.ControllerTag())
-	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return errors.Trace(err)
-	}
-
-	if err == nil {
-		return nil
-	}
-
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.tag)
-}
-
 // NewCharmsAPI is only used for testing.
-// TODO (stickupkid): We should use the latest NewFacadeV4 to better exercise
-// the API.
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
@@ -114,34 +90,55 @@ func NewCharmsAPI(
 	}, nil
 }
 
-// List returns a list of charm URLs currently in the state.
-// If supplied parameter contains any names, the result will
-// be filtered to return only the charms with supplied names.
+// CharmInfo returns information about the requested charm.
+func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(ctx, args)
+}
+
+func (a *API) checkCanRead(ctx context.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.tag)
+	return err
+}
+
+func (a *API) checkCanWrite(ctx context.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backendState.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return errors.Trace(err)
+	}
+
+	if err == nil {
+		return nil
+	}
+
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.tag)
+}
+
+// List returns a list of charm URLs currently in the state. If supplied
+// parameter contains any names, the result will be filtered to return only the
+// charms with supplied names. The order of the charms is not guaranteed to be
+// the same as the order of the names passed in.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
 	a.logger.Tracef("List %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
 
-	charms, err := a.backendState.AllCharms()
+	// Select all the charms from state. If no names are passed, all the charms
+	// will be returned.
+	names := set.NewStrings(args.Names...).SortedValues()
+	charms, err := a.applicationService.ListCharmsWithOriginByNames(ctx, names...)
 	if err != nil {
-		return params.CharmsListResult{}, errors.Annotatef(err, " listing charms ")
+		return params.CharmsListResult{}, errors.Annotatef(err, "listing charms")
 	}
 
-	charmNames := set.NewStrings(args.Names...)
-	checkName := !charmNames.IsEmpty()
-	charmURLs := []string{}
+	var charmURLs []string
 	for _, aCharm := range charms {
-		if checkName {
-			charmURL, err := charm.ParseURL(aCharm.URL())
-			if err != nil {
-				return params.CharmsListResult{}, errors.Trace(err)
-			}
-			if !charmNames.Contains(charmURL.Name) {
-				continue
-			}
+		curl, err := charmURLFromOrigin(aCharm.ReferenceName, aCharm.CharmOrigin)
+		if err != nil {
+			return params.CharmsListResult{}, errors.Trace(err)
 		}
-		charmURLs = append(charmURLs, aCharm.URL())
+
+		charmURLs = append(charmURLs, curl)
 	}
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
 }
@@ -336,7 +333,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 		return corecharm.Origin{}, errors.Annotatef(err, "making revision for charm %q", args.URL)
 	}
 
-	if _, _, err := a.applicationService.SetCharm(ctx, domaincharm.SetCharmArgs{
+	if _, _, err := a.applicationService.SetCharm(ctx, applicationcharm.SetCharmArgs{
 		Charm:         corecharm.NewCharmInfoAdaptor(metaRes),
 		Source:        schema,
 		ReferenceName: charmURL.Name,
@@ -713,3 +710,52 @@ func (noopRequestRecorder) Record(method string, url *url.URL, res *http.Respons
 
 // Record an outgoing request which returned back an error.
 func (noopRequestRecorder) RecordError(method string, url *url.URL, err error) {}
+
+// charmURLFromOrigin returns the charm URL for the current model.
+func charmURLFromOrigin(name string, origin applicationcharm.CharmOrigin) (string, error) {
+	schema, err := convertSource(origin.Source)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	architecture, err := convertApplication(origin.Platform.Architecture)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	url := charm.URL{
+		Schema:       schema,
+		Name:         name,
+		Revision:     origin.Revision,
+		Architecture: architecture,
+	}
+	return url.String(), nil
+}
+
+func convertSource(source applicationcharm.CharmSource) (string, error) {
+	switch source {
+	case applicationcharm.CharmHubSource:
+		return "ch", nil
+	case applicationcharm.LocalSource:
+		return "local", nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
+func convertApplication(arch application.Architecture) (string, error) {
+	switch arch {
+	case applicationcharm.AMD64:
+		return "amd64", nil
+	case applicationcharm.ARM64:
+		return "arm64", nil
+	case applicationcharm.PPC64EL:
+		return "ppc64el", nil
+	case applicationcharm.S390X:
+		return "s390x", nil
+	case applicationcharm.RISV64:
+		return "riscv64", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", arch)
+	}
+}

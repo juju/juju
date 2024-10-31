@@ -85,45 +85,6 @@ func (c *MockBackendStateAddCharmMetadataCall) DoAndReturn(f func(state.CharmInf
 	return c
 }
 
-// AllCharms mocks base method.
-func (m *MockBackendState) AllCharms() ([]*state.Charm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllCharms")
-	ret0, _ := ret[0].([]*state.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllCharms indicates an expected call of AllCharms.
-func (mr *MockBackendStateMockRecorder) AllCharms() *MockBackendStateAllCharmsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCharms", reflect.TypeOf((*MockBackendState)(nil).AllCharms))
-	return &MockBackendStateAllCharmsCall{Call: call}
-}
-
-// MockBackendStateAllCharmsCall wrap *gomock.Call
-type MockBackendStateAllCharmsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendStateAllCharmsCall) Return(arg0 []*state.Charm, arg1 error) *MockBackendStateAllCharmsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendStateAllCharmsCall) Do(f func() ([]*state.Charm, error)) *MockBackendStateAllCharmsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendStateAllCharmsCall) DoAndReturn(f func() ([]*state.Charm, error)) *MockBackendStateAllCharmsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Application mocks base method.
 func (m *MockBackendState) Application(arg0 string) (interfaces.Application, error) {
 	m.ctrl.T.Helper()

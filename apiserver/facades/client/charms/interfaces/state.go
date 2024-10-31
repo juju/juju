@@ -13,7 +13,6 @@ import (
 
 type BackendState interface {
 	AddCharmMetadata(state.CharmInfo) (*state.Charm, error)
-	AllCharms() ([]*state.Charm, error)
 	Application(string) (Application, error)
 	Charm(curl string) (*state.Charm, error)
 	ControllerTag() names.ControllerTag

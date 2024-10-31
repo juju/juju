@@ -27,6 +27,12 @@ type ApplicationService interface {
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
 	SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error)
+
+	// ListCharmsWithOriginByNames returns a list of charms with the specified
+	// origin by the name. If no names are provided, all charms are returned. We
+	// require the origin, so we can reconstruct the charm URL for the client
+	// response.
+	ListCharmsWithOriginByNames(ctx context.Context, names ...string) ([]charm.CharmWithOrigin, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

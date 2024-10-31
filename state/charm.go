@@ -759,20 +759,6 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	return nil, errors.Trace(err)
 }
 
-// AllCharms returns all charms in state.
-func (st *State) AllCharms() ([]*Charm, error) {
-	charmsCollection, closer := st.db().GetCollection(charmsC)
-	defer closer()
-	var cdoc charmDoc
-	var charms []*Charm
-	iter := charmsCollection.Find(nsLife.notDead()).Iter()
-	for iter.Next(&cdoc) {
-		ch := newCharm(st, &cdoc)
-		charms = append(charms, ch)
-	}
-	return charms, errors.Trace(iter.Close())
-}
-
 // Charm returns the charm with the given URL. Charms pending to be uploaded
 // are returned for Charmhub charms. Charm placeholders are never returned.
 func (st *State) Charm(curl string) (*Charm, error) {

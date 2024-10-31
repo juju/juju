@@ -132,6 +132,16 @@ CREATE TABLE charm_platform (
     REFERENCES architecture (id)
 );
 
+CREATE VIEW v_charm_platform AS
+SELECT
+    cp.charm_uuid,
+    os.name AS os,
+    cp.channel,
+    architecture.name AS architecture
+FROM charm_platform AS cp
+LEFT JOIN os ON cp.os_id = os.id
+LEFT JOIN architecture ON cp.architecture_id = architecture.id;
+
 CREATE TABLE hash_kind (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
