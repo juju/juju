@@ -57,8 +57,9 @@ type State interface {
 	// is returned.
 	UpdateCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs map[string]string) error
 
-	// DeleteCloudDefaults deletes the specified cloud default
-	// config values for the provided keys if they exist.
+	// DeleteCloudDefaults will delete the specified default keys from the cloud
+	// if they exist. If the cloud does not exist an error satisfying
+	// [clouderrors.NotFound] will be returned.
 	DeleteCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs []string) error
 
 	// UpdateCloudRegionDefaults is responsible for updating default config values
@@ -68,17 +69,18 @@ type State interface {
 	// is returned.
 	UpdateCloudRegionDefaults(ctx context.Context, cloudUID cloud.UUID, regionName string, attrs map[string]string) error
 
-	// DeleteCloudRegionDefaults deletes the specified default config
-	// keys for the given cloud region.
-	// It returns an error satisfying [errors.NotFound] if the
-	// region doesn't exist.
+	// DeleteCloudRegionDefaults deletes the specified default config keys for
+	// the given cloud region. It returns an error satisfying
+	// [clouderrors.NotFound] if the cloud region doesn't exist.
 	DeleteCloudRegionDefaults(ctx context.Context, cloudUID cloud.UUID, regionName string, attrs []string) error
 
 	// ConfigDefaults returns the default configuration values set in Juju.
 	ConfigDefaults(context.Context) map[string]any
 
 	// CloudDefaults returns the defaults associated with the given cloud. If
-	// no defaults are found then an empty map will be returned with a nil error.
+	// no defaults are found then an empty map will be returned with a nil
+	// error. If no cloud exists for the given id an error satisfying
+	// [clouderrors.NotFound] will be returned.
 	CloudDefaults(context.Context, cloud.UUID) (map[string]string, error)
 
 	// ModelCloudRegionDefaults returns the defaults associated with the model's cloud region.
@@ -96,10 +98,10 @@ type State interface {
 		cloudUUID cloud.UUID,
 	) (map[string]map[string]string, error)
 
-	// ModelMetadataDefaults is responsible for providing metadata defaults for a
-	// model's config. These include things like the model's name and uuid.
-	// If no model exists for the provided uuid then a [modelerrors.NotFound] error
-	// is returned.
+	// ModelMetadataDefaults is responsible for providing metadata defaults for
+	// a model's config. These include things like the model's name and uuid.
+	// If no model exists for the provided uuid then a [modelerrors.NotFound]
+	// error is returned.
 	// Deprecated: this is only to support legacy callers.
 	ModelMetadataDefaults(context.Context, coremodel.UUID) (map[string]string, error)
 
