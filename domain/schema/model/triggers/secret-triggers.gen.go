@@ -9,6 +9,43 @@ import (
 )
 
 
+// ChangeLogTriggersForSecretDeletedValueRef generates the triggers for the
+// secret_deleted_value_ref table.
+func ChangeLogTriggersForSecretDeletedValueRef(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretDeletedValueRef
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_deleted_value_ref', 'SecretDeletedValueRef changes based on %[1]s');
+
+-- insert trigger for SecretDeletedValueRef
+CREATE TRIGGER trg_log_secret_deleted_value_ref_insert
+AFTER INSERT ON secret_deleted_value_ref FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for SecretDeletedValueRef
+CREATE TRIGGER trg_log_secret_deleted_value_ref_update
+AFTER UPDATE ON secret_deleted_value_ref FOR EACH ROW
+WHEN 
+	NEW.revision_uuid != OLD.revision_uuid OR
+	NEW.backend_uuid != OLD.backend_uuid OR
+	NEW.revision_id != OLD.revision_id 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for SecretDeletedValueRef
+CREATE TRIGGER trg_log_secret_deleted_value_ref_delete
+AFTER DELETE ON secret_deleted_value_ref FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForSecretMetadata generates the triggers for the
 // secret_metadata table.
 func ChangeLogTriggersForSecretMetadata(columnName string, namespaceID int) func() schema.Patch {

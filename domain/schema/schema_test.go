@@ -457,6 +457,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_metadata",
 		"secret_rotation",
 		"secret_value_ref",
+		"secret_deleted_value_ref",
 		"secret_content",
 		"secret_revision",
 		"secret_revision_obsolete",
@@ -625,6 +626,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_reference_delete",
 		"trg_log_secret_reference_insert",
 		"trg_log_secret_reference_update",
+
+		"trg_log_secret_deleted_value_ref_delete",
+		"trg_log_secret_deleted_value_ref_insert",
+		"trg_log_secret_deleted_value_ref_update",
 
 		"trg_log_secret_revision_delete",
 		"trg_log_secret_revision_insert",
@@ -858,6 +863,17 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 1, tableSecretReference, 1)
 	s.assertChangeLogCount(c, 2, tableSecretReference, 1)
 	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
+
+	// secret_deleted_value_ref table triggers.
+	deletedRvisionUUID := utils.MustNewUUID().String()
+	backendUUIDUUID := utils.MustNewUUID().String()
+	s.assertChangeLogCount(c, 1, tableSecretDeletedValueRef, 0)
+	s.assertChangeLogCount(c, 2, tableSecretDeletedValueRef, 0)
+	s.assertChangeLogCount(c, 4, tableSecretDeletedValueRef, 0)
+
+	// We only care about inserts into this table.
+	s.assertExecSQL(c, `INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?);`, deletedRvisionUUID, backendUUIDUUID, "rev")
+	s.assertChangeLogCount(c, 1, tableSecretDeletedValueRef, 1)
 
 	charmUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, "INSERT INTO charm (uuid) VALUES (?);", charmUUID)

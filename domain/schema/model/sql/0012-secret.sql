@@ -70,6 +70,14 @@ CREATE TABLE secret_value_ref (
     REFERENCES secret_revision (uuid)
 );
 
+-- Deleted revisions for which content is stored externally.
+-- These rows are deleted after the external content has been deleted.
+CREATE TABLE secret_deleted_value_ref (
+    revision_uuid TEXT NOT NULL PRIMARY KEY,
+    backend_uuid TEXT NOT NULL,
+    revision_id TEXT NOT NULL
+);
+
 -- 1:many
 CREATE TABLE secret_content (
     revision_uuid TEXT NOT NULL,
