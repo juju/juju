@@ -7,7 +7,7 @@
 // partitioning is done based on packaging cohesive functional behaviour,
 // not individual entity concerns.
 //
-// # Domain services
+// # Package layout and conventions
 //
 // Each domain service package has several key artefacts:
 //   - the service providing public APIs called by API server facades.
