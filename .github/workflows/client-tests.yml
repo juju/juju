@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macOS-latest]
+        os: [ubuntu-latest, macOS-latest]
 
     steps:
     - name: "Checkout"
@@ -35,9 +35,7 @@ jobs:
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
-        # Jenkins can perform the full jujud testing.
-        TEST_PACKAGES=./cmd/juju/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
-        TEST_PACKAGES=./cmd/plugins/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
+        COVERAGE_CHECK=1 TEST_TIMEOUT="30m" make run-go-tests
 
     - name: "Test client (macOS)"
       if: (matrix.os == 'macOS-latest')
