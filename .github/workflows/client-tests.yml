@@ -7,13 +7,15 @@ permissions:
   contents: read
 
 jobs:
-  test-client-ubuntu:
+  test-client:
     name: "Client Tests"
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, xxlarge]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        platform:
+          - { os: linux, arch: amd64, host_arch: x64 }
+          - { os: darwin, arch: arm64, host_arch: arm64 }
 
     steps:
     - name: "Checkout"
@@ -26,19 +28,38 @@ jobs:
         cache: true
 
     - name: "Install musl & dqlite (Ubuntu)"
-      if: (matrix.os == 'ubuntu-latest')
+      if: (matrix.platform.os == 'linux')
       shell: bash
       run: |
-        sudo make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
+        go version
+        make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
+    
+    - name: "Install dependencies (Ubuntu)"
+      if: (matrix.platform.os == 'linux')
+      shell: bash
+      run: |
+        sudo make install-mongo-dependencies install-sqlite3-dependencies
+
+    - name: "Install go dependencies (Ubuntu)"
+      if: (matrix.platform.os == 'linux')
+      shell: bash
+      run: |
+        go install honnef.co/go/tools/cmd/staticcheck@v0.5.1
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/AlekSi/gocov-xml@v1.1.0
 
     - name: "Test client (Ubuntu)"
-      if: (matrix.os == 'ubuntu-latest')
+      if: (matrix.platform.os == 'linux')
       shell: bash
       run: |
         COVERAGE_CHECK=1 TEST_TIMEOUT="30m" make run-go-tests
+        gocov convert coverage.txt > coverage.json
+        # Annoyingly, the coverage.xml file needs to be in a .coverage folder.
+        mkdir .coverage
+        gocov-xml < coverage.json > .coverage/coverage.xml
 
     - name: "Test client (macOS)"
-      if: (matrix.os == 'macOS-latest')
+      if: (matrix.platform.os == 'darwin')
       shell: bash
       run: |
         go test -race -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
