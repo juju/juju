@@ -1,16 +1,16 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package domain contains the implementation of the domain services.
-// Each domain service is responsible for providing apis pertaining
+// Package domain implements domain services.
+// Each domain service is responsible for providing APIs pertaining
 // to a logical domain. Domains may cross entity boundaries; the
-// partitioning is done based on packaging cohesive functional behaviour
+// partitioning is done based on packaging cohesive functional behaviour,
 // not individual entity concerns.
 //
 // # Domain services
 //
 // Each domain service package has several key artefacts:
-//   - the service providing public APIS called by api server facades.
+//   - the service providing public APIs called by API server facades.
 //   - the state providing functionality to read and write persistent data.
 //   - params structs which are used as arguments / results for service API calls.
 //   - arg structs which are used as arguments / results for state calls.
@@ -69,7 +69,7 @@
 //	    domaintesting.ModelSuite
 //	}
 //
-// Tests which need to seed database rows or read rows to
+// Tests that need to seed database rows or read rows to
 // evaluate results may do so using a sql txn. Note that
 // any test assertions must be done outside the transaction.
 //
