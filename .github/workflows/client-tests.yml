@@ -58,6 +58,18 @@ jobs:
         mkdir .coverage
         gocov-xml < coverage.json > .coverage/coverage.xml
 
+    - name: "TICS (Ubuntu)"
+      if: (matrix.platform.os == 'linux')
+      uses: tiobe/tics-github-action@v3
+      continue-on-error: true
+      with:
+        mode: qserver
+        viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+        ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+        project: juju
+        installTics: true
+        branchname: main
+
     - name: "Test client (macOS)"
       if: (matrix.platform.os == 'darwin')
       shell: bash
