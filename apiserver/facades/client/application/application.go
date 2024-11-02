@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -48,6 +49,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
@@ -126,6 +128,7 @@ type APIBase struct {
 }
 
 type CaasBrokerInterface interface {
+	ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error)
 	ValidateStorageClass(config map[string]interface{}) error
 	Version() (*version.Number, error)
 }
@@ -447,6 +450,7 @@ type caasDeployParams struct {
 	config          map[string]string
 	placement       []*instance.Placement
 	storage         map[string]storage.Constraints
+	constraints     constraints.Value
 }
 
 // precheck, checks the deploy config based on caas specific
@@ -457,6 +461,17 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
+	// TODO: context.Background() should go away as we move to 4.0 and context object
+	// is past to precheck()
+	constraintsValidator, err := caasBroker.ConstraintsValidator(
+		envcontext.WithoutCredentialInvalidator(context.Background()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := constraintsValidator.Validate(c.constraints); err != nil {
+		return errors.Trace(err)
+	}
+
 	if len(c.attachStorage) > 0 {
 		return errors.Errorf(
 			"AttachStorage may not be specified for container models",
@@ -575,6 +590,7 @@ func deployApplication(
 			config:          args.Config,
 			placement:       args.Placement,
 			storage:         args.Storage,
+			constraints: args.Constraints,
 		}
 		if err := caas.precheck(model, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)
