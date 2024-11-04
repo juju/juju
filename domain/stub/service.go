@@ -31,7 +31,9 @@ type StubService struct {
 }
 
 // NewStubService returns a new StubService.
-func NewStubService(factory database.TxnRunnerFactory) *StubService {
+func NewStubService(
+	factory database.TxnRunnerFactory,
+) *StubService {
 	return &StubService{
 		StateBase: domain.NewStateBase(factory),
 	}
@@ -54,7 +56,7 @@ FROM machine
 WHERE name = $machine.name
 `, netNodeUUID{}, machine{})
 	if err != nil {
-		return errors.Errorf("failed to prepare machine query: %v", err)
+		return errors.Errorf("preparing machine query: %v", err)
 	}
 
 	verifyUnitsExistQuery, err := s.Prepare(`
@@ -63,7 +65,7 @@ FROM unit
 WHERE name IN ($units[:])
 `, count{}, units{})
 	if err != nil {
-		return errors.Errorf("failed to prepare verify units exist query: %v", err)
+		return errors.Errorf("preparing verify units exist query: %v", err)
 	}
 
 	setUnitsNetNodeQuery, err := s.Prepare(`
@@ -72,7 +74,7 @@ SET net_node_uuid = $netNodeUUID.net_node_uuid
 WHERE name IN ($units[:])
 `, netNodeUUID{}, units{})
 	if err != nil {
-		return errors.Errorf("failed to prepare set units query: %v", err)
+		return errors.Errorf("preparing set units query: %v", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -83,28 +85,29 @@ WHERE name IN ($units[:])
 				return errors.Errorf("%w: %v", machineerrors.MachineNotFound, machine.MachineName)
 			}
 			if err != nil {
-				return errors.Errorf("failed to get machine net node: %v", err)
+				return errors.Errorf("getting machine net node: %v", err)
 			}
 
 			var count count
 			err = tx.Query(ctx, verifyUnitsExistQuery, units).Get(&count)
 			if err != nil {
-				return errors.Errorf("failed to verify units exist: %v", err)
+				return errors.Errorf("verifying units exist: %v", err)
 			}
 			if count.Count != len(units) {
-				return errors.Errorf("not all units found %q%w", units, jujuerrors.Hide(applicationerrors.UnitNotFound))
+				return errors.Errorf("not all units found %q", units).
+					Add(applicationerrors.UnitNotFound)
 			}
 
 			err = tx.Query(ctx, setUnitsNetNodeQuery, netNodeUUID, units).Run()
 			if err != nil {
-				return errors.Errorf("failed to set unit: %v", err)
+				return errors.Errorf("setting unit: %v", err)
 			}
 		}
 		return nil
 	})
 
 	if err != nil {
-		return errors.Errorf("failed to assign units to machines: %w", err)
+		return errors.Errorf("assigning units to machines: %w", err)
 	}
 	return err
 }

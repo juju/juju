@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	context "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -75,7 +77,7 @@ func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseStorageSuite) storageMetadata() (storage.StorageService, jujustorage.ProviderRegistry, error) {
+func (s *baseStorageSuite) storageMetadata(context.Context) (storage.StorageService, jujustorage.ProviderRegistry, error) {
 	return s.storageService, s.registry, nil
 }
 

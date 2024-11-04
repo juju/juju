@@ -148,6 +148,10 @@ func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name str
 	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
 }
 
+func (m *mockStoragePoolGetter) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
+	return &mockStorageRegistry{}, nil
+}
+
 type mockModel struct {
 	testing.Stub
 	state *mockState

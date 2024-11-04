@@ -45,7 +45,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -130,18 +129,12 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 	stateCharm := CharmToStateCharm
 
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		m,
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Config(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
+	storageService := domainServices.Storage()
+
+	registry, err := storageService.GetStorageRegistry(stdCtx)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage provider registry")
+		return nil, errors.Annotate(err, "getting storage registry")
 	}
-	storagePoolGetter := domainServices.Storage()
 
 	var caasBroker caas.Broker
 	if model.Type() == state.ModelTypeCAAS {
@@ -197,7 +190,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		applicationService: applicationService,
 		registry:           registry,
 		state:              state,
-		storagePoolGetter:  storagePoolGetter,
+		storagePoolGetter:  storageService,
 		logger:             repoLogger,
 	}
 
@@ -229,7 +222,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
-		storagePoolGetter,
+		storageService,
 		registry,
 		resources,
 		caasBroker,

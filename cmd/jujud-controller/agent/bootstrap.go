@@ -47,10 +47,10 @@ import (
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var (
@@ -350,7 +350,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapMachineAddresses: addrs,
 			BootstrapMachineJobs:      agentConfig.Jobs(),
 			SharedSecret:              info.SharedSecret,
-			StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
+			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
 			Provider:                  environs.Provider,

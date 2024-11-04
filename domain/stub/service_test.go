@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -41,14 +42,9 @@ var addApplicationArg = application.AddApplicationArg{
 	},
 }
 
-func (s *stubSuite) SetUpTest(c *gc.C) {
-	s.ModelSuite.SetUpTest(c)
-	s.srv = NewStubService(s.TxnRunnerFactory())
-	s.appState = applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
-	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
-}
-
 func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -87,6 +83,8 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -103,6 +101,8 @@ func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -127,6 +127,8 @@ func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
 		if err != nil {
@@ -175,6 +177,8 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 }
 
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	var appID coreapplication.ID
 	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
@@ -230,4 +234,14 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unitNodeUUID0, gc.Equals, machineNodeUUID)
 	c.Check(unitNodeUUID1, gc.Equals, machineNodeUUID)
+}
+
+func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.srv = NewStubService(s.TxnRunnerFactory())
+	s.appState = applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+
+	return ctrl
 }

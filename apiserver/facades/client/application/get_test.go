@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	coreconfig "github.com/juju/juju/core/config"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -61,7 +61,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	envFunc := stateenvirons.GetNewEnvironFunc(environs.New)
 	env, err := envFunc(s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	c.Assert(err, jc.ErrorIsNil)
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+	registry := storageprovider.NewStorageProviderRegistry(env)
 
 	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
@@ -209,16 +209,6 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		mod,
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Config(),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationService := domainServices.Application(service.NotImplementedSecretService{})
 
 	api, err := application.NewAPIBase(
@@ -242,7 +232,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		domainServices.Storage(),
-		registry,
+		nil,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),

@@ -332,7 +332,9 @@ func (s *ModelFactory) Port() *portservice.WatchableService {
 // Deprecated: Stub service contains only temporary methods and should be removed
 // as soon as possible.
 func (s *ModelFactory) Stub() *stubservice.StubService {
-	return stubservice.NewStubService(changestream.NewTxnRunnerFactory(s.modelDB))
+	return stubservice.NewStubService(
+		changestream.NewTxnRunnerFactory(s.modelDB),
+	)
 }
 
 // BlockCommand returns the service for blocking commands.

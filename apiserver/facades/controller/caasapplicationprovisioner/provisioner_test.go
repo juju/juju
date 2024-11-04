@@ -106,7 +106,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 		s.modelInfoService,
 		s.applicationService,
 		s.leadershipRevoker,
-		s.registry,
 		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c))
@@ -131,7 +130,6 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.modelInfoService,
 		s.applicationService,
 		s.leadershipRevoker,
-		s.registry,
 		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c))
@@ -803,7 +801,7 @@ func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := caasapplicationprovisioner.CharmStorageParams(
 		context.Background(), coretesting.ControllerTag.Id(),
-		"notpool", cfg, model.UUID(coretesting.ModelTag.Id()), "", s.storagePoolGetter, s.registry,
+		"notpool", cfg, model.UUID(coretesting.ModelTag.Id()), "", s.storagePoolGetter,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, jc.DeepEquals, &params.KubernetesFilesystemParams{

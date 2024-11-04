@@ -25,6 +25,12 @@ func CommonStorageProviders() storage.ProviderRegistry {
 	return storage.StaticProviderRegistry{Providers: commonStorageProviders}
 }
 
+// NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
+// the provided registry with the common storage providers.
+func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
+	return storage.ChainedProviderRegistry{reg, CommonStorageProviders()}
+}
+
 // AllowedContainerProvider returns true if the specified storage type
 // can be used with a vm container.
 // Currently, this is a very restricted list, just the storage types
