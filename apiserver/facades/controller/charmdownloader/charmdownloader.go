@@ -12,10 +12,10 @@ import (
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
-	"github.com/juju/juju/internal/http"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -28,7 +28,7 @@ type CharmDownloaderAPI struct {
 	resourcesBackend   ResourcesBackend
 	stateBackend       StateBackend
 	clock              clock.Clock
-	charmhubHTTPClient http.HTTPClient
+	charmhubHTTPClient corehttp.HTTPClient
 
 	objectStore   services.Storage
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error)
@@ -48,7 +48,7 @@ func newAPI(
 	stateBackend StateBackend,
 	modelConfigService ModelConfigService,
 	clk clock.Clock,
-	httpClient http.HTTPClient,
+	httpClient corehttp.HTTPClient,
 	objectStore services.Storage,
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error),
 	logger corelogger.Logger,

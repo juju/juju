@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storageregistry
+package httpclient
 
 import (
 	"context"
@@ -12,11 +12,9 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/core/database"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/providertracker"
-	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/internal/storage"
+	internalhttp "github.com/juju/juju/internal/http"
 )
 
 const (
@@ -27,20 +25,19 @@ const (
 // WorkerConfig encapsulates the configuration options for the storage registry
 // worker.
 type WorkerConfig struct {
-	// ProviderFactory is used to get provider instances.
-	ProviderFactory          providertracker.ProviderFactory
-	NewStorageRegistryWorker StorageRegistryWorkerFunc
-	Clock                    clock.Clock
-	Logger                   logger.Logger
+	NewHTTPClient       NewHTTPClientFunc
+	NewHTTPClientWorker HTTPClientWorkerFunc
+	Clock               clock.Clock
+	Logger              logger.Logger
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
-	if c.ProviderFactory == nil {
-		return errors.NotValidf("nil ProviderFactory")
+	if c.NewHTTPClient == nil {
+		return errors.NotValidf("nil NewHTTPClient")
 	}
-	if c.NewStorageRegistryWorker == nil {
-		return errors.NotValidf("nil NewStorageRegistryWorker")
+	if c.NewHTTPClientWorker == nil {
+		return errors.NotValidf("nil NewHTTPClientWorker")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -51,34 +48,34 @@ func (c *WorkerConfig) Validate() error {
 	return nil
 }
 
-// storageRegistryRequest is used to pass requests for Storage Registry
+// httpClientRequest is used to pass requests for Storage Registry
 // instances into the worker loop.
-type storageRegistryRequest struct {
+type httpClientRequest struct {
 	namespace string
 	done      chan error
 }
 
-type storageRegistryWorker struct {
+type httpClientWorker struct {
 	internalStates chan string
 	cfg            WorkerConfig
 	catacomb       catacomb.Catacomb
 
 	runner *worker.Runner
 
-	storageRegistryRequests chan storageRegistryRequest
+	httpClientRequests chan httpClientRequest
 }
 
 // NewWorker creates a new object store worker.
-func NewWorker(cfg WorkerConfig) (*storageRegistryWorker, error) {
+func NewWorker(cfg WorkerConfig) (*httpClientWorker, error) {
 	return newWorker(cfg, nil)
 }
 
-func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWorker, error) {
+func newWorker(cfg WorkerConfig, internalStates chan string) (*httpClientWorker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := &storageRegistryWorker{
+	w := &httpClientWorker{
 		internalStates: internalStates,
 		cfg:            cfg,
 		runner: worker.NewRunner(worker.RunnerParams{
@@ -86,13 +83,10 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWo
 			IsFatal: func(err error) bool {
 				return false
 			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
 		}),
-		storageRegistryRequests: make(chan storageRegistryRequest),
+		httpClientRequests: make(chan httpClientRequest),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -108,16 +102,16 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWo
 	return w, nil
 }
 
-func (w *storageRegistryWorker) loop() (err error) {
+func (w *httpClientWorker) loop() (err error) {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
 	for {
 		select {
-		// The following ensures that all storageRegistryRequests are serialised and
+		// The following ensures that all httpClientRequests are serialised and
 		// processed in order.
-		case req := <-w.storageRegistryRequests:
-			if err := w.initStorageRegistry(req.namespace); err != nil {
+		case req := <-w.httpClientRequests:
+			if err := w.initHTTPClient(req.namespace); err != nil {
 				select {
 				case req.done <- errors.Trace(err):
 				case <-w.catacomb.Dying():
@@ -139,40 +133,40 @@ func (w *storageRegistryWorker) loop() (err error) {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *storageRegistryWorker) Kill() {
+func (w *httpClientWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *storageRegistryWorker) Wait() error {
+func (w *httpClientWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// GetStorageRegistry returns a storageRegistry for the given namespace.
-func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespace string) (storage.ProviderRegistry, error) {
-	// First check if we've already got the storageRegistry worker already running.
-	// If we have, then return out quickly. The storageRegistryRunner is the cache,
+// GetHTTPClient returns a httpClient for the given namespace.
+func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace string) (corehttp.HTTPClient, error) {
+	// First check if we've already got the httpClient worker already running.
+	// If we have, then return out quickly. The httpClientRunner is the cache,
 	// so there is no need to have a in-memory cache here.
-	if storageRegistry, err := w.workerFromCache(namespace); err != nil {
+	if httpClient, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, corestorage.ErrStorageRegistryDying
+			return nil, corehttp.ErrHTTPClientDying
 		}
 
 		return nil, errors.Trace(err)
-	} else if storageRegistry != nil {
-		return storageRegistry, nil
+	} else if httpClient != nil {
+		return httpClient, nil
 	}
 
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
-	req := storageRegistryRequest{
+	req := httpClientRequest{
 		namespace: namespace,
 		done:      make(chan error),
 	}
 	select {
-	case w.storageRegistryRequests <- req:
+	case w.httpClientRequests <- req:
 	case <-w.catacomb.Dying():
-		return nil, corestorage.ErrStorageRegistryDying
+		return nil, corehttp.ErrHTTPClientDying
 	case <-ctx.Done():
 		return nil, errors.Trace(ctx.Err())
 	}
@@ -181,12 +175,12 @@ func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespac
 	select {
 	case err := <-req.done:
 		// If we know we've got an error, just return that error before
-		// attempting to ask the storageRegistryRunnerWorker.
+		// attempting to ask the objectStoreRunnerWorker.
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, corestorage.ErrStorageRegistryDying
+		return nil, corehttp.ErrHTTPClientDying
 	case <-ctx.Done():
 		return nil, errors.Trace(ctx.Err())
 	}
@@ -198,15 +192,15 @@ func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespac
 		return nil, errors.Trace(err)
 	}
 	if tracked == nil {
-		return nil, errors.NotFoundf("storageregistry")
+		return nil, errors.NotFoundf("httpclient")
 	}
-	return tracked.(storage.ProviderRegistry), nil
+	return tracked.(corehttp.HTTPClient), nil
 }
 
-func (w *storageRegistryWorker) workerFromCache(namespace string) (storage.ProviderRegistry, error) {
+func (w *httpClientWorker) workerFromCache(namespace string) (corehttp.HTTPClient, error) {
 	// If the worker already exists, return the existing worker early.
-	if storageRegistry, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return storageRegistry.(storage.ProviderRegistry), nil
+	if httpClient, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return httpClient.(corehttp.HTTPClient), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
 		select {
@@ -225,22 +219,13 @@ func (w *storageRegistryWorker) workerFromCache(namespace string) (storage.Provi
 	return nil, nil
 }
 
-func (w *storageRegistryWorker) initStorageRegistry(namespace string) error {
+func (w *httpClientWorker) initHTTPClient(namespace string) error {
 	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
+		// TODO (stickupkid): We can pass in additional configuration here if
+		// needed.
+		httpClient := w.cfg.NewHTTPClient(internalhttp.WithLogger(w.cfg.Logger))
 
-		provider, err := w.cfg.ProviderFactory.ProviderForModel(ctx, namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		storageRegistry, ok := provider.(storage.ProviderRegistry)
-		if !ok {
-			return nil, errors.NotSupportedf("provider does not implement storage.ProviderRegistry")
-		}
-
-		worker, err := w.cfg.NewStorageRegistryWorker(storageRegistry)
+		worker, err := w.cfg.NewHTTPClientWorker(httpClient)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -253,15 +238,7 @@ func (w *storageRegistryWorker) initStorageRegistry(namespace string) error {
 	return errors.Trace(err)
 }
 
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *storageRegistryWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
-}
-
-func (w *storageRegistryWorker) reportInternalState(state string) {
+func (w *httpClientWorker) reportInternalState(state string) {
 	select {
 	case <-w.catacomb.Dying():
 	case w.internalStates <- state:
