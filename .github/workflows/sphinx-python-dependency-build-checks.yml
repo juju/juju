@@ -41,7 +41,7 @@ jobs:
       - name: Build Sphinx venv
         run: |
           set -ex
-          make -f docs/Makefile.sp \
+          make -f doc/Makefile.sp \
             sp-install \
             PIPOPTS="--no-binary :all:" \
             || ( cat .sphinx/venv/pip_install.log && exit 1 )
