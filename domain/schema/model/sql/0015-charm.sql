@@ -194,6 +194,7 @@ INSERT INTO charm_relation_scope VALUES
 (1, 'container');
 
 CREATE TABLE charm_relation (
+    uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
     kind_id TEXT NOT NULL,
     "key" TEXT NOT NULL,
@@ -214,9 +215,11 @@ CREATE TABLE charm_relation (
     REFERENCES charm_relation_role (id),
     CONSTRAINT fk_charm_relation_scope
     FOREIGN KEY (scope_id)
-    REFERENCES charm_relation_scope (id),
-    PRIMARY KEY (charm_uuid, kind_id, "key")
+    REFERENCES charm_relation_scope (id)
 );
+
+CREATE UNIQUE INDEX idx_charm_relation_charm_key
+ON charm_relation (charm_uuid, "key");
 
 CREATE VIEW v_charm_relation AS
 SELECT

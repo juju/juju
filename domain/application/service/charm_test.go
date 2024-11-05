@@ -485,6 +485,34 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
+func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Provides: map[string]internalcharm.Relation{
+			"foo": {
+				Role:  internalcharm.RoleProvider,
+				Scope: internalcharm.ScopeGlobal,
+			},
+		},
+		Requires: map[string]internalcharm.Relation{
+			"foo": {
+				Role:  internalcharm.RoleRequirer,
+				Scope: internalcharm.ScopeGlobal,
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationNameConflict)
+}
+
 func (s *charmServiceSuite) TestDeleteCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

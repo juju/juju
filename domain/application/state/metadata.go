@@ -10,6 +10,8 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type relationKind = string
@@ -468,7 +470,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	for _, relation := range metatadata.Provides {
 		encoded, err := encodeRelation(id, relationKindProvides, relation)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode provides relation: %w", err)
+			return nil, errors.Errorf("cannot encode provides relation: %w", err)
 		}
 		result = append(result, encoded)
 	}
@@ -476,7 +478,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	for _, relation := range metatadata.Requires {
 		encoded, err := encodeRelation(id, relationKindRequires, relation)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode requires relation: %w", err)
+			return nil, errors.Errorf("cannot encode requires relation: %w", err)
 		}
 		result = append(result, encoded)
 	}
@@ -484,7 +486,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	for _, relation := range metatadata.Peers {
 		encoded, err := encodeRelation(id, relationKindPeers, relation)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode peers relation: %w", err)
+			return nil, errors.Errorf("cannot encode peers relation: %w", err)
 		}
 		result = append(result, encoded)
 	}
@@ -493,22 +495,28 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 }
 
 func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setCharmRelation, error) {
+	relationUUID, err := uuid.NewUUID()
+	if err != nil {
+		return setCharmRelation{}, errors.Errorf("generating relation uuid")
+	}
+
 	kindID, err := encodeRelationKind(kind)
 	if err != nil {
-		return setCharmRelation{}, fmt.Errorf("cannot encode relation kind %q: %w", kind, err)
+		return setCharmRelation{}, errors.Errorf("encoding relation kind %q: %w", kind, err)
 	}
 
 	roleID, err := encodeRelationRole(relation.Role)
 	if err != nil {
-		return setCharmRelation{}, fmt.Errorf("cannot encode relation role %q: %w", relation.Role, err)
+		return setCharmRelation{}, errors.Errorf("encoding relation role %q: %w", relation.Role, err)
 	}
 
 	scopeID, err := encodeRelationScope(relation.Scope)
 	if err != nil {
-		return setCharmRelation{}, fmt.Errorf("cannot encode relation scope %q: %w", relation.Scope, err)
+		return setCharmRelation{}, errors.Errorf("encoding relation scope %q: %w", relation.Scope, err)
 	}
 
 	return setCharmRelation{
+		UUID:      relationUUID.String(),
 		CharmUUID: id.String(),
 		KindID:    kindID,
 		Key:       relation.Key,
