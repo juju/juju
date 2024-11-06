@@ -197,7 +197,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewHTTPClient: func(...internalhttp.Option) *internalhttp.Client {
+		NewHTTPClient: func(string, ...internalhttp.Option) *internalhttp.Client {
 			if s.newHTTPClient == nil {
 				return internalhttp.NewClient()
 			}

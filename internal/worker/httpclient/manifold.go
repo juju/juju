@@ -24,7 +24,7 @@ type HTTPClientWorker interface {
 }
 
 // NewHTTPClientFunc is the function signature for creating a new http client.
-type NewHTTPClientFunc func(...internalhttp.Option) *internalhttp.Client
+type NewHTTPClientFunc func(string, ...internalhttp.Option) *internalhttp.Client
 
 // HTTPClientWorkerFunc is the function signature for creating a new
 // http client worker.

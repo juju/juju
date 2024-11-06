@@ -223,7 +223,7 @@ func (w *httpClientWorker) initHTTPClient(namespace string) error {
 	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
 		// TODO (stickupkid): We can pass in additional configuration here if
 		// needed.
-		httpClient := w.cfg.NewHTTPClient(internalhttp.WithLogger(w.cfg.Logger))
+		httpClient := w.cfg.NewHTTPClient(namespace, internalhttp.WithLogger(w.cfg.Logger))
 
 		worker, err := w.cfg.NewHTTPClientWorker(httpClient)
 		if err != nil {
