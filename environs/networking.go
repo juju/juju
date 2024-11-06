@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -135,7 +137,7 @@ func SupportsSpaces(env NetworkingEnviron) bool {
 	ok, err := env.SupportsSpaces()
 	if err != nil {
 		if !errors.Is(err, errors.NotSupported) {
-			logger.Errorf("checking model spaces support failed with: %v", err)
+			logger.Errorf(context.TODO(), "checking model spaces support failed with: %v", err)
 		}
 		return false
 	}
@@ -152,7 +154,7 @@ func SupportsContainerAddresses(ctx envcontext.ProviderCallContext, env Bootstra
 	ok, err := netEnv.SupportsContainerAddresses(ctx)
 	if err != nil {
 		if !errors.Is(err, errors.NotSupported) {
-			logger.Errorf("checking model container address support failed with: %v", err)
+			logger.Errorf(ctx, "checking model container address support failed with: %v", err)
 		}
 		return false
 	}

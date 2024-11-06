@@ -395,7 +395,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
 	logger := s.config.Logger
 	calls := make(chan []string)
 	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
-		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		logger.Debugf(context.Background(), "RunFunc(%q, %q, %#v)", in, cmd, args)
 		calls <- append([]string{in, cmd}, args...)
 		return "", nil
 	}
@@ -424,7 +424,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
 	logger := s.config.Logger
 	calls := make(chan []string)
 	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
-		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		logger.Debugf(context.Background(), "RunFunc(%q, %q, %#v)", in, cmd, args)
 		calls <- append([]string{in, cmd}, args...)
 		return "", nil
 	}
@@ -458,7 +458,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
 	logger := s.config.Logger
 	calls := make(chan []string)
 	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
-		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		logger.Debugf(context.Background(), "RunFunc(%q, %q, %#v)", in, cmd, args)
 		calls <- append([]string{in, cmd}, args...)
 		return "", nil
 	}
@@ -490,7 +490,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxyURL(c *gc.C) {
 	logger := s.config.Logger
 	calls := make(chan []string)
 	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
-		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		logger.Debugf(context.Background(), "RunFunc(%q, %q, %#v)", in, cmd, args)
 		calls <- append([]string{in, cmd}, args...)
 		return "", nil
 	}
@@ -544,7 +544,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxyURLOverridesManualAssertion(c *gc.
 	logger := s.config.Logger
 	calls := make(chan []string)
 	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
-		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		logger.Debugf(context.Background(), "RunFunc(%q, %q, %#v)", in, cmd, args)
 		calls <- append([]string{in, cmd}, args...)
 		return "", nil
 	}
@@ -600,7 +600,7 @@ func (s *ProxyUpdaterSuite) TestAptMirror(c *gc.C) {
 	logger := s.config.Logger
 	calls := make(chan []string)
 	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
-		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		logger.Debugf(context.Background(), "RunFunc(%q, %q, %#v)", in, cmd, args)
 		calls <- append([]string{in, cmd}, args...)
 		return "", nil
 	}

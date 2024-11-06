@@ -35,7 +35,7 @@ func (c *ModelPresenceContext) MachineStatus(ctx context.Context, machine Machin
 	agentAlive, err := c.machinePresence(machine)
 	if err != nil {
 		// We don't want any presence errors affecting status.
-		logger.Debugf("error determining presence for machine %s: %v", machine.Id(), err)
+		logger.Debugf(ctx, "error determining presence for machine %s: %v", machine.Id(), err)
 		return machineStatus, nil
 	}
 	if machine.Life() != state.Dead && !agentAlive {

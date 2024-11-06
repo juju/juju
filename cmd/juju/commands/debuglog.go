@@ -292,7 +292,7 @@ func (c *debugLogCommand) parseEntity(entity string) string {
 		// nova-compute units for IAAS models.
 		return names.UnitTagKind + "-" + entity + "-*"
 	default:
-		logger.Warningf("%q was not recognised as a valid application, machine or unit name", entity)
+		logger.Warningf(context.Background(), "%q was not recognised as a valid application, machine or unit name", entity)
 		return entity
 	}
 }
@@ -508,7 +508,7 @@ func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []strin
 			return true
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("retrying to connect to debug log")
+			logger.Debugf(ctx, "retrying to connect to debug log")
 		},
 		Attempts: -1,
 		Clock:    clock.WallClock,

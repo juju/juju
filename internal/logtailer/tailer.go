@@ -4,6 +4,7 @@
 package logtailer
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -112,9 +113,12 @@ func (t *logTailer) Wait() error {
 }
 
 func (t *logTailer) loop() error {
+	ctx, cancel := t.scopedContext()
+	defer cancel()
+
 	var seekTo *tail.SeekInfo
 	if t.params.InitialLines > 0 {
-		seekOffset, err := t.processInitialLines()
+		seekOffset, err := t.processInitialLines(ctx)
 		if err != nil {
 			return err
 		}
@@ -123,10 +127,14 @@ func (t *logTailer) loop() error {
 			Whence: io.SeekStart,
 		}
 	}
-	return t.tailFile(seekTo)
+	return t.tailFile(ctx, seekTo)
 }
 
-func (t *logTailer) processInitialLines() (int64, error) {
+func (t *logTailer) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(t.tomb.Context(context.Background()))
+}
+
+func (t *logTailer) processInitialLines(ctx context.Context) (int64, error) {
 	if t.params.InitialLines > t.maxInitialLines {
 		return -1, errors.Errorf("too many lines requested (%d) maximum is %d",
 			t.params.InitialLines, maxInitialLines)
@@ -162,13 +170,13 @@ func (t *logTailer) processInitialLines() (int64, error) {
 		rec, err := logLineToRecord(t.modelUUID, line)
 		if err != nil {
 			if deserialisationFailures == 0 {
-				logger.Warningf("log deserialization failed, %v", err)
+				logger.Warningf(ctx, "log deserialization failed, %v", err)
 			}
 			deserialisationFailures++
 			continue
 		} else {
 			if deserialisationFailures > 1 {
-				logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+				logger.Debugf(ctx, "total of %d log serialisation errors", deserialisationFailures)
 			}
 			deserialisationFailures = 0
 		}
@@ -187,7 +195,7 @@ func (t *logTailer) processInitialLines() (int64, error) {
 		}
 	}
 	if deserialisationFailures > 1 {
-		logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+		logger.Debugf(ctx, "total of %d log serialisation errors", deserialisationFailures)
 	}
 	if err := scanner.Err(); err != nil {
 		return -1, errors.Trace(err)
@@ -207,7 +215,7 @@ func (t *logTailer) processInitialLines() (int64, error) {
 	return seekTo, nil
 }
 
-func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
+func (t *logTailer) tailFile(ctx context.Context, seekTo *tail.SeekInfo) (err error) {
 	follow := !t.params.NoTail
 	tailer, err := tail.TailFile(t.logFile, tail.Config{
 		Location: seekTo,
@@ -253,13 +261,13 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 			rec, err := logLineToRecord(t.modelUUID, line.Text)
 			if err != nil {
 				if deserialisationFailures == 0 {
-					logger.Warningf("log deserialization failed, %v", err)
+					logger.Warningf(ctx, "log deserialization failed, %v", err)
 				}
 				deserialisationFailures++
 				continue
 			} else {
 				if deserialisationFailures > 1 {
-					logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+					logger.Debugf(ctx, "total of %d log serialisation errors", deserialisationFailures)
 				}
 				deserialisationFailures = 0
 			}

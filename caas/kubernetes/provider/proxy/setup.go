@@ -268,7 +268,7 @@ func FetchTokenReadySecret(ctx context.Context, name string, api core.SecretInte
 			return !errors.Is(err, errors.NotFound)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling caas credential rbac secret, in %d attempt, %v", attempt, err)
+			logger.Debugf(ctx, "polling caas credential rbac secret, in %d attempt, %v", attempt, err)
 		},
 	}
 	if err = retry.Call(retryCallArgs); err != nil {

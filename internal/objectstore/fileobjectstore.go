@@ -276,7 +276,7 @@ func (t *fileObjectStore) loop() error {
 			timer.Reset(defaultPruneInterval)
 
 			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
-				t.logger.Errorf("prune: %v", err)
+				t.logger.Errorf(ctx, "prune: %v", err)
 				continue
 			}
 		}
@@ -284,7 +284,7 @@ func (t *fileObjectStore) loop() error {
 }
 
 func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("getting object %q from file storage", path)
+	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -312,7 +312,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	t.logger.Debugf("putting object %q to file storage", path)
+	t.logger.Debugf(ctx, "putting object %q to file storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
 	// to move to the more common SHA256 hash, but that would require a
@@ -388,7 +388,7 @@ func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash 
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {
-	t.logger.Debugf("removing object %q from file storage", path)
+	t.logger.Debugf(ctx, "removing object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -409,7 +409,7 @@ func (t *fileObjectStore) filePath(hash string) string {
 }
 
 func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
-	t.logger.Debugf("listing objects from file storage")
+	t.logger.Debugf(ctx, "listing objects from file storage")
 
 	metadata, err := t.metadataService.ListMetadata(ctx)
 	if err != nil {
@@ -440,7 +440,7 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	// File doesn't exist. It was probably already removed. Return early,
 	// nothing we can do in this case.
 	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
-		t.logger.Debugf("file %q doesn't exist, nothing to do", filePath)
+		t.logger.Debugf(ctx, "file %q doesn't exist, nothing to do", filePath)
 		return nil
 	}
 
@@ -449,7 +449,7 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	// required to remove the file. We may in the future want to prune the
 	// file store of files that are no longer referenced by metadata.
 	if err := os.Remove(filePath); err != nil {
-		t.logger.Errorf("failed to remove file %q: %v", filePath, err)
+		t.logger.Errorf(ctx, "failed to remove file %q: %v", filePath, err)
 	}
 	return nil
 }

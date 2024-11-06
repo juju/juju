@@ -139,7 +139,7 @@ func newUniterAPIWithServices(
 		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, unitStateService, st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
-		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, machineService, context.WatcherRegistry(), authorizer, accessUnit, logger, modelInfoService),
+		lxdProfileAPI:              NewExternalLXDProfileAPIv2(stdCtx, st, machineService, context.WatcherRegistry(), authorizer, accessUnit, logger, modelInfoService),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),

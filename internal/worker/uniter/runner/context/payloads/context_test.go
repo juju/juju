@@ -85,7 +85,7 @@ func (s *contextSuite) TestTrackPayloads(c *gc.C) {
 
 	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.TrackPayload(pl2)
+	err = ctx.TrackPayload(context.Background(), pl2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
@@ -129,7 +129,7 @@ func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
 
 	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.TrackPayload(pl2)
+	err = ctx.TrackPayload(context.Background(), pl2)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.FlushPayloads(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -204,7 +204,7 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 
 	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.TrackPayload(pl)
+	err = ctx.TrackPayload(context.Background(), pl)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.FlushPayloads(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -297,7 +297,7 @@ func (s *contextSuite) TestGetPayload(c *gc.C) {
 
 	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := ctx.GetPayload("class", "id")
+	result, err := ctx.GetPayload(context.Background(), "class", "id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &pl)
 }
@@ -329,9 +329,9 @@ func (s *contextSuite) TestTrackedPayload(c *gc.C) {
 
 	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.TrackPayload(pl)
+	err = ctx.TrackPayload(context.Background(), pl)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := ctx.GetPayload("class", "id")
+	result, err := ctx.GetPayload(context.Background(), "class", "id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &pl)
 }

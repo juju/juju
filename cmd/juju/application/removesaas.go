@@ -131,7 +131,7 @@ func (c *removeSaasCommand) removeSaass(
 		SaasNames: c.SaasNames,
 	}
 	results, err := client.DestroyConsumedApplication(ctx, params)
-	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+	if err := block.ProcessBlockedError(ctx, err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
 	anyFailed := false

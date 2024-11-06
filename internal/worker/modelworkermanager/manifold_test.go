@@ -116,7 +116,7 @@ func (s *ManifoldSuite) newWorker(config modelworkermanager.Config) (worker.Work
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {
+func (s *ManifoldSuite) newModelWorker(ctx context.Context, config modelworkermanager.NewModelConfig) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewModelWorker", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ModelType:    state.ModelTypeIAAS,
 		ModelMetrics: dummyMetricSink{},
 	}
-	mw, err := config.NewModelWorker(modelConfig)
+	mw, err := config.NewModelWorker(context.Background(), modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, mw)
 	s.stub.CheckCallNames(c, "NewWorker", "NewModelWorker")

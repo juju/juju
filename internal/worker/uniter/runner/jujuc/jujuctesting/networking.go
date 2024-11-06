@@ -74,7 +74,7 @@ func (c *ContextNetworking) PrivateAddress() (string, error) {
 }
 
 // OpenPortRange implements jujuc.ContextNetworking.
-func (c *ContextNetworking) OpenPortRange(endpoint string, portRange network.PortRange) error {
+func (c *ContextNetworking) OpenPortRange(ctx context.Context, endpoint string, portRange network.PortRange) error {
 	c.stub.AddCall("OpenPortRange", endpoint, portRange)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -85,7 +85,7 @@ func (c *ContextNetworking) OpenPortRange(endpoint string, portRange network.Por
 }
 
 // ClosePortRange implements jujuc.ContextNetworking.
-func (c *ContextNetworking) ClosePortRange(endpoint string, portRange network.PortRange) error {
+func (c *ContextNetworking) ClosePortRange(ctx context.Context, endpoint string, portRange network.PortRange) error {
 	c.stub.AddCall("ClosePortRange", endpoint, portRange)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

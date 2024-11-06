@@ -84,14 +84,14 @@ func charmhubLatestCharmInfo(parentCtx context.Context, client CharmhubRefreshCl
 
 	results := make([]charmhubResult, len(responses))
 	for i, response := range responses {
-		results[i] = refreshResponseToCharmhubResult(response, now, logger)
+		results[i] = refreshResponseToCharmhubResult(parentCtx, response, now, logger)
 	}
 	return results, nil
 }
 
 // refreshResponseToCharmhubResult converts a raw RefreshResponse from the
 // charmhub API into a charmhubResult.
-func refreshResponseToCharmhubResult(response transport.RefreshResponse, now time.Time, logger corelogger.Logger) charmhubResult {
+func refreshResponseToCharmhubResult(ctx context.Context, response transport.RefreshResponse, now time.Time, logger corelogger.Logger) charmhubResult {
 	if response.Error != nil {
 		return charmhubResult{
 			error: errors.Errorf("charmhub API error %s: %s", response.Error.Code, response.Error.Message),
@@ -101,12 +101,12 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse, now tim
 	for _, r := range response.Entity.Resources {
 		fingerprint, err := resource.ParseFingerprint(r.Download.HashSHA384)
 		if err != nil {
-			logger.Warningf("invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
+			logger.Warningf(ctx, "invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
 			continue
 		}
 		typ, err := resource.ParseType(r.Type)
 		if err != nil {
-			logger.Warningf("invalid resource type %q: %v", r.Type, err)
+			logger.Warningf(ctx, "invalid resource type %q: %v", r.Type, err)
 			continue
 		}
 		res := resource.Resource{

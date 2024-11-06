@@ -357,7 +357,7 @@ func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.
 			return nil
 		}
 		if params.ErrCode(err) == params.CodeIncompatibleClouds {
-			logger.Infof("%v", err)
+			logger.Infof(ctxt, "%v", err)
 			ctxt.Infof("Adding a cloud of type %q might not function correctly on this controller.\n"+
 				"If you really want to do this, use --force.", newCloud.Type)
 			return nil
@@ -368,7 +368,7 @@ func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.
 	// Add a credential for the newly added cloud.
 	err = c.addCredentialToController(ctxt, *newCloud, api)
 	if err != nil {
-		logger.Warningf("%v", err)
+		logger.Warningf(ctxt, "%v", err)
 		ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 			"* 'add-model' with --credential option or\n"+
 			"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)

@@ -272,7 +272,7 @@ func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
 		close(wait)
 	}()
 
-	op.RemoteStateChanged(remotestate.Snapshot{
+	op.RemoteStateChanged(stdcontext.Background(), remotestate.Snapshot{
 		ActionChanged: map[string]int{
 			someActionId: 1,
 		},
@@ -280,7 +280,7 @@ func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
 
 	callbacks.setActionStatus("aborting", nil)
 
-	op.RemoteStateChanged(remotestate.Snapshot{
+	op.RemoteStateChanged(stdcontext.Background(), remotestate.Snapshot{
 		ActionChanged: map[string]int{
 			someActionId: 2,
 		},

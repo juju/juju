@@ -60,20 +60,20 @@ func refreshMachine(ctx context.Context, deps *dependencies, tag names.MachineTa
 		}
 		return errors.Annotate(err, "getting machine instance ID")
 	}
-	machineProvisioned(deps, tag, instance.Id(results[0].Result))
+	machineProvisioned(ctx, deps, tag, instance.Id(results[0].Result))
 	// machine provisioning is the only thing we care about;
 	// stop the watcher.
 	return stopAndRemove()
 }
 
 // machineProvisioned is called when a watched machine is provisioned.
-func machineProvisioned(deps *dependencies, tag names.MachineTag, instanceId instance.Id) {
+func machineProvisioned(ctx context.Context, deps *dependencies, tag names.MachineTag, instanceId instance.Id) {
 	for _, params := range deps.incompleteVolumeParams {
 		if params.Attachment.Machine != tag || params.Attachment.InstanceId != "" {
 			continue
 		}
 		params.Attachment.InstanceId = instanceId
-		updatePendingVolume(deps, params)
+		updatePendingVolume(ctx, deps, params)
 	}
 	for id, params := range deps.incompleteVolumeAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
@@ -132,8 +132,8 @@ func (mw *machineWatcher) loop() error {
 	if err := mw.catacomb.Add(w); err != nil {
 		return errors.Trace(err)
 	}
-	mw.logger.Debugf("watching machine %s", mw.tag.Id())
-	defer mw.logger.Debugf("finished watching machine %s", mw.tag.Id())
+	mw.logger.Debugf(ctx, "watching machine %s", mw.tag.Id())
+	defer mw.logger.Debugf(ctx, "finished watching machine %s", mw.tag.Id())
 	var out chan<- names.MachineTag
 	for {
 		select {

@@ -124,11 +124,11 @@ func (env *environ) initProfile() error {
 	}
 	hasProfile, hasErr := env.serverUnlocked.HasProfile(pName)
 	if hasErr != nil {
-		logger.Errorf("%s", err)
+		logger.Errorf(context.TODO(), "%s", err)
 		return errors.Trace(hasErr)
 	}
 	if hasProfile {
-		logger.Debugf("received %q, but no need to fail", err)
+		logger.Debugf(context.TODO(), "received %q, but no need to fail", err)
 		return nil
 	}
 	return err
@@ -272,7 +272,7 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
-	logger.Debugf("removing instances: %v", names)
+	logger.Debugf(context.TODO(), "removing instances: %v", names)
 
 	return errors.Trace(env.server().RemoveContainers(names))
 }
@@ -383,10 +383,10 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 		return errors.Trace(err)
 	}
 	if hasProfile {
-		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		logger.Debugf(context.TODO(), "lxd profile %q already exists, not written again", pName)
 		return nil
 	}
-	logger.Debugf("attempting to write lxd profile %q %+v", pName, put)
+	logger.Debugf(context.TODO(), "attempting to write lxd profile %q %+v", pName, put)
 	post := api.ProfilesPost{
 		Name: pName,
 		ProfilePut: api.ProfilePut{
@@ -398,7 +398,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("wrote lxd profile %q", pName)
+	logger.Debugf(context.TODO(), "wrote lxd profile %q", pName)
 	if err := env.verifyProfile(pName); err != nil {
 		return errors.Trace(err)
 	}
@@ -416,7 +416,7 @@ func (env *environ) verifyProfile(pName string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("lxd profile %q: received %+v ", pName, profile.ProfilePut)
+	logger.Debugf(context.TODO(), "lxd profile %q: received %+v ", pName, profile.ProfilePut)
 	return nil
 }
 
@@ -431,7 +431,7 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		// Always return the current profiles assigned to the instance.
 		currentProfiles, err2 := env.LXDProfileNames(instID)
 		if err != nil && err2 != nil {
-			logger.Errorf("retrieving profile names for %q: %s", instID, err2)
+			logger.Errorf(context.TODO(), "retrieving profile names for %q: %s", instID, err2)
 		}
 		return currentProfiles, err
 	}
@@ -457,7 +457,7 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 	for _, name := range deleteProfiles {
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use
-			logger.Debugf("failed to delete profile %q: %s", name, err)
+			logger.Debugf(context.TODO(), "failed to delete profile %q: %s", name, err)
 		}
 	}
 	return report(nil)
@@ -484,7 +484,7 @@ func (env *environ) DetectHardware() (*instance.HardwareCharacteristics, error) 
 	// ensuring it contains the correct scheme.
 	endpointURL, err := url.Parse(lxd.EnsureHTTPS(env.cloud.Endpoint))
 	if err != nil {
-		logger.Debugf("error parsing endpoint as url: %s", err.Error())
+		logger.Debugf(context.TODO(), "error parsing endpoint as url: %s", err.Error())
 		return nil, nil
 	}
 	endpointIP := net.ParseIP(endpointURL.Hostname())

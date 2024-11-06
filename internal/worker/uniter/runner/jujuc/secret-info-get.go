@@ -107,7 +107,7 @@ func toAccessInfo(grants []secrets.AccessInfo) []accessInfo {
 
 // Run implements cmd.Command.
 func (c *secretInfoGetCommand) Run(ctx *cmd.Context) error {
-	all, err := c.ctx.SecretMetadata()
+	all, err := c.ctx.SecretMetadata(ctx)
 	if err != nil {
 		return err
 	}

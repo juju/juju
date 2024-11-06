@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -32,7 +33,7 @@ func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
 			LoggerFlushInterval: time.Second,
 			LoggerBufferSize:    10,
 		},
-		LogWriterForModelFunc: func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
+		LogWriterForModelFunc: func(ctx context.Context, modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 			c.Assert(modelUUID, gc.Equals, coretesting.ModelTag.Id())
 			c.Assert(modelName, gc.Equals, "fred-foo")
 			return &testLogger, nil

@@ -54,7 +54,7 @@ func (s *registerSuite) TestRun(c *gc.C) {
 		Labels: []string{"tag1", "tag2"},
 		Unit:   "a-application/0",
 	}
-	hctx.EXPECT().TrackPayload(payload).Return(nil)
+	hctx.EXPECT().TrackPayload(gomock.Any(), payload).Return(nil)
 	hctx.EXPECT().FlushPayloads(gomock.Any())
 
 	com, err := jujuc.NewCommand(hctx, "payload-register")
@@ -109,7 +109,7 @@ func (s *registerSuite) TestRunError(c *gc.C) {
 		Labels: []string{"tag1", "tag2"},
 		Unit:   "a-application/0",
 	}
-	hctx.EXPECT().TrackPayload(payload).Return(errors.New("boom"))
+	hctx.EXPECT().TrackPayload(gomock.Any(), payload).Return(errors.New("boom"))
 
 	com, err := jujuc.NewCommand(hctx, "payload-register")
 	c.Assert(err, jc.ErrorIsNil)

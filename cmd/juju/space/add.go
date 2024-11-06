@@ -86,7 +86,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 			if params.IsCodeUnauthorized(err) {
 				common.PermissionsMessage(ctx.Stderr, "add a space")
 			}
-			return block.ProcessBlockedError(errors.Annotatef(err, "cannot add space %q", c.Name), block.BlockChange)
+			return block.ProcessBlockedError(ctx, errors.Annotatef(err, "cannot add space %q", c.Name), block.BlockChange)
 		}
 
 		ctx.Infof("added space %q with %s", c.Name, msgSuffix)

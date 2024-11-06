@@ -5,6 +5,7 @@
 package machineactions
 
 import (
+	"context"
 	"encoding/base64"
 	"os"
 	"time"
@@ -22,7 +23,7 @@ var RunAsUser = "ubuntu"
 
 // HandleAction receives a name and a map of parameters for a given machine action.
 // It will handle that action in a specific way and return a results map suitable for ActionFinish.
-func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
+func HandleAction(ctx context.Context, name string, params map[string]interface{}) (results map[string]interface{}, err error) {
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("unexpected action %s", name)
@@ -32,16 +33,16 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 	}
 
 	if actions.IsJujuExecAction(name) {
-		return handleJujuExecAction(params)
+		return handleJujuExecAction(ctx, params)
 	} else {
 		return nil, errors.Errorf("unexpected action %s", name)
 	}
 }
 
-func handleJujuExecAction(params map[string]interface{}) (results map[string]interface{}, err error) {
+func handleJujuExecAction(ctx context.Context, params map[string]interface{}) (results map[string]interface{}, err error) {
 	// The spec checks that the parameters are available so we don't need to check again here
 	command, _ := params["command"].(string)
-	logger.Tracef("juju run %q", command)
+	logger.Tracef(ctx, "juju run %q", command)
 
 	// The timeout is passed in in nanoseconds(which are represented in go as int64)
 	// But due to serialization it comes out as float64

@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-type egressAddressWatcherFunc func(facade.Resources, firewall.State, firewall.ModelConfigService, params.Entities) (params.StringsWatchResults, error)
+type egressAddressWatcherFunc func(context.Context, facade.Resources, firewall.State, firewall.ModelConfigService, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
 type offerStatusWatcherFunc func(context.Context, CrossModelRelationsState, string) (OfferWatcher, error)
 type consumedSecretsWatcherFunc func(context.Context, SecretService, string) (corewatcher.StringsWatcher, error)
@@ -118,7 +118,7 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 	ctx context.Context,
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
-	api.logger.Debugf("PublishRelationChanges: %+v", changes)
+	api.logger.Debugf(ctx, "PublishRelationChanges: %+v", changes)
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
@@ -126,13 +126,13 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
-				api.logger.Debugf("no relation tag %+v in model %s, exit early", change.RelationToken, api.modelID)
+				api.logger.Debugf(ctx, "no relation tag %+v in model %s, exit early", change.RelationToken, api.modelID)
 				continue
 			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		api.logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
+		api.logger.Debugf(ctx, "relation tag for token %+v is %v", change.RelationToken, relationTag)
 		if err := api.checkMacaroonsForRelation(ctx, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -196,7 +196,7 @@ func (api *CrossModelRelationsAPIv3) RegisterRemoteRelations(
 }
 
 func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context, relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
-	api.logger.Debugf("register remote relation %+v", relation)
+	api.logger.Debugf(ctx, "register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
 
@@ -224,7 +224,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	}
 	if localApp.Life() != state.Alive {
 		// We don't want to leak the application name so just log it.
-		api.logger.Warningf("local application for offer %v not found", localApplicationName)
+		api.logger.Warningf(ctx, "local application for offer %v not found", localApplicationName)
 		return nil, errors.NotFoundf("local application for offer %v", relation.OfferUUID)
 	}
 	eps, err := localApp.Endpoints()
@@ -272,7 +272,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	if err == nil {
 		if existingRemoteApp.ConsumeVersion() < relation.ConsumeVersion {
 			// TODO(wallyworld) - this operation should be in a single txn.
-			api.logger.Debugf("consume version %d of remote app for offer %v: %v", relation.ConsumeVersion, relation.OfferUUID, uniqueRemoteApplicationName)
+			api.logger.Debugf(ctx, "consume version %d of remote app for offer %v: %v", relation.ConsumeVersion, relation.OfferUUID, uniqueRemoteApplicationName)
 			op := existingRemoteApp.DestroyOperation(true)
 			if err := api.st.ApplyOperation(op); err != nil {
 				return nil, errors.Annotatef(err, "removing old saas application proxy for offer %v: %v", relation.OfferUUID, uniqueRemoteApplicationName)
@@ -292,7 +292,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
 	}
-	api.logger.Debugf("added remote application %v to local model with token %v from model %s", uniqueRemoteApplicationName, relation.ApplicationToken, sourceModelTag.Id())
+	api.logger.Debugf(ctx, "added remote application %v to local model with token %v from model %s", uniqueRemoteApplicationName, relation.ApplicationToken, sourceModelTag.Id())
 
 	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
@@ -305,7 +305,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Annotate(err, "adding remote relation")
 		} else if err == nil {
-			api.logger.Debugf("added relation %v to model %s", localRel.Tag().Id(), api.modelID)
+			api.logger.Debugf(ctx, "added relation %v to model %s", localRel.Tag().Id(), api.modelID)
 		}
 	}
 	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
@@ -320,14 +320,14 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	api.relationToOffer[localRel.Tag().Id()] = relation.OfferUUID
 
 	// Ensure we have references recorded.
-	api.logger.Debugf("importing remote relation into model %s", api.modelID)
-	api.logger.Debugf("remote model is %s", sourceModelTag.Id())
+	api.logger.Debugf(ctx, "importing remote relation into model %s", api.modelID)
+	api.logger.Debugf(ctx, "remote model is %s", sourceModelTag.Id())
 
 	err = api.st.ImportRemoteEntity(localRel.Tag(), relation.RelationToken)
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
-	api.logger.Debugf("relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
+	api.logger.Debugf(ctx, "relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
 
 	// Export the local offer from this model so we can tell the caller what the remote id is.
 	// NB we need to export the offer last so that everything else is in place when the worker is
@@ -336,7 +336,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}
-	api.logger.Debugf("local application offer %v from model %s exported with token %q ", appOffer.OfferName, api.modelID, token)
+	api.logger.Debugf(ctx, "local application offer %v from model %s exported with token %q ", appOffer.OfferName, api.modelID, token)
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
@@ -402,9 +402,9 @@ func (api *CrossModelRelationsAPIv3) WatchRelationChanges(ctx context.Context, r
 		w, changes, err := watchOne(arg)
 		if err != nil {
 			if api.logger.IsLevelEnabled(logger.TRACE) {
-				api.logger.Tracef("error watching relation for token %s: %s", arg.Token, errors.ErrorStack(err))
+				api.logger.Tracef(ctx, "error watching relation for token %s: %s", arg.Token, errors.ErrorStack(err))
 			} else {
-				api.logger.Debugf("error watching relation for token %s: %v", err)
+				api.logger.Debugf(ctx, "error watching relation for token %s: %v", err)
 			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -667,7 +667,7 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		api.logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
+		api.logger.Debugf(ctx, "relation tag for token %+v is %v", change.RelationToken, relationTag)
 
 		if err := api.checkMacaroonsForRelation(ctx, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -701,7 +701,7 @@ func (api *CrossModelRelationsAPIv3) WatchEgressAddressesForRelations(ctx contex
 		}
 		relations.Entities = append(relations.Entities, params.Entity{Tag: relationTag.String()})
 	}
-	watchResults, err := api.egressAddressWatcher(api.resources, api.fw, api.modelConfigService, relations)
+	watchResults, err := api.egressAddressWatcher(ctx, api.resources, api.fw, api.modelConfigService, relations)
 	if err != nil {
 		return results, err
 	}

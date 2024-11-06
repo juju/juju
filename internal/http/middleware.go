@@ -239,9 +239,10 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 		Delay:    m.policy.Delay,
 		BackoffFunc: func(delay time.Duration, attempts int) time.Duration {
 			var duration time.Duration
-			duration, backOffErr = m.defaultBackoff(res, delay)
+			duration, backOffErr = m.defaultBackoff(req.Context(), res, delay)
 			return duration
 		},
+		Stop: req.Context().Done(),
 	})
 
 	return res, err
@@ -274,7 +275,7 @@ func (m retryMiddleware) roundTrip(req *http.Request) (*http.Response, bool, err
 //
 //   - Retry-After: <http-date>
 //   - Retry-After: <delay-seconds>
-func (m retryMiddleware) defaultBackoff(resp *http.Response, backoff time.Duration) (time.Duration, error) {
+func (m retryMiddleware) defaultBackoff(ctx context.Context, resp *http.Response, backoff time.Duration) (time.Duration, error) {
 	if header := resp.Header.Get("Retry-After"); header != "" {
 		// Attempt to parse the header from the request.
 		//
@@ -292,7 +293,7 @@ func (m retryMiddleware) defaultBackoff(resp *http.Response, backoff time.Durati
 		if resp.Request != nil {
 			url = resp.Request.URL.String()
 		}
-		m.logger.Errorf("unable to parse Retry-After header %s from %s", header, url)
+		m.logger.Errorf(ctx, "unable to parse Retry-After header %s from %s", header, url)
 	}
 
 	return m.clampBackoff(backoff)

@@ -5,6 +5,8 @@
 package providerinit
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/os/ostype"
@@ -65,6 +67,6 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("Generated cloud init:\n%s", string(udata))
+	logger.Tracef(context.TODO(), "Generated cloud init:\n%s", string(udata))
 	return udata, err
 }

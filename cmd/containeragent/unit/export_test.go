@@ -4,6 +4,8 @@
 package unit
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/voyeur"
@@ -60,5 +62,5 @@ func (c *containerUnitAgent) DataDir() string {
 }
 
 func EnsureAgentConf(ac agentconf.AgentConf) error {
-	return ensureAgentConf(ac)
+	return ensureAgentConf(context.Background(), ac)
 }

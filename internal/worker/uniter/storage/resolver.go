@@ -115,18 +115,18 @@ func (s *storageResolver) NextOp(
 
 	// This message is only interesting for IAAS models.
 	if s.modelType == model.IAAS && !localState.Installed && s.storage.Pending() == 0 {
-		s.logger.Infof("initial storage attachments ready")
+		s.logger.Infof(ctx, "initial storage attachments ready")
 	}
 
 	for tag, snap := range remoteState.Storage {
-		op, err := s.nextHookOp(tag, snap, opFactory)
+		op, err := s.nextHookOp(ctx, tag, snap, opFactory)
 		if errors.Cause(err) == resolver.ErrNoOperation {
 			continue
 		}
 		return op, err
 	}
 	if s.storage.Pending() > 0 {
-		s.logger.Debugf("still pending %v", s.storage.pending.SortedValues())
+		s.logger.Debugf(ctx, "still pending %v", s.storage.pending.SortedValues())
 		// For IAAS models, storage hooks are run before install.
 		// If the install hook has not yet run and there's still
 		// pending storage, we wait. We don't wait after the
@@ -157,12 +157,13 @@ func (s *storageResolver) maybeShortCircuitRemoval(ctx context.Context, remote m
 }
 
 func (s *storageResolver) nextHookOp(
+	ctx context.Context,
 	tag names.StorageTag,
 	snap remotestate.StorageSnapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
-	s.logger.Debugf("next hook op for %v: %+v", tag, snap)
+	s.logger.Debugf(ctx, "next hook op for %v: %+v", tag, snap)
 
 	if snap.Life == life.Dead {
 		// Storage must have been Dying to become Dead;

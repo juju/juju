@@ -731,7 +731,7 @@ func (m *fakeDeployer) Stage(_ context.Context, _ unitercharm.BundleInfo, _ <-ch
 	return nil
 }
 
-func (m *fakeDeployer) Deploy() error {
+func (m *fakeDeployer) Deploy(context.Context) error {
 	return nil
 }
 

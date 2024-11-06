@@ -181,7 +181,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	}
 	localName, err := targetClient.Consume(ctx, arg)
 	if err != nil {
-		return block.ProcessBlockedError(errors.Annotatef(err, "could not consume %v", url.AsLocal().String()), block.BlockChange)
+		return block.ProcessBlockedError(ctx, errors.Annotatef(err, "could not consume %v", url.AsLocal().String()), block.BlockChange)
 	}
 	ctx.Infof("Added %s as %s", c.remoteApplication, localName)
 	return nil

@@ -27,12 +27,13 @@ type resourcesMigrationUploadHandler struct {
 }
 
 func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
 	st, err := h.stateAuthFunc(r)
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, err); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
@@ -40,8 +41,8 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 
 	store, err := h.objectStore(r.Context())
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, err); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
@@ -50,8 +51,8 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	case "POST":
 		res, err := h.processPost(r, st.State, store)
 		if err != nil {
-			if err := sendError(w, err); err != nil {
-				logger.Errorf("%v", err)
+			if err := sendError(ctx, w, err); err != nil {
+				logger.Errorf(ctx, "%v", err)
 			}
 			return
 		}
@@ -59,11 +60,11 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 			ID:        res.ID,
 			Timestamp: res.Timestamp,
 		}); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(ctx, "%v", err)
 		}
 	default:
-		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 	}
 }

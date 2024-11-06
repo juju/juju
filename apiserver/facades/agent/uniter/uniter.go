@@ -1271,7 +1271,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 		}
 		if !valid {
 			principalName, _ := unit.PrincipalName()
-			u.logger.Debugf("ignoring %q EnterScope for %q - unit has invalid principal %q",
+			u.logger.Debugf(ctx, "ignoring %q EnterScope for %q - unit has invalid principal %q",
 				unit.Name(), rel.String(), principalName)
 			return nil
 		}
@@ -1282,7 +1282,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 		}
 
 		settings := map[string]interface{}{}
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(ctx, relUnit.Endpoint().Name, rel)
 		if err == nil && len(ingressAddresses) > 0 {
 			ingressAddress := ingressAddresses[0].Value
 			// private-address is historically a cloud local address for the machine.
@@ -1298,7 +1298,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
 			settings["ingress-address"] = ingressAddress
 		} else if err != nil {
-			u.logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
+			u.logger.Warningf(ctx, "cannot set ingress/egress addresses for unit %v in relation %v: %v",
 				unitTag.Id(), relTag, err)
 		}
 		if len(egressSubnets) > 0 {
@@ -2053,7 +2053,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, err
 	}
 
-	res, err := netInfo.ProcessAPIRequest(args)
+	res, err := netInfo.ProcessAPIRequest(ctx, args)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2187,7 +2187,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].Result, err = u.oneGoalState(unit)
+		result.Results[i].Result, err = u.oneGoalState(ctx, unit)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
@@ -2196,14 +2196,14 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 }
 
 // oneGoalState creates the goal state for a given unit.
-func (u *UniterAPI) oneGoalState(unit *state.Unit) (*params.GoalState, error) {
+func (u *UniterAPI) oneGoalState(ctx context.Context, unit *state.Unit) (*params.GoalState, error) {
 	app, err := unit.Application()
 	if err != nil {
 		return nil, err
 	}
 
 	gs := params.GoalState{}
-	gs.Units, err = u.goalStateUnits(app, unit.Name())
+	gs.Units, err = u.goalStateUnits(ctx, app, unit.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -2212,7 +2212,7 @@ func (u *UniterAPI) oneGoalState(unit *state.Unit) (*params.GoalState, error) {
 		return nil, err
 	}
 	if allRelations != nil {
-		gs.Relations, err = u.goalStateRelations(app.Name(), unit.Name(), allRelations)
+		gs.Relations, err = u.goalStateRelations(ctx, app.Name(), unit.Name(), allRelations)
 		if err != nil {
 			return nil, err
 		}
@@ -2221,7 +2221,7 @@ func (u *UniterAPI) oneGoalState(unit *state.Unit) (*params.GoalState, error) {
 }
 
 // goalStateRelations creates the structure with all the relations between endpoints in an application.
-func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateRelations(ctx context.Context, appName, principalName string, allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
 
 	result := map[string]params.UnitsGoalState{}
 
@@ -2255,7 +2255,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 			if err == nil {
 				key = app.Name()
 			} else if errors.Is(err, errors.NotFound) {
-				u.logger.Debugf("application %q must be a remote application.", e.ApplicationName)
+				u.logger.Debugf(ctx, "application %q must be a remote application.", e.ApplicationName)
 				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
@@ -2287,7 +2287,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 
 			// For local applications, add in the status of units as well.
 			if app != nil {
-				units, err := u.goalStateUnits(app, principalName)
+				units, err := u.goalStateUnits(ctx, app, principalName)
 				if err != nil {
 					return nil, err
 				}
@@ -2313,7 +2313,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
-func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string) (params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, principalName string) (params.UnitsGoalState, error) {
 
 	// TODO(units) - add service method for AllUnits
 	allUnits, err := app.AllUnits()
@@ -2330,7 +2330,7 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 		unitLife := unit.Life()
 		if unitLife == state.Dead {
 			// only show Alive and Dying units
-			u.logger.Debugf("unit %q is dead, ignore it.", unit.Name())
+			u.logger.Debugf(ctx, "unit %q is dead, ignore it.", unit.Name())
 			continue
 		}
 		unitGoalState := params.GoalStateStatus{}
@@ -2533,7 +2533,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag 
 			return nil, err
 		}
 
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(ctx, relUnit.Endpoint().Name, rel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2586,7 +2586,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg, canAccessUnit, canAccessApp); err != nil {
 			// Log quota-related errors to aid operators
 			if errors.Is(err, errors.QuotaLimitExceeded) {
-				u.logger.Errorf("%s: %v", unitTag, err)
+				u.logger.Errorf(ctx, "%s: %v", unitTag, err)
 			}
 			res[i].Error = apiservererrors.ServerError(err)
 		}
@@ -2808,7 +2808,7 @@ func (u *UniterAPI) LXDProfileName(ctx context.Context, args params.Entities) (p
 
 // LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileRequired(ctx context.Context, args params.CharmURLs) (params.BoolResults, error) {
-	return u.lxdProfileAPI.LXDProfileRequired(args)
+	return u.lxdProfileAPI.LXDProfileRequired(ctx, args)
 }
 
 // CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.

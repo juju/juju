@@ -48,14 +48,16 @@ type embeddedCLIHandler struct {
 // ServeHTTP implements the http.Handler interface.
 func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
-		h.logger.Tracef("start of *embeddedCLIHandler.ServeHTTP")
+		ctx := req.Context()
+
+		h.logger.Tracef(ctx, "start of *embeddedCLIHandler.ServeHTTP")
 		defer socket.Close()
 
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json
 		// formatted simple error.
 		if sendErr := socket.SendInitialErrorV0(nil); sendErr != nil {
-			h.logger.Errorf("closing websocket, %v", sendErr)
+			h.logger.Errorf(ctx, "closing websocket, %v", sendErr)
 			return
 		}
 
@@ -72,7 +74,7 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 
 		modelUUID, valid := httpcontext.RequestModelUUID(req.Context())
 		if !valid {
-			h.logger.Errorf("invalid model UUID")
+			h.logger.Errorf(ctx, "invalid model UUID")
 			return
 		}
 		commandCh := h.receiveCommands(socket)
@@ -85,21 +87,21 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
 					// This error is expected if the other end goes away. By
 					// returning we close the socket through the defer call.
-					h.logger.Debugf("failed to write ping: %s", err)
+					h.logger.Debugf(ctx, "failed to write ping: %s", err)
 					return
 				}
 			case jujuCmd := <-commandCh:
-				h.logger.Debugf("running embedded commands: %#v", jujuCmd)
+				h.logger.Debugf(ctx, "running embedded commands: %#v", jujuCmd)
 				cmdErr := h.runEmbeddedCommands(req.Context(), socket, modelUUID, jujuCmd)
 				// Only developers need this for debugging.
 				if cmdErr != nil && featureflag.Enabled(featureflag.DeveloperMode) {
-					h.logger.Debugf("command exec error: %v", cmdErr)
+					h.logger.Debugf(ctx, "command exec error: %v", cmdErr)
 				}
 				if err := socket.WriteJSON(params.CLICommandStatus{
 					Done:  true,
 					Error: apiservererrors.ServerError(cmdErr),
 				}); err != nil {
-					h.logger.Errorf("sending command result to caller: %v", err)
+					h.logger.Errorf(ctx, "sending command result to caller: %v", err)
 				}
 			}
 		}
@@ -120,9 +122,9 @@ func (h *embeddedCLIHandler) receiveCommands(socket *websocket.Conn) <-chan para
 				// Since we don't give a list of expected error codes,
 				// any CloseError type is considered unexpected.
 				if gorillaws.IsUnexpectedCloseError(err) {
-					h.logger.Tracef("websocket closed")
+					h.logger.Tracef(context.TODO(), "websocket closed")
 				} else {
-					h.logger.Errorf("embedded CLI receive error: %v", err)
+					h.logger.Errorf(context.TODO(), "embedded CLI receive error: %v", err)
 				}
 				return
 			}
@@ -206,7 +208,7 @@ done:
 			if err := ws.WriteJSON(params.CLICommandStatus{
 				Output: []string{line},
 			}); err != nil {
-				h.logger.Warningf("error writing CLI output: %v", err)
+				h.logger.Warningf(ctx, "error writing CLI output: %v", err)
 				cmdErr = err
 				break done
 			}

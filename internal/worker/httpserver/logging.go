@@ -3,7 +3,11 @@
 
 package httpserver
 
-import "github.com/juju/juju/core/logger"
+import (
+	"context"
+
+	"github.com/juju/juju/core/logger"
+)
 
 // loggerWrapper is an io.Writer() that forwards the messages to a
 // logger.Logger. Unfortunately http takes a concrete stdlib log.Logger struct,
@@ -16,6 +20,6 @@ type loggerWrapper struct {
 }
 
 func (w *loggerWrapper) Write(content []byte) (int, error) {
-	w.logger.Logf(w.level, "%s", string(content))
+	w.logger.Logf(context.TODO(), w.level, "%s", string(content))
 	return len(content), nil
 }

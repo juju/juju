@@ -19,7 +19,7 @@ import (
 type RelationStateTracker interface {
 	// PrepareHook returns the name of the supplied relation hook, or an error
 	// if the hook is unknown or invalid given current state.
-	PrepareHook(hook.Info) (string, error)
+	PrepareHook(stdcontext.Context, hook.Info) (string, error)
 
 	// CommitHook persists the state change encoded in the supplied relation
 	// hook, or returns an error if the hook is unknown or invalid given
@@ -166,7 +166,7 @@ type Relationer interface {
 	// PrepareHook checks that the relation is in a state such that it makes
 	// sense to execute the supplied hook, and ensures that the relation context
 	// contains the latest relation state as communicated in the hook.Info.
-	PrepareHook(hi hook.Info) (string, error)
+	PrepareHook(ctx stdcontext.Context, hi hook.Info) (string, error)
 
 	// RelationUnit returns the relation unit associated with this relationer instance.
 	RelationUnit() api.RelationUnit

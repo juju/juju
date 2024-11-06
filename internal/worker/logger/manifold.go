@@ -55,7 +55,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Override: loggingOverride,
 				Callback: config.UpdateAgentFunc,
 			}
-			return NewLogger(workerConfig)
+			return NewLogger(ctx, workerConfig)
 		},
 	}
 }

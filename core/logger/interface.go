@@ -218,7 +218,7 @@ type ModelLogger interface {
 }
 
 // LogWriterForModelFunc is a function which returns a log writer for a given model.
-type LogWriterForModelFunc func(modelUUID, modelName string) (LogWriterCloser, error)
+type LogWriterForModelFunc func(ctx context.Context, modelUUID, modelName string) (LogWriterCloser, error)
 
 // ModelFilePrefix makes a log file prefix from the model owner and name.
 func ModelFilePrefix(owner, name string) string {

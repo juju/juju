@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"strconv"
@@ -41,7 +42,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 	if rootDisk == nil {
 		return "", nil
 	}
-	logger.Debugf("creating root disk encryption with parameters: %#v", *rootDisk)
+	logger.Debugf(ctx, "creating root disk encryption with parameters: %#v", *rootDisk)
 	// The "encrypted" value may arrive as a bool or a string.
 	encryptedStr, ok := rootDisk.Attributes[encryptedKey].(string)
 	encrypted, _ := rootDisk.Attributes[encryptedKey].(bool)
@@ -49,7 +50,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 		encrypted, _ = strconv.ParseBool(encryptedStr)
 	}
 	if !encrypted {
-		logger.Debugf("encryption not enabled for root disk")
+		logger.Debugf(ctx, "encryption not enabled for root disk")
 		return "", nil
 	}
 
@@ -183,7 +184,7 @@ func (env *azureEnviron) ensureDiskEncryptionSet(
 	envTags map[string]*string,
 	vaultID, vaultKey *string,
 ) (*armcompute.EncryptionSetIdentity, error) {
-	logger.Debugf("ensure disk encryption set %q", encryptionSetName)
+	logger.Debugf(context.TODO(), "ensure disk encryption set %q", encryptionSetName)
 	poller, err := encryptionSets.BeginCreateOrUpdate(ctx, env.resourceGroup, encryptionSetName, armcompute.DiskEncryptionSet{
 		Location: to.Ptr(env.location),
 		Tags:     envTags,
@@ -219,7 +220,7 @@ func (env *azureEnviron) ensureVault(
 	envTags map[string]*string,
 	desIdentity *armcompute.EncryptionSetIdentity,
 ) (*armkeyvault.Vault, *armkeyvault.VaultCreateOrUpdateParameters, error) {
-	logger.Debugf("ensure vault key %q", vaultName)
+	logger.Debugf(context.TODO(), "ensure vault key %q", vaultName)
 	vaultTenantID := fromStringOrNil(env.tenantId)
 	// Create the vault with full access for the tenant.
 	allKeyPermissions := armkeyvault.PossibleKeyPermissionsValues()
@@ -288,7 +289,7 @@ func (env *azureEnviron) ensureVault(
 		}
 	}
 	if !errorutils.IsNotFoundError(err) && !errorutils.IsForbiddenError(err) {
-		logger.Debugf("key vault %q has been soft deleted", vaultName)
+		logger.Debugf(context.TODO(), "key vault %q has been soft deleted", vaultName)
 		vaultParams.Properties.CreateMode = to.Ptr(armkeyvault.CreateModeRecover)
 	}
 	var result armkeyvault.VaultsClientCreateOrUpdateResponse
@@ -303,7 +304,7 @@ func (env *azureEnviron) ensureVault(
 }
 
 func (env *azureEnviron) deleteVault(ctx envcontext.ProviderCallContext, vaultName string) error {
-	logger.Debugf("delete vault key %q", vaultName)
+	logger.Debugf(context.TODO(), "delete vault key %q", vaultName)
 	vaults, err := env.vaultsClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -326,7 +327,7 @@ func (env *azureEnviron) createVaultKey(
 	vaultName string,
 	keyName string,
 ) (*string, error) {
-	logger.Debugf("create vault key %q in %q", keyName, vaultName)
+	logger.Debugf(context.TODO(), "create vault key %q in %q", keyName, vaultName)
 	keyClient, err := azkeys.NewClient(vaultBaseURI, env.credential, &azkeys.ClientOptions{
 		ClientOptions: env.clientOptions})
 	if err != nil {

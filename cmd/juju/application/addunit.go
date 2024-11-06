@@ -141,7 +141,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		}
 	}
 	if len(c.Placement) > c.NumUnits {
-		logger.Warningf("%d unit(s) will be deployed, extra placement directives will be ignored", c.NumUnits)
+		logger.Warningf(context.Background(), "%d unit(s) will be deployed, extra placement directives will be ignored", c.NumUnits)
 	}
 	return nil
 }
@@ -266,7 +266,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "scale an application")
 		}
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 
 	for i, p := range c.Placement {
@@ -284,7 +284,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a unit")
 	}
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }
 
 // deployTarget describes the format a machine or container target must match to be valid.

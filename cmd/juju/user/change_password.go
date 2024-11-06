@@ -185,7 +185,7 @@ func (c *changePasswordCommand) ensureControllerName() error {
 func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 	key, err := c.api.ResetPassword(ctx, c.userTag.Id())
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	ctx.Infof("Password for %q has been reset.", c.User)
 	base64RegistrationData, err := generateUserControllerAccessToken(
@@ -221,7 +221,7 @@ func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 	}
 
 	if err := c.api.SetPassword(ctx, c.userTag.Id(), newPassword); err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	if c.accountDetails == nil {
 		ctx.Infof("Password for %q has been changed.", c.User)

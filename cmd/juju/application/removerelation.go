@@ -156,5 +156,5 @@ func (c *removeRelationCommand) Run(ctx *cmd.Context) error {
 	} else {
 		err = client.DestroyRelationId(ctx, c.RelationId, force, maxWait)
 	}
-	return block.ProcessBlockedError(err, block.BlockRemove)
+	return block.ProcessBlockedError(ctx, err, block.BlockRemove)
 }

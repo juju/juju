@@ -36,7 +36,7 @@ func (op *skipOperation) Execute(ctx context.Context, state State) (*State, erro
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (op *skipOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
+func (op *skipOperation) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {
 }
 
 // WrappedOperation is part of the WrappedOperation interface.

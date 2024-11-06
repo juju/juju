@@ -395,7 +395,7 @@ func (sb *storageBackend) destroyStorageInstance(
 		case nil:
 			return ops, nil
 		default:
-			logger.Warningf("could not destroy storage instance %v: %v", tag.Id(), err)
+			logger.Warningf(context.TODO(), "could not destroy storage instance %v: %v", tag.Id(), err)
 			return nil, errors.Trace(err)
 		}
 	}
@@ -516,7 +516,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 			if !force {
 				return nil, errors.Trace(err)
 			}
-			logger.Warningf("could not validate owner for storage instance %v during remove: %v", si.StorageTag().Id(), err)
+			logger.Warningf(context.TODO(), "could not validate owner for storage instance %v during remove: %v", si.StorageTag().Id(), err)
 		}
 		ops = append(ops, validateRemoveOps...)
 
@@ -527,7 +527,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 			if !force {
 				return nil, errors.Trace(err)
 			}
-			logger.Warningf("could not decrement owner count for storage instance %v during remove: %v", si.StorageTag().Id(), err)
+			logger.Warningf(context.TODO(), "could not decrement owner count for storage instance %v during remove: %v", si.StorageTag().Id(), err)
 		} else {
 			ops = append(ops, decrefOp)
 		}
@@ -556,7 +556,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 			if !force {
 				return nil, errors.Trace(err)
 			}
-			logger.Warningf("could not get operations to destroy filesystem %v when removing storage instance %v: %v", filesystem.FilesystemTag().Id(), si.StorageTag().Id(), err)
+			logger.Warningf(context.TODO(), "could not get operations to destroy filesystem %v when removing storage instance %v: %v", filesystem.FilesystemTag().Id(), si.StorageTag().Id(), err)
 		}
 		ops = append(ops, fsOps...)
 		haveFilesystem = true
@@ -564,7 +564,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 		if !force {
 			return nil, errors.Trace(err)
 		}
-		logger.Warningf("could not get filesystem when removing storage instance %v: %v", si.StorageTag().Id(), err)
+		logger.Warningf(context.TODO(), "could not get filesystem when removing storage instance %v: %v", si.StorageTag().Id(), err)
 	}
 	volume, err := si.sb.storageInstanceVolume(si.StorageTag())
 	if err == nil {
@@ -581,7 +581,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 				if !force {
 					return nil, errors.Trace(err)
 				}
-				logger.Warningf("could not get operations to destroy volume %v when removing storage instance %v: %v", volume.Tag().Id(), si.StorageTag().Id(), err)
+				logger.Warningf(context.TODO(), "could not get operations to destroy volume %v when removing storage instance %v: %v", volume.Tag().Id(), si.StorageTag().Id(), err)
 			}
 			ops = append(ops, volOps...)
 		}
@@ -589,7 +589,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 		if !force {
 			return nil, errors.Trace(err)
 		}
-		logger.Warningf("could not get volume when removing storage instance %v: %v", si.StorageTag().Id(), err)
+		logger.Warningf(context.TODO(), "could not get volume when removing storage instance %v: %v", si.StorageTag().Id(), err)
 	}
 	return ops, nil
 }
@@ -1433,7 +1433,7 @@ func removeStorageAttachmentOps(
 				if !force {
 					return nil, errors.Trace(err)
 				}
-				logger.Warningf("could not determine operations for storage instance %v removal: %v", si.StorageTag().Id(), err)
+				logger.Warningf(context.TODO(), "could not determine operations for storage instance %v removal: %v", si.StorageTag().Id(), err)
 			}
 			return append(ops, siOps...), nil
 		} else if si.doc.Owner == names.NewUnitTag(s.doc.Unit).String() {
@@ -1445,7 +1445,7 @@ func removeStorageAttachmentOps(
 				if !force {
 					return nil, errors.Trace(err)
 				}
-				logger.Warningf("error validating owner for storage instance %v removal: %v", si.StorageTag().Id(), err)
+				logger.Warningf(context.TODO(), "error validating owner for storage instance %v removal: %v", si.StorageTag().Id(), err)
 			}
 			ops = append(ops, validateRemoveOps...)
 
@@ -1459,7 +1459,7 @@ func removeStorageAttachmentOps(
 				if !force {
 					return nil, errors.Trace(err)
 				}
-				logger.Warningf("could not decrease refcount for storage instance %v removal: %v", si.StorageTag().Id(), err)
+				logger.Warningf(context.TODO(), "could not decrease refcount for storage instance %v removal: %v", si.StorageTag().Id(), err)
 			}
 			ops = append(ops, decrefOp)
 		}
@@ -1497,7 +1497,7 @@ func removeStorageAttachmentOps(
 		if !force {
 			return nil, errors.Trace(err)
 		}
-		logger.Warningf("could not determine operations to detach storage attachments for storage instance %v unit %v: %v", si.StorageTag().Id(), s.Unit().Id(), err)
+		logger.Warningf(context.TODO(), "could not determine operations to detach storage attachments for storage instance %v unit %v: %v", si.StorageTag().Id(), s.Unit().Id(), err)
 	}
 	ops = append(ops, detachOps...)
 
@@ -1527,7 +1527,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 		if errors.Is(err, errors.NotFound) {
 			// The volume has already been removed, so must have
 			// already been detached.
-			logger.Debugf("%s", err)
+			logger.Debugf(context.TODO(), "%s", err)
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1536,7 +1536,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			// machine, since the only other option is to destroy
 			// them. The user can remove them explicitly, or else
 			// leave them to be removed along with the machine.
-			logger.Debugf(
+			logger.Debugf(context.TODO(),
 				"%s for %s is non-detachable",
 				names.ReadableString(volume.Tag()),
 				names.ReadableString(si.StorageTag()),
@@ -1545,7 +1545,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 		} else if volume.Life() != Alive {
 			// The volume is not alive, so either is already
 			// or will soon be detached.
-			logger.Debugf(
+			logger.Debugf(context.TODO(),
 				"%s is %s",
 				names.ReadableString(volume.Tag()),
 				volume.Life(),
@@ -1557,13 +1557,13 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
 			// machine, associated with the same storage.
-			logger.Debugf("%s", err)
+			logger.Debugf(context.TODO(), "%s", err)
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if att.Life() != Alive {
-			logger.Debugf(
+			logger.Debugf(context.TODO(),
 				"%s is detaching from %s",
 				names.ReadableString(volume.Tag()),
 				names.ReadableString(hostTag),
@@ -1585,7 +1585,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 		if errors.Is(err, errors.NotFound) {
 			// The filesystem has already been removed, so must
 			// have already been detached.
-			logger.Debugf("%s", err)
+			logger.Debugf(context.TODO(), "%s", err)
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1594,14 +1594,14 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			// machine, since the only other option is to destroy
 			// them. The user can remove them explicitly, or else
 			// leave them to be removed along with the machine.
-			logger.Debugf(
+			logger.Debugf(context.TODO(),
 				"%s for %s is non-detachable",
 				names.ReadableString(filesystem.Tag()),
 				names.ReadableString(si.StorageTag()),
 			)
 			return nil, nil
 		} else if filesystem.Life() != Alive {
-			logger.Debugf(
+			logger.Debugf(context.TODO(),
 				"%s is %s",
 				names.ReadableString(filesystem.Tag()),
 				filesystem.Life(),
@@ -1613,13 +1613,13 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
 			// machine, associated with the same storage.
-			logger.Debugf("%s", err)
+			logger.Debugf(context.TODO(), "%s", err)
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if att.Life() != Alive {
-			logger.Debugf(
+			logger.Debugf(context.TODO(),
 				"%s is detaching from %s",
 				names.ReadableString(filesystem.Tag()),
 				names.ReadableString(hostTag),
@@ -1651,7 +1651,7 @@ func removeStorageInstancesOps(im *storageBackend, owner names.Tag, force bool) 
 		storageInstanceOps, err := removeStorageInstanceOps(si, nil, force)
 		if err != nil {
 			removalErr = errors.Trace(err)
-			logger.Warningf("error determining operations for storage instance %v removal: %v", si.StorageTag().Id(), err)
+			logger.Warningf(context.TODO(), "error determining operations for storage instance %v removal: %v", si.StorageTag().Id(), err)
 		}
 		ops = append(ops, storageInstanceOps...)
 	}

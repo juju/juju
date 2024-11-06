@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"math/rand"
 	"sync"
 	"time"
@@ -29,6 +30,9 @@ type stateWorker struct {
 }
 
 func (w *stateWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	pool, systemState, err := w.stTracker.Use()
 	if err != nil {
 		return errors.Trace(err)
@@ -53,7 +57,7 @@ func (w *stateWorker) loop() error {
 
 		case modelUUIDs := <-modelWatcher.Changes():
 			for _, modelUUID := range modelUUIDs {
-				if err := w.processModelLifeChange(modelUUID); err != nil {
+				if err := w.processModelLifeChange(ctx, modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -74,12 +78,12 @@ func (w *stateWorker) Report() map[string]interface{} {
 	return w.stTracker.Report()
 }
 
-func (w *stateWorker) processModelLifeChange(modelUUID string) error {
+func (w *stateWorker) processModelLifeChange(ctx context.Context, modelUUID string) error {
 	model, hp, err := w.pool.GetModel(modelUUID)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// Model has been removed from state.
-			logger.Debugf("model %q removed from state", modelUUID)
+			logger.Debugf(ctx, "model %q removed from state", modelUUID)
 			w.remove(modelUUID)
 			return nil
 		}
@@ -89,7 +93,7 @@ func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 
 	if model.Life() == state.Dead {
 		// Model is Dead, and will soon be removed from state.
-		logger.Debugf("model %q is dead", modelUUID)
+		logger.Debugf(ctx, "model %q is dead", modelUUID)
 		w.remove(modelUUID)
 		return nil
 	}
@@ -122,10 +126,14 @@ func (w *stateWorker) Wait() error {
 	w.cleanupOnce.Do(func() {
 		// Make sure the worker has exited before closing state.
 		if err := w.stTracker.Done(); err != nil {
-			logger.Warningf("error releasing state: %v", err)
+			logger.Warningf(context.TODO(), "error releasing state: %v", err)
 		}
 	})
 	return err
+}
+
+func (w *stateWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 type modelStateWorker struct {

@@ -57,5 +57,5 @@ func (fa *failAction) Commit(ctx context.Context, state State) (*State, error) {
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (fa *failAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
+func (fa *failAction) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {
 }

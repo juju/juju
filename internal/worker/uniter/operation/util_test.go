@@ -101,7 +101,7 @@ func (d *MockDeployer) Stage(ctx context.Context, info charm.BundleInfo, abort <
 	return d.MockStage.Call(info, abort)
 }
 
-func (d *MockDeployer) Deploy() error {
+func (d *MockDeployer) Deploy(ctx context.Context) error {
 	return d.MockDeploy.Call()
 }
 
@@ -328,7 +328,7 @@ type MockContext struct {
 	relation        *MockRelation
 }
 
-func (mock *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+func (mock *MockContext) SecretMetadata(context.Context) (map[string]jujuc.SecretMetadata, error) {
 	return map[string]jujuc.SecretMetadata{
 		"9m4e2mr0ui3e8a215n4g": {
 			Description:    "description",

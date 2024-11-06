@@ -4,12 +4,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
 
 	"github.com/juju/cmd/v4"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	jujuversion "github.com/juju/juju/core/version"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -53,8 +54,8 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 }
 
 func runNotifier(name string) {
-	logger.Infof("running %s [%s %s %s %s]", name, jujuversion.Current, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
-	logger.Debugf("  args: %#v", os.Args)
+	logger.Infof(context.TODO(), "running %s [%s %s %s %s]", name, jujuversion.Current, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
+	logger.Debugf(context.TODO(), "  args: %#v", os.Args)
 }
 
 func Info(i *cmd.Info) *cmd.Info {
@@ -68,5 +69,5 @@ func Info(i *cmd.Info) *cmd.Info {
 // hence, it's stdin is not usable for user input.
 func IsPiped(ctx *cmd.Context) bool {
 	stdIn, ok := ctx.Stdin.(*os.File)
-	return ok && !terminal.IsTerminal(int(stdIn.Fd()))
+	return ok && !term.IsTerminal(int(stdIn.Fd()))
 }

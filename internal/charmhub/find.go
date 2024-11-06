@@ -124,7 +124,7 @@ func (c *findClient) find(ctx context.Context, query string, options ...FindOpti
 		option(opts)
 	}
 
-	c.logger.Tracef("Find(%s)", query)
+	c.logger.Tracef(ctx, "Find(%s)", query)
 	path, err := c.path.Query("q", query)
 	if err != nil {
 		return nil, errors.Trace(err)

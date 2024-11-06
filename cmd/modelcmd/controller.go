@@ -188,7 +188,7 @@ func (c *ControllerCommandBase) initController0() error {
 
 // SetControllerName implements ControllerCommand.SetControllerName.
 func (c *ControllerCommandBase) SetControllerName(controllerName string, allowDefault bool) error {
-	logger.Infof("setting controllerName to %q %v", controllerName, allowDefault)
+	logger.Infof(context.TODO(), "setting controllerName to %q %v", controllerName, allowDefault)
 	c._controllerName = controllerName
 	c.allowDefaultController = allowDefault
 	if c.runStarted {

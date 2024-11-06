@@ -403,14 +403,14 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		controllermsg.ConfigChanged,
 		func(topic string, data controllermsg.ConfigChangedMessage, err error) {
 			if err != nil {
-				logger.Criticalf("programming error in %s message data: %v", topic, err)
+				logger.Criticalf(ctx, "programming error in %s message data: %v", topic, err)
 				return
 			}
 			srv.updateAgentRateLimiter(data.Config)
 			srv.updateResourceDownloadLimiters(data.Config)
 		})
 	if err != nil {
-		logger.Criticalf("programming error in subscribe function: %v", err)
+		logger.Criticalf(ctx, "programming error in subscribe function: %v", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -445,6 +445,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		}
 	} else {
 		srv.logSinkWriter, err = logsink.NewFileWriter(
+			ctx,
 			filepath.Join(srv.logDir, "logsink.log"),
 			controllerConfig.AgentLogfileMaxSizeMB(),
 			controllerConfig.AgentLogfileMaxBackups(),
@@ -730,6 +731,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	healthHandler := http.HandlerFunc(srv.healthHandler)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	debugLogHandler := newDebugLogTailerHandler(
+		context.TODO(),
 		httpCtxt,
 		httpAuthenticator,
 		tagKindAuthorizer{
@@ -1087,7 +1089,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// deferred to the facade methods.
 		ctx := model.WithContextModelUUID(req.Context(), resolvedModelUUID)
 
-		logger.Tracef("got a request for model %q", modelUUID)
+		logger.Tracef(ctx, "got a request for model %q", modelUUID)
 		if err := srv.serveConn(
 			srv.tomb.Context(ctx),
 			conn,
@@ -1097,7 +1099,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			apiObserver,
 			req.Host,
 		); err != nil {
-			logger.Errorf("error serving RPCs: %v", err)
+			logger.Errorf(ctx, "error serving RPCs: %v", err)
 		}
 	})
 }
@@ -1120,7 +1122,7 @@ func (srv *Server) serveConn(
 		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
 	if err != nil {
-		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
+		logger.Infof(ctx, "failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
 

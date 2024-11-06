@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -212,7 +213,7 @@ type versionDetail struct {
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
+	defer logger.Debugf(ctx, "jujud complete, code %d, err %v", code, err)
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
 	if err != nil {
 		return 1, errors.Trace(err)
@@ -307,7 +308,7 @@ func Main(args []string) int {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			logger.Criticalf(context.Background(), "Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(exit_panic)
 		}
 	}()

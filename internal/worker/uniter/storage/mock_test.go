@@ -78,5 +78,5 @@ func (m *mockOperation) Commit(ctx context.Context, state operation.State) (*ope
 	return &state, nil
 }
 
-func (m *mockOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
+func (m *mockOperation) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {
 }

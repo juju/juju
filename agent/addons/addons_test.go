@@ -4,6 +4,7 @@
 package addons_test
 
 import (
+	"context"
 	"runtime"
 	"time"
 
@@ -37,14 +38,14 @@ func (s *introspectionSuite) TestStartNonLinux(c *gc.C) {
 	var started bool
 
 	cfg := addons.IntrospectionConfig{
-		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
+		WorkerFunc: func(context.Context, introspection.Config) (worker.Worker, error) {
 			started = true
 			return nil, errors.New("shouldn't call start")
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	}
 
-	err := addons.StartIntrospection(cfg)
+	err := addons.StartIntrospection(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(started, jc.IsFalse)
 }
@@ -56,13 +57,13 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 
 	cfg := addons.IntrospectionConfig{
 		AgentDir: c.MkDir(),
-		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
+		WorkerFunc: func(context.Context, introspection.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	}
 
-	err := addons.StartIntrospection(cfg)
+	err := addons.StartIntrospection(context.Background(), cfg)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -87,14 +88,14 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	cfg := addons.IntrospectionConfig{
 		AgentDir: c.MkDir(),
 		Engine:   engine,
-		WorkerFunc: func(cfg introspection.Config) (worker.Worker, error) {
+		WorkerFunc: func(ctx context.Context, cfg introspection.Config) (worker.Worker, error) {
 			fake.config = cfg
 			return fake, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	}
 
-	err = addons.StartIntrospection(cfg)
+	err = addons.StartIntrospection(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fake.config.DepEngine, gc.Equals, engine)

@@ -93,7 +93,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, nil)
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -182,10 +182,11 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	s.addDevicesWithAddresses(c, machine, "10.2.3.4/16", "100.2.3.4/24")
 
 	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
-	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
-		Unit:      unit.UnitTag().String(),
-		Endpoints: []string{"server-admin"},
-	})
+	result, err := netInfo.ProcessAPIRequest(context.Background(),
+		params.NetworkInfoParams{
+			Unit:      unit.UnitTag().String(),
+			Endpoints: []string{"server-admin"},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := result.Results
@@ -260,10 +261,12 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
-	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
-		Unit:      unit.UnitTag().String(),
-		Endpoints: []string{"server-admin"},
-	})
+	result, err := netInfo.ProcessAPIRequest(
+		context.Background(),
+		params.NetworkInfoParams{
+			Unit:      unit.UnitTag().String(),
+			Endpoints: []string{"server-admin"},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := result.Results
@@ -310,11 +313,13 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, lookup)
 
 	rID := prr.rel.Id()
-	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
-		Unit:       names.NewUnitTag(prr.pru0.UnitName()).String(),
-		Endpoints:  []string{"server"},
-		RelationId: &rID,
-	})
+	result, err := netInfo.ProcessAPIRequest(
+		context.Background(),
+		params.NetworkInfoParams{
+			Unit:       names.NewUnitTag(prr.pru0.UnitName()).String(),
+			Endpoints:  []string{"server"},
+			RelationId: &rID,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := result.Results
@@ -378,10 +383,12 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, u.UnitTag(), nil, lookup, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
-		Unit:      u.UnitTag().String(),
-		Endpoints: []string{"server"},
-	})
+	result, err := netInfo.ProcessAPIRequest(
+		context.Background(),
+		params.NetworkInfoParams{
+			Unit:      u.UnitTag().String(),
+			Endpoints: []string{"server"},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := result.Results
@@ -438,7 +445,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "10.2.3.4/16", "4.3.2.1/16")
 
 	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, nil)
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, space3.ID)
@@ -478,7 +485,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil, nil)
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -511,7 +518,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil, nil)
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -556,7 +563,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	}
 
 	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory, nil)
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -615,7 +622,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	}
 
 	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory, nil)
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -655,7 +662,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.HasLen, 0)
@@ -673,7 +680,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	// are populated in the constructor.
 	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
-	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err = netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -713,7 +720,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel)
+	_, _, _, err = netInfo.NetworksForRelation(context.Background(), "unknown", prr.rel)
 	c.Assert(err, gc.ErrorMatches, `undefined for unit charm: endpoint "unknown" not valid`)
 }
 
@@ -794,7 +801,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	// At this point we only have a container (local-machine) address.
 	// We expect no return when asking to poll for the public address.
-	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.HasLen, 0)
@@ -812,7 +819,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	// are populated in the constructor.
 	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
-	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
+	boundSpace, ingress, egress, err = netInfo.NetworksForRelation(context.Background(), "", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)

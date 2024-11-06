@@ -235,7 +235,7 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 		c.Placement,
 	)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 
 	result := availabilityInfo{

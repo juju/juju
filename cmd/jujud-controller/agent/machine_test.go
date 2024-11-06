@@ -668,9 +668,9 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 	ctx := cmdtesting.Context(c)
 	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
 	defer func() {
-		logger.Infof("stopping machine agent")
+		logger.Infof(ctx, "stopping machine agent")
 		c.Check(a.Stop(), jc.ErrorIsNil)
-		logger.Infof("stopped machine agent")
+		logger.Infof(ctx, "stopped machine agent")
 	}()
 
 	timeout := time.After(coretesting.LongWait)

@@ -433,7 +433,7 @@ func (c *HookContext) ensureCharmStateLoaded(ctx context.Context) error {
 
 // RequestReboot will set the reboot flag to true on the machine agent
 // Implements jujuc.HookContext.ContextInstance, part of runner.Context.
-func (c *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
+func (c *HookContext) RequestReboot(ctx context.Context, priority jujuc.RebootPriority) error {
 	// Must set reboot priority first, because killing the hook
 	// process will trigger the completion of the hook. If killing
 	// the hook fails, then we can reset the priority.
@@ -442,7 +442,7 @@ func (c *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	var err error
 	if priority == jujuc.RebootNow {
 		// At this point, the hook should be running
-		err = c.killCharmHook()
+		err = c.killCharmHook(ctx)
 	}
 
 	switch err {
@@ -562,7 +562,7 @@ func (c *HookContext) ApplicationStatus(ctx context.Context) (jujuc.ApplicationS
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (c *HookContext) SetUnitStatus(ctx context.Context, unitStatus jujuc.StatusInfo) error {
 	c.hasRunStatusSet = true
-	c.logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
+	c.logger.Tracef(ctx, "[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return c.unit.SetUnitStatus(ctx,
 		status.Status(unitStatus.Status),
 		unitStatus.Info,
@@ -573,7 +573,7 @@ func (c *HookContext) SetUnitStatus(ctx context.Context, unitStatus jujuc.Status
 // SetAgentStatus will set the given status for this unit's agent.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (c *HookContext) SetAgentStatus(ctx context.Context, agentStatus jujuc.StatusInfo) error {
-	c.logger.Tracef("[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
+	c.logger.Tracef(ctx, "[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
 	return c.unit.SetAgentStatus(
 		ctx,
 		status.Status(agentStatus.Status),
@@ -586,7 +586,7 @@ func (c *HookContext) SetAgentStatus(ctx context.Context, agentStatus jujuc.Stat
 // unit's belong, only if this unit is the leader.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (c *HookContext) SetApplicationStatus(ctx context.Context, applicationStatus jujuc.StatusInfo) error {
-	c.logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
+	c.logger.Tracef(ctx, "[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := c.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -732,16 +732,16 @@ func (c *HookContext) AddUnitStorage(cons map[string]params.StorageDirectives) e
 
 // OpenPortRange marks the supplied port range for opening.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (c *HookContext) OpenPortRange(endpointName string, portRange network.PortRange) error {
-	return c.portRangeChanges.OpenPortRange(endpointName, portRange)
+func (c *HookContext) OpenPortRange(ctx context.Context, endpointName string, portRange network.PortRange) error {
+	return c.portRangeChanges.OpenPortRange(ctx, endpointName, portRange)
 }
 
 // ClosePortRange ensures the supplied port range is closed even when
 // the executing unit's application is exposed (unless it is opened
 // separately by a co- located unit).
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (c *HookContext) ClosePortRange(endpointName string, portRange network.PortRange) error {
-	return c.portRangeChanges.ClosePortRange(endpointName, portRange)
+func (c *HookContext) ClosePortRange(ctx context.Context, endpointName string, portRange network.PortRange) error {
+	return c.portRangeChanges.ClosePortRange(ctx, endpointName, portRange)
 }
 
 // OpenedPortRanges returns all port ranges currently opened by this
@@ -780,8 +780,8 @@ func (c *HookContext) getSecretsBackend() (api.SecretsBackend, error) {
 	return c.secretsBackend, nil
 }
 
-func (c *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.URI, error) {
-	mds, err := c.SecretMetadata()
+func (c *HookContext) lookupOwnedSecretURIByLabel(ctx context.Context, label string) (*coresecrets.URI, error) {
+	mds, err := c.SecretMetadata(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -828,7 +828,7 @@ func (c *HookContext) GetSecret(ctx context.Context, uri *coresecrets.URI, label
 	}
 	if uri == nil && label != "" {
 		// try to resolve label to URI by looking up owned secrets.
-		ownedSecretURI, err := c.lookupOwnedSecretURIByLabel(label)
+		ownedSecretURI, err := c.lookupOwnedSecretURIByLabel(ctx, label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
@@ -995,7 +995,7 @@ func (c *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
 
 // SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
 // The result includes any pending updates.
-func (c *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+func (c *HookContext) SecretMetadata(ctx context.Context) (map[string]jujuc.SecretMetadata, error) {
 	result := make(map[string]jujuc.SecretMetadata)
 	for _, c := range c.secretChanges.pendingCreates {
 		md := jujuc.SecretMetadata{
@@ -1041,7 +1041,7 @@ func (c *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) 
 	for k, v := range result {
 		uri := &coresecrets.URI{ID: k}
 		var err error
-		if v.Access, err = c.secretChanges.secretGrantInfo(uri, v.Access...); err != nil {
+		if v.Access, err = c.secretChanges.secretGrantInfo(ctx, uri, v.Access...); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -1049,8 +1049,8 @@ func (c *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) 
 }
 
 // GrantSecret grants access to a specified secret.
-func (c *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRevokeArgs) error {
-	secretMetadata, err := c.SecretMetadata()
+func (c *HookContext) GrantSecret(ctx context.Context, uri *coresecrets.URI, arg *jujuc.SecretGrantRevokeArgs) error {
+	secretMetadata, err := c.SecretMetadata(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1257,11 +1257,11 @@ func (c *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
 // RelationIds returns the ids of all relations the executing unit is
 // currently participating in or an error if they are not available.
 // Implements jujuc.HookContext.ContextRelations, part of runner.Context.
-func (c *HookContext) RelationIds() ([]int, error) {
+func (c *HookContext) RelationIds(ctx context.Context) ([]int, error) {
 	ids := []int{}
 	for id, r := range c.relations {
 		if r.broken {
-			c.logger.Debugf("relation %d is broken, excluding from relations-ids", id)
+			c.logger.Debugf(ctx, "relation %d is broken, excluding from relations-ids", id)
 			continue
 		}
 		ids = append(ids, id)
@@ -1402,7 +1402,7 @@ func (c *HookContext) HookVars(
 }
 
 func (c *HookContext) handleReboot(ctx context.Context, ctxErr error) error {
-	c.logger.Tracef("checking for reboot request")
+	c.logger.Tracef(ctx, "checking for reboot request")
 	rebootPriority := c.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
@@ -1420,7 +1420,7 @@ func (c *HookContext) handleReboot(ctx context.Context, ctxErr error) error {
 	// Do a best-effort attempt to set the unit agent status; we don't care
 	// if it fails as we will request a reboot anyway.
 	if err := c.unit.SetAgentStatus(ctx, status.Rebooting, "", nil); err != nil {
-		c.logger.Errorf("updating agent status: %v", err)
+		c.logger.Errorf(ctx, "updating agent status: %v", err)
 	}
 
 	if err := c.unit.RequestReboot(ctx); err != nil {
@@ -1570,7 +1570,7 @@ func (c *HookContext) doFlush(ctx context.Context, process string) error {
 		} else {
 			toDelete = []int{*d.Revision}
 		}
-		c.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
+		c.logger.Debugf(ctx, "deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(ctx, d.URI, rev); err != nil {
 				if errors.Is(err, secreterrors.SecretRevisionNotFound) {
@@ -1609,14 +1609,14 @@ func (c *HookContext) doFlush(ctx context.Context, process string) error {
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
 		if err := c.unit.CommitHookChanges(ctx, commitReq); err != nil {
-			c.logger.Errorf("cannot apply changes: %v", err)
+			c.logger.Errorf(ctx, "cannot apply changes: %v", err)
 		cleanupDone:
 			for _, secretId := range cleanups {
 				if err2 := secretsBackend.DeleteExternalContent(ctx, secretId); err2 != nil {
 					if errors.Is(err, errors.NotSupported) {
 						break cleanupDone
 					}
-					c.logger.Errorf("cannot cleanup secret %q: %v", secretId, err2)
+					c.logger.Errorf(ctx, "cannot cleanup secret %q: %v", secretId, err2)
 				}
 			}
 			return errors.Trace(err)
@@ -1683,20 +1683,20 @@ func (c *HookContext) finalizeAction(ctx context.Context, err, flushErr error) e
 	callErr := c.uniter.ActionFinish(ctx, tag, actionStatus, results, message)
 	// Prevent the unit agent from looping if it's impossible to finalise the action.
 	if params.IsCodeNotFoundOrCodeUnauthorized(callErr) || params.IsCodeAlreadyExists(callErr) {
-		c.logger.Warningf("error finalising action %v: %v", tag.Id(), callErr)
+		c.logger.Warningf(ctx, "error finalising action %v: %v", tag.Id(), callErr)
 		callErr = nil
 	}
 	return errors.Trace(callErr)
 }
 
 // killCharmHook tries to kill the current running charm hook.
-func (c *HookContext) killCharmHook() error {
+func (c *HookContext) killCharmHook(ctx context.Context) error {
 	proc := c.GetProcess()
 	if proc == nil {
 		// nothing to kill
 		return charmrunner.ErrNoProcess
 	}
-	c.logger.Infof("trying to kill context process %v", proc.Pid())
+	c.logger.Infof(ctx, "trying to kill context process %v", proc.Pid())
 
 	tick := c.clock.After(0)
 	timeout := c.clock.After(30 * time.Second)
@@ -1710,14 +1710,14 @@ func (c *HookContext) killCharmHook() error {
 		case <-tick:
 			err := proc.Kill()
 			if err != nil {
-				c.logger.Infof("kill returned: %s", err)
-				c.logger.Infof("assuming already killed")
+				c.logger.Infof(ctx, "kill returned: %s", err)
+				c.logger.Infof(ctx, "assuming already killed")
 				return nil
 			}
 		case <-timeout:
 			return errors.Errorf("failed to kill context process %v", proc.Pid())
 		}
-		c.logger.Infof("waiting for context process %v to die", proc.Pid())
+		c.logger.Infof(ctx, "waiting for context process %v to die", proc.Pid())
 		tick = c.clock.After(100 * time.Millisecond)
 	}
 }

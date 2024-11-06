@@ -89,13 +89,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// bounce the world and this will be re-evaluated.
 			// This will be evaluated via the agent config worker.
 			if !currentConfig.OpenTelemetryEnabled() {
-				config.Logger.Infof("OpenTelemetry disabled, not starting trace worker")
+				config.Logger.Infof(ctx, "OpenTelemetry disabled, not starting trace worker")
 				return NewNoopWorker(), nil
 			}
 
 			endpoint := currentConfig.OpenTelemetryEndpoint()
 
-			config.Logger.Infof("OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
+			config.Logger.Infof(ctx, "OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
 
 			w, err := NewWorker(WorkerConfig{
 				Clock:                 config.Clock,

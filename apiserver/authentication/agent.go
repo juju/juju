@@ -70,7 +70,7 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {
 	entity, err := a.state.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
-		logger.Debugf("cannot authenticate unknown entity: %v", authParams.AuthTag)
+		logger.Debugf(ctx, "cannot authenticate unknown entity: %v", authParams.AuthTag)
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	if err != nil {

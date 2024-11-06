@@ -245,7 +245,7 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 }
 
 // filterOutReadOnly removes in-situ read-only attributes from the provided configuration attributes map.
-func (c *configCommand) filterOutReadOnly(attrs config.Attrs) error {
+func (c *configCommand) filterOutReadOnly(ctx context.Context, attrs config.Attrs) error {
 	extraValues := set.NewStrings()
 	for k := range attrs {
 		if !controller.AllowedUpdateConfigAttributes.Contains(k) {
@@ -262,13 +262,13 @@ func (c *configCommand) filterOutReadOnly(attrs config.Attrs) error {
 		return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
 	}
 
-	logger.Warningf("invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
+	logger.Warningf(ctx, "invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
 	return nil
 }
 
 // setConfig sets config values from the provided config.Attrs.
 func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, attrs config.Attrs) error {
-	err := c.filterOutReadOnly(attrs)
+	err := c.filterOutReadOnly(ctx, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}

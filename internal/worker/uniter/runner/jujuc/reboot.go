@@ -89,5 +89,5 @@ func (c *JujuRebootCommand) Run(ctx *cmd.Context) error {
 		rebootPriority = RebootNow
 	}
 
-	return c.ctx.RequestReboot(rebootPriority)
+	return c.ctx.RequestReboot(ctx, rebootPriority)
 }

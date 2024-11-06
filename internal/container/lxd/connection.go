@@ -177,12 +177,12 @@ func SocketPath(isSocket func(path string) bool) string {
 
 		maybePath = filepath.Join(maybePath, "unix.socket")
 		if isSocket(maybePath) {
-			logger.Debugf("using LXD socket at path: %q", maybePath)
+			logger.Debugf(context.TODO(), "using LXD socket at path: %q", maybePath)
 			return maybePath
 		}
 	}
 
-	logger.Debugf("unable to detect LXD socket path")
+	logger.Debugf(context.TODO(), "unable to detect LXD socket path")
 	return ""
 }
 
@@ -194,7 +194,7 @@ func EnsureHTTPS(address string) string {
 	}
 	if strings.HasPrefix(address, "http://") {
 		addr := strings.Replace(address, "http://", "https://", 1)
-		logger.Debugf("LXD requires https://, using: %s", addr)
+		logger.Debugf(context.TODO(), "LXD requires https://, using: %s", addr)
 		return addr
 	}
 	return "https://" + address

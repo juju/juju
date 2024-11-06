@@ -101,5 +101,5 @@ func (c *suspendRelationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 	err = client.SetRelationSuspended(ctx, c.relationIds, true, c.message)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }

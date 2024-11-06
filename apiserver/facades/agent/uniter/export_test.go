@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	gc "gopkg.in/check.v1"
 
@@ -75,6 +77,6 @@ func PatchGetStorageStateError(patcher patcher, err error) {
 }
 
 func (n *NetworkInfoIAAS) MachineNetworkInfos() (map[string][]NetInfoAddress, error) {
-	err := n.populateMachineAddresses()
+	err := n.populateMachineAddresses(context.Background())
 	return n.machineAddresses, err
 }

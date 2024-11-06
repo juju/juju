@@ -116,7 +116,7 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("secret rotation change channel closed")
 			}
-			w.handleTokenRotateChanges(ch)
+			w.handleTokenRotateChanges(ctx, ch)
 		case now := <-timeout:
 			if err := w.rotate(ctx, now); err != nil {
 				return errors.Annotatef(err, "rotating secret backends")
@@ -126,14 +126,14 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) rotate(ctx context.Context, now time.Time) error {
-	w.config.Logger.Debugf("processing secret backend token rotation at %s", now)
+	w.config.Logger.Debugf(ctx, "processing secret backend token rotation at %s", now)
 
 	var toRotate []string
 	for id, info := range w.backendInfo {
-		w.config.Logger.Debugf("checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
+		w.config.Logger.Debugf(ctx, "checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
 		// A one minute granularity is acceptable for secret rotation.
 		if info.rotateTime.Truncate(time.Minute).Before(now) {
-			w.config.Logger.Debugf("rotating token for %s", info.backendName)
+			w.config.Logger.Debugf(ctx, "rotating token for %s", info.backendName)
 			toRotate = append(toRotate, id)
 			// Once backend has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
@@ -145,12 +145,12 @@ func (w *Worker) rotate(ctx context.Context, now time.Time) error {
 	if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(ctx, toRotate...); err != nil {
 		return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
 	}
-	w.computeNextRotateTime()
+	w.computeNextRotateTime(ctx)
 	return nil
 }
 
-func (w *Worker) handleTokenRotateChanges(changes []watcher.SecretBackendRotateChange) {
-	w.config.Logger.Debugf("got rotate secret changes: %#v", changes)
+func (w *Worker) handleTokenRotateChanges(ctx context.Context, changes []watcher.SecretBackendRotateChange) {
+	w.config.Logger.Debugf(ctx, "got rotate secret changes: %#v", changes)
 	if len(changes) == 0 {
 		return
 	}
@@ -158,7 +158,7 @@ func (w *Worker) handleTokenRotateChanges(changes []watcher.SecretBackendRotateC
 	for _, ch := range changes {
 		// Next rotate time of 0 means the rotation has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf("token for %q no longer rotated", ch.Name)
+			w.config.Logger.Debugf(ctx, "token for %q no longer rotated", ch.Name)
 			delete(w.backendInfo, ch.ID)
 			continue
 		}
@@ -169,11 +169,11 @@ func (w *Worker) handleTokenRotateChanges(changes []watcher.SecretBackendRotateC
 			whenFunc:    func(rotateTime time.Time) time.Duration { return rotateTime.Sub(w.config.Clock.Now()) },
 		}
 	}
-	w.computeNextRotateTime()
+	w.computeNextRotateTime(ctx)
 }
 
-func (w *Worker) computeNextRotateTime() {
-	w.config.Logger.Debugf("computing next rotated time for secret backends %#v", w.backendInfo)
+func (w *Worker) computeNextRotateTime(ctx context.Context) {
+	w.config.Logger.Debugf(ctx, "computing next rotated time for secret backends %#v", w.backendInfo)
 
 	if len(w.backendInfo) == 0 {
 		w.timer = nil
@@ -201,7 +201,7 @@ func (w *Worker) computeNextRotateTime() {
 	}
 
 	nextDuration := soonestRotateTime.Sub(now)
-	w.config.Logger.Debugf("next token will rotate in %v at %s", nextDuration, soonestRotateTime)
+	w.config.Logger.Debugf(ctx, "next token will rotate in %v at %s", nextDuration, soonestRotateTime)
 
 	w.nextTrigger = soonestRotateTime
 	if w.timer == nil {

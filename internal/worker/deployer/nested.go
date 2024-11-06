@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/logger"
 	message "github.com/juju/juju/internal/pubsub/agent"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
 )
@@ -103,12 +105,12 @@ func (c *ContextConfig) Validate() error {
 // NewNestedContext creates a new deployer context that is responsible for
 // running the workers for units as individual dependency engines in a runner it
 // owns.
-func NewNestedContext(config ContextConfig) (Context, error) {
+func NewNestedContext(ctx context.Context, config ContextConfig) (Context, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	agentConfig := config.Agent.CurrentConfig()
-	context := &nestedContext{
+	c := &nestedContext{
 		logger:      config.Logger,
 		agent:       config.Agent,
 		agentConfig: agentConfig,
@@ -124,7 +126,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		units:  make(map[string]*UnitAgent),
 		errors: make(map[string]error),
 		runner: worker.NewRunner(worker.RunnerParams{
-			Logger:        config.Logger,
+			Logger:        internalworker.WrapLogger(config.Logger),
 			IsFatal:       agenterrors.IsFatal,
 			MoreImportant: agenterrors.MoreImportant,
 			RestartDelay:  jworker.RestartDelay,
@@ -133,53 +135,55 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		rebootMonitorStatePurger: config.RebootMonitorStatePurger,
 	}
 
-	if context.rebootMonitorStatePurger == nil {
-		context.rebootMonitorStatePurger = reboot.NewMonitor(agentConfig.TransientDataDir())
+	if c.rebootMonitorStatePurger == nil {
+		c.rebootMonitorStatePurger = reboot.NewMonitor(agentConfig.TransientDataDir())
 	}
 
-	unsubStop := context.hub.Subscribe(message.StopUnitTopic, context.stopUnitRequest)
-	unsubStart := context.hub.Subscribe(message.StartUnitTopic, context.startUnitRequest)
-	unsubStatus := context.hub.Subscribe(message.UnitStatusTopic, context.unitStatusRequest)
-	context.unsub = func() {
+	unsubStop := c.hub.Subscribe(message.StopUnitTopic, c.stopUnitRequest)
+	unsubStart := c.hub.Subscribe(message.StartUnitTopic, c.startUnitRequest)
+	unsubStatus := c.hub.Subscribe(message.UnitStatusTopic, c.unitStatusRequest)
+	c.unsub = func() {
 		unsubStop()
 		unsubStart()
 		unsubStatus()
 	}
 	// Stat all the units that context should have deployed and started.
-	units := context.deployedUnits()
-	stopped := context.stoppedUnits()
-	config.Logger.Infof("new context: units %q, stopped %q", strings.Join(units.Values(), ", "), strings.Join(stopped.Values(), ", "))
+	units := c.deployedUnits()
+	stopped := c.stoppedUnits()
+	config.Logger.Infof(ctx, "new context: units %q, stopped %q", strings.Join(units.Values(), ", "), strings.Join(stopped.Values(), ", "))
 	for _, u := range units.SortedValues() {
 		if u == "" {
-			config.Logger.Warningf("empty unit")
+			config.Logger.Warningf(ctx, "empty unit")
 			continue
 		}
-		agent, err := context.newUnitAgent(u)
+		agent, err := c.newUnitAgent(ctx, u)
 		if err != nil {
-			config.Logger.Errorf("unable to start unit %q: %v", u, err)
-			context.errors[u] = err
+			config.Logger.Errorf(ctx, "unable to start unit %q: %v", u, err)
+			c.errors[u] = err
 			continue
 		}
-		context.units[u] = agent
+		c.units[u] = agent
 		if !stopped.Contains(u) {
-			if err := context.startUnitWorkers(u); err != nil {
-				config.Logger.Errorf("unable to start workers for unit %q: %v", u, err)
-				context.errors[u] = err
+			if err := c.startUnitWorkers(ctx, u); err != nil {
+				config.Logger.Errorf(ctx, "unable to start workers for unit %q: %v", u, err)
+				c.errors[u] = err
 			}
 		}
 	}
 
-	return context, nil
+	return c, nil
 }
 
 func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {
+	ctx := context.TODO()
+
 	units, ok := data.(message.Units)
 	if !ok {
-		c.logger.Errorf("data should be a Units structure")
+		c.logger.Errorf(ctx, "data should be a Units structure")
 	}
 	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
-		if err := c.stopUnit(unitName); err != nil {
+		if err := c.stopUnit(ctx, unitName); err != nil {
 			response[unitName] = err.Error()
 		} else {
 			response[unitName] = "stopped"
@@ -189,15 +193,17 @@ func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {
 }
 
 func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
+	ctx := context.TODO()
+
 	units, ok := data.(message.Units)
 	if !ok {
-		c.logger.Errorf("data should be a Units structure")
+		c.logger.Errorf(ctx, "data should be a Units structure")
 	}
 	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
 		if unitAgent, ok := c.units[unitName]; ok && !unitAgent.running() {
 			// Start over with a new agent, we do not know how long it's been lost.
-			newAgent, err := c.newUnitAgent(unitName)
+			newAgent, err := c.newUnitAgent(ctx, unitName)
 			if err != nil {
 				response[unitName] = fmt.Sprintf("unable to get new unit agent: %v", err)
 				c.errors[unitName] = err
@@ -206,7 +212,7 @@ func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
 			c.units[unitName] = newAgent
 		}
 
-		if err := c.startUnit(unitName); err != nil {
+		if err := c.startUnit(ctx, unitName); err != nil {
 			response[unitName] = err.Error()
 		} else {
 			response[unitName] = "started"
@@ -238,7 +244,7 @@ func (c *nestedContext) unitStatusRequest(topic string, _ interface{}) {
 	c.hub.Publish(message.UnitStatusResponseTopic, response)
 }
 
-func (c *nestedContext) newUnitAgent(unitName string) (*UnitAgent, error) {
+func (c *nestedContext) newUnitAgent(ctx context.Context, unitName string) (*UnitAgent, error) {
 	unitConfig := c.baseUnitConfig
 	unitConfig.Name = unitName
 	// Add a Filter function to the engine config with a method that has the
@@ -267,7 +273,7 @@ func (c *nestedContext) newUnitAgent(unitName string) (*UnitAgent, error) {
 	unitConfig.UnitEngineConfig = func() dependency.EngineConfig {
 		return engineConfig
 	}
-	return NewUnitAgent(unitConfig)
+	return NewUnitAgent(ctx, unitConfig)
 }
 
 // Kill the embedded running.
@@ -312,10 +318,10 @@ func (c *nestedContext) Report() map[string]interface{} {
 // The unit's agent.conf is still being used by the unit workers, so that
 // needs to be created, along with a link to the tools directory for the
 // unit.
-func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
+func (c *nestedContext) DeployUnit(ctx context.Context, unitName, initialPassword string) error {
 	// Create unit agent config file.
 	tag := names.NewUnitTag(unitName)
-	_, err := c.createUnitAgentConfig(tag, initialPassword)
+	_, err := c.createUnitAgentConfig(ctx, tag, initialPassword)
 	if err != nil {
 		// Any error here is indicative of a disk issue, potentially out of
 		// space or inodes. Either way, bouncing the deployer and having the
@@ -325,21 +331,21 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger.Tracef("starting the unit workers for %q", unitName)
+	c.logger.Tracef(ctx, "starting the unit workers for %q", unitName)
 
-	agent, err := c.newUnitAgent(unitName)
+	agent, err := c.newUnitAgent(ctx, unitName)
 	c.units[unitName] = agent
 	if err != nil {
-		c.logger.Errorf("unable to create unit agent %q: %v", unitName, err)
+		c.logger.Errorf(ctx, "unable to create unit agent %q: %v", unitName, err)
 		c.errors[unitName] = err
 	} else {
-		if err := c.startUnitWorkers(unitName); err != nil {
-			c.logger.Errorf("unable to start workers for unit %q: %v", unitName, err)
+		if err := c.startUnitWorkers(ctx, unitName); err != nil {
+			c.logger.Errorf(ctx, "unable to start workers for unit %q: %v", unitName, err)
 			c.errors[unitName] = err
 		}
 	}
 
-	c.logger.Tracef("updating the deployed units to add %q", unitName)
+	c.logger.Tracef(ctx, "updating the deployed units to add %q", unitName)
 	// Add to deployed-units stored in the machine agent config.
 	units := c.deployedUnits()
 	units.Add(unitName)
@@ -347,25 +353,27 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 	if err := c.updateConfigValue(deployedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the deployed-units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf("couldn't update stopped deployed units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(ctx, "couldn't update stopped deployed units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
 }
 
-func (c *nestedContext) startUnitWorkers(unitName string) error {
+func (c *nestedContext) startUnitWorkers(ctx context.Context, unitName string) error {
 	// Assumes lock is held.
-	c.logger.Infof("starting workers for %q", unitName)
+	c.logger.Infof(ctx, "starting workers for %q", unitName)
 	agent, ok := c.units[unitName]
 	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if agent.running() {
-		c.logger.Infof("unit workers for %q are already running", unitName)
+		c.logger.Infof(ctx, "unit workers for %q are already running", unitName)
 		return nil
 	}
 
-	err := c.runner.StartWorker(unitName, agent.start)
+	err := c.runner.StartWorker(unitName, func() (worker.Worker, error) {
+		return agent.start(ctx)
+	})
 	// Ensure starting a unit worker is idempotent.
 	if err == nil || errors.Is(err, errors.AlreadyExists) {
 		return nil
@@ -373,14 +381,14 @@ func (c *nestedContext) startUnitWorkers(unitName string) error {
 	return errors.Trace(err)
 }
 
-func (c *nestedContext) stopUnitWorkers(unitName string) error {
+func (c *nestedContext) stopUnitWorkers(ctx context.Context, unitName string) error {
 	// Assumes lock is held.
 	agent, ok := c.units[unitName]
 	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if !agent.running() {
-		c.logger.Infof("unit workers for %q not running", unitName)
+		c.logger.Infof(ctx, "unit workers for %q not running", unitName)
 		return nil
 	}
 	if err := c.runner.StopAndRemoveWorker(unitName, nil); err != nil {
@@ -398,11 +406,11 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 // stopUnit will stop the workers for the unit specified, and record the
 // unit as one of the stopped ones so it won't be started when the deployer
 // is restarted.
-func (c *nestedContext) stopUnit(unitName string) error {
+func (c *nestedContext) stopUnit(ctx context.Context, unitName string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err := c.stopUnitWorkers(unitName); err != nil {
+	if err := c.stopUnitWorkers(ctx, unitName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -417,18 +425,18 @@ func (c *nestedContext) stopUnit(unitName string) error {
 	if err := c.updateConfigValue(stoppedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the stopped units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf("couldn't update stopped units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(ctx, "couldn't update stopped units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
 }
 
 // startUnit will start the workers for a stopped unit specified.
-func (c *nestedContext) startUnit(unitName string) error {
+func (c *nestedContext) startUnit(ctx context.Context, unitName string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err := c.startUnitWorkers(unitName); err != nil {
+	if err := c.startUnitWorkers(ctx, unitName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -440,7 +448,7 @@ func (c *nestedContext) startUnit(unitName string) error {
 	if err := c.updateConfigValue(stoppedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the stopped units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf("couldn't update stopped units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(ctx, "couldn't update stopped units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
@@ -455,8 +463,8 @@ func (c *nestedContext) updateConfigValue(key, value string) error {
 	return writeErr
 }
 
-func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword string) (agent.Config, error) {
-	c.logger.Tracef("create unit agent config for %q", tag)
+func (c *nestedContext) createUnitAgentConfig(ctx context.Context, tag names.UnitTag, initialPassword string) (agent.Config, error) {
+	c.logger.Tracef(ctx, "create unit agent config for %q", tag)
 	dataDir := c.agentConfig.DataDir()
 	logDir := c.agentConfig.LogDir()
 	apiAddresses, err := c.agentConfig.APIAddresses()
@@ -499,11 +507,11 @@ func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword
 // RecallUnit is called when a unit is being removed from the machine.
 // If the model removes a unit, or the model is being torn down in an
 // orderly manner, this function is called.
-func (c *nestedContext) RecallUnit(unitName string) error {
+func (c *nestedContext) RecallUnit(ctx context.Context, unitName string) error {
 	// Stop runner for unit
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.stopUnitWorkers(unitName); err != nil {
+	if err := c.stopUnitWorkers(ctx, unitName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -558,7 +566,7 @@ func (c *nestedContext) getUnits(key string) []string {
 	return units
 }
 
-func (c *nestedContext) DeployedUnits() ([]string, error) {
+func (c *nestedContext) DeployedUnits(ctx context.Context) ([]string, error) {
 	return c.getUnits(deployedUnitsKey), nil
 }
 
@@ -566,10 +574,10 @@ func (c *nestedContext) AgentConfig() agent.Config {
 	return c.agentConfig
 }
 
-func removeOnErr(err *error, logger logger.Logger, path string) {
+func removeOnErr(ctx context.Context, err *error, logger logger.Logger, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
-			logger.Errorf("installer: cannot remove %q: %v", path, err)
+			logger.Errorf(ctx, "installer: cannot remove %q: %v", path, err)
 		}
 	}
 }

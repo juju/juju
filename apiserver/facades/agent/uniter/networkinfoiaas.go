@@ -174,7 +174,7 @@ func newNetworkInfoIAAS(ctx context.Context, base *NetworkInfoBase) (*NetworkInf
 	if netInfo.subs, err = netInfo.networkService.GetAllSubnets(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err = netInfo.populateMachineAddresses(); err != nil {
+	if err = netInfo.populateMachineAddresses(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -182,7 +182,7 @@ func newNetworkInfoIAAS(ctx context.Context, base *NetworkInfoBase) (*NetworkInf
 }
 
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
-func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
+func (n *NetworkInfoIAAS) ProcessAPIRequest(ctx context.Context, args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
 	spaces := set.NewStrings()
 	bindings := make(map[string]string)
 	endpointEgressSubnets := make(map[string][]string)
@@ -204,7 +204,7 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	// If we are working in a relation context, get the network information for
 	// the relation and set it for the relation's binding.
 	if args.RelationId != nil {
-		endpoint, space, ingress, egress, err := n.getRelationNetworkInfo(*args.RelationId)
+		endpoint, space, ingress, egress, err := n.getRelationNetworkInfo(ctx, *args.RelationId)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
@@ -234,7 +234,7 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
 		}
 
-		result.Results[endpoint] = n.resolveResultIngressHostNames(n.resolveResultInfoHostNames(info))
+		result.Results[endpoint] = n.resolveResultIngressHostNames(ctx, n.resolveResultInfoHostNames(ctx, info))
 	}
 
 	return result, nil
@@ -243,6 +243,7 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 // getRelationNetworkInfo returns the endpoint name, network space
 // and ingress/egress addresses for the input relation ID.
 func (n *NetworkInfoIAAS) getRelationNetworkInfo(
+	ctx context.Context,
 	relationId int,
 ) (string, string, network.SpaceAddresses, []string, error) {
 	rel, endpoint, err := n.getRelationAndEndpointName(relationId)
@@ -250,7 +251,7 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 		return "", "", nil, nil, errors.Trace(err)
 	}
 
-	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel)
+	space, ingress, egress, err := n.NetworksForRelation(ctx, endpoint, rel)
 	return endpoint, space, ingress, egress, errors.Trace(err)
 }
 
@@ -259,6 +260,7 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
 func (n *NetworkInfoIAAS) NetworksForRelation(
+	ctx context.Context,
 	endpoint string, rel *state.Relation,
 ) (string, network.SpaceAddresses, []string, error) {
 	// If NetworksForRelation is called during ProcessAPIRequest,
@@ -274,7 +276,7 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 	// based on the input relation and pollPublic flag.
 	var ingress network.SpaceAddresses
 	if boundSpace == network.AlphaSpaceId {
-		addrs, err := n.maybeGetUnitAddress(rel, true)
+		addrs, err := n.maybeGetUnitAddress(ctx, rel, true)
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
@@ -302,14 +304,14 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 // in the `IngressAddresses` member resolved to IP addresses where possible.
 // This is slightly different to the `Info` addresses above in that we do not
 // include anything that does not resolve to a usable address.
-func (n *NetworkInfoIAAS) resolveResultIngressHostNames(netInfo params.NetworkInfoResult) params.NetworkInfoResult {
+func (n *NetworkInfoIAAS) resolveResultIngressHostNames(ctx context.Context, netInfo params.NetworkInfoResult) params.NetworkInfoResult {
 	var newIngress []string
 	for _, addr := range netInfo.IngressAddresses {
 		if ip := net.ParseIP(addr); ip != nil {
 			newIngress = append(newIngress, addr)
 			continue
 		}
-		if ipAddr := n.resolveHostAddress(addr); ipAddr != "" {
+		if ipAddr := n.resolveHostAddress(ctx, addr); ipAddr != "" {
 			newIngress = append(newIngress, ipAddr)
 		}
 	}
@@ -335,7 +337,7 @@ func (n *NetworkInfoIAAS) populateUnitMachine() error {
 
 // populateMachineAddresses sets addresses for the unit's machine
 // based on devices with addresses in the unit's bound spaces.
-func (n *NetworkInfoIAAS) populateMachineAddresses() error {
+func (n *NetworkInfoIAAS) populateMachineAddresses(ctx context.Context) error {
 	spaceSet := set.NewStrings()
 	for _, binding := range n.bindings {
 		spaceSet.Add(binding)
@@ -348,7 +350,7 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		var err error
 		privateMachineAddress, err = n.pollForAddress(n.machine.PrivateAddress)
 		if err != nil {
-			n.logger.Errorf("unable to obtain preferred private address for machine %q: %s", n.machine.Id(), err.Error())
+			n.logger.Errorf(ctx, "unable to obtain preferred private address for machine %q: %s", n.machine.Id(), err.Error())
 			// Remove this ID to prevent further processing.
 			spaceSet.Remove(network.AlphaSpaceId)
 		}
@@ -377,14 +379,14 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		return order1 < order2
 	})
 
-	n.logger.Debugf("Looking for address from %v in spaces %v", addrs, spaceSet.Values())
+	n.logger.Debugf(ctx, "Looking for address from %v in spaces %v", addrs, spaceSet.Values())
 
 	var privateLinkLayerAddress NetInfoAddress
 	for _, addr := range addrs {
 		spaceID := addr.SpaceAddr().SpaceID
 
 		if spaceID == "" {
-			n.logger.Debugf("skipping %s: not linked to a known space.", addr)
+			n.logger.Debugf(ctx, "skipping %s: not linked to a known space.", addr)
 
 			// For a space-less model, we will not have subnets populated,
 			// and will therefore not find a space for the address.
@@ -436,7 +438,7 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 
 	for _, id := range spaceSet.Values() {
 		if _, ok := n.machineAddresses[id]; !ok {
-			n.logger.Warningf("machine %q has no addresses in space %q", n.machine.Id(), id)
+			n.logger.Warningf(ctx, "machine %q has no addresses in space %q", n.machine.Id(), id)
 		}
 	}
 

@@ -106,7 +106,7 @@ func DeployApplication(
 			return nil, errors.Trace(err)
 		}
 
-		logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
+		logger.Warningf(ctx, "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
 	if modelInfo.Type == coremodel.CAAS {

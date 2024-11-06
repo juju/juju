@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"regexp"
@@ -777,7 +778,7 @@ func (sb *storageBackend) DestroyFilesystem(tag names.FilesystemTag, force bool)
 			if !force {
 				return nil, err
 			}
-			logger.Warningf("%s", err.Error())
+			logger.Warningf(context.TODO(), "%s", err.Error())
 		}
 
 		var assertNoStorageAssignment bson.D

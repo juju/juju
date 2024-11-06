@@ -399,7 +399,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
-	logger.Infof("would pick agent binaries from %s", availableTools)
+	logger.Infof(ctx, "would pick agent binaries from %s", availableTools)
 
 	estate, err := e.state()
 	if err != nil {
@@ -409,7 +409,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 	defer estate.mu.Unlock()
 
 	// Create an instance for the bootstrap node.
-	logger.Infof("creating bootstrap instance")
+	logger.Infof(ctx, "creating bootstrap instance")
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(),
@@ -562,10 +562,10 @@ func (e *environ) ConstraintsValidator(envcontext.ProviderCallContext) (constrai
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(_ envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	defer delay()
 	machineId := args.InstanceConfig.MachineId
-	logger.Infof("dummy startinstance, machine %s", machineId)
+	logger.Infof(ctx, "dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -594,13 +594,13 @@ func (e *environ) StartInstance(_ envcontext.ProviderCallContext, args environs.
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
-	logger.Infof("would pick agent binaries from %s", args.Tools)
+	logger.Infof(ctx, "would pick agent binaries from %s", args.Tools)
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	// Add the addresses we want to see in the machine doc. This means both
 	// IPv4 and IPv6 loopback, as well as the DNS name.
 	addrs := network.NewMachineAddresses([]string{idString + ".dns", "127.0.0.1", "::1"}).AsProviderAddresses()
-	logger.Debugf("StartInstance addresses: %v", addrs)
+	logger.Debugf(ctx, "StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
 		addresses:    addrs,
@@ -1062,7 +1062,7 @@ func SetInstanceAddresses(inst instances.Instance, addrs []network.ProviderAddre
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
-	logger.Debugf("setting instance %q addresses to %v", inst0.Id(), addrs)
+	logger.Debugf(context.TODO(), "setting instance %q addresses to %v", inst0.Id(), addrs)
 	inst0.mu.Unlock()
 }
 
@@ -1101,7 +1101,7 @@ var providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY")) // pars
 // pause execution to simulate the latency of a real provider
 func delay() {
 	if providerDelay > 0 {
-		logger.Infof("pausing for %v", providerDelay)
+		logger.Infof(context.TODO(), "pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
 }

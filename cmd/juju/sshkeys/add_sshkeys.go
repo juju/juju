@@ -95,7 +95,7 @@ func (c *addKeysCommand) Run(ctx *cmd.Context) error {
 	c.user = "admin"
 	results, err := client.AddKeys(ctx, c.user, c.sshKeys...)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {

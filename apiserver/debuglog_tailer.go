@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 )
 
 func newDebugLogTailerHandler(
+	ctx context.Context,
 	ctxt httpContext,
 	authenticator authentication.HTTPAuthenticator,
 	authorizer authentication.Authorizer,
@@ -29,6 +31,7 @@ func newDebugLogTailerHandler(
 type logTailerFunc func(logtailer.LogTailerParams) (logtailer.LogTailer, error)
 
 func handleDebugLogRequest(
+	ctx context.Context,
 	clock clock.Clock,
 	maxDuration time.Duration,
 	reqParams debugLogParams,
@@ -47,7 +50,7 @@ func handleDebugLogRequest(
 	}()
 
 	// Indicate that all is well.
-	socket.sendOk()
+	socket.sendOk(ctx)
 
 	timeout := clock.After(maxDuration)
 

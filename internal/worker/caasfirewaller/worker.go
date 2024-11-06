@@ -133,13 +133,13 @@ func (p *firewaller) loop() error {
 				// If charm is a v1 charm, skip processing.
 				format, err := p.charmFormat(ctx, appName)
 				if errors.Is(err, errors.NotFound) {
-					p.config.Logger.Debugf("application %q no longer exists", appName)
+					p.config.Logger.Debugf(ctx, "application %q no longer exists", appName)
 					continue
 				} else if err != nil {
 					return errors.Trace(err)
 				}
 				if format < charm.FormatV2 {
-					p.config.Logger.Tracef("v2 caasfirewaller got event for v1 app %q, skipping", appName)
+					p.config.Logger.Tracef(ctx, "v2 caasfirewaller got event for v1 app %q, skipping", appName)
 					continue
 				}
 
@@ -148,7 +148,7 @@ func (p *firewaller) loop() error {
 					w, ok := p.appWorkers[appName]
 					if ok {
 						if err := worker.Stop(w); err != nil {
-							logger.Errorf("error stopping caas firewaller: %v", err)
+							logger.Errorf(ctx, "error stopping caas firewaller: %v", err)
 						}
 						delete(p.appWorkers, appName)
 					}
@@ -182,7 +182,7 @@ func (p *firewaller) loop() error {
 				}
 				if err := p.catacomb.Add(w); err != nil {
 					if err2 := worker.Stop(w); err2 != nil {
-						logger.Errorf("error stopping caas application worker: %v", err2)
+						logger.Errorf(ctx, "error stopping caas application worker: %v", err2)
 					}
 					return errors.Trace(err)
 				}

@@ -62,7 +62,7 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 	if errResp.Info == nil {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
 	}
-	logger.Debugf("attempting to discharge macaroon due to error: %v", apiErr)
+	logger.Debugf(ctx, "attempting to discharge macaroon due to error: %v", apiErr)
 	var info params.DischargeRequiredErrorInfo
 	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
 		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
@@ -71,9 +71,9 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 	m := info.BakeryMacaroon
 	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("discharge macaroon ids:")
+		logger.Tracef(ctx, "discharge macaroon ids:")
 		for _, m := range ms {
-			logger.Tracef("  - %v", m.Id())
+			logger.Tracef(ctx, "  - %v", m.Id())
 		}
 	}
 	if err != nil {
@@ -82,13 +82,13 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 	return ms, err
 }
 
-func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) {
+func (c *Client) getCachedMacaroon(ctx context.Context, opName, token string) (macaroon.Slice, bool) {
 	ms, ok := c.cache.Get(token)
 	if ok {
-		logger.Debugf("%s using cached macaroons for %s", opName, token)
+		logger.Debugf(ctx, "%s using cached macaroons for %s", opName, token)
 		if logger.IsLevelEnabled(corelogger.TRACE) {
 			for _, m := range ms {
-				logger.Tracef("  - %v", m.Id())
+				logger.Tracef(ctx, "  - %v", m.Id())
 			}
 		}
 	}
@@ -183,7 +183,7 @@ func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecret
 
 	args := params.GetRemoteSecretContentArgs{Args: []params.GetRemoteSecretContentArg{arg}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("get remote secret content info", appToken); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "get remote secret content info", appToken); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}

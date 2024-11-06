@@ -423,7 +423,7 @@ func (c *controllerStack) getControllerConfigMap(ctx context.Context) (cm *core.
 }
 
 func (c *controllerStack) doCleanUp() {
-	logger.Debugf("bootstrap failed, removing %d resources.", len(c.cleanUps))
+	logger.Debugf(context.TODO(), "bootstrap failed, removing %d resources.", len(c.cleanUps))
 	for _, f := range c.cleanUps {
 		f()
 	}
@@ -509,7 +509,7 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 		c.stackAnnotations,
 	)
 	c.addCleanUp(func() {
-		logger.Debugf("delete controller service accounts")
+		logger.Debugf(ctx, "delete controller service accounts")
 		for _, v := range saCleanUps {
 			v()
 		}
@@ -656,13 +656,13 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 		spec.SetAnnotations(controllerSvcSpec.Annotations.ToMap())
 	}
 
-	logger.Debugf("creating controller service: \n%+v", spec)
+	logger.Debugf(ctx, "creating controller service: \n%+v", spec)
 	if _, err := c.broker.ensureK8sService(ctx, spec); err != nil {
 		return errors.Trace(err)
 	}
 
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q", svcName)
+		logger.Debugf(ctx, "deleting %q", svcName)
 		_ = c.broker.deleteService(ctx, svcName)
 	})
 
@@ -689,7 +689,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 			return !errors.Is(err, errors.NotProvisioned)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
+			logger.Debugf(ctx, "polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
 		},
 	}
 	err = retry.Call(retryCallArgs)
@@ -714,9 +714,9 @@ func (c *controllerStack) createControllerSecretSharedSecret(ctx context.Context
 		return errors.Trace(err)
 	}
 	secret.Data[mongo.SharedSecretFile] = []byte(si.SharedSecret)
-	logger.Tracef("ensuring shared secret: \n%+v", secret)
+	logger.Tracef(ctx, "ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q shared-secret", secret.Name)
+		logger.Debugf(ctx, "deleting %q shared-secret", secret.Name)
 		_ = c.broker.deleteSecret(ctx, secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(ctx, secret)
@@ -727,12 +727,12 @@ func (c *controllerStack) createDockerSecret(ctx context.Context) (string, error
 		return "", errors.NotValidf("empty docker secret data")
 	}
 	name := c.resourceNamedockerSecret
-	logger.Debugf("ensuring docker secret %q", name)
+	logger.Debugf(ctx, "ensuring docker secret %q", name)
 	cleanUp, err := c.broker.ensureOCIImageSecret(
 		ctx, name, c.stackLabels, c.dockerAuthSecretData, c.stackAnnotations,
 	)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q", name)
+		logger.Debugf(ctx, "deleting %q", name)
 		cleanUp()
 	})
 	if err != nil {
@@ -774,9 +774,9 @@ func (c *controllerStack) createControllerSecretServerPem(ctx context.Context) e
 	}
 	secret.Data[mongo.FileNameDBSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
 
-	logger.Tracef("ensuring server.pem secret: \n%+v", secret)
+	logger.Tracef(ctx, "ensuring server.pem secret: \n%+v", secret)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q server.pem", secret.Name)
+		logger.Debugf(ctx, "deleting %q server.pem", secret.Name)
 		_ = c.broker.deleteSecret(ctx, secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(ctx, secret)
@@ -787,7 +787,7 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams(ctx context.C
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
+	logger.Tracef(ctx, "bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
 	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
@@ -795,11 +795,11 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams(ctx context.C
 	}
 	cm.Data[cloudconfig.FileNameBootstrapParams] = string(bootstrapParamsFileContent)
 
-	logger.Tracef("creating bootstrap-params configmap: \n%+v", cm)
+	logger.Tracef(ctx, "creating bootstrap-params configmap: \n%+v", cm)
 
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q bootstrap-params", cm.Name)
+		logger.Debugf(ctx, "deleting %q bootstrap-params", cm.Name)
 		cleanUp()
 	})
 	return errors.Trace(err)
@@ -810,13 +810,13 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("controller agentConfig file content: \n%s", string(agentConfigFileContent))
+	logger.Tracef(ctx, "controller agentConfig file content: \n%s", string(agentConfigFileContent))
 
 	unitAgentConfigFileContent, err := c.unitAgentConfig.Render()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("controller unit agentConfig file content: \n%s", string(unitAgentConfigFileContent))
+	logger.Tracef(ctx, "controller unit agentConfig file content: \n%s", string(unitAgentConfigFileContent))
 
 	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
@@ -825,10 +825,10 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	cm.Data[constants.ControllerAgentConfigFilename] = string(agentConfigFileContent)
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
 
-	logger.Tracef("ensuring agent.conf configmap: \n%+v", cm)
+	logger.Tracef(ctx, "ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q template-agent.conf", cm.Name)
+		logger.Debugf(ctx, "deleting %q template-agent.conf", cm.Name)
 		cleanUp()
 	})
 	return errors.Trace(err)
@@ -855,7 +855,7 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 	}
 	cleanUp, err := c.broker.ensureSecret(ctx, secret)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q secret", c.appSecretName())
+		logger.Debugf(ctx, "deleting %q secret", c.appSecretName())
 		cleanUp()
 	})
 	return errors.Trace(err)
@@ -953,9 +953,9 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 		return errors.Trace(err)
 	}
 
-	logger.Tracef("creating controller statefulset: \n%+v", controllerStatefulSet)
+	logger.Tracef(ctx, "creating controller statefulset: \n%+v", controllerStatefulSet)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q statefulset", controllerStatefulSet.Name)
+		logger.Debugf(ctx, "deleting %q statefulset", controllerStatefulSet.Name)
 		_ = c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name)
 	})
 	w, err := c.broker.WatchUnits(c.stackName)
@@ -1009,7 +1009,7 @@ func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.Not
 			}
 			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
 				printedMsg.Add(evt.Message)
-				logger.Debugf(evt.Message)
+				logger.Debugf(ctx, evt.Message)
 				if evt.Reason == PullingImage {
 					c.logger.Infof(evt.Message)
 				}
@@ -1086,7 +1086,7 @@ func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.Not
 			_ = printPodEvents()
 			pod, err := c.broker.getPod(ctx, podName)
 			if errors.Is(err, errors.NotFound) {
-				logger.Debugf("pod %q is not provisioned yet", podName)
+				logger.Debugf(ctx, "pod %q is not provisioned yet", podName)
 				continue
 			}
 			if err != nil {
@@ -1275,7 +1275,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
 	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
 	mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && exec %[2]s", makeMongoCmd, mongoSh)
-	logger.Debugf("mongodb container args:\n%s", mongoArgs)
+	logger.Debugf(context.TODO(), "mongodb container args:\n%s", mongoArgs)
 
 	dbImage, err := c.pcfg.GetJujuDbOCIImagePath()
 	if err != nil {

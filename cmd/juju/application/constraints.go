@@ -197,5 +197,5 @@ func (c *applicationSetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 	defer apiclient.Close()
 
 	err = apiclient.SetConstraints(ctx, c.ApplicationName, c.Constraints)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }

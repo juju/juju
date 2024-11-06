@@ -151,9 +151,9 @@ func NewModelManagerAPI(
 
 // authCheck checks if the user is acting on their own behalf, or if they
 // are an administrator acting on behalf of another user.
-func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
+func (m *ModelManagerAPI) authCheck(ctx context.Context, user names.UserTag) error {
 	if m.isAdmin {
-		logger.Tracef("%q is a controller admin", m.apiUser.Id())
+		logger.Tracef(ctx, "%q is a controller admin", m.apiUser.Id())
 		return nil
 	}
 
@@ -318,7 +318,7 @@ func (m *ModelManagerAPI) createModelNew(
 func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error {
 	if err := modelNetworkService.ReloadSpaces(ctx); err != nil {
 		if errors.Is(err, errors.NotSupported) {
-			logger.Debugf("Not performing spaces load on a non-networking environment")
+			logger.Debugf(ctx, "Not performing spaces load on a non-networking environment")
 		} else {
 			return errors.Annotate(err, "Failed to perform spaces discovery")
 		}
@@ -616,7 +616,7 @@ func (m *ModelManagerAPI) newIAASModel(
 	if err != nil {
 		// Clean up the environ.
 		if e := env.Destroy(callCtx); e != nil {
-			logger.Warningf("failed to destroy environ, error %v", e)
+			logger.Warningf(ctx, "failed to destroy environ, error %v", e)
 		}
 		return nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -749,7 +749,7 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 		return params.ModelSummaryResults{}, errors.Trace(err)
 	}
 
-	err = m.authCheck(userTag)
+	err = m.authCheck(ctx, userTag)
 	if err != nil {
 		return params.ModelSummaryResults{}, errors.Trace(err)
 	}
@@ -922,7 +922,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		return result, errors.Trace(err)
 	}
 
-	err = m.authCheck(userTag)
+	err = m.authCheck(ctx, userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

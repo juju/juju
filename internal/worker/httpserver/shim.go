@@ -14,7 +14,7 @@ import (
 // NewWorkerShim calls through to NewWorker, and exists only
 // to adapt to the signature of ManifoldConfig.NewWorker.
 func NewWorkerShim(config Config) (worker.Worker, error) {
-	return NewWorker(config)
+	return NewWorker(context.Background(), config)
 }
 
 // ControllerConfigGetter is an interface that returns the controller config.

@@ -4,6 +4,7 @@
 package filenotifywatcher
 
 import (
+	"context"
 	time "time"
 
 	jc "github.com/juju/testing/checkers"
@@ -80,7 +81,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := WorkerConfig{
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
-		NewWatcher: func(string, ...Option) (FileWatcher, error) {
+		NewWatcher: func(context.Context, string, ...Option) (FileWatcher, error) {
 			return s.watcher, nil
 		},
 	}

@@ -249,7 +249,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 // resetConfig is the run action when we are resetting attributes.
 func (c *configCommand) resetConfig(ctx context.Context, client ApplicationAPI) error {
 	err := client.UnsetApplicationConfig(ctx, c.applicationName, c.configBase.KeysToReset)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }
 
 // setConfig is the run action when we are setting config values from the
@@ -261,7 +261,7 @@ func (c *configCommand) setConfig(client ApplicationAPI, ctx *cmd.Context) error
 	}
 
 	err = client.SetConfig(ctx, c.applicationName, "", settings)
-	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
+	return errors.Trace(block.ProcessBlockedError(ctx, err, block.BlockChange))
 }
 
 // setConfigFile is the run action when we are setting config values from a
@@ -285,7 +285,7 @@ func (c *configCommand) setConfigFile(client ApplicationAPI, ctx *cmd.Context) e
 	}
 
 	err = client.SetConfig(ctx, c.applicationName, string(b), map[string]string{})
-	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
+	return errors.Trace(block.ProcessBlockedError(ctx, err, block.BlockChange))
 }
 
 // getConfig is the run action to return a single configuration value.
@@ -295,7 +295,7 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 		return err
 	}
 
-	logger.Infof("format %v is ignored", c.out.Name())
+	logger.Infof(ctx, "format %v is ignored", c.out.Name())
 	if len(c.configBase.KeysToGet) == 0 {
 		return errors.New("c.configBase.KeysToGet is empty")
 	}

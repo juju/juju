@@ -32,7 +32,7 @@ func (opc *operationCallbacks) PrepareHook(ctx stdcontext.Context, hi hook.Info)
 		name = fmt.Sprintf("%s-%s", hi.WorkloadName, hi.Kind)
 	case hi.Kind.IsRelation():
 		var err error
-		name, err = opc.u.relationStateTracker.PrepareHook(hi)
+		name, err = opc.u.relationStateTracker.PrepareHook(ctx, hi)
 		if err != nil {
 			return "", err
 		}

@@ -113,7 +113,7 @@ func (w *commonWatcher) commonLoop() {
 		// give up and log the error as debug. This is indicative of a bad
 		// watcher, one that is not responding to the stop request.
 		if errors.Is(err, context.DeadlineExceeded) {
-			logger.Debugf("timeout stopping watcher: %v", err)
+			logger.Debugf(ctx, "timeout stopping watcher: %v", err)
 			return
 		}
 
@@ -121,7 +121,7 @@ func (w *commonWatcher) commonLoop() {
 		// or if the entity being watched is already removed.
 		if !isAgentRestartError(err) &&
 			err.Error() != rpc.ErrShutdown.Error() && !params.IsCodeNotFound(err) {
-			logger.Errorf("error trying to stop watcher: %v", err)
+			logger.Errorf(ctx, "error trying to stop watcher: %v", err)
 			return
 		}
 	}()
@@ -340,12 +340,15 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 	w.commonWatcher.init()
 	go w.commonLoop()
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		// Send the initial event or subsequent change.
 		case w.out <- changes:
 			if w.logger.IsLevelEnabled(corelogger.TRACE) {
-				w.logger.Tracef("sent relation units changes %# v", pretty.Formatter(changes))
+				w.logger.Tracef(ctx, "sent relation units changes %# v", pretty.Formatter(changes))
 			}
 		case <-w.tomb.Dying():
 			return nil
@@ -366,6 +369,10 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 // holds the initial state of the relation in its Changed field.
 func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.out
+}
+
+func (w *relationUnitsWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 // RemoteRelationWatcher is a worker that emits remote relation change
@@ -412,12 +419,15 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 		return nil
 	})
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		// Send out the initial event or subsequent change.
 		case w.out <- change:
 			if w.logger.IsLevelEnabled(corelogger.TRACE) {
-				w.logger.Tracef("sent remote relation change %# v", pretty.Formatter(change))
+				w.logger.Tracef(ctx, "sent remote relation change %# v", pretty.Formatter(change))
 			}
 		case <-w.tomb.Dying():
 			return nil
@@ -444,6 +454,10 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 // relation units.
 func (w *remoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEvent {
 	return w.out
+}
+
+func (w *remoteRelationWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 // SettingsGetter is a callback function the remote relation
@@ -973,12 +987,15 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 	w.commonWatcher.init()
 	go w.commonLoop()
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	copyChanges := func(changes []params.SecretTriggerChange) []watcher.SecretTriggerChange {
 		result := make([]watcher.SecretTriggerChange, len(changes))
 		for i, ch := range changes {
 			uri, err := secrets.ParseURI(ch.URI)
 			if err != nil {
-				logger.Errorf("ignoring invalid secret URI: %q", ch.URI)
+				logger.Errorf(ctx, "ignoring invalid secret URI: %q", ch.URI)
 				continue
 			}
 			result[i] = watcher.SecretTriggerChange{
@@ -1017,6 +1034,10 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 // values of these attributes.
 func (w *secretsTriggerWatcher) Changes() watcher.SecretTriggerChannel {
 	return w.out
+}
+
+func (w *secretsTriggerWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 // secretBackendRotateWatcher will send notifications of changes to secret trigger times.
@@ -1156,12 +1177,15 @@ func (w *SecretsRevisionWatcher) loop(initialChanges []params.SecretRevisionChan
 	w.commonWatcher.init()
 	go w.commonLoop()
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	copyChanges := func(changes []params.SecretRevisionChange) []watcher.SecretRevisionChange {
 		var result []watcher.SecretRevisionChange
 		for _, ch := range changes {
 			uri, err := secrets.ParseURI(ch.URI)
 			if err != nil {
-				logger.Warningf("invalid secret URI: %v", ch.URI)
+				logger.Warningf(ctx, "invalid secret URI: %v", ch.URI)
 				continue
 			}
 			result = append(result, watcher.SecretRevisionChange{
@@ -1199,4 +1223,8 @@ func (w *SecretsRevisionWatcher) loop(initialChanges []params.SecretRevisionChan
 // values of these attributes.
 func (w *SecretsRevisionWatcher) Changes() watcher.SecretRevisionChannel {
 	return w.out
+}
+
+func (w *SecretsRevisionWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

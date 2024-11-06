@@ -210,13 +210,13 @@ type ContextSecrets interface {
 	RemoveSecret(*secrets.URI, *int) error
 
 	// GrantSecret grants access to the specified secret.
-	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+	GrantSecret(context.Context, *secrets.URI, *SecretGrantRevokeArgs) error
 
 	// RevokeSecret revokes access to the specified secret.
 	RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error
 
 	// SecretMetadata gets the secret metadata for secrets created by the charm.
-	SecretMetadata() (map[string]SecretMetadata, error)
+	SecretMetadata(context.Context) (map[string]SecretMetadata, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
@@ -245,7 +245,7 @@ type ContextInstance interface {
 	AvailabilityZone() (string, error)
 
 	// RequestReboot will set the reboot flag to true on the machine agent
-	RequestReboot(prio RebootPriority) error
+	RequestReboot(ctx context.Context, prio RebootPriority) error
 }
 
 // ContextNetworking is the part of a hook context related to network
@@ -260,12 +260,12 @@ type ContextNetworking interface {
 	PrivateAddress() (string, error)
 
 	// OpenPortRange marks the supplied port range for opening.
-	OpenPortRange(endpointName string, portRange network.PortRange) error
+	OpenPortRange(ctx context.Context, endpointName string, portRange network.PortRange) error
 
 	// ClosePortRange ensures the supplied port range is closed even when
 	// the executing unit's application is exposed (unless it is opened
 	// separately by a co-located unit).
-	ClosePortRange(endpointName string, portRange network.PortRange) error
+	ClosePortRange(ctx context.Context, endpointName string, portRange network.PortRange) error
 
 	// OpenedPortRanges returns all port ranges currently opened by this
 	// unit on its assigned machine grouped by endpoint name.
@@ -325,15 +325,15 @@ type ContextResources interface {
 // "payload-*" hook commands.
 type ContextPayloads interface {
 	// GetPayload returns the payload info corresponding to the given ID.
-	GetPayload(class, id string) (*payloads.Payload, error)
+	GetPayload(ctx context.Context, class, id string) (*payloads.Payload, error)
 	// TrackPayload records the payload info in the hook context.
-	TrackPayload(payload payloads.Payload) error
+	TrackPayload(ctx context.Context, payload payloads.Payload) error
 	// UntrackPayload removes the payload from our list of payloads to track.
 	UntrackPayload(ctx context.Context, class, id string) error
 	// SetPayloadStatus sets the status of the payload.
 	SetPayloadStatus(ctx context.Context, class, id, status string) error
 	// ListPayloads returns the list of registered payload IDs.
-	ListPayloads() ([]string, error)
+	ListPayloads(ctx context.Context) ([]string, error)
 	// FlushPayloads pushes the hook context data out to state.
 	FlushPayloads(context.Context) error
 }
@@ -346,7 +346,7 @@ type ContextRelations interface {
 
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in or an error if they are not available.
-	RelationIds() ([]int, error)
+	RelationIds(context.Context) ([]int, error)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

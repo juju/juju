@@ -393,18 +393,18 @@ func (c *MockRelationStateTrackerNameCall) DoAndReturn(f func(int) (string, erro
 }
 
 // PrepareHook mocks base method.
-func (m *MockRelationStateTracker) PrepareHook(arg0 hook.Info) (string, error) {
+func (m *MockRelationStateTracker) PrepareHook(arg0 context.Context, arg1 hook.Info) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareHook", arg0)
+	ret := m.ctrl.Call(m, "PrepareHook", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareHook indicates an expected call of PrepareHook.
-func (mr *MockRelationStateTrackerMockRecorder) PrepareHook(arg0 any) *MockRelationStateTrackerPrepareHookCall {
+func (mr *MockRelationStateTrackerMockRecorder) PrepareHook(arg0, arg1 any) *MockRelationStateTrackerPrepareHookCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockRelationStateTracker)(nil).PrepareHook), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockRelationStateTracker)(nil).PrepareHook), arg0, arg1)
 	return &MockRelationStateTrackerPrepareHookCall{Call: call}
 }
 
@@ -420,13 +420,13 @@ func (c *MockRelationStateTrackerPrepareHookCall) Return(arg0 string, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationStateTrackerPrepareHookCall) Do(f func(hook.Info) (string, error)) *MockRelationStateTrackerPrepareHookCall {
+func (c *MockRelationStateTrackerPrepareHookCall) Do(f func(context.Context, hook.Info) (string, error)) *MockRelationStateTrackerPrepareHookCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationStateTrackerPrepareHookCall) DoAndReturn(f func(hook.Info) (string, error)) *MockRelationStateTrackerPrepareHookCall {
+func (c *MockRelationStateTrackerPrepareHookCall) DoAndReturn(f func(context.Context, hook.Info) (string, error)) *MockRelationStateTrackerPrepareHookCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -4,13 +4,15 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -45,20 +47,21 @@ type LXDProfileAPI struct {
 	backend   LXDProfileBackend
 	resources facade.Resources
 
-	logger     loggo.Logger
+	logger     logger.Logger
 	accessUnit common.GetAuthFunc
 }
 
 // NewLXDProfileAPI returns a new LXDProfileAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewLXDProfileAPI(
+	ctx context.Context,
 	backend LXDProfileBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger loggo.Logger,
+	logger logger.Logger,
 ) *LXDProfileAPI {
-	logger.Tracef("NewLXDProfileAPI called with %s", authorizer.GetAuthTag())
+	logger.Tracef(ctx, "NewLXDProfileAPI called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPI{
 		backend:    backend,
 		resources:  resources,
@@ -88,14 +91,16 @@ type lxdProfileMachine struct {
 
 // NewExternalLXDProfileAPI can be used for API registration.
 func NewExternalLXDProfileAPI(
+	ctx context.Context,
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger loggo.Logger,
+	logger logger.Logger,
 ) *LXDProfileAPI {
 	return NewLXDProfileAPI(
-		LXDProfileState{st},
+		ctx,
+		LXDProfileState{st: st},
 		resources,
 		authorizer,
 		accessUnit,
@@ -105,8 +110,8 @@ func NewExternalLXDProfileAPI(
 
 // WatchUnitLXDProfileUpgradeNotifications returns a StringsWatcher for observing
 // changes to the lxd profile changes for one unit.
-func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(args params.Entities) (params.StringsWatchResults, error) {
-	u.logger.Tracef("Starting WatchUnitLXDProfileUpgradeNotifications with %+v", args)
+func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
+	u.logger.Tracef(ctx, "Starting WatchUnitLXDProfileUpgradeNotifications with %+v", args)
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -158,8 +163,8 @@ func (u *LXDProfileAPI) watchOneChangeUnitLXDProfileUpgradeNotifications(unit LX
 // changes to the lxd profile changes.
 //
 // NOTE: can be removed in juju version 3.
-func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfileUpgrade) (params.StringsWatchResults, error) {
-	u.logger.Tracef("Starting WatchLXDProfileUpgradeNotifications with %+v", args)
+func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(ctx context.Context, args params.LXDProfileUpgrade) (params.StringsWatchResults, error) {
+	u.logger.Tracef(ctx, "Starting WatchLXDProfileUpgradeNotifications with %+v", args)
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}

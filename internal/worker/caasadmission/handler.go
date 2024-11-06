@@ -58,7 +58,7 @@ func admissionHandler(logger logger.Logger, rbacMapper RBACMapper, legacyLabels 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		data, err := io.ReadAll(req.Body)
 		if err != nil {
-			logger.Errorf("digesting admission request body: %v", err)
+			logger.Errorf(req.Context(), "digesting admission request body: %v", err)
 			http.Error(res, fmt.Sprintf("%s: reading request body",
 				http.StatusText(http.StatusInternalServerError)), http.StatusInternalServerError)
 			return
@@ -88,12 +88,12 @@ func admissionHandler(logger logger.Logger, rbacMapper RBACMapper, legacyLabels 
 				Response: response,
 			})
 			if err != nil {
-				logger.Errorf("marshaling admission request response body: %v", err)
+				logger.Errorf(req.Context(), "marshaling admission request response body: %v", err)
 				http.Error(res, fmt.Sprintf("%s: building response body",
 					http.StatusText(http.StatusInternalServerError)), http.StatusInternalServerError)
 			}
 			if _, err := res.Write(body); err != nil {
-				logger.Errorf("writing admission request response body: %v", err)
+				logger.Errorf(req.Context(), "writing admission request response body: %v", err)
 			}
 		}
 
@@ -111,7 +111,7 @@ func admissionHandler(logger logger.Logger, rbacMapper RBACMapper, legacyLabels 
 			return
 		}
 
-		logger.Debugf("received admission request for %s of %s in namespace %s",
+		logger.Debugf(req.Context(), "received admission request for %s of %s in namespace %s",
 			admissionReview.Request.Name,
 			admissionReview.Request.Kind,
 			admissionReview.Request.Namespace,
@@ -123,7 +123,7 @@ func admissionHandler(logger logger.Logger, rbacMapper RBACMapper, legacyLabels 
 
 		for _, ignoreObjKind := range admissionObjectIgnores {
 			if compareAPIGroupVersionKind(ignoreObjKind, admissionReview.Request.Kind) {
-				logger.Debugf("ignoring admission request for gvk %s", ignoreObjKind)
+				logger.Debugf(req.Context(), "ignoring admission request for gvk %s", ignoreObjKind)
 				finalise(admissionReview, reviewResponse)
 				return
 			}

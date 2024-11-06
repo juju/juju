@@ -312,7 +312,7 @@ func (c *configCommand) resetConfig(ctx context.Context, client configCommandAPI
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(client.ModelUnset(ctx, c.configBase.KeysToReset...), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.ModelUnset(ctx, c.configBase.KeysToReset...), block.BlockChange)
 }
 
 // setConfig sets the provided key/value pairs on the model.
@@ -351,7 +351,7 @@ func (c *configCommand) setConfig(ctx context.Context, client configCommandAPI, 
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(client.ModelSet(ctx, coerced), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.ModelSet(ctx, coerced), block.BlockChange)
 }
 
 const secretBackendNotSupportedError = errors.ConstError(
@@ -445,7 +445,7 @@ func (c *configCommand) verifyKnownKeys(ctx context.Context, client configComman
 		// Check if the key exists in the known config
 		// and warn the user if the key is not defined.
 		if _, exists := known[key]; !exists {
-			logger.Warningf(
+			logger.Warningf(ctx,
 				"key %q is not defined in the current model configuration: possible misspelling", key)
 		}
 	}

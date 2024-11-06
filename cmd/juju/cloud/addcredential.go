@@ -181,7 +181,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	if c.ControllerName != "" {
 		if err := c.maybeRemoteCloud(ctxt); err != nil {
 			if !errors.Is(err, errors.NotFound) {
-				logger.Errorf("%v", err)
+				logger.Errorf(ctxt, "%v", err)
 			}
 			ctxt.Infof("Cloud %q is not found on the controller, looking for a locally stored cloud.", c.CloudName)
 		}
@@ -189,7 +189,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	if c.cloud == nil {
 		var err error
 		if c.cloud, err = common.CloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(ctxt, "%v", err)
 			ctxt.Infof("To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.")
 			return cmd.ErrSilent
 		}
@@ -645,7 +645,7 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 	defer client.Close()
 	results, err := client.AddCloudsCredentials(ctxt, verified)
 	if err != nil {
-		logger.Errorf("%v", err)
+		logger.Errorf(ctxt, "%v", err)
 		ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)
 	}
 	return processUpdateCredentialResult(ctxt, accountDetails, "added", results, false, c.ControllerName, localError)

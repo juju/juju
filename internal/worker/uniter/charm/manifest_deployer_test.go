@@ -58,7 +58,7 @@ func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft
 	info := s.addCharm(c, revision, content...)
 	err := s.deployer.Stage(context.Background(), info, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.deployer.Deploy()
+	err = s.deployer.Deploy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, revision, content...)
 	return info
@@ -98,7 +98,7 @@ func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
 }
 
 func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *gc.C) {
-	err := s.deployer.Deploy()
+	err := s.deployer.Deploy(context.Background())
 	c.Assert(err, gc.ErrorMatches, "charm deployment failed: no charm set")
 }
 
@@ -198,14 +198,14 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 	// ...and see it fail to expand. We're not too bothered about the actual
 	// content of the target dir at this stage, but we do want to check it's
 	// still marked as based on the original charm...
-	err = s.deployer.Deploy()
+	err = s.deployer.Deploy(context.Background())
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	s.assertCharm(c, 1)
 
 	// ...and we want to verify that if we "fix the errors" and redeploy the
 	// same charm...
 	failDeploy = false
-	err = s.deployer.Deploy()
+	err = s.deployer.Deploy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ...we end up with the right stuff in play.
@@ -237,7 +237,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	badInfo := s.addMockCharm(2, badCharm)
 	err := s.deployer.Stage(context.Background(), badInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.deployer.Deploy()
+	err = s.deployer.Deploy(context.Background())
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 
 	// Create a charm upgrade that creates a bunch of different files, without

@@ -4,6 +4,7 @@
 package errors
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -79,9 +80,9 @@ func (e *DischargeRequiredError) Unwrap() error {
 	return e.Cause
 }
 
-func (e *DischargeRequiredError) SendError(w http.ResponseWriter) error {
+func (e *DischargeRequiredError) SendError(ctx context.Context, w http.ResponseWriter) error {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	return sendError(w, e)
+	return sendError(ctx, w, e)
 }
 
 // NewErrIncompatibleBase returns an error indicating that the base is not

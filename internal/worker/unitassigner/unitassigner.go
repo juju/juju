@@ -40,7 +40,7 @@ func (u unitAssignerHandler) SetUp(ctx context.Context) (watcher.StringsWatcher,
 func (u unitAssignerHandler) Handle(ctx context.Context, ids []string) error {
 	traceEnabled := u.logger.IsLevelEnabled(logger.TRACE)
 	if traceEnabled {
-		u.logger.Tracef("Handling unit assignments: %q", ids)
+		u.logger.Tracef(ctx, "Handling unit assignments: %q", ids)
 	}
 	if len(ids) == 0 {
 		return nil
@@ -62,7 +62,7 @@ func (u unitAssignerHandler) Handle(ctx context.Context, ids []string) error {
 	failures := map[string]error{}
 
 	if traceEnabled {
-		u.logger.Tracef("Unit assignment results: %q", results)
+		u.logger.Tracef(ctx, "Unit assignment results: %q", results)
 	}
 	// errors are returned in the same order as the ids given. Any errors from
 	// the assign units call must be reported as error statuses on the

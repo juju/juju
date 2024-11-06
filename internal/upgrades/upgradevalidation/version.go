@@ -4,6 +4,8 @@
 package upgradevalidation
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -33,12 +35,12 @@ func versionCheck(
 	}
 	// Downgrades not allowed.
 	if from.Major > to.Major {
-		logger.Debugf("downgrade from %q to %q is not allowed", from, to)
+		logger.Debugf(context.TODO(), "downgrade from %q to %q is not allowed", from, to)
 		return false, version.Number{}, errors.Errorf("downgrade is not allowed")
 	}
 
 	minVer, ok := versionMap[to.Major]
-	logger.Debugf("from %q, to %q, versionMap %#v", from, to, versionMap)
+	logger.Debugf(context.TODO(), "from %q, to %q, versionMap %#v", from, to, versionMap)
 	if !ok {
 		return false, version.Number{}, errors.Errorf("%s to %q is not supported from %q", "upgrading controller", to, from)
 	}

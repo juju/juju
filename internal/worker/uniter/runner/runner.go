@@ -183,7 +183,7 @@ func (runner *runner) RunCommands(ctx stdcontext.Context, commands string) (*uti
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-exec as an action
 func (runner *runner) runCommandsWithTimeout(ctx stdcontext.Context, commands string, timeout time.Duration, clock clock.Clock) (*utilexec.ExecResponse, error) {
-	srv, err := runner.startJujucServer()
+	srv, err := runner.startJujucServer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (runner *runner) runCommandsWithTimeout(ctx stdcontext.Context, commands st
 // runJujuExecAction is the function that executes when a juju-exec action is ran.
 func (runner *runner) runJujuExecAction(ctx stdcontext.Context) (err error) {
 	logger := runner.logger()
-	logger.Debugf("juju-exec action is running")
+	logger.Debugf(ctx, "juju-exec action is running")
 	data, err := runner.context.ActionData()
 	if err != nil {
 		return errors.Trace(err)
@@ -235,7 +235,7 @@ func (runner *runner) runJujuExecAction(ctx stdcontext.Context) (err error) {
 	// But due to serialization it comes out as float64
 	timeout, ok := params["timeout"].(float64)
 	if !ok {
-		logger.Debugf("unable to read juju-exec action timeout, will continue running action without one")
+		logger.Debugf(ctx, "unable to read juju-exec action timeout, will continue running action without one")
 	}
 
 	ctx = scopedActionCancel(ctx, data.Cancel)
@@ -311,7 +311,7 @@ func (runner *runner) RunAction(ctx stdcontext.Context, actionName string) (Hook
 	if actions.IsJujuExecAction(actionName) {
 		return InvalidHookHandler, runner.runJujuExecAction(ctx)
 	}
-	runner.logger().Debugf("running action %q", actionName)
+	runner.logger().Debugf(ctx, "running action %q", actionName)
 	return runner.runCharmHookWithLocation(ctx, actionName, "actions")
 }
 
@@ -321,7 +321,7 @@ func (runner *runner) RunHook(ctx stdcontext.Context, hookName string) (HookHand
 }
 
 func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName, charmLocation string) (hookHandlerType HookHandlerType, err error) {
-	srv, err := runner.startJujucServer()
+	srv, err := runner.startJujucServer(ctx)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
@@ -346,12 +346,12 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 			hookName, runner.paths.GetCharmDir(), charmLocation)
 		if session.DebugAt() != "" {
 			if hookHandlerType == InvalidHookHandler {
-				logger.Infof("debug-code active, but hook %s not implemented (skipping)", hookName)
+				logger.Infof(ctx, "debug-code active, but hook %s not implemented (skipping)", hookName)
 				return InvalidHookHandler, err
 			}
-			logger.Infof("executing %s via debug-code; %s", hookName, hookHandlerType)
+			logger.Infof(ctx, "executing %s via debug-code; %s", hookName, hookHandlerType)
 		} else {
-			logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
+			logger.Infof(ctx, "executing %s via debug-hooks; %s", hookName, hookHandlerType)
 		}
 		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
 	}
@@ -373,7 +373,7 @@ type loggerAdaptor struct {
 
 // Messagef implements the charmrunner MessageReceiver interface
 func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
-	l.Logf(l.level, message, args...)
+	l.Logf(stdcontext.Background(), l.level, message, args...)
 }
 
 // bufferAdaptor implements MessageReceiver and
@@ -534,7 +534,7 @@ func (runner *runner) discoverHookHandler(hookName, charmDir, charmLocation stri
 	return InvalidHookHandler, hook, err
 }
 
-func (runner *runner) startJujucServer() (*jujuc.Server, error) {
+func (runner *runner) startJujucServer(ctx stdcontext.Context) (*jujuc.Server, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		if ctxId != runner.context.Id() {
@@ -544,7 +544,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	}
 
 	socket := runner.paths.GetJujucServerSocket()
-	runner.logger().Debugf("starting jujuc server %v", socket)
+	runner.logger().Debugf(ctx, "starting jujuc server %v", socket)
 	srv, err := jujuc.NewServer(getCmd, socket)
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")

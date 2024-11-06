@@ -4,6 +4,7 @@
 package caasrbacmapper
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -61,9 +62,12 @@ func (d *DefaultMapper) AppNameForServiceAccount(id types.UID) (string, error) {
 }
 
 func (d *DefaultMapper) enqueueServiceAccount(obj interface{}) {
+	ctx, cancel := d.scopedContext()
+	defer cancel()
+
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		d.logger.Errorf("failed enqueuing service account: %v", err)
+		d.logger.Errorf(ctx, "failed enqueuing service account: %v", err)
 		return
 	}
 	d.workQueue.Add(key)
@@ -89,7 +93,10 @@ func (d *DefaultMapper) loop() error {
 	// the cycle repeats. This is to stop checking thrashing about and is the
 	// prescribed k8s way to process.
 	go wait.Until(func() {
-		for d.processNextQueueItem() {
+		ctx, cancel := d.scopedContext()
+		defer cancel()
+
+		for d.processNextQueueItem(ctx) {
 		}
 	}, time.Second, d.catacomb.Dying())
 
@@ -97,6 +104,10 @@ func (d *DefaultMapper) loop() error {
 	case <-d.catacomb.Dying():
 		return d.catacomb.ErrDying()
 	}
+}
+
+func (d *DefaultMapper) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(d.catacomb.Context(context.Background()))
 }
 
 // NewMapper constructs a new DefaultMapper for the supplied logger and
@@ -131,7 +142,7 @@ func NewMapper(logger logger.Logger, informer core.ServiceAccountInformer) (*Def
 	return dm, nil
 }
 
-func (d *DefaultMapper) processNextQueueItem() bool {
+func (d *DefaultMapper) processNextQueueItem(ctx context.Context) bool {
 	obj, shutdown := d.workQueue.Get()
 	if shutdown {
 		return false
@@ -141,14 +152,14 @@ func (d *DefaultMapper) processNextQueueItem() bool {
 	key, ok := obj.(string)
 	if !ok {
 		d.workQueue.Forget(obj)
-		d.logger.Errorf("failed converting service account queue item to string")
+		d.logger.Errorf(ctx, "failed converting service account queue item to string")
 		return true
 	}
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		d.workQueue.Forget(obj)
-		d.logger.Errorf("failed spliting key into namespace and name for service account queue: %v", err)
+		d.logger.Errorf(ctx, "failed spliting key into namespace and name for service account queue: %v", err)
 		return true
 	}
 
@@ -166,7 +177,7 @@ func (d *DefaultMapper) processNextQueueItem() bool {
 	}
 	if err != nil {
 		d.workQueue.Forget(obj)
-		d.logger.Errorf("failed fetching service account for %s/%s", namespace, name)
+		d.logger.Errorf(ctx, "failed fetching service account for %s/%s", namespace, name)
 		return true
 	}
 
@@ -174,7 +185,7 @@ func (d *DefaultMapper) processNextQueueItem() bool {
 	if errors.Is(err, errors.NotFound) {
 		return true
 	} else if err != nil {
-		d.logger.Errorf("failure getting app name for service account: %v", err)
+		d.logger.Errorf(ctx, "failure getting app name for service account: %v", err)
 		return true
 	}
 

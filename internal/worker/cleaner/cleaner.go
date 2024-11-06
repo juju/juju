@@ -84,7 +84,7 @@ func (c *Cleaner) loop() error {
 			// enables us to retry cleanups that fail due
 			// to a transient failure, even when there
 			// are no new cleanups added.
-			c.logger.Errorf("cannot cleanup state: %v", err)
+			c.logger.Errorf(ctx, "cannot cleanup state: %v", err)
 		}
 		timer.Reset(period)
 	}

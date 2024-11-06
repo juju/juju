@@ -76,7 +76,7 @@ func (d *deploy) Prepare(ctx context.Context, state State) (*State, error) {
 // recorded in the supplied state.
 // Execute is part of the Operation interface.
 func (d *deploy) Execute(ctx context.Context, state State) (*State, error) {
-	if err := d.deployer.Deploy(); err == charm.ErrConflict {
+	if err := d.deployer.Deploy(ctx); err == charm.ErrConflict {
 		return nil, NewDeployConflictError(d.charmURL)
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -103,8 +103,7 @@ func (d *deploy) Commit(ctx context.Context, state State) (*State, error) {
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (d *deploy) RemoteStateChanged(snapshot remotestate.Snapshot) {
-}
+func (d *deploy) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {}
 
 func (d *deploy) checkAlreadyDone(state State) error {
 	if state.Kind != d.kind {

@@ -62,7 +62,7 @@ func (c *PayloadUnregisterCmd) Run(ctx *cmd.Context) error {
 	//TODO(wwitzel3) make Unregister accept class and id and
 	// compose the ID in the API layer using BuildID
 
-	logger.Tracef(`Running unregister command with id "%s/%s"`, c.class, c.id)
+	logger.Tracef(ctx, `Running unregister command with id "%s/%s"`, c.class, c.id)
 
 	// TODO(ericsnow) Verify that Untrack gives a meaningful error when
 	// the ID is not found.

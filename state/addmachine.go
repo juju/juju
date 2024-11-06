@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -433,7 +434,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	// thing to do when none is available.
 	privateAddr, _ := template.Addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
 	publicAddr, _ := template.Addresses.OneMatchingScope(network.ScopeMatchPublic)
-	logger.Infof(
+	logger.Infof(context.TODO(),
 		"new machine %q has preferred addresses: private %q, public %q",
 		id, privateAddr, publicAddr,
 	)

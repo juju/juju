@@ -73,7 +73,7 @@ func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata)
 		}
 		err := s.managedStorage.Remove(ctx, path)
 		if err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
-			logger.Errorf("failed to remove binary blob: %v", err)
+			logger.Errorf(context.TODO(), "failed to remove binary blob: %v", err)
 		}
 	}()
 
@@ -129,9 +129,9 @@ func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata)
 		// Attempt to remove the old path. Failure is non-fatal.
 		err := s.managedStorage.Remove(ctx, oldPath)
 		if err != nil {
-			logger.Errorf("failed to remove old binary blob: %v", err)
+			logger.Errorf(context.TODO(), "failed to remove old binary blob: %v", err)
 		} else {
-			logger.Debugf("removed old binary blob")
+			logger.Debugf(context.TODO(), "removed old binary blob")
 		}
 	}
 	return nil

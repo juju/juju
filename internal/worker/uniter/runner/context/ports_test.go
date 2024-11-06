@@ -4,6 +4,8 @@
 package context
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -211,7 +213,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
-		err := rec.OpenPortRange(test.targetEndpoint, test.targetPortRange)
+		err := rec.OpenPortRange(context.Background(), test.targetEndpoint, test.targetPortRange)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
@@ -411,7 +413,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
-		err := rec.ClosePortRange(test.targetEndpoint, test.targetPortRange)
+		err := rec.ClosePortRange(context.Background(), test.targetEndpoint, test.targetPortRange)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {

@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"math/big"
 	"net"
 	"sort"
@@ -152,7 +153,7 @@ func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 	for _, sub := range s {
 		subNet, err := sub.ParsedCIDRNetwork()
 		if err != nil { // this should not happen; but let's be paranoid.
-			logger.Warningf("unable to parse CIDR %q for subnet %q", sub.CIDR, sub.ID)
+			logger.Warningf(context.TODO(), "unable to parse CIDR %q for subnet %q", sub.CIDR, sub.ID)
 			continue
 		}
 

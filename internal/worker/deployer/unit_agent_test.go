@@ -4,6 +4,8 @@
 package deployer_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jt "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -48,7 +51,7 @@ func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
-				loggertesting.WrapCheckLog(c).Child("dependency"),
+				internaldependency.WrapLogger(loggertesting.WrapCheckLog(c).Child("dependency")),
 			)
 		},
 		UnitManifolds: s.workers.Manifolds,
@@ -130,7 +133,7 @@ func (s *UnitAgentSuite) writeAgentConf(c *gc.C) {
 
 func (s *UnitAgentSuite) newUnitAgent(c *gc.C) *deployer.UnitAgent {
 	s.InitializeCurrentToolsDir(c, s.config.DataDir)
-	agent, err := deployer.NewUnitAgent(s.config)
+	agent, err := deployer.NewUnitAgent(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	return agent
 }

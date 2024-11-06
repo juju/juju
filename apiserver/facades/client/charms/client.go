@@ -94,7 +94,7 @@ func (a *API) checkCanWrite(ctx context.Context) error {
 // charms with supplied names. The order of the charms is not guaranteed to be
 // the same as the order of the names passed in.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
-	a.logger.Tracef("List %+v", args)
+	a.logger.Tracef(ctx, "List %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
@@ -122,7 +122,7 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
-	a.logger.Tracef("GetDownloadInfos %+v", args)
+	a.logger.Tracef(ctx, "GetDownloadInfos %+v", args)
 
 	results := params.DownloadInfoResults{
 		Results: make([]params.DownloadInfoResult, len(args.Entities)),
@@ -152,7 +152,7 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch, a.logger)
+	charmOrigin, err := normalizeCharmOrigin(ctx, arg.Origin, defaultArch, a.logger)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -189,19 +189,19 @@ func (a *API) getDefaultArch() (string, error) {
 	return constraints.ArchOrDefault(cons, nil), nil
 }
 
-func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger corelogger.Logger) (params.CharmOrigin, error) {
+func normalizeCharmOrigin(ctx context.Context, origin params.CharmOrigin, fallbackArch string, logger corelogger.Logger) (params.CharmOrigin, error) {
 	// If the series is set to all, we need to ensure that we remove that, so
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understand what "all" means, so we need to ensure it doesn't leak
 	// out.
 	o := origin
 	if origin.Base.Name == "all" || origin.Base.Channel == "all" {
-		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf(ctx, "Release all detected, removing all from the origin. %s", origin.ID)
 		o.Base = params.Base{}
 	}
 
 	if origin.Architecture == "all" || origin.Architecture == "" {
-		logger.Warningf("Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, fallbackArch, origin.ID)
+		logger.Warningf(ctx, "Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, fallbackArch, origin.ID)
 		o.Architecture = fallbackArch
 	}
 
@@ -212,7 +212,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
 func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
-	a.logger.Tracef("AddCharm %+v", args)
+	a.logger.Tracef(ctx, "AddCharm %+v", args)
 	return a.addCharmWithAuthorization(ctx, params.AddCharmWithAuth{
 		URL:    args.URL,
 		Origin: args.Origin,
@@ -348,7 +348,7 @@ func makeCharmRevision(origin corecharm.Origin, url string) (int, error) {
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
-	a.logger.Tracef("ResolveCharms %+v", args)
+	a.logger.Tracef(ctx, "ResolveCharms %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
 	}
@@ -652,7 +652,7 @@ func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndO
 		return nil, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch, a.logger)
+	charmOrigin, err := normalizeCharmOrigin(ctx, arg.Origin, defaultArch, a.logger)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

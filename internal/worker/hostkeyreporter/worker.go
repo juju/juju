@@ -71,10 +71,13 @@ func (w *hostkeyreporter) Wait() error {
 }
 
 func (w *hostkeyreporter) run() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	if wrench.IsActive("hostkeyreporter", "delay") {
 		time.Sleep(time.Minute)
 	}
-	keys, err := w.readSSHKeys()
+	keys, err := w.readSSHKeys(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -85,15 +88,15 @@ func (w *hostkeyreporter) run() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("%d SSH host keys reported for machine %s", len(keys), w.config.MachineId)
+	logger.Debugf(ctx, "%d SSH host keys reported for machine %s", len(keys), w.config.MachineId)
 	return dependency.ErrUninstall
 }
 
-func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
+func (w *hostkeyreporter) readSSHKeys(ctx context.Context) ([]string, error) {
 	sshDir := w.sshDir()
 	_, err := os.Stat(sshDir)
 	if os.IsNotExist(err) {
-		logger.Errorf("%s doesn't exist - giving up", sshDir)
+		logger.Errorf(ctx, "%s doesn't exist - giving up", sshDir)
 		return nil, dependency.ErrUninstall
 	}
 	if err != nil {
@@ -108,7 +111,7 @@ func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
 	for _, filename := range filenames {
 		key, err := os.ReadFile(filename)
 		if err != nil {
-			logger.Debugf("unable to read SSH host key (skipping): %v", err)
+			logger.Debugf(ctx, "unable to read SSH host key (skipping): %v", err)
 			continue
 		}
 		keys = append(keys, string(key))
@@ -118,4 +121,8 @@ func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
 
 func (w *hostkeyreporter) sshDir() string {
 	return filepath.Join(w.config.RootDir, "etc", "ssh")
+}
+
+func (w *hostkeyreporter) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

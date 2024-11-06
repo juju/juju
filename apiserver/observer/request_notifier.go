@@ -4,6 +4,7 @@
 package observer
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -93,7 +94,7 @@ func (n *RequestObserver) Login(entity names.Tag, model names.ModelTag, fromCont
 		n.state.model = model.Id()
 		// Don't log connections from the controller to the model.
 		if !n.state.fromController {
-			n.connLogger.Infof("agent login: %s for %s", n.state.tag, n.state.model)
+			n.connLogger.Infof(context.TODO(), "agent login: %s for %s", n.state.tag, n.state.model)
 		}
 		_, _ = n.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
 			AgentTag:        n.state.tag,
@@ -110,7 +111,7 @@ func (n *RequestObserver) Join(req *http.Request, connectionID uint64) {
 	n.state.id = connectionID
 	n.state.websocketConnected = n.clock.Now()
 
-	n.logger.Debugf(
+	n.logger.Debugf(req.Context(),
 		"[%X] API connection from %s",
 		n.state.id,
 		req.RemoteAddr,
@@ -122,7 +123,7 @@ func (n *RequestObserver) Leave() {
 	if n.state.agent {
 		// Don't log disconnections from the controller to the model.
 		if !n.state.fromController {
-			n.connLogger.Infof("agent disconnected: %s for %s", n.state.tag, n.state.model)
+			n.connLogger.Infof(context.TODO(), "agent disconnected: %s for %s", n.state.tag, n.state.model)
 		}
 		_, _ = n.hub.Publish(apiserver.DisconnectTopic, apiserver.APIConnection{
 			AgentTag:        n.state.tag,
@@ -131,7 +132,7 @@ func (n *RequestObserver) Leave() {
 			ConnectionID:    n.state.id,
 		})
 	}
-	n.logger.Debugf(
+	n.logger.Debugf(context.TODO(),
 		"[%X] %s API connection terminated after %v",
 		n.state.id,
 		n.state.tag,
@@ -169,13 +170,15 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 		return
 	}
 
+	ctx := context.TODO()
+
 	n.requestStart = n.clock.Now()
 
 	tracing := n.logger.IsLevelEnabled(logger.TRACE)
 
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		if tracing {
-			n.pingLogger.Tracef("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+			n.pingLogger.Tracef(ctx, "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 		}
 		return
 	}
@@ -184,9 +187,9 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if tracing {
-		n.logger.Tracef("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		n.logger.Tracef(ctx, "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 	} else {
-		n.logger.Debugf("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
+		n.logger.Debugf(ctx, "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
 	}
 }
 
@@ -199,11 +202,13 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 		return
 	}
 
+	ctx := context.TODO()
+
 	tracing := n.logger.IsLevelEnabled(logger.TRACE)
 
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		if tracing {
-			n.pingLogger.Tracef(
+			n.pingLogger.Tracef(ctx,
 				"-> [%X] %s %s %s %s[%q].%s",
 				n.id, n.tag, time.Since(n.requestStart), jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 		}
@@ -214,11 +219,11 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if tracing {
-		n.logger.Tracef(
+		n.logger.Tracef(ctx,
 			"-> [%X] %s %s %s %s[%q].%s",
 			n.id, n.tag, time.Since(n.requestStart), jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 	} else {
-		n.logger.Debugf(
+		n.logger.Debugf(ctx,
 			"-> [%X] %s %s %s %s[%q].%s",
 			n.id,
 			n.tag,

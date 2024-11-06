@@ -63,7 +63,7 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 	if errResp.Info == nil {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
 	}
-	logger.Debugf("attempting to discharge macaroon due to error: %v", apiErr)
+	logger.Debugf(ctx, "attempting to discharge macaroon due to error: %v", apiErr)
 	var info params.DischargeRequiredErrorInfo
 	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
 		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
@@ -80,9 +80,9 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 	}
 	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("discharge macaroon ids:")
+		logger.Tracef(ctx, "discharge macaroon ids:")
 		for _, m := range ms {
-			logger.Tracef("  - %v", m.Id())
+			logger.Tracef(ctx, "  - %v", m.Id())
 		}
 	}
 	if err != nil {
@@ -91,13 +91,13 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 	return ms, err
 }
 
-func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) {
+func (c *Client) getCachedMacaroon(ctx context.Context, opName, token string) (macaroon.Slice, bool) {
 	ms, ok := c.cache.Get(token)
 	if ok {
-		logger.Debugf("%s using cached macaroons for %s", opName, token)
+		logger.Debugf(ctx, "%s using cached macaroons for %s", opName, token)
 		if logger.IsLevelEnabled(corelogger.TRACE) {
 			for _, m := range ms {
-				logger.Tracef("  - %v", m.Id())
+				logger.Tracef(ctx, "  - %v", m.Id())
 			}
 		}
 	}
@@ -111,7 +111,7 @@ func (c *Client) PublishRelationChange(ctx context.Context, change params.Remote
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("publish relation changed", change.RelationToken); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "publish relation changed", change.RelationToken); ok {
 		args.Changes[0].Macaroons = ms
 		args.Changes[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -149,7 +149,7 @@ func (c *Client) PublishIngressNetworkChange(ctx context.Context, change params.
 		Changes: []params.IngressNetworksChangeEvent{change},
 	}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("publish ingress network change", change.RelationToken); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "publish ingress network change", change.RelationToken); ok {
 		args.Changes[0].Macaroons = ms
 		args.Changes[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -190,7 +190,7 @@ func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...param
 	args = params.RegisterRemoteRelationArgs{Relations: relations}
 	// Use any previously cached discharge macaroons.
 	for i, arg := range relations {
-		if ms, ok := c.getCachedMacaroon("register remote relation", arg.RelationToken); ok {
+		if ms, ok := c.getCachedMacaroon(ctx, "register remote relation", arg.RelationToken); ok {
 			newArg := arg
 			newArg.Macaroons = ms
 			newArg.BakeryVersion = bakery.LatestVersion
@@ -264,7 +264,7 @@ func (c *Client) WatchRelationChanges(ctx context.Context, relationToken, applic
 		BakeryVersion: bakery.LatestVersion,
 	}}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation changes", relationToken); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "watch relation changes", relationToken); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -319,7 +319,7 @@ func (c *Client) WatchRelationChanges(ctx context.Context, relationToken, applic
 func (c *Client) WatchEgressAddressesForRelation(ctx context.Context, remoteRelationArg params.RemoteEntityArg) (watcher.StringsWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation egress addresses", remoteRelationArg.Token); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "watch relation egress addresses", remoteRelationArg.Token); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -372,7 +372,7 @@ func (c *Client) WatchEgressAddressesForRelation(ctx context.Context, remoteRela
 func (c *Client) WatchRelationSuspendedStatus(ctx context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{arg}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation status", arg.Token); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "watch relation status", arg.Token); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -425,7 +425,7 @@ func (c *Client) WatchRelationSuspendedStatus(ctx context.Context, arg params.Re
 func (c *Client) WatchOfferStatus(ctx context.Context, arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
 	args := params.OfferArgs{Args: []params.OfferArg{arg}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch offer status", arg.OfferUUID); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "watch offer status", arg.OfferUUID); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -488,7 +488,7 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationTok
 	}}}
 
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch consumed secret changes", relationToken); ok {
+	if ms, ok := c.getCachedMacaroon(ctx, "watch consumed secret changes", relationToken); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}

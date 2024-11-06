@@ -184,7 +184,7 @@ func (c *UploadCommand) upload(ctx context.Context, rf resourceValue, client Upl
 	}
 	defer f.Close()
 	err = client.Upload(ctx, rf.application, rf.name, rf.value, "", f)
-	if err := block.ProcessBlockedError(err, block.BlockChange); err != nil {
+	if err := block.ProcessBlockedError(ctx, err, block.BlockChange); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

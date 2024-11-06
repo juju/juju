@@ -50,7 +50,7 @@ func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
 
 // ControllerAddress returns the address of the controller that should be
 // used.
-func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
+func (d *IAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
 	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -64,7 +64,7 @@ func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
 	if err == nil {
 		controllerAddress = pa.Value
 	}
-	d.logger.Debugf("IAAS controller address %v", controllerAddress)
+	d.logger.Debugf(ctx, "IAAS controller address %v", controllerAddress)
 	return controllerAddress, nil
 }
 

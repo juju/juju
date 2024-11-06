@@ -18,7 +18,7 @@ import (
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
 func Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
-	logger.Infof("destroying model %q", env.Config().Name())
+	logger.Infof(ctx, "destroying model %q", env.Config().Name())
 	if err := destroyInstances(env, ctx); err != nil {
 		return errors.Annotate(err, "destroying instances")
 	}
@@ -29,7 +29,7 @@ func Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
 }
 
 func destroyInstances(env environs.Environ, ctx envcontext.ProviderCallContext) error {
-	logger.Infof("destroying instances")
+	logger.Infof(ctx, "destroying instances")
 	instances, err := env.AllInstances(ctx)
 	switch err {
 	case nil:
@@ -53,7 +53,7 @@ func destroyInstances(env environs.Environ, ctx envcontext.ProviderCallContext) 
 // source abstraction doesn't work well with dynamic, non-persistent
 // storage like tmpfs, rootfs, etc.
 func destroyStorage(env environs.Environ, ctx envcontext.ProviderCallContext) error {
-	logger.Infof("destroying storage")
+	logger.Infof(ctx, "destroying storage")
 	storageProviderTypes, err := env.StorageProviderTypes()
 	if err != nil {
 		return errors.Trace(err)

@@ -5,6 +5,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -89,7 +90,7 @@ func (pm *basePackageManager) SetProxy(settings proxy.Settings) error {
 		args := []string{"bash", "-c", fmt.Sprintf("%q", cmd)}
 		out, err := RunCommand(args[0], args[1:]...)
 		if err != nil {
-			logger.Errorf("command failed: %v\nargs: %#v\n%s", err, args, out)
+			logger.Errorf(context.TODO(), "command failed: %v\nargs: %#v\n%s", err, args, out)
 			return fmt.Errorf("command failed: %v", err)
 		}
 	}

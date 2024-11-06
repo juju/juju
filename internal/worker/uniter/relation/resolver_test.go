@@ -405,7 +405,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 	assertNumCalls(c, numCalls, 11)
 	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit wordpress/0 with relation 1")
 
-	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
+	_, err = r.PrepareHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -440,7 +440,7 @@ func (s *relationResolverSuite) assertHookRelationChanged(
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
-	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
+	_, err = r.PrepareHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -610,7 +610,7 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
-	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
+	_, err = r.PrepareHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)

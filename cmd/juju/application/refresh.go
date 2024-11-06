@@ -473,7 +473,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		if termErr, ok := errors.Cause(runErr).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		return block.ProcessBlockedError(runErr, block.BlockChange)
+		return block.ProcessBlockedError(ctx, runErr, block.BlockChange)
 	}
 	curl := charmID.URL
 	charmOrigin := charmID.Origin
@@ -550,7 +550,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	err = charmRefreshClient.SetCharm(ctx, charmCfg)
-	err = block.ProcessBlockedError(err, block.BlockChange)
+	err = block.ProcessBlockedError(ctx, err, block.BlockChange)
 	if params.IsCodeAppShouldNotHaveUnits(err) {
 		return errors.Errorf(upgradedApplicationHasUnitsMessage[1:], c.ApplicationName)
 	} else if err != nil {

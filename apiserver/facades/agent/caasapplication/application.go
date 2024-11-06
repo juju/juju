@@ -116,7 +116,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 
 	var unitName unit.Name
 	errResp := func(err error) (params.CAASUnitIntroductionResult, error) {
-		f.logger.Warningf("error introducing k8s pod %q: %v", args.PodName, err)
+		f.logger.Warningf(ctx, "error introducing k8s pod %q: %v", args.PodName, err)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			err = errors.NotFoundf("appliction %s", tag.Name)
 		} else if errors.Is(err, applicationerrors.UnitAlreadyExists) {
@@ -134,7 +134,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(errors.NotValidf("pod-uuid"))
 	}
 
-	f.logger.Debugf("introducing pod %q (%q)", args.PodName, args.PodUUID)
+	f.logger.Debugf(ctx, "introducing pod %q (%q)", args.PodName, args.PodUUID)
 
 	appName := tag.Name
 	appLife, err := f.applicationService.GetApplicationLife(ctx, appName)

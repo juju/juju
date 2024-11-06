@@ -440,15 +440,15 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		img, arch, err := NewInstanceImage(val, compartmentID)
 		if err != nil {
 			if val.Id != nil {
-				logger.Debugf("error parsing image %q: %q", *val.Id, err)
+				logger.Debugf(context.TODO(), "error parsing image %q: %q", *val.Id, err)
 			} else {
-				logger.Debugf("error parsing image %q", err)
+				logger.Debugf(context.TODO(), "error parsing image %q", err)
 			}
 			continue
 		}
 		// For the moment juju does not support minimal ubuntu
 		if img.IsMinimal {
-			logger.Tracef("ubuntu minimal images (%q), not supported", *val.DisplayName)
+			logger.Tracef(context.TODO(), "ubuntu minimal images (%q), not supported", *val.DisplayName)
 			continue
 		}
 		// Only set the instance types to the images that we correctly
@@ -464,7 +464,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		// in case one of them doesn't.
 		for _, instType := range instTypes {
 			if instType.Arch != arch {
-				logger.Debugf("instance type %s has arch %s while image %s only supports %s", instType.Name, instType.Arch, *val.Id, arch)
+				logger.Debugf(context.TODO(), "instance type %s has arch %s while image %s only supports %s", instType.Name, instType.Arch, *val.Id, arch)
 			}
 		}
 		img.SetInstanceTypes(instTypes)
@@ -498,7 +498,7 @@ func findInstanceSpec(
 	imgCache *ImageCache,
 ) (*instances.InstanceSpec, string, error) {
 	allImageMetadata := imgCache.ImageMetadata(base, arch, *constraints.VirtType)
-	logger.Debugf("received %d image(s): %v", len(allImageMetadata), allImageMetadata)
+	logger.Debugf(context.TODO(), "received %d image(s): %v", len(allImageMetadata), allImageMetadata)
 
 	ic := &instances.InstanceConstraint{
 		Base:        base,

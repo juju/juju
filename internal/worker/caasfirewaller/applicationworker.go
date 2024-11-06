@@ -117,16 +117,16 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 }
 
 func (w *applicationWorker) loop() (err error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	defer func() {
 		// If the application has been deleted, we can return nil.
 		if errors.Is(err, errors.NotFound) {
-			w.logger.Debugf("sidecar caas firewaller application %v has been removed", w.appName)
+			w.logger.Debugf(ctx, "sidecar caas firewaller application %v has been removed", w.appName)
 			err = nil
 		}
 	}()
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
 
 	if err = w.setUp(ctx); err != nil {
 		return errors.Trace(err)
@@ -180,10 +180,10 @@ func (w *applicationWorker) onPortChanged(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	w.logger.Tracef("current port for app %q, %v", w.appName, w.currentPorts)
-	w.logger.Tracef("port changed for app %q, %v", w.appName, changedPortRanges)
+	w.logger.Tracef(ctx, "current port for app %q, %v", w.appName, w.currentPorts)
+	w.logger.Tracef(ctx, "port changed for app %q, %v", w.appName, changedPortRanges)
 	if w.currentPorts.EqualTo(changedPortRanges) {
-		w.logger.Debugf("no port changes for app %q", w.appName)
+		w.logger.Debugf(ctx, "no port changes for app %q", w.appName)
 		return nil
 	}
 
@@ -210,7 +210,7 @@ func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error
 				return
 			}
 			// Ignore not found error because the ip could be not ready yet at this stage.
-			w.logger.Warningf("processing change for application %q, %v", w.appName, err)
+			w.logger.Warningf(ctx, "processing change for application %q, %v", w.appName, err)
 			err = nil
 		}
 	}()

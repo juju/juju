@@ -24,12 +24,14 @@ type UnitResourcesHandler struct {
 
 // ServeHTTP implements http.Handler.
 func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
 	switch req.Method {
 	case "GET":
 		opener, ph, err := h.NewOpener(req, names.UnitTagKind, names.ApplicationTagKind)
 		if err != nil {
-			if err := sendError(resp, err); err != nil {
-				logger.Errorf("%v", err)
+			if err := sendError(ctx, resp, err); err != nil {
+				logger.Errorf(ctx, "%v", err)
 			}
 			return
 		}
@@ -40,12 +42,12 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
 				// non internal errors is not real errors.
-				logger.Warningf("cannot fetch resource reader: %v", err)
+				logger.Warningf(ctx, "cannot fetch resource reader: %v", err)
 			} else {
-				logger.Errorf("cannot fetch resource reader: %v", err)
+				logger.Errorf(ctx, "cannot fetch resource reader: %v", err)
 			}
-			if err := sendError(resp, err); err != nil {
-				logger.Errorf("%v", err)
+			if err := sendError(ctx, resp, err); err != nil {
+				logger.Errorf(ctx, "%v", err)
 			}
 			return
 		}
@@ -60,12 +62,12 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		if _, err := io.Copy(resp, opened); err != nil {
 			// We cannot use SendHTTPError here, so we log the error
 			// and move on.
-			logger.Errorf("unable to complete stream for resource: %v", err)
+			logger.Errorf(ctx, "unable to complete stream for resource: %v", err)
 			return
 		}
 	default:
-		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 	}
 }

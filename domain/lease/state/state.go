@@ -476,7 +476,7 @@ DELETE FROM lease WHERE uuid in (
 			// so just log and indicate success for these cases.
 			// Rethink this if the worker cardinality changes to be singular.
 			if txn.IsErrRetryable(err) {
-				s.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
+				s.logger.Debugf(ctx, "ignoring error during lease expiry: %s", err.Error())
 				return nil
 			}
 			return errors.Trace(err)
@@ -488,7 +488,7 @@ DELETE FROM lease WHERE uuid in (
 		}
 
 		if expired > 0 {
-			s.logger.Infof("expired %d leases", expired)
+			s.logger.Infof(ctx, "expired %d leases", expired)
 		}
 
 		return nil

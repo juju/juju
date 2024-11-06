@@ -122,7 +122,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	// remove this warning.
 	for _, filter := range filters {
 		if len(filter.AllowedConsumers) > 0 {
-			api.logger.Warningf("filtering by allowed consumer is disabled due to the migration of offer permissions to domain")
+			api.logger.Warningf(ctx, "filtering by allowed consumer is disabled due to the migration of offer permissions to domain")
 			break
 		}
 	}
@@ -155,7 +155,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {
-			api.logger.Warningf("cannot get application offer: %v", err)
+			api.logger.Warningf(ctx, "cannot get application offer: %v", err)
 			continue
 		}
 		offerParams.Users = []params.OfferUserDetails{{
@@ -169,7 +169,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
 			if err := api.getOfferAdminDetails(ctx, user, backend, app, &offer); err != nil {
-				api.logger.Warningf("cannot get offer admin details: %v", err)
+				api.logger.Warningf(ctx, "cannot get offer admin details: %v", err)
 			}
 		}
 		results = append(results, offer)

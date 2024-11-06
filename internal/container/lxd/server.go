@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -187,10 +188,10 @@ func (s *Server) ReplaceOrAddContainerProfile(name, oldProfile, newProfile strin
 	}
 
 	op := resp.Get()
-	logger.Debugf("updated container, waiting on %s", op.Description)
+	logger.Debugf(context.TODO(), "updated container, waiting on %s", op.Description)
 	err = resp.Wait()
 	if err != nil {
-		logger.Tracef("updating container failed on %q", err)
+		logger.Tracef(context.TODO(), "updating container failed on %q", err)
 	}
 	return errors.Trace(err)
 }
@@ -232,7 +233,7 @@ func (s *Server) UpdateContainerProfiles(name string, profiles []string) error {
 	}
 
 	op := resp.Get()
-	logger.Debugf("updated %q profiles, waiting on %s", name, op.Description)
+	logger.Debugf(context.TODO(), "updated %q profiles, waiting on %s", name, op.Description)
 	err = resp.Wait()
 	return errors.Trace(errors.Annotatef(err, "update failed"))
 }

@@ -238,15 +238,15 @@ func (c *MockOperationPrepareCall) DoAndReturn(f func(context.Context, operation
 }
 
 // RemoteStateChanged mocks base method.
-func (m *MockOperation) RemoteStateChanged(arg0 remotestate.Snapshot) {
+func (m *MockOperation) RemoteStateChanged(arg0 context.Context, arg1 remotestate.Snapshot) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoteStateChanged", arg0)
+	m.ctrl.Call(m, "RemoteStateChanged", arg0, arg1)
 }
 
 // RemoteStateChanged indicates an expected call of RemoteStateChanged.
-func (mr *MockOperationMockRecorder) RemoteStateChanged(arg0 any) *MockOperationRemoteStateChangedCall {
+func (mr *MockOperationMockRecorder) RemoteStateChanged(arg0, arg1 any) *MockOperationRemoteStateChangedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteStateChanged", reflect.TypeOf((*MockOperation)(nil).RemoteStateChanged), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteStateChanged", reflect.TypeOf((*MockOperation)(nil).RemoteStateChanged), arg0, arg1)
 	return &MockOperationRemoteStateChangedCall{Call: call}
 }
 
@@ -262,13 +262,13 @@ func (c *MockOperationRemoteStateChangedCall) Return() *MockOperationRemoteState
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationRemoteStateChangedCall) Do(f func(remotestate.Snapshot)) *MockOperationRemoteStateChangedCall {
+func (c *MockOperationRemoteStateChangedCall) Do(f func(context.Context, remotestate.Snapshot)) *MockOperationRemoteStateChangedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationRemoteStateChangedCall) DoAndReturn(f func(remotestate.Snapshot)) *MockOperationRemoteStateChangedCall {
+func (c *MockOperationRemoteStateChangedCall) DoAndReturn(f func(context.Context, remotestate.Snapshot)) *MockOperationRemoteStateChangedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

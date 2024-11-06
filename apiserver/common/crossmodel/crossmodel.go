@@ -9,7 +9,6 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -22,13 +21,14 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 )
 
 var (
-	logger     = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodel", corelogger.CMR)
-	authlogger = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
+	logger     = internallogger.GetLogger("juju.apiserver.common.crossmodel", corelogger.CMR)
+	authlogger = internallogger.GetLogger("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
@@ -41,7 +41,7 @@ func PublishRelationChange(
 	applicationTag names.Tag,
 	change params.RemoteRelationChangeEvent,
 ) error {
-	logger.Debugf("publish into model %s change for %v on %v: %#v", modelID, relationTag, applicationTag, &change)
+	logger.Debugf(ctx, "publish into model %s change for %v on %v: %#v", modelID, relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
@@ -62,14 +62,14 @@ func PublishRelationChange(
 	// If the remote model has destroyed the relation, do it here also.
 	forceCleanUp := change.ForceCleanup != nil && *change.ForceCleanup
 	if dyingOrDead {
-		logger.Debugf("remote consuming side of %v died", relationTag)
+		logger.Debugf(ctx, "remote consuming side of %v died", relationTag)
 		if forceCleanUp && applicationTag != nil {
-			logger.Debugf("forcing cleanup of units for %v", applicationTag.Id())
+			logger.Debugf(ctx, "forcing cleanup of units for %v", applicationTag.Id())
 			remoteUnits, err := rel.AllRemoteUnits(applicationTag.Id())
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("got %v relation units to clean", len(remoteUnits))
+			logger.Debugf(ctx, "got %v relation units to clean", len(remoteUnits))
 			for _, ru := range remoteUnits {
 				if err := ru.LeaveScope(); err != nil {
 					return errors.Trace(err)
@@ -80,7 +80,7 @@ func PublishRelationChange(
 		if forceCleanUp {
 			oppErrs, err := rel.DestroyWithForce(true, 0)
 			if len(oppErrs) > 0 {
-				logger.Warningf("errors forcing cleanup of %v: %v", rel.Tag().Id(), oppErrs)
+				logger.Warningf(ctx, "errors forcing cleanup of %v: %v", rel.Tag().Id(), oppErrs)
 			}
 			// If we are forcing cleanup, we can exit early here.
 			return errors.Trace(err)
@@ -92,15 +92,15 @@ func PublishRelationChange(
 
 	// TODO(wallyworld) - deal with remote application being removed
 	if applicationTag == nil {
-		logger.Warningf("no remote application found for %v", relationTag.Id())
+		logger.Warningf(ctx, "no remote application found for %v", relationTag.Id())
 		return nil
 	}
-	logger.Debugf("remote application for changed relation %v is %v in model %v",
+	logger.Debugf(ctx, "remote application for changed relation %v is %v in model %v",
 		relationTag.Id(), applicationTag.Id(), modelID)
 
 	// Allow sending an empty non-nil map to clear all the settings.
 	if change.ApplicationSettings != nil {
-		logger.Debugf("remote application %v in %v settings changed to %v",
+		logger.Debugf(ctx, "remote application %v in %v settings changed to %v",
 			applicationTag.Id(), relationTag.Id(), change.ApplicationSettings)
 		err := rel.ReplaceApplicationSettings(applicationTag.Id(), change.ApplicationSettings)
 		if err != nil {
@@ -108,11 +108,11 @@ func PublishRelationChange(
 		}
 	}
 
-	if err := handleDepartedUnits(change, applicationTag, rel); err != nil {
+	if err := handleDepartedUnits(ctx, change, applicationTag, rel); err != nil {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(handleChangedUnits(change, applicationTag, rel))
+	return errors.Trace(handleChangedUnits(ctx, change, applicationTag, rel))
 }
 
 type authoriser interface {
@@ -193,15 +193,15 @@ func handleSuspendedRelation(
 	return nil
 }
 
-func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
+func handleDepartedUnits(ctx context.Context, change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
-		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), rel.Tag().Id())
+		logger.Debugf(ctx, "unit %v has departed relation %v", unitTag.Id(), rel.Tag().Id())
 		ru, err := rel.RemoteUnit(unitTag.Id())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("%s leaving scope", unitTag.Id())
+		logger.Debugf(ctx, "%s leaving scope", unitTag.Id())
 		if err := ru.LeaveScope(); err != nil {
 			return errors.Trace(err)
 		}
@@ -210,13 +210,14 @@ func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag
 }
 
 func handleChangedUnits(
+	ctx context.Context,
 	change params.RemoteRelationChangeEvent,
 	applicationTag names.Tag,
 	rel Relation,
 ) error {
 	for _, change := range change.ChangedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
-		logger.Debugf("changed unit tag for unit id %v is %v", change.UnitId, unitTag)
+		logger.Debugf(ctx, "changed unit tag for unit id %v is %v", change.UnitId, unitTag)
 		ru, err := rel.RemoteUnit(unitTag.Id())
 		if err != nil {
 			return errors.Trace(err)
@@ -230,10 +231,10 @@ func handleChangedUnits(
 			settings[k] = v
 		}
 		if !inScope {
-			logger.Debugf("%s entering scope (%v)", unitTag.Id(), settings)
+			logger.Debugf(ctx, "%s entering scope (%v)", unitTag.Id(), settings)
 			err = ru.EnterScope(settings)
 		} else {
-			logger.Debugf("%s updated settings (%v)", unitTag.Id(), settings)
+			logger.Debugf(ctx, "%s updated settings (%v)", unitTag.Id(), settings)
 			err = ru.ReplaceSettings(settings)
 		}
 		if err != nil {
@@ -460,7 +461,7 @@ func PublishIngressNetworkChange(
 	relationTag names.Tag,
 	change params.IngressNetworksChangeEvent,
 ) error {
-	logger.Debugf("publish into model %s network change for %v: %#v", modelID, relationTag, &change)
+	logger.Debugf(ctx, "publish into model %s network change for %v: %#v", modelID, relationTag, &change)
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
@@ -471,7 +472,7 @@ func PublishIngressNetworkChange(
 		return errors.Trace(err)
 	}
 
-	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
+	logger.Debugf(ctx, "relation %v requires ingress networks %v", rel, change.Networks)
 	if err := validateIngressNetworks(ctx, modelConfigService, change.Networks); err != nil {
 		return errors.Trace(err)
 	}

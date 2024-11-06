@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"reflect"
@@ -89,7 +90,7 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 
 		virtType, err := instance.ParseVirtType(*cons.VirtType)
 		if err != nil {
-			logger.Errorf("failed to parse virt-type constraint %q, ignoring err: %v", *cons.VirtType, err)
+			logger.Errorf(context.TODO(), "failed to parse virt-type constraint %q, ignoring err: %v", *cons.VirtType, err)
 		} else {
 			c.VirtType = virtType
 		}
@@ -124,7 +125,7 @@ func (c *Container) CPUs() uint {
 	if v := c.Config["limits.cpu"]; v != "" {
 		_, err := fmt.Sscanf(v, "%d", &cores)
 		if err != nil {
-			logger.Errorf("failed to parse %q into uint, ignoring err: %s", v, err)
+			logger.Errorf(context.TODO(), "failed to parse %q into uint, ignoring err: %s", v, err)
 		}
 	}
 	return cores
@@ -139,14 +140,14 @@ func (c *Container) Mem() uint {
 
 	bytes, err := units.ParseByteSizeString(v)
 	if err != nil {
-		logger.Errorf("failed to parse %q into bytes, ignoring err: %s", v, err)
+		logger.Errorf(context.TODO(), "failed to parse %q into bytes, ignoring err: %s", v, err)
 		return 0
 	}
 
 	const oneMiB = 1024 * 1024
 	mib := bytes / oneMiB
 	if mib > math.MaxUint32 {
-		logger.Errorf("byte string %q overflowed uint32, using max value", v)
+		logger.Errorf(context.TODO(), "byte string %q overflowed uint32, using max value", v)
 		return math.MaxUint32
 	}
 
@@ -238,7 +239,7 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 		for _, addr := range net.Addresses {
 			netAddr := corenetwork.NewMachineAddress(addr.Address).AsProviderAddress()
 			if netAddr.Scope == corenetwork.ScopeLinkLocal || netAddr.Scope == corenetwork.ScopeMachineLocal {
-				logger.Tracef("ignoring address %q for container %q", addr, name)
+				logger.Tracef(context.TODO(), "ignoring address %q for container %q", addr, name)
 				continue
 			}
 			results = append(results, netAddr)
@@ -252,8 +253,8 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 // If the container fails to be started, it is removed.
 // Upon successful creation and start, the container is returned.
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
-	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
-	logger.Debugf("new container has profiles %v", spec.Profiles)
+	logger.Infof(context.TODO(), "starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
+	logger.Debugf(context.TODO(), "new container has profiles %v", spec.Profiles)
 
 	ephemeral := false
 	req := api.InstancesPost{
@@ -284,11 +285,11 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		return nil, fmt.Errorf("container creation failed: %s", opInfo.Err)
 	}
 
-	logger.Debugf("created container %q, waiting for start...", spec.Name)
+	logger.Debugf(context.TODO(), "created container %q, waiting for start...", spec.Name)
 
 	if err := s.StartContainer(spec.Name); err != nil {
 		if remErr := s.RemoveContainer(spec.Name); remErr != nil {
-			logger.Errorf("failed to remove container after unsuccessful start: %s", remErr.Error())
+			logger.Errorf(context.TODO(), "failed to remove container after unsuccessful start: %s", remErr.Error())
 		}
 		return nil, errors.Trace(err)
 	}
@@ -309,7 +310,7 @@ func (s *Server) handleAlreadyExistsError(err error, spec ContainerSpec, ephemer
 			// It's actually more helpful to display the original error
 			// message, but we'll also log out what the new error message
 			// was, when attempting to wait for it.
-			logger.Debugf("waiting for container to be running: %v", runningErr)
+			logger.Debugf(context.TODO(), "waiting for container to be running: %v", runningErr)
 			return nil, errors.Trace(err)
 		}
 		c := Container{*container}
@@ -389,7 +390,7 @@ func (s *Server) RemoveContainers(names []string) error {
 	for _, name := range names {
 		if err := s.RemoveContainer(name); err != nil {
 			failed = append(failed, name)
-			logger.Errorf("removing container %q: %v", name, err)
+			logger.Errorf(context.TODO(), "removing container %q: %v", name, err)
 		}
 	}
 	if len(failed) != 0 {

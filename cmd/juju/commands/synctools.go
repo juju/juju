@@ -147,7 +147,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	} else {
 		if c.public {
-			logger.Infof("--public is ignored unless --local-dir is specified")
+			logger.Infof(ctx, "--public is ignored unless --local-dir is specified")
 		}
 		api, err := c.getSyncToolAPI(ctx)
 		if err != nil {
@@ -157,7 +157,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 		adaptor := syncToolAPIAdaptor{api}
 		sctx.TargetToolsUploader = adaptor
 	}
-	return block.ProcessBlockedError(syncTools(ctx, sctx), block.BlockChange)
+	return block.ProcessBlockedError(ctx, syncTools(ctx, sctx), block.BlockChange)
 }
 
 // syncToolAPIAdaptor implements sync.ToolsFinder and

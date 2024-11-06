@@ -6,6 +6,7 @@ package jujuc_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 
@@ -64,7 +65,7 @@ type Context struct {
 	shouldError    bool
 }
 
-func (c *Context) RequestReboot(priority jujuc.RebootPriority) error {
+func (c *Context) RequestReboot(ctx context.Context, priority jujuc.RebootPriority) error {
 	c.rebootPriority = priority
 	if c.shouldError {
 		return fmt.Errorf("RequestReboot error!")

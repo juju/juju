@@ -50,18 +50,18 @@ func (m *MockInstanceMutatorWatcher) EXPECT() *MockInstanceMutatorWatcherMockRec
 }
 
 // WatchLXDProfileVerificationForMachine mocks base method.
-func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 instancemutater.Machine, arg1 logger.Logger) (state.NotifyWatcher, error) {
+func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 context.Context, arg1 instancemutater.Machine, arg2 logger.Logger) (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationForMachine", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationForMachine", arg0, arg1, arg2)
 	ret0, _ := ret[0].(state.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLXDProfileVerificationForMachine indicates an expected call of WatchLXDProfileVerificationForMachine.
-func (mr *MockInstanceMutatorWatcherMockRecorder) WatchLXDProfileVerificationForMachine(arg0, arg1 any) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (mr *MockInstanceMutatorWatcherMockRecorder) WatchLXDProfileVerificationForMachine(arg0, arg1, arg2 any) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationForMachine", reflect.TypeOf((*MockInstanceMutatorWatcher)(nil).WatchLXDProfileVerificationForMachine), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationForMachine", reflect.TypeOf((*MockInstanceMutatorWatcher)(nil).WatchLXDProfileVerificationForMachine), arg0, arg1, arg2)
 	return &MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall{Call: call}
 }
 
@@ -77,13 +77,13 @@ func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Re
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Do(f func(instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Do(f func(context.Context, instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) DoAndReturn(f func(instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) DoAndReturn(f func(context.Context, instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

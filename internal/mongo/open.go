@@ -4,6 +4,7 @@
 package mongo
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	stderrors "errors"
@@ -158,21 +159,21 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		addr := server.TCPAddr().String()
 		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
 		if err != nil {
-			logger.Debugf("mongodb connection failed, will retry: %v", err)
+			logger.Debugf(context.TODO(), "mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
 		if tlsConfig != nil {
 			cc := tls.Client(c, tlsConfig)
 			if err := cc.Handshake(); err != nil {
-				logger.Warningf("TLS handshake failed: %v", err)
+				logger.Warningf(context.TODO(), "TLS handshake failed: %v", err)
 				if err := c.Close(); err != nil {
-					logger.Warningf("failed to close connection: %v", err)
+					logger.Warningf(context.TODO(), "failed to close connection: %v", err)
 				}
 				return nil, err
 			}
 			c = cc
 		}
-		logger.Debugf("dialed mongodb server at %q", addr)
+		logger.Debugf(context.TODO(), "dialed mongodb server at %q", addr)
 		return c, nil
 	}
 

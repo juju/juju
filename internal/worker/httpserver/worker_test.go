@@ -4,6 +4,7 @@
 package httpserver_test
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -104,7 +105,7 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*httpserver.Config), expect string) {
 	config := s.config
 	f(&config)
-	w, err := httpserver.NewWorker(config)
+	w, err := httpserver.NewWorker(context.Background(), config)
 	if !c.Check(err, gc.NotNil) {
 		workertest.DirtyKill(c, w)
 		return
@@ -122,7 +123,7 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
-	worker, err := httpserver.NewWorker(s.config)
+	worker, err := httpserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		workertest.DirtyKill(c, worker)
@@ -343,7 +344,7 @@ type WorkerControllerPortSuite struct {
 var _ = gc.Suite(&WorkerControllerPortSuite{})
 
 func (s *WorkerControllerPortSuite) newWorker(c *gc.C) *httpserver.Worker {
-	worker, err := httpserver.NewWorker(s.config)
+	worker, err := httpserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		workertest.DirtyKill(c, worker)

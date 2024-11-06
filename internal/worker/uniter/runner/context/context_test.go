@@ -99,7 +99,7 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	s.AddContextRelation(c, ctrl, "db")
 	s.AddContextRelation(c, ctrl, "db1")
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	relIds, err := ctx.RelationIds()
+	relIds, err := ctx.RelationIds(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relIds, gc.HasLen, 2)
 	c.Assert(relIds, jc.SameContents, []int{0, 1})
@@ -121,7 +121,7 @@ func (s *InterfaceSuite) TestRelationIdsExcludesBroken(c *gc.C) {
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	// Broken relations have no member settings.
 	context.SetRelationBroken(ctx, 1)
-	relIds, err := ctx.RelationIds()
+	relIds, err := ctx.RelationIds(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relIds, gc.HasLen, 1)
 	c.Assert(relIds, jc.SameContents, []int{0})
@@ -499,7 +499,7 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{}).(*context.HookContext)
 	ctx.SetProcess(p)
-	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(killed, jc.IsFalse)
 	priority := ctx.GetRebootPriority()
@@ -526,7 +526,7 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 	stub.SetErrors(errors.New("process is already dead"))
 	ctx.SetProcess(p)
 
-	err := ctx.RequestReboot(jujuc.RebootNow)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootNow)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Everything went well, so priority should still be RebootNow.
@@ -557,7 +557,7 @@ func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
 	}}
 	ctx.SetProcess(p)
 
-	err := ctx.RequestReboot(jujuc.RebootNow)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootNow)
 	c.Assert(err, gc.ErrorMatches, "failed to kill context process 123")
 
 	// RequestReboot failed, so priority should revert to RebootSkip.
@@ -572,7 +572,7 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	// then will we set the reboot priority. This test basically simulates
 	// the case when the process calling juju-reboot is not recorded.
 	ctx := &context.HookContext{}
-	err := ctx.RequestReboot(jujuc.RebootNow)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootNow)
 	c.Assert(err, gc.ErrorMatches, "no process to kill")
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
@@ -663,7 +663,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 		},
 	}
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	md, err := ctx.SecretMetadata()
+	md, err := ctx.SecretMetadata(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
@@ -696,7 +696,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 		Description: ptr("another"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	ctx.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    ptr("gitlab/1"),
 		RelationKey: ptr("mariadb:db gitlab:db"),
 		Role:        ptr(coresecrets.RoleView),
@@ -704,7 +704,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 
 	err = ctx.RemoveSecret(uri2, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	md, err = ctx.SecretMetadata()
+	md, err = ctx.SecretMetadata(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
@@ -959,7 +959,7 @@ func (s *HookContextSuite) TestOpenPortRange(c *gc.C) {
 		},
 	}).Return(nil)
 
-	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
+	err := hookContext.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -987,7 +987,7 @@ func (s *HookContextSuite) TestOpenedPortRanges(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.CAAS, s.mockLeadership)
 
-	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
+	err := hookContext.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// OpenedPortRanges() should return the pending requests, see
@@ -1039,7 +1039,7 @@ func (s *HookContextSuite) TestClosePortRange(c *gc.C) {
 		},
 	}).Return(nil)
 
-	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
+	err := hookContext.ClosePortRange(stdcontext.Background(), "", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1126,7 +1126,7 @@ func (s *HookContextSuite) TestActionFlushError(c *gc.C) {
 	client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), "failed", resultData, "committing requested changes failed").Return(nil)
 	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
-	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
+	err := hookContext.OpenPortRange(stdcontext.Background(), "ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
 	c.Assert(err, jc.ErrorIsNil)
 	cancel := make(chan struct{})
 	context.WithActionContext(hookContext, nil, cancel)
@@ -1750,12 +1750,12 @@ func (s *HookContextSuite) TestSecretGrant(c *gc.C) {
 
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.GrantSecret(uri2, &jujuc.SecretGrantRevokeArgs{
+	err = hookContext.GrantSecret(stdcontext.Background(), uri2, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1787,7 +1787,7 @@ func (s *HookContextSuite) TestSecretGrantSecretNotFound(c *gc.C) {
 	uri := coresecrets.NewURI()
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1806,7 +1806,7 @@ func (s *HookContextSuite) TestSecretGrantNotLeader(c *gc.C) {
 
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1836,7 +1836,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C) {
 	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	app := "gitlab"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),
@@ -1868,7 +1868,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.C) {
 	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	unit := "gitlab/0"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit,
 		RelationKey: &relationKey,
 		Role:        ptr(coresecrets.RoleView),
@@ -1900,7 +1900,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlr
 	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	unit := "gitlab/0"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit,
 		RelationKey: &relationKey,
 		Role:        ptr(coresecrets.RoleView),
@@ -1932,7 +1932,7 @@ func (s *HookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *
 	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	app := "gitlab"
 	relationKey := "mariadb:db gitlab:db"
-	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(stdcontext.Background(), uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),

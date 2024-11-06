@@ -89,7 +89,7 @@ reward or does nothing; the outcome is chosen at random.
         // should. There are a couple of places in the codebase with object-
         // granularity logging rather than package-level; adding more would be
         // a generally good thing.
-        Logger loggo.Logger
+        Logger logger.Logger
     }
 
     // Validate should be the one place you ever need to check config. It

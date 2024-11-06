@@ -176,6 +176,7 @@ func (s *bakerySuite) TestInferDeclaredFromMacaroon(c *gc.C) {
 
 	mac := jujutesting.MustNewMacaroon("test")
 	declared := offerBakery.InferDeclaredFromMacaroon(
+		context.Background(),
 		macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"},
 	)
 	c.Assert(declared, gc.DeepEquals, map[string]string{})
@@ -187,6 +188,7 @@ func (s *bakerySuite) TestInferDeclaredFromMacaroonJaaS(c *gc.C) {
 
 	mac := jujutesting.MustNewMacaroon("test")
 	declared := offerBakery.InferDeclaredFromMacaroon(
+		context.Background(),
 		macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"},
 	)
 	c.Assert(declared, gc.DeepEquals, map[string]string{"relation-key": "mediawiki:db mysql:server"})

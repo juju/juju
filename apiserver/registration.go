@@ -32,17 +32,19 @@ type registerUserHandler struct {
 
 // ServeHTTP implements the http.Handler interface.
 func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
 	if req.Method != "POST" {
-		err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		err := sendError(ctx, w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 		if err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
 	st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, err); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
@@ -59,8 +61,8 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		domainServices.Access(),
 	)
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, err); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
@@ -69,22 +71,22 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	// which the client can use to obtain a discharge macaroon.
 	m, err := h.ctxt.srv.localMacaroonAuthenticator.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, err); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
 	cookie, err := httpbakery.NewCookie(internalmacaroon.MacaroonNamespace, macaroon.Slice{m})
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+		if err := sendError(ctx, w, err); err != nil {
+			logger.Errorf(ctx, "%v", err)
 		}
 		return
 	}
 	http.SetCookie(w, cookie)
 
 	if err := sendStatusAndJSON(w, http.StatusOK, response); err != nil {
-		logger.Errorf("%v", err)
+		logger.Errorf(ctx, "%v", err)
 	}
 }
 

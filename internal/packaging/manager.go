@@ -4,6 +4,7 @@
 package packaging
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -77,7 +78,7 @@ func InstallDependency(dep Dependency, base base.Base) error {
 			pkgManagers[pkg.PackageManager] = pm
 		}
 
-		logger.Infof("installing %q via %q", pkg.Name, pkg.PackageManager)
+		logger.Infof(context.TODO(), "installing %q via %q", pkg.Name, pkg.PackageManager)
 
 		pkgWithOpts := strings.TrimSpace(fmt.Sprintf("%s %s", pkg.InstallOptions, pkg.Name))
 		if err = pm.Install(pkgWithOpts); err != nil {

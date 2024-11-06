@@ -135,7 +135,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 				err = e
 			}
 		}
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 
 	fmt.Fprintf(ctx.Stdout, "User %q removed\n", c.UserName)

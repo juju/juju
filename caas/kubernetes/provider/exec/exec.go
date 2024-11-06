@@ -233,7 +233,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	cmd += fmt.Sprintf("mkdir -p /tmp; echo $$ > %s; ", pidFile)
 	cmd += fmt.Sprintf("exec sh -c %s; ", shellquote.Join(strings.Join(opts.Commands, " ")))
 	cmdArgs := []string{"sh", "-c", cmd}
-	logger.Debugf("exec on pod %q for cmd %+q", opts.PodName, cmdArgs)
+	logger.Debugf(context.TODO(), "exec on pod %q for cmd %+q", opts.PodName, cmdArgs)
 	req := c.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(opts.PodName).
@@ -293,7 +293,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 		if exitErr, ok := err.(ExitError); ok {
 			// Ignore exitcode from kill, as the process may have already exited or
 			// the pid file hasn't yet been written.
-			logger.Debugf("%q exited with code %d", strings.Join(cmd, " "), exitErr.ExitStatus())
+			logger.Debugf(context.TODO(), "%q exited with code %d", strings.Join(cmd, " "), exitErr.ExitStatus())
 			return nil
 		}
 		return err
@@ -375,8 +375,8 @@ func getValidatedPod(ctx context.Context, podGetter typedcorev1.PodInterface, po
 		return nil, errors.Trace(err)
 	}
 
-	logger.Debugf("no pod named %q found", podName)
-	logger.Debugf("try get pod by UID for %q", podName)
+	logger.Debugf(ctx, "no pod named %q found", podName)
+	logger.Debugf(ctx, "try get pod by UID for %q", podName)
 	pods, err := podGetter.List(ctx, metav1.ListOptions{})
 	// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 	if err != nil {
@@ -432,7 +432,7 @@ func getValidatedPodContainer(
 		}
 	} else {
 		containerName = pod.Spec.Containers[0].Name
-		logger.Debugf("choose first container %q to exec", containerName)
+		logger.Debugf(ctx, "choose first container %q to exec", containerName)
 	}
 
 	matchContainerStatus := func(name string) (*core.ContainerStatus, error) {

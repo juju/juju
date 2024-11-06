@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -94,9 +95,9 @@ func main() {
 	for i, addr := range dialAddresses {
 		addrs[i] = network.DialAddress(addr)
 	}
-	logger.Infof("host ports: %v\n", addrs)
-	logger.Infof("found %d known hosts\n", len(pubKeys))
-	logger.Debugf("known hosts: %v\n", pubKeys)
+	logger.Infof(context.Background(), "host ports: %v\n", addrs)
+	logger.Infof(context.Background(), "found %d known hosts\n", len(pubKeys))
+	logger.Debugf(context.Background(), "known hosts: %v\n", pubKeys)
 
 	dialer := &net.Dialer{Timeout: time.Duration(dialTimeout) * time.Millisecond}
 	checker := jujussh.NewReachableChecker(dialer, time.Duration(waitTimeout)*time.Millisecond)

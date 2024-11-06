@@ -118,5 +118,5 @@ func (c *trustCommand) Run(ctx *cmd.Context) error {
 	err = client.SetConfig(ctx, c.applicationName, "",
 		map[string]string{coreapplication.TrustConfigOptionName: fmt.Sprint(!c.removeTrust)},
 	)
-	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
+	return errors.Trace(block.ProcessBlockedError(ctx, err, block.BlockChange))
 }

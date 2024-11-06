@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -45,7 +46,7 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 		"uuid2": logger2,
 	}
 	ml := NewModelLogger(
-		func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
+		func(ctx context.Context, modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 			if l, ok := loggers[modelUUID]; ok {
 				return l, nil
 			}

@@ -120,7 +120,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers ve
 }
 
 func uploadFakeToolsVersion(stor storage.Storage, toolsDir string, vers version.Binary) (*coretools.Tools, error) {
-	logger.Infof("uploading FAKE tools %s", vers)
+	logger.Infof(context.Background(), "uploading FAKE tools %s", vers)
 	tgz, checksum := makeFakeTools(vers)
 	size := int64(len(tgz))
 	name := envtools.StorageName(vers, toolsDir)

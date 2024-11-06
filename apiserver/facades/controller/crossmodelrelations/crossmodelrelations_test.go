@@ -80,7 +80,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 
 	s.st = newMockState()
 	fw := &mockFirewallState{}
-	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, modelConfigService firewall.ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
+	egressAddressWatcher := func(_ context.Context, _ facade.Resources, fws firewall.State, modelConfigService firewall.ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
 		c.Assert(fw, gc.Equals, fws)
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil

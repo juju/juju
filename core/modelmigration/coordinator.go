@@ -137,14 +137,14 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 	var current int
 	defer func() {
 		if err != nil {
-			m.logger.Errorf("import failed: %s", err.Error())
+			m.logger.Errorf(ctx, "import failed: %s", err.Error())
 
 			for ; current >= 0; current-- {
 				op := m.operations[current]
 
-				m.logger.Infof("rolling back operation: %s", op.Name())
+				m.logger.Infof(ctx, "rolling back operation: %s", op.Name())
 				if rollbackErr := op.Rollback(ctx, model); rollbackErr != nil {
-					m.logger.Errorf("rollback operation for %s failed: %s", op.Name(), rollbackErr)
+					m.logger.Errorf(ctx, "rollback operation for %s failed: %s", op.Name(), rollbackErr)
 					err = errors.Annotatef(err, "rollback operation at %d with %v", current, rollbackErr)
 				}
 			}
@@ -154,7 +154,7 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 	var op Operation
 	for current, op = range m.operations {
 		opName := op.Name()
-		m.logger.Infof("running operation: %s", opName)
+		m.logger.Infof(ctx, "running operation: %s", opName)
 
 		if err := op.Setup(scope); err != nil {
 			return errors.Annotatef(err, "setup operation %s", opName)

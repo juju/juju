@@ -107,6 +107,9 @@ func (w *Pruner) loop() error {
 	timer := w.cfg.Clock.NewTimer(defaultPruneMinInterval)
 	defer timer.Stop()
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	var attempts int
 	for {
 		select {
@@ -116,7 +119,7 @@ func (w *Pruner) loop() error {
 		case <-timer.Chan():
 			// Attempt to prune, if there is any critical error, kill the
 			// worker, which should force a restart.
-			pruned, err := w.prune()
+			pruned, err := w.prune(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -135,10 +138,10 @@ func (w *Pruner) loop() error {
 	}
 }
 
-func (w *Pruner) prune() (map[string]int64, error) {
+func (w *Pruner) prune(ctx context.Context) (map[string]int64, error) {
 	traceEnabled := w.cfg.Logger.IsLevelEnabled(logger.TRACE)
 	if traceEnabled {
-		w.cfg.Logger.Tracef("Starting pruning change log")
+		w.cfg.Logger.Tracef(ctx, "Starting pruning change log")
 	}
 
 	ctx, cancel := w.scopedContext()
@@ -190,12 +193,12 @@ func (w *Pruner) prune() (map[string]int64, error) {
 			}
 			// If there is an error, continue on to the next model, as we don't
 			// want to kill the worker.
-			w.cfg.Logger.Infof("Error pruning model %q: %v", mn.UUID, err)
+			w.cfg.Logger.Infof(ctx, "Error pruning model %q: %v", mn.UUID, err)
 			continue
 		}
 
 		if traceEnabled {
-			w.cfg.Logger.Tracef("Pruned %d change logs for model %q", pruned, mn.UUID)
+			w.cfg.Logger.Tracef(ctx, "Pruned %d change logs for model %q", pruned, mn.UUID)
 		}
 
 		pruned[mn.Namespace] = p
@@ -211,7 +214,7 @@ func (w *Pruner) prune() (map[string]int64, error) {
 	}
 
 	if traceEnabled {
-		w.cfg.Logger.Tracef("Finished pruning change log")
+		w.cfg.Logger.Tracef(ctx, "Finished pruning change log")
 	}
 
 	return pruned, nil
@@ -277,7 +280,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 		end:   now,
 	}
 	if !timeView.Contains(watermarkView) && !watermarkView.Equals(w.windows[namespace]) {
-		w.cfg.Logger.Warningf("namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", namespace, sorted[0].ControllerID)
+		w.cfg.Logger.Warningf(ctx, "namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", namespace, sorted[0].ControllerID)
 	}
 
 	// Save the last window for the next iteration.

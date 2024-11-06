@@ -105,7 +105,7 @@ func (c *importKeysCommand) Run(ctx *cmd.Context) error {
 	c.user = "admin"
 	results, err := client.ImportKeys(ctx, c.user, c.sshKeyIds...)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {

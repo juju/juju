@@ -4,6 +4,7 @@
 package networkingcommon
 
 import (
+	"context"
 	"testing"
 
 	jujutesting "github.com/juju/testing"
@@ -27,7 +28,7 @@ type BaseSuite struct {
 func (s *BaseSuite) NewUpdateMachineLinkLayerOp(
 	machine LinkLayerMachine, networkService NetworkService, incoming network.InterfaceInfos, discoverSubnets bool,
 ) *updateMachineLinkLayerOp {
-	return newUpdateMachineLinkLayerOp(machine, networkService, incoming, discoverSubnets)
+	return newUpdateMachineLinkLayerOp(context.Background(), machine, networkService, incoming, discoverSubnets)
 }
 
 func (s *BaseSuite) NewNetworkConfigAPI(

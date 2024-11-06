@@ -4,6 +4,8 @@
 package networkingcommon
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -388,7 +390,7 @@ var expectedLinkLayerDeviceAddressesWithFinalNetworkConfig = []state.LinkLayerDe
 
 func (s *TypesSuite) TestNetworkInterfacesToStateArgs(c *gc.C) {
 	interfaces := params.InterfaceInfoFromNetworkConfig(observedNetworkConfigs)
-	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(interfaces)
+	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(context.Background(), interfaces)
 
 	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
 	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAddressesWithFinalNetworkConfig)
@@ -437,7 +439,7 @@ func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *gc.C) {
 	breno38 := interfaces.GetByName("br-eno3-8")
 	c.Check(breno38, gc.HasLen, 2)
 
-	stateAddr := networkAddressStateArgsForDevice(interfaces, "br-eno3-8")
+	stateAddr := networkAddressStateArgsForDevice(context.Background(), interfaces, "br-eno3-8")
 	c.Check(stateAddr, gc.DeepEquals, []state.LinkLayerDeviceAddress{{
 		DeviceName:       "br-eno3-8",
 		ConfigMethod:     "static",

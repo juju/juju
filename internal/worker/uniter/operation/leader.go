@@ -58,8 +58,7 @@ func (al *acceptLeadership) Commit(ctx context.Context, state State) (*State, er
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (al *acceptLeadership) RemoteStateChanged(snapshot remotestate.Snapshot) {
-}
+func (al *acceptLeadership) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {}
 
 func (al *acceptLeadership) checkState(state State) error {
 	if state.Kind != Continue {
@@ -123,7 +122,7 @@ func (rl *resignLeadership) Execute(ctx context.Context, state State) (*State, e
 	// I *think* it will stay, because the state-writing behaviour will stay
 	// very different (ie just write `.Leader = false` and don't step on pre-
 	// queued hooks).
-	rl.logger.Warningf("we should run a leader-deposed hook here, but we can't yet")
+	rl.logger.Warningf(ctx, "we should run a leader-deposed hook here, but we can't yet")
 	return nil, nil
 }
 
@@ -135,5 +134,4 @@ func (rl *resignLeadership) Commit(ctx context.Context, state State) (*State, er
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (rl *resignLeadership) RemoteStateChanged(snapshot remotestate.Snapshot) {
-}
+func (rl *resignLeadership) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {}

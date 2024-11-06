@@ -4,6 +4,8 @@
 package context
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -46,7 +48,7 @@ func (r *portRangeChangeRecorder) validatePortRangeForCAAS(portRange network.Por
 
 // OpenPortRange registers a request to open the specified port range for the
 // provided endpoint name.
-func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange network.PortRange) error {
+func (r *portRangeChangeRecorder) OpenPortRange(ctx context.Context, endpointName string, portRange network.PortRange) error {
 	if err := portRange.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -57,7 +59,7 @@ func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange n
 	// If a close request is pending for this port, remove it.
 	for i, pr := range r.pendingCloseRanges[endpointName] {
 		if pr == portRange {
-			r.logger.Tracef("open-port %q and cancel the pending close-port", portRange)
+			r.logger.Tracef(ctx, "open-port %q and cancel the pending close-port", portRange)
 			r.pendingCloseRanges[endpointName] = append(r.pendingCloseRanges[endpointName][:i], r.pendingCloseRanges[endpointName][i+1:]...)
 			break
 		}
@@ -122,7 +124,7 @@ func (r *portRangeChangeRecorder) checkAppPortRanges(endpointName string, portRa
 
 // ClosePortRange registers a request to close the specified port range for the
 // provided endpoint name. If the machine has no ports open yet, this is a no-op.
-func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange network.PortRange) error {
+func (r *portRangeChangeRecorder) ClosePortRange(ctx context.Context, endpointName string, portRange network.PortRange) error {
 	if err := portRange.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -132,7 +134,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 
 	// If an open request is pending for this port, remove it.
 	for i, pr := range r.pendingOpenRanges[endpointName] {
-		r.logger.Tracef("closing port %q for endpoint %q, so cancel the pending opening port", portRange, endpointName)
+		r.logger.Tracef(ctx, "closing port %q for endpoint %q, so cancel the pending opening port", portRange, endpointName)
 		if pr == portRange {
 			r.pendingOpenRanges[endpointName] = append(r.pendingOpenRanges[endpointName][:i], r.pendingOpenRanges[endpointName][i+1:]...)
 			break

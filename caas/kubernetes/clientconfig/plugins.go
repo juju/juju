@@ -135,7 +135,7 @@ func removeJujuAdminServiceAccount(ctx context.Context, clientset kubernetes.Int
 		clientset.CoreV1().ServiceAccounts(adminNameSpace),
 	} {
 		if err := deleteRBACResource(ctx, api, labels); err != nil {
-			logger.Warningf("deleting rbac resources: %v", err)
+			logger.Warningf(ctx, "deleting rbac resources: %v", err)
 		}
 	}
 	return nil

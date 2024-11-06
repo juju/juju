@@ -267,7 +267,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 	if err != nil {
 		return "", nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
-	b.logger.Debugf("Successfully deployed local Juju controller charm")
+	b.logger.Debugf(ctx, "Successfully deployed local Juju controller charm")
 	origin := corecharm.Origin{
 		Source: corecharm.Local,
 		Type:   "charm",
@@ -341,7 +341,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		return "", nil, errors.Trace(err)
 	}
 
-	b.logger.Debugf("Successfully deployed charmhub Juju controller charm")
+	b.logger.Debugf(ctx, "Successfully deployed charmhub Juju controller charm")
 
 	return curl.String(), &resOrigin, nil
 }

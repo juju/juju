@@ -4,6 +4,8 @@
 package networkingcommon
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
@@ -156,8 +158,8 @@ type MachineLinkLayerOp struct {
 
 // NewMachineLinkLayerOp returns a reference that can be embedded in a
 // model operation for updating the input machine's link layer data.
-func NewMachineLinkLayerOp(source string, machine LinkLayerMachine, in network.InterfaceInfos) *MachineLinkLayerOp {
-	logger.Debugf(
+func NewMachineLinkLayerOp(ctx context.Context, source string, machine LinkLayerMachine, in network.InterfaceInfos) *MachineLinkLayerOp {
+	logger.Debugf(ctx,
 		"processing %s-sourced link-layer devices for machine %q in model %q",
 		source, machine.Id(), machine.ModelUUID(),
 	)
@@ -224,8 +226,8 @@ func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.Inte
 // core/network address type instead of this state type.
 // It would embed ProviderAddress and could be obtained directly via a method
 // or property of InterfaceInfos.
-func (o *MachineLinkLayerOp) MatchingIncomingAddrs(name string) []state.LinkLayerDeviceAddress {
-	return networkAddressStateArgsForDevice(o.Incoming(), name)
+func (o *MachineLinkLayerOp) MatchingIncomingAddrs(ctx context.Context, name string) []state.LinkLayerDeviceAddress {
+	return networkAddressStateArgsForDevice(ctx, o.Incoming(), name)
 }
 
 // DeviceAddresses returns all currently known

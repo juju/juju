@@ -111,7 +111,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "add a user")
 		}
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 
 	displayName := c.User

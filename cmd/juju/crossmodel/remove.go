@@ -165,7 +165,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	err = api.DestroyOffers(ctx, c.force, c.offers...)
-	return block.ProcessBlockedError(err, block.BlockRemove)
+	return block.ProcessBlockedError(ctx, err, block.BlockRemove)
 }
 
 func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*crossmodel.OfferURL, error) {

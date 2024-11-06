@@ -19,6 +19,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
@@ -125,7 +126,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 				return !errors.Is(err, database.ErrDBDead)
 			},
 			RestartDelay: time.Second * 10,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		objectStoreRequests: make(chan objectStoreRequest),
 	}

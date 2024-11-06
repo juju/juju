@@ -159,7 +159,7 @@ func (e *EventMultiplexer) Report() map[string]any {
 	// This can happen if we're in the middle of a dispatch and the term
 	// channel is blocked.
 	case <-e.clock.After(time.Second):
-		e.logger.Errorf("report request timed out")
+		e.logger.Errorf(context.TODO(), "report request timed out")
 		return nil
 	case e.reportsCh <- r:
 	}
@@ -196,6 +196,9 @@ func (e *EventMultiplexer) loop() error {
 		e.subscriptionsByNS = nil
 	}()
 
+	ctx, cancel := e.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		// If the catacomb is dying, then we should exit.
@@ -204,7 +207,7 @@ func (e *EventMultiplexer) loop() error {
 
 		// If the underlying stream is dying, then we should also exit.
 		case <-e.stream.Dying():
-			e.logger.Debugf("change stream is dying, waiting for catacomb to die")
+			e.logger.Debugf(ctx, "change stream is dying, waiting for catacomb to die")
 
 			<-e.catacomb.Dying()
 			return e.catacomb.ErrDying()
@@ -214,13 +217,13 @@ func (e *EventMultiplexer) loop() error {
 			// again using the change stream worker infrastructure. In this case
 			// just ignore and close out.
 			if !ok {
-				e.logger.Infof("change stream term channel is closed")
+				e.logger.Infof(ctx, "change stream term channel is closed")
 				return nil
 			}
 
 			changeSet := make(map[*subscription]ChangeSet)
 			for _, change := range term.Changes() {
-				subs := e.gatherSubscriptions(change)
+				subs := e.gatherSubscriptions(ctx, change)
 				if len(subs) == 0 {
 					continue
 				}
@@ -242,7 +245,7 @@ func (e *EventMultiplexer) loop() error {
 			// There isn't anything we can do in this case.
 			err := e.dispatchSet(changeSet)
 			if err != nil {
-				e.logger.Errorf("dispatching set: %v", err)
+				e.logger.Errorf(ctx, "dispatching set: %v", err)
 				e.dispatchErrorCount++
 			}
 			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), err != nil)
@@ -339,7 +342,7 @@ func (e *EventMultiplexer) loop() error {
 			// to bring down the entire multiplexer. Instead, just log it out
 			// and continue.
 			if err := sub.close(); err != nil {
-				e.logger.Infof("error closing subscription: %v", err)
+				e.logger.Infof(ctx, "error closing subscription: %v", err)
 			}
 
 		case r := <-e.reportsCh:
@@ -361,7 +364,7 @@ type reporter interface {
 	Report() map[string]interface{}
 }
 
-func (e *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*subscription {
+func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestream.ChangeEvent) []*subscription {
 	subs := make(map[uint64]*subscription)
 
 	for id := range e.subscriptionsAll {
@@ -380,13 +383,13 @@ func (e *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*s
 
 		if !subOpt.filter(ch) {
 			if traceEnabled {
-				e.logger.Tracef("filtering out change: %v", ch)
+				e.logger.Tracef(ctx, "filtering out change: %v", ch)
 			}
 			continue
 		}
 
 		if traceEnabled {
-			e.logger.Tracef("dispatching change: %v", ch)
+			e.logger.Tracef(ctx, "dispatching change: %v", ch)
 		}
 
 		subs[subOpt.subscriptionID] = e.subscriptions[subOpt.subscriptionID]
@@ -420,4 +423,8 @@ func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 	}
 
 	return grp.Wait()
+}
+
+func (e *EventMultiplexer) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(e.catacomb.Context(context.Background()))
 }

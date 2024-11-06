@@ -530,6 +530,7 @@ func (c *defaultsCommand) setDefaults(ctx context.Context, client defaultsComman
 	}
 
 	return block.ProcessBlockedError(
+		ctx,
 		client.SetModelDefaults(
 			ctx,
 			c.cloud, c.region, coerced), block.BlockChange)
@@ -542,6 +543,7 @@ func (c *defaultsCommand) resetDefaults(ctx context.Context, client defaultsComm
 		return errors.Trace(err)
 	}
 	return block.ProcessBlockedError(
+		ctx,
 		client.UnsetModelDefaults(
 			ctx,
 			c.cloud, c.region, c.configBase.KeysToReset...), block.BlockChange)
@@ -564,7 +566,7 @@ func (c *defaultsCommand) verifyKnownKeys(ctx context.Context, client defaultsCo
 		// check if the key exists in the known config
 		// and warn the user if the key is not defined
 		if _, exists := known[key]; !exists {
-			logger.Warningf(
+			logger.Warningf(ctx,
 				"key %q is not defined in the known model configuration: possible misspelling", key)
 		}
 	}

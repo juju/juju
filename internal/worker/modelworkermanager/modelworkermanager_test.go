@@ -240,7 +240,7 @@ func (dummyModelLogger) GetLogWriter(modelUUID, modelName, modelOwner string) (c
 	return stubLogger{}, nil
 }
 
-func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {
+func (s *suite) startModelWorker(ctx context.Context, config modelworkermanager.NewModelConfig) (worker.Worker, error) {
 	worker := newMockWorker(config)
 	s.workerC <- worker
 	return worker, nil

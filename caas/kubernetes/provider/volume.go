@@ -183,7 +183,7 @@ func (k *kubernetesClient) volumeInfoForPVC(ctx context.Context, vol core.Volume
 	}
 
 	if pvc.Status.Phase == core.ClaimPending {
-		logger.Debugf(fmt.Sprintf("PersistentVolumeClaim for %v is pending", claimName))
+		logger.Debugf(ctx, fmt.Sprintf("PersistentVolumeClaim for %v is pending", claimName))
 		return nil, nil
 	}
 

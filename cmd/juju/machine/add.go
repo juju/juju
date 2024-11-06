@@ -295,7 +295,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 	defer machineManager.Close()
 
-	logger.Infof("load config")
+	logger.Infof(ctx, "load config")
 	modelConfigClient, err := c.getModelConfigAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -320,7 +320,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	logger.Infof("model provisioning")
+	logger.Infof(ctx, "model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
 		uuid, ok := machineManager.ModelUUID()
 		if !ok {
@@ -358,7 +358,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	results, err := machineManager.AddMachines(ctx, machines)
 	if params.IsCodeOperationBlocked(err) {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	if err != nil {
 		return errors.Trace(err)

@@ -56,7 +56,7 @@ func (c *ReloadCommand) Run(ctx *cmd.Context) error {
 			if errors.Is(err, errors.NotSupported) {
 				ctx.Infof("cannot reload spaces: %v", err)
 			}
-			return block.ProcessBlockedError(errors.Annotate(err, "could not reload spaces"), block.BlockChange)
+			return block.ProcessBlockedError(ctx, errors.Annotate(err, "could not reload spaces"), block.BlockChange)
 		}
 		return nil
 	})

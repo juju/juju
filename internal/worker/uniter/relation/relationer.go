@@ -122,11 +122,11 @@ func (r *relationer) die(ctx stdcontext.Context) error {
 // sense to execute the supplied hook, and ensures that the relation context
 // contains the latest relation state as communicated in the hook.Info. It
 // returns the name of the hook that must be run.
-func (r *relationer) PrepareHook(hi hook.Info) (string, error) {
+func (r *relationer) PrepareHook(ctx stdcontext.Context, hi hook.Info) (string, error) {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		r.logger.Errorf("implicit relations must not run hooks")
+		r.logger.Errorf(ctx, "implicit relations must not run hooks")
 		return "", dependency.ErrBounce
 	}
 	st, err := r.stateMgr.Relation(hi.RelationId)
@@ -145,7 +145,7 @@ func (r *relationer) CommitHook(ctx stdcontext.Context, hi hook.Info) error {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		r.logger.Errorf("implicit relations must not run hooks")
+		r.logger.Errorf(ctx, "implicit relations must not run hooks")
 		return dependency.ErrBounce
 	}
 	if hi.Kind == hooks.RelationBroken {

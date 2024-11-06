@@ -64,7 +64,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
-	err := updateCharmDir(cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort, cfg.Logger)
+	err := updateCharmDir(ctx, cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort, cfg.Logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -87,7 +87,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 				agentShutdown = maybeAgentShutdown(cfg)
 			}
 			if !agentShutdown {
-				cfg.Logger.Warningf("last %q hook was killed, but agent still alive", localState.Hook.Kind)
+				cfg.Logger.Warningf(ctx, "last %q hook was killed, but agent still alive", localState.Hook.Kind)
 			}
 		}
 
@@ -117,7 +117,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 				}
 			}()
 
-			cfg.Logger.Tracef("running op: %v", op)
+			cfg.Logger.Tracef(ctx, "running op: %v", op)
 			if err := cfg.Executor.Run(ctx, op, remoteStateChanged); err != nil {
 				close(done)
 
@@ -130,7 +130,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 					// The safest thing to do is to bounce the loop and
 					// reevaluate our state, which is what happens upon a
 					// fortress error anyway (uniter.TranslateFortressErrors).
-					cfg.Logger.Warningf("executor lock acquisition cancelled")
+					cfg.Logger.Warningf(ctx, "executor lock acquisition cancelled")
 					return ErrRestart
 				}
 				return errors.Trace(err)
@@ -142,7 +142,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 			rf.RemoteState = cfg.Watcher.Snapshot()
 			rf.LocalState.State = cfg.Executor.State()
 
-			err = updateCharmDir(rf.LocalState.State, cfg.CharmDirGuard, cfg.Abort, cfg.Logger)
+			err = updateCharmDir(ctx, rf.LocalState.State, cfg.CharmDirGuard, cfg.Abort, cfg.Logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -216,7 +216,7 @@ func maybeAgentShutdown(cfg LoopConfig) bool {
 
 // updateCharmDir sets charm directory availability for sharing among
 // concurrent workers according to local operation state.
-func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortress.Abort, logger logger.Logger) error {
+func updateCharmDir(ctx context.Context, opState operation.State, guard fortress.Guard, abort fortress.Abort, logger logger.Logger) error {
 	var changing bool
 
 	// Determine if the charm content is changing.
@@ -227,7 +227,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 
 	available := opState.Started && !opState.Stopped && !changing
-	logger.Tracef("charmdir: available=%v opState: started=%v stopped=%v changing=%v",
+	logger.Tracef(ctx, "charmdir: available=%v opState: started=%v stopped=%v changing=%v",
 		available, opState.Started, opState.Stopped, changing)
 	if available {
 		return guard.Unlock()
@@ -279,7 +279,7 @@ func checkCharmInstallUpgrade(ctx context.Context, logger logger.Logger, charmDi
 			return errors.Trace(err)
 		}
 		if rev != curl.Revision {
-			logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
+			logger.Tracef(ctx, "Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
 			return nil
 		}
 	}
@@ -289,10 +289,10 @@ func checkCharmInstallUpgrade(ctx context.Context, logger logger.Logger, charmDi
 		return nil
 	}
 	if !haveCharmDir {
-		logger.Debugf("start to re-download charm %v because charm dir %q has gone which is usually caused by operator pod re-scheduling", remote.CharmURL, charmDir)
+		logger.Debugf(ctx, "start to re-download charm %v because charm dir %q has gone which is usually caused by operator pod re-scheduling", remote.CharmURL, charmDir)
 	}
 	if !sameCharm {
-		logger.Debugf("execute pending upgrade from %s to %s after uniter loop restart", local.CharmURL, remote.CharmURL)
+		logger.Debugf(ctx, "execute pending upgrade from %s to %s after uniter loop restart", local.CharmURL, remote.CharmURL)
 	}
 
 	op, err := opFunc(remote.CharmURL)

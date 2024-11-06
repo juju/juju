@@ -159,7 +159,7 @@ func (c *modelCredentialCommand) Run(ctx *cmd.Context) error {
 
 	err = modelClient.ChangeModelCredential(ctx, modelTag, credentialTag)
 	if err != nil {
-		return block.ProcessBlockedError(errors.Annotate(err, "could not set model credential"), block.BlockChange)
+		return block.ProcessBlockedError(ctx, errors.Annotate(err, "could not set model credential"), block.BlockChange)
 	}
 	ctx.Infof("Changed cloud credential on model %q to %q.", modelName, c.credential)
 	return nil

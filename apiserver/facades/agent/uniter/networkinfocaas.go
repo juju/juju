@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/errors"
@@ -37,7 +38,7 @@ func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
 }
 
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
-func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
+func (n *NetworkInfoCAAS) ProcessAPIRequest(ctx context.Context, args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
 	validEndpoints, result := n.validateEndpoints(args.Endpoints)
 
 	// We record the interface addresses as the machine local ones.
@@ -63,7 +64,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	// get the network information for the relation
 	// and set it for the relation's binding.
 	if args.RelationId != nil {
-		endpoint, _, ingress, egress, err := n.getRelationNetworkInfo(*args.RelationId)
+		endpoint, _, ingress, egress, err := n.getRelationNetworkInfo(ctx, *args.RelationId)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
@@ -90,7 +91,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		// We only resolve the `Info` member addresses for CAAS.
 		// Host names in `IngressAddresses` are preserved,
 		// which diverges from the IAAS implementation.
-		result.Results[endpoint] = n.resolveResultInfoHostNames(info)
+		result.Results[endpoint] = n.resolveResultInfoHostNames(ctx, info)
 	}
 
 	return result, nil
@@ -99,6 +100,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 // getRelationNetworkInfo returns the endpoint name, network space
 // and ingress/egress addresses for the input relation ID.
 func (n *NetworkInfoCAAS) getRelationNetworkInfo(
+	ctx context.Context,
 	relationId int,
 ) (string, string, network.SpaceAddresses, []string, error) {
 	rel, endpoint, err := n.getRelationAndEndpointName(relationId)
@@ -106,7 +108,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 		return "", "", nil, nil, errors.Trace(err)
 	}
 
-	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel)
+	space, ingress, egress, err := n.NetworksForRelation(ctx, endpoint, rel)
 	return endpoint, space, ingress, egress, errors.Trace(err)
 }
 
@@ -115,6 +117,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
 func (n *NetworkInfoCAAS) NetworksForRelation(
+	ctx context.Context,
 	endpoint string, rel *state.Relation,
 ) (string, network.SpaceAddresses, []string, error) {
 	var ingress network.SpaceAddresses

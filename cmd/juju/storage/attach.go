@@ -89,7 +89,7 @@ func (c *attachStorageCommand) Run(ctx *cmd.Context) error {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "attach storage")
 		}
-		return block.ProcessBlockedError(errors.Annotatef(err, "could not attach storage %v", c.storageIds), block.BlockChange)
+		return block.ProcessBlockedError(ctx, errors.Annotatef(err, "could not attach storage %v", c.storageIds), block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error == nil {

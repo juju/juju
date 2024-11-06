@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"strings"
@@ -285,7 +286,7 @@ func (hps SpaceHostPorts) HostPorts() HostPorts {
 // InSpaces returns the SpaceHostPorts that are in the input spaces.
 func (hps SpaceHostPorts) InSpaces(spaces ...SpaceInfo) (SpaceHostPorts, bool) {
 	if len(spaces) == 0 {
-		logger.Errorf("host ports not filtered - no spaces given.")
+		logger.Errorf(context.TODO(), "host ports not filtered - no spaces given.")
 		return hps, false
 	}
 
@@ -293,7 +294,7 @@ func (hps SpaceHostPorts) InSpaces(spaces ...SpaceInfo) (SpaceHostPorts, bool) {
 	var selectedHostPorts SpaceHostPorts
 	for _, hp := range hps {
 		if space := spaceInfos.GetByID(hp.SpaceID); space != nil {
-			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, space.Name)
+			logger.Debugf(context.TODO(), "selected %q as a hostPort in space %q", hp.Value, space.Name)
 			selectedHostPorts = append(selectedHostPorts, hp)
 		}
 	}
@@ -302,7 +303,7 @@ func (hps SpaceHostPorts) InSpaces(spaces ...SpaceInfo) (SpaceHostPorts, bool) {
 		return selectedHostPorts, true
 	}
 
-	logger.Errorf("no hostPorts found in spaces %s", spaceInfos)
+	logger.Errorf(context.TODO(), "no hostPorts found in spaces %s", spaceInfos)
 	return hps, false
 }
 

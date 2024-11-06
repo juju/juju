@@ -4,6 +4,7 @@
 package jujuctesting
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -77,7 +78,7 @@ func (c *ContextRelations) Relation(id int) (jujuc.ContextRelation, error) {
 }
 
 // RelationIds implements jujuc.ContextRelations.
-func (c *ContextRelations) RelationIds() ([]int, error) {
+func (c *ContextRelations) RelationIds(context.Context) ([]int, error) {
 	c.stub.AddCall("RelationIds")
 
 	ids := []int{}

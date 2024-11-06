@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/lumberjack/v2"
@@ -12,10 +13,10 @@ import (
 )
 
 // NewFileWriter returns an io.WriteCloser that will write log messages to disk.
-func NewFileWriter(logPath string, maxSizeMB, maxBackups int) (io.WriteCloser, error) {
+func NewFileWriter(ctx context.Context, logPath string, maxSizeMB, maxBackups int) (io.WriteCloser, error) {
 	if err := paths.PrimeLogFile(logPath); err != nil {
 		// This isn't a fatal error so log and continue if priming fails.
-		logger.Warningf("Unable to prime %s (proceeding anyway): %v", logPath, err)
+		logger.Warningf(ctx, "Unable to prime %s (proceeding anyway): %v", logPath, err)
 	}
 	ljLogger := &lumberjack.Logger{
 		Filename:   logPath,
@@ -23,7 +24,7 @@ func NewFileWriter(logPath string, maxSizeMB, maxBackups int) (io.WriteCloser, e
 		MaxBackups: maxBackups,
 		Compress:   true,
 	}
-	logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+	logger.Debugf(ctx, "created rotating log file %q with max size %d MB and max backups %d",
 		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	return ljLogger, nil
 }

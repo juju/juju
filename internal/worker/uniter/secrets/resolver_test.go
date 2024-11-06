@@ -157,8 +157,8 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
 	s.mockFactory.EXPECT().NewHookRunner(gomock.Any(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
-	s.mockContext.EXPECT().Prepare(context.Background()).Return(nil)
-	s.mockContext.EXPECT().SecretMetadata().Return(map[string]jujuc.SecretMetadata{
+	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
+	s.mockContext.EXPECT().SecretMetadata(gomock.Any()).Return(map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			LatestRevision: 666,
 		},

@@ -201,7 +201,7 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 		MaxWait:        maxWait,
 		DryRun:         false,
 	})
-	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+	if err := block.ProcessBlockedError(ctx, err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
 	logAll := !needsConfirmation || client.BestAPIVersion() < 16
@@ -225,7 +225,7 @@ func (c *removeApplicationCommand) performDryRun(
 		DestroyStorage: c.DestroyStorage,
 		DryRun:         true,
 	})
-	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+	if err := block.ProcessBlockedError(ctx, err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.logErrors(ctx, results); err != nil {

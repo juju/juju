@@ -94,13 +94,13 @@ var blockedMessages = map[Block]string{
 // `enable-command` the operation by enabling the block type.
 // When an operation is blocked the API server returns a blocked error code
 // that returns a user-friendly message to the client.
-func ProcessBlockedError(err error, block Block) error {
+func ProcessBlockedError(ctx context.Context, err error, block Block) error {
 	if err == nil {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
 		msg := fmt.Sprintf("%v\n%v", err, blockedMessages[block])
-		logger.Infof(msg)
+		logger.Infof(ctx, msg)
 		return errors.Errorf("%s", msg)
 	}
 	return err

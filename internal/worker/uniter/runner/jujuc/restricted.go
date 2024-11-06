@@ -85,7 +85,7 @@ func (*RestrictedContext) SetApplicationStatus(context.Context, StatusInfo) erro
 func (*RestrictedContext) AvailabilityZone() (string, error) { return "", ErrRestrictedContext }
 
 // RequestReboot implements hooks.Context.
-func (*RestrictedContext) RequestReboot(prio RebootPriority) error {
+func (*RestrictedContext) RequestReboot(_ context.Context, prio RebootPriority) error {
 	return ErrRestrictedContext
 }
 
@@ -98,12 +98,12 @@ func (*RestrictedContext) PublicAddress(_ context.Context) (string, error) {
 func (*RestrictedContext) PrivateAddress() (string, error) { return "", ErrRestrictedContext }
 
 // OpenPortRange implements hooks.Context.
-func (*RestrictedContext) OpenPortRange(string, network.PortRange) error {
+func (*RestrictedContext) OpenPortRange(context.Context, string, network.PortRange) error {
 	return ErrRestrictedContext
 }
 
 // ClosePortRange implements hooks.Context.
-func (*RestrictedContext) ClosePortRange(string, network.PortRange) error {
+func (*RestrictedContext) ClosePortRange(context.Context, string, network.PortRange) error {
 	return ErrRestrictedContext
 }
 
@@ -162,12 +162,12 @@ func (ctx *RestrictedContext) DownloadResource(_ context.Context, name string) (
 }
 
 // GetPayload implements hooks.Context.
-func (ctx *RestrictedContext) GetPayload(class, id string) (*payloads.Payload, error) {
+func (ctx *RestrictedContext) GetPayload(_ context.Context, class, id string) (*payloads.Payload, error) {
 	return nil, ErrRestrictedContext
 }
 
 // TrackPayload implements hooks.Context.
-func (ctx *RestrictedContext) TrackPayload(payload payloads.Payload) error {
+func (ctx *RestrictedContext) TrackPayload(_ context.Context, payload payloads.Payload) error {
 	return ErrRestrictedContext
 }
 
@@ -182,7 +182,7 @@ func (ctx *RestrictedContext) SetPayloadStatus(_ context.Context, class, id, sta
 }
 
 // ListPayloads implements hooks.Context.
-func (ctx *RestrictedContext) ListPayloads() ([]string, error) {
+func (ctx *RestrictedContext) ListPayloads(_ context.Context) ([]string, error) {
 	return nil, ErrRestrictedContext
 }
 
@@ -197,7 +197,9 @@ func (*RestrictedContext) Relation(id int) (ContextRelation, error) {
 }
 
 // RelationIds implements hooks.Context.
-func (*RestrictedContext) RelationIds() ([]int, error) { return nil, ErrRestrictedContext }
+func (*RestrictedContext) RelationIds(context.Context) ([]int, error) {
+	return nil, ErrRestrictedContext
+}
 
 // HookRelation implements hooks.Context.
 func (*RestrictedContext) HookRelation() (ContextRelation, error) {
@@ -265,12 +267,12 @@ func (ctx *RestrictedContext) RemoveSecret(*secrets.URI, *int) error {
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) SecretMetadata() (map[string]SecretMetadata, error) {
+func (ctx *RestrictedContext) SecretMetadata(context.Context) (map[string]SecretMetadata, error) {
 	return nil, ErrRestrictedContext
 }
 
 // GrantSecret implements runner.Context.
-func (c *RestrictedContext) GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error {
+func (c *RestrictedContext) GrantSecret(context.Context, *secrets.URI, *SecretGrantRevokeArgs) error {
 	return ErrRestrictedContext
 }
 

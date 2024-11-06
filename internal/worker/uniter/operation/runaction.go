@@ -105,11 +105,11 @@ func (ra *runAction) Execute(ctx context.Context, state State) (*State, error) {
 			}
 			status, err := ra.callbacks.ActionStatus(ctx, actionID)
 			if err != nil {
-				ra.logger.Warningf("unable to get action status for %q: %v", actionID, err)
+				ra.logger.Warningf(ctx, "unable to get action status for %q: %v", actionID, err)
 				continue
 			}
 			if status == params.ActionAborting {
-				ra.logger.Infof("action %s aborting", actionID)
+				ra.logger.Infof(ctx, "action %s aborting", actionID)
 				close(ra.cancel)
 				return
 			}
@@ -145,17 +145,17 @@ func (ra *runAction) Commit(ctx context.Context, state State) (*State, error) {
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (ra *runAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
+func (ra *runAction) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {
 	actionID := ra.action.ID()
 	change, ok := snapshot.ActionChanged[actionID]
 	if !ok {
-		ra.logger.Errorf("action %s missing action changed entry", actionID)
+		ra.logger.Errorf(ctx, "action %s missing action changed entry", actionID)
 		// Shouldn't happen.
 		return
 	}
 	if ra.change < change {
 		ra.change = change
-		ra.logger.Errorf("running action %s changed", actionID)
+		ra.logger.Errorf(ctx, "running action %s changed", actionID)
 		select {
 		case ra.changed <- struct{}{}:
 		default:

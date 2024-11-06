@@ -104,7 +104,7 @@ func (c *retryProvisioningCommand) Run(ctx *cmd.Context) error {
 
 	results, err := client.RetryProvisioning(ctx, c.all, c.Machines...)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	for _, result := range results {
 		if result.Error != nil {

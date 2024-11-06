@@ -61,15 +61,15 @@ type Context interface {
 	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
 	// return an error if the agent is already deployed.
-	DeployUnit(unitName, initialPassword string) error
+	DeployUnit(ctx context.Context, unitName, initialPassword string) error
 
 	// RecallUnit causes the agent for the specified unit to be stopped, and
 	// the agent's data to be destroyed. It will return an error if the agent
 	// was not deployed by the manager.
-	RecallUnit(unitName string) error
+	RecallUnit(ctx context.Context, unitName string) error
 
 	// DeployedUnits returns the names of all units deployed by the manager.
-	DeployedUnits() ([]string, error)
+	DeployedUnits(ctx context.Context) ([]string, error)
 
 	// AgentConfig returns the agent config for the machine agent that is
 	// running the deployer.
@@ -105,30 +105,30 @@ func (d *Deployer) Report() map[string]interface{} {
 // SetUp is called by the NewStringsWorker to create the watcher that drives the
 // worker.
 func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
-	d.logger.Tracef("SetUp")
+	d.logger.Tracef(ctx, "SetUp")
 	tag := d.ctx.AgentConfig().Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-	d.logger.Tracef("getting Machine %s", machineTag)
+	d.logger.Tracef(ctx, "getting Machine %s", machineTag)
 	machine, err := d.client.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}
-	d.logger.Tracef("getting units watcher")
+	d.logger.Tracef(ctx, "getting units watcher")
 	machineUnitsWatcher, err := machine.WatchUnits(ctx)
 	if err != nil {
-		d.logger.Tracef("error: %v", err)
+		d.logger.Tracef(ctx, "error: %v", err)
 		return nil, err
 	}
-	d.logger.Tracef("looking for deployed units")
+	d.logger.Tracef(ctx, "looking for deployed units")
 
-	deployed, err := d.ctx.DeployedUnits()
+	deployed, err := d.ctx.DeployedUnits(ctx)
 	if err != nil {
 		return nil, err
 	}
-	d.logger.Tracef("deployed units: %v", deployed)
+	d.logger.Tracef(ctx, "deployed units: %v", deployed)
 	for _, unitName := range deployed {
 		d.deployed.Add(unitName)
 		if err := d.changed(ctx, unitName); err != nil {
@@ -140,7 +140,7 @@ func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 
 // Handle is called for new value in the StringsWatcher.
 func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
-	d.logger.Tracef("Handle: %v", unitNames)
+	d.logger.Tracef(ctx, "Handle: %v", unitNames)
 	for _, unitName := range unitNames {
 		if err := d.changed(ctx, unitName); err != nil {
 			return err
@@ -154,7 +154,7 @@ func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
 func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
-	d.logger.Infof("checking unit %q", unitName)
+	d.logger.Infof(ctx, "checking unit %q", unitName)
 	var unitLife life.Value
 	unit, err := d.client.Unit(ctx, unitTag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
@@ -168,7 +168,7 @@ func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	// is no longer responsible for them.
 	if d.deployed.Contains(unitName) {
 		if unitLife == life.Dead {
-			if err := d.recall(unitName); err != nil {
+			if err := d.recall(ctx, unitName); err != nil {
 				return err
 			}
 		}
@@ -197,7 +197,7 @@ func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 	if err := unit.SetStatus(ctx, status.Waiting, status.MessageInstallingAgent, nil); err != nil {
 		return errors.Trace(err)
 	}
-	d.logger.Infof("deploying unit %q", unitName)
+	d.logger.Infof(ctx, "deploying unit %q", unitName)
 	initialPassword, err := password.RandomPassword()
 	if err != nil {
 		return err
@@ -205,7 +205,7 @@ func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 	if err := unit.SetPassword(ctx, initialPassword); err != nil {
 		return fmt.Errorf("cannot set password for unit %q: %v", unitName, err)
 	}
-	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
+	if err := d.ctx.DeployUnit(ctx, unitName, initialPassword); err != nil {
 		return err
 	}
 	d.deployed.Add(unitName)
@@ -214,12 +214,12 @@ func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 
 // recall will recall the named unit with the deployer's manager. It will
 // panic if it observes inconsistent internal state.
-func (d *Deployer) recall(unitName string) error {
+func (d *Deployer) recall(ctx context.Context, unitName string) error {
 	if !d.deployed.Contains(unitName) {
 		panic("must not recall a unit that is not deployed")
 	}
-	d.logger.Infof("recalling unit %q", unitName)
-	if err := d.ctx.RecallUnit(unitName); err != nil {
+	d.logger.Infof(ctx, "recalling unit %q", unitName)
+	if err := d.ctx.RecallUnit(ctx, unitName); err != nil {
 		return err
 	}
 	d.deployed.Remove(unitName)
@@ -235,7 +235,7 @@ func (d *Deployer) remove(ctx context.Context, unit Unit) error {
 	} else if unit.Life() == life.Alive {
 		panic("must not remove an Alive unit")
 	}
-	d.logger.Infof("removing unit %q", unitName)
+	d.logger.Infof(ctx, "removing unit %q", unitName)
 	return unit.Remove(ctx)
 }
 

@@ -140,7 +140,7 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(ctx context.Context, appTa
 		return errors.Trace(err)
 	}
 
-	a.logger.Infof("downloading charm %q", pendingCharmURL)
+	a.logger.Infof(ctx, "downloading charm %q", pendingCharmURL)
 	downloadedOrigin, err := downloader.DownloadAndStore(ctx, pendingCharmURL, *resolvedOrigin, force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)

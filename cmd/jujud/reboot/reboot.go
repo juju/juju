@@ -5,6 +5,7 @@
 package reboot
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"strings"
@@ -94,7 +95,7 @@ func (r *Reboot) stopDeployedUnits() error {
 			if err != nil {
 				return err
 			}
-			logger.Debugf("Stopping unit agent: %q", svcName)
+			logger.Debugf(context.Background(), "Stopping unit agent: %q", svcName)
 			if err = svc.Stop(); err != nil {
 				return err
 			}
@@ -116,7 +117,7 @@ func (r *Reboot) runningContainers() ([]instances.Instance, error) {
 			return nil, errors.Annotatef(err, "failed to get manager for container type %v", val)
 		}
 		if !manager.IsInitialized() {
-			logger.Infof("container type %q not supported", val)
+			logger.Infof(context.Background(), "container type %q not supported", val)
 			continue
 		}
 		containers, err := manager.ListContainers()
@@ -147,7 +148,7 @@ func (r *Reboot) waitForContainersOrTimeout() error {
 					c <- nil
 					return
 				}
-				logger.Warningf("Waiting for containers to shutdown: %v", containers)
+				logger.Warningf(context.Background(), "Waiting for containers to shutdown: %v", containers)
 				select {
 				case <-quit:
 					c <- nil

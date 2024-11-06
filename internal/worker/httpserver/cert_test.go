@@ -4,6 +4,7 @@
 package httpserver_test
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"net/url"
@@ -68,7 +69,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	)
 	s.config.TLSConfig = tlsConfig
 
-	worker, err := httpserver.NewWorker(s.config)
+	worker, err := httpserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
@@ -95,7 +96,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
-	worker, err := httpserver.NewWorker(s.config)
+	worker, err := httpserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 

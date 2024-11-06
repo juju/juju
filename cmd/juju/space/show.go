@@ -89,7 +89,7 @@ func (c *ShowSpaceCommand) Run(ctx *cmd.Context) error {
 			if params.IsCodeUnauthorized(err) {
 				common.PermissionsMessage(ctx.Stderr, "retrieving space")
 			}
-			return block.ProcessBlockedError(errors.Annotatef(err, "cannot retrieve space %q", c.Name), block.BlockChange)
+			return block.ProcessBlockedError(ctx, errors.Annotatef(err, "cannot retrieve space %q", c.Name), block.BlockChange)
 		}
 
 		formatted := showSpaceFromResult(space)

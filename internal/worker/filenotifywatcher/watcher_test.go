@@ -4,6 +4,7 @@
 package filenotifywatcher
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func (s *watcherSuite) TestWatching(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)
 
-	w, err := NewWatcher("controller", WithPath(dir))
+	w, err := NewWatcher(context.Background(), "controller", WithPath(dir))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -62,7 +63,7 @@ func (s *watcherSuite) TestNotWatching(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)
 
-	w, err := NewWatcher("controller", WithPath(dir))
+	w, err := NewWatcher(context.Background(), "controller", WithPath(dir))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

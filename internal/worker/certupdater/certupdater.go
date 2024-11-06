@@ -99,26 +99,26 @@ func (c *CertificateUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, 
 			initialSANAddresses = append(initialSANAddresses, nhp.SpaceAddress)
 		}
 	}
-	if err := c.updateCertificate(initialSANAddresses); err != nil {
+	if err := c.updateCertificate(ctx, initialSANAddresses); err != nil {
 		return nil, errors.Annotate(err, "setting initial certificate SAN list")
 	}
 	return c.addressWatcher.WatchAddresses(), nil
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) Handle(_ context.Context) error {
+func (c *CertificateUpdater) Handle(ctx context.Context) error {
 	addresses := c.addressWatcher.Addresses()
 	if reflect.DeepEqual(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
-		c.logger.Debugf("addresses have not changed since last updated cert")
+		c.logger.Debugf(ctx, "addresses have not changed since last updated cert")
 		return nil
 	}
-	return c.updateCertificate(addresses)
+	return c.updateCertificate(ctx, addresses)
 }
 
-func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses) error {
-	c.logger.Debugf("new machine addresses: %#v", addresses)
+func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses network.SpaceAddresses) error {
+	c.logger.Debugf(ctx, "new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
 	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
@@ -146,7 +146,7 @@ func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses)
 			}
 			request.AddIPAddresses(ip)
 		default:
-			c.logger.Warningf(
+			c.logger.Warningf(ctx,
 				"unsupported space address type %s for controller certificate",
 				addr.Type)
 		}

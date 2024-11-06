@@ -35,7 +35,7 @@ type ManifoldConfig struct {
 
 	UnitEngineConfig func() dependency.EngineConfig
 	SetupLogging     func(logger.LoggerContext, agent.Config)
-	NewDeployContext func(ContextConfig) (Context, error)
+	NewDeployContext func(context.Context, ContextConfig) (Context, error)
 }
 
 // TODO: add ManifoldConfig.Validate.
@@ -54,7 +54,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 //
 // It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.
-func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (config ManifoldConfig) newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	// TODO: run config.Validate()
 	cfg := a.CurrentConfig()
 	// Grab the tag and ensure that it's for a machine.
@@ -72,7 +72,7 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 		UnitManifolds:    UnitManifolds,
 	}
 
-	context, err := config.NewDeployContext(contextConfig)
+	context, err := config.NewDeployContext(ctx, contextConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

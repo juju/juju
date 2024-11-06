@@ -106,10 +106,10 @@ func (w *ValueWatcher) loop() error {
 	in := subscription.Changes()
 	out := w.out
 
-	w.drainInitialEvent(in)
+	ctx, cancel := w.scopedContext()
+	defer cancel()
 
-	// Cache the context, so we don't have to call it on every iteration.
-	ctx := w.tomb.Context(context.Background())
+	w.drainInitialEvent(ctx, in)
 
 	for {
 		select {
@@ -119,7 +119,7 @@ func (w *ValueWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case changes, ok := <-in:
 			if !ok {
-				w.logger.Debugf("change channel closed for %q; terminating watcher", w.namespace)
+				w.logger.Debugf(ctx, "change channel closed for %q; terminating watcher", w.namespace)
 				return nil
 			}
 
@@ -143,13 +143,17 @@ func (w *ValueWatcher) loop() error {
 	}
 }
 
-func (w *ValueWatcher) drainInitialEvent(in <-chan []changestream.ChangeEvent) {
+func (w *ValueWatcher) drainInitialEvent(ctx context.Context, in <-chan []changestream.ChangeEvent) {
 	select {
 	case _, ok := <-in:
 		if !ok {
-			w.logger.Debugf("change channel closed for %q; terminating watcher", w.namespace)
+			w.logger.Debugf(ctx, "change channel closed for %q; terminating watcher", w.namespace)
 			return
 		}
 	default:
 	}
+}
+
+func (w *ValueWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

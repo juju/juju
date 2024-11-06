@@ -539,7 +539,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 
 		blocks, err := blockService.GetBlocks(ctx)
 		if err != nil {
-			c.logger.Debugf("Unable to get blocks for controller: %s", err)
+			c.logger.Debugf(ctx, "Unable to get blocks for controller: %s", err)
 			return results, errors.Trace(err)
 		}
 		blockTypes := set.NewStrings()
@@ -555,7 +555,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		}
 		model, ph, err := c.statePool.GetModel(uuid)
 		if err != nil {
-			c.logger.Debugf("unable to retrieve model %s: %v", uuid, err)
+			c.logger.Debugf(ctx, "unable to retrieve model %s: %v", uuid, err)
 			continue
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
@@ -658,7 +658,7 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
 		err := blockService.RemoveAllBlocks(ctx)
 		if err != nil {
-			c.logger.Debugf("Unable to get blocks for controller: %s", err)
+			c.logger.Debugf(ctx, "Unable to get blocks for controller: %s", err)
 			return errors.Trace(err)
 		}
 	}

@@ -5,6 +5,7 @@ package introspection
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path"
 	"runtime"
@@ -38,16 +39,16 @@ func (osFileReaderWriter) WriteFile(filename string, data []byte, perm os.FileMo
 // /etc/profile.d directory so all bash terminals can easily access the
 // introspection worker.
 // Deprecated: use UpdateProfileFunction with a FileReaderWriter.
-func WriteProfileFunctions(profileDir string) error {
-	return UpdateProfileFunctions(osFileReaderWriter{}, profileDir)
+func WriteProfileFunctions(ctx context.Context, profileDir string) error {
+	return UpdateProfileFunctions(ctx, osFileReaderWriter{}, profileDir)
 }
 
 // UpdateProfileFunctions updates the shellFuncs written to disk if they have changed to
 // the directory passed in. It allows all bash terminals to easily access the
 // introspection worker.
-func UpdateProfileFunctions(io FileReaderWriter, profileDir string) error {
+func UpdateProfileFunctions(ctx context.Context, io FileReaderWriter, profileDir string) error {
 	if runtime.GOOS != "linux" {
-		logger.Debugf("skipping profile funcs install")
+		logger.Debugf(ctx, "skipping profile funcs install")
 		return nil
 	}
 	filename := profileFilename(profileDir)

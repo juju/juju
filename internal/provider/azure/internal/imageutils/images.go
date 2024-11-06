@@ -4,6 +4,7 @@
 package imageutils
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -121,7 +122,7 @@ func ubuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, stream, l
 		offer = fmt.Sprintf("%s-daily", offer)
 	}
 
-	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
+	logger.Debugf(context.TODO(), "listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
@@ -129,10 +130,10 @@ func ubuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, stream, l
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
 		if skuName == plan {
-			logger.Debugf("found Azure SKU Name: %v", skuName)
+			logger.Debugf(context.TODO(), "found Azure SKU Name: %v", skuName)
 			return skuName, offer, nil
 		}
-		logger.Debugf("ignoring Azure SKU Name: %v", skuName)
+		logger.Debugf(context.TODO(), "ignoring Azure SKU Name: %v", skuName)
 	}
 	return "", "", errors.NotFoundf("ubuntu %q SKUs for %v stream", base, stream)
 }
@@ -148,20 +149,20 @@ func legacyUbuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, str
 	}
 	desiredSKUPrefix := strings.ReplaceAll(base.Channel.Track, ".", "_")
 
-	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
+	logger.Debugf(context.TODO(), "listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
-		logger.Debugf("found Azure SKU Name: %v", skuName)
+		logger.Debugf(context.TODO(), "found Azure SKU Name: %v", skuName)
 		if !strings.HasPrefix(skuName, desiredSKUPrefix) {
-			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
+			logger.Debugf(context.TODO(), "ignoring SKU %q (does not match series %q)", skuName, series)
 			continue
 		}
 		tag := getLegacyUbuntuSKUTag(skuName)
-		logger.Debugf("SKU has tag %q", tag)
+		logger.Debugf(context.TODO(), "SKU has tag %q", tag)
 		var skuStream string
 		switch tag {
 		case "", "LTS":
@@ -170,7 +171,7 @@ func legacyUbuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, str
 			skuStream = dailyStream
 		}
 		if skuStream == "" || skuStream != stream {
-			logger.Debugf("ignoring SKU %q (not in %q stream)", skuName, stream)
+			logger.Debugf(context.TODO(), "ignoring SKU %q (not in %q stream)", skuName, stream)
 			continue
 		}
 		return skuName, offer, nil

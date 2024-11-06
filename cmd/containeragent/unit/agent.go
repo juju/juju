@@ -40,10 +40,13 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	jujuversion "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -157,10 +160,10 @@ func (c *containerUnitAgent) Init(args []string) error {
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
-		Logger:        logger,
+		Logger:        internalworker.WrapLogger(logger),
 	})
 
-	if err := ensureAgentConf(c.AgentConf); err != nil {
+	if err := ensureAgentConf(context.TODO(), c.AgentConf); err != nil {
 		return errors.Annotate(err, "ensuring agent conf file")
 	}
 
@@ -178,9 +181,9 @@ func (c *containerUnitAgent) Init(args []string) error {
 		c.containerNames = strings.Split(containerNames, ",")
 	}
 
-	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
+	if err := introspection.WriteProfileFunctions(context.TODO(), introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf("failed to write profile funcs: %v", err)
+		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
 	}
 	return nil
 }
@@ -244,7 +247,7 @@ func (c *containerUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 // Workers returns a dependency.Engine running the k8s unit agent's responsibilities.
-func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, error) {
+func (c *containerUnitAgent) workers(ctx context.Context, sigTermCh chan os.Signal) (worker.Worker, error) {
 	probePort := os.Getenv(constants.EnvHTTPProbePort)
 	if probePort == "" {
 		probePort = constants.DefaultHTTPProbePort
@@ -257,7 +260,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		})
 	}
 	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: internallogger.GetLogger("juju.localhub"),
+		Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 	})
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
@@ -288,18 +291,18 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 	workerMetricsSink := metrics.ForModel(agentConfig.Model())
 	eng, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		workerMetricsSink,
-		internallogger.GetLogger("juju.worker.dependency"),
+		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	))
 	if err != nil {
 		return nil, err
 	}
 	if err := dependency.Install(eng, manifolds); err != nil {
 		if err := worker.Stop(eng); err != nil {
-			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+			logger.Errorf(ctx, "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}
-	if err := addons.StartIntrospection(addons.IntrospectionConfig{
+	if err := addons.StartIntrospection(ctx, addons.IntrospectionConfig{
 		AgentDir:           agentConfig.Dir(),
 		Engine:             eng,
 		MachineLock:        c.machineLock,
@@ -313,13 +316,13 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		// but continue. It is very unlikely to happen in the real world
 		// as the only issue is connecting to the abstract domain socket
 		// and the agent is controlled by the OS to only have one.
-		logger.Errorf("failed to start introspection worker: %v", err)
+		logger.Errorf(ctx, "failed to start introspection worker: %v", err)
 	}
 	if err := addons.RegisterEngineMetrics(c.prometheusRegistry, metrics, eng, workerMetricsSink); err != nil {
 		// If the dependency engine metrics fail, continue on. This is unlikely
 		// to happen in the real world, but should't stop or bring down an
 		// agent.
-		logger.Errorf("failed to start the dependency engine metrics %v", err)
+		logger.Errorf(ctx, "failed to start the dependency engine metrics %v", err)
 	}
 
 	return eng, nil
@@ -352,13 +355,13 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	signal.Notify(sigTermCh, syscall.SIGTERM)
 
 	err = c.runner.StartWorker("unit", func() (worker.Worker, error) {
-		return c.workers(sigTermCh)
+		return c.workers(ctx, sigTermCh)
 	})
 	if err != nil {
 		return errors.Annotate(err, "starting worker")
 	}
 
-	return AgentDone(logger, c.runner.Wait())
+	return AgentDone(ctx, logger, c.runner.Wait())
 }
 
 // validateMigration is called by the migrationminion to help check
@@ -389,26 +392,26 @@ func (c *containerUnitAgent) validateMigration(ctx context.Context, apiCaller ba
 }
 
 // AgentDone processes the error returned by an exiting agent.
-func AgentDone(logger corelogger.Logger, err error) error {
+func AgentDone(ctx context.Context, logger corelogger.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
 	case jworker.ErrTerminateAgent:
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.
-		logger.Infof("agent terminating")
+		logger.Infof(ctx, "agent terminating")
 		err = nil
 	}
 	if err == jworker.ErrRestartAgent {
 		// This does not seem to happen for k8s units.
-		logger.Infof("agent restarting")
+		logger.Infof(ctx, "agent restarting")
 	}
 	return err
 }
 
-func ensureAgentConf(ac agentconf.AgentConf) error {
+func ensureAgentConf(ctx context.Context, ac agentconf.AgentConf) error {
 	templateConfigPath := path.Join(ac.DataDir(), k8sconstants.TemplateFileNameAgentConf)
-	logger.Debugf("template config path %s", templateConfigPath)
+	logger.Debugf(ctx, "template config path %s", templateConfigPath)
 	config, err := agent.ReadConfig(templateConfigPath)
 	if err != nil {
 		return errors.Annotate(err, "reading template agent config file")
@@ -416,7 +419,7 @@ func ensureAgentConf(ac agentconf.AgentConf) error {
 
 	unitTag := config.Tag()
 	configPath := agent.ConfigPath(ac.DataDir(), unitTag)
-	logger.Debugf("config path %s", configPath)
+	logger.Debugf(ctx, "config path %s", configPath)
 	// if the rendered configuration already exists, use that copy
 	// as it likely has updated api addresses or could have a newer password,
 	// otherwise we need to copy the template.

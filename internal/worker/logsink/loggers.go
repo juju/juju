@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"context"
 	"io"
 	"strings"
 	"sync"
@@ -64,7 +65,7 @@ func (d *modelLogger) GetLogWriter(modelUUID, modelName, modelOwner string) (cor
 	}
 
 	modelPrefix := corelogger.ModelFilePrefix(modelOwner, modelName)
-	l, err := d.loggerForModel(modelUUID, modelPrefix)
+	l, err := d.loggerForModel(context.TODO(), modelUUID, modelPrefix)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting logger for model %q (%s)", modelPrefix, modelUUID)
 	}

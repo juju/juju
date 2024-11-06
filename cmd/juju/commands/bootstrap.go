@@ -406,7 +406,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
 	if c.JujuDbSnapAssertionsPath == "" && c.JujuDbSnapPath != "" {
 		assertionsPath := strings.Replace(c.JujuDbSnapPath, path.Ext(c.JujuDbSnapPath), ".assert", -1)
-		logger.Debugf("--db-snap-asserts unset, assuming %v", assertionsPath)
+		logger.Debugf(context.Background(), "--db-snap-asserts unset, assuming %v", assertionsPath)
 		c.JujuDbSnapAssertionsPath = assertionsPath
 	}
 
@@ -732,14 +732,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		if oldCurrentController != "" {
 			if err := store.SetCurrentController(oldCurrentController); err != nil {
-				logger.Errorf(
+				logger.Errorf(ctx,
 					"cannot reset current controller to %q: %v",
 					oldCurrentController, err,
 				)
 			}
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Errorf(
+			logger.Errorf(ctx,
 				"cannot destroy newly created controller %q details: %v",
 				c.controllerName, err,
 			)
@@ -857,7 +857,7 @@ to create a new model to deploy %sworkloads.
 	}
 
 	supportedBootstrapBases := corebase.ControllerBases()
-	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
+	logger.Tracef(ctx, "supported bootstrap bases %v", supportedBootstrapBases)
 
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:                c.controllerName,
@@ -941,8 +941,8 @@ See `[1:]+"`juju kill-controller`"+`.`)
 			return
 		}
 
-		logger.Errorf("%v", resultErr)
-		logger.Debugf("(error details: %v)", errors.Details(resultErr))
+		logger.Errorf(ctx, "%v", resultErr)
+		logger.Debugf(ctx, "(error details: %v)", errors.Details(resultErr))
 		// Set resultErr to cmd.ErrSilent to prevent
 		// logging the error twice.
 		resultErr = cmd.ErrSilent
@@ -978,13 +978,13 @@ See `[1:]+"`juju kill-controller`"+`.`)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
+	logger.Infof(ctx, "combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
 	unsupported, err := constraintsValidator.Validate(bootstrapParams.BootstrapConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(unsupported) > 0 {
-		logger.Warningf(
+		logger.Warningf(ctx,
 			"unsupported constraints: %v", strings.Join(unsupported, ","))
 	}
 
@@ -1336,7 +1336,7 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 		Cloud: cloud,
 	})
 	if err != nil {
-		logger.Errorf("registering credentials errored %s", err)
+		logger.Errorf(ctx, "registering credentials errored %s", err)
 	}
 
 	var detected bool
@@ -1356,7 +1356,7 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
-	logger.Debugf(
+	logger.Debugf(ctx,
 		"authenticating with region %q and credential %q (%v)",
 		regionName, creds.name, creds.credential.Label,
 	)
@@ -1364,7 +1364,7 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 		creds.detectedName = creds.name
 		creds.name = ""
 	}
-	logger.Tracef("credential: %v", creds.credential)
+	logger.Tracef(ctx, "credential: %v", creds.credential)
 	return creds, regionName, nil
 }
 
@@ -1509,7 +1509,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	// Store specific attributes are either already specified in model
 	// config (but may have been coerced), or were not present. Either way,
 	// copy them in.
-	logger.Debugf("provider attrs: %v", providerAttrs)
+	logger.Debugf(ctx, "provider attrs: %v", providerAttrs)
 	for k, v := range providerAttrs {
 		combinedConfig[k] = v
 	}
@@ -1600,7 +1600,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 	}
 
-	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)
+	logger.Debugf(ctx, "preparing controller with config: %v", bootstrapModelConfig)
 
 	configs := bootstrapConfigs{
 		bootstrapModel:           bootstrapModelConfig,
@@ -1677,9 +1677,9 @@ func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 			_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, cleaning up failed bootstrap")
 		}
 	}()
-	logger.Debugf("cleaning up after failed bootstrap")
+	logger.Debugf(ctx, "cleaning up after failed bootstrap")
 	if err := cleanup(); err != nil {
-		logger.Errorf("error cleaning up: %v", err)
+		logger.Errorf(ctx, "error cleaning up: %v", err)
 	}
 }
 

@@ -88,7 +88,7 @@ func (device *equinixDevice) Addresses(ctx envcontext.ProviderCallContext) (core
 			address.Type = network.IPv4Address
 		} else {
 			address.Type = network.IPv6Address
-			logger.Infof("skipping IPv6 Address %s", netw.Address)
+			logger.Infof(ctx, "skipping IPv6 Address %s", netw.Address)
 
 			continue
 		}

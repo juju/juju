@@ -179,7 +179,7 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 			// comment. This stops a security leak allowing the source
 			// controller ssh access after migration. We only need to worry
 			// about this case for when the keys are coming from model config.
-			i.logger.Warningf(
+			i.logger.Warningf(ctx,
 				"disregarding authorized key during model migration because it has a comment containing %q",
 				controller.ControllerSSHKeyComment,
 			)

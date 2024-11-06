@@ -49,6 +49,9 @@ func (w *secretBackendRotateWatcher) scopedContext() (context.Context, context.C
 func (w *secretBackendRotateWatcher) loop() (err error) {
 	defer close(w.out)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	// To allow the initial event to be sent.
 	out := w.out
 	var changes []watcher.SecretBackendRotateChange
@@ -60,12 +63,10 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			w.logger.Debugf("received secret backend rotation changes: %v", backendIDs)
+			w.logger.Debugf(ctx, "received secret backend rotation changes: %v", backendIDs)
 
-			ctx, cancel := w.scopedContext()
 			var err error
 			changes, err = w.processChanges(ctx, backendIDs...)
-			cancel()
 			if err != nil {
 				return errors.Trace(err)
 			}

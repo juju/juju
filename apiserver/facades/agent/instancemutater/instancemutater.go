@@ -70,7 +70,7 @@ type InstanceMutaterAPI struct {
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
 type InstanceMutatorWatcher interface {
-	WatchLXDProfileVerificationForMachine(Machine, logger.Logger) (state.NotifyWatcher, error)
+	WatchLXDProfileVerificationForMachine(context.Context, Machine, logger.Logger) (state.NotifyWatcher, error)
 }
 
 type instanceMutatorWatcher struct {
@@ -175,11 +175,11 @@ func (api *InstanceMutaterAPI) SetModificationStatus(ctx context.Context, args p
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		api.logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf(ctx, "failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
-		err = api.setOneModificationStatus(canAccess, arg)
+		err = api.setOneModificationStatus(ctx, canAccess, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -286,14 +286,14 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(ctx context.Con
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		entityResult, err := api.watchOneEntityApplication(canAccess, tag)
+		entityResult, err := api.watchOneEntityApplication(ctx, canAccess, tag)
 		result.Results[i] = entityResult
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
+func (api *InstanceMutaterAPI) watchOneEntityApplication(ctx context.Context, canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	machine, err := api.getMachine(canAccess, tag)
 	if err != nil {
@@ -306,7 +306,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	if isManual {
 		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
 	}
-	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(machine, api.logger)
+	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(ctx, machine, api.logger)
 	if err != nil {
 		return result, err
 	}
@@ -330,8 +330,8 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 //     gets updated once the download is complete.
 //  4. The machine's instanceId is changed, indicating it
 //     has been provisioned.
-func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
-	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
+func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(ctx context.Context, machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
+	return newMachineLXDProfileWatcher(ctx, MachineLXDProfileWatcherConfig{
 		machine:        machine,
 		backend:        w.st,
 		machineService: w.machineService,
@@ -379,7 +379,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 	var changeResults []params.ProfileInfoResult
 	for _, unit := range units {
 		if unit.Life() == state.Dead {
-			api.logger.Debugf("unit %q is dead, do not load profile", unit.Name())
+			api.logger.Debugf(ctx, "unit %q is dead, do not load profile", unit.Name())
 			continue
 		}
 		appName := unit.ApplicationName()
@@ -434,21 +434,21 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, m
 
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
 	if err != nil {
-		api.logger.Errorf("getting machine uuid: %w", err)
+		api.logger.Errorf(ctx, "getting machine uuid: %w", err)
 		return errors.Trace(err)
 	}
 	return errors.Trace(api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles))
 }
 
-func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	api.logger.Tracef("SetInstanceStatus called with: %#v", arg)
+func (api *InstanceMutaterAPI) setOneModificationStatus(ctx context.Context, canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+	api.logger.Tracef(ctx, "SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
-		api.logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		api.logger.Debugf(ctx, "SetModificationStatus unable to get machine %q", mTag)
 		return err
 	}
 
@@ -464,7 +464,7 @@ func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFun
 		Since:   since,
 	}
 	if err = machine.SetModificationStatus(s); err != nil {
-		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		api.logger.Debugf(ctx, "failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}
 	return nil

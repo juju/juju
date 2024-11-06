@@ -686,7 +686,7 @@ func (op *mockOperation) Commit(ctx context.Context, state operation.State) (*op
 	return op.commit.Run(ctx, state)
 }
 
-func (op *mockOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
+func (op *mockOperation) RemoteStateChanged(ctx context.Context, snapshot remotestate.Snapshot) {
 	if op.remoteStateFunc != nil {
 		op.remoteStateFunc(snapshot)
 	}

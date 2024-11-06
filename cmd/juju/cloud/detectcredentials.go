@@ -251,13 +251,13 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 		if err != nil {
 			// Should never happen but it will on go 1.2
 			// because lxd provider is not built.
-			logger.Errorf("provider %q not available on this platform", providerName)
+			logger.Errorf(ctxt, "provider %q not available on this platform", providerName)
 			continue
 		}
 		if detectCredentials, ok := provider.(environs.ProviderCredentials); ok {
 			detected, err := detectCredentials.DetectCredentials("")
 			if err != nil && !errors.Is(err, errors.NotFound) {
-				logger.Errorf("could not detect credentials for provider %q: %v", providerName, err)
+				logger.Errorf(ctxt, "could not detect credentials for provider %q: %v", providerName, err)
 				continue
 			}
 			if errors.Is(err, errors.NotFound) || len(detected.AuthCredentials) == 0 {
@@ -278,7 +278,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			for _, credName := range sortedName {
 				newCred := detected.AuthCredentials[credName]
 				if credName == "" {
-					logger.Debugf("ignoring unnamed credential for provider %s", providerName)
+					logger.Debugf(ctxt, "ignoring unnamed credential for provider %s", providerName)
 					continue
 				}
 				// Ignore empty credentials.
@@ -506,7 +506,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 			}
 			result, err := client.AddCloudsCredentials(ctxt, verified)
 			if err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf(ctxt, "%v", err)
 				ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)
 			}
 			results = append(results, result...)

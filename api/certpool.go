@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"crypto/x509"
 	"os"
 	"path/filepath"
@@ -30,9 +31,9 @@ func CreateCertPool(caCert string) (*x509.CertPool, error) {
 		pool.AddCert(xcert)
 	}
 
-	count := processCertDir(pool)
+	count := processCertDir(context.TODO(), pool)
 	if count >= 0 {
-		logger.Debugf("added %d certs to the pool from %s", count, certDir)
+		logger.Debugf(context.TODO(), "added %d certs to the pool from %s", count, certDir)
 	}
 
 	return pool, nil
@@ -41,36 +42,36 @@ func CreateCertPool(caCert string) (*x509.CertPool, error) {
 // processCertDir iterates through the certDir looking for *.pem files.
 // Each pem file is read in turn and added to the pool.  A count of the number
 // of successful certificates processed is returned.
-func processCertDir(pool *x509.CertPool) (count int) {
+func processCertDir(ctx context.Context, pool *x509.CertPool) (count int) {
 	fileInfo, err := os.Stat(certDir)
 	if os.IsNotExist(err) {
-		logger.Tracef("cert dir %q does not exist", certDir)
+		logger.Tracef(ctx, "cert dir %q does not exist", certDir)
 		return -1
 	}
 	if err != nil {
-		logger.Infof("unexpected error reading cert dir: %s", err)
+		logger.Infof(ctx, "unexpected error reading cert dir: %s", err)
 		return -1
 	}
 	if !fileInfo.IsDir() {
-		logger.Infof("cert dir %q is not a directory", certDir)
+		logger.Infof(ctx, "cert dir %q is not a directory", certDir)
 		return -1
 	}
 
 	matches, err := filepath.Glob(filepath.Join(certDir, "*.pem"))
 	if err != nil {
-		logger.Infof("globbing files failed: %s", err)
+		logger.Infof(ctx, "globbing files failed: %s", err)
 		return -1
 	}
 
 	for _, match := range matches {
 		data, err := os.ReadFile(match)
 		if err != nil {
-			logger.Infof("error reading %q: %v", match, err)
+			logger.Infof(ctx, "error reading %q: %v", match, err)
 			continue
 		}
 		certificate, err := cert.ParseCert(string(data))
 		if err != nil {
-			logger.Infof("error parsing cert %q: %v", match, err)
+			logger.Infof(ctx, "error parsing cert %q: %v", match, err)
 			continue
 		}
 		pool.AddCert(certificate)

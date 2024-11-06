@@ -30,6 +30,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	jujuversion "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -100,7 +101,7 @@ func (u *UnitAgentConfig) Validate() error {
 // directory. It would be good to remove this need moving forwards
 // and have unit agent logging overrides allowable in the machine
 // agent config file.
-func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
+func NewUnitAgent(ctx context.Context, config UnitAgentConfig) (*UnitAgent, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,7 +109,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	// Create a symlink for the unit "agent" binaries.
 	// This is used because the uniter is still using the tools directory
 	// for the unit agent for creating the jujuc symlinks.
-	config.Logger.Tracef("creating symlink for %q to tools directory for jujuc", config.Name)
+	config.Logger.Tracef(ctx, "creating symlink for %q to tools directory for jujuc", config.Name)
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -117,7 +118,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	tag := names.NewUnitTag(config.Name)
 	toolsDir := tools.ToolsDir(config.DataDir, tag.String())
 	_, err := tools.ChangeAgentTools(config.DataDir, tag.String(), current)
-	defer removeOnErr(&err, config.Logger, toolsDir)
+	defer removeOnErr(ctx, &err, config.Logger, toolsDir)
 	if err != nil {
 		// Any error here is indicative of a disk issue, potentially out of
 		// space or inodes. Either way, bouncing the deployer and having the
@@ -125,7 +126,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 		return nil, errors.Trace(err)
 	}
 
-	config.Logger.Infof("creating new agent config for %q", config.Name)
+	config.Logger.Infof(ctx, "creating new agent config for %q", config.Name)
 	conf, err := agent.ReadConfig(agent.ConfigPath(config.DataDir, tag))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -159,11 +160,11 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	return unit, nil
 }
 
-func (a *UnitAgent) start() (worker.Worker, error) {
-	a.logger.Tracef("starting workers for %q", a.name)
-	loggerContext, bufferedLogger, closeLogging, err := a.initLogging()
+func (a *UnitAgent) start(ctx context.Context) (worker.Worker, error) {
+	a.logger.Tracef(ctx, "starting workers for %q", a.name)
+	loggerContext, bufferedLogger, closeLogging, err := a.initLogging(ctx)
 	if err != nil {
-		a.logger.Tracef("init logging failed %s", err)
+		a.logger.Tracef(ctx, "init logging failed %s", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -183,12 +184,12 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	// There will only be an error if the required configuration
 	// values are not passed in.
 	if err != nil {
-		a.logger.Tracef("creating machine lock failed %s", err)
+		a.logger.Tracef(ctx, "creating machine lock failed %s", err)
 		return nil, errors.Trace(err)
 	}
 
 	// construct unit agent manifold
-	a.logger.Tracef("creating unit manifolds for %q", a.name)
+	a.logger.Tracef(ctx, "creating unit manifolds for %q", a.name)
 	manifolds := a.unitManifolds(UnitManifoldsConfig{
 		LoggerContext:       loggerContext,
 		Agent:               a,
@@ -202,17 +203,17 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	})
 	depEngineConfig := a.unitEngineConfig()
 	// TODO: tweak IsFatal error func, maybe?
-	depEngineConfig.Logger = loggerContext.GetLogger("juju.worker.dependency")
+	depEngineConfig.Logger = internaldependency.WrapLogger(loggerContext.GetLogger("juju.worker.dependency"))
 	// Tweak as necessary.
 	engine, err := dependency.NewEngine(depEngineConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	a.logger.Tracef("installing manifolds for %q", a.name)
+	a.logger.Tracef(ctx, "installing manifolds for %q", a.name)
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
-			a.logger.Errorf("while stopping engine with bad manifolds: %v", err)
+			a.logger.Errorf(ctx, "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}
@@ -227,7 +228,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		closeLogging()
 		a.mu.Unlock()
 	}()
-	if err := addons.StartIntrospection(addons.IntrospectionConfig{
+	if err := addons.StartIntrospection(ctx, addons.IntrospectionConfig{
 		AgentDir:           a.CurrentConfig().Dir(),
 		Engine:             engine,
 		PrometheusGatherer: a.prometheusRegistry,
@@ -239,9 +240,9 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		// but continue. It is very unlikely to happen in the real world
 		// as the only issue is connecting to the abstract domain socket
 		// and the agent is controlled by by the OS to only have one.
-		a.logger.Errorf("failed to start introspection worker: %v", err)
+		a.logger.Errorf(ctx, "failed to start introspection worker: %v", err)
 	}
-	a.logger.Tracef("engine for %q running", a.name)
+	a.logger.Tracef(ctx, "engine for %q running", a.name)
 	return engine, nil
 }
 
@@ -251,14 +252,14 @@ func (a *UnitAgent) running() bool {
 	return a.workerRunning
 }
 
-func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogWriter, func(), error) {
+func (a *UnitAgent) initLogging(ctx context.Context) (logger.LoggerContext, *logsender.BufferedLogWriter, func(), error) {
 	loggerContext := loggo.NewContext(loggo.INFO)
 
 	logFilename := agent.LogFilename(a.agentConf)
 	if err := paths.PrimeLogFile(logFilename); err != nil {
 		// This isn't a fatal error so log and continue if priming
 		// fails.
-		a.logger.Errorf("unable to prime %s (proceeding anyway): %v", logFilename, err)
+		a.logger.Errorf(ctx, "unable to prime %s (proceeding anyway): %v", logFilename, err)
 	}
 	ljLogger := &lumberjack.Logger{
 		Filename:   logFilename, // eg: "/var/log/juju/unit-mysql-0.log"
@@ -266,11 +267,11 @@ func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogW
 		MaxBackups: a.CurrentConfig().AgentLogfileMaxBackups(),
 		Compress:   true,
 	}
-	a.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+	a.logger.Debugf(ctx, "created rotating log file %q with max size %d MB and max backups %d",
 		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	if err := loggerContext.AddWriter(
 		"file", loggo.NewSimpleWriter(ljLogger, loggo.DefaultFormatter)); err != nil {
-		a.logger.Errorf("unable to configure file logging for unit %q: %v", a.name, err)
+		a.logger.Errorf(ctx, "unable to configure file logging for unit %q: %v", a.name, err)
 	}
 
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggerContext, 1048576)
@@ -280,22 +281,22 @@ func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogW
 
 	closeLogging := func() {
 		if _, err = loggerContext.RemoveWriter("file"); err != nil {
-			a.logger.Errorf("%q remove writer: %s", a.name, err)
+			a.logger.Errorf(ctx, "%q remove writer: %s", a.name, err)
 		}
 		bufferedLogger.Close()
 		if err = ljLogger.Close(); err != nil {
-			a.logger.Errorf("%q lumberjack logger close: %s", a.name, err)
+			a.logger.Errorf(ctx, "%q lumberjack logger close: %s", a.name, err)
 		}
 	}
 
 	// Add line for starting agent to logging context.
 	// TODO(logging) - add unit labels
-	ctx := internallogger.WrapLoggoContext(loggerContext)
-	ctx.GetLogger("juju").Infof("Starting unit workers for %q", a.name)
+	wrappedLoggerContext := internallogger.WrapLoggoContext(loggerContext)
+	wrappedLoggerContext.GetLogger("juju").Infof(ctx, "Starting unit workers for %q", a.name)
 
-	a.setupLogging(ctx, a.agentConf)
+	a.setupLogging(wrappedLoggerContext, a.agentConf)
 
-	return ctx, bufferedLogger, closeLogging, nil
+	return wrappedLoggerContext, bufferedLogger, closeLogging, nil
 }
 
 // ChangeConfig modifies this configuration using the given mutator.

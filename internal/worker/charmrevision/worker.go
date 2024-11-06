@@ -76,7 +76,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &revisionUpdateWorker{
 		config: config,
 	}
-	w.config.Logger.Debugf("worker created with period %v", w.config.Period)
+	w.config.Logger.Debugf(context.TODO(), "worker created with period %v", w.config.Period)
 	w.tomb.Go(w.loop)
 	return w, nil
 }
@@ -100,7 +100,7 @@ func (ruw *revisionUpdateWorker) loop() error {
 		// the lease on the termination of the worker. Other HA nodes can
 		// update then claim the lease and run the checks.
 		case <-ruw.config.Clock.After(jitter(ruw.config.Period)):
-			ruw.config.Logger.Debugf("%v elapsed, performing work", ruw.config.Period)
+			ruw.config.Logger.Debugf(ctx, "%v elapsed, performing work", ruw.config.Period)
 			err := ruw.config.RevisionUpdater.UpdateLatestRevisions(ctx)
 			if err != nil {
 				return errors.Trace(err)

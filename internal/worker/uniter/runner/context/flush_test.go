@@ -108,7 +108,7 @@ func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
 	ctx := s.context(c, ctrl)
 
 	// Set reboot priority
-	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context with an error and check that reboot is not triggered.
@@ -138,7 +138,7 @@ func (s *FlushContextSuite) TestRebootWhenHookFails(c *gc.C) {
 	stub.SetErrors(errors.New("process is already dead"))
 
 	// Set reboot priority
-	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context with an error and check that reboot is not triggered.
@@ -162,7 +162,7 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
 	stub.SetErrors(errors.New("process is already dead"))
 
 	// Set reboot priority
-	err := ctx.RequestReboot(jujuc.RebootNow)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootNow)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context with an error and check that reboot is triggered regardless.
@@ -189,7 +189,7 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 	stub.SetErrors(errors.New("process is already dead"))
 
 	// Set reboot priority
-	err := ctx.RequestReboot(jujuc.RebootNow)
+	err := ctx.RequestReboot(stdcontext.Background(), jujuc.RebootNow)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context without an error and check that reboot is triggered.
@@ -217,31 +217,31 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	ctx := s.context(c, ctrl)
 
 	// Try opening some ports via the context.
-	err := ctx.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
+	err := ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // duplicates are ignored
-	err = ctx.OpenPortRange("", network.MustParsePortRange("200-300/udp"))
+	err = ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("200-300/udp"))
 	c.Assert(err, gc.ErrorMatches, `cannot open 200-300/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
-	err = ctx.OpenPortRange("", network.MustParsePortRange("100-200/udp"))
+	err = ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("100-200/udp"))
 	c.Assert(err, gc.ErrorMatches, `cannot open 100-200/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
-	err = ctx.OpenPortRange("", network.MustParsePortRange("10-20/udp"))
+	err = ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("10-20/udp"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.OpenPortRange("", network.MustParsePortRange("50-100/tcp"))
+	err = ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("50-100/tcp"))
 	c.Assert(err, gc.ErrorMatches, `cannot open 50-100/tcp \(unit "u/0"\): port range conflicts with 100-200/tcp \(unit "u/0"\)`)
-	err = ctx.OpenPortRange("", network.MustParsePortRange("50-80/tcp"))
+	err = ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.OpenPortRange("", network.MustParsePortRange("40-90/tcp"))
+	err = ctx.OpenPortRange(stdcontext.Background(), "", network.MustParsePortRange("40-90/tcp"))
 	c.Assert(err, gc.ErrorMatches, `cannot open 40-90/tcp \(unit "u/0"\): port range conflicts with 50-80/tcp \(unit "u/0"\) requested earlier`)
 
 	// Now try closing some ports as well.
-	err = ctx.ClosePortRange("", network.MustParsePortRange("8080-8088/udp"))
+	err = ctx.ClosePortRange(stdcontext.Background(), "", network.MustParsePortRange("8080-8088/udp"))
 	c.Assert(err, jc.ErrorIsNil) // not existing -> ignored
-	err = ctx.ClosePortRange("", network.MustParsePortRange("100-200/tcp"))
+	err = ctx.ClosePortRange(stdcontext.Background(), "", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.ClosePortRange("", network.MustParsePortRange("100-200/tcp"))
+	err = ctx.ClosePortRange(stdcontext.Background(), "", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // duplicates are ignored
-	err = ctx.ClosePortRange("", network.MustParsePortRange("200-300/udp"))
+	err = ctx.ClosePortRange(stdcontext.Background(), "", network.MustParsePortRange("200-300/udp"))
 	c.Assert(err, gc.ErrorMatches, `.*port range conflicts with 200-300/udp \(unit "u/1"\)`)
-	err = ctx.ClosePortRange("", network.MustParsePortRange("50-80/tcp"))
+	err = ctx.ClosePortRange(stdcontext.Background(), "", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 
 	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{

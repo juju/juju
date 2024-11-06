@@ -4,6 +4,7 @@
 package mongo
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -188,7 +189,7 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 		result["auth"] = flagMarker
 		result["keyFile"] = utils.ShQuote(mongoArgs.AuthKeyFile)
 	} else {
-		logger.Warningf("configuring mongod  with --noauth flag enabled")
+		logger.Warningf(context.TODO(), "configuring mongod  with --noauth flag enabled")
 		result["noauth"] = flagMarker
 	}
 

@@ -4,6 +4,7 @@
 package controlleragentconfig
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/socketlistener"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -106,7 +108,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 			ShouldRestart: func(err error) bool {
 				return false
 			},
-			Logger: cfg.Logger,
+			Logger: internalworker.WrapLogger(cfg.Logger),
 		}),
 	}
 
@@ -161,7 +163,7 @@ func (w *configWorker) idHandler(resp http.ResponseWriter, req *http.Request) {
 
 	_, err := resp.Write([]byte(w.cfg.ControllerID))
 	if err != nil {
-		w.cfg.Logger.Errorf("error writing HTTP response: %v", err)
+		w.cfg.Logger.Errorf(req.Context(), "error writing HTTP response: %v", err)
 	}
 }
 
@@ -199,6 +201,9 @@ func (w *configWorker) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -206,14 +211,14 @@ func (w *configWorker) loop() error {
 		case <-w.reloadRequested:
 			w.reportInternalState(stateReload)
 
-			w.cfg.Logger.Infof("reload config request received, reloading config")
+			w.cfg.Logger.Infof(ctx, "reload config request received, reloading config")
 
 			for _, name := range w.runner.WorkerNames() {
 				runnerWorker, err := w.runner.Worker(name, w.catacomb.Dying())
 				if err != nil {
 					if errors.Is(err, errors.NotFound) {
 
-						w.cfg.Logger.Debugf("worker %q not found, skipping", name)
+						w.cfg.Logger.Debugf(ctx, "worker %q not found, skipping", name)
 						continue
 					}
 					// If the runner is dead, we should stop.
@@ -237,6 +242,10 @@ func (w *configWorker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
+}
+
+func (w *configWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 type subscription struct {

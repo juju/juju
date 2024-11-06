@@ -4,12 +4,14 @@
 package state
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 
+	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state/watcher"
@@ -37,7 +39,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 		state: st,
 		hub:   hub,
 		Runner: worker.NewRunner(worker.RunnerParams{
-			Logger:       internallogger.GetLogger("juju.state.watcher"),
+			Logger:       workerLogger{logger: internallogger.GetLogger("juju.state.watcher")},
 			IsFatal:      func(err error) bool { return err == jworker.ErrRestartAgent },
 			RestartDelay: time.Second,
 			Clock:        st.clock(),
@@ -60,4 +62,20 @@ func (ws *workers) txnLogWatcher() watcher.BaseWatcher {
 		return watcher.NewDead(errors.Trace(err))
 	}
 	return w.(watcher.BaseWatcher)
+}
+
+type workerLogger struct {
+	logger corelogger.Logger
+}
+
+func (w workerLogger) Debugf(msg string, args ...interface{}) {
+	w.logger.Debugf(context.TODO(), msg, args...)
+}
+
+func (w workerLogger) Infof(msg string, args ...interface{}) {
+	w.logger.Infof(context.TODO(), msg, args...)
+}
+
+func (w workerLogger) Errorf(msg string, args ...interface{}) {
+	w.logger.Errorf(context.TODO(), msg, args...)
 }

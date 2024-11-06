@@ -4,6 +4,7 @@
 package jujuc
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -113,7 +114,7 @@ Kubernetes charms; to open a range, you will have to run open-port multiple time
 func NewOpenPortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
 		info:   openPortInfo,
-		action: makePortRangeCommand(ctx.OpenPortRange),
+		action: makePortRangeCommand(context.TODO(), ctx.OpenPortRange),
 	}, nil
 }
 
@@ -146,20 +147,20 @@ close request to a comma-delimited list of application endpoints.
 func NewClosePortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
 		info:   closePortInfo,
-		action: makePortRangeCommand(ctx.ClosePortRange),
+		action: makePortRangeCommand(context.TODO(), ctx.ClosePortRange),
 	}, nil
 }
 
-func makePortRangeCommand(op func(string, network.PortRange) error) func(*portCommand) error {
+func makePortRangeCommand(ctx context.Context, op func(context.Context, string, network.PortRange) error) func(*portCommand) error {
 	return func(c *portCommand) error {
 		// Operation applies to all endpoints
 		if c.endpoints == "" {
-			return op("", c.portRange)
+			return op(ctx, "", c.portRange)
 		}
 
 		for _, endpoint := range strings.Split(c.endpoints, ",") {
 			endpoint = strings.TrimSpace(endpoint)
-			if err := op(endpoint, c.portRange); err != nil {
+			if err := op(ctx, endpoint, c.portRange); err != nil {
 				return errors.Trace(err)
 			}
 		}

@@ -20,7 +20,7 @@ func (k *kubernetesClient) ensureConfigMap(ctx context.Context, cm *core.ConfigM
 	cleanUp := func() {}
 	out, err := k.createConfigMap(ctx, cm)
 	if err == nil {
-		logger.Debugf("configmap %q created", out.GetName())
+		logger.Debugf(ctx, "configmap %q created", out.GetName())
 		cleanUp = func() { _ = k.deleteConfigMap(ctx, out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
@@ -28,7 +28,7 @@ func (k *kubernetesClient) ensureConfigMap(ctx context.Context, cm *core.ConfigM
 		return cleanUp, errors.Trace(err)
 	}
 	err = k.updateConfigMap(ctx, cm)
-	logger.Debugf("updating configmap %q", cm.GetName())
+	logger.Debugf(ctx, "updating configmap %q", cm.GetName())
 	return cleanUp, errors.Trace(err)
 }
 

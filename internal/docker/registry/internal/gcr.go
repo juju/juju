@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -101,7 +102,7 @@ func (c googleContainerRegistry) Ping() error {
 		// gcr v2 root endpoint requires the trailing slash(otherwise 404 returns).
 		url += "/"
 	}
-	logger.Debugf("gcr ping %q", url)
+	logger.Debugf(context.TODO(), "gcr ping %q", url)
 	resp, err := c.client.Get(url)
 	if resp != nil {
 		defer resp.Body.Close()

@@ -21,7 +21,7 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 }
 
 func init() {
-	logger.Infof(
+	logger.Infof(ctx,
 		"block device support has not been implemented for %s",
 		runtime.GOOS,
 	)

@@ -4,6 +4,8 @@
 package filenotifywatcher
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -110,7 +112,7 @@ func (w *fileNotifyWorker) Changes(fileName string) (<-chan bool, error) {
 		return fw.(FileWatcher).Changes(), nil
 	}
 
-	watcher, err := w.cfg.NewWatcher(fileName, WithLogger(w.cfg.Logger), WithINotifyWatcherFn(w.cfg.NewINotifyWatcher))
+	watcher, err := w.cfg.NewWatcher(context.TODO(), fileName, WithLogger(w.cfg.Logger), WithINotifyWatcherFn(w.cfg.NewINotifyWatcher))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

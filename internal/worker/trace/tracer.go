@@ -101,7 +101,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
 
 	if spanContext := span.SpanContext(); spanContext.IsSampled() {
-		t.logger.Debugf("SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
+		t.logger.Debugf(ctx, "SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
 	}
 
 	managed := &managedSpan{
@@ -136,15 +136,15 @@ func (t *tracer) loop() error {
 		defer cancel()
 
 		if err := t.clientProvider.ForceFlush(ctx); err != nil {
-			t.logger.Infof("failed to flush client: %v", err)
+			t.logger.Infof(ctx, "failed to flush client: %v", err)
 		}
 
 		if err := t.client.Stop(ctx); err != nil {
-			t.logger.Infof("failed to stop client: %v", err)
+			t.logger.Infof(ctx, "failed to stop client: %v", err)
 		}
 
 		if err := t.clientProvider.Shutdown(ctx); err != nil {
-			t.logger.Infof("failed to shutdown provider: %v", err)
+			t.logger.Infof(ctx, "failed to shutdown provider: %v", err)
 		}
 	}()
 
@@ -277,7 +277,7 @@ type limitedSpan struct {
 }
 
 func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
-	s.logger.Warningf("attempted to end a span that you don't own")
+	s.logger.Warningf(context.TODO(), "attempted to end a span that you don't own")
 }
 
 func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {

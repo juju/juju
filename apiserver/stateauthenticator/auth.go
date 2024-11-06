@@ -228,7 +228,7 @@ func (a *Authenticator) checkCreds(
 
 		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), modelUUID)
 		if err != nil {
-			logger.Warningf("updating last login time for %v, %v", userTag, err)
+			logger.Warningf(ctx, "updating last login time for %v, %v", userTag, err)
 		}
 
 	case names.MachineTagKind, names.ControllerAgentTagKind:

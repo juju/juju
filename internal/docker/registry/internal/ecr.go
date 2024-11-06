@@ -33,7 +33,7 @@ type ecrLogger struct {
 }
 
 func (l ecrLogger) Write(p []byte) (n int, err error) {
-	logger.Tracef("ecrLogger %p: %s", l.cfg, p)
+	logger.Tracef(context.TODO(), "ecrLogger %p: %s", l.cfg, p)
 	return len(p), nil
 }
 

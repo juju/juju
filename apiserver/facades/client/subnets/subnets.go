@@ -134,7 +134,7 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 
 	for _, subnet := range allSubnets {
 		if spaceFilter != "" && subnet.SpaceName != spaceFilter {
-			api.logger.Tracef(
+			api.logger.Tracef(ctx,
 				"filtering subnet %q from space %q not matching filter %q",
 				subnet.CIDR, subnet.SpaceName, spaceFilter,
 			)
@@ -142,7 +142,7 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 		}
 		zoneSet := set.NewStrings(subnet.AvailabilityZones...)
 		if zoneFilter != "" && !zoneSet.IsEmpty() && !zoneSet.Contains(zoneFilter) {
-			api.logger.Tracef(
+			api.logger.Tracef(ctx,
 				"filtering subnet %q with zones %v not matching filter %q",
 				subnet.CIDR, subnet.AvailabilityZones, zoneFilter,
 			)

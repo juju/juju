@@ -123,7 +123,7 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 // name and object name.
 // Returns nil if the object exists, or an error if it does not.
 func (c *S3Client) ObjectExists(ctx context.Context, bucketName, objectName string) error {
-	c.logger.Tracef("checking if bucket %s object %s exists in s3 storage", bucketName, objectName)
+	c.logger.Tracef(ctx, "checking if bucket %s object %s exists in s3 storage", bucketName, objectName)
 
 	_, err := c.client.HeadObject(ctx,
 		&s3.HeadObjectInput{
@@ -143,7 +143,7 @@ func (c *S3Client) ObjectExists(ctx context.Context, bucketName, objectName stri
 // GetObject gets an object from the object store based on the bucket name and
 // object name.
 func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error) {
-	c.logger.Tracef("getting bucket %s object %s from s3 storage", bucketName, objectName)
+	c.logger.Tracef(ctx, "getting bucket %s object %s from s3 storage", bucketName, objectName)
 
 	obj, err := c.client.GetObject(ctx,
 		&s3.GetObjectInput{
@@ -169,7 +169,7 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 
 // ListObjects returns a list of objects in the specified bucket.
 func (c *S3Client) ListObjects(ctx context.Context, bucketName string) ([]string, error) {
-	c.logger.Tracef("listing objects in bucket %s from s3 storage", bucketName)
+	c.logger.Tracef(ctx, "listing objects in bucket %s from s3 storage", bucketName)
 
 	objs, err := c.client.ListObjectsV2(ctx,
 		&s3.ListObjectsV2Input{
@@ -202,7 +202,7 @@ const (
 // PutObject puts an object into the object store based on the bucket name and
 // object name.
 func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
-	c.logger.Tracef("putting bucket %s object %s to s3 storage", bucketName, objectName)
+	c.logger.Tracef(ctx, "putting bucket %s object %s to s3 storage", bucketName, objectName)
 
 	obj, err := c.client.PutObject(ctx,
 		&s3.PutObjectInput{
@@ -232,7 +232,7 @@ func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string,
 // DeleteObject deletes an object from the object store based on the bucket name
 // and object name.
 func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName string) error {
-	c.logger.Tracef("deleting bucket %s object %s from s3 storage", bucketName, objectName)
+	c.logger.Tracef(ctx, "deleting bucket %s object %s from s3 storage", bucketName, objectName)
 
 	_, err := c.client.DeleteObject(ctx,
 		&s3.DeleteObjectInput{
@@ -253,7 +253,7 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 
 // CreateBucket creates a bucket in the object store based on the bucket name.
 func (c *S3Client) CreateBucket(ctx context.Context, bucketName string) error {
-	c.logger.Tracef("creating bucket %s in s3 storage", bucketName)
+	c.logger.Tracef(ctx, "creating bucket %s in s3 storage", bucketName)
 
 	_, err := c.client.CreateBucket(ctx,
 		&s3.CreateBucketInput{
@@ -346,11 +346,11 @@ type awsLogger struct {
 func (l *awsLogger) Logf(classification logging.Classification, format string, v ...any) {
 	switch classification {
 	case logging.Warn:
-		l.logger.Warningf(format, v)
+		l.logger.Warningf(context.TODO(), format, v)
 	case logging.Debug:
-		l.logger.Debugf(format, v)
+		l.logger.Debugf(context.TODO(), format, v)
 	default:
-		l.logger.Tracef(format, v)
+		l.logger.Tracef(context.TODO(), format, v)
 	}
 }
 

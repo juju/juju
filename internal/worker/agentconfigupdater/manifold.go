@@ -169,47 +169,47 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 				config.SetStateServingInfo(info)
 				if mongoProfileChanged {
-					logger.Debugf("setting agent config mongo memory profile: %q => %q", agentsMongoMemoryProfile, configMongoMemoryProfile)
+					logger.Debugf(ctx, "setting agent config mongo memory profile: %q => %q", agentsMongoMemoryProfile, configMongoMemoryProfile)
 					config.SetMongoMemoryProfile(configMongoMemoryProfile)
 				}
 				if jujuDBSnapChannelChanged {
-					logger.Debugf("setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
+					logger.Debugf(ctx, "setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
 					config.SetJujuDBSnapChannel(configJujuDBSnapChannel)
 				}
 				if queryTracingEnabledChanged {
-					logger.Debugf("setting agent config query tracing enabled: %t => %t", agentsQueryTracingEnabled, configQueryTracingEnabled)
+					logger.Debugf(ctx, "setting agent config query tracing enabled: %t => %t", agentsQueryTracingEnabled, configQueryTracingEnabled)
 					config.SetQueryTracingEnabled(configQueryTracingEnabled)
 				}
 				if queryTracingThresholdChanged {
-					logger.Debugf("setting agent config query tracing threshold: %d => %d", agentsQueryTracingThreshold, configQueryTracingThreshold)
+					logger.Debugf(ctx, "setting agent config query tracing threshold: %d => %d", agentsQueryTracingThreshold, configQueryTracingThreshold)
 					config.SetQueryTracingThreshold(configQueryTracingThreshold)
 				}
 				if openTelemetryEnabledChanged {
-					logger.Debugf("setting open telemetry enabled: %t => %t", agentsOpenTelemetryEnabled, configOpenTelemetryEnabled)
+					logger.Debugf(ctx, "setting open telemetry enabled: %t => %t", agentsOpenTelemetryEnabled, configOpenTelemetryEnabled)
 					config.SetOpenTelemetryEnabled(configOpenTelemetryEnabled)
 				}
 				if openTelemetryEndpointChanged {
-					logger.Debugf("setting open telemetry endpoint: %q => %q", agentsOpenTelemetryEndpoint, configOpenTelemetryEndpoint)
+					logger.Debugf(ctx, "setting open telemetry endpoint: %q => %q", agentsOpenTelemetryEndpoint, configOpenTelemetryEndpoint)
 					config.SetOpenTelemetryEndpoint(configOpenTelemetryEndpoint)
 				}
 				if openTelemetryInsecureChanged {
-					logger.Debugf("setting open telemetry insecure: %t => %t", agentsOpenTelemetryInsecure, configOpenTelemetryInsecure)
+					logger.Debugf(ctx, "setting open telemetry insecure: %t => %t", agentsOpenTelemetryInsecure, configOpenTelemetryInsecure)
 					config.SetOpenTelemetryInsecure(configOpenTelemetryInsecure)
 				}
 				if openTelemetryStackTracesChanged {
-					logger.Debugf("setting open telemetry stack trace: %t => %t", agentsOpenTelemetryStackTraces, configOpenTelemetryStackTraces)
+					logger.Debugf(ctx, "setting open telemetry stack trace: %t => %t", agentsOpenTelemetryStackTraces, configOpenTelemetryStackTraces)
 					config.SetOpenTelemetryStackTraces(configOpenTelemetryStackTraces)
 				}
 				if openTelemetrySampleRatioChanged {
-					logger.Debugf("setting open telemetry sample ratio: %f => %f", agentsOpenTelemetrySampleRatio, configOpenTelemetrySampleRatio)
+					logger.Debugf(ctx, "setting open telemetry sample ratio: %f => %f", agentsOpenTelemetrySampleRatio, configOpenTelemetrySampleRatio)
 					config.SetOpenTelemetrySampleRatio(configOpenTelemetrySampleRatio)
 				}
 				if openTelemetryTailSamplingThresholdChanged {
-					logger.Debugf("setting open telemetry tail sampling threshold: %f => %f", agentsOpenTelemetryTailSamplingThreshold, configOpenTelemetryTailSamplingThreshold)
+					logger.Debugf(ctx, "setting open telemetry tail sampling threshold: %f => %f", agentsOpenTelemetryTailSamplingThreshold, configOpenTelemetryTailSamplingThreshold)
 					config.SetOpenTelemetryTailSamplingThreshold(configOpenTelemetryTailSamplingThreshold)
 				}
 				if objectStoreTypeChanged {
-					logger.Debugf("setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
+					logger.Debugf(ctx, "setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
 					config.SetObjectStoreType(configObjectStoreType)
 				}
 
@@ -221,37 +221,37 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// If we need a restart, return the fatal error.
 			if mongoProfileChanged {
-				logger.Infof("restarting agent for new mongo memory profile")
+				logger.Infof(ctx, "restarting agent for new mongo memory profile")
 				return nil, jworker.ErrRestartAgent
 			} else if jujuDBSnapChannelChanged {
-				logger.Infof("restarting agent for new mongo snap channel")
+				logger.Infof(ctx, "restarting agent for new mongo snap channel")
 				return nil, jworker.ErrRestartAgent
 			} else if queryTracingEnabledChanged {
-				logger.Infof("restarting agent for new query tracing enabled")
+				logger.Infof(ctx, "restarting agent for new query tracing enabled")
 				return nil, jworker.ErrRestartAgent
 			} else if queryTracingThresholdChanged {
-				logger.Infof("restarting agent for new query tracing threshold")
+				logger.Infof(ctx, "restarting agent for new query tracing threshold")
 				return nil, jworker.ErrRestartAgent
 			} else if openTelemetryEnabledChanged {
-				logger.Infof("restarting agent for new open telemetry enabled")
+				logger.Infof(ctx, "restarting agent for new open telemetry enabled")
 				return nil, jworker.ErrRestartAgent
 			} else if openTelemetryEndpointChanged {
-				logger.Infof("restarting agent for new open telemetry endpoint")
+				logger.Infof(ctx, "restarting agent for new open telemetry endpoint")
 				return nil, jworker.ErrRestartAgent
 			} else if openTelemetryInsecureChanged {
-				logger.Infof("restarting agent for new open telemetry insecure")
+				logger.Infof(ctx, "restarting agent for new open telemetry insecure")
 				return nil, jworker.ErrRestartAgent
 			} else if openTelemetryStackTracesChanged {
-				logger.Infof("restarting agent for new open telemetry stack traces")
+				logger.Infof(ctx, "restarting agent for new open telemetry stack traces")
 				return nil, jworker.ErrRestartAgent
 			} else if openTelemetrySampleRatioChanged {
-				logger.Infof("restarting agent for new open telemetry sample ratio")
+				logger.Infof(ctx, "restarting agent for new open telemetry sample ratio")
 				return nil, jworker.ErrRestartAgent
 			} else if openTelemetryTailSamplingThresholdChanged {
-				logger.Infof("restarting agent for new open telemetry tail sampling threshold")
+				logger.Infof(ctx, "restarting agent for new open telemetry tail sampling threshold")
 				return nil, jworker.ErrRestartAgent
 			} else if objectStoreTypeChanged {
-				logger.Infof("restarting agent for new object store type")
+				logger.Infof(ctx, "restarting agent for new object store type")
 				return nil, jworker.ErrRestartAgent
 			}
 
@@ -259,7 +259,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// the memory profile.
 			var hub *pubsub.StructuredHub
 			if err := getter.Get(config.CentralHubName, &hub); err != nil {
-				logger.Tracef("hub dependency not available")
+				logger.Tracef(ctx, "hub dependency not available")
 				return nil, err
 			}
 

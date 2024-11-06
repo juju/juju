@@ -150,5 +150,5 @@ func (c *setFirewallRuleCommand) Run(ctx *cmd.Context) error {
 	default:
 		return errors.NotSupportedf("service %v", c.service)
 	}
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }

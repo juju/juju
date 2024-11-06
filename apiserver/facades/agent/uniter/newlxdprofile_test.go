@@ -123,7 +123,7 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.LXDProfileRequired(args)
+	results, err := api.LXDProfileRequired(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -245,6 +245,7 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	api := uniter.NewLXDProfileAPIv2(
+		context.Background(),
 		s.backend,
 		s.machineService,
 		watcherRegistry,

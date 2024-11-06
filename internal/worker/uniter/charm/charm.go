@@ -62,7 +62,7 @@ type Deployer interface {
 	// Behaviour is undefined if Stage has not been called. Failures that
 	// can be resolved by user intervention will be signalled by returning
 	// ErrConflict.
-	Deploy() error
+	Deploy(ctx context.Context) error
 }
 
 // ErrConflict indicates that an upgrade failed and cannot be resolved

@@ -195,7 +195,7 @@ type ManifoldsConfig struct {
 
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
-	NewDeployContext func(deployer.ContextConfig) (deployer.Context, error)
+	NewDeployContext func(context.Context, deployer.ContextConfig) (deployer.Context, error)
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock

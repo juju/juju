@@ -4,6 +4,7 @@
 package addons
 
 import (
+	"context"
 	"path"
 	"runtime"
 
@@ -45,7 +46,7 @@ type IntrospectionConfig struct {
 	CentralHub         introspection.StructuredHub
 	Logger             logger.Logger
 
-	WorkerFunc func(config introspection.Config) (worker.Worker, error)
+	WorkerFunc func(ctx context.Context, config introspection.Config) (worker.Worker, error)
 }
 
 // StartIntrospection creates the introspection worker. It cannot and should
@@ -54,14 +55,14 @@ type IntrospectionConfig struct {
 // down in the times we need it most, which is when the agent is having
 // problems shutting down. Here we effectively start the worker and tie its
 // life to that of the engine that is returned.
-func StartIntrospection(cfg IntrospectionConfig) error {
+func StartIntrospection(ctx context.Context, cfg IntrospectionConfig) error {
 	if runtime.GOOS != "linux" {
-		cfg.Logger.Debugf("introspection worker not supported on %q", runtime.GOOS)
+		cfg.Logger.Debugf(ctx, "introspection worker not supported on %q", runtime.GOOS)
 		return nil
 	}
 
 	socketName := path.Join(cfg.AgentDir, IntrospectionSocketName)
-	w, err := cfg.WorkerFunc(introspection.Config{
+	w, err := cfg.WorkerFunc(ctx, introspection.Config{
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,
 		StatePool:          cfg.StatePoolReporter,
@@ -79,10 +80,10 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 	}
 	go func() {
 		_ = cfg.Engine.Wait()
-		cfg.Logger.Debugf("engine stopped, stopping introspection")
+		cfg.Logger.Debugf(ctx, "engine stopped, stopping introspection")
 		w.Kill()
 		_ = w.Wait()
-		cfg.Logger.Debugf("introspection stopped")
+		cfg.Logger.Debugf(ctx, "introspection stopped")
 	}()
 
 	return nil

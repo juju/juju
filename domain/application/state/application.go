@@ -662,7 +662,7 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid
 	if existingContainerInfo.ProviderID != "" &&
 		newProviderId != "" &&
 		existingContainerInfo.ProviderID != newProviderId {
-		st.logger.Debugf("unit %q has provider id %q which changed to %q",
+		st.logger.Debugf(ctx, "unit %q has provider id %q which changed to %q",
 			unitName, existingContainerInfo.ProviderID, newProviderId)
 	}
 

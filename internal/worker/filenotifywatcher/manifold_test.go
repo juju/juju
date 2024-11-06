@@ -4,6 +4,8 @@
 package filenotifywatcher
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -43,7 +45,7 @@ func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
-		NewWatcher: func(string, ...Option) (FileWatcher, error) {
+		NewWatcher: func(context.Context, string, ...Option) (FileWatcher, error) {
 			return nil, nil
 		},
 		NewINotifyWatcher: func() (INotifyWatcher, error) {

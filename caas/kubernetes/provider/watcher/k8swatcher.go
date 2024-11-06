@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"context"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -68,13 +69,16 @@ func (w *kubernetesNotifyWatcher) loop() error {
 	signals := make(chan struct{}, 1)
 	defer close(w.out)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	fireFn := func(evt WatchEvent) func(interface{}) {
 		return func(obj interface{}) {
 			meta, err := meta.Accessor(obj)
 			if err != nil {
-				logger.Errorf("getting kubernetes watcher event meta: %v", err)
+				logger.Errorf(ctx, "getting kubernetes watcher event meta: %v", err)
 			} else {
-				logger.Tracef("kubernetes watch event %s %v(%v) = %v", evt,
+				logger.Tracef(ctx, "kubernetes watch event %s %v(%v) = %v", evt,
 					meta.GetName(), meta.GetUID(), meta.GetLabels())
 			}
 
@@ -112,7 +116,7 @@ func (w *kubernetesNotifyWatcher) loop() error {
 		case <-delayCh:
 			out = w.out
 		case out <- struct{}{}:
-			logger.Debugf("fire notify watcher for %v", w.name)
+			logger.Debugf(ctx, "fire notify watcher for %v", w.name)
 			out = nil
 			delayCh = nil
 		}
@@ -133,6 +137,11 @@ func (w *kubernetesNotifyWatcher) Kill() {
 // error encountered when it was running.
 func (w *kubernetesNotifyWatcher) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// scopedContext returns a context scoped to the watcher.
+func (w *kubernetesNotifyWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 type KubernetesStringsWatcher = watcher.StringsWatcher
@@ -185,14 +194,17 @@ func (w *kubernetesStringsWatcher) loop() error {
 	}
 	w.initialEvents = nil
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	signals := make(chan string)
 	fireFn := func(evt WatchEvent) func(interface{}) {
 		return func(obj interface{}) {
 			meta, err := meta.Accessor(obj)
 			if err != nil {
-				logger.Errorf("getting kubernetes watcher event meta: %v", err)
+				logger.Errorf(ctx, "getting kubernetes watcher event meta: %v", err)
 			} else {
-				logger.Tracef("kubernetes watch event %s %v(%v) = %v", evt,
+				logger.Tracef(ctx, "kubernetes watch event %s %v(%v) = %v", evt,
 					meta.GetName(), meta.GetUID(), meta.GetLabels())
 			}
 
@@ -255,4 +267,9 @@ func (w *kubernetesStringsWatcher) Kill() {
 // error encountered when it was running.
 func (w *kubernetesStringsWatcher) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// scopedContext returns a context scoped to the watcher.
+func (w *kubernetesStringsWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

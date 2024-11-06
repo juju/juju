@@ -287,7 +287,7 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 		DryRun:         false,
 	})
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockRemove)
+		return block.ProcessBlockedError(ctx, err, block.BlockRemove)
 	}
 	logAll := !needsConfirmation || client.BestAPIVersion() < 16
 	if logAll {
@@ -308,7 +308,7 @@ func (c *removeUnitCommand) performDryRun(ctx *cmd.Context, client RemoveApplica
 		DryRun:         true,
 	})
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockRemove)
+		return block.ProcessBlockedError(ctx, err, block.BlockRemove)
 	}
 	if err := c.logErrors(ctx, results); err != nil {
 		return err
@@ -391,7 +391,7 @@ func (c *removeUnitCommand) removeCaasUnits(ctx *cmd.Context, client RemoveAppli
 		return errors.Annotate(err, "can not remove unit")
 	}
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockRemove)
+		return block.ProcessBlockedError(ctx, err, block.BlockRemove)
 	}
 	ctx.Infof("scaling down to %d units", result.Info.Scale)
 	return nil

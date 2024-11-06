@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -143,7 +144,7 @@ func relationNetworkDocID(relationKey, direction string, label relationNetworkTy
 
 // Save stores the specified networks for the relation.
 func (rin *relationNetworksState) Save(relationKey string, adminOverride bool, cidrs []string) (RelationNetworks, error) {
-	logger.Debugf("save %v networks for %v: %v", rin.direction, relationKey, cidrs)
+	logger.Debugf(context.TODO(), "save %v networks for %v: %v", rin.direction, relationKey, cidrs)
 	for _, cidr := range cidrs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			return nil, errors.NotValidf("CIDR %q", cidr)

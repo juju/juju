@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net/http"
@@ -64,10 +65,12 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/services"
@@ -75,6 +78,7 @@ import (
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -229,7 +233,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 	}
 	config := a.currentConfig.CurrentConfig()
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
-		logger.Warningf("cannot create log dir: %v", err)
+		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
@@ -241,7 +245,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 			MaxBackups: config.AgentLogfileMaxBackups(),
 			Compress:   true,
 		}
-		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		logger.Debugf(context.TODO(), "created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		a.ctx.Stderr = ljLogger
 	}
@@ -293,7 +297,7 @@ func MachineAgentFactoryFn(
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
-				Logger:        logger,
+				Logger:        internalworker.WrapLogger(logger),
 			}),
 			looputil.NewLoopDeviceManager(),
 			newDBWorkerFunc,
@@ -478,7 +482,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	leaf, err := authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
 		[]byte(si.Cert), []byte(si.PrivateKey))
 	if err != nil || !pki.LeafHasDNSNames(leaf, controller.DefaultDNSNames) {
-		logger.Infof("parsing certificate/key failed, will generate a new one: %v", err)
+		logger.Infof(context.TODO(), "parsing certificate/key failed, will generate a new one: %v", err)
 		leaf, err = authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 			AddDNSNames(controller.DefaultDNSNames...).
 			Commit()
@@ -511,9 +515,9 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
 
-	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
+	if err := introspection.WriteProfileFunctions(ctx, introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf("failed to write profile funcs: %v", err)
+		logger.Errorf(ctx, "failed to write profile funcs: %v", err)
 	}
 
 	// When the API server and peergrouper have manifolds, they can
@@ -565,10 +569,10 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrRebootMachine:
-		logger.Infof("Caught reboot error")
+		logger.Infof(ctx, "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
 	case jworker.ErrShutdownMachine:
-		logger.Infof("Caught shutdown error")
+		logger.Infof(ctx, "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
@@ -578,19 +582,21 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		ctx := a.ctx
+
 		agentConfig := a.CurrentConfig()
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
 		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
 		eng, err := dependency.NewEngine(engineConfigFunc(
 			controllerMetricsSink,
-			internallogger.GetLogger("juju.worker.dependency"),
+			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 		))
 		if err != nil {
 			return nil, err
 		}
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: internallogger.GetLogger("juju.localhub"),
+			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 		})
 		pubsubReporter := psworker.NewReporter()
 		presenceRecorder := presence.New(clock.WallClock)
@@ -647,7 +653,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
-					internallogger.GetLogger("juju.worker.dependency"),
+					internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 				)
 			},
 			SetupLogging:            agentconf.SetupAgentLogging,
@@ -661,11 +667,11 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
-				logger.Errorf("while stopping engine with bad manifolds: %v", err)
+				logger.Errorf(ctx, "while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
-		if err := addons.StartIntrospection(addons.IntrospectionConfig{
+		if err := addons.StartIntrospection(ctx, addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,
 			StatePoolReporter:  &statePoolReporter,
@@ -683,13 +689,13 @@ func (a *MachineAgent) makeEngineCreator(
 			// but continue. It is very unlikely to happen in the real world
 			// as the only issue is connecting to the abstract domain socket
 			// and the agent is controlled by by the OS to only have one.
-			logger.Errorf("failed to start introspection worker: %v", err)
+			logger.Errorf(context.TODO(), "failed to start introspection worker: %v", err)
 		}
 		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, eng, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is
 			// unlikely to happen in the real world, but shouldn't stop or
 			// bring down an agent.
-			logger.Errorf("failed to start the dependency engine metrics %v", err)
+			logger.Errorf(context.TODO(), "failed to start the dependency engine metrics %v", err)
 		}
 		return eng, nil
 	}
@@ -702,10 +708,10 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 		return errors.Trace(err)
 	}
 
-	logger.Infof("Reboot: Executing reboot")
+	logger.Infof(context.TODO(), "Reboot: Executing reboot")
 	err = finalize.ExecuteReboot(action)
 	if err != nil {
-		logger.Infof("Reboot: Error executing reboot: %v", err)
+		logger.Infof(context.TODO(), "Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
 	// We return ErrRebootMachine so the agent will simply exit without error
@@ -726,7 +732,7 @@ var (
 )
 
 func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger corelogger.Logger) error {
-	logger.Tracef("machineStartup called")
+	logger.Tracef(ctx, "machineStartup called")
 	// CAAS agents do not have machines.
 	if a.isCaasAgent {
 		return nil
@@ -846,7 +852,7 @@ func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.
 // setupContainerSupport determines what containers can be run on this machine and
 // passes the result to the juju controller.
 func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger corelogger.Logger) error {
-	logger.Tracef("setupContainerSupport called")
+	logger.Tracef(ctx, "setupContainerSupport called")
 	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
@@ -867,7 +873,7 @@ func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Conn
 	var supportedContainers []instance.ContainerType
 	supportedContainers = append(supportedContainers, instance.LXD)
 
-	logger.Debugf("Supported container types %q", supportedContainers)
+	logger.Debugf(ctx, "Supported container types %q", supportedContainers)
 
 	if len(supportedContainers) == 0 {
 		if err := m.SupportsNoContainers(ctx); err != nil {
@@ -893,7 +899,7 @@ func mongoDialOptions(
 		if err != nil {
 			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
 		}
-		logger.Infof("using mongo socker pool limit = %d", limit)
+		logger.Infof(context.TODO(), "using mongo socker pool limit = %d", limit)
 		dialOpts.PoolLimit = limit
 	}
 	if dialOpts.PostDialServer != nil {
@@ -935,7 +941,7 @@ func (a *MachineAgent) initState(
 		a.mongoInitMutex.Unlock()
 		return nil, err
 	}
-	logger.Infof("juju database opened")
+	logger.Infof(ctx, "juju database opened")
 
 	systemState, err := pool.SystemState()
 	if err != nil {
@@ -948,7 +954,7 @@ func (a *MachineAgent) initState(
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller, both IAAS and CAAS.
-func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
+func (a *MachineAgent) startModelWorkers(ctx context.Context, cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	controllerUUID := currentConfig.Controller().Id()
 	modelAgent, err := model.WrapAgent(a, controllerUUID, cfg.ModelUUID)
@@ -958,7 +964,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 
 	config := agentengine.DependencyEngineConfig(
 		cfg.ModelMetrics,
-		internallogger.GetLogger("juju.worker.dependency"),
+		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
@@ -970,7 +976,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 
 	loggingContext := internallogger.LoggerContext(corelogger.INFO)
 	if err := loggingContext.AddWriter("logsink", cfg.ModelLogger); err != nil {
-		logger.Errorf("unable to configure logging for model: %v", err)
+		logger.Errorf(ctx, "unable to configure logging for model: %v", err)
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{
@@ -991,7 +997,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
-		logger.Debugf("setting short charmrevision worker interval: %v", interval)
+		logger.Debugf(context.TODO(), "setting short charmrevision worker interval: %v", interval)
 		manifoldsCfg.CharmRevisionUpdateInterval = interval
 	}
 
@@ -1005,7 +1011,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
-			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+			logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1023,10 +1029,10 @@ func applyTestingOverrides(agentConfig agent.Config, manifoldsCfg *model.Manifol
 		charmRevisionUpdateInterval, err := time.ParseDuration(v)
 		if err == nil {
 			manifoldsCfg.CharmRevisionUpdateInterval = charmRevisionUpdateInterval
-			logger.Infof("model worker charm revision update interval set to %v for testing",
+			logger.Infof(context.TODO(), "model worker charm revision update interval set to %v for testing",
 				charmRevisionUpdateInterval)
 		} else {
-			logger.Warningf("invalid charm revision update interval, using default %v: %v",
+			logger.Warningf(context.TODO(), "invalid charm revision update interval, using default %v: %v",
 				manifoldsCfg.CharmRevisionUpdateInterval, err)
 		}
 	}
@@ -1044,7 +1050,7 @@ type modelWorker struct {
 func (m *modelWorker) Wait() error {
 	err := m.Engine.Wait()
 
-	logger.Debugf("closing db logger for %q", m.modelUUID)
+	logger.Debugf(context.TODO(), "closing db logger for %q", m.modelUUID)
 	_ = m.logger.Close()
 	// When closing the model, ensure that we also close the metrics with the
 	// logger.
@@ -1065,7 +1071,7 @@ func (a *MachineAgent) ensureMongoServer(ctx stdcontext.Context, agentConfig age
 	a.mongoInitMutex.Lock()
 	defer a.mongoInitMutex.Unlock()
 	if a.mongoInitialized {
-		logger.Debugf("mongo is already initialized")
+		logger.Debugf(ctx, "mongo is already initialized")
 		return nil
 	}
 	defer func() {
@@ -1085,7 +1091,7 @@ func (a *MachineAgent) ensureMongoServer(ctx stdcontext.Context, agentConfig age
 	if err := cmdutil.EnsureMongoServerInstalled(ctx, ensureServerParams); err != nil {
 		return err
 	}
-	logger.Debugf("mongodb service is installed")
+	logger.Debugf(ctx, "mongodb service is installed")
 	return nil
 }
 
@@ -1162,7 +1168,7 @@ func openStatePool(
 	if !m.CheckProvisioned(agentConfig.Nonce()) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
-		logger.Errorf("running machine %v agent on inappropriate instance", m)
+		logger.Errorf(context.TODO(), "running machine %v agent on inappropriate instance", m)
 		return nil, jworker.ErrTerminateAgent
 	}
 	return pool, nil
@@ -1210,7 +1216,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 
 	if stat, err := os.Lstat(fullLink); err == nil {
 		if stat.Mode()&os.ModeSymlink == 0 {
-			logger.Infof("skipping creating symlink %q as exsting path has a normal file", fullLink)
+			logger.Infof(context.TODO(), "skipping creating symlink %q as exsting path has a normal file", fullLink)
 			return nil
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {

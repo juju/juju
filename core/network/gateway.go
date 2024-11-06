@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"net"
 	"os/exec"
 	"runtime"
@@ -28,13 +29,13 @@ func GetDefaultRoute() (net.IP, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	logger.Tracef("ip route show output:\n%s", output)
+	logger.Tracef(context.TODO(), "ip route show output:\n%s", output)
 	var defaultRouteMetric = ^uint64(0)
 	var defaultRoute string
 	var defaultRouteDevice string
 	for _, line := range strings.Split(output, "\n") {
 		to, values := parseIpRouteShowLine(line)
-		logger.Tracef("parsing ip r s line to %q, values %+v ", to, values)
+		logger.Tracef(context.TODO(), "parsing ip r s line to %q, values %+v ", to, values)
 		if to == "default" {
 			var metric = uint64(0)
 			if v, ok := values["metric"]; ok {

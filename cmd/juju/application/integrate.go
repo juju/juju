@@ -312,7 +312,7 @@ To integrate with a new offer with the same name, first run
 'juju remove-saas %s --force' to remove the SAAS record from this model.`, saasName, saasName))
 		}
 	}
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }
 
 func (c *addRelationCommand) maybeConsumeOffer(ctx context.Context, targetClient applicationAddRelationAPI) error {

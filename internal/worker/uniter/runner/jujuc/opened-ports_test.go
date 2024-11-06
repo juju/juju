@@ -4,6 +4,7 @@
 package jujuc_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -100,10 +101,10 @@ func (s *OpenedPortsSuite) TestBadArgs(c *gc.C) {
 
 func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 	hctx := s.GetHookContext(c, -1, "")
-	hctx.OpenPortRange("", network.MustParsePortRange("80/tcp"))
-	hctx.OpenPortRange("foo", network.MustParsePortRange("10-20/tcp"))
-	hctx.OpenPortRange("bar", network.MustParsePortRange("63/udp"))
-	hctx.OpenPortRange("", network.MustParsePortRange("53-55/udp"))
+	hctx.OpenPortRange(context.Background(), "", network.MustParsePortRange("80/tcp"))
+	hctx.OpenPortRange(context.Background(), "foo", network.MustParsePortRange("10-20/tcp"))
+	hctx.OpenPortRange(context.Background(), "bar", network.MustParsePortRange("63/udp"))
+	hctx.OpenPortRange(context.Background(), "", network.MustParsePortRange("53-55/udp"))
 	return hctx
 }
 

@@ -4,6 +4,7 @@
 package errors
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,9 +16,9 @@ import (
 
 // sendError sends a JSON-encoded error response for errors encountered during
 // processing.
-func sendError(w http.ResponseWriter, errToSend error) error {
+func sendError(ctx context.Context, w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := ServerErrorAndStatus(errToSend)
-	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	logger.Debugf(ctx, "sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(SendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
 	}))

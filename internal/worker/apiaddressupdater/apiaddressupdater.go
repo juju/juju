@@ -94,10 +94,10 @@ func (c *APIAddressUpdater) Handle(ctx context.Context) error {
 
 	// Logging to identify lp: 1888453
 	if len(hps) == 0 {
-		c.config.Logger.Warningf("empty API host ports received. Updating using existing entries.")
+		c.config.Logger.Warningf(ctx, "empty API host ports received. Updating using existing entries.")
 	}
 
-	c.config.Logger.Debugf("updating API hostPorts to %+v", hps)
+	c.config.Logger.Debugf(ctx, "updating API hostPorts to %+v", hps)
 	c.mu.Lock()
 	// Protection case to possible help with lp: 1888453
 	if len(hps) != 0 {
@@ -151,7 +151,7 @@ func (c *APIAddressUpdater) getAddresses(ctx context.Context) ([]corenetwork.Pro
 
 	// Logging to identify lp: 1888453
 	if len(hpsToSet) == 0 {
-		c.config.Logger.Warningf("get address returning zero results after filtering, non filtered list: %v", addresses)
+		c.config.Logger.Warningf(ctx, "get address returning zero results after filtering, non filtered list: %v", addresses)
 	}
 
 	return hpsToSet, nil

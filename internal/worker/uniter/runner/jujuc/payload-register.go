@@ -89,7 +89,7 @@ func (c *PayloadRegisterCmd) Run(ctx *cmd.Context) error {
 		Labels: c.labels,
 		Unit:   "a-application/0", // TODO(ericsnow) eliminate this!
 	}
-	if err := c.ctx.TrackPayload(pl); err != nil {
+	if err := c.ctx.TrackPayload(ctx, pl); err != nil {
 		return errors.Trace(err)
 	}
 

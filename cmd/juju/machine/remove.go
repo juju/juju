@@ -193,7 +193,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	results, err := client.DestroyMachinesWithParams(ctx, c.Force, c.KeepInstance, false, maxWait, c.MachineIds...)
-	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+	if err := block.ProcessBlockedError(ctx, err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -211,7 +211,7 @@ func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI)
 		return errDryRunNotSupported
 	}
 	results, err := client.DestroyMachinesWithParams(ctx, c.Force, c.KeepInstance, true, nil, c.MachineIds...)
-	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+	if err := block.ProcessBlockedError(ctx, err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.logErrors(ctx, results); err != nil {

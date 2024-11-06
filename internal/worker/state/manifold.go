@@ -119,7 +119,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Work: w.loop,
 			}); err != nil {
 				if err := stTracker.Done(); err != nil {
-					logger.Warningf("error releasing state: %v", err)
+					logger.Warningf(ctx, "error releasing state: %v", err)
 				}
 				return nil, errors.Trace(err)
 			}

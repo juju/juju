@@ -58,7 +58,7 @@ func (s *workerSuite) TestPrune(c *gc.C) {
 
 	pruner := s.newPruner(c)
 
-	result, err := pruner.prune()
+	result, err := pruner.prune(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
@@ -82,7 +82,7 @@ func (s *workerSuite) TestPruneControllerNS(c *gc.C) {
 	s.truncateChangeLog(c, s.TxnRunner())
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.prune()
+	result, err := pruner.prune(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
@@ -113,7 +113,7 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	s.truncateChangeLog(c, s.TxnRunner())
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.prune()
+	result, err := pruner.prune(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
@@ -149,7 +149,7 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	s.truncateChangeLog(c, txnRunner)
 	s.insertChangeLogItems(c, txnRunner, 0, 6, now)
 
-	result, err := pruner.prune()
+	result, err := pruner.prune(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.

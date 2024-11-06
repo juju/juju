@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,8 +31,10 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/looputil"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -105,7 +108,7 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 	}
 	config := a.currentConfig.CurrentConfig()
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
-		logger.Warningf("cannot create log dir: %v", err)
+		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
@@ -188,7 +191,7 @@ func SafeModeMachineAgentFactoryFn(
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
-				Logger:        logger,
+				Logger:        internalworker.WrapLogger(logger),
 			}),
 			looputil.NewLoopDeviceManager(),
 			newDBWorkerFunc,
@@ -278,7 +281,7 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
+	createEngine := a.makeEngineCreator(ctx, agentName, agentConfig.UpgradedToVersion())
 	_ = a.runner.StartWorker("engine", createEngine)
 
 	// At this point, all workers will have been configured to start
@@ -286,11 +289,11 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrRebootMachine:
-		logger.Infof("Caught reboot error")
-		err = a.executeRebootOrShutdown(params.ShouldReboot)
+		logger.Infof(ctx, "Caught reboot error")
+		err = a.executeRebootOrShutdown(ctx, params.ShouldReboot)
 	case jworker.ErrShutdownMachine:
-		logger.Infof("Caught shutdown error")
-		err = a.executeRebootOrShutdown(params.ShouldShutdown)
+		logger.Infof(ctx, "Caught shutdown error")
+		err = a.executeRebootOrShutdown(ctx, params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
 }
@@ -306,12 +309,13 @@ func (a *SafeModeMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (a *SafeModeMachineAgent) makeEngineCreator(
+	ctx context.Context,
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
-			internallogger.GetLogger("juju.worker.dependency"),
+			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 		))
 		if err != nil {
 			return nil, err
@@ -336,7 +340,7 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
-				logger.Errorf("while stopping engine with bad manifolds: %v", err)
+				logger.Errorf(ctx, "while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
@@ -344,17 +348,17 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 	}
 }
 
-func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
+func (a *SafeModeMachineAgent) executeRebootOrShutdown(ctx context.Context, action params.RebootAction) error {
 	// block until all units/containers are ready, and reboot/shutdown
 	finalize, err := reboot.NewRebootWaiter(a.CurrentConfig())
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	logger.Infof("Reboot: Executing reboot")
+	logger.Infof(ctx, "Reboot: Executing reboot")
 	err = finalize.ExecuteReboot(action)
 	if err != nil {
-		logger.Infof("Reboot: Error executing reboot: %v", err)
+		logger.Infof(ctx, "Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
 	// We return ErrRebootMachine so the agent will simply exit without error

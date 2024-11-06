@@ -184,5 +184,5 @@ func (c *modelSetConstraintsCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 
 	err = client.SetModelConstraints(ctx, c.Constraints)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }

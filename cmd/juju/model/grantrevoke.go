@@ -263,7 +263,7 @@ func (c *grantCommand) runForController(ctx context.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.GrantController(ctx, c.User, c.Access), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.GrantController(ctx, c.User, c.Access), block.BlockChange)
 }
 
 func (c *grantCommand) runForModel(ctx context.Context) error {
@@ -277,7 +277,7 @@ func (c *grantCommand) runForModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.GrantModel(ctx, c.User, c.Access, models...), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.GrantModel(ctx, c.User, c.Access, models...), block.BlockChange)
 }
 
 func (c *grantCommand) runForOffers(ctx context.Context) error {
@@ -292,7 +292,7 @@ func (c *grantCommand) runForOffers(ctx context.Context) error {
 		urls[i] = url.String()
 	}
 	err = client.GrantOffer(ctx, c.User, c.Access, urls...)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }
 
 // NewRevokeCommand returns a new revoke command.
@@ -382,7 +382,7 @@ func (c *revokeCommand) runForController(ctx context.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.RevokeController(ctx, c.User, c.Access), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.RevokeController(ctx, c.User, c.Access), block.BlockChange)
 }
 
 func (c *revokeCommand) runForModel(ctx context.Context) error {
@@ -396,7 +396,7 @@ func (c *revokeCommand) runForModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.RevokeModel(ctx, c.User, c.Access, models...), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.RevokeModel(ctx, c.User, c.Access, models...), block.BlockChange)
 }
 
 type accountDetailsGetter interface {
@@ -435,5 +435,5 @@ func (c *revokeCommand) runForOffers(ctx context.Context) error {
 		urls[i] = url.String()
 	}
 	err = client.RevokeOffer(ctx, c.User, c.Access, urls...)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return block.ProcessBlockedError(ctx, err, block.BlockChange)
 }

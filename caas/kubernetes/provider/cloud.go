@@ -174,7 +174,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	}
 
 	if cld.SkipTLSVerify {
-		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", cld.Name)
+		logger.Warningf(ctx, "k8s cloud %v is configured to skip server certificate validity checks", cld.Name)
 	}
 
 	openParams, err := BaseKubeCloudOpenParams(cld, credentials)

@@ -18,7 +18,7 @@ func setAgentStatus(ctx stdcontext.Context, u *Uniter, agentStatus status.Status
 	}
 	u.lastReportedStatus = agentStatus
 	u.lastReportedMessage = info
-	u.logger.Debugf("[AGENT-STATUS] %s: %s", agentStatus, info)
+	u.logger.Debugf(ctx, "[AGENT-STATUS] %s: %s", agentStatus, info)
 	return u.unit.SetAgentStatus(ctx, agentStatus, info, data)
 }
 
@@ -29,9 +29,9 @@ func reportAgentError(ctx stdcontext.Context, u *Uniter, userMessage string, err
 	if err == nil {
 		return
 	}
-	u.logger.Errorf("%s: %v", userMessage, err)
+	u.logger.Errorf(ctx, "%s: %v", userMessage, err)
 	err2 := setAgentStatus(ctx, u, status.Failed, userMessage, nil)
 	if err2 != nil {
-		u.logger.Errorf("updating agent status: %v", err2)
+		u.logger.Errorf(ctx, "updating agent status: %v", err2)
 	}
 }

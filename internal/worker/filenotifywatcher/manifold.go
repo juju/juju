@@ -16,7 +16,7 @@ import (
 )
 
 // WatcherFn is a function that returns a new Watcher.
-type WatcherFn = func(string, ...Option) (FileWatcher, error)
+type WatcherFn = func(context.Context, string, ...Option) (FileWatcher, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.

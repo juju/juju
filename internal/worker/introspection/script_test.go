@@ -4,6 +4,7 @@
 package introspection
 
 import (
+	"context"
 	"os"
 	"runtime"
 
@@ -26,7 +27,7 @@ func (*profileSuite) TestNonLinux(c *gc.C) {
 	if runtime.GOOS == "linux" {
 		c.Skip("testing non-linux")
 	}
-	err := WriteProfileFunctions(ProfileDir)
+	err := WriteProfileFunctions(context.Background(), ProfileDir)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -35,7 +36,7 @@ func (s *profileSuite) TestLinux(c *gc.C) {
 		c.Skip("testing linux")
 	}
 	dir := c.MkDir()
-	err := WriteProfileFunctions(dir)
+	err := WriteProfileFunctions(context.Background(), dir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	content, err := os.ReadFile(profileFilename(dir))

@@ -122,7 +122,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 			return errors.Annotate(err, "failed to list controllers")
 		}
 	}
-	details, errs := c.convertControllerDetails(controllers)
+	details, errs := c.convertControllerDetails(ctx, controllers)
 	if len(errs) > 0 {
 		fmt.Fprintln(ctx.Stderr, strings.Join(errs, "\n"))
 	}

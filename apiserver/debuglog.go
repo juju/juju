@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -40,6 +41,7 @@ type debugLogHandler struct {
 }
 
 type debugLogHandlerFunc func(
+	context.Context,
 	clock.Clock,
 	time.Duration,
 	debugLogParams,
@@ -101,26 +103,28 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// Authentication and authorization has to be done after the http
 		// connection has been upgraded to a websocket.
 
+		ctx := req.Context()
+
 		authInfo, err := h.authenticator.Authenticate(req)
 		if err != nil {
-			socket.sendError(errors.Annotate(err, "authentication failed"))
+			socket.sendError(ctx, errors.Annotate(err, "authentication failed"))
 			return
 		}
-		if err := h.authorizer.Authorize(req.Context(), authInfo); err != nil {
-			socket.sendError(errors.Annotate(err, "authorization failed"))
+		if err := h.authorizer.Authorize(ctx, authInfo); err != nil {
+			socket.sendError(ctx, errors.Annotate(err, "authorization failed"))
 			return
 		}
 
-		st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
+		st, err := h.ctxt.stateForRequestUnauthenticated(ctx)
 		if err != nil {
-			socket.sendError(err)
+			socket.sendError(ctx, err)
 			return
 		}
 		defer st.Release()
 
 		params, err := readDebugLogParams(req.URL.Query())
 		if err != nil {
-			socket.sendError(err)
+			socket.sendError(ctx, err)
 			return
 		}
 
@@ -146,11 +150,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			return logtailer.NewLogTailer(modelUUID, logFile, p)
 		}
-		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
+		if err := h.handle(ctx, clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
 			if isBrokenPipe(err) {
-				logger.Tracef("debug-log handler stopped (client disconnected)")
+				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {
-				logger.Errorf("debug-log handler error: %v", err)
+				logger.Errorf(req.Context(), "debug-log handler error: %v", err)
 			}
 		}
 	}
@@ -172,10 +176,10 @@ func isBrokenPipe(err error) bool {
 // debuglog handlers to send logs to the client.
 type debugLogSocket interface {
 	// sendOk sends a nil error response, indicating there were no errors.
-	sendOk()
+	sendOk(ctx context.Context)
 
 	// sendError sends a JSON-encoded error response.
-	sendError(err error)
+	sendError(ctx context.Context, err error)
 
 	// sendLogRecord sends record JSON encoded.
 	sendLogRecord(record *params.LogMessage, version int) error
@@ -189,14 +193,14 @@ type debugLogSocketImpl struct {
 }
 
 // sendOk implements debugLogSocket.
-func (s *debugLogSocketImpl) sendOk() {
-	s.sendError(nil)
+func (s *debugLogSocketImpl) sendOk(ctx context.Context) {
+	s.sendError(ctx, nil)
 }
 
 // sendError implements debugLogSocket.
-func (s *debugLogSocketImpl) sendError(err error) {
+func (s *debugLogSocketImpl) sendError(ctx context.Context, err error) {
 	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf("closing websocket, %v", err)
+		logger.Errorf(ctx, "closing websocket, %v", err)
 		s.conn.Close()
 		return
 	}

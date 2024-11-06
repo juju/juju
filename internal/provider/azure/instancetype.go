@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"regexp"
 	"strconv"
 	"strings"
@@ -477,7 +478,7 @@ func newInstanceType(size armcompute.VirtualMachineSize) instances.InstanceType 
 	// Anything not in the list is more expensive that is in the list.
 	if !found {
 		if !isPromo && instType != "Basic" {
-			logger.Debugf("got VM for which we don't have relative cost data: %q", sizeName)
+			logger.Debugf(context.TODO(), "got VM for which we don't have relative cost data: %q", sizeName)
 		}
 		cost = 100 * len(machineSizeCost)
 	}

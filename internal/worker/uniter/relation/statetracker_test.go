@@ -169,7 +169,7 @@ func (s *stateTrackerSuite) TestPrepareHook(c *gc.C) {
 		Kind:       hooks.RelationJoined,
 		RelationId: 1,
 	}
-	hookString, err := rst.PrepareHook(info)
+	hookString, err := rst.PrepareHook(stdcontext.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hookString, gc.Equals, "testing")
 }
@@ -187,7 +187,7 @@ func (s *stateTrackerSuite) TestPrepareHookNotFound(c *gc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	_, err = rst.PrepareHook(info)
+	_, err = rst.PrepareHook(stdcontext.Background(), info)
 	c.Assert(err, gc.ErrorMatches, "operation already executed")
 }
 
@@ -204,7 +204,7 @@ func (s *stateTrackerSuite) TestPrepareHookOnlyRelationHooks(c *gc.C) {
 		Kind:       hooks.PebbleCustomNotice,
 		RelationId: 1,
 	}
-	_, err = rst.PrepareHook(info)
+	_, err = rst.PrepareHook(stdcontext.Background(), info)
 	c.Assert(err, gc.ErrorMatches, "not a relation hook.*")
 }
 
@@ -608,7 +608,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *gc.C) {
 
 // Relationer
 func (s *baseStateTrackerSuite) expectRelationerPrepareHook() {
-	s.relationer.EXPECT().PrepareHook(gomock.Any()).Return("testing", nil)
+	s.relationer.EXPECT().PrepareHook(gomock.Any(), gomock.Any()).Return("testing", nil)
 }
 
 func (s *baseStateTrackerSuite) expectRelationerCommitHook() {

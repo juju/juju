@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -23,6 +24,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	message "github.com/juju/juju/internal/pubsub/agent"
 	jt "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
@@ -46,7 +48,7 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	logger := loggertesting.WrapCheckLog(c).Child("nested-context")
 	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: logger,
+		Logger: internalpubsub.WrapLogger(logger),
 	})
 	datadir := c.MkDir()
 	machine := names.NewMachineTag("42")
@@ -148,7 +150,7 @@ func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *gc.C) {
 }
 
 func (s *NestedContextSuite) newContext(c *gc.C) deployer.Context {
-	context, err := deployer.NewNestedContext(s.config)
+	context, err := deployer.NewNestedContext(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, context) })
 	s.InitializeCurrentToolsDir(c, s.agent.DataDir())
@@ -170,7 +172,7 @@ func (s *NestedContextSuite) TestContextStops(c *gc.C) {
 func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
 	ctx := s.newContext(c)
 	unitName := "something/0"
-	err := ctx.DeployUnit(unitName, "password")
+	err := ctx.DeployUnit(context.Background(), unitName, "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for unit to start.
@@ -191,13 +193,13 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	tag := names.NewUnitTag(unitName)
 	s.config.RebootMonitorStatePurger = &fakeRebootMonitor{c: c, tag: tag}
 	ctx := s.newContext(c)
-	err := ctx.DeployUnit(unitName, "password")
+	err := ctx.DeployUnit(context.Background(), unitName, "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for unit to start.
 	s.workers.waitForStart(c, unitName)
 
-	err = ctx.RecallUnit(unitName)
+	err = ctx.RecallUnit(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit agent dir no longer exists.
@@ -208,7 +210,7 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.HasLen, 0)
 
 	// Recall is idempotent.
-	err = ctx.RecallUnit(unitName)
+	err = ctx.RecallUnit(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -220,7 +222,7 @@ func (s *NestedContextSuite) errTerminateAgentFromAgentWorker(c *gc.C) deployer.
 	s.workers.workerError = jworker.ErrTerminateAgent
 	ctx := s.newContext(c)
 	unitName := "something/0"
-	err := ctx.DeployUnit(unitName, "password")
+	err := ctx.DeployUnit(context.Background(), unitName, "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for unit to start.
@@ -400,7 +402,7 @@ func (s *NestedContextSuite) waitForEventHandled(c *gc.C, handled <-chan struct{
 func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {
 	// Units are conveniently in alphabetical order.
 	for _, unitName := range []string{"first/0", "second/0", "third/0"} {
-		err := ctx.DeployUnit(unitName, "password")
+		err := ctx.DeployUnit(context.Background(), unitName, "password")
 		c.Assert(err, jc.ErrorIsNil)
 		// Wait for unit to start.
 		s.workers.waitForStart(c, unitName)

@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -159,7 +160,7 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 		Resources: res,
 	}
 
-	logger.Debugf("running deployment to create managed identity role assignment %s", identityName)
+	logger.Debugf(context.TODO(), "running deployment to create managed identity role assignment %s", identityName)
 	if err := env.createSubscriptionDeployment(
 		callCtx,
 		env.location,
@@ -170,7 +171,7 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 		// First cancel any in-progress deployment.
 		var wg sync.WaitGroup
 		var cancelResult error
-		logger.Debugf("canceling deployment for managed identity")
+		logger.Debugf(context.TODO(), "canceling deployment for managed identity")
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
@@ -186,7 +187,7 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 
 		// Then cleanup the resource group.
 		if err := env.Destroy(callCtx); err != nil {
-			logger.Errorf("failed to destroy controller: %v", err)
+			logger.Errorf(context.TODO(), "failed to destroy controller: %v", err)
 		}
 		return nil, errors.Trace(err)
 	}

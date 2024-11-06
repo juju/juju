@@ -233,18 +233,18 @@ func (c *MockRelationerJoinCall) DoAndReturn(f func(context.Context) error) *Moc
 }
 
 // PrepareHook mocks base method.
-func (m *MockRelationer) PrepareHook(arg0 hook.Info) (string, error) {
+func (m *MockRelationer) PrepareHook(arg0 context.Context, arg1 hook.Info) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareHook", arg0)
+	ret := m.ctrl.Call(m, "PrepareHook", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareHook indicates an expected call of PrepareHook.
-func (mr *MockRelationerMockRecorder) PrepareHook(arg0 any) *MockRelationerPrepareHookCall {
+func (mr *MockRelationerMockRecorder) PrepareHook(arg0, arg1 any) *MockRelationerPrepareHookCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockRelationer)(nil).PrepareHook), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockRelationer)(nil).PrepareHook), arg0, arg1)
 	return &MockRelationerPrepareHookCall{Call: call}
 }
 
@@ -260,13 +260,13 @@ func (c *MockRelationerPrepareHookCall) Return(arg0 string, arg1 error) *MockRel
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationerPrepareHookCall) Do(f func(hook.Info) (string, error)) *MockRelationerPrepareHookCall {
+func (c *MockRelationerPrepareHookCall) Do(f func(context.Context, hook.Info) (string, error)) *MockRelationerPrepareHookCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationerPrepareHookCall) DoAndReturn(f func(hook.Info) (string, error)) *MockRelationerPrepareHookCall {
+func (c *MockRelationerPrepareHookCall) DoAndReturn(f func(context.Context, hook.Info) (string, error)) *MockRelationerPrepareHookCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

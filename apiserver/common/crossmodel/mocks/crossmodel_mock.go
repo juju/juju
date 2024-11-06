@@ -128,17 +128,17 @@ func (c *MockOfferBakeryInterfaceGetConsumeOfferCaveatsCall) DoAndReturn(f func(
 }
 
 // InferDeclaredFromMacaroon mocks base method.
-func (m *MockOfferBakeryInterface) InferDeclaredFromMacaroon(arg0 macaroon.Slice, arg1 map[string]string) map[string]string {
+func (m *MockOfferBakeryInterface) InferDeclaredFromMacaroon(arg0 context.Context, arg1 macaroon.Slice, arg2 map[string]string) map[string]string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InferDeclaredFromMacaroon", arg0, arg1)
+	ret := m.ctrl.Call(m, "InferDeclaredFromMacaroon", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
 // InferDeclaredFromMacaroon indicates an expected call of InferDeclaredFromMacaroon.
-func (mr *MockOfferBakeryInterfaceMockRecorder) InferDeclaredFromMacaroon(arg0, arg1 any) *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall {
+func (mr *MockOfferBakeryInterfaceMockRecorder) InferDeclaredFromMacaroon(arg0, arg1, arg2 any) *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InferDeclaredFromMacaroon", reflect.TypeOf((*MockOfferBakeryInterface)(nil).InferDeclaredFromMacaroon), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InferDeclaredFromMacaroon", reflect.TypeOf((*MockOfferBakeryInterface)(nil).InferDeclaredFromMacaroon), arg0, arg1, arg2)
 	return &MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall{Call: call}
 }
 
@@ -154,13 +154,13 @@ func (c *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall) Return(arg0 map[
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall) Do(f func(macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall {
+func (c *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall) Do(f func(context.Context, macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall) DoAndReturn(f func(macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall {
+func (c *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall) DoAndReturn(f func(context.Context, macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInterfaceInferDeclaredFromMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

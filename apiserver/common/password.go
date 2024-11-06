@@ -55,14 +55,14 @@ func (pc *PasswordChanger) SetPasswords(ctx context.Context, args params.EntityP
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if err := pc.setPassword(tag, param.Password); err != nil {
+		if err := pc.setPassword(ctx, tag, param.Password); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
 }
 
-func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string) error {
+func (pc *PasswordChanger) setMongoPassword(ctx context.Context, entity state.Entity, password string) error {
 	type mongoPassworder interface {
 		SetMongoPassword(password string) error
 	}
@@ -74,14 +74,14 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 		if err := entity0.SetMongoPassword(password); err != nil {
 			return err
 		}
-		logger.Infof("setting mongo password for %q", entity.Tag())
+		logger.Infof(ctx, "setting mongo password for %q", entity.Tag())
 		return nil
 	}
 	// TODO(dfc) fix
 	return apiservererrors.NotSupportedError(entity.Tag(), "mongo access")
 }
 
-func (pc *PasswordChanger) setPassword(tag names.Tag, password string) error {
+func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, password string) error {
 	type isManager interface {
 		IsManager() bool
 	}
@@ -95,11 +95,11 @@ func (pc *PasswordChanger) setPassword(tag names.Tag, password string) error {
 		return apiservererrors.NotSupportedError(tag, "authentication")
 	}
 	if entity, ok := entity0.(isManager); ok && entity.IsManager() {
-		err = pc.setMongoPassword(entity0, password)
+		err = pc.setMongoPassword(ctx, entity0, password)
 	}
 	if err == nil {
 		err = entity.SetPassword(password)
-		logger.Infof("setting password for %q", tag)
+		logger.Infof(ctx, "setting password for %q", tag)
 	}
 	return err
 }

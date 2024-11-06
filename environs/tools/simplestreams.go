@@ -102,7 +102,7 @@ func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
 	for _, release := range tc.Releases {
 		if !ostype.IsValidOSTypeName(release) {
-			logger.Debugf("ignoring unknown os type %q", release)
+			logger.Debugf(context.TODO(), "ignoring unknown os type %q", release)
 			continue
 		}
 		ids := make([]string, len(tc.Arches))
@@ -293,7 +293,7 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		if err != nil {
 			return errors.Annotate(err, "cannot resolve metadata")
 		}
-		logger.Infof("Fetching agent binaries from dir %q to generate hash: %v", toolsDir, binary)
+		logger.Infof(context.TODO(), "Fetching agent binaries from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, md.Path)
 		if err != nil {
 			return err
@@ -454,7 +454,7 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 				return err
 			}
 			if unchanged {
-				logger.Infof("Metadata for stream %q unchanged", stream)
+				logger.Infof(context.TODO(), "Metadata for stream %q unchanged", stream)
 				continue
 			}
 			// Metadata is different, so include it.
@@ -487,7 +487,7 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 var writeMetadataFiles = func(stor storage.Storage, metadataInfo []MetadataFile) error {
 	for _, md := range metadataInfo {
 		filePath := path.Join(storage.BaseToolsPath, md.Path)
-		logger.Infof("Writing %s", filePath)
+		logger.Infof(context.TODO(), "Writing %s", filePath)
 		err := stor.Put(filePath, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err

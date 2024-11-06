@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -219,7 +220,7 @@ func (s *deployerSuite) waitFor(c *gc.C, t func(c *gc.C) bool) {
 func isDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
 	return func(c *gc.C) bool {
 		sort.Strings(expected)
-		current, err := ctx.DeployedUnits()
+		current, err := ctx.DeployedUnits(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		sort.Strings(current)
 		return strings.Join(expected, ":") == strings.Join(current, ":")
@@ -228,7 +229,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
 
 func isNotDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
 	return func(c *gc.C) bool {
-		current, err := ctx.DeployedUnits()
+		current, err := ctx.DeployedUnits(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		return set.NewStrings(current...).Intersection(set.NewStrings(expected...)).IsEmpty()
 	}
@@ -254,7 +255,7 @@ func (c *fakeContext) Wait() error {
 	return nil
 }
 
-func (c *fakeContext) DeployUnit(unitName, initialPassword string) error {
+func (c *fakeContext) DeployUnit(ctx context.Context, unitName, initialPassword string) error {
 	c.deployedMu.Lock()
 	defer c.deployedMu.Unlock()
 
@@ -263,7 +264,7 @@ func (c *fakeContext) DeployUnit(unitName, initialPassword string) error {
 	return nil
 }
 
-func (c *fakeContext) RecallUnit(unitName string) error {
+func (c *fakeContext) RecallUnit(ctx context.Context, unitName string) error {
 	c.deployedMu.Lock()
 	defer c.deployedMu.Unlock()
 
@@ -271,7 +272,7 @@ func (c *fakeContext) RecallUnit(unitName string) error {
 	return nil
 }
 
-func (c *fakeContext) DeployedUnits() ([]string, error) {
+func (c *fakeContext) DeployedUnits(ctx context.Context) ([]string, error) {
 	c.deployedMu.Lock()
 	defer c.deployedMu.Unlock()
 

@@ -4,6 +4,7 @@
 package run
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -214,7 +215,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	if c.noContext {
 		result, err = c.executeNoContext()
 	} else {
-		result, err = c.executeInUnitContext()
+		result, err = c.executeInUnitContext(ctx)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -230,9 +231,9 @@ func (c *RunCommand) getSocket() (sockets.Socket, error) {
 	return paths.Runtime.LocalJujuExecSocket.Client, nil
 }
 
-func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
+func (c *RunCommand) executeInUnitContext(ctx context.Context) (*exec.ExecResponse, error) {
 	unitDir := agent.Dir(config.DataDir, c.unit)
-	logger.Debugf("looking for unit dir %s", unitDir)
+	logger.Debugf(ctx, "looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {

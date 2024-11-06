@@ -145,7 +145,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
 func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) corelogger.LogWriterForModelFunc {
-	return func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
+	return func(ctx context.Context, modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
 		if !names.IsValidModel(modelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
@@ -160,7 +160,7 @@ func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, l
 			MaxBackups: maxBackups,
 			Compress:   true,
 		}
-		debugLogger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		debugLogger.Debugf(ctx, "created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		modelFileLogger := &logWriter{WriteCloser: ljLogger}
 		return modelFileLogger, nil

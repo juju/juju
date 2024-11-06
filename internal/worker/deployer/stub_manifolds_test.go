@@ -29,7 +29,7 @@ func (s *unitWorkersStub) Manifold(unitName string) dependency.Manifold {
 			if s.startError != nil {
 				return nil, s.startError
 			}
-			s.logger.Infof("manifold start called for %q", unitName)
+			s.logger.Infof(ctx, "manifold start called for %q", unitName)
 			w := &unitWorker{
 				logger:  s.logger,
 				stop:    make(chan struct{}),
@@ -79,12 +79,12 @@ type unitWorker struct {
 }
 
 func (w *unitWorker) start() {
-	w.logger.Infof("%q start", w.name)
+	w.logger.Infof(context.Background(), "%q start", w.name)
 	w.started <- w.name
 }
 
 func (w *unitWorker) Kill() {
-	w.logger.Infof("%q kill", w.name)
+	w.logger.Infof(context.Background(), "%q kill", w.name)
 	select {
 	case <-w.stop:
 	default:

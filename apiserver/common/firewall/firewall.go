@@ -4,6 +4,8 @@
 package firewall
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -20,13 +22,13 @@ var logger = internallogger.GetLogger("juju.apiserver.crossmodelrelations")
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func WatchEgressAddressesForRelations(resources facade.Resources, st State, modelConfigService ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
+func WatchEgressAddressesForRelations(ctx context.Context, resources facade.Resources, st State, modelConfigService ModelConfigService, relations params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		make([]params.StringsWatchResult, len(relations.Entities)),
 	}
 
 	one := func(tag string) (id string, changes []string, _ error) {
-		logger.Debugf("Watching egress addresses for %+v", tag)
+		logger.Debugf(ctx, "Watching egress addresses for %+v", tag)
 
 		relationTag, err := names.ParseRelationTag(tag)
 		if err != nil {
@@ -49,7 +51,7 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, mode
 		//filter := func(id interface{}) bool {
 		//	include, err := includeAsIngressSubnet(id.(string))
 		//	if err != nil {
-		//		logger.Warningf("invalid CIDR %q", id)
+		//		logger.Warningf(ctx, "invalid CIDR %q", id)
 		//	}
 		//	return include
 		//}

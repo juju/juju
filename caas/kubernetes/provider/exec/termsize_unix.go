@@ -6,6 +6,7 @@
 package exec
 
 import (
+	"context"
 	"os"
 	"os/signal"
 
@@ -38,7 +39,7 @@ func (g *getSize) Get(fd int) *remotecommand.TerminalSize {
 	size, err := getTermSize(fd)
 	if err != nil {
 		// Ignores error and return nil size.
-		logger.Debugf("unable to get terminal size: %v", err)
+		logger.Debugf(context.TODO(), "unable to get terminal size: %v", err)
 	}
 	return size
 }

@@ -93,6 +93,8 @@ func NewK8sClientConfig(
 	contextName, clusterName string,
 	credentialResolver K8sCredentialResolver,
 ) (*ClientConfig, error) {
+	ctx := context.TODO()
+
 	contexts, err := contextsFromConfig(config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config")
@@ -108,7 +110,7 @@ func NewK8sClientConfig(
 		}
 	} else if contextName != "" {
 		context = contexts[contextName]
-		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
+		logger.Debugf(ctx, "no cluster name specified, so use current context %q", config.CurrentContext)
 	}
 
 	if contextName == "" || context.isEmpty() {
@@ -132,7 +134,7 @@ func NewK8sClientConfig(
 			return nil, errors.Annotatef(err, "ensuring k8s credential %q with RBAC setup", credentialUID)
 		}
 	}
-	logger.Debugf("get credentials from kubeconfig")
+	logger.Debugf(ctx, "get credentials from kubeconfig")
 	credential, err := k8scloud.CredentialFromKubeConfig(context.CredentialName, config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
@@ -247,6 +249,6 @@ func GetKubeConfigPath() string {
 		}
 		return configPath
 	}
-	logger.Debugf("The kubeconfig file path is %s", envFiles[0])
+	logger.Debugf(context.TODO(), "The kubeconfig file path is %s", envFiles[0])
 	return envFiles[0]
 }

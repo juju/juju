@@ -4,7 +4,8 @@
 package uniter_test
 
 import (
-	"github.com/juju/loggo/v2"
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/lxdprofile"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -48,8 +50,9 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDP
 	}
 
 	api := uniter.NewLXDProfileAPI(
+		context.Background(),
 		mockBackend, resources, authorizer, unitAuthFunc,
-		loggo.GetLogger("juju.apiserver.facades.agent.uniter"),
+		internallogger.GetLogger("juju.apiserver.facades.agent.uniter"),
 	)
 	return api, ctrl, mockBackend
 }
@@ -79,7 +82,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 		},
 		ApplicationName: "foo-bar",
 	}
-	watches, err := api.WatchLXDProfileUpgradeNotifications(args)
+	watches, err := api.WatchLXDProfileUpgradeNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -110,7 +113,7 @@ func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
 			{Tag: names.NewMachineTag("2").String()},
 		},
 	}
-	watches, err := api.WatchUnitLXDProfileUpgradeNotifications(args)
+	watches, err := api.WatchUnitLXDProfileUpgradeNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{

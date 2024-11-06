@@ -816,7 +816,7 @@ func (s *MachineLegacySuite) assertAgentOpensState(
 		}).AnyTimes().Return(&exec.ExecResponse{Code: 0}, nil)
 	}
 
-	logger.Debugf("new agent %#v", a)
+	logger.Debugf(context.Background(), "new agent %#v", a)
 
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJob.

@@ -107,7 +107,7 @@ func (c *scaleApplicationCommand) Run(ctx *cmd.Context) error {
 		Scale:           c.scale,
 	})
 	if err != nil {
-		return block.ProcessBlockedError(errors.Annotatef(err, "could not scale application %q", c.applicationName), block.BlockChange)
+		return block.ProcessBlockedError(ctx, errors.Annotatef(err, "could not scale application %q", c.applicationName), block.BlockChange)
 
 	}
 	if err := result.Error; err != nil {

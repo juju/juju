@@ -318,7 +318,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		err = errors.Annotate(err, "cannot destroy model")
 
 		if params.IsCodeOperationBlocked(err) {
-			return block.ProcessBlockedError(err, block.BlockDestroy)
+			return block.ProcessBlockedError(ctx, err, block.BlockDestroy)
 		}
 		if params.IsCodeHasPersistentStorage(err) {
 			modelStatus, err := getModelStatus(ctx, modelTag, api)
@@ -329,7 +329,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			persistentVolumes, persistentFilesystems := countDetachableStorage(modelStatus)
 			return generatePersistentStorageErrorMsg(modelName, persistentVolumes, persistentFilesystems)
 		}
-		logger.Errorf(`failed to destroy model %q`, modelName)
+		logger.Errorf(ctx, `failed to destroy model %q`, modelName)
 		return err
 	}
 

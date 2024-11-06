@@ -141,12 +141,12 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		// If it is not, we assume that it will be removed from the
 		// instance-poller worker subsequently.
 		if machine.Life() != state.Alive {
-			a.logger.Debugf("machine %q is not alive; skipping provider network config update", machine.Id())
+			a.logger.Debugf(ctx, "machine %q is not alive; skipping provider network config update", machine.Id())
 			continue
 		}
 
 		configs := arg.Configs
-		a.logger.Tracef("provider network config for machine %q: %+v", machine.Id(), configs)
+		a.logger.Tracef(ctx, "provider network config for machine %q: %+v", machine.Id(), configs)
 
 		newProviderAddrs, err := mapNetworkConfigsToProviderAddresses(configs, spaceInfos)
 		if err != nil {
@@ -171,8 +171,8 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
-		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
-			a.logger.Errorf(
+		if err := a.mergeLinkLayer(ctx, machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
+			a.logger.Errorf(ctx,
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
@@ -198,8 +198,8 @@ func maybeUpdateMachineProviderAddresses(
 	return true, m.SetProviderAddresses(controllerConfig, newSpaceAddrs...)
 }
 
-func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.InterfaceInfos) error {
-	return errors.Trace(a.st.ApplyOperation(newMergeMachineLinkLayerOp(m, devs, a.logger)))
+func (a *InstancePollerAPI) mergeLinkLayer(ctx context.Context, m StateMachine, devs network.InterfaceInfos) error {
+	return errors.Trace(a.st.ApplyOperation(newMergeMachineLinkLayerOp(ctx, m, devs, a.logger)))
 }
 
 // mapNetworkConfigsToProviderAddresses iterates the list of incoming network

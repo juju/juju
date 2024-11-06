@@ -22,8 +22,9 @@ import (
 )
 
 type NetworkInfo interface {
-	ProcessAPIRequest(params.NetworkInfoParams) (params.NetworkInfoResults, error)
+	ProcessAPIRequest(context.Context, params.NetworkInfoParams) (params.NetworkInfoResults, error)
 	NetworksForRelation(
+		ctx context.Context,
 		binding string, rel *state.Relation,
 	) (boundSpace string, ingress network.SpaceAddresses, egress []string, err error)
 }
@@ -189,6 +190,7 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 // The unit public address is preferred, but if directed we fall back to the
 // private address if it does not become available in the polling window.
 func (n *NetworkInfoBase) maybeGetUnitAddress(
+	ctx context.Context,
 	rel *state.Relation, fallbackPrivate bool,
 ) (network.SpaceAddresses, error) {
 	_, crossModel, err := rel.RemoteApplication()
@@ -201,7 +203,7 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 
 	address, err := n.pollForAddress(n.unit.PublicAddress)
 	if err != nil {
-		n.logger.Warningf("no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
+		n.logger.Warningf(ctx, "no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return network.SpaceAddresses{address}, nil
 	}
@@ -210,10 +212,10 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 		return nil, nil
 	}
 
-	n.logger.Warningf("attempting fallback to private address")
+	n.logger.Warningf(ctx, "attempting fallback to private address")
 	address, err = n.pollForAddress(n.unit.PrivateAddress)
 	if err != nil {
-		n.logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
+		n.logger.Warningf(ctx, "no private address for unit %q in relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return network.SpaceAddresses{address}, nil
 	}
@@ -251,13 +253,13 @@ func (n *NetworkInfoBase) getEgressForRelation(
 
 // resolveResultInfoHostNames returns a new NetworkInfoResult with host names
 // in the `Info` member resolved to IP addresses where possible.
-func (n *NetworkInfoBase) resolveResultInfoHostNames(netInfo params.NetworkInfoResult) params.NetworkInfoResult {
+func (n *NetworkInfoBase) resolveResultInfoHostNames(ctx context.Context, netInfo params.NetworkInfoResult) params.NetworkInfoResult {
 	for i, info := range netInfo.Info {
 		for j, addr := range info.Addresses {
 			if ip := net.ParseIP(addr.Address); ip == nil {
 				// If the address is not an IP, we assume it is a host name.
 				addr.Hostname = addr.Address
-				addr.Address = n.resolveHostAddress(addr.Hostname)
+				addr.Address = n.resolveHostAddress(ctx, addr.Hostname)
 				netInfo.Info[i].Addresses[j] = addr
 			}
 		}
@@ -265,10 +267,10 @@ func (n *NetworkInfoBase) resolveResultInfoHostNames(netInfo params.NetworkInfoR
 	return netInfo
 }
 
-func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
+func (n *NetworkInfoBase) resolveHostAddress(ctx context.Context, hostName string) string {
 	resolved, err := n.lookupHost(hostName)
 	if err != nil {
-		n.logger.Errorf("resolving %q: %v", hostName, err)
+		n.logger.Errorf(ctx, "resolving %q: %v", hostName, err)
 		return ""
 	}
 
@@ -283,11 +285,11 @@ func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 	}
 
 	if len(resolved) == 0 {
-		n.logger.Warningf("no addresses resolved for host %q", hostName)
+		n.logger.Warningf(ctx, "no addresses resolved for host %q", hostName)
 	} else {
 		// If we got results, but they were all filtered out, then we need to
 		// help out operators with some advice.
-		n.logger.Warningf(
+		n.logger.Warningf(ctx,
 			"no usable addresses resolved for host %q\n\t"+
 				"resolved: %v\n\t"+
 				"consider editing the hosts file, or changing host resolution order via /etc/nsswitch.conf",

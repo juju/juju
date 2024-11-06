@@ -62,10 +62,10 @@ func doWork(ctx context.Context, listf ListBlockDevicesFunc, b BlockDeviceSetter
 		sort.Strings(blockDevice.DeviceLinks)
 	}
 	if reflect.DeepEqual(blockDevices, *old) {
-		logger.Tracef("no changes to block devices detected")
+		logger.Tracef(ctx, "no changes to block devices detected")
 		return nil
 	}
-	logger.Tracef("block devices changed: %#v", blockDevices)
+	logger.Tracef(ctx, "block devices changed: %#v", blockDevices)
 	if err := b.SetMachineBlockDevices(ctx, blockDevices); err != nil {
 		return err
 	}

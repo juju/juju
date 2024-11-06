@@ -145,7 +145,7 @@ func (c *grantCloudCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.GrantCloud(ctx, c.User, c.Access, c.Clouds...), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.GrantCloud(ctx, c.User, c.Access, c.Clouds...), block.BlockChange)
 }
 
 // NewRevokeCloudCommand returns a new revoke command.
@@ -198,5 +198,5 @@ func (c *revokeCloudCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.RevokeCloud(ctx, c.User, c.Access, c.Clouds...), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.RevokeCloud(ctx, c.User, c.Access, c.Clouds...), block.BlockChange)
 }

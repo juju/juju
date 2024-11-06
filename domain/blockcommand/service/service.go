@@ -68,7 +68,7 @@ func (s *Service) SwitchBlockOn(ctx context.Context, t blockcommand.BlockType, m
 	}
 
 	if err := s.st.SetBlock(ctx, t, message); internalerrors.Is(err, blockcommanderrors.AlreadyExists) {
-		s.logger.Debugf("block already exists for type %q", t)
+		s.logger.Debugf(ctx, "block already exists for type %q", t)
 		return nil
 	} else if err != nil {
 		return err

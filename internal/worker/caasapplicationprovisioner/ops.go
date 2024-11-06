@@ -156,7 +156,7 @@ type Tomb interface {
 func appAlive(ctx context.Context, appName string, app caas.Application,
 	password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger logger.Logger) error {
-	logger.Debugf("ensuring application %q exists", appName)
+	logger.Debugf(ctx, "ensuring application %q exists", appName)
 
 	provisionInfo, err := facade.ProvisioningInfo(ctx, appName)
 	if err != nil {
@@ -266,7 +266,7 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 			reason = "updated"
 		}
 	}
-	logger.Debugf("application %q was %q", appName, reason)
+	logger.Debugf(ctx, "application %q was %q", appName, reason)
 	return nil
 }
 
@@ -278,7 +278,7 @@ func appDying(
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
 	logger logger.Logger,
 ) (err error) {
-	logger.Debugf("application %q dying", appName)
+	logger.Debugf(ctx, "application %q dying", appName)
 	err = ensureScale(ctx, appName, app, appLife, facade, unitFacade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
@@ -298,7 +298,7 @@ func appDead(
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	logger.Debugf("application %q dead", appName)
+	logger.Debugf(ctx, "application %q dead", appName)
 	err := app.Delete()
 	if err != nil {
 		return errors.Trace(err)
@@ -328,7 +328,7 @@ func checkCharmFormat(
 ) (isOk bool, err error) {
 	charmInfo, err := facade.ApplicationCharmInfo(ctx, appName)
 	if errors.Is(err, errors.NotFound) {
-		logger.Debugf("application %q no longer exists", appName)
+		logger.Debugf(ctx, "application %q no longer exists", appName)
 		return false, nil
 	} else if err != nil {
 		return false, errors.Annotatef(err, "failed to get charm info for application %q", appName)
@@ -353,7 +353,7 @@ func ensureTrust(
 		return errors.Annotatef(err, "fetching application %q desired trust", appName)
 	}
 
-	logger.Debugf("updating application %q trust to %v", appName, desiredTrust)
+	logger.Debugf(ctx, "updating application %q trust to %v", appName, desiredTrust)
 	err = app.Trust(desiredTrust)
 	if err != nil {
 		return errors.Annotatef(
@@ -470,7 +470,7 @@ func updateState(
 		if !errors.Is(err, errors.Forbidden) && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
-		logger.Warningf("update units %v", err)
+		logger.Warningf(ctx, "update units %v", err)
 	}
 
 	if appUnitInfo != nil {
@@ -605,7 +605,7 @@ func reconcileDeadUnitScale(
 		return nil
 	}
 
-	logger.Infof("scaling application %q to desired scale %d", appName, desiredScale)
+	logger.Infof(ctx, "scaling application %q to desired scale %d", appName, desiredScale)
 	if err := app.Scale(desiredScale); err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
@@ -625,7 +625,7 @@ func reconcileDeadUnitScale(
 	}
 
 	for _, deadUnit := range deadUnits {
-		logger.Infof("removing dead unit %s", deadUnit.Tag.Id())
+		logger.Infof(ctx, "removing dead unit %s", deadUnit.Tag.Id())
 		if err := facade.RemoveUnit(ctx, deadUnit.Tag.Id()); err != nil && !errors.Is(err, errors.NotFound) {
 			return fmt.Errorf("removing dead unit %q: %w", deadUnit.Tag.Id(), err)
 		}
@@ -661,7 +661,7 @@ func ensureScale(
 		return errors.Trace(err)
 	}
 
-	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
+	logger.Debugf(ctx, "updating application %q scale to %d", appName, desiredScale)
 	if !ps.Scaling || appLife != life.Alive {
 		err := updateProvisioningState(ctx, appName, true, desiredScale, facade)
 		if err != nil {
@@ -676,10 +676,10 @@ func ensureScale(
 		return err
 	}
 	if ps.ScaleTarget >= len(units) {
-		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
+		logger.Infof(ctx, "scaling application %q to desired scale %d", appName, ps.ScaleTarget)
 		err = app.Scale(ps.ScaleTarget)
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
-			logger.Infof("dying application %q is already removed from k8s", appName)
+			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
 		} else if err != nil {
 			return err
 		}
@@ -703,7 +703,7 @@ func ensureScale(
 	if ps.ScaleTarget != desiredScale {
 		// if the current scale target doesn't equal the desired scale
 		// we need to rerun this.
-		logger.Debugf("application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
+		logger.Debugf(ctx, "application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
 		return tryAgain
 	}
 
@@ -716,7 +716,7 @@ func setApplicationStatus(
 	facade CAASProvisionerFacade,
 	logger logger.Logger,
 ) error {
-	logger.Tracef("updating application %q status to %q, %q, %v", appName, s, reason, data)
+	logger.Tracef(ctx, "updating application %q status to %q, %q, %v", appName, s, reason, data)
 	return facade.SetOperatorStatus(ctx, appName, s, reason, data)
 }
 

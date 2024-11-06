@@ -62,7 +62,7 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 		SHA256:  agentTools.SHA256,
 	}
 
-	logger.Debugf("Adding agent binary: %v", agentTools.Version)
+	logger.Debugf(ctx, "Adding agent binary: %v", agentTools.Version)
 
 	// If the hash already exists, we don't need to add it again.
 	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
@@ -72,12 +72,12 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 	return func() {
 		// Ensure that we remove the agent binary from disk.
 		if err := os.Remove(binaryPath); err != nil {
-			logger.Warningf("failed to remove agent binary: %v", err)
+			logger.Warningf(ctx, "failed to remove agent binary: %v", err)
 		}
 		// Remove the sha that validates the agent binary file.
 		shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", current.String()))
 		if err := os.Remove(shaFilePath); err != nil {
-			logger.Warningf("failed to remove agent binary sha: %v", err)
+			logger.Warningf(ctx, "failed to remove agent binary sha: %v", err)
 		}
 	}, nil
 }

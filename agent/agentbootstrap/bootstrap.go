@@ -4,6 +4,7 @@
 package agentbootstrap
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -294,7 +295,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	}
 	defer session.Close()
 
-	b.logger.Debugf("initializing address %v", info.Addrs)
+	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -321,7 +322,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	if err != nil {
 		return nil, errors.Errorf("failed to initialize state: %v", err)
 	}
-	b.logger.Debugf("connected to initial state")
+	b.logger.Debugf(ctx, "connected to initial state")
 	defer func() {
 		if resultErr != nil {
 			_ = ctrl.Close()
@@ -379,7 +380,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// Read the machine agent's password and change it to
 	// a new password (other agents will change their password
 	// via the API connection).
-	b.logger.Debugf("create new random password for controller %v", controllerNode.Id())
+	b.logger.Debugf(ctx, "create new random password for controller %v", controllerNode.Id())
 
 	newPassword, err := password.RandomPassword()
 	if err != nil {
@@ -458,7 +459,7 @@ func (b *AgentBootstrap) initBootstrapMachine(
 	bootstrapMachineAddresses corenetwork.ProviderAddresses,
 ) (bootstrapController, error) {
 	stateParams := b.stateInitializationParams
-	b.logger.Infof("initialising bootstrap machine with config: %+v", stateParams)
+	b.logger.Infof(context.TODO(), "initialising bootstrap machine with config: %+v", stateParams)
 
 	jobs := make([]state.MachineJob, len(b.bootstrapMachineJobs))
 	for i, job := range b.bootstrapMachineJobs {
@@ -527,13 +528,13 @@ func (b *AgentBootstrap) initControllerCloudService(
 	addrs := b.getAlphaSpaceAddresses(svc.Addresses)
 
 	svcId := controllerUUID
-	b.logger.Infof("creating cloud service for k8s controller %q", svcId)
+	b.logger.Infof(ctx, "creating cloud service for k8s controller %q", svcId)
 	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         svcId,
 		ProviderId: svc.Id,
 		Addresses:  addrs,
 	})
-	b.logger.Debugf("created cloud service %v for controller", cloudSvc)
+	b.logger.Debugf(ctx, "created cloud service %v for controller", cloudSvc)
 	return errors.Trace(err)
 }
 
@@ -555,7 +556,7 @@ func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.Pr
 func (b *AgentBootstrap) initBootstrapNode(
 	st *state.State,
 ) (bootstrapController, error) {
-	b.logger.Debugf("initialising bootstrap node for with config: %+v", b.stateInitializationParams)
+	b.logger.Debugf(context.TODO(), "initialising bootstrap node for with config: %+v", b.stateInitializationParams)
 
 	node, err := st.AddControllerNode()
 	if err != nil {

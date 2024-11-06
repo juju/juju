@@ -62,11 +62,11 @@ func (dummyHookContext) RemoteApplicationName() (string, error) {
 func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, error) {
 	return nil, errors.NotFoundf("Relation")
 }
-func (dummyHookContext) RelationIds() ([]int, error) {
+func (dummyHookContext) RelationIds(context.Context) ([]int, error) {
 	return []int{}, errors.NotFoundf("RelationIds")
 }
 
-func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
+func (dummyHookContext) RequestReboot(ctx context.Context, prio jujuc.RebootPriority) error {
 	return nil
 }
 

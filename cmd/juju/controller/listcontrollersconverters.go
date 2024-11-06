@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -52,14 +53,14 @@ type ControllerItem struct {
 // convertControllerDetails takes a map of Controllers and
 // the recently used model for each and creates a list of
 // amalgamated controller and model details.
-func (c *listControllersCommand) convertControllerDetails(storeControllers map[string]jujuclient.ControllerDetails) (map[string]ControllerItem, []string) {
+func (c *listControllersCommand) convertControllerDetails(ctx context.Context, storeControllers map[string]jujuclient.ControllerDetails) (map[string]ControllerItem, []string) {
 	if len(storeControllers) == 0 {
 		return nil, nil
 	}
 
 	errs := []string{}
 	addError := func(msg, controllerName string, err error) {
-		logger.Errorf(fmt.Sprintf("getting current %s for controller %s: %v", msg, controllerName, err))
+		logger.Errorf(ctx, fmt.Sprintf("getting current %s for controller %s: %v", msg, controllerName, err))
 		errs = append(errs, msg)
 	}
 

@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -168,7 +169,7 @@ func (s *typesSuite) TestToChanges(c *gc.C) {
 			NextRotationTime: sql.NullTime{Valid: false},
 		},
 	}
-	result := rows.toChanges(loggertesting.WrapCheckLog(c))
+	result := rows.toChanges(context.Background(), loggertesting.WrapCheckLog(c))
 	c.Assert(result, gc.DeepEquals, []watcher.SecretBackendRotateChange{
 		{
 			ID:              "uuid1",

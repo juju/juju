@@ -147,7 +147,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx stdcontext.Context, arg params.
 
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
-	m.logger.Tracef("UpgradeModel arg %#v", arg)
+	m.logger.Tracef(ctx, "UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
 		if err == nil {
@@ -212,7 +212,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 		}
 	}
 	if !useControllerVersion {
-		m.logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
+		m.logger.Debugf(ctx, "deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
 		args := common.FindAgentsParams{
 			AgentStream:   arg.AgentStream,
 			ControllerCfg: controllerCfg,
@@ -321,12 +321,12 @@ func preCheckEnvironForUpgradeModel(
 
 	for _, op := range precheckEnv.PrecheckUpgradeOperations() {
 		if skipTarget(currentVersion, op.TargetVersion, targetVersion) {
-			logger.Debugf("ignoring precheck upgrade operation for version %s", op.TargetVersion)
+			logger.Debugf(ctx, "ignoring precheck upgrade operation for version %s", op.TargetVersion)
 			continue
 		}
-		logger.Debugf("running precheck upgrade operation for version %s", op.TargetVersion)
+		logger.Debugf(ctx, "running precheck upgrade operation for version %s", op.TargetVersion)
 		for _, step := range op.Steps {
-			logger.Debugf("running precheck step %q", step.Description())
+			logger.Debugf(ctx, "running precheck step %q", step.Description())
 			if err := step.Run(); err != nil {
 				return errors.Annotatef(err, "Unable to upgrade to %s:", targetVersion)
 			}
@@ -400,7 +400,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 
 		if model.Life() != state.Alive {
-			m.logger.Tracef("skipping upgrade check for dying/dead model %s", modelUUID)
+			m.logger.Tracef(ctx, "skipping upgrade check for dying/dead model %s", modelUUID)
 			continue
 		}
 

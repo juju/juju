@@ -30,7 +30,7 @@ func (m *mockDeployer) Stage(ctx context.Context, info charm.BundleInfo, abort <
 	return err
 }
 
-func (m *mockDeployer) Deploy() error {
+func (m *mockDeployer) Deploy(context.Context) error {
 	if err := os.MkdirAll(m.charmPath, 0755); err != nil {
 		return err
 	}

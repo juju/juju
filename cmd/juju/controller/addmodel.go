@@ -209,7 +209,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if c.CloudRegion != "" {
 		cloudTag, cloud, cloudRegion, err = c.getCloudRegion(ctx, cloudClient)
 		if err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(ctx, "%v", err)
 			ctx.Infof("Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.")
 			return cmd.ErrSilent
 		}
@@ -228,7 +228,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		modelOwner:  modelOwner,
 	})
 	if err != nil {
-		logger.Errorf("%v", err)
+		logger.Errorf(ctx, "%v", err)
 		ctx.Infof("Use \n* 'juju add-credential -c' to upload a credential to a controller or\n" +
 			"* 'juju autoload-credentials' to add credentials from local files or\n" +
 			"* 'juju add-model --credential' to use a local credential.\n" +

@@ -57,7 +57,7 @@ func DestroyController(
 		for _, uuid := range uuids {
 			check := NewBlockChecker(blockCommandServiceGetter(model.UUID(uuid)))
 			if err = check.DestroyAllowed(ctx); errors.Is(err, modelerrors.NotFound) {
-				logger.Errorf("model %v not found, skipping", uuid)
+				logger.Errorf(ctx, "model %v not found, skipping", uuid)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
@@ -117,7 +117,7 @@ func destroyModel(ctx context.Context, st ModelManagerBackend, blockCommandServi
 		if notForcing {
 			return errors.Trace(err)
 		}
-		logger.Warningf("failed destroying model %v: %v", model.UUID(), err)
+		logger.Warningf(ctx, "failed destroying model %v: %v", model.UUID(), err)
 		if err := filterNonCriticalErrorForForce(err); err != nil {
 			return errors.Trace(err)
 		}

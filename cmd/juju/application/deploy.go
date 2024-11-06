@@ -830,7 +830,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdaptor), block.BlockChange)
+	return block.ProcessBlockedError(ctx, deploy.PrepareAndDeploy(ctx, deployAPI, charmAdaptor), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(ctx context.Context, api SpacesAPI) error {

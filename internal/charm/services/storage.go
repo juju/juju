@@ -65,7 +65,7 @@ func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
 
 // CharmStorage attempts to store the contents of a downloaded charm.
 func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCharm charmdownloader.DownloadedCharm) (string, error) {
-	s.logger.Tracef("store %q", charmURL)
+	s.logger.Tracef(ctx, "store %q", charmURL)
 	storagePath, err := s.charmArchiveStoragePath(charmURL)
 	if err != nil {
 		return "", errors.Annotate(err, "cannot generate charm archive name")
@@ -92,9 +92,9 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 			stateerrors.IsCharmAlreadyUploadedError(err)
 		if err := s.objectStore.Remove(ctx, storagePath); err != nil {
 			if alreadyUploaded {
-				s.logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
+				s.logger.Errorf(ctx, "cannot remove duplicated charm archive from storage: %v", err)
 			} else {
-				s.logger.Errorf("cannot remove unsuccessfully recorded charm archive from storage: %v", err)
+				s.logger.Errorf(ctx, "cannot remove unsuccessfully recorded charm archive from storage: %v", err)
 			}
 		}
 		if alreadyUploaded {

@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -29,7 +31,7 @@ func (c *ContextInstance) AvailabilityZone() (string, error) {
 }
 
 // RequestReboot implements jujuc.ContextInstance.
-func (c *ContextInstance) RequestReboot(priority jujuc.RebootPriority) error {
+func (c *ContextInstance) RequestReboot(_ context.Context, priority jujuc.RebootPriority) error {
 	c.stub.AddCall("RequestReboot", priority)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

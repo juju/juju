@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -96,7 +97,7 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 			},
 			RestartDelay: time.Second * 10,
 			Clock:        config.Clock,
-			Logger:       config.Logger,
+			Logger:       internalworker.WrapLogger(config.Logger),
 		}),
 		requests:       make(chan trackerRequest),
 		internalStates: internalStates,

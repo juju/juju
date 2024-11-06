@@ -5,6 +5,8 @@
 package machineactions_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
@@ -15,8 +17,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func mockHandleAction(stub *testing.Stub) func(string, map[string]interface{}) (map[string]interface{}, error) {
-	return func(name string, params map[string]interface{}) (map[string]interface{}, error) {
+func mockHandleAction(stub *testing.Stub) func(context.Context, string, map[string]interface{}) (map[string]interface{}, error) {
+	return func(cxt context.Context, name string, params map[string]interface{}) (map[string]interface{}, error) {
 		stub.AddCall("HandleAction", name)
 		return nil, stub.NextErr()
 	}

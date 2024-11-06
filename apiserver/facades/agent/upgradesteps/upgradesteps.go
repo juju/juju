@@ -110,16 +110,16 @@ func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.Set
 		if err != nil {
 			return results, errors.Trace(err)
 		}
-		u, err := api.getUnit(canAccess, uTag)
+		u, err := api.getUnit(ctx, canAccess, uTag)
 		if err != nil {
-			api.logger.Criticalf("failed to get unit %q: %s", uTag, err)
+			api.logger.Criticalf(ctx, "failed to get unit %q: %s", uTag, err)
 			return results, errors.Trace(err)
 		}
 		us := state.NewUnitState()
 		if data.UniterState != nil {
 			us.SetUniterState(*data.UniterState)
 		} else {
-			api.logger.Warningf("no uniter state provided for %q", uTag)
+			api.logger.Warningf(ctx, "no uniter state provided for %q", uTag)
 		}
 		if data.RelationState != nil {
 			us.SetRelationState(*data.RelationState)
@@ -141,14 +141,14 @@ func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.Set
 	return results, nil
 }
 
-func (api *UpgradeStepsAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (Unit, error) {
+func (api *UpgradeStepsAPI) getUnit(ctx context.Context, canAccess common.AuthFunc, tag names.UnitTag) (Unit, error) {
 	if !canAccess(tag) {
-		api.logger.Criticalf("getUnit kind=%q, name=%q", tag.Kind(), tag.Id())
+		api.logger.Errorf(ctx, "getUnit kind=%q, name=%q", tag.Kind(), tag.Id())
 		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
-		api.logger.Criticalf("unable to find entity %q", tag, err)
+		api.logger.Errorf(ctx, "unable to find entity %q", tag, err)
 		return nil, err
 	}
 	// The authorization function guarantees that the tag represents a

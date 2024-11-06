@@ -239,9 +239,9 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 
 // sendError sends a JSON-encoded error response
 // for errors encountered during processing.
-func sendError(w http.ResponseWriter, errToSend error) error {
+func sendError(ctx context.Context, w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := apiservererrors.ServerErrorAndStatus(errToSend)
-	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	logger.Debugf(ctx, "sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
 	}))

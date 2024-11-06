@@ -123,11 +123,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
-		cfg.Logger.Infof("stopping firewaller (not required)")
+		cfg.Logger.Infof(ctx, "stopping firewaller (not required)")
 		return nil, dependency.ErrUninstall
 	} else if mode == config.FwGlobal {
 		if !fwEnvOK {
-			cfg.Logger.Infof("Firewall global mode set on provider with no support. stopping firewaller")
+			cfg.Logger.Infof(ctx, "Firewall global mode set on provider with no support. stopping firewaller")
 			return nil, dependency.ErrUninstall
 		}
 	}

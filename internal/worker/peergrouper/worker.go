@@ -283,24 +283,24 @@ func (w *pgWorker) loop() error {
 
 	idle := &time.Timer{}
 	if w.idleFunc != nil {
-		logger.Tracef("pgWorker %p set idle timeout to %s", w, IdleTime)
+		logger.Tracef(context.TODO(), "pgWorker %p set idle timeout to %s", w, IdleTime)
 		idle = time.NewTimer(IdleTime)
 		defer idle.Stop()
 	}
 
 	for {
-		logger.Tracef("waiting...")
+		logger.Tracef(context.TODO(), "waiting...")
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-idle.C:
-			logger.Tracef("pgWorker %p is idle", w)
+			logger.Tracef(context.TODO(), "pgWorker %p is idle", w)
 			w.idleFunc()
 			idle.Reset(IdleTime)
 			continue
 		case <-controllerChanges:
 			// A controller was added or removed.
-			logger.Tracef("<-controllerChanges")
+			logger.Tracef(context.TODO(), "<-controllerChanges")
 			changed, err := w.updateControllerNodes()
 			if err != nil {
 				return errors.Trace(err)
@@ -308,13 +308,13 @@ func (w *pgWorker) loop() error {
 			if !changed {
 				continue
 			}
-			logger.Tracef("controller added or removed, update replica now")
+			logger.Tracef(context.TODO(), "controller added or removed, update replica now")
 		case <-w.controllerChanges:
 			// One of the controller nodes changed.
-			logger.Tracef("<-w.controllerChanges")
+			logger.Tracef(context.TODO(), "<-w.controllerChanges")
 		case <-configChanges:
 			// Controller config has changed.
-			logger.Tracef("<-w.configChanges")
+			logger.Tracef(context.TODO(), "<-w.configChanges")
 
 			// If a config change wakes up the loop before the topology has
 			// been represented in the worker's controller trackers, ignore it;
@@ -322,18 +322,18 @@ func (w *pgWorker) loop() error {
 			// Continuing is OK because subsequent invocations of the loop will
 			// pick up the most recent config from state anyway.
 			if len(w.controllerTrackers) == 0 {
-				logger.Tracef("no controller information, ignoring config change")
+				logger.Tracef(context.TODO(), "no controller information, ignoring config change")
 				continue
 			}
 		case requester := <-w.detailsRequests:
 			// A client requested the details be resent (probably
 			// because they just subscribed).
-			logger.Tracef("<-w.detailsRequests (from %q)", requester)
+			logger.Tracef(context.TODO(), "<-w.detailsRequests (from %q)", requester)
 			_, _ = w.config.Hub.Publish(apiserver.DetailsTopic, w.serverDetails)
 			continue
 		case <-updateChan:
 			// Scheduled update.
-			logger.Tracef("<-updateChan")
+			logger.Tracef(context.TODO(), "<-updateChan")
 			updateChan = nil
 			if w.config.UpdateNotify != nil {
 				w.config.UpdateNotify()
@@ -347,24 +347,24 @@ func (w *pgWorker) loop() error {
 		}
 
 		var failed bool
-		cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
+		cfg, err := w.config.ControllerConfigService.ControllerConfig(context.TODO())
 		if err != nil {
-			logger.Errorf("cannot read controller config: %v", err)
+			logger.Errorf(context.TODO(), "cannot read controller config: %v", err)
 			failed = true
 		}
 		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(cfg, apiHostPorts, apiHostPorts); err != nil {
-			logger.Errorf("cannot write API server addresses: %v", err)
+			logger.Errorf(context.TODO(), "cannot write API server addresses: %v", err)
 			failed = true
 		}
 
 		members, err := w.updateReplicaSet()
 		if err != nil {
 			if errors.Is(err, replicaSetError) {
-				logger.Errorf("cannot set replicaset: %v", err)
+				logger.Errorf(context.TODO(), "cannot set replicaset: %v", err)
 			} else if !errors.Is(err, stepDownPrimaryError) {
 				return errors.Trace(err)
 			} else {
-				logger.Tracef("isStepDownPrimary error: %v", err)
+				logger.Tracef(context.TODO(), "isStepDownPrimary error: %v", err)
 			}
 			// both replicaset errors and stepping down the primary are both considered fast-retry 'failures'.
 			// we need to re-read the state after a short timeout and re-evaluate the replicaset.
@@ -373,7 +373,7 @@ func (w *pgWorker) loop() error {
 		w.publishAPIServerDetails(servers, members)
 
 		if failed {
-			logger.Tracef("failed, will wake up after: %v", retryInterval)
+			logger.Tracef(context.TODO(), "failed, will wake up after: %v", retryInterval)
 			updateChan = w.config.Clock.After(retryInterval)
 			retryInterval = scaleRetry(retryInterval)
 		} else {
@@ -384,10 +384,10 @@ func (w *pgWorker) loop() error {
 			// processed an update, or have just succeeded after a failure reset
 			// the updateChan to the pollInterval.
 			if updateChan == nil || retryInterval != initialRetryInterval {
-				logger.Tracef("succeeded, will wake up after: %v", pollInterval)
+				logger.Tracef(context.TODO(), "succeeded, will wake up after: %v", pollInterval)
 				updateChan = w.config.Clock.After(pollInterval)
 			} else {
-				logger.Tracef("succeeded, wait already pending")
+				logger.Tracef(context.TODO(), "succeeded, wait already pending")
 			}
 			retryInterval = initialRetryInterval
 		}
@@ -456,7 +456,7 @@ func (w *pgWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, 
 	// Consume the initial events from the watchers. The watcher will
 	// dispatch an initial event when it is created, so we need to consume
 	// that event before we can start watching.
-	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+	if _, err := eventsource.ConsumeInitialEvent[[]string](context.TODO(), watcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -472,7 +472,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		return false, fmt.Errorf("cannot get controller ids: %v", err)
 	}
 
-	logger.Debugf("controller nodes in state: %#v", controllerIds)
+	logger.Debugf(context.TODO(), "controller nodes in state: %#v", controllerIds)
 	changed := false
 
 	// Stop controller goroutines that no longer correspond to controller nodes.
@@ -493,7 +493,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 				// removed and will soon enough be removed
 				// from the controller list. This will probably
 				// never happen, but we'll code defensively anyway.
-				logger.Warningf("controller %q from controller list not found", id)
+				logger.Warningf(context.TODO(), "controller %q from controller list not found", id)
 				continue
 			}
 			return false, fmt.Errorf("cannot get controller %q: %v", id, err)
@@ -505,7 +505,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 				// removed and will soon enough be removed
 				// from the controller list. This will probably
 				// never happen, but we'll code defensively anyway.
-				logger.Warningf("controller %q from controller list not found", id)
+				logger.Warningf(context.TODO(), "controller %q from controller list not found", id)
 				continue
 			}
 			return false, fmt.Errorf("cannot get controller %q: %v", id, err)
@@ -514,7 +514,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 			continue
 		}
 
-		logger.Debugf("found new controller %q", id)
+		logger.Debugf(context.TODO(), "found new controller %q", id)
 		tracker, err := newControllerTracker(controllerNode, controllerHost, w.controllerChanges)
 		if err != nil {
 			return false, errors.Trace(err)
@@ -583,12 +583,12 @@ func (w *pgWorker) publishAPIServerDetails(
 		if members[id] != nil {
 			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
 			if err != nil {
-				logger.Errorf("splitting host/port for address %q: %v", members[id].Address, err)
+				logger.Errorf(context.TODO(), "splitting host/port for address %q: %v", members[id].Address, err)
 			} else {
 				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(internalPort))
 			}
 		} else {
-			logger.Tracef("replica-set member %q not found", id)
+			logger.Tracef(context.TODO(), "replica-set member %q not found", id)
 		}
 
 		server := apiserver.APIServer{
@@ -634,18 +634,18 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	}
 	if logger.IsLevelEnabled(corelogger.DEBUG) {
 		if desired.isChanged {
-			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(desired.members))
+			logger.Debugf(context.TODO(), "desired peer group members: \n%s", prettyReplicaSetMembers(desired.members))
 		} else {
 			var output []string
 			for id, m := range desired.members {
 				output = append(output, fmt.Sprintf("  %s: %v", id, isVotingMember(m)))
 			}
-			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
+			logger.Debugf(context.TODO(), "no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
 		}
 	}
 
 	if desired.stepDownPrimary {
-		logger.Infof("mongo primary controller needs to be removed, first requesting it to step down")
+		logger.Infof(context.TODO(), "mongo primary controller needs to be removed, first requesting it to step down")
 		if err := w.config.MongoSession.StepDownPrimary(); err != nil {
 			// StepDownPrimary should have already handled the io.EOF that mongo might give, so any error we
 			// get is unknown
@@ -664,7 +664,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotatef(err, "determining primary status of controller %q", controllerId)
 	}
-	logger.Debugf("controller node %q primary: %v", controllerId, isPrimary)
+	logger.Debugf(context.TODO(), "controller node %q primary: %v", controllerId, isPrimary)
 	if !isPrimary {
 		return desired.members, nil
 	}
@@ -689,7 +689,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		if err := w.config.MongoSession.Set(ms); err != nil {
 			return nil, errors.WithType(err, replicaSetError)
 		}
-		logger.Infof("successfully updated replica set")
+		logger.Infof(context.TODO(), "successfully updated replica set")
 	}
 
 	// Reset controller status for members of the changed peer-group.
@@ -705,9 +705,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	}
 	for _, tracker := range w.controllerTrackers {
 		if tracker.host.Life() != state.Alive && !tracker.node.HasVote() {
-			logger.Debugf("removing dying controller %s references", tracker.Id())
+			logger.Debugf(context.TODO(), "removing dying controller %s references", tracker.Id())
 			if err := w.config.State.RemoveControllerReference(tracker.node); err != nil {
-				logger.Errorf("failed to remove dying controller as a controller after removing its vote: %v", err)
+				logger.Errorf(context.TODO(), "failed to remove dying controller as a controller after removing its vote: %v", err)
 			}
 		}
 	}
@@ -729,15 +729,15 @@ func (w *pgWorker) updateVoteStatus() error {
 		orphanedNodes.Remove(node.Id())
 		if ok {
 			if !node.HasVote() && isVotingMember(&m) {
-				logger.Tracef("controller %v is now voting member", node.Id())
+				logger.Tracef(context.TODO(), "controller %v is now voting member", node.Id())
 				voting = append(voting, node)
 			} else if node.HasVote() && !isVotingMember(&m) {
-				logger.Tracef("controller %v is now non voting member", node.Id())
+				logger.Tracef(context.TODO(), "controller %v is now non voting member", node.Id())
 				nonVoting = append(nonVoting, node)
 			}
 		}
 	}
-	logger.Debugf("controllers that are no longer in replicaset: %v", orphanedNodes.Values())
+	logger.Debugf(context.TODO(), "controllers that are no longer in replicaset: %v", orphanedNodes.Values())
 	for _, id := range orphanedNodes.Values() {
 		node := w.controllerTrackers[id]
 		nonVoting = append(nonVoting, node)
@@ -789,7 +789,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	}
 
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
+		logger.Tracef(context.TODO(), "read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
 	}
 
 	// If any of the trackers are for hosts still pending provisioning,
@@ -804,7 +804,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		}
 
 		if pending {
-			logger.Infof("disregarding host pending provisioning: %q", tracker.Id())
+			logger.Infof(context.TODO(), "disregarding host pending provisioning: %q", tracker.Id())
 			continue
 		}
 
@@ -818,7 +818,7 @@ func setHasVote(ms []*controllerTracker, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
 	}
-	logger.Infof("setting HasVote=%v on nodes %v", hasVote, ms)
+	logger.Infof(context.TODO(), "setting HasVote=%v on nodes %v", hasVote, ms)
 	for _, m := range ms {
 		if err := m.node.SetHasVote(hasVote); err != nil {
 			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.Id(), hasVote, err)

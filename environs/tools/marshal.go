@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -54,7 +55,7 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 			id, err := t.productId()
 			if err != nil {
 				if errors.Is(err, errors.NotValid) {
-					logger.Infof("ignoring tools metadata with unknown os type %q", t.Release)
+					logger.Infof(context.TODO(), "ignoring tools metadata with unknown os type %q", t.Release)
 					continue
 				}
 				return nil, nil, err

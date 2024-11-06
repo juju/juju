@@ -4,6 +4,7 @@
 package introspection_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -38,15 +39,15 @@ type suite struct {
 var _ = gc.Suite(&suite{})
 
 func (s *suite) TestConfigValidation(c *gc.C) {
-	w, err := introspection.NewWorker(introspection.Config{})
+	w, err := introspection.NewWorker(context.Background(), introspection.Config{})
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "empty SocketName not valid")
-	w, err = introspection.NewWorker(introspection.Config{
+	w, err = introspection.NewWorker(context.Background(), introspection.Config{
 		SocketName: "socket",
 	})
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "nil PrometheusGatherer not valid")
-	w, err = introspection.NewWorker(introspection.Config{
+	w, err = introspection.NewWorker(context.Background(), introspection.Config{
 		SocketName:         "socket",
 		PrometheusGatherer: newPrometheusGatherer(),
 		LocalHub:           pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{}),
@@ -61,7 +62,7 @@ func (s *suite) TestStartStop(c *gc.C) {
 	}
 
 	socketName := path.Join(c.MkDir(), "introspection-test")
-	w, err := introspection.NewWorker(introspection.Config{
+	w, err := introspection.NewWorker(context.Background(), introspection.Config{
 		SocketName:         socketName,
 		PrometheusGatherer: prometheus.NewRegistry(),
 	})
@@ -101,7 +102,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 
 func (s *introspectionSuite) startWorker(c *gc.C) {
 	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d", os.Getpid()))
-	w, err := introspection.NewWorker(introspection.Config{
+	w, err := introspection.NewWorker(context.Background(), introspection.Config{
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,

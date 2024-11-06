@@ -320,7 +320,7 @@ func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineT
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (f *FirewallerAPI) WatchEgressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	return firewall.WatchEgressAddressesForRelations(f.resources, f.st, f.modelConfigService, relations)
+	return firewall.WatchEgressAddressesForRelations(ctx, f.resources, f.st, f.modelConfigService, relations)
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
@@ -331,7 +331,7 @@ func (f *FirewallerAPI) WatchIngressAddressesForRelations(ctx context.Context, r
 	}
 
 	one := func(tag string) (id string, changes []string, _ error) {
-		f.logger.Debugf("Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
+		f.logger.Debugf(ctx, "Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
 
 		relationTag, err := names.ParseRelationTag(tag)
 		if err != nil {

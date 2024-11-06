@@ -40,7 +40,7 @@ func (s *relationerSuite) TestImplicitRelationerPrepareHook(c *gc.C) {
 	r := s.newRelationer(c)
 
 	// Hooks are not allowed.
-	_, err := r.PrepareHook(hook.Info{})
+	_, err := r.PrepareHook(context.Background(), hook.Info{})
 	c.Assert(err, gc.ErrorMatches, `restart immediately`)
 }
 
@@ -161,7 +161,7 @@ func (s *relationerSuite) TestPrepareHookRelationFail(c *gc.C) {
 
 	r := s.newRelationer(c)
 
-	_, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
+	_, err := r.PrepareHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
@@ -174,7 +174,7 @@ func (s *relationerSuite) TestPrepareHookValidateFail(c *gc.C) {
 	r := s.newRelationer(c)
 
 	// relationID and state id being different will fail validation.
-	name, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
+	name, err := r.PrepareHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, gc.NotNil)
 	c.Assert(name, gc.Equals, "")
 }
@@ -189,7 +189,7 @@ func (s *relationerSuite) TestPrepareHook(c *gc.C) {
 
 	r := s.newRelationer(c)
 
-	name, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
+	name, err := r.PrepareHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, fmt.Sprintf("%s-%s", ep.Name, hooks.RelationJoined))
 }

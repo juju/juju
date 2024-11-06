@@ -4,6 +4,7 @@
 package introspection
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -107,7 +108,7 @@ type socketListener struct {
 
 // NewWorker starts an http server listening on an abstract domain socket
 // which will be created with the specified name.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,7 +123,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
-	logger.Debugf("introspection worker listening on %q", config.SocketName)
+	logger.Debugf(ctx, "introspection worker listening on %q", config.SocketName)
 
 	w := &socketListener{
 		listener:           l,
@@ -143,20 +144,26 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (w *socketListener) serve() {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	mux := http.NewServeMux()
 	w.RegisterHTTPHandlers(mux.Handle)
 
 	srv := http.Server{Handler: mux}
-	logger.Debugf("stats worker now serving")
-	defer logger.Debugf("stats worker serving finished")
+	logger.Debugf(ctx, "stats worker now serving")
+	defer logger.Debugf(ctx, "stats worker serving finished")
 	defer close(w.done)
 	_ = srv.Serve(w.listener)
 }
 
 func (w *socketListener) run() error {
-	defer logger.Debugf("stats worker finished")
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	defer logger.Debugf(ctx, "stats worker finished")
 	<-w.tomb.Dying()
-	logger.Debugf("stats worker closing listener")
+	logger.Debugf(ctx, "stats worker closing listener")
 	w.listener.Close()
 	// Don't mark the worker as done until the serve goroutine has finished.
 	<-w.done
@@ -171,6 +178,10 @@ func (w *socketListener) Kill() {
 // Wait implements worker.Worker.
 func (w *socketListener) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *socketListener) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 // RegisterHTTPHandlers calls the given function with http.Handlers

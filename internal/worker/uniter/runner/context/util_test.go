@@ -228,7 +228,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.Hoo
 	c.Assert(name, gc.Equals, "test-model")
 	c.Assert(uuid, gc.Equals, coretesting.ModelTag.Id())
 
-	ids, err := ctx.RelationIds()
+	ids, err := ctx.RelationIds(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 2)
 
@@ -246,7 +246,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.Hoo
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(az, gc.Equals, "a-zone")
 
-	info, err := ctx.SecretMetadata()
+	info, err := ctx.SecretMetadata(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.HasLen, 1)
 	for id, v := range info {

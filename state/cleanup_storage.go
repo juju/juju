@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
@@ -56,7 +58,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 				if !c.force {
 					return errors.Trace(err)
 				}
-				logger.Warningf("could not remove filesystem %v for dying %v: %v", f.FilesystemTag().Id(), c.hostTag, err)
+				logger.Warningf(context.TODO(), "could not remove filesystem %v for dying %v: %v", f.FilesystemTag().Id(), c.hostTag, err)
 			}
 		}
 	}
@@ -67,7 +69,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 			if !c.force {
 				return errors.Trace(err)
 			}
-			logger.Warningf("could not determine if volume %v for dying %v is detachable: %v", va.Volume().Id(), c.hostTag, err)
+			logger.Warningf(context.TODO(), "could not determine if volume %v for dying %v is detachable: %v", va.Volume().Id(), c.hostTag, err)
 		} else if !detachable {
 			// Non-detachable volumes will be removed along with the machine.
 			continue
@@ -82,7 +84,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 			if !c.force {
 				return errors.Trace(err)
 			}
-			logger.Warningf("could not detach volume %v for dying %v: %v", va.Volume().Id(), c.hostTag, err)
+			logger.Warningf(context.TODO(), "could not detach volume %v for dying %v: %v", va.Volume().Id(), c.hostTag, err)
 		}
 	}
 	return nil
@@ -98,7 +100,7 @@ func (c *dyingEntityStorageCleaner) destroyNonDetachableFileSystems() ([]*filesy
 		if !c.force {
 			return nil, err
 		}
-		logger.Warningf("%v", err)
+		logger.Warningf(context.TODO(), "%v", err)
 	}
 
 	for _, f := range filesystems {
@@ -106,7 +108,7 @@ func (c *dyingEntityStorageCleaner) destroyNonDetachableFileSystems() ([]*filesy
 			if !c.force {
 				return nil, errors.Trace(err)
 			}
-			logger.Warningf("could not destroy filesystem %v for %v: %v", f.FilesystemTag().Id(), c.hostTag, err)
+			logger.Warningf(context.TODO(), "could not destroy filesystem %v for %v: %v", f.FilesystemTag().Id(), c.hostTag, err)
 		}
 	}
 
@@ -121,14 +123,14 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 		if !c.force {
 			return errors.Trace(err)
 		}
-		logger.Warningf("could not determine if filesystem %v for %v is detachable: %v", filesystem.Id(), c.hostTag, err)
+		logger.Warningf(context.TODO(), "could not determine if filesystem %v for %v is detachable: %v", filesystem.Id(), c.hostTag, err)
 	}
 	if detachable {
 		if err := c.sb.DetachFilesystem(fsa.Host(), filesystem); err != nil && !errors.Is(err, errors.NotFound) {
 			if !c.force {
 				return errors.Trace(err)
 			}
-			logger.Warningf("could not detach filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
+			logger.Warningf(context.TODO(), "could not detach filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
 		}
 	}
 
@@ -152,7 +154,7 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 				if !c.force {
 					return errors.Trace(err)
 				}
-				logger.Warningf("could not get filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
+				logger.Warningf(context.TODO(), "could not get filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
 			}
 			return nil
 		}
@@ -172,21 +174,21 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 		if !c.force {
 			return errors.Trace(err)
 		}
-		logger.Warningf("could not remove attachment for filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
+		logger.Warningf(context.TODO(), "could not remove attachment for filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
 	}
 	if volumeTag != (names.VolumeTag{}) {
 		if err := c.sb.RemoveVolumeAttachmentPlan(machineTag, volumeTag, c.force); err != nil && !errors.Is(err, errors.NotFound) {
 			if !c.force {
 				return errors.Trace(err)
 			}
-			logger.Warningf("could not remove attachment plan for volume %v for %v: %v", volumeTag.Id(), c.hostTag, err)
+			logger.Warningf(context.TODO(), "could not remove attachment plan for volume %v for %v: %v", volumeTag.Id(), c.hostTag, err)
 		}
 	}
 	if err := updateStatus(); err != nil && !errors.Is(err, errors.NotFound) {
 		if !c.force {
 			return errors.Trace(err)
 		}
-		logger.Warningf("could not update status while cleaning up storage for dying %v: %v", c.hostTag, err)
+		logger.Warningf(context.TODO(), "could not update status while cleaning up storage for dying %v: %v", c.hostTag, err)
 	}
 
 	return nil

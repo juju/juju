@@ -97,7 +97,7 @@ func newRefreshClient(path path.Path, client RESTClient, logger corelogger.Logge
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *refreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
-		c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+		c.logger.Tracef(ctx, "Refresh(%s)", pretty.Sprint(config))
 	}
 	req, err := config.Build()
 	if err != nil {
@@ -110,7 +110,7 @@ func (c *refreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 // at the same time.  Used as part of the charm revision updater facade.
 func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
-		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+		c.logger.Tracef(ctx, "RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
 	}
 	req, err := config.Build()
 	if err != nil {
@@ -127,7 +127,7 @@ func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 // RefreshWithMetricsOnly is to provide metrics without context or actions. Used
 // as part of the charm revision updater facade.
 func (c *refreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
-	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
+	c.logger.Tracef(ctx, "RefreshWithMetricsOnly(%+v)", metrics)
 	m, err := contextMetrics(metrics)
 	if err != nil {
 		return errors.Trace(err)
@@ -206,7 +206,7 @@ func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []tra
 	}
 
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
-		c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(results))
+		c.logger.Tracef(ctx, "Refresh() unmarshalled: %s", pretty.Sprint(results))
 	}
 	return results, nil
 }

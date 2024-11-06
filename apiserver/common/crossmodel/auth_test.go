@@ -90,7 +90,7 @@ permission: consume
 `[1:], uuid)
 	authContext, err := crossmodel.NewAuthContext(nil, nil, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
-	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
+	opc, err := authContext.CheckOfferAccessCaveat(context.Background(), "has-offer-permission "+permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opc.SourceModelUUID, gc.Equals, uuid.String())
 	c.Assert(opc.User, gc.Equals, "mary")
@@ -110,7 +110,7 @@ permission: consume
 `[1:], uuid)
 	authContext, err := crossmodel.NewAuthContext(nil, nil, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = authContext.CheckOfferAccessCaveat("different-caveat " + permCheckDetails)
+	_, err = authContext.CheckOfferAccessCaveat(context.Background(), "different-caveat "+permCheckDetails)
 	c.Assert(err, gc.ErrorMatches, ".*caveat not recognized.*")
 }
 
@@ -124,7 +124,7 @@ permission: consume
 `[1:]
 	authContext, err := crossmodel.NewAuthContext(nil, nil, names.NewModelTag("invalid"), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
+	_, err = authContext.CheckOfferAccessCaveat(context.Background(), "has-offer-permission "+permCheckDetails)
 	c.Assert(err, gc.ErrorMatches, `source-model-uuid "invalid" not valid`)
 }
 
@@ -153,7 +153,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
-	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
+	opc, err := authContext.CheckOfferAccessCaveat(context.Background(), "has-offer-permission "+permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	cav, err := authContext.CheckLocalAccessRequest(context.Background(), opc)
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +182,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
-	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
+	opc, err := authContext.CheckOfferAccessCaveat(context.Background(), "has-offer-permission "+permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.CheckLocalAccessRequest(context.Background(), opc)
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +209,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
-	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
+	opc, err := authContext.CheckOfferAccessCaveat(context.Background(), "has-offer-permission "+permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.CheckLocalAccessRequest(context.Background(), opc)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,7 +240,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
-	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
+	opc, err := authContext.CheckOfferAccessCaveat(context.Background(), "has-offer-permission "+permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.CheckLocalAccessRequest(context.Background(), opc)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

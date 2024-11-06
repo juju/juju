@@ -158,7 +158,7 @@ func (c *exposeCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	exposedEndpoints := c.buildExposedEndpoints()
-	return block.ProcessBlockedError(client.Expose(ctx, c.ApplicationName, exposedEndpoints), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.Expose(ctx, c.ApplicationName, exposedEndpoints), block.BlockChange)
 }
 
 func (c *exposeCommand) buildExposedEndpoints() map[string]params.ExposedEndpoint {

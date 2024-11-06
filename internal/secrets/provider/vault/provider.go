@@ -59,7 +59,7 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("kv mounts: %v", mounts)
+	logger.Debugf(ctx, "kv mounts: %v", mounts)
 	modelUUID := cfg.ModelUUID
 	mountPath := modelPathPrefix(cfg.ModelName, modelUUID)
 	if _, ok := mounts[mountPath+"/"]; ok {
@@ -89,7 +89,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 		if err != nil && strings.HasSuffix(err.Error(), "no route to host") {
 			// There is nothing we can do now, so just log the error and continue.
 			err = nil
-			logger.Warningf("failed to cleanup secrets for model %q: %v", cfg.ModelUUID, err)
+			logger.Warningf(context.TODO(), "failed to cleanup secrets for model %q: %v", cfg.ModelUUID, err)
 		}
 	}()
 
@@ -213,7 +213,7 @@ func (p vaultProvider) RestrictedConfig(
 		return nil, errors.Trace(err)
 	}
 	// Any secrets owned by the agent can be updated/deleted etc.
-	logger.Debugf("owned secrets: %#v", owned)
+	logger.Debugf(ctx, "owned secrets: %#v", owned)
 	for id := range owned {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, mountPath, id)
 		policyName := fmt.Sprintf("%s-%s-owner", mountPath, id)
@@ -225,7 +225,7 @@ func (p vaultProvider) RestrictedConfig(
 	}
 
 	// Any secrets consumed by the agent can be read etc.
-	logger.Debugf("consumed secrets: %#v", read)
+	logger.Debugf(ctx, "consumed secrets: %#v", read)
 	for id := range read {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, mountPath, id)
 		policyName := fmt.Sprintf("%s-%s-read", mountPath, id)
@@ -235,7 +235,7 @@ func (p vaultProvider) RestrictedConfig(
 		}
 		policies = append(policies, policyName)
 	}
-	logger.Tracef("policies: %#v", policies)
+	logger.Tracef(ctx, "policies: %#v", policies)
 	s, err := backend.client.Auth().Token().Create(&api.TokenCreateRequest{
 		TTL:             "10m", // 10 minutes for now, can configure later.
 		NoDefaultPolicy: true,

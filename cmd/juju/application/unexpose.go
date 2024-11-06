@@ -109,5 +109,5 @@ func (c *unexposeCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	endpoints := splitCommaDelimitedList(c.ExposedEndpointsList)
-	return block.ProcessBlockedError(client.Unexpose(ctx, c.ApplicationName, endpoints), block.BlockChange)
+	return block.ProcessBlockedError(ctx, client.Unexpose(ctx, c.ApplicationName, endpoints), block.BlockChange)
 }

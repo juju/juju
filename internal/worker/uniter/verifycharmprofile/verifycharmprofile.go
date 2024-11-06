@@ -35,13 +35,13 @@ func (r *verifyCharmProfileResolver) NextOp(
 ) (operation.Operation, error) {
 	// NOTE: this is very similar code to Uniter.verifyCharmProfile(),
 	// if you make changes here, check to see if they are needed there.
-	r.logger.Tracef("Starting verifycharmprofile NextOp")
+	r.logger.Tracef(ctx, "Starting verifycharmprofile NextOp")
 	if !remoteState.CharmProfileRequired {
-		r.logger.Tracef("Nothing to verify: no charm profile required")
+		r.logger.Tracef(ctx, "Nothing to verify: no charm profile required")
 		return nil, resolver.ErrNoOperation
 	}
 	if remoteState.LXDProfileName == "" {
-		r.logger.Tracef("Charm profile required: no profile for this charm applied")
+		r.logger.Tracef(ctx, "Charm profile required: no profile for this charm applied")
 		return nil, resolver.ErrDoNotProceed
 	}
 	rev, err := lxdprofile.ProfileRevision(remoteState.LXDProfileName)
@@ -53,10 +53,10 @@ func (r *verifyCharmProfileResolver) NextOp(
 		return nil, err
 	}
 	if rev != curl.Revision {
-		r.logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
+		r.logger.Tracef(ctx, "Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
 		return nil, resolver.ErrDoNotProceed
 	}
-	r.logger.Tracef("Charm profile correct for charm revision")
+	r.logger.Tracef(ctx, "Charm profile correct for charm revision")
 	return nil, resolver.ErrNoOperation
 }
 

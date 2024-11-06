@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sort"
@@ -260,7 +261,7 @@ type SecretBackendRotationRow struct {
 
 type SecretBackendRotationRows []SecretBackendRotationRow
 
-func (rows SecretBackendRotationRows) toChanges(logger logger.Logger) []watcher.SecretBackendRotateChange {
+func (rows SecretBackendRotationRows) toChanges(ctx context.Context, logger logger.Logger) []watcher.SecretBackendRotateChange {
 	var result []watcher.SecretBackendRotateChange
 	for _, row := range rows {
 		change := watcher.SecretBackendRotateChange{
@@ -271,7 +272,7 @@ func (rows SecretBackendRotationRows) toChanges(logger logger.Logger) []watcher.
 		if !next.Valid {
 			// This should not happen because it's a NOT NULL field, but log a
 			// warning and skip the row.
-			logger.Warningf("secret backend %q has no next rotation time", change.ID)
+			logger.Warningf(ctx, "secret backend %q has no next rotation time", change.ID)
 			continue
 		}
 		change.NextTriggerTime = next.Time

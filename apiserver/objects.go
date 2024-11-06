@@ -53,7 +53,7 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	if err != nil {
 		if err := sendJSONError(w, r, errors.Trace(err)); err != nil {
-			logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
+			logger.Errorf(r.Context(), "%v", errors.Annotate(err, "cannot return error to user"))
 		}
 	}
 }

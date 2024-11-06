@@ -4,6 +4,7 @@
 package instancepoller
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -36,11 +37,12 @@ type mergeMachineLinkLayerOp struct {
 }
 
 func newMergeMachineLinkLayerOp(
+	ctx context.Context,
 	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
 	logger corelogger.Logger,
 ) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
-		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp("provider", machine, incoming),
+		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp(ctx, "provider", machine, incoming),
 		namelessHWAddrs:    set.NewStrings(),
 		logger:             logger,
 	}
@@ -75,14 +77,14 @@ func (o *mergeMachineLinkLayerOp) Build(attempt int) ([]txn.Op, error) {
 
 	var ops []txn.Op
 	for _, existingDev := range o.ExistingDevices() {
-		devOps, err := o.processExistingDevice(existingDev)
+		devOps, err := o.processExistingDevice(context.TODO(), existingDev)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, devOps...)
 	}
 
-	o.processNewDevices()
+	o.processNewDevices(context.TODO())
 
 	if len(ops) > 0 {
 		return append([]txn.Op{o.AssertAliveOp()}, ops...), nil
@@ -144,7 +146,7 @@ func (o *mergeMachineLinkLayerOp) normaliseIncoming() {
 	}
 }
 
-func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.LinkLayerDevice) ([]txn.Op, error) {
+func (o *mergeMachineLinkLayerOp) processExistingDevice(ctx context.Context, dev networkingcommon.LinkLayerDevice) ([]txn.Op, error) {
 	incomingDev := o.MatchingIncoming(dev)
 
 	var ops []txn.Op
@@ -167,7 +169,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// Log a warning if we are changing a provider ID that is already set.
 	providerID := dev.ProviderID()
 	if providerID != "" && providerID != incomingDev.ProviderId {
-		o.logger.Warningf(
+		o.logger.Warningf(ctx,
 			"changing provider ID for device %q from %q to %q",
 			dev.Name(), providerID, incomingDev.ProviderId,
 		)
@@ -196,7 +198,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		// If the ID is moving from one device to another for whatever reason,
 		// It will be eventually consistent. E.g. removed from the old device
 		// on this pass and added to the new device on the next.
-		o.logger.Warningf(
+		o.logger.Warningf(ctx,
 			"not setting provider ID for device %q to %q; it is assigned to another device",
 			dev.Name(), incomingDev.ProviderId,
 		)
@@ -206,7 +208,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// TODO (manadart 2020-07-15): We also need to set shadow addresses.
 	// These are sent where appropriate by the provider,
 	// but we do not yet process them.
-	incomingAddrs := o.MatchingIncomingAddrs(dev.Name())
+	incomingAddrs := o.MatchingIncomingAddrs(ctx, dev.Name())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		addrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -278,10 +280,10 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 // aware of devices that the machiner knows nothing about.
 // At the time of writing we preserve existing behaviour and do not add them.
 // Log for now and consider adding such devices in the future.
-func (o *mergeMachineLinkLayerOp) processNewDevices() {
+func (o *mergeMachineLinkLayerOp) processNewDevices(ctx context.Context) {
 	for _, dev := range o.Incoming() {
 		if !o.IsDevProcessed(dev) {
-			o.logger.Debugf(
+			o.logger.Debugf(ctx,
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,
 			)

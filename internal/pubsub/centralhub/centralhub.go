@@ -4,12 +4,15 @@
 package centralhub
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -19,7 +22,7 @@ import (
 func New(origin names.Tag, metrics pubsub.Metrics) *pubsub.StructuredHub {
 	return pubsub.NewStructuredHub(
 		&pubsub.StructuredHubConfig{
-			Logger:     internallogger.GetLogger("juju.centralhub"),
+			Logger:     pubsubLogger{logger: internallogger.GetLogger("juju.centralhub")},
 			Marshaller: &yamlMarshaller{},
 			Annotations: map[string]interface{}{
 				"origin": origin.String(),
@@ -47,4 +50,20 @@ func ensureStringMaps(in map[string]interface{}) (map[string]interface{}, error)
 		return nil, errors.Trace(err)
 	}
 	return out.(map[string]interface{}), nil
+}
+
+type pubsubLogger struct {
+	logger logger.Logger
+}
+
+func (l pubsubLogger) Errorf(format string, values ...interface{}) {
+	l.logger.Errorf(context.Background(), format, values...)
+}
+
+func (l pubsubLogger) Debugf(format string, values ...interface{}) {
+	l.logger.Debugf(context.Background(), format, values...)
+}
+
+func (l pubsubLogger) Tracef(format string, values ...interface{}) {
+	l.logger.Tracef(context.Background(), format, values...)
 }

@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -108,7 +109,7 @@ func ParseInterfaceType(sysPath, interfaceName string) LinkLayerDeviceType {
 
 	data, err := os.ReadFile(location)
 	if err != nil {
-		logger.Debugf("ignoring error reading %q: %v", location, err)
+		logger.Debugf(context.TODO(), "ignoring error reading %q: %v", location, err)
 		return UnknownDevice
 	}
 
@@ -151,7 +152,7 @@ func GetBridgePorts(sysPath, bridgeName string) []string {
 	// as no results, but for debugging we're still logging the error.
 	paths, err := filepath.Glob(portsGlobPath)
 	if err != nil {
-		logger.Debugf("ignoring error traversing path %q: %v", portsGlobPath, err)
+		logger.Debugf(context.TODO(), "ignoring error traversing path %q: %v", portsGlobPath, err)
 	}
 
 	if len(paths) == 0 {

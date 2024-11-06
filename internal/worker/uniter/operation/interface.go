@@ -51,7 +51,7 @@ type Operation interface {
 
 	// RemoteStateChanged is called when the remote state changed during execution
 	// of the operation.
-	RemoteStateChanged(snapshot remotestate.Snapshot)
+	RemoteStateChanged(ctx stdcontext.Context, snapshot remotestate.Snapshot)
 }
 
 // WrappedOperation extends Operation to provide access to the wrapped operation.

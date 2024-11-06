@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -151,7 +153,7 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 			}
 		}
 	}
-	logger.Debugf("merged endpoint bindings modified: %t, default: %v, current: %v, mergeWith: %v, after: %v",
+	logger.Debugf(context.TODO(), "merged endpoint bindings modified: %t, default: %v, current: %v, mergeWith: %v, after: %v",
 		isModified, defaultsMap, b.bindingsMap, mergeMap, updated)
 	if isModified {
 		b.bindingsMap = updated

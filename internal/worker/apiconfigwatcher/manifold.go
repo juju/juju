@@ -63,7 +63,10 @@ type apiconfigwatcher struct {
 }
 
 func (w *apiconfigwatcher) loop() error {
-	w.addrs = w.getAPIAddresses()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	w.addrs = w.getAPIAddresses(ctx)
 	watch := w.agentConfigChanged.Watch()
 	defer watch.Close()
 
@@ -91,8 +94,8 @@ func (w *apiconfigwatcher) loop() error {
 		// Always unconditionally check for a change in API addresses
 		// first, in case there was a change between the start func
 		// and the call to Watch.
-		if !stringSliceEq(w.addrs, w.getAPIAddresses()) {
-			w.logger.Debugf("API addresses changed in agent config")
+		if !stringSliceEq(w.addrs, w.getAPIAddresses(ctx)) {
+			w.logger.Debugf(ctx, "API addresses changed in agent config")
 			return dependency.ErrBounce
 		}
 
@@ -117,11 +120,15 @@ func (w *apiconfigwatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *apiconfigwatcher) getAPIAddresses() []string {
+func (w *apiconfigwatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
+}
+
+func (w *apiconfigwatcher) getAPIAddresses(ctx context.Context) []string {
 	config := w.agent.CurrentConfig()
 	addrs, err := config.APIAddresses()
 	if err != nil {
-		w.logger.Errorf("retrieving API addresses: %s", err)
+		w.logger.Errorf(ctx, "retrieving API addresses: %s", err)
 		addrs = nil
 	}
 	sort.Strings(addrs)

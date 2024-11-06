@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state"
 )
 
@@ -97,7 +98,7 @@ type NewModelConfig struct {
 // NewModelWorkerFunc should return a worker responsible for running
 // all a model's required workers; and for returning nil when there's
 // no more model to manage.
-type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
+type NewModelWorkerFunc func(ctx context.Context, config NewModelConfig) (worker.Worker, error)
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
@@ -173,7 +174,7 @@ func New(config Config) (worker.Worker, error) {
 			},
 			MoreImportant: neverImportant,
 			RestartDelay:  config.ErrorDelay,
-			Logger:        config.Logger,
+			Logger:        internalworker.WrapLogger(config.Logger),
 		}),
 	}
 
@@ -278,18 +279,19 @@ func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 
 func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+		// Get the controller config for the model worker so that we correctly
+		// handle the case where the controller config changes between model
+		// worker restarts.
+		ctx, cancel := m.scopedContext()
+		defer cancel()
+
 		modelUUID := cfg.ModelUUID
 		modelName := fmt.Sprintf("%q (%s)", corelogger.ModelFilePrefix(cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
-		m.config.Logger.Debugf("starting workers for model %s", modelName)
+		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
 
 		// Get the provider domain services for the model.
 		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
 		cfg.DomainServices = m.config.DomainServicesGetter.ServicesForModel(model.UUID(modelUUID))
-
-		// Get the controller config for the model worker so that we correctly
-		// handle the case where the controller config changes between model
-		// worker restarts.
-		ctx := m.catacomb.Context(context.Background())
 
 		controllerConfigService := cfg.DomainServices.ControllerConfig()
 		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)
@@ -309,7 +311,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 			logSink,
 			m.config.Logger,
 		)
-		worker, err := m.config.NewModelWorker(cfg)
+		worker, err := m.config.NewModelWorker(ctx, cfg)
 		if err != nil {
 			cfg.ModelLogger.Close()
 			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
@@ -336,4 +338,8 @@ func (m *modelWorkerManager) Report() map[string]any {
 		return nil
 	}
 	return m.runner.Report()
+}
+
+func (m *modelWorkerManager) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(m.catacomb.Context(context.Background()))
 }

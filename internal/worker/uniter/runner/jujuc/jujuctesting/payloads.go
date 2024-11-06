@@ -15,13 +15,13 @@ type ContextPayloads struct {
 }
 
 // GetPayload implements jujuc.ContextPayloads.
-func (c *ContextPayloads) GetPayload(class, id string) (*payloads.Payload, error) {
+func (c *ContextPayloads) GetPayload(ctx context.Context, class, id string) (*payloads.Payload, error) {
 	c.stub.AddCall("GetPayload", class, id)
 	return &payloads.Payload{}, nil
 }
 
 // TrackPayload implements jujuc.ContextPayloads.
-func (c *ContextPayloads) TrackPayload(payload payloads.Payload) error {
+func (c *ContextPayloads) TrackPayload(_ context.Context, payload payloads.Payload) error {
 	c.stub.AddCall("TrackPayload", payload)
 	return nil
 }
@@ -39,7 +39,7 @@ func (c *ContextPayloads) SetPayloadStatus(_ context.Context, class, id, status 
 }
 
 // ListPayloads implements jujuc.ContextPayloads.
-func (c *ContextPayloads) ListPayloads() ([]string, error) {
+func (c *ContextPayloads) ListPayloads(_ context.Context) ([]string, error) {
 	c.stub.AddCall("ListPayloads")
 	return nil, nil
 }

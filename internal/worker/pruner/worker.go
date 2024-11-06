@@ -85,7 +85,7 @@ func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration,
 			newMaxAge, newMaxCollectionMB := getPrunerConfig(modelConfig)
 
 			if newMaxAge != maxAge || newMaxCollectionMB != maxCollectionMB {
-				w.config.Logger.Infof("pruner config: max age: %v, max collection size %dM for %s (%s)",
+				w.config.Logger.Infof(ctx, "pruner config: max age: %v, max collection size %dM for %s (%s)",
 					newMaxAge, newMaxCollectionMB, modelConfig.Name(), modelConfig.UUID())
 				maxAge = newMaxAge
 				maxCollectionMB = newMaxCollectionMB

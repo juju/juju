@@ -66,7 +66,7 @@ func (rc *runCommands) Prepare(ctx stdcontext.Context, state State) (*State, err
 // state change.
 // Execute is part of the Operation interface.
 func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, error) {
-	rc.logger.Tracef("run commands: %s", rc)
+	rc.logger.Tracef(ctx, "run commands: %s", rc)
 	if err := rc.callbacks.SetExecutingStatus(ctx, "running commands"); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +74,7 @@ func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, err
 	response, err := rc.runner.RunCommands(ctx, rc.args.Commands)
 	switch err {
 	case context.ErrRequeueAndReboot:
-		rc.logger.Warningf("cannot requeue external commands")
+		rc.logger.Warningf(ctx, "cannot requeue external commands")
 		fallthrough
 	case context.ErrReboot:
 		rc.sendResponse(response, nil)
@@ -96,5 +96,4 @@ func (rc *runCommands) Commit(ctx stdcontext.Context, state State) (*State, erro
 
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
-func (rc *runCommands) RemoteStateChanged(snapshot remotestate.Snapshot) {
-}
+func (rc *runCommands) RemoteStateChanged(ctx stdcontext.Context, snapshot remotestate.Snapshot) {}

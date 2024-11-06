@@ -138,7 +138,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 			err = c.copyBinaries()
 		}
 		if err == nil {
-			err = c.installIntrospectionFunctions()
+			err = c.installIntrospectionFunctions(ctx)
 		}
 	}()
 
@@ -334,11 +334,11 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 	return nil
 }
 
-func (c *initCommand) installIntrospectionFunctions() error {
+func (c *initCommand) installIntrospectionFunctions(ctx context.Context) error {
 	if c.profileDir == "" {
 		return nil
 	}
-	return introspection.UpdateProfileFunctions(c.fileReaderWriter, c.profileDir)
+	return introspection.UpdateProfileFunctions(ctx, c.fileReaderWriter, c.profileDir)
 }
 
 func (c *initCommand) CurrentConfig() agent.Config {

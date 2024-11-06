@@ -161,7 +161,7 @@ func (EnvironProvider) Version() int {
 }
 
 func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
-	logger.Infof("opening model %q", args.Config.Name())
+	logger.Infof(ctx, "opening model %q", args.Config.Name())
 	uuid := args.Config.UUID()
 	namespace, err := instance.NewNamespace(uuid)
 	if err != nil {
@@ -210,8 +210,8 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 		// This should turn into a failure, left as an Error message for now to help
 		// provide context for failing networking calls by this environ.  Previously
 		// this was covered by switchingNetworking{} and switchingFirewaller{}.
-		logger.Errorf("Using unsupported OpenStack APIs. Neutron networking " +
-			"is not supported by this OpenStack cloud.\n  Please use OpenStack Queens or " +
+		logger.Errorf(context.TODO(), "Using unsupported OpenStack APIs. Neutron networking "+
+			"is not supported by this OpenStack cloud.\n  Please use OpenStack Queens or "+
 			"newer to maintain compatibility.")
 	}
 	networking := newNetworking(e)
@@ -488,7 +488,7 @@ func (inst *openstackInstance) Addresses(ctx envcontext.ProviderCallContext) (ne
 	var floatingIP string
 	if inst.floatingIP != nil {
 		floatingIP = *inst.floatingIP
-		logger.Debugf("instance %v has floating IP address: %v", inst.Id(), floatingIP)
+		logger.Debugf(context.TODO(), "instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	}
 	return convertNovaAddresses(floatingIP, addresses), nil
 }
@@ -520,7 +520,7 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 			}
 			machineAddr := network.NewMachineAddress(address.Address, network.WithScope(networkScope)).AsProviderAddress()
 			if machineAddr.Type != addrType {
-				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrType)
+				logger.Warningf(context.TODO(), "derived address type %v, nova reports %v", machineAddr.Type, addrType)
 			}
 			machineAddresses = append(machineAddresses, machineAddr)
 		}
@@ -743,7 +743,7 @@ func (e *Environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) err
 		return err
 	}
 	if !e.supportsNeutron() {
-		logger.Errorf(`Using unsupported OpenStack APIs.
+		logger.Errorf(context.TODO(), `Using unsupported OpenStack APIs.
 
   Neutron networking is not supported by this OpenStack cloud.
 
@@ -879,7 +879,7 @@ var authenticateClient = func(auth authenticator) error {
 		// Log the error in case there are any useful hints,
 		// but provide a readable and helpful error message
 		// to the user.
-		logger.Debugf("Authenticate() failed: %v", err)
+		logger.Debugf(context.TODO(), "Authenticate() failed: %v", err)
 		if gooseerrors.IsUnauthorised(err) {
 			return errors.Errorf("authentication failed : %v\n"+
 				"Please ensure the credentials are correct. A common mistake is\n"+
@@ -970,7 +970,7 @@ func identityClientVersion(authURL string) (int, error) {
 		_, tail = path.Split(strings.TrimRight(urlpath, "/"))
 	}
 	versionNumStr := strings.TrimPrefix(tail, "v")
-	logger.Debugf("authURL: %s", authURL)
+	logger.Debugf(context.TODO(), "authURL: %s", authURL)
 	major, _, err := version.ParseMajorMinor(versionNumStr)
 	if len(tail) < 2 || tail[0] != 'v' || err != nil {
 		// There must be a '/v' in the URL path.
@@ -1102,7 +1102,7 @@ func (e *Environ) startInstance(
 	if err != nil {
 		return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
 	}
-	logger.Debugf("openstack user data; %d bytes", len(userData))
+	logger.Debugf(context.TODO(), "openstack user data; %d bytes", len(userData))
 
 	machineName := resourceName(
 		e.namespace,
@@ -1141,7 +1141,7 @@ func (e *Environ) startInstance(
 			}
 			if net.PortSecurityEnabled != nil && !*net.PortSecurityEnabled {
 				createSecurityGroups = *net.PortSecurityEnabled
-				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
+				logger.Infof(ctx, "network %q has port_security_enabled set to false. Not using security groups.", net.Id)
 				break
 			}
 		}
@@ -1208,7 +1208,7 @@ func (e *Environ) startInstance(
 				break
 			}
 			if server == nil {
-				logger.Warningf("may have lost contact with nova api while creating instances, some stray instances may be around and need to be deleted")
+				logger.Warningf(context.TODO(), "may have lost contact with nova api while creating instances, some stray instances may be around and need to be deleted")
 				break
 			}
 			var serverDetail *nova.ServerDetail
@@ -1217,9 +1217,9 @@ func (e *Environ) startInstance(
 				// If we got an error back (eg. StillBuilding)
 				// we need to terminate the instance before
 				// retrying to avoid leaking resources.
-				logger.Warningf("Unable to retrieve details for created instance %q: %v; attempting to terminate it", server.Id, err)
+				logger.Warningf(context.TODO(), "Unable to retrieve details for created instance %q: %v; attempting to terminate it", server.Id, err)
 				if termErr := e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); termErr != nil {
-					logger.Errorf("Failed to delete instance %q: %v; manual cleanup required", server.Id, termErr)
+					logger.Errorf(ctx, "Failed to delete instance %q: %v; manual cleanup required", server.Id, termErr)
 				}
 				server = nil
 				break
@@ -1232,11 +1232,11 @@ func (e *Environ) startInstance(
 				if serverDetail.Fault != nil {
 					faultMsg = fmt.Sprintf(" with fault %q", serverDetail.Fault.Message)
 				} else {
-					logger.Debugf("getting active server details from nova failed without fault details")
+					logger.Debugf(context.TODO(), "getting active server details from nova failed without fault details")
 				}
-				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
+				logger.Infof(ctx, "Deleting instance %q in ERROR state%v", server.Id, faultMsg)
 				if err = e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); err != nil {
-					logger.Errorf("Failed to delete instance in ERROR state %q: %v; manual cleanup required", server.Id, err)
+					logger.Errorf(ctx, "Failed to delete instance in ERROR state %q: %v; manual cleanup required", server.Id, err)
 				}
 				server = nil
 				err = errors.New(faultMsg)
@@ -1268,10 +1268,10 @@ func (e *Environ) startInstance(
 		if err := e.firewaller.DeleteMachineGroup(ctx, args.InstanceConfig.MachineId); err != nil {
 			// If we failed to clean up the security groups, we need the user
 			// to manually clean them up.
-			logger.Errorf("cannot cleanup security groups: %v", err)
+			logger.Errorf(ctx, "cannot cleanup security groups: %v", err)
 		}
 
-		logger.Debugf("cannot run instance full error: %q", err)
+		logger.Debugf(context.TODO(), "cannot run instance full error: %q", err)
 		err = errors.Annotate(errors.Cause(err), "cannot run instance")
 		// Improve the error message if there is no valid network.
 		if isInvalidNetworkError(err) {
@@ -1298,7 +1298,7 @@ func (e *Environ) startInstance(
 		instType:     &spec.InstanceType,
 		runOpts:      &opts,
 	}
-	logger.Infof("started instance %q", inst.Id())
+	logger.Infof(ctx, "started instance %q", inst.Id())
 	var withPublicIP bool
 	// Any machine constraint for allocating a public IP address
 	// overrides the (deprecated) model config.
@@ -1312,22 +1312,22 @@ func (e *Environ) startInstance(
 		e.publicIPMutex.Lock()
 		defer e.publicIPMutex.Unlock()
 		var publicIP *string
-		logger.Debugf("allocating public IP address for openstack node")
+		logger.Debugf(context.TODO(), "allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
 			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
-				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
+				logger.Debugf(context.TODO(), "failed to terminate instance %q: %v", inst.Id(), err)
 			}
 			return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
-			logger.Infof("allocated public IP %s", *publicIP)
+			logger.Infof(ctx, "allocated public IP %s", *publicIP)
 		}
 
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
-				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
+				logger.Debugf(context.TODO(), "failed to terminate instance %q: %v", inst.Id(), err)
 			}
 			return nil, environs.ZoneIndependentError(errors.Annotatef(err,
 				"cannot assign public address %s to instance %q",
@@ -1429,7 +1429,7 @@ func (e *Environ) networksForInstance(
 			break
 		}
 
-		logger.Infof("created new port %q connected to Openstack subnet %q", port.Id, subnetID)
+		logger.Infof(context.TODO(), "created new port %q connected to Openstack subnet %q", port.Id, subnetID)
 		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
 			NetworkId: subnetNet.Id,
 			PortId:    port.Id,
@@ -1456,7 +1456,7 @@ func (e *Environ) networksForInstance(
 	if err != nil {
 		err1 := e.DeletePorts(subnetNetworks)
 		if err1 != nil {
-			logger.Errorf("Unable to delete ports from the provider %+v", subnetNetworks)
+			logger.Errorf(context.TODO(), "Unable to delete ports from the provider %+v", subnetNetworks)
 		}
 		return nil, errors.Annotatef(err, "creating ports for instance")
 	}
@@ -1489,7 +1489,7 @@ func subnetInZone(az string, subnetsToZones []map[network.Id][]string) ([]networ
 			// Add subnets without zone-limited networks.
 			for subnetID, zones := range nic {
 				if len(zones) == 0 {
-					logger.Warningf(
+					logger.Warningf(context.TODO(),
 						"subnet %q is not in a network with availability zones listed; assuming availability in zone %q",
 						subnetID, az)
 					subnetIDs = append(subnetIDs, subnetID)
@@ -1537,7 +1537,7 @@ func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
 		// It would be nice to generalize this so we have the same expected
 		// behaviour from all our slices of errors.
 		for _, err := range errs {
-			logger.Errorf("Unable to delete port with error: %v", err)
+			logger.Errorf(context.TODO(), "Unable to delete port with error: %v", err)
 		}
 		return errs[0]
 	}
@@ -1554,7 +1554,7 @@ func (e *Environ) networksForModel() ([]neutron.NetworkV2, error) {
 	for _, cfgNet := range cfgNets {
 		networks, err := e.networking.ResolveNetworks(cfgNet, false)
 		if err != nil {
-			logger.Warningf("filtering networks for %q", cfgNet)
+			logger.Warningf(context.TODO(), "filtering networks for %q", cfgNet)
 		}
 
 		for _, net := range networks {
@@ -1574,7 +1574,7 @@ func (e *Environ) networksForModel() ([]neutron.NetworkV2, error) {
 		return nil, errors.Errorf("unable to determine networks for configured list: %v", cfgNets)
 	}
 
-	logger.Debugf("using network IDs %v", networkIDs.Values())
+	logger.Debugf(context.TODO(), "using network IDs %v", networkIDs.Values())
 	return resolvedNetworks, nil
 }
 
@@ -1709,7 +1709,7 @@ func isInvalidNetworkError(err error) bool {
 }
 
 func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
-	logger.Debugf("terminating instances %v", ids)
+	logger.Debugf(context.TODO(), "terminating instances %v", ids)
 	if err := e.terminateInstances(ctx, ids); err != nil {
 		handleCredentialError(err, ctx)
 		return err
@@ -1797,14 +1797,14 @@ func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.I
 
 	foundServers, err := e.listServers(ctx, ids)
 	if err != nil {
-		logger.Debugf("error listing servers: %v", err)
+		logger.Debugf(context.TODO(), "error listing servers: %v", err)
 		if !IsNotFoundError(err) {
 			handleCredentialError(err, ctx)
 			return nil, err
 		}
 	}
 
-	logger.Tracef("%d/%d live servers found", len(foundServers), len(ids))
+	logger.Tracef(context.TODO(), "%d/%d live servers found", len(foundServers), len(ids))
 	if len(foundServers) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -1847,7 +1847,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 	for _, instance := range instances {
 		err := e.TagInstance(ctx, instance.Id(), controllerTag)
 		if err != nil {
-			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
+			logger.Errorf(ctx, "error updating controller tag for instance %s: %v", instance.Id(), err)
 			failed = append(failed, instance.Id().String())
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
@@ -1877,7 +1877,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.ProviderCallContext) ([]string, error) {
 	cinder, err := e.cinderProvider()
 	if errors.Is(err, errors.NotSupported) {
-		logger.Debugf("volumes not supported: not transferring ownership for volumes")
+		logger.Debugf(context.TODO(), "volumes not supported: not transferring ownership for volumes")
 		return nil, nil
 	}
 	if err != nil {
@@ -1904,7 +1904,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.P
 	for _, volumeId := range volumeIds {
 		_, err := cinder.storageAdaptor.SetVolumeMetadata(volumeId, controllerTag)
 		if err != nil {
-			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			logger.Errorf(ctx, "error updating controller tag for volume %s: %v", volumeId, err)
 			failed = append(failed, volumeId)
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
@@ -2171,7 +2171,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 		return nil
 	}
 	if err != nil {
-		logger.Debugf("error retrieving security groups for %v: %v", ids, err)
+		logger.Debugf(context.TODO(), "error retrieving security groups for %v: %v", ids, err)
 		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 			// We'll likely fail all subsequent calls if we have an invalid credential.
 			return errors.Trace(err)
@@ -2185,7 +2185,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 		// Attempt to destroy the ports that could have been created when using
 		// spaces.
 		if err := e.terminateInstanceNetworkPorts(id); err != nil {
-			logger.Errorf("error attempting to remove ports associated with instance %q: %v", id, err)
+			logger.Errorf(ctx, "error attempting to remove ports associated with instance %q: %v", id, err)
 			// Unfortunately there is nothing we can do here, there could be
 			// orphan ports left.
 		}
@@ -2196,7 +2196,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 			continue
 		}
 		if err != nil {
-			logger.Debugf("error terminating instance %q: %v", id, err)
+			logger.Debugf(context.TODO(), "error terminating instance %q: %v", id, err)
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -2208,7 +2208,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 	}
 
 	if len(securityGroupNames) > 0 {
-		logger.Tracef("deleting security groups %v", securityGroupNames)
+		logger.Tracef(context.TODO(), "deleting security groups %v", securityGroupNames)
 		if err := e.firewaller.DeleteGroups(ctx, securityGroupNames...); err != nil {
 			return err
 		}

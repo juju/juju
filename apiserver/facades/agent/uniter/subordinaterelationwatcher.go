@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
@@ -52,6 +54,10 @@ func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.
 
 func (w *subRelationsWatcher) loop() error {
 	defer close(w.out)
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	relationsw := w.app.WatchRelations()
 	if err := w.catacomb.Add(relationsw); err != nil {
 		return errors.Trace(err)
@@ -78,7 +84,7 @@ func (w *subRelationsWatcher) loop() error {
 				if currentRelations.Contains(relation) {
 					continue
 				}
-				shouldSend, err := w.shouldSend(relation)
+				shouldSend, err := w.shouldSend(ctx, relation)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -93,22 +99,22 @@ func (w *subRelationsWatcher) loop() error {
 	}
 }
 
-func (w *subRelationsWatcher) shouldSend(key string) (bool, error) {
+func (w *subRelationsWatcher) shouldSend(ctx context.Context, key string) (bool, error) {
 	if shouldSend, found := w.relations[key]; found {
 		return shouldSend, nil
 	}
-	result, err := w.shouldSendCheck(key)
+	result, err := w.shouldSendCheck(ctx, key)
 	if err == nil {
 		w.relations[key] = result
 	}
 	return result, errors.Trace(err)
 }
 
-func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
+func (w *subRelationsWatcher) shouldSendCheck(ctx context.Context, key string) (bool, error) {
 	rel, err := w.backend.KeyRelation(key)
 	if errors.Is(err, errors.NotFound) {
 		// We never saw it, and it's already gone away, so we can drop it.
-		w.logger.Debugf("couldn't find unknown relation %q", key)
+		w.logger.Debugf(ctx, "couldn't find unknown relation %q", key)
 		return false, nil
 	} else if err != nil {
 		return false, errors.Trace(err)
@@ -167,4 +173,8 @@ func (w *subRelationsWatcher) Stop() error {
 // Wait implements watcher.StringsWatcher.
 func (w *subRelationsWatcher) Wait() error {
 	return w.catacomb.Wait()
+}
+
+func (w *subRelationsWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

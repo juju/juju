@@ -196,7 +196,7 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 			err = nil
 		}
 		if err != nil {
-			logger.Debugf("upgradeModel failed %v", err)
+			logger.Debugf(ctx, "upgradeModel failed %v", err)
 		}
 	}()
 
@@ -249,7 +249,7 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 
 	targetVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
 	if err == nil {
-		logger.Debugf("upgraded to %s", targetVersion)
+		logger.Debugf(ctx, "upgraded to %s", targetVersion)
 		return nil
 	}
 	if errors.Is(err, errors.NotFound) {
@@ -279,7 +279,7 @@ func (c *upgradeModelCommand) notifyControllerUpgrade(
 		if errors.Is(err, errors.AlreadyExists) {
 			err = errUpToDate
 		}
-		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
+		return chosenVersion, block.ProcessBlockedError(ctx, err, block.BlockChange)
 	}
 	return chosenVersion, nil
 }

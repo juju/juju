@@ -67,7 +67,7 @@ func NewSocketListener(config Config) (*SocketListener, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
-	config.Logger.Debugf("socketlistener listening on socket %q", config.SocketName)
+	config.Logger.Debugf(context.TODO(), "socketlistener listening on socket %q", config.SocketName)
 
 	sl := &SocketListener{
 		config:   config,
@@ -92,11 +92,14 @@ func (sl *SocketListener) run() error {
 	router := mux.NewRouter()
 	sl.config.RegisterHandlers(router)
 
+	ctx, cancel := sl.scopedContext()
+	defer cancel()
+
 	srv := http.Server{Handler: router}
 	defer func() {
 		err := srv.Close()
 		if err != nil {
-			sl.config.Logger.Warningf("error closing HTTP server: %v", err)
+			sl.config.Logger.Warningf(ctx, "error closing HTTP server: %v", err)
 		}
 	}()
 
@@ -108,10 +111,15 @@ func (sl *SocketListener) run() error {
 		return srv.Shutdown(ctx)
 	})
 
-	sl.config.Logger.Debugf("socketlistener now serving on socket %q", sl.config.SocketName)
-	defer sl.config.Logger.Debugf("socketlistener finished serving on socket %q", sl.config.SocketName)
+	sl.config.Logger.Debugf(ctx, "socketlistener now serving on socket %q", sl.config.SocketName)
+	defer sl.config.Logger.Debugf(ctx, "socketlistener finished serving on socket %q", sl.config.SocketName)
 	if err := srv.Serve(sl.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
+}
+
+// scopedContext returns a context that is cancelled when the tomb is killed.
+func (sl *SocketListener) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(sl.tomb.Context(context.Background()))
 }

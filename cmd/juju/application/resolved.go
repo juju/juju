@@ -100,5 +100,5 @@ func (c *resolvedCommand) Run(ctx *cmd.Context) error {
 	}
 	defer applicationResolveAPI.Close()
 
-	return block.ProcessBlockedError(applicationResolveAPI.ResolveUnitErrors(ctx, c.UnitNames, c.All, !c.NoRetry), block.BlockChange)
+	return block.ProcessBlockedError(ctx, applicationResolveAPI.ResolveUnitErrors(ctx, c.UnitNames, c.All, !c.NoRetry), block.BlockChange)
 }

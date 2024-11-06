@@ -5,6 +5,7 @@
 package machineactions_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -31,13 +32,13 @@ func (s *HandleSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *HandleSuite) TestInvalidAction(c *gc.C) {
-	results, err := machineactions.HandleAction("invalid", nil)
+	results, err := machineactions.HandleAction(context.Background(), "invalid", nil)
 	c.Assert(err, gc.ErrorMatches, "unexpected action invalid")
 	c.Assert(results, gc.IsNil)
 }
 
 func (s *HandleSuite) TestValidActionInvalidParams(c *gc.C) {
-	results, err := machineactions.HandleAction(actions.JujuExecActionName, nil)
+	results, err := machineactions.HandleAction(context.Background(), actions.JujuExecActionName, nil)
 	c.Assert(err, gc.ErrorMatches, "invalid action parameters")
 	c.Assert(results, gc.IsNil)
 }
@@ -48,7 +49,7 @@ func (s *HandleSuite) TestTimeoutRun(c *gc.C) {
 		"timeout": float64(1),
 	}
 
-	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
+	results, err := machineactions.HandleAction(context.Background(), actions.JujuExecActionName, params)
 	c.Assert(errors.Cause(err), gc.Equals, exec.ErrCancelled)
 	c.Assert(results, gc.IsNil)
 }
@@ -59,7 +60,7 @@ func (s *HandleSuite) TestSuccessfulRun(c *gc.C) {
 		"timeout": float64(0),
 	}
 
-	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
+	results, err := machineactions.HandleAction(context.Background(), actions.JujuExecActionName, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results["return-code"], gc.Equals, 0)
 	c.Assert(strings.TrimRight(results["stdout"].(string), "\r\n"), gc.Equals, "1")
@@ -72,7 +73,7 @@ func (s *HandleSuite) TestErrorRun(c *gc.C) {
 		"timeout": float64(0),
 	}
 
-	results, err := machineactions.HandleAction(actions.JujuExecActionName, params)
+	results, err := machineactions.HandleAction(context.Background(), actions.JujuExecActionName, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results["return-code"], gc.Equals, 42)
 	c.Assert(results["stdout"], gc.Equals, "")

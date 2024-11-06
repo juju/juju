@@ -61,7 +61,7 @@ func tryAPI(ctx stdcontext.Context, c *modelcmd.ModelCommandBase) error {
 		_, err = client.List(ctx)
 		closeErr := client.Close()
 		if closeErr != nil {
-			logger.Debugf("Error closing client: %v", closeErr)
+			logger.Debugf(ctx, "Error closing client: %v", closeErr)
 		}
 	}
 	return err
