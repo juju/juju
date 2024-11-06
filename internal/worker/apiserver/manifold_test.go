@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -59,6 +60,7 @@ type ManifoldSuite struct {
 	state                   stubStateTracker
 	upgradeGate             stubGateWaiter
 	logSink                 corelogger.ModelLogger
+	httpClientGetter        *stubHTTPClientGetter
 	charmhubHTTPClient      *http.Client
 	dbGetter                stubWatchableDBGetter
 	dbDeleter               stubDBDeleter
@@ -87,6 +89,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
+	s.httpClientGetter = &stubHTTPClientGetter{
+		client: s.charmhubHTTPClient,
+	}
 	s.stub.ResetCalls()
 	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.dbDeleter = stubDBDeleter{}
@@ -102,7 +107,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
 		LogSinkName:                       "log-sink",
-		CharmhubHTTPClientName:            "charmhub-http-client",
+		HTTPClientName:                    "http-client",
 		DomainServicesName:                "domain-services",
 		TraceName:                         "trace",
 		ObjectStoreName:                   "object-store",
@@ -125,21 +130,21 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
-		"agent":                s.agent,
-		"authenticator":        s.authenticator,
-		"clock":                s.clock,
-		"mux":                  s.mux,
-		"state":                &s.state,
-		"upgrade":              &s.upgradeGate,
-		"auditconfig-updater":  s.auditConfig.get,
-		"lease-manager":        s.leaseManager,
-		"log-sink":             s.logSink,
-		"charmhub-http-client": s.charmhubHTTPClient,
-		"change-stream":        s.dbGetter,
-		"db-accessor":          s.dbDeleter,
-		"domain-services":      s.domainServicesGetter,
-		"trace":                s.tracerGetter,
-		"object-store":         s.objectStoreGetter,
+		"agent":               s.agent,
+		"authenticator":       s.authenticator,
+		"clock":               s.clock,
+		"mux":                 s.mux,
+		"state":               &s.state,
+		"upgrade":             &s.upgradeGate,
+		"auditconfig-updater": s.auditConfig.get,
+		"lease-manager":       s.leaseManager,
+		"log-sink":            s.logSink,
+		"http-client":         s.httpClientGetter,
+		"change-stream":       s.dbGetter,
+		"db-accessor":         s.dbDeleter,
+		"domain-services":     s.domainServicesGetter,
+		"trace":               s.tracerGetter,
+		"object-store":        s.objectStoreGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -170,7 +175,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"charmhub-http-client", "change-stream",
+	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink", "db-accessor",
 }
 
@@ -420,4 +425,12 @@ type stubTracerGetter struct {
 
 type stubObjectStoreGetter struct {
 	objectstore.ObjectStoreGetter
+}
+
+type stubHTTPClientGetter struct {
+	client *http.Client
+}
+
+func (s *stubHTTPClientGetter) GetHTTPClient(ctx context.Context, namespace corehttp.Namespace) (corehttp.HTTPClient, error) {
+	return s.client, nil
 }

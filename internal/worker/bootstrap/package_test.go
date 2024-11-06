@@ -25,6 +25,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,KeyManagerService,MachineService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination http_client_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -57,6 +58,7 @@ type baseSuite struct {
 	bakeryConfigService     *MockBakeryConfigService
 	flagService             *MockFlagService
 	httpClient              *MockHTTPClient
+	httpClientGetter        *MockHTTPClientGetter
 
 	logger logger.Logger
 }
@@ -86,6 +88,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.bakeryConfigService = NewMockBakeryConfigService(ctrl)
 	s.flagService = NewMockFlagService(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
+	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
 

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	coredependency "github.com/juju/juju/core/dependency"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -73,7 +74,7 @@ type ManifoldConfig struct {
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	LogSinkName            string
-	CharmhubHTTPClientName string
+	HTTPClientName         string
 
 	DBAccessorName     string
 	ChangeStreamName   string
@@ -127,8 +128,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.LogSinkName == "" {
 		return errors.NotValidf("empty LogSinkName")
 	}
-	if config.CharmhubHTTPClientName == "" {
-		return errors.NotValidf("empty CharmhubHTTPClientName")
+	if config.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
 	}
 	if config.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
@@ -180,7 +181,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
-			config.CharmhubHTTPClientName,
+			config.HTTPClientName,
 			config.DBAccessorName,
 			config.ChangeStreamName,
 			config.DomainServicesName,
@@ -243,8 +244,13 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var charmhubHTTPClient HTTPClient
-	if err := getter.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+	var httpClientGetter corehttp.HTTPClientGetter
+	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	charmhubHTTPClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.CharmhubNamespace)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 

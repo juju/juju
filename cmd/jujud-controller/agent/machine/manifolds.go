@@ -35,6 +35,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
 	internalhttp "github.com/juju/juju/internal/http"
@@ -42,7 +43,9 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
+	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/services"
+	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
@@ -278,15 +281,6 @@ type ManifoldsConfig struct {
 	// DependencyEngineMetrics creates a set of metrics for a model, so it's
 	// possible to know the lifecycle of the workers in the dependency engine.
 	DependencyEngineMetrics modelworkermanager.ModelMetrics
-
-	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
-	CharmhubHTTPClient *internalhttp.Client
-
-	// SSHImporterHTTPClient is the HTTP client used for ssh import operations.
-	SSHImporterHTTPClient *internalhttp.Client
-
-	// S3HTTPClient is the HTTP client used for S3 API requests.
-	S3HTTPClient *internalhttp.Client
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
@@ -658,7 +652,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
-			CharmhubHTTPClientName: charmhubHTTPClientName,
+			HTTPClientName:         httpClientName,
 			TraceName:              traceName,
 			ObjectStoreName:        objectStoreName,
 
@@ -678,13 +672,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		}),
-
-		charmhubHTTPClientName: dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.CharmhubHTTPClient)
-			},
-			Output: engine.ValueWorkerOutput,
-		},
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:                    agentName,
@@ -904,11 +891,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewHTTPClient: func(namespace corehttp.Namespace, opts ...internalhttp.Option) *internalhttp.Client {
 				switch namespace {
 				case corehttp.CharmhubNamespace:
-					return config.CharmhubHTTPClient
+					charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+					return charmhub.DefaultHTTPClient(charmhubLogger)
+
 				case corehttp.S3Namespace:
-					return config.S3HTTPClient
+					s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
+					return s3client.DefaultHTTPClient(s3Logger)
+
 				case corehttp.SSHImporterNamespace:
-					return config.SSHImporterHTTPClient
+					sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+					return sshimporter.DefaultHTTPClient(sshImporterLogger)
+
 				default:
 					return internalhttp.NewClient(opts...)
 				}
@@ -934,7 +927,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			ObjectStoreName:         objectStoreName,
 			DomainServicesName:      domainServicesName,
-			CharmhubHTTPClientName:  charmhubHTTPClientName,
+			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
@@ -1149,7 +1142,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			ObjectStoreName:         objectStoreName,
 			DomainServicesName:      domainServicesName,
-			CharmhubHTTPClientName:  charmhubHTTPClientName,
+			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
@@ -1334,7 +1327,6 @@ const (
 	certificateWatcherName        = "certificate-watcher"
 	changeStreamName              = "change-stream"
 	changeStreamPrunerName        = "change-stream-pruner"
-	charmhubHTTPClientName        = "charmhub-http-client"
 	controllerAgentConfigName     = "controller-agent-config"
 	controlSocketName             = "control-socket"
 	dbAccessorName                = "db-accessor"

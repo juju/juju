@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/flags"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
@@ -62,14 +63,14 @@ type HTTPClient interface {
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName              string
-	StateName              string
-	ObjectStoreName        string
-	BootstrapGateName      string
-	DomainServicesName     string
-	CharmhubHTTPClientName string
-	ProviderFactoryName    string
-	StorageRegistryName    string
+	AgentName           string
+	StateName           string
+	ObjectStoreName     string
+	BootstrapGateName   string
+	DomainServicesName  string
+	HTTPClientName      string
+	ProviderFactoryName string
+	StorageRegistryName string
 
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -97,8 +98,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
 	}
-	if cfg.CharmhubHTTPClientName == "" {
-		return errors.NotValidf("empty CharmhubHTTPClientName")
+	if cfg.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
 	}
 	if cfg.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
@@ -136,7 +137,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreName,
 			config.BootstrapGateName,
 			config.DomainServicesName,
-			config.CharmhubHTTPClientName,
+			config.HTTPClientName,
 			config.ProviderFactoryName,
 			config.StorageRegistryName,
 		},
@@ -200,8 +201,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var charmhubHTTPClient HTTPClient
-			if err := getter.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+			var httpClientGetter corehttp.HTTPClientGetter
+			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			charmhubHTTPClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.CharmhubNamespace)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 

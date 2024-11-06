@@ -21,6 +21,7 @@ const (
 
 // HTTPClientGetter is the interface that is used to get a http clients.
 type HTTPClientGetter interface {
+	// GetHTTPClient returns a http client for the given namespace.
 	GetHTTPClient(context.Context, Namespace) (HTTPClient, error)
 }
 
