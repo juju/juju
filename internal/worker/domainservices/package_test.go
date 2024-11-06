@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/storage"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
-	domainservicefactory "github.com/juju/juju/domain/services"
 	domainservices "github.com/juju/juju/domain/services"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	services "github.com/juju/juju/internal/services"
@@ -31,6 +30,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination http_mock_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -58,6 +58,9 @@ type baseSuite struct {
 	storageRegistryGetter      *MockStorageRegistryGetter
 	modelStorageRegistryGetter *MockModelStorageRegistryGetter
 
+	httpClientGetter *MockHTTPClientGetter
+	httpClient       *MockHTTPClient
+
 	publicKeyImporter *sshimporter.Importer
 }
 
@@ -83,6 +86,9 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
 	s.modelStorageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 
+	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)
+	s.httpClient = NewMockHTTPClient(ctrl)
+
 	s.publicKeyImporter = sshimporter.NewImporter(&http.Client{})
 
 	return ctrl
@@ -100,7 +106,7 @@ func NewModelDomainServices(
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
-	return domainservicefactory.NewModelFactory(
+	return domainservices.NewModelFactory(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),

@@ -43,7 +43,6 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/services"
-	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
@@ -694,13 +693,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		}),
 
-		sshImporterName: dependency.Manifold{
-			Start: func(ctx context.Context, get dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(sshimporter.NewImporter(config.SSHImporterHTTPClient))
-			},
-			Output: engine.ValueWorkerOutput,
-		},
-
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:                    agentName,
 			AuthorityName:                certificateWatcherName,
@@ -732,7 +724,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderFactoryName:         providerTrackerName,
 			ObjectStoreName:             objectStoreName,
 			StorageRegistryName:         storageRegistryName,
-			SSHImporterName:             sshImporterName,
+			HTTPClientName:              httpClientName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
 			NewWorker:                   workerdomainservices.NewWorker,
@@ -1388,7 +1380,6 @@ const (
 	rebootName                    = "reboot-executor"
 	s3HTTPClientName              = "s3-http-client"
 	secretBackendRotateName       = "secret-backend-rotate"
-	sshImporterName               = "ssh-importer"
 	stateConverterName            = "state-converter"
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"
