@@ -52,6 +52,16 @@ type Interface struct {
 	// specified, this instructs netplan not to bring any ipv4/ipv6 address
 	// up.
 	LinkLocal *[]string `yaml:"link-local,omitempty"`
+
+	// According to the netplan examples, this section typically includes
+	// some OVS-specific configuration bits. However, MAAS may just
+	// include an empty block to indicate the presence of an OVS-managed
+	// bridge (LP1942328). As a workaround, we make this an optional map
+	// so we can tell whether it is present (but empty) vs not being
+	// present.
+	//
+	// See: https://github.com/canonical/netplan/blob/main/examples/openvswitch.yaml
+	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 // Ethernet defines fields for just Ethernet devices
@@ -61,11 +71,13 @@ type Ethernet struct {
 	SetName   string            `yaml:"set-name,omitempty"`
 	Interface `yaml:",inline"`
 }
+
 type AccessPoint struct {
 	Password string `yaml:"password,omitempty"`
 	Mode     string `yaml:"mode,omitempty"`
 	Channel  int    `yaml:"channel,omitempty"`
 }
+
 type Wifi struct {
 	Match        map[string]string      `yaml:"match,omitempty"`
 	SetName      string                 `yaml:"set-name,omitempty"`
@@ -89,16 +101,6 @@ type Bridge struct {
 	Interfaces []string `yaml:"interfaces,omitempty,flow"`
 	Interface  `yaml:",inline"`
 	Parameters BridgeParameters `yaml:"parameters,omitempty"`
-
-	// According to the netplan examples, this section typically includes
-	// some OVS-specific configuration bits. However, MAAS may just
-	// include an empty block to indicate the presence of an OVS-managed
-	// bridge (LP1942328). As a workaround, we make this an optional map
-	// so we can tell whether it is present (but empty) vs not being
-	// present.
-	//
-	// See: https://github.com/canonical/netplan/blob/main/examples/openvswitch.yaml
-	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 type Route struct {
@@ -142,10 +144,9 @@ type Netplan struct {
 
 // VLAN represents the structures for defining VLAN sections
 type VLAN struct {
-	Id            *int   `yaml:"id,omitempty"`
-	Link          string `yaml:"link,omitempty"`
-	Interface     `yaml:",inline"`
-	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
+	Id        *int   `yaml:"id,omitempty"`
+	Link      string `yaml:"link,omitempty"`
+	Interface `yaml:",inline"`
 }
 
 // Bond is the interface definition of the bonds: section of netplan
