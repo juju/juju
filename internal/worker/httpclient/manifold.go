@@ -96,6 +96,6 @@ func output(in worker.Worker, out any) error {
 }
 
 // NewHTTPClient creates a new http client.
-func NewHTTPClient(opts ...internalhttp.Option) *internalhttp.Client {
+func NewHTTPClient(namespace string, opts ...internalhttp.Option) *internalhttp.Client {
 	return internalhttp.NewClient(opts...)
 }

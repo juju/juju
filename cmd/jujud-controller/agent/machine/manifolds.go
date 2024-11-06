@@ -76,6 +76,7 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
+	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
@@ -915,6 +916,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                    config.Clock,
 			Logger:                   internallogger.GetLogger("juju.worker.storageregistry"),
 		}),
+
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient:       httpclient.NewHTTPClient,
+			NewHTTPClientWorker: httpclient.NewTrackedWorker,
+			Clock:               config.Clock,
+			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
+		}),
 	}
 
 	return manifolds
@@ -1323,13 +1331,18 @@ const (
 	migrationMinionName       = "migration-minion"
 
 	apiAddressUpdaterName         = "api-address-updater"
+	apiServerName                 = "api-server"
 	auditConfigUpdaterName        = "audit-config-updater"
 	authenticationWorkerName      = "ssh-authkeys-updater"
+	brokerTrackerName             = "broker-tracker"
+	caasUnitsManager              = "caas-units-manager"
 	certificateUpdaterName        = "certificate-updater"
 	certificateWatcherName        = "certificate-watcher"
 	changeStreamName              = "change-stream"
 	changeStreamPrunerName        = "change-stream-pruner"
+	charmhubHTTPClientName        = "charmhub-http-client"
 	controllerAgentConfigName     = "controller-agent-config"
+	controlSocketName             = "control-socket"
 	dbAccessorName                = "db-accessor"
 	deployerName                  = "deployer"
 	diskManagerName               = "disk-manager"
@@ -1337,6 +1350,9 @@ const (
 	externalControllerUpdaterName = "external-controller-updater"
 	fileNotifyWatcherName         = "file-notify-watcher"
 	hostKeyReporterName           = "host-key-reporter"
+	httpClientName                = "http-client"
+	httpServerArgsName            = "http-server-args"
+	httpServerName                = "http-server"
 	identityFileWriterName        = "ssh-identity-writer"
 	instanceMutaterName           = "instance-mutater"
 	isControllerFlagName          = "is-controller-flag"
@@ -1346,6 +1362,7 @@ const (
 	leaseManagerName              = "lease-manager"
 	loggingConfigUpdaterName      = "logging-config-updater"
 	logSenderName                 = "log-sender"
+	logSinkName                   = "log-sink"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	machineActionName             = "machine-action-runner"
 	machinerName                  = "machiner"
@@ -1360,30 +1377,13 @@ const (
 	proxyConfigUpdater            = "proxy-config-updater"
 	queryLoggerName               = "query-logger"
 	rebootName                    = "reboot-executor"
+	s3HTTPClientName              = "s3-http-client"
+	secretBackendRotateName       = "secret-backend-rotate"
 	sshImporterName               = "ssh-importer"
 	stateConverterName            = "state-converter"
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"
 	toolsVersionCheckerName       = "tools-version-checker"
-
-	secretBackendRotateName = "secret-backend-rotate"
-
-	traceName = "trace"
-
-	httpServerName     = "http-server"
-	httpServerArgsName = "http-server-args"
-	apiServerName      = "api-server"
-
-	logSinkName = "log-sink"
-
-	caasUnitsManager = "caas-units-manager"
-
-	validCredentialFlagName = "valid-credential-flag"
-
-	brokerTrackerName = "broker-tracker"
-
-	charmhubHTTPClientName = "charmhub-http-client"
-	s3HTTPClientName       = "s3-http-client"
-
-	controlSocketName = "control-socket"
+	traceName                     = "trace"
+	validCredentialFlagName       = "valid-credential-flag"
 )

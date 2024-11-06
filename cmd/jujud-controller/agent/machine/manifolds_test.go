@@ -89,6 +89,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"external-controller-updater",
 			"file-notify-watcher",
 			"host-key-reporter",
+			"http-client",
 			"http-server-args",
 			"http-server",
 			"instance-mutater",
@@ -175,6 +176,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"domain-services",
 			"external-controller-updater",
 			"file-notify-watcher",
+			"http-client",
 			"http-server-args",
 			"http-server",
 			"is-bootstrap-flag",
@@ -266,6 +268,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"domain-services",
 		"file-notify-watcher",
 		"global-clock-updater",
+		"http-client",
 		"http-server-args",
 		"http-server",
 		"is-bootstrap-flag",
@@ -821,6 +824,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
+
+	"http-client": {},
 
 	"http-server": {
 		"agent",
@@ -1685,6 +1690,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"trace": {
 		"agent",
 	},
+
+	"http-client": {},
 
 	"http-server": {
 		"agent",
