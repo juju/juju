@@ -53,7 +53,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"http-client":           s.httpClient,
+		"http-client":           s.httpClientGetter,
 		"object-store-services": servicefactorytesting.NewTestingDomainServices(),
 	}
 	return dependencytesting.StubGetter(resources)
@@ -117,6 +117,7 @@ func (s *manifoldSuite) TestStartS3Backend(c *gc.C) {
 	s.expectControllerConfig(c, config)
 	s.expectControllerConfig(c, config)
 	s.expectControllerConfigWatch(c)
+	s.expectHTTPClient(c)
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,6 +139,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	s.expectControllerConfig(c, config)
 	s.expectControllerConfig(c, config)
 	s.expectControllerConfigWatch(c)
+	s.expectHTTPClient(c)
 
 	manifold := Manifold(s.getConfig())
 	w, err := manifold.Start(context.Background(), s.newGetter())

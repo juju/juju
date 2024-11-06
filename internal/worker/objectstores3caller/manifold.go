@@ -13,6 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredependency "github.com/juju/juju/core/dependency"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
@@ -98,8 +99,13 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return newNoopWorker(), nil
 	}
 
-	var httpClient s3client.HTTPClient
-	if err := getter.Get(config.HTTPClientName, &httpClient); err != nil {
+	var httpClientGetter corehttp.HTTPClientGetter
+	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	httpClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.S3Namespace)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 

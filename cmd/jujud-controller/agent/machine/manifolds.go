@@ -686,13 +686,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		},
 
-		s3HTTPClientName: ifController(dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.S3HTTPClient)
-			},
-			Output: engine.ValueWorkerOutput,
-		}),
-
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:                    agentName,
 			AuthorityName:                certificateWatcherName,
@@ -868,7 +861,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
-			HTTPClientName:             s3HTTPClientName,
+			HTTPClientName:             httpClientName,
 			ObjectStoreServicesName:    objectStoreServicesName,
 			NewClient:                  objectstores3caller.NewS3Client,
 			Logger:                     internallogger.GetLogger("juju.worker.s3caller"),
@@ -1378,7 +1371,6 @@ const (
 	proxyConfigUpdater            = "proxy-config-updater"
 	queryLoggerName               = "query-logger"
 	rebootName                    = "reboot-executor"
-	s3HTTPClientName              = "s3-http-client"
 	secretBackendRotateName       = "secret-backend-rotate"
 	stateConverterName            = "state-converter"
 	storageProvisionerName        = "storage-provisioner"
