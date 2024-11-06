@@ -24,7 +24,7 @@ type HTTPClientWorker interface {
 }
 
 // NewHTTPClientFunc is the function signature for creating a new http client.
-type NewHTTPClientFunc func(string, ...internalhttp.Option) *internalhttp.Client
+type NewHTTPClientFunc func(corehttp.Namespace, ...internalhttp.Option) *internalhttp.Client
 
 // HTTPClientWorkerFunc is the function signature for creating a new
 // http client worker.
@@ -93,9 +93,4 @@ func output(in worker.Worker, out any) error {
 		return errors.Errorf("expected output of HTTPClientGetter, got %T", out)
 	}
 	return nil
-}
-
-// NewHTTPClient creates a new http client.
-func NewHTTPClient(namespace string, opts ...internalhttp.Option) *internalhttp.Client {
-	return internalhttp.NewClient(opts...)
 }

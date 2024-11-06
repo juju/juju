@@ -51,7 +51,7 @@ func (c *WorkerConfig) Validate() error {
 // httpClientRequest is used to pass requests for Storage Registry
 // instances into the worker loop.
 type httpClientRequest struct {
-	namespace string
+	namespace corehttp.Namespace
 	done      chan error
 }
 
@@ -143,7 +143,7 @@ func (w *httpClientWorker) Wait() error {
 }
 
 // GetHTTPClient returns a httpClient for the given namespace.
-func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace string) (corehttp.HTTPClient, error) {
+func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp.Namespace) (corehttp.HTTPClient, error) {
 	// First check if we've already got the httpClient worker already running.
 	// If we have, then return out quickly. The httpClientRunner is the cache,
 	// so there is no need to have a in-memory cache here.
@@ -187,7 +187,7 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace string) 
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.runner.Worker(namespace, w.catacomb.Dying())
+	tracked, err := w.runner.Worker(namespace.String(), w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,9 +197,9 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace string) 
 	return tracked.(corehttp.HTTPClient), nil
 }
 
-func (w *httpClientWorker) workerFromCache(namespace string) (corehttp.HTTPClient, error) {
+func (w *httpClientWorker) workerFromCache(namespace corehttp.Namespace) (corehttp.HTTPClient, error) {
 	// If the worker already exists, return the existing worker early.
-	if httpClient, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+	if httpClient, err := w.runner.Worker(namespace.String(), w.catacomb.Dying()); err == nil {
 		return httpClient.(corehttp.HTTPClient), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
@@ -219,8 +219,8 @@ func (w *httpClientWorker) workerFromCache(namespace string) (corehttp.HTTPClien
 	return nil, nil
 }
 
-func (w *httpClientWorker) initHTTPClient(namespace string) error {
-	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+func (w *httpClientWorker) initHTTPClient(namespace corehttp.Namespace) error {
+	err := w.runner.StartWorker(namespace.String(), func() (worker.Worker, error) {
 		// TODO (stickupkid): We can pass in additional configuration here if
 		// needed.
 		httpClient := w.cfg.NewHTTPClient(namespace, internalhttp.WithLogger(w.cfg.Logger))

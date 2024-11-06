@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	corehttp "github.com/juju/juju/core/http"
 	internalhttp "github.com/juju/juju/internal/http"
 )
 
@@ -45,7 +46,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		NewHTTPClient: func(string, ...internalhttp.Option) *internalhttp.Client {
+		NewHTTPClient: func(corehttp.Namespace, ...internalhttp.Option) *internalhttp.Client {
 			return nil
 		},
 		NewHTTPClientWorker: func(c *internalhttp.Client) (worker.Worker, error) {

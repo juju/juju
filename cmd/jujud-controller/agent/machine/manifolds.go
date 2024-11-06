@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud-controller/util"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -36,6 +37,7 @@ import (
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	internalhttp "github.com/juju/juju/internal/http"
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -279,13 +281,13 @@ type ManifoldsConfig struct {
 	DependencyEngineMetrics modelworkermanager.ModelMetrics
 
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
-	CharmhubHTTPClient HTTPClient
+	CharmhubHTTPClient *internalhttp.Client
 
 	// SSHImporterHTTPClient is the HTTP client used for ssh import operations.
-	SSHImporterHTTPClient HTTPClient
+	SSHImporterHTTPClient *internalhttp.Client
 
 	// S3HTTPClient is the HTTP client used for S3 API requests.
-	S3HTTPClient HTTPClient
+	S3HTTPClient *internalhttp.Client
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
@@ -293,10 +295,6 @@ type ManifoldsConfig struct {
 
 	// NewCAASBrokerFunc is a function opens a CAAS broker.
 	NewCAASBrokerFunc func(context.Context, environs.OpenParams) (caas.Broker, error)
-}
-
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -918,7 +916,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
-			NewHTTPClient:       httpclient.NewHTTPClient,
+			NewHTTPClient: func(namespace corehttp.Namespace, opts ...internalhttp.Option) *internalhttp.Client {
+				switch namespace {
+				case corehttp.CharmhubNamespace:
+					return config.CharmhubHTTPClient
+				case corehttp.S3Namespace:
+					return config.S3HTTPClient
+				case corehttp.SSHImporterNamespace:
+					return config.SSHImporterHTTPClient
+				default:
+					return internalhttp.NewClient(opts...)
+				}
+			},
 			NewHTTPClientWorker: httpclient.NewTrackedWorker,
 			Clock:               config.Clock,
 			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
