@@ -4,6 +4,8 @@
 package logger
 
 import (
+	"context"
+
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/logger"
@@ -20,39 +22,39 @@ func WrapLoggo(logger loggo.Logger) logger.Logger {
 }
 
 // Critical logs a message at the critical level.
-func (c loggoLogger) Criticalf(msg string, args ...any) {
+func (c loggoLogger) Criticalf(ctx context.Context, msg string, args ...any) {
 	c.logger.Criticalf(msg, args...)
 }
 
 // Error logs a message at the error level.
-func (c loggoLogger) Errorf(msg string, args ...any) {
+func (c loggoLogger) Errorf(ctx context.Context, msg string, args ...any) {
 	c.logger.Errorf(msg, args...)
 }
 
 // Warning logs a message at the warning level.
-func (c loggoLogger) Warningf(msg string, args ...any) {
+func (c loggoLogger) Warningf(ctx context.Context, msg string, args ...any) {
 	c.logger.Warningf(msg, args...)
 }
 
 // Info logs a message at the info level.
-func (c loggoLogger) Infof(msg string, args ...any) {
+func (c loggoLogger) Infof(ctx context.Context, msg string, args ...any) {
 	c.logger.Infof(msg, args...)
 }
 
 // Debug logs a message at the debug level.
-func (c loggoLogger) Debugf(msg string, args ...any) {
+func (c loggoLogger) Debugf(ctx context.Context, msg string, args ...any) {
 	c.logger.Debugf(msg, args...)
 }
 
 // Trace logs a message at the trace level.
-func (c loggoLogger) Tracef(msg string, args ...any) {
+func (c loggoLogger) Tracef(ctx context.Context, msg string, args ...any) {
 	c.logger.Tracef(msg, args...)
 }
 
 // Log logs some information into the test error output.
 // The provided arguments are assembled together into a string with
 // fmt.Sprintf.
-func (c loggoLogger) Logf(level logger.Level, msg string, args ...any) {
+func (c loggoLogger) Logf(ctx context.Context, level logger.Level, msg string, args ...any) {
 	c.logger.Logf(loggo.Level(level), msg, args...)
 }
 
