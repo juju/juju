@@ -22,7 +22,7 @@ A Juju model is a distributed system comprising:
 * Some number of *clients* which talk over an API, implemented by the agents, to
   update the desired world-state (and thereby cause the agents to update the world
   to match). The `juju` binary is one of many possible clients; the `juju-dashboard` web
-  application, and the Juju terraform provider, are other examples.
+  application, JIMM, and the Juju terraform provider, are other examples.
 
 The whole system depends upon a substrate, or *provider*, which supplies the compute,
 storage, and network resources used by the workloads (and by Juju itself; but never
