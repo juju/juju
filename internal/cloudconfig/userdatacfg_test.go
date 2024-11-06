@@ -600,7 +600,9 @@ func (s *cloudinitSuite) TestCloudInit(c *gc.C) {
 		}
 
 		// curl should always be installed, since it's required by jujud.
-		checkPackage(c, configKeyValues, "curl", true)
+		checkPackage(c, configKeyValues, "curl", false)
+		checkSnap(c, configKeyValues, "curl", true)
+		checkSnap(c, configKeyValues, "tmux", true)
 
 		tag := names.NewMachineTag(testConfig.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
@@ -706,12 +708,11 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 	// Verify the settings against cloudinit-userdata
 	cfgPackages := cloudcfg.Packages()
 	expectedPackages := []string{
-		`tmux`, // last juju specified package
 		`python-keystoneclient`,
 		`python-glanceclient`,
 	}
-	c.Assert(len(cfgPackages), jc.GreaterThan, 2)
-	c.Assert(cfgPackages[len(cfgPackages)-3:], gc.DeepEquals, expectedPackages)
+	c.Assert(len(cfgPackages), jc.GreaterThan, 1)
+	c.Assert(cfgPackages[len(cfgPackages)-2:], gc.DeepEquals, expectedPackages)
 
 	cmds := cloudcfg.RunCmds()
 	beginning := []string{
@@ -942,7 +943,8 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		// p might be a space separate list of packages eg 'foo bar qed' so split them up
+		// p might be a space separate list of packages eg 'foo bar qed' so
+		// split them up
 		manyPkgs := set.NewStrings(strings.Split(p, " ")...)
 		hasPkg := manyPkgs.Contains(pkg)
 		if p == pkg || hasPkg {
@@ -955,6 +957,39 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
 		c.Errorf("%q found but not expected in %v", pkg, pkgs)
+	}
+}
+
+// checkSnap checks that the cloudinit will or won't install the given
+// package, depending on the value of match.
+func checkSnap(c *gc.C, x map[interface{}]interface{}, snap string, match bool) {
+	snaps0 := x["snaps"]
+	if snaps0 == nil {
+		if match {
+			c.Errorf("cloudinit has no entry for snaps")
+		}
+		return
+	}
+
+	snaps := snaps0.([]interface{})
+
+	found := false
+	for _, s0 := range snaps {
+		s := s0.(string)
+		// s might be a space separate list of snaps eg 'foo bar qed' so split
+		// them up
+		manySnaps := set.NewStrings(strings.Split(s, " ")...)
+		hasSnap := manySnaps.Contains(snap)
+		if s == snap || hasSnap {
+			found = true
+			break
+		}
+	}
+	switch {
+	case match && !found:
+		c.Errorf("package %q not found in %v", snap, snaps)
+	case !match && found:
+		c.Errorf("%q found but not expected in %v", snap, snaps)
 	}
 }
 
