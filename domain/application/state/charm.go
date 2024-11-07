@@ -645,8 +645,7 @@ func (s *CharmState) ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWit
 	}
 
 	query := `
-SELECT cm.uuid AS &charmNameWithOrigin.uuid,
-	cm.name AS &charmNameWithOrigin.name,
+SELECT cm.name AS &charmNameWithOrigin.name,
 	co.reference_name AS &charmNameWithOrigin.reference_name,
 	co.source AS &charmNameWithOrigin.source,
 	co.revision AS &charmNameWithOrigin.revision,
@@ -655,7 +654,7 @@ FROM v_charm_metadata AS cm
 JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
 JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid;
 `
-	stmt, err := s.Prepare(query, charmID{}, charmNameWithOrigin{})
+	stmt, err := s.Prepare(query, charmNameWithOrigin{})
 	if err != nil {
 		return nil, internalerrors.Errorf("preparing query: %w", err)
 	}
@@ -687,8 +686,7 @@ func (s *CharmState) ListCharmsWithOriginByNames(ctx context.Context, names []st
 	type nameSelector []string
 
 	query := `
-SELECT cm.uuid AS &charmNameWithOrigin.uuid,
-	cm.name AS &charmNameWithOrigin.name,
+SELECT cm.name AS &charmNameWithOrigin.name,
 	co.reference_name AS &charmNameWithOrigin.reference_name,
 	co.source AS &charmNameWithOrigin.source,
 	co.revision AS &charmNameWithOrigin.revision,
@@ -698,7 +696,7 @@ JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
 JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid
 WHERE cm.name IN ($nameSelector[:]);
 `
-	stmt, err := s.Prepare(query, charmID{}, charmNameWithOrigin{}, nameSelector(names))
+	stmt, err := s.Prepare(query, charmNameWithOrigin{}, nameSelector(names))
 	if err != nil {
 		return nil, internalerrors.Errorf("preparing query: %w", err)
 	}
