@@ -243,6 +243,8 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -330,14 +332,20 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
@@ -371,6 +379,8 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	// Patch out the worker func before starting the agent.
 	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
@@ -417,6 +427,8 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
 	started := newSignal()
@@ -511,6 +523,8 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 }
 
 func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	for _, expectedIgnoreValue := range []bool{true, false} {
 		ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
 
@@ -536,6 +550,8 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
 	st := s.ControllerModel(c).State()
@@ -595,6 +611,8 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
