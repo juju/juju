@@ -91,7 +91,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.S3Purpose).Return(s.httpClient, nil)
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SSHImporterPurpose).Return(s.httpClient, nil)
 
 	getter := map[string]any{
 		"dbaccessor":      s.dbDeleter,
