@@ -593,3 +593,14 @@ SELECT
     cc.description
 FROM charm_config AS cc
 LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;
+
+CREATE VIEW v_list_charm_name_origin AS
+SELECT
+    cm.name,
+    co.reference_name,
+    co.source,
+    co.revision,
+    cp.architecture_id
+FROM v_charm_metadata AS cm
+INNER JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
+INNER JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid;

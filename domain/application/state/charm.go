@@ -645,14 +645,8 @@ func (s *CharmState) ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWit
 	}
 
 	query := `
-SELECT cm.name AS &charmNameWithOrigin.name,
-	co.reference_name AS &charmNameWithOrigin.reference_name,
-	co.source AS &charmNameWithOrigin.source,
-	co.revision AS &charmNameWithOrigin.revision,
-	cp.architecture_id AS &charmNameWithOrigin.architecture_id
-FROM v_charm_metadata AS cm
-JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
-JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid;
+SELECT &charmNameWithOrigin.*
+FROM v_list_charm_name_origin;
 `
 	stmt, err := s.Prepare(query, charmNameWithOrigin{})
 	if err != nil {
@@ -686,15 +680,9 @@ func (s *CharmState) ListCharmsWithOriginByNames(ctx context.Context, names []st
 	type nameSelector []string
 
 	query := `
-SELECT cm.name AS &charmNameWithOrigin.name,
-	co.reference_name AS &charmNameWithOrigin.reference_name,
-	co.source AS &charmNameWithOrigin.source,
-	co.revision AS &charmNameWithOrigin.revision,
-	cp.architecture_id AS &charmNameWithOrigin.architecture_id
-FROM v_charm_metadata AS cm
-JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
-JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid
-WHERE cm.name IN ($nameSelector[:]);
+SELECT &charmNameWithOrigin.*
+FROM v_list_charm_name_origin
+WHERE name IN ($nameSelector[:]);
 `
 	stmt, err := s.Prepare(query, charmNameWithOrigin{}, nameSelector(names))
 	if err != nil {
