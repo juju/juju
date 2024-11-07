@@ -407,6 +407,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"repository_resource",
 		"resource",
 		"resource_meta",
+		"resource_oci_image_metadata_store",
 		"resource_origin_type",
 		"resource_state",
 		"resource_supplied_by",
