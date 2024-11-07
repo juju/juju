@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
@@ -17,12 +18,14 @@ import (
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
-	ControllerUUID string
-	ModelUUID      string
-	FirewallerAPI  CAASFirewallerAPI
-	LifeGetter     LifeGetter
-	Broker         CAASBroker
-	Logger         logger.Logger
+	ControllerUUID     string
+	ModelUUID          string
+	FirewallerAPI      CAASFirewallerAPI
+	LifeGetter         LifeGetter
+	PortService        PortService
+	ApplicationService ApplicationService
+	Broker             CAASBroker
+	Logger             logger.Logger
 }
 
 // Validate validates the worker configuration.
@@ -38,6 +41,12 @@ func (config Config) Validate() error {
 	}
 	if config.Broker == nil {
 		return errors.NotValidf("missing Broker")
+	}
+	if config.PortService == nil {
+		return errors.NotValidf("missing PortService")
+	}
+	if config.ApplicationService == nil {
+		return errors.NotValidf("missing ApplicationService")
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
@@ -73,7 +82,9 @@ type applicationWorkerCreator func(
 	controllerUUID string,
 	modelUUID string,
 	appName string,
+	appUUID application.ID,
 	firewallerAPI CAASFirewallerAPI,
+	portService PortService,
 	broker CAASBroker,
 	lifeGetter LifeGetter,
 	logger logger.Logger,
@@ -150,11 +161,18 @@ func (p *firewaller) loop() error {
 					// Already watching the application.
 					continue
 				}
+
+				appUUID, err := p.config.ApplicationService.GetApplicationIDByName(ctx, appName)
+				if err != nil {
+					return errors.Trace(err)
+				}
 				w, err := p.newApplicationWorker(
 					p.config.ControllerUUID,
 					p.config.ModelUUID,
 					appName,
+					appUUID,
 					p.config.FirewallerAPI,
+					p.config.PortService,
 					p.config.Broker,
 					p.config.LifeGetter,
 					logger,

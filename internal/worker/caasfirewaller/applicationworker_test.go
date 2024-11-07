@@ -15,6 +15,8 @@ import (
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
+	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -28,17 +30,19 @@ type appWorkerSuite struct {
 	testing.BaseSuite
 
 	appName string
+	appUUID coreapplication.ID
 
 	firewallerAPI *mocks.MockCAASFirewallerAPI
+	portService   *mocks.MockPortService
 	lifeGetter    *mocks.MockLifeGetter
 	broker        *mocks.MockCAASBroker
 	brokerApp     *caasmocks.MockApplication
 
 	applicationChanges chan struct{}
-	portsChanges       chan []string
+	portsChanges       chan struct{}
 
 	appsWatcher  watcher.NotifyWatcher
-	portsWatcher watcher.StringsWatcher
+	portsWatcher watcher.NotifyWatcher
 }
 
 var _ = gc.Suite(&appWorkerSuite{})
@@ -47,17 +51,19 @@ func (s *appWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.appName = "app1"
+	s.appUUID = applicationtesting.GenApplicationUUID(c)
 	s.applicationChanges = make(chan struct{})
-	s.portsChanges = make(chan []string)
+	s.portsChanges = make(chan struct{})
 }
 
 func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.appsWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
-	s.portsWatcher = watchertest.NewMockStringsWatcher(s.portsChanges)
+	s.portsWatcher = watchertest.NewMockNotifyWatcher(s.portsChanges)
 
 	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
+	s.portService = mocks.NewMockPortService(ctrl)
 
 	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
@@ -71,7 +77,9 @@ func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
 		testing.ControllerTag.Id(),
 		testing.ModelTag.Id(),
 		s.appName,
+		s.appUUID,
 		s.firewallerAPI,
+		s.portService,
 		s.broker,
 		s.lifeGetter,
 		loggertesting.WrapCheckLog(c),
@@ -88,14 +96,11 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	go func() {
 		// 1st port change event.
-		s.portsChanges <- []string{s.appName}
+		s.portsChanges <- struct{}{}
 		// 2nd port change event.
-		s.portsChanges <- []string{s.appName}
+		s.portsChanges <- struct{}{}
 		// 3rd port change event, including another application.
-		s.portsChanges <- []string{s.appName, "another-app"}
-
-		// port change event for another application.
-		s.portsChanges <- []string{"another-app"}
+		s.portsChanges <- struct{}{}
 
 		s.applicationChanges <- struct{}{}
 	}()
@@ -117,14 +122,14 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
-		s.firewallerAPI.EXPECT().WatchOpenedPorts(gomock.Any()).Return(s.portsWatcher, nil),
+		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 
 		// initial fetch.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(network.GroupedPortRanges{}, nil),
+		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(network.GroupedPortRanges{}, nil),
 
-		// 1st triggerred by port change event.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr1, nil),
+		// 1st triggered by port change event.
+		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(gpr1, nil),
 		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
 			{
 				Name:       "1000-tcp",
@@ -134,11 +139,11 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 			},
 		}, false).Return(nil),
 
-		// 2nd triggerred by port change event, no UpdatePorts because no diff on the portchanges.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr1, nil),
+		// 2nd triggered by port change event, no UpdatePorts because no diff on the portchanges.
+		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(gpr1, nil),
 
-		// 1rd triggerred by port change event.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr2, nil),
+		// 3rd triggered by port change event.
+		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(gpr2, nil),
 		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
 			{
 				Name:       "1000-tcp",

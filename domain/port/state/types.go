@@ -130,6 +130,10 @@ type endpoint struct {
 	Endpoint string `db:"endpoint"`
 }
 
+type endpointUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // endpointName represents a network endpoint's name.
 type endpointName struct {
 	Endpoint string `db:"endpoint"`
@@ -163,9 +167,4 @@ type machineName struct {
 // applicationUUID represents an application's UUID.
 type applicationUUID struct {
 	UUID application.ID `db:"application_uuid"`
-}
-
-// applicationName represents an application's name.
-type applicationName struct {
-	Name string `db:"name"`
 }

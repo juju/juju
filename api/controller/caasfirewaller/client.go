@@ -15,7 +15,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -44,61 +43,6 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 		CharmInfoClient:            charmInfoClient,
 		ApplicationCharmInfoClient: appCharmInfoClient,
 	}
-}
-
-// modelTag returns the current model's tag.
-func (c *Client) modelTag() (names.ModelTag, bool) {
-	return c.facade.RawAPICaller().ModelTag()
-}
-
-// WatchOpenedPorts returns a StringsWatcher that notifies of
-// changes to the opened ports for the current model.
-func (c *Client) WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
-	modelTag, ok := c.modelTag()
-	if !ok {
-		return nil, errors.New("API connection is controller-only (should never happen)")
-	}
-	var results params.StringsWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: modelTag.String()}},
-	}
-	if err := c.facade.FacadeCall(ctx, "WatchOpenedPorts", args, &results); err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if err := result.Error; err != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
-}
-
-// GetOpenedPorts returns all the opened ports for each given application.
-func (c *Client) GetOpenedPorts(ctx context.Context, appName string) (network.GroupedPortRanges, error) {
-	arg := params.Entity{
-		Tag: names.NewApplicationTag(appName).String(),
-	}
-	var result params.ApplicationOpenedPortsResults
-	if err := c.facade.FacadeCall(ctx, "GetOpenedPorts", arg, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", appName)
-	}
-	out := make(network.GroupedPortRanges)
-	for _, pgs := range res.ApplicationPortRanges {
-		for _, pg := range pgs.PortRanges {
-			out[pgs.Endpoint] = append(out[pgs.Endpoint], pg.NetworkPortRange())
-		}
-	}
-	return out, nil
 }
 
 func applicationTag(application string) (names.ApplicationTag, error) {

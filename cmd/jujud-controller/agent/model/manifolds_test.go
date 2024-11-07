@@ -271,6 +271,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"caas-firewaller": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",

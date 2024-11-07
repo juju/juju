@@ -48,6 +48,5 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		commonCharmsAPI,
 		appCharmInfoAPI,
 		applicationService,
-		domainServices.Port(),
 	)
 }

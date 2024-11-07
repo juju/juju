@@ -31,9 +31,10 @@ type manifoldSuite struct {
 	manifold dependency.Manifold
 	getter   dependency.Getter
 
-	apiCaller *mocks.MockAPICaller
-	broker    *caasmocks.MockBroker
-	client    *mocks.MockClient
+	apiCaller      *mocks.MockAPICaller
+	broker         *caasmocks.MockBroker
+	client         *mocks.MockClient
+	domainServices *mocks.MockModelDomainServices
 
 	ctrl *gomock.Controller
 
@@ -52,6 +53,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.apiCaller = mocks.NewMockAPICaller(s.ctrl)
 	s.broker = caasmocks.NewMockBroker(s.ctrl)
 	s.client = mocks.NewMockClient(s.ctrl)
+	s.domainServices = mocks.NewMockModelDomainServices(s.ctrl)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = caasfirewaller.Manifold(s.validConfig())
@@ -59,13 +61,14 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 	return caasfirewaller.ManifoldConfig{
-		APICallerName:  "api-caller",
-		BrokerName:     "broker",
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		NewClient:      s.newClient,
-		NewWorker:      s.newWorker,
-		Logger:         s.logger,
+		APICallerName:      "api-caller",
+		BrokerName:         "broker",
+		DomainServicesName: "domain-services",
+		ControllerUUID:     coretesting.ControllerTag.Id(),
+		ModelUUID:          coretesting.ModelTag.Id(),
+		NewClient:          s.newClient,
+		NewWorker:          s.newWorker,
+		Logger:             s.logger,
 	}
 }
 
@@ -86,8 +89,9 @@ func (s *manifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 
 func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
-		"api-caller": s.apiCaller,
-		"broker":     s.broker,
+		"api-caller":      s.apiCaller,
+		"broker":          s.broker,
+		"domain-services": s.domainServices,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -137,7 +141,7 @@ func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.Manifo
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
-var expectedInputs = []string{"api-caller", "broker"}
+var expectedInputs = []string{"api-caller", "broker", "domain-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
