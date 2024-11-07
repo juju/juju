@@ -22,7 +22,7 @@ const (
 	stateStarted = "started"
 )
 
-// WorkerConfig encapsulates the configuration options for the storage registry
+// WorkerConfig encapsulates the configuration options for the http client
 // worker.
 type WorkerConfig struct {
 	NewHTTPClient       NewHTTPClientFunc
@@ -146,7 +146,7 @@ func (w *httpClientWorker) Wait() error {
 func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
 	// First check if we've already got the httpClient worker already running.
 	// If we have, then return out quickly. The httpClientRunner is the cache,
-	// so there is no need to have a in-memory cache here.
+	// so there is no need to have an in-memory cache here.
 	if httpClient, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, corehttp.ErrHTTPClientDying

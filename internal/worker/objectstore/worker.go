@@ -187,7 +187,7 @@ func (w *objectStoreWorker) Wait() error {
 func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string) (coreobjectstore.ObjectStore, error) {
 	// First check if we've already got the objectStore worker already running.
 	// If we have, then return out quickly. The objectStoreRunner is the cache,
-	// so there is no need to have a in-memory cache here.
+	// so there is no need to have an in-memory cache here.
 	if objectStore, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, coreobjectstore.ErrObjectStoreDying
