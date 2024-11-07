@@ -58,6 +58,13 @@ jobs:
         mkdir .coverage
         gocov-xml < coverage.json > .coverage/coverage.xml
 
+    - name: "Code coverage (Ubuntu)"
+      if: (matrix.platform.os == 'linux')
+      uses: fgrosse/go-coverage-report@v1.1.1
+      with:
+          coverage-artifact-name: "code-coverage"
+          coverage-file-name: "coverage.txt"
+
     - name: "TICS (Ubuntu)"
       if: (matrix.platform.os == 'linux')
       uses: tiobe/tics-github-action@v3
