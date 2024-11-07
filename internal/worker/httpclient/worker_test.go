@@ -137,7 +137,7 @@ func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *gc.C
 			return internalhttp.NewClient()
 		}
 
-		_, err := worker.GetHTTPClient(context.Background(), corehttp.Namespace(name))
+		_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -180,7 +180,7 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *gc.C) {
 				return internalhttp.NewClient()
 			}
 
-			_, err := worker.GetHTTPClient(context.Background(), corehttp.Namespace(name))
+			_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
 			c.Assert(err, jc.ErrorIsNil)
 		}(i)
 	}
@@ -197,7 +197,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewHTTPClient: func(corehttp.Namespace, ...internalhttp.Option) *internalhttp.Client {
+		NewHTTPClient: func(corehttp.Purpose, ...internalhttp.Option) *internalhttp.Client {
 			if s.newHTTPClient == nil {
 				return internalhttp.NewClient()
 			}

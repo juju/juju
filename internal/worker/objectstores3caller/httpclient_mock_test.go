@@ -41,7 +41,7 @@ func (m *MockHTTPClientGetter) EXPECT() *MockHTTPClientGetterMockRecorder {
 }
 
 // GetHTTPClient mocks base method.
-func (m *MockHTTPClientGetter) GetHTTPClient(arg0 context.Context, arg1 http.Namespace) (http.HTTPClient, error) {
+func (m *MockHTTPClientGetter) GetHTTPClient(arg0 context.Context, arg1 http.Purpose) (http.HTTPClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHTTPClient", arg0, arg1)
 	ret0, _ := ret[0].(http.HTTPClient)
@@ -68,13 +68,13 @@ func (c *MockHTTPClientGetterGetHTTPClientCall) Return(arg0 http.HTTPClient, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockHTTPClientGetterGetHTTPClientCall) Do(f func(context.Context, http.Namespace) (http.HTTPClient, error)) *MockHTTPClientGetterGetHTTPClientCall {
+func (c *MockHTTPClientGetterGetHTTPClientCall) Do(f func(context.Context, http.Purpose) (http.HTTPClient, error)) *MockHTTPClientGetterGetHTTPClientCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockHTTPClientGetterGetHTTPClientCall) DoAndReturn(f func(context.Context, http.Namespace) (http.HTTPClient, error)) *MockHTTPClientGetterGetHTTPClientCall {
+func (c *MockHTTPClientGetterGetHTTPClientCall) DoAndReturn(f func(context.Context, http.Purpose) (http.HTTPClient, error)) *MockHTTPClientGetterGetHTTPClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

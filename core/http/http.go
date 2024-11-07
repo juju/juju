@@ -19,10 +19,11 @@ const (
 	ErrHTTPClientDying = errors.ConstError("http client worker is dying")
 )
 
-// HTTPClientGetter is the interface that is used to get a http clients.
+// HTTPClientGetter is the interface that is used to get a http client for a
+// given namespace.
 type HTTPClientGetter interface {
 	// GetHTTPClient returns a http client for the given namespace.
-	GetHTTPClient(context.Context, Namespace) (HTTPClient, error)
+	GetHTTPClient(context.Context, Purpose) (HTTPClient, error)
 }
 
 // HTTPClient is the interface that is used to do http requests.
@@ -33,19 +34,19 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// Namespace is a type used to define the namespace of a http client.
+// Purpose is a type used to define the namespace of a http client.
 // This allows multiple http clients to be created with different namespaces.
-type Namespace string
+type Purpose string
 
 const (
-	// CharmhubNamespace is the namespace for the charmhub http client.
-	CharmhubNamespace Namespace = "charmhub"
-	// S3Namespace is the namespace for the s3 http client.
-	S3Namespace Namespace = "s3"
-	// SSHImporterNamespace is the namespace for the ssh importer http client.
-	SSHImporterNamespace Namespace = "ssh-importer"
+	// CharmhubPurpose is the namespace for the charmhub http client.
+	CharmhubPurpose Purpose = "charmhub"
+	// S3Purpose is the namespace for the s3 http client.
+	S3Purpose Purpose = "s3"
+	// SSHImporterPurpose is the namespace for the ssh importer http client.
+	SSHImporterPurpose Purpose = "ssh-importer"
 )
 
-func (n Namespace) String() string {
+func (n Purpose) String() string {
 	return string(n)
 }

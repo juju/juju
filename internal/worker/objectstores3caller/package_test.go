@@ -77,7 +77,7 @@ func (s *baseSuite) expectTimeAfter() {
 }
 
 func (s *baseSuite) expectHTTPClient(c *gc.C) {
-	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.S3Namespace).Return(s.httpClient, nil)
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.S3Purpose).Return(s.httpClient, nil)
 }
 
 func (s *baseSuite) expectControllerConfig(c *gc.C, config controller.Config) {

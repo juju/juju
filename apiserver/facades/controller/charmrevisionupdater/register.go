@@ -12,6 +12,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/internal/charmhub"
 )
 
@@ -28,7 +29,7 @@ func newCharmRevisionUpdaterAPI(ctx facade.ModelContext) (*CharmRevisionUpdaterA
 		return nil, apiservererrors.ErrPerm
 	}
 
-	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting charm hub http client: %w",

@@ -431,6 +431,6 @@ type stubHTTPClientGetter struct {
 	client *http.Client
 }
 
-func (s *stubHTTPClientGetter) GetHTTPClient(ctx context.Context, namespace corehttp.Namespace) (corehttp.HTTPClient, error) {
+func (s *stubHTTPClientGetter) GetHTTPClient(ctx context.Context, namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
 	return s.client, nil
 }

@@ -51,7 +51,7 @@ func (c *WorkerConfig) Validate() error {
 // httpClientRequest is used to pass requests for Storage Registry
 // instances into the worker loop.
 type httpClientRequest struct {
-	namespace corehttp.Namespace
+	namespace corehttp.Purpose
 	done      chan error
 }
 
@@ -143,7 +143,7 @@ func (w *httpClientWorker) Wait() error {
 }
 
 // GetHTTPClient returns a httpClient for the given namespace.
-func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp.Namespace) (corehttp.HTTPClient, error) {
+func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
 	// First check if we've already got the httpClient worker already running.
 	// If we have, then return out quickly. The httpClientRunner is the cache,
 	// so there is no need to have a in-memory cache here.
@@ -197,7 +197,7 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp
 	return tracked.(corehttp.HTTPClient), nil
 }
 
-func (w *httpClientWorker) workerFromCache(namespace corehttp.Namespace) (corehttp.HTTPClient, error) {
+func (w *httpClientWorker) workerFromCache(namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
 	// If the worker already exists, return the existing worker early.
 	if httpClient, err := w.runner.Worker(namespace.String(), w.catacomb.Dying()); err == nil {
 		return httpClient.(corehttp.HTTPClient), nil
@@ -219,7 +219,7 @@ func (w *httpClientWorker) workerFromCache(namespace corehttp.Namespace) (coreht
 	return nil, nil
 }
 
-func (w *httpClientWorker) initHTTPClient(namespace corehttp.Namespace) error {
+func (w *httpClientWorker) initHTTPClient(namespace corehttp.Purpose) error {
 	err := w.runner.StartWorker(namespace.String(), func() (worker.Worker, error) {
 		// TODO (stickupkid): We can pass in additional configuration here if
 		// needed.

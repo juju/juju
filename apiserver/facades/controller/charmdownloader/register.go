@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/apiserver/facade"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/internal/charm/services"
 )
 
@@ -26,9 +27,9 @@ func newFacadeV1(ctx facade.ModelContext) (*CharmDownloaderAPI, error) {
 	authorizer := ctx.Auth()
 	rawState := ctx.State()
 	stateBackend := stateShim{rawState}
-	resourcesBackend := resourcesShim{ctx.Resources()}
+	resourcesBackend := resourcesShim{Resources: ctx.Resources()}
 
-	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting charm hub http client: %w",

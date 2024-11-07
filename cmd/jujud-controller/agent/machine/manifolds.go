@@ -888,17 +888,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
-			NewHTTPClient: func(namespace corehttp.Namespace, opts ...internalhttp.Option) *internalhttp.Client {
+			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
 				switch namespace {
-				case corehttp.CharmhubNamespace:
+				case corehttp.CharmhubPurpose:
 					charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
 					return charmhub.DefaultHTTPClient(charmhubLogger)
 
-				case corehttp.S3Namespace:
+				case corehttp.S3Purpose:
 					s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
 					return s3client.DefaultHTTPClient(s3Logger)
 
-				case corehttp.SSHImporterNamespace:
+				case corehttp.SSHImporterPurpose:
 					sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
 					return sshimporter.DefaultHTTPClient(sshImporterLogger)
 

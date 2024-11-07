@@ -249,7 +249,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	charmhubHTTPClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.CharmhubNamespace)
+	charmhubHTTPClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

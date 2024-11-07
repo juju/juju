@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	corecharm "github.com/juju/juju/core/charm"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/charm"
@@ -57,7 +58,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 	rst := st.Resources(ctx.ObjectStore())
 	modelConfigService := ctx.DomainServices().Config()
 
-	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting charm hub http client: %w",

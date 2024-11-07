@@ -104,7 +104,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	httpClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.S3Namespace)
+	httpClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.S3Purpose)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
