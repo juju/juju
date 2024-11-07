@@ -594,7 +594,7 @@ SELECT
 FROM charm_config AS cc
 LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;
 
-CREATE VIEW v_list_charm_name_origin AS
+CREATE VIEW v_charm_list_name_origin AS
 SELECT
     cm.name,
     co.reference_name,

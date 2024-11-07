@@ -495,6 +495,7 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_address",
 		"v_charm_config",
 		"v_charm_container",
+		"v_charm_list_name_origin",
 		"v_charm_manifest",
 		"v_charm_metadata",
 		"v_charm_origin",

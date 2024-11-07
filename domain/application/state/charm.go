@@ -646,7 +646,7 @@ func (s *CharmState) ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWit
 
 	query := `
 SELECT &charmNameWithOrigin.*
-FROM v_list_charm_name_origin;
+FROM v_charm_list_name_origin;
 `
 	stmt, err := s.Prepare(query, charmNameWithOrigin{})
 	if err != nil {
@@ -681,7 +681,7 @@ func (s *CharmState) ListCharmsWithOriginByNames(ctx context.Context, names []st
 
 	query := `
 SELECT &charmNameWithOrigin.*
-FROM v_list_charm_name_origin
+FROM v_charm_list_name_origin
 WHERE name IN ($nameSelector[:]);
 `
 	stmt, err := s.Prepare(query, charmNameWithOrigin{}, nameSelector(names))
