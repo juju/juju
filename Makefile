@@ -172,11 +172,6 @@ ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
     TEST_ARGS += -p 4
 endif
 
-# Enable coverage testing.
-ifeq ($(COVERAGE_CHECK), 1)
-    TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
-endif
-
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
     CHECK_ARGS = -v
@@ -424,6 +419,10 @@ race-test:
 ## race-test: Verify Juju code using unit tests with the race detector enabled
 	+make run-tests TEST_ARGS="$(TEST_ARGS) -race"
 
+.PHONY: cover-test
+cover-test:
+	+make run-tests TEST_ARGS="$(TEST_ARGS) -cover -covermode=atomic" TEST_EXTRA_ARGS="$(TEST_EXTRA_ARGS) -test.gocoverdir=${GOCOVERDIR}"
+
 .PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests: musl-install-if-missing dqlite-install-if-missing
@@ -433,7 +432,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
@@ -442,7 +441,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
 run-go-tests: musl-install-if-missing dqlite-install-if-missing
@@ -452,7 +451,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
 	@PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
@@ -460,7 +459,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 go-test-alias: musl-install-if-missing dqlite-install-if-missing
 ## go-test-alias: Prints out an alias command for easy running of tests.
