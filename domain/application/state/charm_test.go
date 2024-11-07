@@ -2385,6 +2385,135 @@ func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
+func (s *charmStateSuite) TestCharmsWithOriginWithNoEntries(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	results, err := st.ListCharmsWithOrigin(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 0)
+}
+
+func (s *charmStateSuite) TestListCharmsWithOrigin(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	_, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+	}, setStateArgs("ubuntu"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := st.ListCharmsWithOrigin(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, []charm.CharmWithOrigin{{
+		Name: "ubuntu",
+		CharmOrigin: charm.CharmOrigin{
+			Source:        charm.LocalSource,
+			ReferenceName: "ubuntu",
+			Revision:      42,
+			Platform: charm.Platform{
+				Architecture: charm.AMD64,
+			},
+		},
+	}})
+}
+
+func (s *charmStateSuite) TestListCharmsWithOriginMultipleEntries(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	var expected []charm.CharmWithOrigin
+	for i := 0; i < 3; i++ {
+		name := fmt.Sprintf("ubuntu-%d", i)
+
+		_, err := st.SetCharm(context.Background(), charm.Charm{
+			Metadata: charm.Metadata{
+				Name: name,
+			},
+		}, setStateArgs(name))
+		c.Assert(err, jc.ErrorIsNil)
+
+		expected = append(expected, charm.CharmWithOrigin{
+			Name: name,
+			CharmOrigin: charm.CharmOrigin{
+				Source:        charm.LocalSource,
+				ReferenceName: name,
+				Revision:      42,
+				Platform: charm.Platform{
+					Architecture: charm.AMD64,
+				},
+			},
+		})
+	}
+
+	results, err := st.ListCharmsWithOrigin(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, expected)
+}
+
+func (s *charmStateSuite) TestListCharmsWithOriginByNamesNoEntries(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	results, err := st.ListCharmsWithOriginByNames(context.Background(), []string{"ubuntu-0", "ubuntu-2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 0)
+}
+
+func (s *charmStateSuite) TestListCharmsWithOriginByNamesMultipleEntries(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	var expected []charm.CharmWithOrigin
+	for i := 0; i < 3; i++ {
+		name := fmt.Sprintf("ubuntu-%d", i)
+
+		_, err := st.SetCharm(context.Background(), charm.Charm{
+			Metadata: charm.Metadata{
+				Name: name,
+			},
+		}, setStateArgs(name))
+		c.Assert(err, jc.ErrorIsNil)
+
+		// We only want to check the first and last entries.
+		if i == 1 {
+			continue
+		}
+
+		expected = append(expected, charm.CharmWithOrigin{
+			Name: name,
+			CharmOrigin: charm.CharmOrigin{
+				Source:        charm.LocalSource,
+				ReferenceName: name,
+				Revision:      42,
+				Platform: charm.Platform{
+					Architecture: charm.AMD64,
+				},
+			},
+		})
+	}
+
+	results, err := st.ListCharmsWithOriginByNames(context.Background(), []string{"ubuntu-0", "ubuntu-2", "ubuntu-4"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, expected)
+}
+
+func (s *charmStateSuite) TestListCharmsWithOriginByNamesInvalidEntries(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	for i := 0; i < 3; i++ {
+		name := fmt.Sprintf("ubuntu-%d", i)
+
+		_, err := st.SetCharm(context.Background(), charm.Charm{
+			Metadata: charm.Metadata{
+				Name: name,
+			},
+		}, setStateArgs(name))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	results, err := st.ListCharmsWithOriginByNames(context.Background(), []string{"ubuntu-99"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 0)
+}
+
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
 	_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available) VALUES (?, false)`, uuid)
 	if err != nil {

@@ -123,6 +123,16 @@ type CharmState interface {
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
 	DeleteCharm(ctx context.Context, id corecharm.ID) error
+
+	// ListCharmsWithOrigin returns a list of charms with the specified
+	// origin. We require the origin, so we can reconstruct the charm URL for
+	// the client response.
+	ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWithOrigin, error)
+
+	// ListCharmsWithOriginByNames returns a list of charms with the specified
+	// origin. We require the origin, so we can reconstruct the charm URL for
+	// the client response. If no names are provided, then nothing is returned.
+	ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error)
 }
 
 // CharmService provides the API for working with charms.
@@ -495,6 +505,17 @@ func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (c
 // Returns an error if the charm does not exist.
 func (s *CharmService) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	return s.st.DeleteCharm(ctx, id)
+}
+
+// ListCharmsWithOriginByNames returns a list of charms with the specified
+// origin. We require the origin, so we can reconstruct the charm URL for the
+// client response. If no names are provided, then all charms are listed. If no
+// names are matched against the charm names, then an empty list is returned.
+func (s *CharmService) ListCharmsWithOriginByNames(ctx context.Context, names ...string) ([]charm.CharmWithOrigin, error) {
+	if len(names) == 0 {
+		return s.st.ListCharmsWithOrigin(ctx)
+	}
+	return s.st.ListCharmsWithOriginByNames(ctx, names)
 }
 
 // WatchableCharmService provides the API for working with charms and the

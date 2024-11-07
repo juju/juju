@@ -135,6 +135,14 @@ type CharmOrigin struct {
 	Platform Platform
 }
 
+// CharmWithOrigin represents a charm with its origin.
+type CharmWithOrigin struct {
+	CharmOrigin
+
+	// Name is the name of the charm.
+	Name string
+}
+
 // OSType represents the type of an application's OS.
 type OSType int
 

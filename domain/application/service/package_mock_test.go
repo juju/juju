@@ -1757,6 +1757,84 @@ func (c *MockCharmStateIsSubordinateCharmCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// ListCharmsWithOrigin mocks base method.
+func (m *MockCharmState) ListCharmsWithOrigin(arg0 context.Context) ([]charm0.CharmWithOrigin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCharmsWithOrigin", arg0)
+	ret0, _ := ret[0].([]charm0.CharmWithOrigin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCharmsWithOrigin indicates an expected call of ListCharmsWithOrigin.
+func (mr *MockCharmStateMockRecorder) ListCharmsWithOrigin(arg0 any) *MockCharmStateListCharmsWithOriginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmsWithOrigin", reflect.TypeOf((*MockCharmState)(nil).ListCharmsWithOrigin), arg0)
+	return &MockCharmStateListCharmsWithOriginCall{Call: call}
+}
+
+// MockCharmStateListCharmsWithOriginCall wrap *gomock.Call
+type MockCharmStateListCharmsWithOriginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStateListCharmsWithOriginCall) Return(arg0 []charm0.CharmWithOrigin, arg1 error) *MockCharmStateListCharmsWithOriginCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStateListCharmsWithOriginCall) Do(f func(context.Context) ([]charm0.CharmWithOrigin, error)) *MockCharmStateListCharmsWithOriginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStateListCharmsWithOriginCall) DoAndReturn(f func(context.Context) ([]charm0.CharmWithOrigin, error)) *MockCharmStateListCharmsWithOriginCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ListCharmsWithOriginByNames mocks base method.
+func (m *MockCharmState) ListCharmsWithOriginByNames(arg0 context.Context, arg1 []string) ([]charm0.CharmWithOrigin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCharmsWithOriginByNames", arg0, arg1)
+	ret0, _ := ret[0].([]charm0.CharmWithOrigin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCharmsWithOriginByNames indicates an expected call of ListCharmsWithOriginByNames.
+func (mr *MockCharmStateMockRecorder) ListCharmsWithOriginByNames(arg0, arg1 any) *MockCharmStateListCharmsWithOriginByNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmsWithOriginByNames", reflect.TypeOf((*MockCharmState)(nil).ListCharmsWithOriginByNames), arg0, arg1)
+	return &MockCharmStateListCharmsWithOriginByNamesCall{Call: call}
+}
+
+// MockCharmStateListCharmsWithOriginByNamesCall wrap *gomock.Call
+type MockCharmStateListCharmsWithOriginByNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStateListCharmsWithOriginByNamesCall) Return(arg0 []charm0.CharmWithOrigin, arg1 error) *MockCharmStateListCharmsWithOriginByNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStateListCharmsWithOriginByNamesCall) Do(f func(context.Context, []string) ([]charm0.CharmWithOrigin, error)) *MockCharmStateListCharmsWithOriginByNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStateListCharmsWithOriginByNamesCall) DoAndReturn(f func(context.Context, []string) ([]charm0.CharmWithOrigin, error)) *MockCharmStateListCharmsWithOriginByNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReserveCharmRevision mocks base method.
 func (m *MockCharmState) ReserveCharmRevision(arg0 context.Context, arg1 charm.ID, arg2 int) (charm.ID, error) {
 	m.ctrl.T.Helper()

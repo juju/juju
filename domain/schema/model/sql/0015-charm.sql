@@ -132,6 +132,16 @@ CREATE TABLE charm_platform (
     REFERENCES architecture (id)
 );
 
+CREATE VIEW v_charm_platform AS
+SELECT
+    cp.charm_uuid,
+    os.name AS os,
+    cp.channel,
+    architecture.name AS architecture
+FROM charm_platform AS cp
+LEFT JOIN os ON cp.os_id = os.id
+LEFT JOIN architecture ON cp.architecture_id = architecture.id;
+
 CREATE TABLE hash_kind (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
@@ -583,3 +593,14 @@ SELECT
     cc.description
 FROM charm_config AS cc
 LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;
+
+CREATE VIEW v_charm_list_name_origin AS
+SELECT
+    cm.name,
+    co.reference_name,
+    co.source,
+    co.revision,
+    cp.architecture_id
+FROM v_charm_metadata AS cm
+INNER JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
+INNER JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid;

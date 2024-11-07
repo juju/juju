@@ -573,3 +573,12 @@ type reserveCharm struct {
 	Name          string `db:"name"`
 	ReferenceName string `db:"reference_name"`
 }
+
+// charmNameWithOrigin is used to get the name and the origin of a charm.
+type charmNameWithOrigin struct {
+	Name           string `db:"name"`
+	ReferenceName  string `db:"reference_name"`
+	Source         string `db:"source"`
+	Revision       int    `db:"revision"`
+	ArchitectureID int    `db:"architecture_id"`
+}
