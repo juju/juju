@@ -27,6 +27,7 @@ type runSuite struct {
 	jujutesting.ApiServerSuite
 
 	blockCommandService *action.MockBlockCommandService
+	applicationService  *action.MockApplicationService
 
 	client *action.ActionAPI
 }
@@ -254,13 +255,13 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 		HasWriteTag: alpha,
 	}
 	st := s.ControllerModel(c).State()
-	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.blockCommandService)
+	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.blockCommandService)
+	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -277,13 +278,13 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 		HasWriteTag: alpha,
 	}
 	st := s.ControllerModel(c).State()
-	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.blockCommandService)
+	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.blockCommandService)
+	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,7 +299,7 @@ func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	s.client, err = action.NewActionAPI(s.ControllerModel(c).State(), nil, auth, action.FakeLeadership{}, s.blockCommandService)
+	s.client, err = action.NewActionAPI(s.ControllerModel(c).State(), nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

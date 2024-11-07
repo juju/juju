@@ -21,9 +21,18 @@ func Register(registry facade.FacadeRegistry) {
 
 // newActionAPIV7 returns an initialized ActionAPI for version 7.
 func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
-	api, err := newActionAPI(&stateShim{st: ctx.State()}, ctx.Resources(), ctx.Auth(), ctx.LeadershipReader, ctx.DomainServices().BlockCommand())
+	domainServices := ctx.DomainServices()
+
+	api, err := newActionAPI(
+		&stateShim{st: ctx.State()},
+		ctx.Resources(),
+		ctx.Auth(),
+		ctx.LeadershipReader,
+		domainServices.Application(nil),
+		domainServices.BlockCommand(),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv7{api}, nil
+	return &APIv7{ActionAPI: api}, nil
 }
