@@ -38,6 +38,7 @@ type NetworkUbuntuSuite struct {
 	expectedSampleUserData          string
 	expectedFullNetplanYaml         string
 	expectedFullNetplan             string
+	expectedSnapCommands            string
 	tempFolder                      string
 	pythonVersions                  []string
 	originalSystemNetworkInterfaces string
@@ -323,6 +324,13 @@ iface lo inet loopback
 source /etc/network/interfaces.d/*.cfg
 `[1:]
 
+	s.expectedSnapCommands = `
+snap:
+  commands:
+  - snap install curl
+  - snap install tmux --classic
+`[1:]
+
 	s.PatchValue(cloudinit.NetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(cloudinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(cloudinit.JujuNetplanFile, s.jujuNetplanFile)
@@ -419,6 +427,7 @@ func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
 	expected += fmt.Sprintf(s.expectedFullNetplanYaml, s.jujuNetplanFile)
 	expected += fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
 	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedSnapCommands)
 	assertUserData(c, cloudConf, expected)
 }
 

@@ -307,14 +307,16 @@ var ctests = []struct {
 }, {
 	"Snaps",
 	map[string]any{
-		"snaps": []string{
-			"juju",
-			"ubuntu",
+		"snap": map[string][]string{
+			"commands": {
+				"install tmux --classic",
+				"snap install grep",
+			},
 		},
 	},
 	func(cfg cloudinit.CloudConfig) error {
-		cfg.AddSnap("juju")
-		cfg.AddSnap("ubuntu")
+		cfg.AddSnap("install tmux --classic")
+		cfg.AddSnap("snap install grep")
 		return nil
 	},
 }, {
@@ -516,6 +518,10 @@ func (S) TestOutput(c *gc.C) {
 		c.Logf("test %d: %s", i, t.name)
 		cfg, err := cloudinit.New("ubuntu")
 		c.Assert(err, jc.ErrorIsNil)
+
+		// We already have the default snap installs.
+		cfg.UnsetAttr("snap")
+
 		err = t.setOption(cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		data, err := cfg.RenderYAML()
@@ -553,10 +559,21 @@ func (S) TestPackages(c *gc.C) {
 func (S) TestSnaps(c *gc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Snaps(), gc.HasLen, 0)
+
+	// This will have the default snap installs.
+	c.Assert(cfg.Snaps(), gc.HasLen, 2)
+
+	// Remove the default snap installs, so that we can then test the
+	// AddSnap and RemoveSnap methods.
+	cfg.UnsetAttr("snap")
+
 	cfg.AddSnap("a b c")
-	cfg.AddSnap("d!")
-	expectedSnaps := []string{"a b c", "d!"}
+	cfg.AddSnap("d")
+	expectedSnaps := []string{"a b c", "d"}
+	c.Assert(cfg.Snaps(), gc.DeepEquals, expectedSnaps)
+
+	cfg.RemoveSnap("d")
+	expectedSnaps = []string{"a b c"}
 	c.Assert(cfg.Snaps(), gc.DeepEquals, expectedSnaps)
 }
 
@@ -603,6 +620,7 @@ func (S) TestFileTransporter(c *gc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetFileTransporter(ft)
+	cfg.UnsetAttr("snap")
 
 	cfg.AddRunBinaryFile(
 		"/dev/nonsense",

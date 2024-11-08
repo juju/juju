@@ -19,7 +19,6 @@ type fakeCfg struct {
 	packageMirror        string
 	addUpdateScripts     bool
 	addUpgradeScripts    bool
-	calledAddReq         bool
 }
 
 func (f *fakeCfg) SetPackageMirror(m string) {
@@ -38,10 +37,6 @@ func (f *fakeCfg) SetSystemUpdate(b bool) {
 
 func (f *fakeCfg) SetSystemUpgrade(b bool) {
 	f.addUpgradeScripts = b
-}
-
-func (f *fakeCfg) AddSnap(name string) {
-	f.calledAddReq = true
 }
 
 func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
@@ -71,7 +66,6 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
-	c.Assert(f.calledAddReq, gc.Equals, true)
 
 	f = &fakeCfg{}
 	upd, upg = false, false
@@ -82,7 +76,6 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
-	c.Assert(f.calledAddReq, gc.Equals, true)
 
 	f = &fakeCfg{}
 	upd, upg = false, false
@@ -93,7 +86,6 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
-	c.Assert(f.calledAddReq, gc.Equals, true)
 }
 
 // packageManagerProxySettings implements cloudinit.PackageManagerConfig.

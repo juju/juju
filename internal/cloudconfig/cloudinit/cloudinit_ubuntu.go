@@ -239,42 +239,6 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	return cmds, nil
 }
 
-func (cfg *ubuntuCloudConfig) getCommandsForAddingSnaps() ([]string, error) {
-	if len(cfg.Snaps()) == 0 {
-		return nil, nil
-	}
-
-	var cmds []string
-	pkgCmder := cfg.paccmder[packaging.SnapPackageManager]
-
-	for _, snap := range cfg.Snaps() {
-		cmds = append(cmds, LogProgressCmd("Installing snap package: %s", snap))
-		cmds = append(cmds, pkgCmder.InstallCmd(snap))
-	}
-
-	return cmds, nil
-}
-
-// Wait for snap to seed, ensures that snapd is ready to be used.
-func (cfg *ubuntuCloudConfig) waitForSnap() string {
-	return `
-n=1
-while true; do
-
-echo "Attempt $n to wait for snapd to be seeded..."
-snap wait core seed.loaded && break
-if [ $n -eq 5 ]; then
-  echo "snapd not initialised"
-  break
-fi
-
-echo "Wait for snapd failed, retrying in 5s"
-sleep 5
-n=$((n+1))
-done
-`
-}
-
 // Updates proxy settings used when rendering the conf as a script
 func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
 	// Write out the apt proxy settings
@@ -312,8 +276,11 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 }
 
 func (cfg *ubuntuCloudConfig) genSnapStoreProxyCmds(assertions, storeID string) {
-	cfg.AddRunTextFile("/etc/snap.assertions", assertions, 0600)
-	cfg.AddRunCmd("snap ack /etc/snap.assertions")
+	cfg.AddBootTextFile("/etc/snap.assertions", assertions, 0600)
+	cfg.AddSnap("snap ack /etc/snap.assertions")
+	cfg.AddSnap("snap set core proxy.store=" + storeID)
+
+	// Ensure we remove the assertions file after the store has been set
+	// as it contains sensitive information.
 	cfg.AddRunCmd("rm /etc/snap.assertions")
-	cfg.AddRunCmd("snap set core proxy.store=" + storeID)
 }

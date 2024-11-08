@@ -351,10 +351,6 @@ type RenderConfig interface {
 	// getCommandsForAddingPackages is a helper function which returns all the
 	// necessary shell commands for adding all the configured package settings.
 	getCommandsForAddingPackages() ([]string, error)
-
-	// getCommandsForAddingSnaps is a helper function which returns all the
-	// necessary shell commands for adding all the configured snap settings.
-	getCommandsForAddingSnaps() ([]string, error)
 }
 
 // PackageManagerProxyConfig provides access to the proxy settings for various
@@ -381,9 +377,6 @@ type AdvancedPackagingConfig interface {
 	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig
 	// for the specified package manager.
 	getPackagingConfigurer(jujupackaging.PackageManagerName) config.PackagingConfigurer
-
-	// waitForSnap waits for the snap package manager to be ready.
-	waitForSnap() string
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
@@ -471,7 +464,11 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
 			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(),
 		}
-		return &ubuntuCloudConfig{cfg}, nil
+
+		cfg.AddSnap("snap install curl")
+		cfg.AddSnap("snap install tmux --classic")
+
+		return &ubuntuCloudConfig{cloudConfig: cfg}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for os %q", osname)
 	}

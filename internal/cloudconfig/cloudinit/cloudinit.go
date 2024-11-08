@@ -43,7 +43,7 @@ type cloudConfig struct {
 	// package_update		bool
 	// package_upgrade		bool
 	// packages				[]string
-	// snaps 				[]string
+	// snap 				map[string][]string
 	// runcmd				[]string
 	// bootcmd				[]string
 	// disable_ec2_metadata	bool
@@ -213,19 +213,42 @@ func (cfg *cloudConfig) Packages() []string {
 }
 
 // AddSnap is defined on the SnapConfig interface.
+// This doesn't incorporate assertions.
 func (cfg *cloudConfig) AddSnap(snap string) {
-	cfg.attrs["snaps"] = append(cfg.Snaps(), snap)
+	if cfg.attrs["snap"] == nil {
+		cfg.attrs["snap"] = map[string][]string{
+			"commands": {},
+		}
+	}
+
+	attrs, ok := cfg.attrs["snap"].(map[string][]string)
+	if !ok {
+		attrs = make(map[string][]string)
+	}
+
+	attrs["commands"] = append(attrs["commands"], snap)
 }
 
 // RemoveSnap is defined on the SnapConfig interface.
 func (cfg *cloudConfig) RemoveSnap(snap string) {
-	cfg.attrs["snaps"] = removeStringFromSlice(cfg.Snaps(), snap)
+	attrs, ok := cfg.attrs["snap"].(map[string][]string)
+	if !ok {
+		return
+	}
+	attrs["commands"] = removeStringFromSlice(attrs["commands"], snap)
+
+	if len(attrs["commands"]) == 0 {
+		cfg.UnsetAttr("snap")
+	}
 }
 
 // Snaps is defined on the SnapConfig interface.
 func (cfg *cloudConfig) Snaps() []string {
-	snaps, _ := cfg.attrs["snaps"].([]string)
-	return snaps
+	attrs, ok := cfg.attrs["snap"].(map[string][]string)
+	if !ok {
+		return nil
+	}
+	return attrs["commands"]
 }
 
 // AddRunCmd is defined on the RunCmdsConfig interface.

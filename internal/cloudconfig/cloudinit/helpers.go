@@ -28,9 +28,6 @@ func addPackageCommandsCommon(
 		return err
 	}
 
-	cfg.AddSnap("curl")
-	cfg.AddSnap("tmux --classic")
-
 	return nil
 }
 
@@ -57,11 +54,6 @@ func renderScriptCommon(cfg CloudConfig) (string, error) {
 		return "", err
 	}
 
-	snapcmds, err := cfg.getCommandsForAddingSnaps()
-	if err != nil {
-		return "", err
-	}
-
 	// Runcmds come last.
 	runcmds := cfg.RunCmds()
 
@@ -78,11 +70,7 @@ func renderScriptCommon(cfg CloudConfig) (string, error) {
 		script = append(script, "(")
 	}
 	script = append(script, bootcmds...)
-
-	script = append(script, cfg.waitForSnap())
-
 	script = append(script, pkgcmds...)
-	script = append(script, snapcmds...)
 	script = append(script, runcmds...)
 	if stderr != "" {
 		script = append(script, ") "+stdout)
