@@ -492,12 +492,14 @@ func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *gc.C) {
 		Name: "foo",
 		Provides: map[string]internalcharm.Relation{
 			"foo": {
+				Name:  "foo",
 				Role:  internalcharm.RoleProvider,
 				Scope: internalcharm.ScopeGlobal,
 			},
 		},
 		Requires: map[string]internalcharm.Relation{
 			"foo": {
+				Name:  "foo",
 				Role:  internalcharm.RoleRequirer,
 				Scope: internalcharm.ScopeGlobal,
 			},
@@ -511,6 +513,314 @@ func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *gc.C) {
 		Revision:      1,
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationNameConflict)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationUnknownRole(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Provides: map[string]internalcharm.Relation{
+			"foo": {
+				Name:  "foo",
+				Role:  internalcharm.RelationRole("unknown"),
+				Scope: internalcharm.ScopeGlobal,
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationRoleNotValid)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationRoleMismatch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Provides: map[string]internalcharm.Relation{
+			"foo": {
+				Name:  "foo",
+				Role:  internalcharm.RolePeer,
+				Scope: internalcharm.ScopeGlobal,
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationRoleNotValid)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJuju(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Provides: map[string]internalcharm.Relation{
+			"foo": {
+				Name:      "foo",
+				Role:      internalcharm.RoleProvider,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "juju",
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJujuBlah(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Peers: map[string]internalcharm.Relation{
+			"foo": {
+				Name:      "foo",
+				Role:      internalcharm.RolePeer,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "juju-blah",
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJuju(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Provides: map[string]internalcharm.Relation{
+			"juju": {
+				Name:      "juju",
+				Role:      internalcharm.RoleProvider,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "foo",
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Peers: map[string]internalcharm.Relation{
+			"juju-blah": {
+				Name:      "juju-blah",
+				Role:      internalcharm.RolePeer,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "foo",
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
+}
+
+func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Requires: map[string]internalcharm.Relation{
+			"blah": {
+				Name:      "blah",
+				Role:      internalcharm.RoleRequirer,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "juju-blah",
+			},
+		},
+	}).Times(2)
+
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(),
+		domaincharm.SetStateArgs{
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      1,
+		}).Return(id, nil)
+
+	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(warnings, gc.HasLen, 0)
+	c.Check(got, gc.DeepEquals, id)
+}
+
+func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Requires: map[string]internalcharm.Relation{
+			"juju-blah": {
+				Name:      "juju-blah",
+				Role:      internalcharm.RoleRequirer,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "foo",
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "juju-foo",
+		Peers: map[string]internalcharm.Relation{
+			"juju-blah": {
+				Name:      "juju-blah",
+				Role:      internalcharm.RolePeer,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "juju-blah",
+			},
+		},
+	}).Times(2)
+
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(),
+		domaincharm.SetStateArgs{
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      1,
+		}).Return(id, nil)
+
+	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(warnings, gc.HasLen, 0)
+	c.Check(got, gc.DeepEquals, id)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:        "foo",
+		Subordinate: true,
+		Requires: map[string]internalcharm.Relation{
+			"juju-foo": {
+				Name:      "juju-foo",
+				Role:      internalcharm.RoleRequirer,
+				Scope:     internalcharm.ScopeContainer,
+				Interface: "juju-blah",
+			},
+		},
+	}).Times(2)
+
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(),
+		domaincharm.SetStateArgs{
+			ReferenceName: "foo",
+			Source:        domaincharm.LocalSource,
+			Revision:      1,
+		}).Return(id, nil)
+
+	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(warnings, gc.HasLen, 0)
+	c.Check(got, gc.DeepEquals, id)
+}
+
+func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+		Requires: map[string]internalcharm.Relation{
+			"juju-foo": {
+				Name:      "juju-foo",
+				Role:      internalcharm.RoleRequirer,
+				Scope:     internalcharm.ScopeGlobal,
+				Interface: "blah",
+			},
+		},
+	}).Times(2)
+
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        internalcharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
 func (s *charmServiceSuite) TestDeleteCharm(c *gc.C) {

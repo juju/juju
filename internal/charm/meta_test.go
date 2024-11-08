@@ -469,84 +469,6 @@ func (s *MetaSuite) TestParseJujuRelations(c *gc.C) {
 	})
 }
 
-var relationsConstraintsTests = []struct {
-	rels string
-	err  string
-}{
-	{
-		"provides:\n  foo: ping\nrequires:\n  foo: pong",
-		`charm "a" using a duplicated relation name: "foo"`,
-	}, {
-		"requires:\n  foo: ping\npeers:\n  foo: pong",
-		`charm "a" using a duplicated relation name: "foo"`,
-	}, {
-		"peers:\n  foo: ping\nprovides:\n  foo: pong",
-		`charm "a" using a duplicated relation name: "foo"`,
-	}, {
-		"provides:\n  juju: blob",
-		`charm "a" using a reserved relation name: "juju"`,
-	}, {
-		"requires:\n  juju: blob",
-		`charm "a" using a reserved relation name: "juju"`,
-	}, {
-		"peers:\n  juju: blob",
-		`charm "a" using a reserved relation name: "juju"`,
-	}, {
-		"provides:\n  juju-snap: blub",
-		`charm "a" using a reserved relation name: "juju-snap"`,
-	}, {
-		"requires:\n  juju-crackle: blub",
-		`charm "a" using a reserved relation name: "juju-crackle"`,
-	}, {
-		"peers:\n  juju-pop: blub",
-		`charm "a" using a reserved relation name: "juju-pop"`,
-	}, {
-		"provides:\n  innocuous: juju",
-		`charm "a" relation "innocuous" using a reserved interface: "juju"`,
-	}, {
-		"peers:\n  innocuous: juju",
-		`charm "a" relation "innocuous" using a reserved interface: "juju"`,
-	}, {
-		"provides:\n  innocuous: juju-snap",
-		`charm "a" relation "innocuous" using a reserved interface: "juju-snap"`,
-	}, {
-		"peers:\n  innocuous: juju-snap",
-		`charm "a" relation "innocuous" using a reserved interface: "juju-snap"`,
-	},
-}
-
-func (s *MetaSuite) TestCheckRelationsConstraints(c *gc.C) {
-	check := func(s, e string) {
-		meta, err := charm.ReadMeta(strings.NewReader(s))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(meta, gc.NotNil)
-		err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-		if e != "" {
-			c.Assert(err, gc.ErrorMatches, e)
-		} else {
-			c.Assert(err, gc.IsNil)
-		}
-	}
-	prefix := "name: a\nsummary: b\ndescription: c\n"
-	for i, t := range relationsConstraintsTests {
-		c.Logf("test %d", i)
-		check(prefix+t.rels, t.err)
-		check(prefix+"subordinate: true\n"+t.rels, t.err)
-	}
-	// The juju-* namespace is accessible to container-scoped require
-	// relations on subordinate charms.
-	check(prefix+`
-subordinate: true
-requires:
-  juju-info:
-    interface: juju-info
-    scope: container`, "")
-	// The juju-* interfaces are allowed on any require relation.
-	check(prefix+`
-requires:
-  innocuous: juju-info`, "")
-}
-
 // dummyMetadata contains a minimally valid charm metadata.yaml
 // for testing valid and invalid series.
 const dummyMetadata = "name: a\nsummary: b\ndescription: c"
@@ -578,41 +500,6 @@ func (s *MetaSuite) TestNoMinJujuVersion(c *gc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(meta.MinJujuVersion, gc.Equals, version.Zero)
-}
-
-func (s *MetaSuite) TestCheckMismatchedRelationName(c *gc.C) {
-	// This  Check case cannot be covered by the above
-	// TestCheckRelationsConstraints tests.
-	meta := charm.Meta{
-		Name: "foo",
-		Provides: map[string]charm.Relation{
-			"foo": {
-				Name:      "foo",
-				Role:      charm.RolePeer,
-				Interface: "x",
-				Scope:     charm.ScopeGlobal,
-			},
-		},
-	}
-	err := meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, gc.ErrorMatches, `charm "foo" has mismatched role "peer"; expected "provider"`)
-}
-
-func (s *MetaSuite) TestCheckMismatchedRole(c *gc.C) {
-	// This  Check case cannot be covered by the above
-	// TestCheckRelationsConstraints tests.
-	meta := charm.Meta{
-		Name: "foo",
-		Provides: map[string]charm.Relation{
-			"foo": {
-				Role:      charm.RolePeer,
-				Interface: "foo",
-				Scope:     charm.ScopeGlobal,
-			},
-		},
-	}
-	err := meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, gc.ErrorMatches, `charm "foo" has mismatched relation name ""; expected "foo"`)
 }
 
 func (s *MetaSuite) TestCheckMismatchedExtraBindingName(c *gc.C) {
