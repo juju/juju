@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -99,7 +98,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ModelUUID:          config.ModelUUID,
 		FirewallerAPI:      client,
 		PortService:        domainServices.Port(),
-		ApplicationService: domainServices.Application(applicationservice.NotImplementedSecretService{}),
+		ApplicationService: domainServices.Application(),
 		LifeGetter:         client,
 		Broker:             broker,
 		Logger:             config.Logger,

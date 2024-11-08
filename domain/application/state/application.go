@@ -1101,10 +1101,12 @@ WHERE a.name = $applicationName.name
 	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryStmt, app).GetAll(&dbSecrets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("getting secrets for application %q: %w", appName, err)
+			}
 		}
 		uris, err = dbSecrets.toSecretURIs()
-		return errors.Trace(err)
+		return err
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1134,10 +1136,10 @@ WHERE u.name = $unitNameAndUUID.name
 	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryStmt, unit).GetAll(&dbSecrets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
+			return fmt.Errorf("getting secrets for unit %q: %w", unitName, err)
 		}
 		uris, err = dbSecrets.toSecretURIs()
-		return errors.Trace(err)
+		return err
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}

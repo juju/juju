@@ -12,11 +12,6 @@ import (
 	"github.com/juju/juju/domain"
 )
 
-// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
-//func (s *SecretService) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error {
-//	return s.secretBackendReferenceMutator.RemoveSecretBackendReference(ctx, revisionIDs...)
-//}
-
 // DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
 	deletedRevisionIDs, err := s.secretState.DeleteObsoleteUserSecretRevisions(ctx)

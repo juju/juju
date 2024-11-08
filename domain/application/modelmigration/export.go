@@ -47,10 +47,11 @@ type ExportService interface {
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error)
 }
 
-// NotImplementedDeleteSecretState defines a secret state which does nothing.
-type NotImplementedDeleteSecretState struct{}
+// NoopDeleteSecretState defines a secret state which does nothing.
+// When importing and exporting, we are not deleting any secrets.
+type NoopDeleteSecretState struct{}
 
-func (NotImplementedDeleteSecretState) DeleteSecret(domain.AtomicContext, *coresecrets.URI, []int) error {
+func (NoopDeleteSecretState) DeleteSecret(domain.AtomicContext, *coresecrets.URI, []int) error {
 	return nil
 }
 
@@ -75,7 +76,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// so that we can create the appropriate storage instances.
 	e.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), e.logger),
-		NotImplementedDeleteSecretState{},
+		NoopDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
