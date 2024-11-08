@@ -535,9 +535,10 @@ func initialStoragePools(registry storage.ProviderRegistry, poolParams map[strin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, p := range defaultStoragePools {
-		result = append(result, p)
-	}
+
+	// Add the default storage pools.
+	result = append(result, defaultStoragePools...)
+
 	for name, attrs := range poolParams {
 		pType, _ := attrs[domainstorage.StorageProviderType].(string)
 		if pType == "" {

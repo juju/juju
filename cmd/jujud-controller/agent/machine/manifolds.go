@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud-controller/util"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -34,12 +35,15 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	internalhttp "github.com/juju/juju/internal/http"
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
+	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
@@ -76,6 +80,7 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
+	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
@@ -277,25 +282,12 @@ type ManifoldsConfig struct {
 	// possible to know the lifecycle of the workers in the dependency engine.
 	DependencyEngineMetrics modelworkermanager.ModelMetrics
 
-	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
-	CharmhubHTTPClient HTTPClient
-
-	// SSHImporterHTTPClient is the HTTP client used for ssh import operations.
-	SSHImporterHTTPClient HTTPClient
-
-	// S3HTTPClient is the HTTP client used for S3 API requests.
-	S3HTTPClient HTTPClient
-
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
 
 	// NewCAASBrokerFunc is a function opens a CAAS broker.
 	NewCAASBrokerFunc func(context.Context, environs.OpenParams) (caas.Broker, error)
-}
-
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -660,7 +652,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
-			CharmhubHTTPClientName: charmhubHTTPClientName,
+			HTTPClientName:         httpClientName,
 			TraceName:              traceName,
 			ObjectStoreName:        objectStoreName,
 
@@ -680,27 +672,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		}),
-
-		charmhubHTTPClientName: dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.CharmhubHTTPClient)
-			},
-			Output: engine.ValueWorkerOutput,
-		},
-
-		s3HTTPClientName: ifController(dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.S3HTTPClient)
-			},
-			Output: engine.ValueWorkerOutput,
-		}),
-
-		sshImporterName: dependency.Manifold{
-			Start: func(ctx context.Context, get dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(sshimporter.NewImporter(config.SSHImporterHTTPClient))
-			},
-			Output: engine.ValueWorkerOutput,
-		},
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:                    agentName,
@@ -733,7 +704,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderFactoryName:         providerTrackerName,
 			ObjectStoreName:             objectStoreName,
 			StorageRegistryName:         storageRegistryName,
-			SSHImporterName:             sshImporterName,
+			HTTPClientName:              httpClientName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
 			NewWorker:                   workerdomainservices.NewWorker,
@@ -877,7 +848,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
-			HTTPClientName:             s3HTTPClientName,
+			HTTPClientName:             httpClientName,
 			ObjectStoreServicesName:    objectStoreServicesName,
 			NewClient:                  objectstores3caller.NewS3Client,
 			Logger:                     internallogger.GetLogger("juju.worker.s3caller"),
@@ -915,6 +886,30 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                    config.Clock,
 			Logger:                   internallogger.GetLogger("juju.worker.storageregistry"),
 		}),
+
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
+				switch namespace {
+				case corehttp.CharmhubPurpose:
+					charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+					return charmhub.DefaultHTTPClient(charmhubLogger)
+
+				case corehttp.S3Purpose:
+					s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
+					return s3client.DefaultHTTPClient(s3Logger)
+
+				case corehttp.SSHImporterPurpose:
+					sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+					return sshimporter.DefaultHTTPClient(sshImporterLogger)
+
+				default:
+					return internalhttp.NewClient(opts...)
+				}
+			},
+			NewHTTPClientWorker: httpclient.NewTrackedWorker,
+			Clock:               config.Clock,
+			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
+		}),
 	}
 
 	return manifolds
@@ -932,7 +927,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			ObjectStoreName:         objectStoreName,
 			DomainServicesName:      domainServicesName,
-			CharmhubHTTPClientName:  charmhubHTTPClientName,
+			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
@@ -1147,7 +1142,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			ObjectStoreName:         objectStoreName,
 			DomainServicesName:      domainServicesName,
-			CharmhubHTTPClientName:  charmhubHTTPClientName,
+			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
@@ -1323,13 +1318,17 @@ const (
 	migrationMinionName       = "migration-minion"
 
 	apiAddressUpdaterName         = "api-address-updater"
+	apiServerName                 = "api-server"
 	auditConfigUpdaterName        = "audit-config-updater"
 	authenticationWorkerName      = "ssh-authkeys-updater"
+	brokerTrackerName             = "broker-tracker"
+	caasUnitsManager              = "caas-units-manager"
 	certificateUpdaterName        = "certificate-updater"
 	certificateWatcherName        = "certificate-watcher"
 	changeStreamName              = "change-stream"
 	changeStreamPrunerName        = "change-stream-pruner"
 	controllerAgentConfigName     = "controller-agent-config"
+	controlSocketName             = "control-socket"
 	dbAccessorName                = "db-accessor"
 	deployerName                  = "deployer"
 	diskManagerName               = "disk-manager"
@@ -1337,6 +1336,9 @@ const (
 	externalControllerUpdaterName = "external-controller-updater"
 	fileNotifyWatcherName         = "file-notify-watcher"
 	hostKeyReporterName           = "host-key-reporter"
+	httpClientName                = "http-client"
+	httpServerArgsName            = "http-server-args"
+	httpServerName                = "http-server"
 	identityFileWriterName        = "ssh-identity-writer"
 	instanceMutaterName           = "instance-mutater"
 	isControllerFlagName          = "is-controller-flag"
@@ -1346,6 +1348,7 @@ const (
 	leaseManagerName              = "lease-manager"
 	loggingConfigUpdaterName      = "logging-config-updater"
 	logSenderName                 = "log-sender"
+	logSinkName                   = "log-sink"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	machineActionName             = "machine-action-runner"
 	machinerName                  = "machiner"
@@ -1360,30 +1363,11 @@ const (
 	proxyConfigUpdater            = "proxy-config-updater"
 	queryLoggerName               = "query-logger"
 	rebootName                    = "reboot-executor"
-	sshImporterName               = "ssh-importer"
+	secretBackendRotateName       = "secret-backend-rotate"
 	stateConverterName            = "state-converter"
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"
 	toolsVersionCheckerName       = "tools-version-checker"
-
-	secretBackendRotateName = "secret-backend-rotate"
-
-	traceName = "trace"
-
-	httpServerName     = "http-server"
-	httpServerArgsName = "http-server-args"
-	apiServerName      = "api-server"
-
-	logSinkName = "log-sink"
-
-	caasUnitsManager = "caas-units-manager"
-
-	validCredentialFlagName = "valid-credential-flag"
-
-	brokerTrackerName = "broker-tracker"
-
-	charmhubHTTPClientName = "charmhub-http-client"
-	s3HTTPClientName       = "s3-http-client"
-
-	controlSocketName = "control-socket"
+	traceName                     = "trace"
+	validCredentialFlagName       = "valid-credential-flag"
 )

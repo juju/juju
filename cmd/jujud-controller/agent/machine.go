@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"context"
 	stdcontext "context"
 	"fmt"
 	"net/http"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
 	agentconfig "github.com/juju/juju/agent/config"
-	"github.com/juju/juju/agent/engine"
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/agent/tools"
@@ -65,17 +63,14 @@ import (
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/container/broker"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/pubsub/centralhub"
-	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/services"
-	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/storage/looputil"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
@@ -584,7 +579,7 @@ func (a *MachineAgent) makeEngineCreator(
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
-		engineConfigFunc := engine.DependencyEngineConfig
+		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
 		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
 		eng, err := dependency.NewEngine(engineConfigFunc(
@@ -613,17 +608,6 @@ func (a *MachineAgent) makeEngineCreator(
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
-
-		// Create a single HTTP client so we can reuse HTTP connections, for
-		// example across the various Charmhub API requests required for deploy.
-		charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
-		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
-
-		s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
-		s3HTTPClient := s3client.DefaultHTTPClient(s3Logger)
-
-		sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
-		sshImporterClient := sshimporter.DefaultHTTPClient(sshImporterLogger)
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
@@ -668,11 +652,8 @@ func (a *MachineAgent) makeEngineCreator(
 			},
 			SetupLogging:            agentconf.SetupAgentLogging,
 			DependencyEngineMetrics: metrics,
-			CharmhubHTTPClient:      charmhubHTTPClient,
-			S3HTTPClient:            s3HTTPClient,
 			NewEnvironFunc:          newEnvirons,
 			NewCAASBrokerFunc:       newCAASBroker,
-			SSHImporterHTTPClient:   sshImporterClient,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -803,7 +784,7 @@ func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connec
 type noopStatusSetter struct{}
 
 // SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
+func (a *noopStatusSetter) SetStatus(_ stdcontext.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 

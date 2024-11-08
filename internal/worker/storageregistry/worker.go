@@ -152,7 +152,7 @@ func (w *storageRegistryWorker) Wait() error {
 func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespace string) (storage.ProviderRegistry, error) {
 	// First check if we've already got the storageRegistry worker already running.
 	// If we have, then return out quickly. The storageRegistryRunner is the cache,
-	// so there is no need to have a in-memory cache here.
+	// so there is no need to have an in-memory cache here.
 	if storageRegistry, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, corestorage.ErrStorageRegistryDying
@@ -181,7 +181,7 @@ func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespac
 	select {
 	case err := <-req.done:
 		// If we know we've got an error, just return that error before
-		// attempting to ask the objectStoreRunnerWorker.
+		// attempting to ask the storageRegistryRunnerWorker.
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -205,8 +205,8 @@ func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespac
 
 func (w *storageRegistryWorker) workerFromCache(namespace string) (storage.ProviderRegistry, error) {
 	// If the worker already exists, return the existing worker early.
-	if objectStore, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return objectStore.(storage.ProviderRegistry), nil
+	if storageRegistry, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return storageRegistry.(storage.ProviderRegistry), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
 		select {

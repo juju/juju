@@ -15,6 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -35,11 +36,6 @@ func init() {
 	defaultTransport = DialContextMiddleware(NewLocalDialBreaker(true))(defaultTransport)
 	// Call our own proxy function with the DefaultTransport.
 	http.DefaultTransport = ProxyMiddleware(defaultTransport)
-}
-
-// HTTPClient represents an http.Client.
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
 }
 
 // Option to be passed into the transport construction to customize the
@@ -176,7 +172,7 @@ func newOptions() *options {
 
 // Client represents an http client.
 type Client struct {
-	HTTPClient
+	corehttp.HTTPClient
 
 	logger logger.Logger
 }

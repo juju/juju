@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/internal/charm/services"
 )
 
@@ -54,7 +55,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
-	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting charm hub http client: %w",

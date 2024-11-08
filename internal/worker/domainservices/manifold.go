@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -32,7 +33,7 @@ type ManifoldConfig struct {
 	ProviderFactoryName         string
 	ObjectStoreName             string
 	StorageRegistryName         string
-	SSHImporterName             string
+	HTTPClientName              string
 	Logger                      logger.Logger
 	Clock                       clock.Clock
 	NewWorker                   func(Config) (worker.Worker, error)
@@ -92,8 +93,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StorageRegistryName == "" {
 		return errors.NotValidf("empty StorageRegistryName")
 	}
-	if config.SSHImporterName == "" {
-		return errors.NotValidf("empty SSHImporterName")
+	if config.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -126,7 +127,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
 			config.StorageRegistryName,
-			config.SSHImporterName,
+			config.HTTPClientName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -134,7 +135,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -164,8 +165,13 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var sshImporter *sshimporter.Importer
-	if err := getter.Get(config.SSHImporterName, &sshImporter); err != nil {
+	var httpClientGetter corehttp.HTTPClientGetter
+	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	sshImporterClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.SSHImporterPurpose)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -175,7 +181,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
-		PublicKeyImporter:           sshImporter,
+		PublicKeyImporter:           sshimporter.NewImporter(sshImporterClient),
 		Logger:                      config.Logger,
 		Clock:                       config.Clock,
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,

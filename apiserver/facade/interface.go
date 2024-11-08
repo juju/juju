@@ -12,6 +12,7 @@ import (
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v5"
 
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -164,7 +165,7 @@ type ModelContext interface {
 	// understood by the context.
 	// - [ErrorHTTPClientForPurposeNotFound] when no http client can be found
 	// for the requested [HTTPClientPurpose].
-	HTTPClient(HTTPClientPurpose) (HTTPClient, error)
+	HTTPClient(corehttp.Purpose) (HTTPClient, error)
 
 	// MachineTag returns the current machine tag.
 	MachineTag() names.Tag
@@ -308,10 +309,3 @@ type Hub interface {
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
-
-// HTTPClientPurpose describes a specific purpose for an HTTP client.
-type HTTPClientPurpose string
-
-const (
-	CharmhubHTTPClient HTTPClientPurpose = "charmhub"
-)

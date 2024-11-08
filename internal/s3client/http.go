@@ -10,7 +10,7 @@ import (
 
 // DefaultHTTPClient returns the default http client used to access the object
 // store.
-func DefaultHTTPClient(logger logger.Logger) HTTPClient {
+func DefaultHTTPClient(logger logger.Logger) *jujuhttp.Client {
 	return jujuhttp.NewClient(
 		jujuhttp.WithLogger(logger),
 	)

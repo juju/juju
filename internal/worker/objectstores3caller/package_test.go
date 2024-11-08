@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -23,6 +24,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ControllerConfigService
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination httpclient_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -35,8 +37,10 @@ type baseSuite struct {
 
 	session                 *MockSession
 	controllerConfigService *MockControllerConfigService
-	httpClient              *MockHTTPClient
 	clock                   *MockClock
+
+	httpClientGetter *MockHTTPClientGetter
+	httpClient       *MockHTTPClient
 
 	logger logger.Logger
 }
@@ -50,8 +54,10 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.session = NewMockSession(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.httpClient = NewMockHTTPClient(ctrl)
 	s.clock = NewMockClock(ctrl)
+
+	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)
+	s.httpClient = NewMockHTTPClient(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
@@ -68,6 +74,10 @@ func (s *baseSuite) expectTimeAfter() {
 		close(ch)
 		return ch
 	}).AnyTimes()
+}
+
+func (s *baseSuite) expectHTTPClient(c *gc.C) {
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.S3Purpose).Return(s.httpClient, nil)
 }
 
 func (s *baseSuite) expectControllerConfig(c *gc.C, config controller.Config) {

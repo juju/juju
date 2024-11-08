@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
@@ -152,7 +153,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		State: ctx.State(),
 	}
 
-	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting charm hub http client: %w",

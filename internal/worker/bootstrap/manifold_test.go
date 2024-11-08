@@ -48,7 +48,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.StorageRegistryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg.CharmhubHTTPClientName = ""
+	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -77,15 +77,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:              "agent",
-		ObjectStoreName:        "object-store",
-		StateName:              "state",
-		BootstrapGateName:      "bootstrap-gate",
-		DomainServicesName:     "domain-services",
-		ProviderFactoryName:    "provider-factory",
-		CharmhubHTTPClientName: "charmhub-http-client",
-		StorageRegistryName:    "storage-registry",
-		Logger:                 s.logger,
+		AgentName:           "agent",
+		ObjectStoreName:     "object-store",
+		StateName:           "state",
+		BootstrapGateName:   "bootstrap-gate",
+		DomainServicesName:  "domain-services",
+		ProviderFactoryName: "provider-factory",
+		HTTPClientName:      "http-client",
+		StorageRegistryName: "storage-registry",
+		Logger:              s.logger,
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
@@ -106,13 +106,13 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":                s.agent,
-		"state":                s.stateTracker,
-		"object-store":         s.objectStoreGetter,
-		"bootstrap-gate":       s.bootstrapUnlocker,
-		"charmhub-http-client": s.httpClient,
-		"domain-services":      testing.NewTestingDomainServices(),
-		"storage-registry":     s.storageRegistryGetter,
+		"agent":            s.agent,
+		"state":            s.stateTracker,
+		"object-store":     s.objectStoreGetter,
+		"bootstrap-gate":   s.bootstrapUnlocker,
+		"http-client":      s.httpClientGetter,
+		"domain-services":  testing.NewTestingDomainServices(),
+		"storage-registry": s.storageRegistryGetter,
 	}
 	return dependencytesting.StubGetter(resources)
 }
@@ -123,7 +123,7 @@ var expectedInputs = []string{
 	"object-store",
 	"bootstrap-gate",
 	"domain-services",
-	"charmhub-http-client",
+	"http-client",
 	"provider-factory",
 	"storage-registry",
 }

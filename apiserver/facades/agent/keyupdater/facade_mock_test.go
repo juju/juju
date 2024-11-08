@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	facade "github.com/juju/juju/apiserver/facade"
+	http "github.com/juju/juju/core/http"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	logger "github.com/juju/juju/core/logger"
@@ -274,7 +275,7 @@ func (c *MockModelContextDomainServicesCall) DoAndReturn(f func() services.Domai
 }
 
 // HTTPClient mocks base method.
-func (m *MockModelContext) HTTPClient(arg0 facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+func (m *MockModelContext) HTTPClient(arg0 http.Purpose) (facade.HTTPClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HTTPClient", arg0)
 	ret0, _ := ret[0].(facade.HTTPClient)
@@ -301,13 +302,13 @@ func (c *MockModelContextHTTPClientCall) Return(arg0 facade.HTTPClient, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelContextHTTPClientCall) Do(f func(facade.HTTPClientPurpose) (facade.HTTPClient, error)) *MockModelContextHTTPClientCall {
+func (c *MockModelContextHTTPClientCall) Do(f func(http.Purpose) (facade.HTTPClient, error)) *MockModelContextHTTPClientCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextHTTPClientCall) DoAndReturn(f func(facade.HTTPClientPurpose) (facade.HTTPClient, error)) *MockModelContextHTTPClientCall {
+func (c *MockModelContextHTTPClientCall) DoAndReturn(f func(http.Purpose) (facade.HTTPClient, error)) *MockModelContextHTTPClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

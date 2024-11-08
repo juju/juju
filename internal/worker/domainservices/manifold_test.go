@@ -12,10 +12,12 @@ import (
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -62,7 +64,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.SSHImporterName = ""
+	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -89,13 +91,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SSHImporterPurpose).Return(s.httpClient, nil)
+
 	getter := map[string]any{
 		"dbaccessor":      s.dbDeleter,
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
 		"storageregistry": s.storageRegistryGetter,
-		"sshimporter":     s.publicKeyImporter,
+		"httpclient":      s.httpClientGetter,
 	}
 
 	manifold := Manifold(ManifoldConfig{
@@ -104,7 +108,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		ProviderFactoryName:         "providerfactory",
 		ObjectStoreName:             "objectstore",
 		StorageRegistryName:         "storageregistry",
-		SSHImporterName:             "sshimporter",
+		HTTPClientName:              "httpclient",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
@@ -241,7 +245,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ProviderFactoryName: "providerfactory",
 		ObjectStoreName:     "objectstore",
 		StorageRegistryName: "storageregistry",
-		SSHImporterName:     "sshimporter",
+		HTTPClientName:      "httpclient",
 		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {

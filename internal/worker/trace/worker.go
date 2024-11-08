@@ -181,7 +181,7 @@ func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.Tracer
 	ns := namespace.WithTagAndKind(w.cfg.Tag, w.cfg.Kind)
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
-	// is no need to have a in-memory cache here.
+	// is no need to have an in-memory cache here.
 	if tracer, err := w.workerFromCache(ns); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, coretrace.ErrTracerDying

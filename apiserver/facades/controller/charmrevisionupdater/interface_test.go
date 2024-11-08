@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charm"
@@ -181,7 +182,7 @@ type facadeContextShim struct {
 	domainServices      services.DomainServices
 }
 
-func (s facadeContextShim) HTTPClient(_ facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+func (s facadeContextShim) HTTPClient(_ corehttp.Purpose) (facade.HTTPClient, error) {
 	return s.httpClient, nil
 }
 

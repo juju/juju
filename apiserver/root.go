@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -890,11 +891,11 @@ func (ctx *facadeContext) LeadershipReader() (leadership.Reader, error) {
 // understood by the context.
 // - [ErrorHTTPClientForPurposeNotFound] when no http client can be found for
 // the requested [HTTPClientPurpose].
-func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+func (ctx *facadeContext) HTTPClient(purpose corehttp.Purpose) (facade.HTTPClient, error) {
 	var client facade.HTTPClient
 
 	switch purpose {
-	case facade.CharmhubHTTPClient:
+	case corehttp.CharmhubPurpose:
 		client = ctx.r.shared.charmhubHTTPClient
 	default:
 		return nil, fmt.Errorf(

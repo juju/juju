@@ -34,6 +34,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/credential",
 		"core/devices",
 		"core/facades",
+		"core/http",
 		"core/instance",
 		"core/life",
 		"core/logger",

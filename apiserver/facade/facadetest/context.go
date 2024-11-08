@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -174,11 +175,11 @@ func (c ModelContext) SingularClaimer() (lease.Claimer, error) {
 // understood by the context.
 // - [ErrorHTTPClientForPurposeNotFound] when no http client can be found for
 // the requested [HTTPClientPurpose].
-func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+func (c ModelContext) HTTPClient(purpose corehttp.Purpose) (facade.HTTPClient, error) {
 	var client facade.HTTPClient
 
 	switch purpose {
-	case facade.CharmhubHTTPClient:
+	case corehttp.CharmhubPurpose:
 		client = c.CharmhubHTTPClient_
 	default:
 		return nil, fmt.Errorf(
