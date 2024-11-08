@@ -51,8 +51,8 @@ func (c *WorkerConfig) Validate() error {
 // httpClientRequest is used to pass requests for Storage Registry
 // instances into the worker loop.
 type httpClientRequest struct {
-	namespace corehttp.Purpose
-	done      chan error
+	purpose corehttp.Purpose
+	done    chan error
 }
 
 type httpClientWorker struct {
@@ -111,7 +111,7 @@ func (w *httpClientWorker) loop() (err error) {
 		// The following ensures that all httpClientRequests are serialised and
 		// processed in order.
 		case req := <-w.httpClientRequests:
-			if err := w.initHTTPClient(req.namespace); err != nil {
+			if err := w.initHTTPClient(req.purpose); err != nil {
 				select {
 				case req.done <- errors.Trace(err):
 				case <-w.catacomb.Dying():
@@ -142,12 +142,14 @@ func (w *httpClientWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// GetHTTPClient returns a httpClient for the given namespace.
-func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
+// GetHTTPClient returns a httpClient for the given purpose.
+// TODO (stickupkid): Currently we don't pass the namespace (model uuid) to
+// get a client for a specific model with the associated model-config.
+func (w *httpClientWorker) GetHTTPClient(ctx context.Context, purpose corehttp.Purpose) (corehttp.HTTPClient, error) {
 	// First check if we've already got the httpClient worker already running.
 	// If we have, then return out quickly. The httpClientRunner is the cache,
 	// so there is no need to have an in-memory cache here.
-	if httpClient, err := w.workerFromCache(namespace); err != nil {
+	if httpClient, err := w.workerFromCache(purpose); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, corehttp.ErrHTTPClientDying
 		}
@@ -160,8 +162,8 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
 	req := httpClientRequest{
-		namespace: namespace,
-		done:      make(chan error),
+		purpose: purpose,
+		done:    make(chan error),
 	}
 	select {
 	case w.httpClientRequests <- req:
@@ -187,7 +189,7 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.runner.Worker(namespace.String(), w.catacomb.Dying())
+	tracked, err := w.runner.Worker(purpose.String(), w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,9 +199,9 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, namespace corehttp
 	return tracked.(corehttp.HTTPClient), nil
 }
 
-func (w *httpClientWorker) workerFromCache(namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
+func (w *httpClientWorker) workerFromCache(purpose corehttp.Purpose) (corehttp.HTTPClient, error) {
 	// If the worker already exists, return the existing worker early.
-	if httpClient, err := w.runner.Worker(namespace.String(), w.catacomb.Dying()); err == nil {
+	if httpClient, err := w.runner.Worker(purpose.String(), w.catacomb.Dying()); err == nil {
 		return httpClient.(corehttp.HTTPClient), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
@@ -219,11 +221,11 @@ func (w *httpClientWorker) workerFromCache(namespace corehttp.Purpose) (corehttp
 	return nil, nil
 }
 
-func (w *httpClientWorker) initHTTPClient(namespace corehttp.Purpose) error {
-	err := w.runner.StartWorker(namespace.String(), func() (worker.Worker, error) {
+func (w *httpClientWorker) initHTTPClient(purpose corehttp.Purpose) error {
+	err := w.runner.StartWorker(purpose.String(), func() (worker.Worker, error) {
 		// TODO (stickupkid): We can pass in additional configuration here if
 		// needed.
-		httpClient := w.cfg.NewHTTPClient(namespace, internalhttp.WithLogger(w.cfg.Logger))
+		httpClient := w.cfg.NewHTTPClient(purpose, internalhttp.WithLogger(w.cfg.Logger))
 
 		worker, err := w.cfg.NewHTTPClientWorker(httpClient)
 		if err != nil {

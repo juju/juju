@@ -20,7 +20,6 @@ type trackedWorker struct {
 
 // NewTrackedWorker creates a new tracked worker for a http client.
 func NewTrackedWorker(client *internalhttp.Client) (worker.Worker, error) {
-
 	w := &trackedWorker{
 		client: client,
 	}
@@ -47,6 +46,9 @@ func (w *trackedWorker) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (w *trackedWorker) loop() error {
+	// TODO (stickupkid): In the future, it is expected that we can watch the
+	// model-config for any proxy related changes and update the http client
+	// accordingly.
 	select {
 	case <-w.tomb.Dying():
 		return w.tomb.Err()
