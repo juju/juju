@@ -58,7 +58,7 @@ jobs:
 
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
-        uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
+        uses: canonical/setup-lxd@54a5806e490d92e207b57183cf111ed54bbdeff4
     
       - name: Wait for LXD
         if: matrix.cloud == 'localhost'
