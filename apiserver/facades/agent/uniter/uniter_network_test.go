@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
@@ -767,7 +766,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	}
 	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
 
-	unitUUID, err := s.domainServices.Application(service.NotImplementedSecretService{}).GetUnitUUID(context.Background(), unit.Name(s.wordpressUnit.Tag().Id()))
+	unitUUID, err := s.domainServices.Application().GetUnitUUID(context.Background(), unit.Name(s.wordpressUnit.Tag().Id()))
 	c.Assert(err, jc.ErrorIsNil)
 	grp, err := s.domainServices.Port().GetUnitOpenedPorts(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)

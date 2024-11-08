@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -366,7 +366,7 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.domainServices.EXPECT().Cloud().Return(nil).AnyTimes()
 	s.domainServices.EXPECT().Credential().Return(nil).AnyTimes()
 	s.domainServices.EXPECT().Machine().Return(nil)
-	s.domainServices.EXPECT().Application(gomock.Any()).Return(nil)
+	s.domainServices.EXPECT().Application().Return(nil)
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.domainServicesGetter.EXPECT().ServicesForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.domainServices)
 

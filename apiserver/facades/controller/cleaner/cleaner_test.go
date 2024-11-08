@@ -52,11 +52,10 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil, nil)
 	s.applicationService = applicationservice.NewWatchableService(
-		nil, nil, nil, "", nil, nil,
+		nil, nil, nil, nil, "", nil, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		applicationservice.NotImplementedSecretService{},
 		loggertesting.WrapCheckLog(c),
 	)
 

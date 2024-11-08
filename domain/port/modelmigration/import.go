@@ -18,6 +18,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/port/service"
 	"github.com/juju/juju/domain/port/state"
+	secretstate "github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -68,11 +69,11 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		state.NewState(scope.ModelDB()), i.logger)
 	i.applicationService = applicationservice.NewService(
 		applicationstate.NewApplicationState(scope.ModelDB(), i.logger),
+		secretstate.NewState(scope.ModelDB(), i.logger),
 		applicationstate.NewCharmState(scope.ModelDB()),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		applicationservice.NotImplementedSecretService{},
 		i.logger,
 	)
 	return nil

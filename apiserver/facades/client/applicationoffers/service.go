@@ -12,7 +12,6 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -97,5 +96,5 @@ type modelDomainServices struct {
 }
 
 func (f *modelDomainServices) Application() ApplicationService {
-	return f.domainServices.Application(service.NotImplementedSecretService{})
+	return f.domainServices.Application()
 }

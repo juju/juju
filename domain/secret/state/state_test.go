@@ -491,62 +491,6 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *gc.C) {
 	c.Assert(ref, jc.DeepEquals, &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"})
 }
 
-func (s *stateSuite) TestListExternalSecretRevisions(c *gc.C) {
-	st := newSecretState(c, s.TxnRunnerFactory())
-
-	ctx := context.Background()
-	sp := domainsecret.UpsertSecretParams{
-		Description: ptr("my secretMetadata"),
-		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
-		RevisionID:  ptr(uuid.MustNewUUID().String()),
-	}
-	uri := coresecrets.NewURI()
-	err := createUserSecret(ctx, st, 1, uri, sp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sp2 := domainsecret.UpsertSecretParams{
-		Description: ptr("my secretMetadata"),
-		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend2", RevisionID: "some-revision2"},
-		RevisionID:  ptr(uuid.MustNewUUID().String()),
-	}
-	err = updateSecret(ctx, st, uri, sp2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sp3 := domainsecret.UpsertSecretParams{
-		Description: ptr("my secretMetadata"),
-		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  ptr(uuid.MustNewUUID().String()),
-	}
-	uri3 := coresecrets.NewURI()
-	err = createUserSecret(ctx, st, 1, uri3, sp3)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var refs []coresecrets.ValueRef
-	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		refs, err = st.ListExternalSecretRevisions(ctx, uri)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(refs, jc.SameContents, []coresecrets.ValueRef{{
-		BackendID:  "some-backend",
-		RevisionID: "some-revision",
-	}, {
-		BackendID:  "some-backend2",
-		RevisionID: "some-revision2",
-	}})
-
-	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		refs, err = st.ListExternalSecretRevisions(ctx, uri, 2)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(refs, jc.SameContents, []coresecrets.ValueRef{{
-		BackendID:  "some-backend2",
-		RevisionID: "some-revision2",
-	}})
-
-}
-
 func (s *stateSuite) createOwnedSecrets(c *gc.C) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -3622,16 +3566,10 @@ func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	err = updateSecret(ctx, st, uri, sp3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedToBeDeleted := []string{
-		getRevUUID(c, s.DB(), uri, 2),
-	}
-	var deletedRevisionIDs []string
 	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		deletedRevisionIDs, err = st.DeleteSecret(ctx, uri, []int{2})
-		return err
+		return st.DeleteSecret(ctx, uri, []int{2})
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 
 	_, _, err = st.ListSecrets(ctx, uri, ptr(1), domainsecret.NilLabels)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3691,18 +3629,10 @@ func (s *stateSuite) assertDeleteAllRevisions(c *gc.C, revs []int) {
 	err = createCharmApplicationSecret(ctx, st, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedToBeDeleted := []string{
-		getRevUUID(c, s.DB(), uri, 1),
-		getRevUUID(c, s.DB(), uri, 2),
-		getRevUUID(c, s.DB(), uri, 3),
-	}
-	var deletedRevisionIDs []string
 	err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		deletedRevisionIDs, err = st.DeleteSecret(ctx, uri, revs)
-		return err
+		return st.DeleteSecret(ctx, uri, revs)
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deletedRevisionIDs, jc.SameContents, expectedToBeDeleted)
 
 	for r := 1; r <= 3; r++ {
 		_, _, err := st.ListSecrets(ctx, uri, ptr(r), domainsecret.NilLabels)

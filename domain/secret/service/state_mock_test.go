@@ -512,12 +512,11 @@ func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) DoAndReturn(f func(cont
 }
 
 // DeleteSecret mocks base method.
-func (m *MockState) DeleteSecret(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 []int) ([]string, error) {
+func (m *MockState) DeleteSecret(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 []int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // DeleteSecret indicates an expected call of DeleteSecret.
@@ -533,19 +532,19 @@ type MockStateDeleteSecretCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteSecretCall) Return(arg0 []string, arg1 error) *MockStateDeleteSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateDeleteSecretCall) Return(arg0 error) *MockStateDeleteSecretCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteSecretCall) Do(f func(domain.AtomicContext, *secrets.URI, []int) ([]string, error)) *MockStateDeleteSecretCall {
+func (c *MockStateDeleteSecretCall) Do(f func(domain.AtomicContext, *secrets.URI, []int) error) *MockStateDeleteSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteSecretCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, []int) ([]string, error)) *MockStateDeleteSecretCall {
+func (c *MockStateDeleteSecretCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, []int) error) *MockStateDeleteSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1905,50 +1904,6 @@ func (c *MockStateListCharmSecretsToDrainCall) Do(f func(context.Context, secret
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateListCharmSecretsToDrainCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners) ([]*secrets.SecretMetadataForDrain, error)) *MockStateListCharmSecretsToDrainCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListExternalSecretRevisions mocks base method.
-func (m *MockState) ListExternalSecretRevisions(arg0 domain.AtomicContext, arg1 *secrets.URI, arg2 ...int) ([]secrets.ValueRef, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ListExternalSecretRevisions", varargs...)
-	ret0, _ := ret[0].([]secrets.ValueRef)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListExternalSecretRevisions indicates an expected call of ListExternalSecretRevisions.
-func (mr *MockStateMockRecorder) ListExternalSecretRevisions(arg0, arg1 any, arg2 ...any) *MockStateListExternalSecretRevisionsCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListExternalSecretRevisions", reflect.TypeOf((*MockState)(nil).ListExternalSecretRevisions), varargs...)
-	return &MockStateListExternalSecretRevisionsCall{Call: call}
-}
-
-// MockStateListExternalSecretRevisionsCall wrap *gomock.Call
-type MockStateListExternalSecretRevisionsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateListExternalSecretRevisionsCall) Return(arg0 []secrets.ValueRef, arg1 error) *MockStateListExternalSecretRevisionsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateListExternalSecretRevisionsCall) Do(f func(domain.AtomicContext, *secrets.URI, ...int) ([]secrets.ValueRef, error)) *MockStateListExternalSecretRevisionsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListExternalSecretRevisionsCall) DoAndReturn(f func(domain.AtomicContext, *secrets.URI, ...int) ([]secrets.ValueRef, error)) *MockStateListExternalSecretRevisionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

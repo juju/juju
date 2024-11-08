@@ -162,9 +162,12 @@ func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
 }
 
 // Application returns the model's application service.
-func (s *ModelFactory) Application(secrets applicationservice.SecretService) *applicationservice.WatchableService {
+func (s *ModelFactory) Application() *applicationservice.WatchableService {
 	return applicationservice.NewWatchableService(
 		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB),
+			s.logger.Child("application"),
+		),
+		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("application"),
 		),
 		applicationstate.NewCharmState(changestream.NewTxnRunnerFactory(s.modelDB)),
@@ -173,7 +176,6 @@ func (s *ModelFactory) Application(secrets applicationservice.SecretService) *ap
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.storageRegistry,
-		secrets,
 		s.logger.Child("application"),
 	)
 }

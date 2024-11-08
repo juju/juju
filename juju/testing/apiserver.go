@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
@@ -542,7 +541,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 	}
 
 	modelDomainServices := s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(coremodel.UUID(modelUUID))
-	applicationService := modelDomainServices.Application(applicationservice.NotImplementedSecretService{})
+	applicationService := modelDomainServices.Application()
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(applicationService), releaser
 }

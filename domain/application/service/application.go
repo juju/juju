@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -137,6 +136,16 @@ type AtomicApplicationState interface {
 	// indicate the application could be safely deleted.
 	// It will fail if the unit is not Dead.
 	DeleteUnit(domain.AtomicContext, coreunit.Name) (bool, error)
+
+	// GetSecretsForUnit returns the secrets owned by the specified unit.
+	GetSecretsForUnit(
+		ctx domain.AtomicContext, unitName coreunit.Name,
+	) ([]*coresecrets.URI, error)
+
+	// GetSecretsForApplication returns the secrets owned by the specified application.
+	GetSecretsForApplication(
+		ctx domain.AtomicContext, applicationName string,
+	) ([]*coresecrets.URI, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -193,6 +202,13 @@ type ApplicationState interface {
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 }
 
+// DeleteSecretState describes methods used by the secret deleter plugin.
+type DeleteSecretState interface {
+	// DeleteSecret deletes the specified secret revisions.
+	// If revisions is nil the last remaining revisions are removed.
+	DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error
+}
+
 const (
 	// applicationSnippet is a non-compiled regexp that can be composed with
 	// other snippets to form a valid application regexp.
@@ -203,24 +219,6 @@ var (
 	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
 )
 
-// SecretService defines methods on a secret service
-// used by an application service.
-type SecretService interface {
-	InternalDeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, params secretservice.DeleteSecretParams) (func(context.Context), error)
-	GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error)
-}
-
-// NotImplementedSecretService defines a secret service which does nothing.
-type NotImplementedSecretService struct{}
-
-func (s NotImplementedSecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...secretservice.CharmSecretOwner) ([]*coresecrets.URI, error) {
-	return nil, nil
-}
-
-func (NotImplementedSecretService) InternalDeleteSecret(domain.AtomicContext, *coresecrets.URI, secretservice.DeleteSecretParams) (func(context.Context), error) {
-	return func(context.Context) {}, nil
-}
-
 // ApplicationService provides the API for working with applications.
 type ApplicationService struct {
 	st     ApplicationState
@@ -228,23 +226,17 @@ type ApplicationService struct {
 	clock  clock.Clock
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	secretService         SecretService
+	secretDeleter         DeleteSecretState
 }
 
 // NewApplicationService returns a new service reference wrapping the input state.
-func NewApplicationService(st ApplicationState, storageRegistryGetter corestorage.ModelStorageRegistryGetter, secrets SecretService, logger logger.Logger) *ApplicationService {
-	// Some uses of application service don't need to supply a storage registry,
-	// eg cleaner facade. In such cases it'd wasteful to create one as an
-	// environ instance would be needed.
-	if secrets == nil {
-		secrets = NotImplementedSecretService{}
-	}
+func NewApplicationService(st ApplicationState, deleteSecretState DeleteSecretState, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) *ApplicationService {
 	return &ApplicationService{
 		st:                    st,
 		logger:                logger,
 		clock:                 clock.WallClock,
 		storageRegistryGetter: storageRegistryGetter,
-		secretService:         secrets,
+		secretDeleter:         deleteSecretState,
 	}
 }
 
@@ -551,63 +543,47 @@ func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName coreunit.
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
 func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
-	var cleanups []func(context.Context)
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		cleanups, err = s.deleteUnit(ctx, unitName)
-		return errors.Trace(err)
+		return s.deleteUnit(ctx, unitName)
 	})
 	if err != nil {
 		return errors.Annotatef(err, "deleting unit %q", unitName)
 	}
-	for _, cleanup := range cleanups {
-		cleanup(ctx)
-	}
 	return nil
 }
 
-func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) ([]func(context.Context), error) {
+func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) error {
 	// Get unit owned secrets.
-	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
-		Kind: secretservice.UnitOwner,
-		ID:   unitName.String(),
-	})
+	uris, err := s.st.GetSecretsForUnit(ctx, unitName)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
+		return errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
 	}
 	// Delete unit owned secrets.
-	var cleanups []func(context.Context)
 	for _, uri := range uris {
 		s.logger.Debugf("deleting unit %q secret: %s", unitName, uri.ID)
-		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
-			Accessor: secretservice.SecretAccessor{
-				Kind: secretservice.UnitAccessor,
-				ID:   unitName.String(),
-			},
-		})
+		err := s.secretDeleter.DeleteSecret(ctx, uri, nil)
 		if err != nil {
-			return nil, errors.Annotatef(err, "deleting secret %q", uri)
+			return errors.Annotatef(err, "deleting secret %q", uri)
 		}
-		cleanups = append(cleanups, cleanup)
 	}
 
 	err = s.ensureUnitDead(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return cleanups, nil
+		return nil
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	isLast, err := s.st.DeleteUnit(ctx, unitName)
 	if err != nil {
-		return nil, errors.Annotatef(err, "deleting unit %q", unitName)
+		return errors.Annotatef(err, "deleting unit %q", unitName)
 	}
 	if isLast {
 		// TODO(units): schedule application cleanup
 		_ = isLast
 	}
-	return cleanups, nil
+	return nil
 }
 
 // DestroyUnit prepares a unit for removal from the model
@@ -670,7 +646,6 @@ func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName c
 // is returned. If the unit is not found, an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
 func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
-	var cleanups []func(context.Context)
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
 		if err != nil {
@@ -679,7 +654,7 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName coreunit.N
 		if unitLife == life.Alive {
 			return fmt.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
 		}
-		cleanups, err = s.deleteUnit(ctx, unitName)
+		err = s.deleteUnit(ctx, unitName)
 		return errors.Annotatef(err, "deleting unit %q", unitName)
 	})
 	if err != nil {
@@ -688,9 +663,6 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName coreunit.N
 	appName, _ := names.UnitApplication(unitName.String())
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
-	}
-	for _, cleanup := range cleanups {
-		cleanup(ctx)
 	}
 	return nil
 }
@@ -938,37 +910,21 @@ func (s *ApplicationService) DeleteApplication(ctx context.Context, name string)
 
 func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
 	// Get app owned secrets.
-	uris, err := s.secretService.GetSecretsForOwners(ctx, secretservice.CharmSecretOwner{
-		Kind: secretservice.ApplicationOwner,
-		ID:   name,
-	})
+	uris, err := s.st.GetSecretsForApplication(ctx, name)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application owned secrets for %q", name)
 	}
 	// Delete app owned secrets.
-	var cleanups []func(context.Context)
 	for _, uri := range uris {
 		s.logger.Debugf("deleting application %q secret: %s", name, uri.ID)
-		cleanup, err := s.secretService.InternalDeleteSecret(ctx, uri, secretservice.DeleteSecretParams{
-			// TODO(units) - access is expected to be a unit
-			// It is passed to CleanupSecrets() on k8s and is used
-			// to name the service account..
-			Accessor: secretservice.SecretAccessor{
-				Kind: secretservice.UnitAccessor,
-				ID:   name + "/0",
-			},
-		})
+		err := s.secretDeleter.DeleteSecret(ctx, uri, nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "deleting secret %q", uri)
 		}
-		cleanups = append(cleanups, cleanup)
 	}
 
 	err = s.st.DeleteApplication(ctx, name)
-	if err != nil {
-		return nil, errors.Annotatef(err, "deleting application %q", name)
-	}
-	return cleanups, nil
+	return nil, errors.Annotatef(err, "deleting application %q", name)
 }
 
 // DestroyApplication prepares an application for removal from the model
@@ -1368,15 +1324,14 @@ type ProviderApplicationService struct {
 
 // NewProviderApplicationService returns a new Service for interacting with a models state.
 func NewProviderApplicationService(
-	st ApplicationState,
+	st ApplicationState, deleteSecretState DeleteSecretState,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	secretService SecretService,
 	logger logger.Logger,
 ) *ProviderApplicationService {
-	service := NewApplicationService(st, storageRegistryGetter, secretService, logger)
+	service := NewApplicationService(st, deleteSecretState, storageRegistryGetter, logger)
 
 	return &ProviderApplicationService{
 		ApplicationService: *service,
@@ -1429,16 +1384,15 @@ type WatchableApplicationService struct {
 
 // NewWatchableApplicationService returns a new service reference wrapping the input state.
 func NewWatchableApplicationService(
-	st ApplicationState,
+	st ApplicationState, deleteSecretState DeleteSecretState,
 	watcherFactory WatcherFactory,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	secretService SecretService,
 	logger logger.Logger,
 ) *WatchableApplicationService {
-	service := NewProviderApplicationService(st, modelID, agentVersionGetter, provider, storageRegistryGetter, secretService, logger)
+	service := NewProviderApplicationService(st, deleteSecretState, modelID, agentVersionGetter, provider, storageRegistryGetter, logger)
 
 	return &WatchableApplicationService{
 		ProviderApplicationService: *service,

@@ -50,7 +50,7 @@ type ProviderGetter func(backendType string) (provider.SecretBackendProvider, er
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
-// BackendAdminConfigGetter is a func used to get admin level secret backend config.
+// BackendUserSecretConfigGetter is a func used to get admin level secret backend config.
 type BackendUserSecretConfigGetter func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error)
 
 // NotImplementedBackendConfigGetter is a not implemented secret backend getter.
@@ -92,12 +92,6 @@ type SecretService struct {
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
 	uuidGenerator   func() (uuid.UUID, error)
-}
-
-// WithProviderGetter is used in tests to override the default provider getter.
-func (s *SecretService) WithProviderGetter(getter ProviderGetter) *SecretService {
-	s.providerGetter = getter
-	return s
 }
 
 // WithBackendRefMutator is used in tests to override the default backend ref mutator.

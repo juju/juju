@@ -72,9 +72,9 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewApplicationState(scope.ModelDB(), i.logger),
+		NoopDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
 		i.registry,
-		service.NotImplementedSecretService{},
 		i.logger,
 	)
 	return nil

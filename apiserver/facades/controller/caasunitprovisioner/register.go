@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/domain/application/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -22,7 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newStateFacade provides the signature required for facade registration.
 func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
-	applicationService := ctx.DomainServices().Application(service.NotImplementedSecretService{})
+	applicationService := ctx.DomainServices().Application()
 	return NewFacade(
 		ctx.WatcherRegistry(),
 		ctx.Resources(),

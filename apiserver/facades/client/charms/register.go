@@ -15,7 +15,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charm/services"
 )
 
@@ -44,7 +43,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 
 	domainServices := ctx.DomainServices()
-	applicationService := domainServices.Application(service.NotImplementedSecretService{})
+	applicationService := domainServices.Application()
 
 	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
