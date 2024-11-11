@@ -14,3 +14,19 @@ type ProviderCallContext interface {
 	// that is used to make a call.
 	InvalidateCredential(string) error
 }
+
+// providerCallContextImpl is a concrete implementation of ProviderCallContext.
+type providerCallContextImpl struct {
+	context.Context
+}
+
+// InvalidateCredential is a no-op implementation.
+func (p *providerCallContextImpl) InvalidateCredential(string) error {
+	return nil
+}
+
+// WithoutCredentialInvalidator returns a ProviderCallContext
+// without any credential invalidation callback.
+func WithoutCredentialInvalidator(ctx context.Context) ProviderCallContext {
+	return &providerCallContextImpl{Context: ctx}
+}

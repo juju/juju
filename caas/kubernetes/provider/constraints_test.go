@@ -4,11 +4,13 @@
 package provider_test
 
 import (
+	stdcontext "context"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	caasApplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
 )
@@ -83,4 +85,47 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"container",
 	}
 	c.Check(unsupported, jc.SameContents, expected)
+}
+
+func (s *ConstraintsSuite) TestConstraintsValidatorTopologyKeyTagConflictWithPodPrefix(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	validator, err := s.broker.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("tags=" + caasApplication.PodPrefix + caasApplication.TopologyKeyTag + "=foo," + caasApplication.TopologySpreadPrefix + caasApplication.TopologyKeyTag + "=foo")
+
+	val, err := validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "podAffinity/antiPodAffinity's topology-key and topologySpread's cannot have the same value")
+	c.Assert(val, gc.IsNil)
+}
+
+func (s *ConstraintsSuite) TestConstraintsValidatorTopologyKeyTagConflictWithAntipodPrefix(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	validator, err := s.broker.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("tags=" + caasApplication.AntiPodPrefix + caasApplication.TopologyKeyTag + "=foo," + caasApplication.TopologySpreadPrefix + caasApplication.TopologyKeyTag + "=foo")
+
+	val, err := validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "podAffinity/antiPodAffinity's topology-key and topologySpread's cannot have the same value")
+	c.Assert(val, gc.IsNil)
+}
+
+func (s *ConstraintsSuite) TestConstraintsValidatorTopologyKeyTagPass(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	validator, err := s.broker.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("tags=" + caasApplication.PodPrefix + caasApplication.TopologyKeyTag + "=foo," + caasApplication.AntiPodPrefix + caasApplication.TopologyKeyTag + "=anti," + caasApplication.TopologySpreadPrefix + caasApplication.TopologyKeyTag + "=bar")
+
+	val, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	// No unsupported constraints, hence this should be empty
+	c.Assert(val, gc.IsNil)
 }

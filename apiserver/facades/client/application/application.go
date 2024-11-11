@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
@@ -466,10 +466,10 @@ func (c caasDeployParams) precheck(
 	constraintsValidator, err := caasBroker.ConstraintsValidator(
 		envcontext.WithoutCredentialInvalidator(context.Background()))
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot create constraints.Validator")
 	}
 	if _, err := constraintsValidator.Validate(c.constraints); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot validate constraints")
 	}
 
 	if len(c.attachStorage) > 0 {
@@ -590,7 +590,7 @@ func deployApplication(
 			config:          args.Config,
 			placement:       args.Placement,
 			storage:         args.Storage,
-			constraints: args.Constraints,
+			constraints:     args.Constraints,
 		}
 		if err := caas.precheck(model, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)

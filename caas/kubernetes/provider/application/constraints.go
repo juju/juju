@@ -107,7 +107,7 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 		selector := &affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 		selector.MatchExpressions = append(selector.MatchExpressions,
 			core.NodeSelectorRequirement{
-				Key:      "failure-domain.beta.kubernetes.io/zone",
+				Key:      "topology.kubernetes.io/zone",
 				Operator: core.NodeSelectorOpIn,
 				Values:   zones,
 			})
@@ -116,11 +116,11 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 }
 
 const (
-	podPrefix            = "pod."
-	antiPodPrefix        = "anti-pod."
-	topologyKeyTag       = "topology-key"
-	nodePrefix           = "node."
-	topologySpreadPrefix = "topology-spread."
+	PodPrefix            = "pod."
+	AntiPodPrefix        = "anti-pod."
+	TopologyKeyTag       = "topology-key"
+	NodePrefix           = "node."
+	TopologySpreadPrefix = "topology-spread."
 )
 
 func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
@@ -133,10 +133,10 @@ func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) er
 			}
 			key = key[1:]
 		}
-		if !strings.HasPrefix(key, nodePrefix) {
+		if !strings.HasPrefix(key, NodePrefix) {
 			continue
 		}
-		key = strings.TrimPrefix(keyVal, nodePrefix)
+		key = strings.TrimPrefix(keyVal, NodePrefix)
 		affinityTags[key] = value
 	}
 
@@ -191,18 +191,18 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 			notVal = true
 			key = key[1:]
 		}
-		if !strings.HasPrefix(key, podPrefix) && !strings.HasPrefix(key, antiPodPrefix) {
+		if !strings.HasPrefix(key, PodPrefix) && !strings.HasPrefix(key, AntiPodPrefix) {
 			continue
 		}
-		if strings.HasPrefix(key, podPrefix) {
-			key = strings.TrimPrefix(key, podPrefix)
+		if strings.HasPrefix(key, PodPrefix) {
+			key = strings.TrimPrefix(key, PodPrefix)
 			if notVal {
 				key = "^" + key
 			}
 			affinityTags[key] = value
 		}
-		if strings.HasPrefix(key, antiPodPrefix) {
-			key = strings.TrimPrefix(key, antiPodPrefix)
+		if strings.HasPrefix(key, AntiPodPrefix) {
+			key = strings.TrimPrefix(key, AntiPodPrefix)
 			if notVal {
 				key = "^" + key
 			}
@@ -225,7 +225,7 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 			topologyKey   string
 		)
 		for _, tag := range keys {
-			if tag == topologyKeyTag {
+			if tag == TopologyKeyTag {
 				topologyKey = tags[tag]
 				continue
 			}
@@ -288,15 +288,15 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		topologySpreadMinDomains,
 		topologySpreadNodeTaintPolicy,
 		topologySpreadMatchLabels,
-		topologyKeyTag,
+		TopologyKeyTag,
 	)
 
 	for key, value := range affinityLabels {
-		if !strings.HasPrefix(key, topologySpreadPrefix) {
+		if !strings.HasPrefix(key, TopologySpreadPrefix) {
 			continue
 		}
 
-		key = strings.TrimPrefix(key, topologySpreadPrefix)
+		key = strings.TrimPrefix(key, TopologySpreadPrefix)
 		if !validKeys.Contains(key) {
 			return errors.Errorf("invalid topology spread constraint key %q", key)
 		}
@@ -314,7 +314,7 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 	if len(topologySpreadValues) == 0 {
 		return nil
 	}
-	_, present := topologySpreadValues[topologyKeyTag]
+	_, present := topologySpreadValues[TopologyKeyTag]
 	if !present {
 		return errors.Errorf("topology-key not set for topology spread constraints: %v", affinityLabels)
 	}
@@ -338,8 +338,8 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 
 		for _, key := range keys {
 
-			if key == topologyKeyTag {
-				topologyKey = tags[topologyKeyTag]
+			if key == TopologyKeyTag {
+				topologyKey = tags[TopologyKeyTag]
 				continue
 			}
 			if key == topologySpreadMinDomains {
