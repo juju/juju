@@ -259,10 +259,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	domainServices := s.ControllerDomainServices(c)
 
 	storageServiceGetter := func(modelUUID coremodel.UUID) state.StoragePoolGetter {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Storage()
+		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Storage()
 	}
 	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(modelUUID).Config()
+		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Config()
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -318,7 +318,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
 	cfg.DBDeleter = stubDBDeleter{}
-	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c))
+	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -540,7 +540,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		st = pooledSt.State
 	}
 
-	modelDomainServices := s.DomainServicesGetter(c, s.NoopObjectStore(c)).ServicesForModel(coremodel.UUID(modelUUID))
+	modelDomainServices := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(coremodel.UUID(modelUUID))
 	applicationService := modelDomainServices.Application()
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(applicationService), releaser

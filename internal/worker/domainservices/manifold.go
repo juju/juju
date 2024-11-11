@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -34,6 +35,7 @@ type ManifoldConfig struct {
 	ObjectStoreName             string
 	StorageRegistryName         string
 	HTTPClientName              string
+	LeaseManagerName            string
 	Logger                      logger.Logger
 	Clock                       clock.Clock
 	NewWorker                   func(Config) (worker.Worker, error)
@@ -51,6 +53,7 @@ type DomainServicesGetterFn func(
 	objectstore.ObjectStoreGetter,
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
+	lease.Manager,
 	clock.Clock,
 	logger.Logger,
 ) services.DomainServicesGetter
@@ -72,6 +75,7 @@ type ModelDomainServicesFn func(
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
+	lease.ModelLeaseManagerGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -95,6 +99,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.HTTPClientName == "" {
 		return errors.NotValidf("empty HTTPClientName")
+	}
+	if config.LeaseManagerName == "" {
+		return errors.NotValidf("empty LeaseManagerName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -128,6 +135,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreName,
 			config.StorageRegistryName,
 			config.HTTPClientName,
+			config.LeaseManagerName,
 		},
 		Start:  config.start,
 		Output: config.output,
@@ -175,6 +183,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var leaseManager lease.Manager
+	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
 		DBDeleter:                   dbDeleter,
@@ -182,6 +195,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
 		PublicKeyImporter:           sshimporter.NewImporter(sshImporterClient),
+		LeaseManager:                leaseManager,
 		Logger:                      config.Logger,
 		Clock:                       config.Clock,
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,
@@ -236,6 +250,7 @@ func NewProviderTrackerModelDomainServices(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
+	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -247,6 +262,7 @@ func NewProviderTrackerModelDomainServices(
 		objectStore,
 		storageRegistry,
 		publicKeyImporter,
+		leaseManager,
 		clock,
 		logger,
 	)
@@ -261,6 +277,7 @@ func NewDomainServicesGetter(
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	storageRegistryGetter storage.StorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
+	leaseManager lease.Manager,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.DomainServicesGetter {
@@ -274,6 +291,7 @@ func NewDomainServicesGetter(
 		objectStoreGetter:      objectStoreGetter,
 		storageRegistryGetter:  storageRegistryGetter,
 		publicKeyImporter:      publicKeyImporter,
+		leaseManager:           leaseManager,
 	}
 }
 

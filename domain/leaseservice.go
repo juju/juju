@@ -10,16 +10,16 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
-// LeaseCheckerWaiter is an interface that checks and waits if a lease is held
-// by a holder.
-type LeaseCheckerWaiter interface {
-	lease.Waiter
-	lease.Checker
-}
-
 // LeaseService creates a base service that offers lease capabilities.
 type LeaseService struct {
-	leaseChecker func() LeaseCheckerWaiter
+	leaseChecker lease.ModelLeaseManagerGetter
+}
+
+// NewLeaseService creates a new LeaseService.
+func NewLeaseService(leaseChecker lease.ModelLeaseManagerGetter) *LeaseService {
+	return &LeaseService{
+		leaseChecker: leaseChecker,
+	}
 }
 
 // WithLease executes the closure function if the holder to the lease is
@@ -31,10 +31,13 @@ func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName stri
 	// Holding the lease is quite a complex operation, so we need to ensure that
 	// the context is not cancelled before we start the operation.
 	if err := ctx.Err(); err != nil {
-		return internalerrors.Errorf("lease prechecking").Add(ctx.Err())
+		return internalerrors.Errorf("lease pre-checking").Add(ctx.Err())
 	}
 
-	leaseChecker := s.leaseChecker()
+	leaseChecker, err := s.leaseChecker.GetLeaseManager()
+	if err != nil {
+		return internalerrors.Errorf("getting lease manager: %w", err)
+	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
 	// lease holder. This may or may not be the same as the holderName for the

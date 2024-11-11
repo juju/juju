@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -86,6 +87,7 @@ type ModelFactory struct {
 	objectstore       objectstore.ModelObjectStoreGetter
 	storageRegistry   corestorage.ModelStorageRegistryGetter
 	publicKeyImporter PublicKeyImporter
+	leaseManager      lease.ModelLeaseManagerGetter
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -98,6 +100,7 @@ func NewModelFactory(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
+	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelFactory {
@@ -111,6 +114,7 @@ func NewModelFactory(
 		objectstore:       objectStore,
 		storageRegistry:   storageRegistry,
 		publicKeyImporter: publicKeyImporter,
+		leaseManager:      leaseManager,
 	}
 }
 

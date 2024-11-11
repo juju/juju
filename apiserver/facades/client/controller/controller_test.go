@@ -95,7 +95,8 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.DomainServicesSuite.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.SetUpTest(c)
 
-	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.DomainServicesGetter(c, s.NoopObjectStore(c))(s.ControllerModelUUID), controllerCfg)
+	domainServiceGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
+	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), domainServiceGetter(s.ControllerModelUUID), controllerCfg)
 
 	s.hub = pubsub.NewStructuredHub(nil)
 

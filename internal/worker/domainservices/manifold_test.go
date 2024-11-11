@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -68,6 +69,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.LeaseManagerName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -100,6 +105,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"objectstore":     s.objectStoreGetter,
 		"storageregistry": s.storageRegistryGetter,
 		"httpclient":      s.httpClientGetter,
+		"leasemanager":    s.leaseManager,
 	}
 
 	manifold := Manifold(ManifoldConfig{
@@ -109,6 +115,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		ObjectStoreName:             "objectstore",
 		StorageRegistryName:         "storageregistry",
 		HTTPClientName:              "httpclient",
+		LeaseManagerName:            "leasemanager",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
@@ -134,6 +141,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
 		PublicKeyImporter:           s.publicKeyImporter,
+		LeaseManager:                s.leaseManager,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -160,6 +168,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
 		PublicKeyImporter:           s.publicKeyImporter,
+		LeaseManager:                s.leaseManager,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -186,6 +195,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
 		PublicKeyImporter:           s.publicKeyImporter,
+		LeaseManager:                s.leaseManager,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
@@ -213,6 +223,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.modelObjectStoreGetter,
 		s.modelStorageRegistryGetter,
 		s.publicKeyImporter,
+		s.modelLeaseManagerGetter,
 		s.clock,
 		s.logger,
 	)
@@ -229,6 +240,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		s.objectStoreGetter,
 		s.storageRegistryGetter,
 		s.publicKeyImporter,
+		s.leaseManager,
 		s.clock,
 		s.logger,
 	)
@@ -246,6 +258,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ObjectStoreName:     "objectstore",
 		StorageRegistryName: "storageregistry",
 		HTTPClientName:      "httpclient",
+		LeaseManagerName:    "leasemanager",
 		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
@@ -265,6 +278,7 @@ func noopDomainServicesGetter(
 	objectstore.ObjectStoreGetter,
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
+	lease.Manager,
 	clock.Clock,
 	logger.Logger,
 ) services.DomainServicesGetter {
@@ -287,6 +301,7 @@ func noopModelDomainServices(
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
+	lease.ModelLeaseManagerGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices {

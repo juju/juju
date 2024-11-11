@@ -19,6 +19,7 @@ import (
 type leaseServiceSuite struct {
 	testing.IsolationSuite
 
+	modelLeaseManager  *MockModelLeaseManagerGetter
 	leaseCheckerWaiter *MockLeaseCheckerWaiter
 	token              *MockToken
 }
@@ -48,11 +49,7 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(s.modelLeaseManager)
 
 	var called bool
 	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
@@ -71,11 +68,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 		return fmt.Errorf("not holding lease")
 	})
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(s.modelLeaseManager)
 
 	var called bool
 	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
@@ -112,11 +105,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(s.modelLeaseManager)
 
 	// Finish is used to ensure that the lease function has completed and not
 	// left running.
@@ -171,11 +160,7 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(errors.Errorf("not holding lease"))
 
-	service := LeaseService{
-		leaseChecker: func() LeaseCheckerWaiter {
-			return s.leaseCheckerWaiter
-		},
-	}
+	service := NewLeaseService(s.modelLeaseManager)
 
 	// The lease function should be a long running function.
 
@@ -191,8 +176,11 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 func (s *leaseServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.modelLeaseManager = NewMockModelLeaseManagerGetter(ctrl)
 	s.leaseCheckerWaiter = NewMockLeaseCheckerWaiter(ctrl)
 	s.token = NewMockToken(ctrl)
+
+	s.modelLeaseManager.EXPECT().GetLeaseManager().Return(s.leaseCheckerWaiter, nil).AnyTimes()
 
 	return ctrl
 }

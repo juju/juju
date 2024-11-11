@@ -13,6 +13,7 @@ import (
 
 	changestream "github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -31,6 +32,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination http_mock_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination lease_mock_test.go github.com/juju/juju/core/lease LeaseCheckerWaiter,Manager,LeaseManagerGetter,ModelLeaseManagerGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -61,6 +63,10 @@ type baseSuite struct {
 	httpClientGetter *MockHTTPClientGetter
 	httpClient       *MockHTTPClient
 
+	leaseManager            *MockManager
+	leaseManagerGetter      *MockLeaseManagerGetter
+	modelLeaseManagerGetter *MockModelLeaseManagerGetter
+
 	publicKeyImporter *sshimporter.Importer
 }
 
@@ -89,6 +95,10 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 
+	s.leaseManager = NewMockManager(ctrl)
+	s.leaseManagerGetter = NewMockLeaseManagerGetter(ctrl)
+	s.modelLeaseManagerGetter = NewMockModelLeaseManagerGetter(ctrl)
+
 	s.publicKeyImporter = sshimporter.NewImporter(&http.Client{})
 
 	return ctrl
@@ -103,6 +113,7 @@ func NewModelDomainServices(
 	objectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
+	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -114,6 +125,7 @@ func NewModelDomainServices(
 		objectStore,
 		storageRegistry,
 		publicKeyImporter,
+		leaseManager,
 		clock,
 		logger,
 	)
