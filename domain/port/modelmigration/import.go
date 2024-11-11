@@ -74,6 +74,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		nil,
 		i.logger,
 	)
 	return nil

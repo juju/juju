@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -34,11 +35,12 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator, registry corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
+func RegisterImport(coordinator Coordinator, registry corestorage.ModelStorageRegistryGetter, objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) {
 	coordinator.Add(&importOperation{
-		registry:     registry,
-		logger:       logger,
-		charmOrigins: make(map[string]*corecharm.Origin),
+		registry:          registry,
+		objectStoreGetter: objectStoreGetter,
+		logger:            logger,
+		charmOrigins:      make(map[string]*corecharm.Origin),
 	})
 }
 
@@ -47,8 +49,9 @@ type importOperation struct {
 
 	logger logger.Logger
 
-	service  ImportService
-	registry corestorage.ModelStorageRegistryGetter
+	service           ImportService
+	registry          corestorage.ModelStorageRegistryGetter
+	objectStoreGetter objectstore.ModelObjectStoreGetter
 
 	charmOrigins map[string]*corecharm.Origin
 }
@@ -75,6 +78,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		NoopDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
 		i.registry,
+		i.objectStoreGetter,
 		i.logger,
 	)
 	return nil
@@ -467,7 +471,6 @@ func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*int
 	return &internalcharm.Config{
 		Options: options,
 	}, nil
-
 }
 
 func (i *importOperation) importCharmActions(data description.CharmActions) (*internalcharm.Actions, error) {
@@ -643,7 +646,6 @@ func importStorageType(data string) (internalcharm.StorageType, error) {
 func importDevices(data map[string]description.CharmMetadataDevice) (map[string]internalcharm.Device, error) {
 	devices := make(map[string]internalcharm.Device, len(data))
 	for name, d := range data {
-
 		devices[name] = internalcharm.Device{
 			Name:        d.Name(),
 			Description: d.Description(),

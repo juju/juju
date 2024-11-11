@@ -72,6 +72,9 @@ const (
 	// CharmNotValid describes an error that occurs when the charm is not valid.
 	CharmNotValid = errors.ConstError("charm not valid")
 
+	// CharmNotYetAvailable describes an error that occurs when the charm is not yet available for retrieval.
+	CharmNotYetAvailable = errors.ConstError("charm not yet available")
+
 	// CharmOriginNotValid describes an error that occurs when the charm origin is not valid.
 	CharmOriginNotValid = errors.ConstError("charm origin not valid")
 

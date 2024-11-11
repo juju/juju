@@ -14,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/objectstore"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
@@ -26,9 +27,10 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, logger logger.Logger) {
+func RegisterExport(coordinator Coordinator, objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) {
 	coordinator.Add(&exportOperation{
-		logger: logger,
+		objectStoreGetter: objectStoreGetter,
+		logger:            logger,
 	})
 }
 
@@ -60,8 +62,9 @@ func (NoopDeleteSecretState) DeleteSecret(domain.AtomicContext, *coresecrets.URI
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	logger  logger.Logger
-	service ExportService
+	logger            logger.Logger
+	service           ExportService
+	objectStoreGetter objectstore.ModelObjectStoreGetter
 }
 
 // Name returns the name of this operation.
@@ -81,6 +84,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		e.objectStoreGetter,
 		e.logger,
 	)
 	return nil

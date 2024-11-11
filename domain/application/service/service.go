@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/watcher"
@@ -31,10 +32,11 @@ type Service struct {
 func NewService(
 	appSt ApplicationState, deleteSecretSt DeleteSecretState, charmSt CharmState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		CharmService:       NewCharmService(charmSt, logger),
+		CharmService:       NewCharmService(charmSt, objectStoreGetter, logger),
 		ApplicationService: NewApplicationService(appSt, deleteSecretSt, storageRegistryGetter, logger),
 	}
 }
@@ -57,11 +59,11 @@ func NewWatchableService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *WatchableService {
-	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
-	watchableApplicationService := NewWatchableApplicationService(
-		appSt, deleteSecretSt, watcherFactory, modelID, agentVersionGetter, provider, storageRegistryGetter, logger)
+	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, objectStoreGetter, logger)
+	watchableApplicationService := NewWatchableApplicationService(appSt, deleteSecretSt, watcherFactory, modelID, agentVersionGetter, provider, storageRegistryGetter, logger)
 	return &WatchableService{
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,

@@ -84,7 +84,7 @@ type ModelFactory struct {
 	modelUUID         model.UUID
 	modelDB           changestream.WatchableDBFactory
 	providerFactory   providertracker.ProviderFactory
-	objectstore       objectstore.ModelObjectStoreGetter
+	objectStore       objectstore.ModelObjectStoreGetter
 	storageRegistry   corestorage.ModelStorageRegistryGetter
 	publicKeyImporter PublicKeyImporter
 	leaseManager      lease.ModelLeaseManagerGetter
@@ -111,7 +111,7 @@ func NewModelFactory(
 		modelUUID:         modelUUID,
 		modelDB:           modelDB,
 		providerFactory:   providerFactory,
-		objectstore:       objectStore,
+		objectStore:       objectStore,
 		storageRegistry:   storageRegistry,
 		publicKeyImporter: publicKeyImporter,
 		leaseManager:      leaseManager,
@@ -180,6 +180,7 @@ func (s *ModelFactory) Application() *applicationservice.WatchableService {
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.storageRegistry,
+		s.objectStore,
 		s.logger.Child("application"),
 	)
 }

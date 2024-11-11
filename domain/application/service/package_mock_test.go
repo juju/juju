@@ -1484,6 +1484,46 @@ func (c *MockCharmStateGetCharmArchivePathCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetCharmArchivePathFromSha256 mocks base method.
+func (m *MockCharmState) GetCharmArchivePathFromSha256(arg0 context.Context, arg1 string) (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmArchivePathFromSha256", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetCharmArchivePathFromSha256 indicates an expected call of GetCharmArchivePathFromSha256.
+func (mr *MockCharmStateMockRecorder) GetCharmArchivePathFromSha256(arg0, arg1 any) *MockCharmStateGetCharmArchivePathFromSha256Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmArchivePathFromSha256", reflect.TypeOf((*MockCharmState)(nil).GetCharmArchivePathFromSha256), arg0, arg1)
+	return &MockCharmStateGetCharmArchivePathFromSha256Call{Call: call}
+}
+
+// MockCharmStateGetCharmArchivePathFromSha256Call wrap *gomock.Call
+type MockCharmStateGetCharmArchivePathFromSha256Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStateGetCharmArchivePathFromSha256Call) Return(arg0 string, arg1 bool, arg2 error) *MockCharmStateGetCharmArchivePathFromSha256Call {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStateGetCharmArchivePathFromSha256Call) Do(f func(context.Context, string) (string, bool, error)) *MockCharmStateGetCharmArchivePathFromSha256Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStateGetCharmArchivePathFromSha256Call) DoAndReturn(f func(context.Context, string) (string, bool, error)) *MockCharmStateGetCharmArchivePathFromSha256Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmConfig mocks base method.
 func (m *MockCharmState) GetCharmConfig(arg0 context.Context, arg1 charm.ID) (charm0.Config, error) {
 	m.ctrl.T.Helper()

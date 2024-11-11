@@ -404,6 +404,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 }

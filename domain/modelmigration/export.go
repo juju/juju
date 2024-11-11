@@ -66,6 +66,6 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	blockdevice.RegisterExport(e.coordinator, e.logger.Child("blockdevice"))
 	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
-	application.RegisterExport(e.coordinator, e.logger.Child("application"))
+	application.RegisterExport(e.coordinator, e.objectStoreGetter, e.logger.Child("application"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
 }

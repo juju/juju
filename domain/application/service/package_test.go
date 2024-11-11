@@ -11,6 +11,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service ApplicationState,CharmState,DeleteSecretState,ResourceState,WatcherFactory,AgentVersionGetter,Provider
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ModelObjectStoreGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
