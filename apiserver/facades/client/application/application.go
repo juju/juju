@@ -532,7 +532,11 @@ func (api *APIBase) deployApplication(
 	}
 
 	// Try to find the charm URL in state first.
-	ch, err := api.backend.Charm(args.CharmURL)
+	charmID, err := api.getCharmID(ctx, args.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, err := api.getCharm(ctx, charmID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -851,17 +855,26 @@ type forceParams struct {
 	ForceBase, ForceUnits, Force bool
 }
 
-func (api *APIBase) setConfig(app Application, settingsYAML string, settingsStrings map[string]string) error {
-	// Update settings for charm and/or application.
-	ch, _, err := app.Charm()
+func (api *APIBase) setConfig(
+	ctx context.Context,
+	app Application,
+	settingsYAML string,
+	settingsStrings map[string]string,
+) error {
+	charmID, err := api.getCharmIDByApplicationName(ctx, app.Name())
 	if err != nil {
-		return errors.Annotate(err, "obtaining charm for this application")
+		return errors.Trace(err)
+	}
+
+	charmConfig, err := api.getCharmConfig(ctx, charmID)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(charmConfig, app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -957,27 +970,42 @@ func (api *APIBase) setCharmWithAgentValidation(
 	params setCharmParams,
 	url string,
 ) error {
-	newCharm, err := api.backend.Charm(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	oneApplication := params.Application
-	currentCharm, _, err := oneApplication.Charm()
-	if err != nil {
-		api.logger.Debugf("Unable to locate current charm: %v", err)
-	}
+	// TODO (stickupkid): This should be done, in the application service.
+	// We'll want to start migrating the logic to the service layer.
 	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	newCharmID, err := api.getCharmID(ctx, url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	newCharm, err := api.getCharm(ctx, newCharmID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if api.modelInfo.Type == model.CAAS {
+		// TODO (stickupkid): This should be done, in the application service
+		// layer.
+		currentCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		currentMetadata, err := api.getCharmMetadata(ctx, currentCharmID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives.
 		// TODO(wallyworld) - support resizing of existing storage.
 		var unsupportedReason string
-		if !reflect.DeepEqual(currentCharm.Meta().Storage, newCharm.Meta().Storage) {
+		if !reflect.DeepEqual(currentMetadata.Storage, newCharm.Meta().Storage) {
 			unsupportedReason = storageUpgradeMessage
-		} else if !reflect.DeepEqual(currentCharm.Meta().Devices, newCharm.Meta().Devices) {
+		} else if !reflect.DeepEqual(currentMetadata.Devices, newCharm.Meta().Devices) {
 			unsupportedReason = devicesUpgradeMessage
 		}
 		if unsupportedReason != "" {
@@ -1052,7 +1080,12 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Disallow downgrading from a v2 charm to a v1 charm.
-	oldCharm, _, err := params.Application.Charm()
+	oldCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	oldCharm, err := api.getCharm(ctx, oldCharmID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1305,15 +1338,14 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 
 	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
 	// Remove this check before 3.0 when enable-ha is refactored.
-	app, err := api.backend.Application(args.ApplicationName)
+	charmID, err := api.getCharmIDByApplicationName(ctx, args.ApplicationName)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	ch, _, err := app.Charm()
+	charmName, err := api.getCharmName(ctx, charmID)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-	if ch.Meta().Name == bootstrap.ControllerCharmName {
+	} else if charmName == bootstrap.ControllerCharmName {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
 
@@ -1401,7 +1433,6 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
 
-	appCharms := make(map[string]Charm)
 	destroyUnit := func(arg params.DestroyUnitParams) (*params.DestroyUnitInfo, error) {
 		unitTag, err := names.ParseUnitTag(arg.UnitTag)
 		if err != nil {
@@ -1419,22 +1450,18 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q", name, unit.ApplicationName())
 		}
 
-		// TODO(wallyworld) - enable-ha is how we remove controllers at the moment
-		// Remove this check before 3.0 when enable-ha is refactored.
+		// TODO(wallyworld) - enable-ha is how we remove controllers at the
+		// moment Remove this check before 3.0 when enable-ha is refactored.
 		appName, _ := names.UnitApplication(unitTag.Id())
-		ch, ok := appCharms[appName]
-		if !ok {
-			app, err := api.backend.Application(appName)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ch, _, err = app.Charm()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			appCharms[appName] = ch
+
+		charmID, err := api.getCharmIDByApplicationName(ctx, appName)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if ch.Meta().Name == bootstrap.ControllerCharmName {
+		charmName, err := api.getCharmName(ctx, charmID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if charmName == bootstrap.ControllerCharmName {
 			return nil, errors.NotSupportedf("removing units from the controller application")
 		}
 
@@ -1515,20 +1542,26 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		if err != nil {
 			return nil, err
 		}
+
+		charmID, err := api.getCharmIDByApplicationName(ctx, tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// TODO (stickupkid): This should be done in the application service,
+		// when destroying an application.
+		name, err := api.getCharmName(ctx, charmID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if name == bootstrap.ControllerCharmName {
+			return nil, errors.NotSupportedf("removing the controller application")
+		}
+
 		var info params.DestroyApplicationInfo
 		app, err := api.backend.Application(tag.Id())
 		if err != nil {
 			return nil, err
 		}
-
-		ch, _, err := app.Charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if ch.Meta().Name == bootstrap.ControllerCharmName {
-			return nil, errors.NotSupportedf("removing the controller application")
-		}
-
 		units, err := app.AllUnits()
 		if err != nil {
 			return nil, err
@@ -2102,7 +2135,7 @@ func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetA
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.ApplicationName)
+		config, err := api.getMergedAppAndCharmConfig(ctx, arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -2130,27 +2163,11 @@ func (api *APIBase) GetConfig(ctx context.Context, args params.Entities) (params
 		}
 
 		// Always deal with the master branch version of config.
-		config, err := api.getCharmConfig(tag.Id())
+		config, err := api.getMergedAppAndCharmConfig(ctx, tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
-}
-
-func (api *APIBase) getCharmConfig(appName string) (map[string]interface{}, error) {
-	app, err := api.backend.Application(appName)
-	if err != nil {
-		return nil, err
-	}
-	settings, err := app.CharmConfig()
-	if err != nil {
-		return nil, err
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return nil, err
-	}
-	return describe(settings, ch.Config()), nil
 }
 
 // SetConfigs implements the server side of Application.SetConfig.  Both
@@ -2171,7 +2188,7 @@ func (api *APIBase) SetConfigs(ctx context.Context, args params.ConfigSetArgs) (
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = api.setConfig(app, arg.ConfigYAML, arg.Config)
+		err = api.setConfig(ctx, app, arg.ConfigYAML, arg.Config)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil

@@ -37,7 +37,6 @@ type Backend interface {
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
-	Charm(string) (Charm, error)
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	InferActiveRelation(...string) (Relation, error)
@@ -74,7 +73,6 @@ type Application interface {
 	AllUnits() ([]Unit, error)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
-	Charm() (Charm, bool, error)
 	CharmURL() (*string, bool)
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
@@ -475,14 +473,6 @@ func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
 		Unit: u,
 		st:   a.st,
 	}, nil
-}
-
-func (a stateApplicationShim) Charm() (Charm, bool, error) {
-	ch, force, err := a.Application.Charm()
-	if err != nil {
-		return nil, false, err
-	}
-	return ch, force, nil
 }
 
 func (a stateApplicationShim) AllUnits() ([]Unit, error) {

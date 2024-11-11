@@ -15,9 +15,11 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -94,6 +96,35 @@ type ApplicationService interface {
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
 	GetSupportedFeatures(context.Context) (assumes.FeatureSet, error)
+
+	// GetCharmID returns a charm ID by name. It returns an error if the charm
+	// can not be found by the name. This can also be used as a cheap way to see if
+	// a charm exists without needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+
+	// GetCharmIDByApplicationName returns a charm ID by application name. It
+	// returns an error if the charm can not be found by the name. This can also be
+	// used as a cheap way to see if a charm exists without needing to load the
+	// charm metadata.
+	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+
+	// GetCharm returns the charm using the charm ID. Calling this method will
+	// return all the data associated with the charm. It is not expected to call
+	// this method for all calls, instead use the move focused and specific
+	// methods. That's because this method is very expensive to call. This is
+	// implemented for the cases where all the charm data is needed; model
+	// migration, charm export, etc.
+	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, applicationcharm.CharmOrigin, error)
+
+	// GetCharmMetadata returns the metadata for the charm using the charm ID.
+	GetCharmMetadata(ctx context.Context, id corecharm.ID) (internalcharm.Meta, error)
+
+	// GetCharmConfig returns the config for the charm using the charm ID.
+	GetCharmConfig(ctx context.Context, id corecharm.ID) (internalcharm.Config, error)
+
+	// GetCharmMetadataName returns the name for the charm using the
+	// charm ID.
+	GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error)
 }
 
 // ModelConfigService provides access to the model configuration.
