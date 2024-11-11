@@ -1010,11 +1010,11 @@ func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, na
 // ID.
 //
 // If the application does not exist, an error satisfying
-// [applicationerrors.ApplicationNotFoundError] is returned. If the charm for
-// the application does not exist, an error satisfying
-// [applicationerrors.CharmNotFoundError] is returned. If the application name
-// is not valid, an error satisfying [applicationerrors.ApplicationNameNotValid]
-// is returned.
+// [applicationerrors.ApplicationNotFound] is returned. If the charm for the
+// application does not exist, an error satisfying
+// [applicationerrors.CharmNotFound is returned. If the application name is not
+// valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
+// returned.
 func (s *ApplicationService) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
 	internalcharm.Charm,
 	domaincharm.CharmOrigin,

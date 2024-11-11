@@ -1719,6 +1719,45 @@ func (c *MockCharmStateGetCharmMetadataDescriptionCall) DoAndReturn(f func(conte
 	return c
 }
 
+// GetCharmMetadataName mocks base method.
+func (m *MockCharmState) GetCharmMetadataName(arg0 context.Context, arg1 charm.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmMetadataName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmMetadataName indicates an expected call of GetCharmMetadataName.
+func (mr *MockCharmStateMockRecorder) GetCharmMetadataName(arg0, arg1 any) *MockCharmStateGetCharmMetadataNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmMetadataName", reflect.TypeOf((*MockCharmState)(nil).GetCharmMetadataName), arg0, arg1)
+	return &MockCharmStateGetCharmMetadataNameCall{Call: call}
+}
+
+// MockCharmStateGetCharmMetadataNameCall wrap *gomock.Call
+type MockCharmStateGetCharmMetadataNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStateGetCharmMetadataNameCall) Return(arg0 string, arg1 error) *MockCharmStateGetCharmMetadataNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStateGetCharmMetadataNameCall) Do(f func(context.Context, charm.ID) (string, error)) *MockCharmStateGetCharmMetadataNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStateGetCharmMetadataNameCall) DoAndReturn(f func(context.Context, charm.ID) (string, error)) *MockCharmStateGetCharmMetadataNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsCharmAvailable mocks base method.
 func (m *MockCharmState) IsCharmAvailable(arg0 context.Context, arg1 charm.ID) (bool, error) {
 	m.ctrl.T.Helper()

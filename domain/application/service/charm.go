@@ -73,6 +73,9 @@ type CharmState interface {
 	// returned.
 	GetCharmManifest(ctx context.Context, charmID corecharm.ID) (charm.Manifest, error)
 
+	// GetCharmMetadataName returns the name for the charm using the charm ID.
+	GetCharmMetadataName(ctx context.Context, charmID corecharm.ID) (string, error)
+
 	// GetCharmMetadataDescription returns the description for the charm using
 	// the charm ID.
 	GetCharmMetadataDescription(ctx context.Context, charmID corecharm.ID) (string, error)
@@ -290,6 +293,23 @@ func (s *CharmService) GetCharmMetadata(ctx context.Context, id corecharm.ID) (i
 		return internalcharm.Meta{}, errors.Trace(err)
 	}
 	return decoded, nil
+}
+
+// GetCharmMetadataName returns the name for the charm using the
+// charm ID.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *CharmService) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", fmt.Errorf("charm id: %w", err)
+	}
+
+	name, err := s.st.GetCharmMetadataName(ctx, id)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return name, nil
 }
 
 // GetCharmMetadataDescription returns the description for the charm using the
