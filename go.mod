@@ -106,7 +106,7 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	go.uber.org/mock v0.2.0
 	golang.org/x/crypto v0.29.0
-	golang.org/x/net v0.30.0
+	golang.org/x/net v0.31.0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.9.0
 	golang.org/x/sys v0.27.0
