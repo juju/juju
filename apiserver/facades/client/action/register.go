@@ -28,7 +28,7 @@ func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.LeadershipReader,
-		domainServices.Application(nil),
+		domainServices.Application(),
 		domainServices.BlockCommand(),
 	)
 	if err != nil {
