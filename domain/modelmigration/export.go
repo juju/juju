@@ -7,6 +7,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
@@ -27,9 +28,10 @@ import (
 // the export operations. A logger and a clock are needed for two of the
 // export operations.
 type Exporter struct {
-	coordinator Coordinator
-	logger      logger.Logger
-	clock       clock.Clock
+	coordinator       Coordinator
+	objectStoreGetter objectstore.ModelObjectStoreGetter
+	logger            logger.Logger
+	clock             clock.Clock
 }
 
 // NewExporter returns a new Exporter that encapsulates the
@@ -37,13 +39,15 @@ type Exporter struct {
 // needed until the migration to dqlite is complete.
 func NewExporter(
 	coordinator Coordinator,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 	clock clock.Clock,
 ) *Exporter {
 	return &Exporter{
-		coordinator: coordinator,
-		logger:      logger,
-		clock:       clock,
+		coordinator:       coordinator,
+		objectStoreGetter: objectStoreGetter,
+		logger:            logger,
+		clock:             clock,
 	}
 }
 

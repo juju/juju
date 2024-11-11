@@ -108,6 +108,7 @@ type ImportSuite struct {
 	controllerConfigService *MockControllerConfigService
 	domainServices          *MockDomainServices
 	domainServicesGetter    *MockDomainServicesGetter
+	objectStoreGetter       *MockModelObjectStoreGetter
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -140,6 +141,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		s.objectStoreGetter,
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
@@ -217,6 +219,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		s.objectStoreGetter,
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
@@ -369,6 +372,7 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.domainServices.EXPECT().Application(gomock.Any()).Return(nil)
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.domainServicesGetter.EXPECT().ServicesForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.domainServices)
+	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
 	return ctrl
 }

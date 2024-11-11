@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/objectstore"
 	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
@@ -41,6 +42,7 @@ func ImportOperations(
 	coordinator Coordinator,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) {
