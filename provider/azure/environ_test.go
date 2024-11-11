@@ -1699,6 +1699,11 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
+	// skip the test on ARM64, until we add proper fake azure data for ARM64
+	if corearch.HostArch() == "arm64" {
+		c.Skip("Skipping test on ARM64")
+	}
+
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1750,6 +1755,11 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
+	// skip the test on ARM64, until we add proper fake azure data for ARM64
+	if corearch.HostArch() == "arm64" {
+		c.Skip("Skipping test on ARM64")
+	}
+
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1776,7 +1786,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
 	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
+	if corearch.HostArch() != "amd64" && corearch.HostArch() != "arm64" {
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
