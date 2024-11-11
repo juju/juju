@@ -6,20 +6,20 @@ run_unit_set_series() {
 	file="${TEST_DIR}/test-unit-series.log"
 	ensure "unit-series" "${file}"
 
-	echo "Deploy ubuntu focal"
-	juju deploy ubuntu --base ubuntu@20.04
+	echo "Deploy ubuntu jammy"
+	juju deploy ubuntu --base ubuntu@22.04
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	echo "Change application base to jammy and add-unit"
-	juju set-application-base ubuntu jammy
+	echo "Change application base to noble and add-unit"
+	juju set-application-base ubuntu noble
 	juju add-unit ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 
 	echo "Check the base for machine of added unit"
 	juju status --format=json | jq -r '.machines | .["1"] | .base | .name' | grep "ubuntu"
-	juju status --format=json | jq -r '.machines | .["1"] | .base | .channel' | grep "22.04"
+	juju status --format=json | jq -r '.machines | .["1"] | .base | .channel' | grep "24.04"
 
 	destroy_model "unit-series"
 }

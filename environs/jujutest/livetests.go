@@ -270,7 +270,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	t.PrepareOnce(c)
 	err := t.Env.PrecheckInstance(t.ProviderCallContext,
 		environs.PrecheckInstanceParams{
-			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Base: corebase.MakeDefaultBase("ubuntu", "24.04"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1005,7 +1005,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
-		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		"released", corebase.MakeDefaultBase("ubuntu", "24.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
@@ -1024,7 +1024,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = jujutesting.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"22.04"},
+		[]string{"24.04"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

@@ -1289,7 +1289,7 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("24.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "portlandia", "--base", version.DefaultSupportedLTSBase().String())
 	c.Assert(err, jc.ErrorIsNil)
