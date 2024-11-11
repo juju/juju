@@ -19,10 +19,12 @@ on [GitHub](https://github.com/juju/juju/tree/3.6/doc). <!-- TODO: This link and
 
 ## In this documentation
 
-|                   |                                                                                            |
-|-------------------|--------------------------------------------------------------------------------------------|
-|                   | [How-to guides](how-to) </br> Step-by-step guides covering key operations and common tasks |
-|                   | [Reference](reference) </br> Technical information - specifications, APIs, architecture    |
+|                   |                                                                                                                   |
+|-------------------|-------------------------------------------------------------------------------------------------------------------|
+|                   | [How-to guides](how-to) </br> Step-by-step guides covering key operations and common tasks                        |
+|                   | [Reference](reference) </br> Technical information - specifications, APIs, architecture                           |
+|                   | [Tutorial](tutorial.md) </br> Developer tutorial for getting started with Juju                                    |
+
 
 ## Project and community
 
