@@ -173,19 +173,27 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	api := s.api(c)
 
 	curl := "ch:testme"
-	seriesCurl := "ch:amd64/focal/testme"
+	archCurl := "ch:amd64/testme"
 
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
 		Risk:         "edge",
 		Architecture: "amd64",
+		Base: params.Base{
+			Name:    "ubuntu",
+			Channel: "20.04/stable",
+		},
 	}
 	stableOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
 		Risk:         "stable",
 		Architecture: "amd64",
+		Base: params.Base{
+			Name:    "ubuntu",
+			Channel: "20.04/stable",
+		},
 	}
 
 	args := params.ResolveCharmsWithChannel{
@@ -195,13 +203,13 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				Architecture: "amd64",
 			}},
 			{Reference: curl, Origin: stableOrigin},
-			{Reference: seriesCurl, Origin: edgeOrigin},
+			{Reference: curl, Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
-			URL:    seriesCurl,
+			URL:    archCurl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -209,7 +217,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				{Name: "ubuntu", Channel: "16.04"},
 			},
 		}, {
-			URL:    seriesCurl,
+			URL:    archCurl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -218,7 +226,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		},
 		{
-			URL:    seriesCurl,
+			URL:    archCurl,
 			Origin: edgeOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -266,12 +274,20 @@ func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
 		Type:         "charm",
 		Risk:         "edge",
 		Architecture: "amd64",
+		Base: params.Base{
+			Name:    "ubuntu",
+			Channel: "20.04/stable",
+		},
 	}
 	stableOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
 		Risk:         "stable",
 		Architecture: "amd64",
+		Base: params.Base{
+			Name:    "ubuntu",
+			Channel: "20.04/stable",
+		},
 	}
 
 	args := params.ResolveCharmsWithChannel{
@@ -660,6 +676,11 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 		func(name string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
+			resolvedOrigin.Platform = corecharm.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Channel:      "20.04",
+			}
 
 			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
 				if requestedOrigin.Channel == nil {
@@ -677,7 +698,6 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 			curl := &charm.URL{
 				Schema:       "ch",
 				Name:         name,
-				Series:       "focal",
 				Architecture: "amd64",
 				Revision:     -1,
 			}

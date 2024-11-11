@@ -430,19 +430,35 @@ func (a *APIv6) ResolveCharms(args params.ResolveCharmsWithChannel) (params.Reso
 	if err != nil {
 		return params.ResolveCharmWithChannelResultsV6{}, errors.Trace(err)
 	}
+
+	seriesFromBase := func(pBase params.Base) (string, error) {
+		b, err := base.ParseBase(pBase.Name, pBase.Channel)
+		if err != nil {
+			return "", err
+		}
+		return base.GetSeriesFromBase(b)
+	}
+
 	results, err := transform.SliceOrErr(res.Results, func(result params.ResolveCharmWithChannelResult) (params.ResolveCharmWithChannelResultV6, error) {
-		supportedSeries, err := transform.SliceOrErr(result.SupportedBases, func(pBase params.Base) (string, error) {
-			b, err := base.ParseBase(pBase.Name, pBase.Channel)
-			if err != nil {
-				return "", err
-			}
-			return base.GetSeriesFromBase(b)
-		})
+		supportedSeries, err := transform.SliceOrErr(result.SupportedBases, seriesFromBase)
 		if err != nil {
 			return params.ResolveCharmWithChannelResultV6{}, err
 		}
+		curl, err := charm.ParseURL(result.URL)
+		if err != nil {
+			return params.ResolveCharmWithChannelResultV6{}, err
+		}
+		// The origin base should always be set but if not
+		// it's not fatal to not include series in the URL.
+		if result.Origin.Base.Name != "" {
+			series, err := seriesFromBase(result.Origin.Base)
+			if err != nil {
+				return params.ResolveCharmWithChannelResultV6{}, err
+			}
+			curl = curl.WithSeries(series)
+		}
 		return params.ResolveCharmWithChannelResultV6{
-			URL:             result.URL,
+			URL:             curl.String(),
 			Origin:          result.Origin,
 			Error:           result.Error,
 			SupportedSeries: supportedSeries,
