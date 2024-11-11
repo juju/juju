@@ -56,6 +56,14 @@ func makeImage(id, storage, virtType, arch, version, region string) *imagemetada
 var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	// LTS-dependent requires new entries upon new LTS release.
 
+	// 24.04:arm64
+	makeImage("ami-02404133", "ssd", "hvm", "arm64", "24.04", "test"),
+
+	// 24.04:amd64
+	makeImage("ami-02404133", "ssd", "hvm", "amd64", "24.04", "test"),
+	makeImage("ami-02404139", "ebs", "hvm", "amd64", "24.04", "test"),
+	makeImage("ami-02404135", "ssd", "pv", "amd64", "24.04", "test"),
+
 	// 22.04:arm64
 	makeImage("ami-02204133", "ssd", "hvm", "arm64", "22.04", "test"),
 
@@ -117,6 +125,7 @@ const testImageMetadataIndex = `
    "datatype": "image-ids",
    "format": "products:1.0",
    "products": [
+    "com.ubuntu.cloud:server:24.04:amd64",
     "com.ubuntu.cloud:server:22.04:amd64",
     "com.ubuntu.cloud:server:20.04:amd64",
     "com.ubuntu.cloud:server:18.04:amd64",
@@ -145,43 +154,43 @@ const testImageMetadataProduct = `
               "root_store": "instance",
               "virt": "pv",
               "region": "us-east-1",
-              "id": "ami-02204111"
+              "id": "ami-02404111"
             },
             "usww1pe": {
               "root_store": "ssd",
               "virt": "pv",
               "region": "eu-west-1",
-              "id": "ami-02204116"
+              "id": "ami-02404116"
             },
             "apne1pe": {
               "root_store": "ssd",
               "virt": "pv",
               "region": "ap-northeast-1",
-              "id": "ami-02204126"
+              "id": "ami-02404126"
             },
             "apne1he": {
               "root_store": "ssd",
               "virt": "hvm",
               "region": "ap-northeast-1",
-              "id": "ami-02204187"
+              "id": "ami-02404187"
             },
             "test1peebs": {
               "root_store": "ssd",
               "virt": "pv",
               "region": "test",
-              "id": "ami-02204133"
+              "id": "ami-02404133"
             },
             "test1pessd": {
               "root_store": "ebs",
               "virt": "pv",
               "region": "test",
-              "id": "ami-02204139"
+              "id": "ami-02404139"
             },
             "test1he": {
               "root_store": "ssd",
               "virt": "hvm",
               "region": "test",
-              "id": "ami-02204135"
+              "id": "ami-02404135"
             }
           },
           "pubname": "ubuntu-noble-24.04-amd64-server-20121218",

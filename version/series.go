@@ -8,11 +8,11 @@ import corebase "github.com/juju/juju/core/base"
 // DefaultSupportedLTS returns the latest LTS that Juju supports and is
 // compatible with.
 func DefaultSupportedLTS() string {
-	return "jammy"
+	return "noble"
 }
 
 // DefaultSupportedLTSBase returns the latest LTS base that Juju supports
 // and is compatible with.
 func DefaultSupportedLTSBase() corebase.Base {
-	return corebase.MakeDefaultBase(corebase.UbuntuOS, "22.04")
+	return corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04")
 }

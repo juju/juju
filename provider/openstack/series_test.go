@@ -73,6 +73,10 @@ var indexData = `
     "datatype": "image-ids",
     "format": "products:1.0",
     "products": [
+      "com.ubuntu.cloud:server:24.04:s390x",
+      "com.ubuntu.cloud:server:24.04:amd64",
+      "com.ubuntu.cloud:server:24.04:arm64",
+      "com.ubuntu.cloud:server:24.04:ppc64el",
       "com.ubuntu.cloud:server:22.04:s390x",
       "com.ubuntu.cloud:server:22.04:amd64",
       "com.ubuntu.cloud:server:22.04:arm64",
@@ -108,6 +112,88 @@ var imagesData = `
 {
   "content_id": "com.ubuntu.cloud:released:openstack",
   "products": {
+    "com.ubuntu.cloud:server:24.04:amd64": {
+      "release": "noble",
+      "version": "24.04",
+      "arch": "amd64",
+      "versions": {
+        "20121218": {
+          "items": {
+            "inst1": {
+              "region": "some-region",
+              "id": "1"
+            },
+            "inst2": {
+              "region": "another-region",
+              "id": "2"
+            }
+          },
+          "pubname": "ubuntu-noble-24.04-amd64-server-20121218",
+          "label": "release"
+        },
+        "20121111": {
+          "items": {
+            "inst3": {
+              "region": "some-region",
+              "id": "3"
+            }
+          },
+          "pubname": "ubuntu-noble-24.04-amd64-server-20121111",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:24.04:arm64": {
+      "release": "noble",
+      "version": "24.04",
+      "arch": "arm64",
+      "versions": {
+        "20121111": {
+          "items": {
+            "inst1604arm64": {
+              "region": "some-region",
+              "id": "id-1604arm64"
+            }
+          },
+          "pubname": "ubuntu-noble-24.04-arm64-server-20121111",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:24.04:ppc64el": {
+      "release": "noblr",
+      "version": "24.04",
+      "arch": "ppc64el",
+      "versions": {
+        "20121111": {
+          "items": {
+            "inst1604ppc64el": {
+              "region": "some-region",
+              "id": "id-1604ppc64el"
+            }
+          },
+          "pubname": "ubuntu-noble-24.04-ppc64el-server-20121111",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:24.04:s390x": {
+      "release": "noble",
+      "version": "24.04",
+      "arch": "s390x",
+      "versions": {
+        "20121111": {
+          "items": {
+            "inst1604s390x": {
+              "region": "some-region",
+              "id": "id-1604s390x"
+            }
+          },
+          "pubname": "ubuntu-noble-24.04-s390x-server-20121111",
+          "label": "release"
+        }
+      }
+    },
     "com.ubuntu.cloud:server:22.04:amd64": {
       "release": "jammy",
       "version": "22.04",
@@ -116,14 +202,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst1": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "1"
             },
             "inst2": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "2"
             }
@@ -134,8 +216,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst3": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "3"
             }
@@ -153,8 +233,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604arm64": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604arm64"
             }
@@ -172,8 +250,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604ppc64el": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604ppc64el"
             }
@@ -191,8 +267,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604s390x": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604s390x"
             }
@@ -210,14 +284,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst1": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "1"
             },
             "inst2": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "2"
             }
@@ -228,8 +298,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst3": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "3"
             }
@@ -247,8 +315,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604arm64": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604arm64"
             }
@@ -266,8 +332,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604ppc64el": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604ppc64el"
             }
@@ -285,8 +349,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604s390x": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604s390x"
             }
@@ -304,14 +366,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst1": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "1"
             },
             "inst2": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "2"
             }
@@ -322,8 +380,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst3": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "3"
             }
@@ -341,8 +397,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604arm64": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604arm64"
             }
@@ -360,8 +414,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604ppc64el": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604ppc64el"
             }
@@ -379,8 +431,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604s390x": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604s390x"
             }
@@ -398,14 +448,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst1": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "1"
             },
             "inst2": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "2"
             }
@@ -416,8 +462,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst3": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "3"
             }
@@ -435,8 +479,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604arm64": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604arm64"
             }
@@ -454,8 +496,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst1604ppc64el": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-1604ppc64el"
             }
@@ -473,14 +513,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst1": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "1"
             },
             "inst2": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "2"
             }
@@ -491,8 +527,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst3": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "3"
             }
@@ -510,8 +544,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst33": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "33"
             }
@@ -529,8 +561,6 @@ var imagesData = `
         "20121111": {
           "items": {
             "inst33": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "33"
             }
@@ -548,14 +578,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst3": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "region-1",
               "id": "id-1"
             },
             "inst4": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "region-2",
               "id": "id-2"
             }
@@ -573,14 +599,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst5": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-y"
             },
             "inst6": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "id-z"
             }
@@ -598,14 +620,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst5": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-y"
             },
             "inst6": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "id-z"
             }
@@ -623,14 +641,10 @@ var imagesData = `
         "20121218": {
           "items": {
             "inst5": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "some-region",
               "id": "id-y"
             },
             "inst6": {
-              "root_store": "ebs",
-              "virt": "pv",
               "region": "another-region",
               "id": "id-z"
             }
