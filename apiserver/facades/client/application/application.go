@@ -906,16 +906,17 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return err
 	}
 
-	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
-		return err
-	}
-
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+		return err
+	}
+
 	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -1164,7 +1165,7 @@ func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Set
 // GetCharmURLOrigin returns the charm URL and charm origin the given
 // application is running at present.
 func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.ApplicationGet) (params.CharmURLOriginResult, error) {
-	if err := api.checkCanWrite(ctx); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		return params.CharmURLOriginResult{}, errors.Trace(err)
 	}
 	oneApplication, err := api.backend.Application(args.ApplicationName)
@@ -1335,6 +1336,13 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
+	if err := api.checkCanWrite(ctx); err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+
 	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
 	// Remove this check before 3.0 when enable-ha is refactored.
 	charmID, err := api.getCharmIDByApplicationName(ctx, args.ApplicationName)
@@ -1348,12 +1356,6 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
 
-	if err := api.checkCanWrite(ctx); err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
 	units, err := api.addApplicationUnits(ctx, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
@@ -1681,7 +1683,7 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 			op.MaxWait = common.MaxWait(arg.MaxWait)
 		}
 		err = api.backend.ApplyOperation(op)
-		if op.Errors != nil && len(op.Errors) > 0 {
+		if len(op.Errors) > 0 {
 			api.logger.Warningf("operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
 		}
 		if err != nil {
@@ -1797,6 +1799,13 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_ params.AddRelationResults, err error) {
+	if err := api.checkCanWrite(ctx); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+
 	var rel Relation
 	defer func() {
 		if err != nil && rel != nil {
@@ -1805,13 +1814,6 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 			}
 		}
 	}()
-
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-	if err := api.checkCanWrite(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
 
 	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
 	if err != nil {
@@ -2125,6 +2127,15 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	return existingRemoteApp, appStatus.Status, nil
 }
 
+// Get returns the charm configuration for an application.
+func (api *APIBase) Get(ctx context.Context, args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	if err := api.checkCanRead(ctx); err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+
+	return api.getConfig(ctx, args, describe)
+}
+
 // CharmConfig returns charm config for the input list of applications.
 func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
 	if err := api.checkCanRead(ctx); err != nil {
@@ -2248,6 +2259,14 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 
 // ResolveUnitErrors marks errors on the specified units as resolved.
 func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolved) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	if err := api.checkCanWrite(ctx); err != nil {
+		return result, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	if p.All {
 		unitsWithErrors, err := api.backend.UnitsInError()
 		if err != nil {
@@ -2258,14 +2277,6 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 				return params.ErrorResults{}, errors.Annotatef(err, "resolve error for unit %q", u.UnitTag().Id())
 			}
 		}
-	}
-
-	var result params.ErrorResults
-	if err := api.checkCanWrite(ctx); err != nil {
-		return result, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return result, errors.Trace(err)
 	}
 
 	result.Results = make([]params.ErrorResult, len(p.Tags.Entities))
@@ -2288,10 +2299,15 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (params.ApplicationInfoResults, error) {
+	var result params.ApplicationInfoResults
+	if err := api.checkCanRead(ctx); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	// Get all the space infos before iterating over the application infos.
 	allSpaceInfosLookup, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
-		return params.ApplicationInfoResults{}, apiservererrors.ServerError(err)
+		return result, apiservererrors.ServerError(err)
 	}
 
 	out := make([]params.ApplicationInfoResult, len(in.Entities))
@@ -2414,7 +2430,6 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 	if err := api.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, err
 	}
-
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -2494,6 +2509,10 @@ var (
 // UnitsInfo returns unit information for the given entities (units or
 // applications).
 func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.UnitInfoResults, error) {
+	if err := api.checkCanRead(ctx); err != nil {
+		return params.UnitInfoResults{}, err
+	}
+
 	var results []params.UnitInfoResult
 	leaders, err := api.leadershipReader.Leaders()
 	if err != nil {
@@ -2754,6 +2773,10 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 
 // Leader returns the unit name of the leader for the given application.
 func (api *APIBase) Leader(ctx context.Context, entity params.Entity) (params.StringResult, error) {
+	if err := api.checkCanRead(ctx); err != nil {
+		return params.StringResult{}, errors.Trace(err)
+	}
+
 	result := params.StringResult{}
 	application, err := names.ParseApplicationTag(entity.Tag)
 	if err != nil {
@@ -2780,7 +2803,7 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 	if err := api.checkCanWrite(ctx); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}
-	if err := api.check.RemoveAllowed(ctx); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}
 

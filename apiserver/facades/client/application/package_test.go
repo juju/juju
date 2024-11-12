@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -53,6 +54,7 @@ type baseSuite struct {
 	deployFromRepo   *MockDeployFromRepository
 	objectStore      *MockObjectStore
 
+	modelUUID model.UUID
 	modelInfo model.ReadOnlyModel
 
 	// Legacy types that we're transitioning away from.
@@ -88,11 +90,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.model = NewMockModel(ctrl)
 	s.providerRegistry = NewMockProviderRegistry(ctrl)
 
-	uuid := modeltesting.GenModelUUID(c)
-
-	s.modelInfo = model.ReadOnlyModel{
-		UUID: uuid,
-	}
+	s.modelUUID = modeltesting.GenModelUUID(c)
 
 	return ctrl
 }
@@ -102,7 +100,11 @@ func (s *baseSuite) expectAuthClient(c *gc.C) {
 }
 
 func (s *baseSuite) expectHasWritePermission(c *gc.C) {
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelInfo.UUID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String())).Return(nil)
+}
+
+func (s *baseSuite) expectHasIncorrectPermission(c *gc.C) {
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), names.NewModelTag(s.modelUUID.String())).Return(apiservererrors.ErrPerm)
 }
 
 func (s *baseSuite) expectAllowBlockChange(c *gc.C) {
@@ -110,10 +112,27 @@ func (s *baseSuite) expectAllowBlockChange(c *gc.C) {
 }
 
 func (s *baseSuite) expectDisallowBlockChange(c *gc.C) {
-	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(fmt.Errorf("deploy blocked"))
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(fmt.Errorf("blocked"))
 }
 
-func (s *baseSuite) newAPI(c *gc.C) {
+func (s *baseSuite) expectDisallowBlockRemoval(c *gc.C) {
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(fmt.Errorf("blocked"))
+}
+
+func (s *baseSuite) newIAASAPI(c *gc.C) {
+	s.newAPI(c, model.IAAS)
+}
+
+func (s *baseSuite) newCAASAPI(c *gc.C) {
+	s.newAPI(c, model.CAAS)
+}
+
+func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
+	s.modelInfo = model.ReadOnlyModel{
+		UUID: s.modelUUID,
+		Type: modelType,
+	}
+
 	var err error
 	s.api, err = NewAPIBase(
 		s.backend,

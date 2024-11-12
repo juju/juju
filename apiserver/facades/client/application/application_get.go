@@ -23,20 +23,11 @@ import (
 )
 
 // Get returns the charm configuration for an application.
-func (api *APIBase) Get(ctx context.Context, args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getConfig(ctx, args, describe)
-}
-
-// Get returns the charm configuration for an application.
 func (api *APIBase) getConfig(
 	ctx context.Context,
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
-	if err := api.checkCanRead(ctx); err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-
 	// TODO (stickupkid): This should be one call to the application service.
 	// There is no reason to split all these calls into multiple DB calls.
 	// Once application service is refactored to return the merged config, this
