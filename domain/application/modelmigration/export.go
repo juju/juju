@@ -18,6 +18,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
+	resourcestore "github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -78,9 +79,13 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		state.NewApplicationState(scope.ModelDB(), e.logger),
 		NoopDeleteSecretState{},
 		state.NewCharmState(scope.ModelDB()),
+		state.NewResourceState(scope.ModelDB(), e.logger),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		// TODO: Wire through an objectstoreGetter when implementing
+		// model migration for resources if needed.
+		resourcestore.NewResourceStoreFactory(nil),
 		e.logger,
 	)
 	return nil

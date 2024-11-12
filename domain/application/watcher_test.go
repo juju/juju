@@ -399,11 +399,15 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		state.NewCharmState(func() (database.TxnRunner, error) {
 			return s.ModelTxnRunner(), nil
 		}),
+		state.NewResourceState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		"", nil, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 }

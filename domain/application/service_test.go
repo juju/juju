@@ -61,9 +61,13 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
+		state.NewResourceState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 

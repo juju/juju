@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/watcher"
@@ -18,24 +19,31 @@ import (
 type State interface {
 	ApplicationState
 	CharmState
+	ResourceState
 }
 
 // Service provides the API for working with applications.
 type Service struct {
-	*CharmService
 	*ApplicationService
+	*CharmService
+	*ResourceService
 }
 
 // NewService returns a new Service for interacting with the underlying
 // application state.
 func NewService(
-	appSt ApplicationState, deleteSecretSt DeleteSecretState, charmSt CharmState,
+	appSt ApplicationState,
+	deleteSecretSt DeleteSecretState,
+	charmSt CharmState,
+	resourceSt ResourceState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	objectstoreGetter objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		CharmService:       NewCharmService(charmSt, logger),
 		ApplicationService: NewApplicationService(appSt, deleteSecretSt, storageRegistryGetter, logger),
+		CharmService:       NewCharmService(charmSt, logger),
+		ResourceService:    NewResourceService(resourceSt, objectstoreGetter, logger),
 	}
 }
 
@@ -52,11 +60,13 @@ func NewWatchableService(
 	appSt ApplicationState,
 	deleteSecretSt DeleteSecretState,
 	charmSt CharmState,
+	resourceSt ResourceState,
 	watcherFactory WatcherFactory,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	objectstoreGetter objectstore.ModelObjectStoreGetter,
 	logger logger.Logger,
 ) *WatchableService {
 	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
@@ -66,6 +76,7 @@ func NewWatchableService(
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,
 			ApplicationService: &watchableApplicationService.ApplicationService,
+			ResourceService:    NewResourceService(resourceSt, objectstoreGetter, logger),
 		},
 		watchableCharmService:       watchableCharmService,
 		watchableApplicationService: watchableApplicationService,
