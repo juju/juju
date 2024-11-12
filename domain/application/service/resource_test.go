@@ -219,28 +219,28 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 	c.Assert(obtainedRet, gc.DeepEquals, expectedRet)
 }
 
-func (s *resourceServiceSuite) TestOpenResource(c *gc.C) {
+func (s *resourceServiceSuite) TestOpenApplicationResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	id := resourcestesting.GenResourceID(c)
 	expectedRes := resource.Resource{
 		ID:            id,
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 	}
-	s.state.EXPECT().OpenResource(gomock.Any(), id).Return(expectedRes, nil, nil)
+	s.state.EXPECT().OpenApplicationResource(gomock.Any(), id).Return(expectedRes, nil)
 
-	obtainedRes, _, err := s.service.OpenResource(context.Background(), id)
+	obtainedRes, _, err := s.service.OpenApplicationResource(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedRes, gc.DeepEquals, obtainedRes)
 }
 
-func (s *resourceServiceSuite) TestOpenResourceBadID(c *gc.C) {
+func (s *resourceServiceSuite) TestOpenApplicationResourceBadID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.OpenResource(context.Background(), "id")
+	_, _, err := s.service.OpenApplicationResource(context.Background(), "id")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *resourceServiceSuite) TestOpenResourceForUniter(c *gc.C) {
+func (s *resourceServiceSuite) TestOpenUnitResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	resourceID := resourcestesting.GenResourceID(c)
 	unitID := unittesting.GenUnitUUID(c)
@@ -248,26 +248,26 @@ func (s *resourceServiceSuite) TestOpenResourceForUniter(c *gc.C) {
 		ID:            resourceID,
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 	}
-	s.state.EXPECT().OpenResourceForUniter(gomock.Any(), resourceID, unitID).Return(expectedRes, nil, nil)
+	s.state.EXPECT().OpenUnitResource(gomock.Any(), resourceID, unitID).Return(expectedRes, nil)
 
-	obtainedRes, _, err := s.service.OpenResourceForUniter(context.Background(), resourceID, unitID)
+	obtainedRes, _, err := s.service.OpenUnitResource(context.Background(), resourceID, unitID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedRes, gc.DeepEquals, obtainedRes)
 
 }
 
-func (s *resourceServiceSuite) TestOpenResourceForUniterBadUnitID(c *gc.C) {
+func (s *resourceServiceSuite) TestOpenUnitResourceBadUnitID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	resourceID := resourcestesting.GenResourceID(c)
 
-	_, _, err := s.service.OpenResourceForUniter(context.Background(), resourceID, "")
+	_, _, err := s.service.OpenUnitResource(context.Background(), resourceID, "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *resourceServiceSuite) TestOpenResourceForUniterBadResourceID(c *gc.C) {
+func (s *resourceServiceSuite) TestOpenUnitResourceBadResourceID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.OpenResourceForUniter(context.Background(), "", "")
+	_, _, err := s.service.OpenUnitResource(context.Background(), "", "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 

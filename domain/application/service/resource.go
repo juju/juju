@@ -36,16 +36,13 @@ type ResourceState interface {
 	// SetUnitResource sets the resource metadata for a specific unit.
 	SetUnitResource(ctx context.Context, config resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error)
 
-	// OpenResource returns the metadata for a resource and a reader for
-	// the resource.
-	OpenResource(ctx context.Context, resourceID resources.ID) (resource.Resource, io.ReadCloser, error)
-	// OpenApplicationResource?
+	// OpenApplicationResource returns the metadata for an application's resource.
+	OpenApplicationResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error)
 
-	// OpenResourceForUniter returns the metadata for a resource and a reader
+	// OpenUnitResource returns the metadata for a resource and a reader
 	// for the resource. A unit resource is created to track the given unit and
 	// which resource its using.
-	OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error)
-	// OpenUnitResource?
+	OpenUnitResource(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, error)
 
 	// SetRepositoryResources sets the "polled" resources for the
 	// application to the provided values. The current data for this
@@ -162,20 +159,21 @@ func (s *ResourceService) SetUnitResource(ctx context.Context, args resource.Set
 	return s.st.SetUnitResource(ctx, args)
 }
 
-// OpenResource returns the details of and a reader for the resource.
+// OpenApplicationResource returns the details of and a reader for the resource.
 //
 // The following error types can be expected to be returned:
 //   - errors.NotValid is returned if the resource ID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
-func (s *ResourceService) OpenResource(ctx context.Context, resourceID resources.ID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenApplicationResource(ctx context.Context, resourceID resources.ID) (resource.Resource, io.ReadCloser, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
-	return s.st.OpenResource(ctx, resourceID)
+	res, err := s.st.OpenApplicationResource(ctx, resourceID)
+	return res, &noopReadCloser{}, err
 }
 
-// OpenResourceForUniter returns metadata about the resource and a reader for
+// OpenUnitResource returns metadata about the resource and a reader for
 // the resource. The resource is associated with the unit once the reader is
 // completely exhausted. Read progress is stored until the reader is completely
 // exhausted. Typically used for File resources.
@@ -187,14 +185,15 @@ func (s *ResourceService) OpenResource(ctx context.Context, resourceID resources
 //     not exist.
 //   - application.UnitNotFound if the specified unit does
 //     not exist.
-func (s *ResourceService) OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenUnitResource(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
 	}
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
-	return s.st.OpenResourceForUniter(ctx, resourceID, unitID)
+	res, err := s.st.OpenUnitResource(ctx, resourceID, unitID)
+	return res, &noopReadCloser{}, err
 }
 
 // SetRepositoryResources sets the "polled" resources for the application to
@@ -223,4 +222,15 @@ func (s *ResourceService) SetRepositoryResources(ctx context.Context, args resou
 		return fmt.Errorf("zero LastPolled %w", errors.NotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
+}
+
+// TODO: remove me once OpenResource and OpenResourceForUniter implemented.
+type noopReadCloser struct{}
+
+func (noopReadCloser) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func (noopReadCloser) Close() error {
+	return nil
 }

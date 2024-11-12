@@ -11,7 +11,6 @@ package service
 
 import (
 	context "context"
-	io "io"
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
@@ -2309,82 +2308,80 @@ func (c *MockResourceStateListResourcesCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
-// OpenResource mocks base method.
-func (m *MockResourceState) OpenResource(arg0 context.Context, arg1 resources.ID) (resource.Resource, io.ReadCloser, error) {
+// OpenApplicationResource mocks base method.
+func (m *MockResourceState) OpenApplicationResource(arg0 context.Context, arg1 resources.ID) (resource.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenResource", arg0, arg1)
+	ret := m.ctrl.Call(m, "OpenApplicationResource", arg0, arg1)
 	ret0, _ := ret[0].(resource.Resource)
-	ret1, _ := ret[1].(io.ReadCloser)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// OpenResource indicates an expected call of OpenResource.
-func (mr *MockResourceStateMockRecorder) OpenResource(arg0, arg1 any) *MockResourceStateOpenResourceCall {
+// OpenApplicationResource indicates an expected call of OpenApplicationResource.
+func (mr *MockResourceStateMockRecorder) OpenApplicationResource(arg0, arg1 any) *MockResourceStateOpenApplicationResourceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResource", reflect.TypeOf((*MockResourceState)(nil).OpenResource), arg0, arg1)
-	return &MockResourceStateOpenResourceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenApplicationResource", reflect.TypeOf((*MockResourceState)(nil).OpenApplicationResource), arg0, arg1)
+	return &MockResourceStateOpenApplicationResourceCall{Call: call}
 }
 
-// MockResourceStateOpenResourceCall wrap *gomock.Call
-type MockResourceStateOpenResourceCall struct {
+// MockResourceStateOpenApplicationResourceCall wrap *gomock.Call
+type MockResourceStateOpenApplicationResourceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceStateOpenResourceCall) Return(arg0 resource.Resource, arg1 io.ReadCloser, arg2 error) *MockResourceStateOpenResourceCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockResourceStateOpenApplicationResourceCall) Return(arg0 resource.Resource, arg1 error) *MockResourceStateOpenApplicationResourceCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStateOpenResourceCall) Do(f func(context.Context, resources.ID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceCall {
+func (c *MockResourceStateOpenApplicationResourceCall) Do(f func(context.Context, resources.ID) (resource.Resource, error)) *MockResourceStateOpenApplicationResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStateOpenResourceCall) DoAndReturn(f func(context.Context, resources.ID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceCall {
+func (c *MockResourceStateOpenApplicationResourceCall) DoAndReturn(f func(context.Context, resources.ID) (resource.Resource, error)) *MockResourceStateOpenApplicationResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// OpenResourceForUniter mocks base method.
-func (m *MockResourceState) OpenResourceForUniter(arg0 context.Context, arg1 resources.ID, arg2 unit.UUID) (resource.Resource, io.ReadCloser, error) {
+// OpenUnitResource mocks base method.
+func (m *MockResourceState) OpenUnitResource(arg0 context.Context, arg1 resources.ID, arg2 unit.UUID) (resource.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "OpenUnitResource", arg0, arg1, arg2)
 	ret0, _ := ret[0].(resource.Resource)
-	ret1, _ := ret[1].(io.ReadCloser)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// OpenResourceForUniter indicates an expected call of OpenResourceForUniter.
-func (mr *MockResourceStateMockRecorder) OpenResourceForUniter(arg0, arg1, arg2 any) *MockResourceStateOpenResourceForUniterCall {
+// OpenUnitResource indicates an expected call of OpenUnitResource.
+func (mr *MockResourceStateMockRecorder) OpenUnitResource(arg0, arg1, arg2 any) *MockResourceStateOpenUnitResourceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResourceForUniter", reflect.TypeOf((*MockResourceState)(nil).OpenResourceForUniter), arg0, arg1, arg2)
-	return &MockResourceStateOpenResourceForUniterCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenUnitResource", reflect.TypeOf((*MockResourceState)(nil).OpenUnitResource), arg0, arg1, arg2)
+	return &MockResourceStateOpenUnitResourceCall{Call: call}
 }
 
-// MockResourceStateOpenResourceForUniterCall wrap *gomock.Call
-type MockResourceStateOpenResourceForUniterCall struct {
+// MockResourceStateOpenUnitResourceCall wrap *gomock.Call
+type MockResourceStateOpenUnitResourceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceStateOpenResourceForUniterCall) Return(arg0 resource.Resource, arg1 io.ReadCloser, arg2 error) *MockResourceStateOpenResourceForUniterCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockResourceStateOpenUnitResourceCall) Return(arg0 resource.Resource, arg1 error) *MockResourceStateOpenUnitResourceCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStateOpenResourceForUniterCall) Do(f func(context.Context, resources.ID, unit.UUID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceForUniterCall {
+func (c *MockResourceStateOpenUnitResourceCall) Do(f func(context.Context, resources.ID, unit.UUID) (resource.Resource, error)) *MockResourceStateOpenUnitResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStateOpenResourceForUniterCall) DoAndReturn(f func(context.Context, resources.ID, unit.UUID) (resource.Resource, io.ReadCloser, error)) *MockResourceStateOpenResourceForUniterCall {
+func (c *MockResourceStateOpenUnitResourceCall) DoAndReturn(f func(context.Context, resources.ID, unit.UUID) (resource.Resource, error)) *MockResourceStateOpenUnitResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
