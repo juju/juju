@@ -302,6 +302,6 @@ func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockResourceState(ctrl)
-	s.service = NewResourceService(s.state, loggertesting.WrapCheckLog(c))
+	s.service = NewResourceService(s.state, nil, loggertesting.WrapCheckLog(c))
 	return ctrl
 }

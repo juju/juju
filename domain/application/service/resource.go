@@ -12,10 +12,12 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // ResourceState describes retrieval and persistence methods for resources.
@@ -39,9 +41,8 @@ type ResourceState interface {
 	// OpenApplicationResource returns the metadata for an application's resource.
 	OpenApplicationResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error)
 
-	// OpenUnitResource returns the metadata for a resource and a reader
-	// for the resource. A unit resource is created to track the given unit and
-	// which resource its using.
+	// OpenUnitResource returns the metadata for a resource a. A unit resource is
+	// created to track the given unit and which resource its using.
 	OpenUnitResource(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, error)
 
 	// SetRepositoryResources sets the "polled" resources for the
@@ -50,17 +51,29 @@ type ResourceState interface {
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
 }
 
+// resourceStoreFn returns the appropriate object store for the
+// provided resource type.
+type resourceStoreFn func(context.Context, charmresource.Type) (objectstore.ObjectStore, error)
+
 // ResourceService provides the API for working with resources.
 type ResourceService struct {
-	st     ResourceState
-	logger logger.Logger
+	st               ResourceState
+	getResourceStore resourceStoreFn
+	logger           logger.Logger
 }
 
 // NewResourceService returns a new service reference wrapping the input state.
-func NewResourceService(st ResourceState, logger logger.Logger) *ResourceService {
+func NewResourceService(st ResourceState, objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) *ResourceService {
 	return &ResourceService{
-		st:     st,
-		logger: logger,
+		st: st,
+		getResourceStore: func(ctx context.Context, resourceType charmresource.Type) (objectstore.ObjectStore, error) {
+			if resourceType == charmresource.TypeContainerImage {
+				// TODO: Implement the OCI-Image object store backed by
+				// the resource_oci_image_metadata_store table.
+			}
+			return objectStoreGetter.GetObjectStore(ctx)
+		},
+		logger: logger.Child("resource"),
 	}
 }
 
@@ -224,7 +237,7 @@ func (s *ResourceService) SetRepositoryResources(ctx context.Context, args resou
 	return s.st.SetRepositoryResources(ctx, args)
 }
 
-// TODO: remove me once OpenResource and OpenResourceForUniter implemented.
+// TODO: remove me once OpenApplicationResource and OpenUnitResource implemented.
 type noopReadCloser struct{}
 
 func (noopReadCloser) Read(p []byte) (n int, err error) {
