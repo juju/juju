@@ -107,6 +107,10 @@ func (s *baseSuite) expectHasIncorrectPermission(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), names.NewModelTag(s.modelUUID.String())).Return(apiservererrors.ErrPerm)
 }
 
+func (s *baseSuite) expectAnyPermissions(c *gc.C) {
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+}
+
 func (s *baseSuite) expectAllowBlockChange(c *gc.C) {
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 }
@@ -117,6 +121,11 @@ func (s *baseSuite) expectDisallowBlockChange(c *gc.C) {
 
 func (s *baseSuite) expectDisallowBlockRemoval(c *gc.C) {
 	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(fmt.Errorf("blocked"))
+}
+
+func (s *baseSuite) expectAnyChangeOrRemoval(c *gc.C) {
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil).AnyTimes()
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil).AnyTimes()
 }
 
 func (s *baseSuite) newIAASAPI(c *gc.C) {
