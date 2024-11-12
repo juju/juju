@@ -292,7 +292,7 @@ type validatorConfig struct {
 	machineService     MachineService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
-	storagePoolGetter  StoragePoolGetter
+	storagePoolGetter  StorageService
 	logger             corelogger.Logger
 }
 
@@ -536,7 +536,7 @@ type caasDeployFromRepositoryValidator struct {
 
 	caasBroker        CaasBrokerInterface
 	registry          storage.ProviderRegistry
-	storagePoolGetter StoragePoolGetter
+	storagePoolGetter StorageService
 
 	// Needed for testing. caasDeployTemplate precheck functionality tested
 	// elsewhere

@@ -25,7 +25,7 @@ func charmStorageParams(
 	storageClassName string,
 	modelCfg *config.Config,
 	poolName string,
-	storagePoolGetter StoragePoolGetter,
+	storagePoolGetter StorageService,
 	registry storage.ProviderRegistry,
 ) (*params.KubernetesFilesystemParams, error) {
 	// The defaults here are for operator storage.
@@ -74,7 +74,7 @@ func charmStorageParams(
 	return result, nil
 }
 
-func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGetter, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+func poolStorageProvider(ctx context.Context, storagePoolGetter StorageService, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
 	pool, err := storagePoolGetter.GetStoragePoolByName(ctx, poolName)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type

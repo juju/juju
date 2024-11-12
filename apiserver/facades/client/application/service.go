@@ -6,22 +6,73 @@ package application
 import (
 	"context"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
+
+// Services represents all the services that the application facade requires.
+type Services struct {
+	ApplicationService        ApplicationService
+	CloudService              CloudService
+	CredentialService         CredentialService
+	ExternalControllerService ExternalControllerService
+	MachineService            MachineService
+	ModelConfigService        ModelConfigService
+	NetworkService            NetworkService
+	PortService               PortService
+	StorageService            StorageService
+	StubService               StubService
+}
+
+func (s Services) Validate() error {
+	if s.ExternalControllerService == nil {
+		return errors.NotValidf("empty ExternalControllerService")
+	}
+	if s.NetworkService == nil {
+		return errors.NotValidf("empty NetworkService")
+	}
+	if s.ModelConfigService == nil {
+		return errors.NotValidf("empty ModelConfigService")
+	}
+	if s.CloudService == nil {
+		return errors.NotValidf("empty CloudService")
+	}
+	if s.CredentialService == nil {
+		return errors.NotValidf("empty CredentialService")
+	}
+	if s.MachineService == nil {
+		return errors.NotValidf("empty MachineService")
+	}
+	if s.ApplicationService == nil {
+		return errors.NotValidf("empty ApplicationService")
+	}
+	if s.PortService == nil {
+		return errors.NotValidf("empty PortService")
+	}
+	if s.StorageService == nil {
+		return errors.NotValidf("empty StorageService")
+	}
+	if s.StubService == nil {
+		return errors.NotValidf("empty StubService")
+	}
+	return nil
+}
 
 // ExternalControllerService provides a subset of the external controller domain
 // service methods.
@@ -29,6 +80,23 @@ type ExternalControllerService interface {
 	// UpdateExternalController persists the input controller
 	// record.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+	// WatchCredential returns a watcher that observes changes to the specified
+	// credential.
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+	// WatchCloud returns a watcher that observes changes to the specified cloud.
+	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -61,7 +129,7 @@ type MachineService interface {
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
 	// CreateApplication creates the specified application and units if required.
-	CreateApplication(ctx context.Context, name string, charm charm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 	// AddUnits adds units to the application.
 	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
 	// UpdateApplicationCharm sets a new charm for the application, validating that aspects such
@@ -154,8 +222,26 @@ type StubService interface {
 	AssignUnitsToMachines(context.Context, map[string][]unit.Name) error
 }
 
-// StoragePoolGetter instances get a storage pool by name.
-type StoragePoolGetter interface {
+// StorageService instances get a storage pool by name.
+type StorageService interface {
 	// GetStoragePoolByName returns the storage pool with the specified name.
 	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+}
+
+// BlockChecker defines the block-checking functionality required by
+// the application facade. This is implemented by
+// apiserver/common.BlockChecker.
+type BlockChecker interface {
+	ChangeAllowed(context.Context) error
+	RemoveAllowed(context.Context) error
+}
+
+// Leadership describes the capability to read the current state of leadership.
+type Leadership interface {
+
+	// Leaders returns all application leaders in the current model.
+	// TODO (manadart 2019-02-27): The return in this signature includes error
+	// in order to support state.ApplicationLeaders for legacy leases.
+	// When legacy leases are removed, so can the error return.
+	Leaders() (map[string]string, error)
 }

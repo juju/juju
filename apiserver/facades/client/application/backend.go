@@ -4,7 +4,6 @@
 package application
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -53,14 +52,6 @@ type Backend interface {
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
 	// so that correctly matching units can be written to dqlite.
 	ReadSequence(name string) (int, error)
-}
-
-// BlockChecker defines the block-checking functionality required by
-// the application facade. This is implemented by
-// apiserver/common.BlockChecker.
-type BlockChecker interface {
-	ChangeAllowed(context.Context) error
-	RemoveAllowed(context.Context) error
 }
 
 // Application defines a subset of the functionality provided by the

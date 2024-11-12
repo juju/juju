@@ -75,16 +75,16 @@ type APIBase struct {
 	storageAccess StorageInterface
 	store         objectstore.ObjectStore
 
-	ecService  ExternalControllerService
-	authorizer facade.Authorizer
-	check      BlockChecker
-	repoDeploy DeployFromRepository
+	externalControllerService ExternalControllerService
+	authorizer                facade.Authorizer
+	check                     BlockChecker
+	repoDeploy                DeployFromRepository
 
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
-	cloudService       common.CloudService
-	credentialService  common.CredentialService
+	cloudService       CloudService
+	credentialService  CredentialService
 	machineService     MachineService
 	applicationService ApplicationService
 	networkService     NetworkService
@@ -100,7 +100,7 @@ type APIBase struct {
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
 
-	storagePoolGetter     StoragePoolGetter
+	storagePoolGetter     StorageService
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
@@ -193,25 +193,27 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	return NewAPIBase(
 		state,
-		domainServices.ExternalController(),
-		domainServices.Network(),
+		Services{
+			ExternalControllerService: domainServices.ExternalController(),
+			NetworkService:            domainServices.Network(),
+			ModelConfigService:        domainServices.Config(),
+			CloudService:              domainServices.Cloud(),
+			CredentialService:         domainServices.Credential(),
+			MachineService:            domainServices.Machine(),
+			ApplicationService:        applicationService,
+			PortService:               domainServices.Port(),
+			StorageService:            storageService,
+			StubService:               domainServices.Stub(),
+		},
 		storageAccess,
 		ctx.Auth(),
-		repoDeploy,
 		blockChecker,
 		model,
 		modelInfo,
-		domainServices.Config(),
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Machine(),
-		applicationService,
-		domainServices.Port(),
-		domainServices.Stub(),
 		leadershipReader,
 		stateCharm,
+		repoDeploy,
 		DeployApplication,
-		storageService,
 		registry,
 		resources,
 		caasBroker,
@@ -235,25 +237,16 @@ type DeployApplicationFunc = func(
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
-	ecService ExternalControllerService,
-	networkService NetworkService,
+	services Services,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
-	repoDeploy DeployFromRepository,
 	blockChecker BlockChecker,
 	model Model,
 	modelInfo model.ReadOnlyModel,
-	modelConfigService ModelConfigService,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
-	machineService MachineService,
-	applicationService ApplicationService,
-	portService PortService,
-	stubService StubService,
-	leadershipReader leadership.Reader,
+	leadershipReader Leadership,
 	stateCharm func(Charm) *state.Charm,
+	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
-	storagepoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
@@ -264,32 +257,38 @@ func NewAPIBase(
 		return nil, apiservererrors.ErrPerm
 	}
 
+	if err := services.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &APIBase{
 		backend:               backend,
-		ecService:             ecService,
-		networkService:        networkService,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
 		modelInfo:             modelInfo,
-		modelConfigService:    modelConfigService,
-		cloudService:          cloudService,
-		credentialService:     credentialService,
-		machineService:        machineService,
-		applicationService:    applicationService,
-		portService:           portService,
-		stubService:           stubService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
-		storagePoolGetter:     storagepoolGetter,
 		registry:              registry,
 		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
-		logger:                logger,
+
+		applicationService:        services.ApplicationService,
+		cloudService:              services.CloudService,
+		credentialService:         services.CredentialService,
+		externalControllerService: services.ExternalControllerService,
+		machineService:            services.MachineService,
+		modelConfigService:        services.ModelConfigService,
+		networkService:            services.NetworkService,
+		portService:               services.PortService,
+		storagePoolGetter:         services.StorageService,
+		stubService:               services.StubService,
+
+		logger: logger,
 	}, nil
 }
 
@@ -446,7 +445,7 @@ type caasDeployParams struct {
 func (c caasDeployParams) precheck(
 	ctx context.Context,
 	modelConfigService ModelConfigService,
-	storagePoolGetter StoragePoolGetter,
+	storagePoolGetter StorageService,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
@@ -1991,7 +1990,7 @@ func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicatio
 		// a different controller.
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
 			externalControllerUUID = controllerTag.Id()
-			if err = api.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+			if err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
 				Alias:         arg.ControllerInfo.Alias,
 				Addrs:         arg.ControllerInfo.Addrs,
