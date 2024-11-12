@@ -40,6 +40,7 @@ type Services struct {
 	StubService               StubService
 }
 
+// Validate checks that all the services are set.
 func (s Services) Validate() error {
 	if s.ExternalControllerService == nil {
 		return errors.NotValidf("empty ExternalControllerService")

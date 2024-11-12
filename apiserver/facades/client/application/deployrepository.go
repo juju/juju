@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -435,7 +434,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.pendingResourceUploads = pendingResourceUploads
 	dt.resolvedResources = resources
 
-	if v.logger.IsLevelEnabled(logger.TRACE) {
+	if v.logger.IsLevelEnabled(corelogger.TRACE) {
 		v.logger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	}
 	return dt, errs

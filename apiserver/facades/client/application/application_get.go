@@ -18,7 +18,6 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -121,7 +120,7 @@ func (api *APIBase) getConfig(
 }
 
 func (api *APIBase) getCharmID(ctx context.Context, charmURL string) (corecharm.ID, error) {
-	curl, err := internalcharm.ParseURL(charmURL)
+	curl, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing charm URL")
 	}
@@ -175,7 +174,7 @@ func (api *APIBase) getCharm(ctx context.Context, charmID corecharm.ID) (Charm, 
 	}, nil
 }
 
-func (api *APIBase) getCharmMetadata(ctx context.Context, charmID corecharm.ID) (*internalcharm.Meta, error) {
+func (api *APIBase) getCharmMetadata(ctx context.Context, charmID corecharm.ID) (*charm.Meta, error) {
 	metadata, err := api.applicationService.GetCharmMetadata(ctx, charmID)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm")
@@ -285,7 +284,7 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 }
 
 type domainCharm struct {
-	charm  internalcharm.Charm
+	charm  charm.Charm
 	origin applicationcharm.CharmOrigin
 }
 
