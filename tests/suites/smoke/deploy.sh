@@ -14,7 +14,8 @@ run_local_deploy() {
 	juju deploy --revision=1 --channel=stable --base ubuntu@20.04 juju-qa-refresher
 	wait_for "refresher" "$(idle_condition "refresher")"
 
-	juju refresh refresher
+	# Refresh is removed, add it back in when we support refresh.
+	# juju refresh refresher
 
 	# Wait for the refresh to happen and then wait again.
 	wait_for "upgrade hook ran v2" "$(workload_status "refresher" 0)"
@@ -37,8 +38,9 @@ run_charmhub_deploy() {
 	juju deploy "$charm" --revision 22 --channel stable "$charm"
 	wait_for "$charm" "$(idle_condition "$charm")"
 
-	juju refresh "$charm" --revision 23
-	wait_for "$charm" "$(idle_condition_for_rev "$charm" "23")"
+	# Refresh is removed, add it back in when we support refresh.
+	# juju refresh "$charm" --revision 23
+	# wait_for "$charm" "$(idle_condition_for_rev "$charm" "23")"
 
 	destroy_model "${model_name}"
 }
