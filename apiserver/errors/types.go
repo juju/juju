@@ -47,7 +47,7 @@ type HTTPWritableError interface {
 	// expected that any errors occurred in writing the response are returned to
 	// the caller to deal with. After SendError has run successfully is expected
 	// that no more writes be performed to the ResponseWriter.
-	SendError(http.ResponseWriter) error
+	SendError(context.Context, http.ResponseWriter) error
 }
 
 func NotSupportedError(tag names.Tag, operation string) error {
@@ -69,6 +69,9 @@ type DischargeRequiredError struct {
 	LegacyMacaroon *macaroon.Macaroon
 	Macaroon       *bakery.Macaroon
 }
+
+// Ensure that DischargeRequiredError implements the error interface.
+var _ HTTPWritableError = (*DischargeRequiredError)(nil)
 
 // Error implements the error interface.
 func (e *DischargeRequiredError) Error() string {
