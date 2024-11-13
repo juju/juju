@@ -26,6 +26,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer,Resources
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm,CharmMeta
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -64,6 +65,7 @@ type baseSuite struct {
 	providerRegistry  *MockProviderRegistry
 	resources         *MockResources
 	caasBroker        *MockCaasBrokerInterface
+	transformCharm    func(Charm) *state.Charm
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -164,7 +166,7 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 		s.modelInfo,
 		s.leadershipReader,
 		func(c Charm) *state.Charm {
-			panic("should not be called")
+			return s.transformCharm(c)
 		},
 		s.deployFromRepo,
 		s.deployApplication,
