@@ -31,6 +31,7 @@ CREATE TABLE resource (
     uuid TEXT NOT NULL PRIMARY KEY,
     application_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
+    revision INT,
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
     size INT,
@@ -132,4 +133,15 @@ CREATE TABLE unit_resource (
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
     PRIMARY KEY (resource_uuid, unit_uuid)
+);
+
+CREATE TABLE resource_oci_image_metadata_store (
+    resource_uuid TEXT NOT NULL,
+    registry_path TEXT NOT NULL,
+    username TEXT,
+    password_hash TEXT,
+    password_salt TEXT,
+    CONSTRAINT fk_resource_uuid
+    FOREIGN KEY (resource_uuid)
+    REFERENCES resource (uuid)
 );
