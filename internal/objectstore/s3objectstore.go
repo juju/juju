@@ -513,6 +513,13 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer file.Close()
+
+	if stat, err := file.Stat(); err != nil {
+		return errors.Trace(err)
+	} else if stat.Size() != size {
+		return fmt.Errorf("size mismatch for %q: expected %d, got %d", tmpFileName, size, stat.Size())
+	}
 
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		// Seek back to the beginning of the file, so that we can read it again.
