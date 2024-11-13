@@ -73,7 +73,7 @@ type DeployFromRepositoryAPI struct {
 	state              DeployFromRepositoryState
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
-	stateCharm         func(Charm) *state.Charm
+	stateCharm         func(Charm) (*state.Charm, error)
 	applicationService ApplicationService
 	logger             corelogger.Logger
 }
@@ -143,10 +143,15 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
+	stateCharm, err := api.stateCharm(ch)
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+	}
+
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
-		Charm:             api.stateCharm(ch),
+		Charm:             stateCharm,
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,

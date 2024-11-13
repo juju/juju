@@ -4,6 +4,7 @@
 package application
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -262,8 +263,13 @@ func NewStateApplication(
 // a hack that is required until the State interface methods we
 // deal with stop accepting state.Charms, and start accepting
 // charm.Charm and charm.URL.
-func CharmToStateCharm(ch Charm) *state.Charm {
-	return ch.(stateCharmShim).Charm
+func CharmToStateCharm(ch Charm) (*state.Charm, error) {
+	switch c := ch.(type) {
+	case stateCharmShim:
+		return c.Charm, nil
+	default:
+		return nil, fmt.Errorf("unexpected charm type %T", ch)
+	}
 }
 
 func (s stateShim) Application(name string) (Application, error) {

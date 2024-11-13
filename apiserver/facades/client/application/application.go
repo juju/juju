@@ -98,7 +98,7 @@ type APIBase struct {
 	// of time unwinding all of the tendrils of state. We
 	// should pass a charm.Charm and charm.URL back into
 	// state wherever we pass in a state.Charm currently.
-	stateCharm func(Charm) *state.Charm
+	stateCharm func(Charm) (*state.Charm, error)
 
 	storagePoolGetter     StorageService
 	registry              storage.ProviderRegistry
@@ -244,7 +244,7 @@ func NewAPIBase(
 	model Model,
 	modelInfo model.ReadOnlyModel,
 	leadershipReader Leadership,
-	stateCharm func(Charm) *state.Charm,
+	stateCharm func(Charm) (*state.Charm, error),
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
 	registry storage.ProviderRegistry,
@@ -588,10 +588,16 @@ func (api *APIBase) deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	stateCharm, err := api.stateCharm(ch)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// TODO: replace model with model info/config services
 	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Charm:             api.stateCharm(ch),
+		Charm:             stateCharm,
 		CharmOrigin:       origin,
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
@@ -1064,9 +1070,14 @@ func (api *APIBase) applicationSetCharm(
 		api.logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
+	stateCharm, err := api.stateCharm(newCharm)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	force := params.Force
 	cfg := state.SetCharmConfig{
-		Charm:              api.stateCharm(newCharm),
+		Charm:              stateCharm,
 		CharmOrigin:        newOrigin,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
