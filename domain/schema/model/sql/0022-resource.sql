@@ -31,6 +31,7 @@ CREATE TABLE resource (
     uuid TEXT NOT NULL PRIMARY KEY,
     application_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
+    revision INT,
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
     size INT,
