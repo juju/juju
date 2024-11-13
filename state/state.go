@@ -900,7 +900,11 @@ type CharmRef interface {
 	URL() string
 }
 
-type CharmRefWithTheTrimmings interface {
+// CharmRefFull is actually almost a full charm with addition information. This
+// is purely here as a hack to push a charm from the dqlite layer to the state
+// layer.
+// Deprecated: This is an abomination and should be removed.
+type CharmRefFull interface {
 	CharmRef
 
 	Actions() *charm.Actions

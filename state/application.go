@@ -1069,7 +1069,7 @@ func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.R
 	return extraPeers
 }
 
-func (a *Application) checkRelationsOps(ch CharmRefWithTheTrimmings, relations []*Relation) ([]txn.Op, error) {
+func (a *Application) checkRelationsOps(ch CharmRefFull, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
 
 	// All relations must still exist and their endpoints are implemented by the charm.
@@ -1214,7 +1214,7 @@ func (a *Application) IsSidecar() (bool, error) {
 // changeCharmOps returns the operations necessary to set a application's
 // charm URL to a new value.
 func (a *Application) changeCharmOps(
-	ch CharmRefWithTheTrimmings,
+	ch CharmRefFull,
 	updatedSettings charm.Settings,
 	forceUnits bool,
 	updatedStorageConstraints map[string]StorageConstraints,
@@ -1420,7 +1420,7 @@ func (a *Application) DeployedMachines() ([]*Machine, error) {
 }
 
 func (a *Application) newCharmStorageOps(
-	ch CharmRefWithTheTrimmings,
+	ch CharmRefFull,
 	units []*Unit,
 	updatedStorageConstraints map[string]StorageConstraints,
 ) ([]txn.Op, []txn.Op, []txn.Op, error) {
@@ -1552,7 +1552,7 @@ type SetCharmConfig struct {
 	// Charm is the new charm to use for the application. New units
 	// will be started with this charm, and existing units will be
 	// upgraded to use it.
-	Charm CharmRefWithTheTrimmings
+	Charm CharmRefFull
 
 	// CharmOrigin is the data for where the charm comes from.  Eventually
 	// Channel should be move there.
