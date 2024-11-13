@@ -68,6 +68,8 @@ type APIv19 struct {
 	*APIv20
 }
 
+type transformCharmFn func(Charm) (state.CharmRef, error)
+
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 type APIBase struct {
@@ -93,12 +95,6 @@ type APIBase struct {
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
-
-	// TODO(axw) stateCharm only exists because I ran out
-	// of time unwinding all of the tendrils of state. We
-	// should pass a charm.Charm and charm.URL back into
-	// state wherever we pass in a state.Charm currently.
-	stateCharm func(Charm) (*state.Charm, error)
 
 	storagePoolGetter     StorageService
 	registry              storage.ProviderRegistry
@@ -126,7 +122,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 	domainServices := ctx.DomainServices()
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
-	stateCharm := CharmToStateCharm
 
 	storageService := domainServices.Storage()
 
@@ -211,7 +206,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		model,
 		modelInfo,
 		leadershipReader,
-		stateCharm,
 		repoDeploy,
 		DeployApplication,
 		registry,
@@ -244,7 +238,6 @@ func NewAPIBase(
 	model Model,
 	modelInfo model.ReadOnlyModel,
 	leadershipReader Leadership,
-	stateCharm func(Charm) (*state.Charm, error),
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
 	registry storage.ProviderRegistry,
@@ -270,7 +263,6 @@ func NewAPIBase(
 		model:                 model,
 		modelInfo:             modelInfo,
 		leadershipReader:      leadershipReader,
-		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 		registry:              registry,
 		resources:             resources,
@@ -589,15 +581,10 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	stateCharm, err := api.stateCharm(ch)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// TODO: replace model with model info/config services
 	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Charm:             stateCharm,
+		Charm:             ch,
 		CharmOrigin:       origin,
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
@@ -1070,14 +1057,9 @@ func (api *APIBase) applicationSetCharm(
 		api.logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
-	stateCharm, err := api.stateCharm(newCharm)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	force := params.Force
 	cfg := state.SetCharmConfig{
-		Charm:              stateCharm,
+		Charm:              newCharm,
 		CharmOrigin:        newOrigin,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,

@@ -389,10 +389,6 @@ func (s *applicationSuite) setupAPI(c *gc.C) {
 	s.expectAnyPermissions(c)
 	s.expectAnyChangeOrRemoval(c)
 
-	s.transformCharm = func(ch Charm) *state.Charm {
-		return nil
-	}
-
 	s.newIAASAPI(c)
 }
 

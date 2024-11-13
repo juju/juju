@@ -900,6 +900,14 @@ type CharmRef interface {
 	URL() string
 }
 
+type CharmRefWithTheTrimmings interface {
+	CharmRef
+
+	Actions() *charm.Actions
+	Config() *charm.Config
+	Revision() int
+}
+
 // AddApplicationArgs defines the arguments for AddApplication method.
 type AddApplicationArgs struct {
 	Name              string

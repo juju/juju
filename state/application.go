@@ -1069,7 +1069,7 @@ func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.R
 	return extraPeers
 }
 
-func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
+func (a *Application) checkRelationsOps(ch CharmRefWithTheTrimmings, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
 
 	// All relations must still exist and their endpoints are implemented by the charm.
@@ -1214,7 +1214,7 @@ func (a *Application) IsSidecar() (bool, error) {
 // changeCharmOps returns the operations necessary to set a application's
 // charm URL to a new value.
 func (a *Application) changeCharmOps(
-	ch *Charm,
+	ch CharmRefWithTheTrimmings,
 	updatedSettings charm.Settings,
 	forceUnits bool,
 	updatedStorageConstraints map[string]StorageConstraints,
@@ -1420,7 +1420,7 @@ func (a *Application) DeployedMachines() ([]*Machine, error) {
 }
 
 func (a *Application) newCharmStorageOps(
-	ch *Charm,
+	ch CharmRefWithTheTrimmings,
 	units []*Unit,
 	updatedStorageConstraints map[string]StorageConstraints,
 ) ([]txn.Op, []txn.Op, []txn.Op, error) {
@@ -1552,7 +1552,7 @@ type SetCharmConfig struct {
 	// Charm is the new charm to use for the application. New units
 	// will be started with this charm, and existing units will be
 	// upgraded to use it.
-	Charm *Charm
+	Charm CharmRefWithTheTrimmings
 
 	// CharmOrigin is the data for where the charm comes from.  Eventually
 	// Channel should be move there.
@@ -1605,26 +1605,6 @@ func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 		return errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
 	}
 
-	// If it's a v1 or v2 machine charm (no containers), check base.
-	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
-		err := checkBaseForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// we don't need to check that this is a charm.LXDProfiler, as we can
-	// state that the function exists.
-	if profile := cfg.Charm.LXDProfile(); profile != nil {
-		// Validate the config devices, to ensure we don't apply an invalid
-		// profile, if we know it's never going to work.
-		// TODO (stickupkid): Validation of config devices is totally in the
-		// wrong place. Validation should be done at the API server layer, not
-		// at the state layer.
-		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
-			return errors.Annotate(err, "validating lxd profile")
-		}
-	}
 	return nil
 }
 
@@ -1849,7 +1829,7 @@ func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, forceBase bool) 
 // preUpgradeRelationLimitCheck ensures that the already established relation
 // counts do not violate the max relation limits specified by the charm version
 // we are attempting to upgrade to.
-func (a *Application) preUpgradeRelationLimitCheck(newCharm *Charm) error {
+func (a *Application) preUpgradeRelationLimitCheck(newCharm CharmRef) error {
 	var (
 		existingRels []*Relation
 		err          error

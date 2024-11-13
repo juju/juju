@@ -110,6 +110,7 @@ type Charm interface {
 	Actions() *charm.Actions
 	Revision() int
 	IsUploaded() bool
+	URL() string
 }
 
 // CharmMeta describes methods that inform charm operation.
@@ -263,10 +264,12 @@ func NewStateApplication(
 // a hack that is required until the State interface methods we
 // deal with stop accepting state.Charms, and start accepting
 // charm.Charm and charm.URL.
-func CharmToStateCharm(ch Charm) (*state.Charm, error) {
+func CharmToStateCharm(ch Charm) (state.CharmRef, error) {
 	switch c := ch.(type) {
 	case stateCharmShim:
 		return c.Charm, nil
+	case *domainCharm:
+		return c, nil
 	default:
 		return nil, fmt.Errorf("unexpected charm type %T", ch)
 	}

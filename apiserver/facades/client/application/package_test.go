@@ -18,7 +18,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/state"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application ExternalControllerService,NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,CloudService,CredentialService,MachineService,ApplicationService,PortService,StubService,Leadership,StorageService
@@ -65,7 +64,6 @@ type baseSuite struct {
 	providerRegistry  *MockProviderRegistry
 	resources         *MockResources
 	caasBroker        *MockCaasBrokerInterface
-	transformCharm    func(Charm) *state.Charm
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -165,9 +163,6 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 		s.model,
 		s.modelInfo,
 		s.leadershipReader,
-		func(c Charm) *state.Charm {
-			return s.transformCharm(c)
-		},
 		s.deployFromRepo,
 		s.deployApplication,
 		s.providerRegistry,

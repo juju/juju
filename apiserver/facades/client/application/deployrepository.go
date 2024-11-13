@@ -73,7 +73,7 @@ type DeployFromRepositoryAPI struct {
 	state              DeployFromRepositoryState
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
-	stateCharm         func(Charm) (*state.Charm, error)
+	stateCharm         transformCharmFn
 	applicationService ApplicationService
 	logger             corelogger.Logger
 }
@@ -181,7 +181,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 
 	if addApplicationErr != nil {
 		// Check the pending resources that are added before the AddApplication is called
-		if pendingIDs != nil && len(pendingIDs) != 0 {
+		if len(pendingIDs) != 0 {
 			// Remove if there's any pending resources before raising addApplicationErr
 			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs, api.store)
 			if removeResourcesErr != nil {

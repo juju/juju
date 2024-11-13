@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -18,6 +19,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -312,6 +314,24 @@ func (c *domainCharm) IsUploaded() bool {
 	// TODO (stickupkid): This should return if the SHA is set, or we have a way
 	// to determine if the charm is uploaded.
 	return true
+}
+
+func (c *domainCharm) URL() string {
+	schema := "local"
+	if c.origin.Source == applicationcharm.CharmHubSource {
+		schema = "ch"
+	}
+
+	name := c.charm.Meta().Name
+	if name == "" {
+		panic(fmt.Sprintf("charm name is empty %+v", c.charm))
+	}
+	curl := &internalcharm.URL{
+		Schema:   schema,
+		Name:     name,
+		Revision: c.origin.Revision,
+	}
+	return curl.String()
 }
 
 func ptr[T any](v T) *T {
