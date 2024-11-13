@@ -23,8 +23,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/arch"
-	corebase "github.com/juju/juju/core/base"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
@@ -1810,20 +1808,6 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 		a.doc.CharmOrigin.Hash = hash
 	}
 	return nil
-}
-
-// checkBaseForSetCharm verifies that the
-func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, forceBase bool) error {
-	curBase, err := corebase.ParseBase(currentPlatform.OS, currentPlatform.Channel)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !forceBase {
-		return errors.Trace(corecharm.BaseIsCompatibleWithCharm(curBase, ch))
-	}
-	// Even with forceBase=true, we do not allow a charm to be used which is for
-	// a different OS.
-	return errors.Trace(corecharm.OSIsCompatibleWithCharm(curBase.OS, ch))
 }
 
 // preUpgradeRelationLimitCheck ensures that the already established relation
