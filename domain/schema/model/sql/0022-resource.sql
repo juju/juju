@@ -138,9 +138,6 @@ CREATE TABLE unit_resource (
 CREATE TABLE resource_oci_image_metadata_store (
     resource_uuid TEXT NOT NULL,
     registry_path TEXT NOT NULL,
-    username TEXT,
-    password_hash TEXT,
-    password_salt TEXT,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid)
