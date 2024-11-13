@@ -44,6 +44,7 @@ import (
 type ControllerServices struct {
 	controllerDB changestream.WatchableDBFactory
 	dbDeleter    database.DBDeleter
+	clock        clock.Clock
 	logger       logger.Logger
 }
 
@@ -58,6 +59,7 @@ func NewControllerServices(
 	return &ControllerServices{
 		controllerDB: controllerDB,
 		dbDeleter:    dbDeleter,
+		clock:        clock,
 		logger:       logger,
 	}
 }
@@ -73,10 +75,7 @@ func (s *ControllerServices) Controller() *controllerservice.Service {
 func (s *ControllerServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("controllerconfig"),
-		),
+		s.newWatcherFactory("controllerconfig"),
 	)
 }
 
@@ -109,10 +108,7 @@ func (s *ControllerServices) ModelDefaults() *modeldefaultsservice.Service {
 func (s *ControllerServices) ExternalController() *externalcontrollerservice.WatchableService {
 	return externalcontrollerservice.NewWatchableService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("externalcontroller"),
-		),
+		s.newWatcherFactory("externalcontroller"),
 	)
 }
 
@@ -120,11 +116,8 @@ func (s *ControllerServices) ExternalController() *externalcontrollerservice.Wat
 func (s *ControllerServices) Credential() *credentialservice.WatchableService {
 	return credentialservice.NewWatchableService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("credential"),
-		),
-		s.logger,
+		s.newWatcherFactory("credential"),
+		s.logger.Child("credential"),
 	)
 }
 
@@ -132,10 +125,7 @@ func (s *ControllerServices) Credential() *credentialservice.WatchableService {
 func (s *ControllerServices) Cloud() *cloudservice.WatchableService {
 	return cloudservice.NewWatchableService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("cloud"),
-		),
+		s.newWatcherFactory("cloud"),
 	)
 }
 
@@ -151,10 +141,7 @@ func (s *ControllerServices) AutocertCache() *autocertcacheservice.Service {
 func (s *ControllerServices) Upgrade() *upgradeservice.WatchableService {
 	return upgradeservice.NewWatchableService(
 		upgradestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("upgrade"),
-		),
+		s.newWatcherFactory("upgrade"),
 	)
 }
 
@@ -173,24 +160,25 @@ func (s *ControllerServices) Access() *accessservice.Service {
 }
 
 func (s *ControllerServices) SecretBackend() *secretbackendservice.WatchableService {
-	logger := s.logger.Child("secretbackend")
-	state := secretbackendstate.NewState(
-		changestream.NewTxnRunnerFactory(s.controllerDB),
-		logger.Child("state"),
-	)
+	log := s.logger.Child("secretbackend")
+
 	return secretbackendservice.NewWatchableService(
-		state,
-		logger.Child("service"),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("watcherfactory"),
-		),
+		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+		log,
+		s.newWatcherFactory("secretbackend"),
 	)
 }
 
 func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 	return macaroonservice.NewService(
 		macaroonstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		clock.WallClock,
+		s.clock,
+	)
+}
+
+func (s *ControllerServices) newWatcherFactory(childLogName string) *domain.WatcherFactory {
+	return domain.NewWatcherFactory(
+		s.controllerDB,
+		s.logger.Child(childLogName),
 	)
 }
