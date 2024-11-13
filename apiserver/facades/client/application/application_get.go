@@ -19,7 +19,6 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -326,7 +325,7 @@ func (c *domainCharm) URL() string {
 	if name == "" {
 		panic(fmt.Sprintf("charm name is empty %+v", c.charm))
 	}
-	curl := &internalcharm.URL{
+	curl := &charm.URL{
 		Schema:   schema,
 		Name:     name,
 		Revision: c.origin.Revision,
