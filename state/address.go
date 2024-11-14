@@ -365,6 +365,7 @@ type address struct {
 	Scope       string `bson:"networkscope,omitempty"`
 	Origin      string `bson:"origin,omitempty"`
 	SpaceID     string `bson:"spaceid,omitempty"`
+	CIDR        string `bson:"cidr,omitempty"`
 }
 
 // fromNetworkAddress is a convenience helper to create a state type
@@ -376,6 +377,7 @@ func fromNetworkAddress(netAddr network.SpaceAddress, origin network.Origin) add
 		Scope:       string(netAddr.Scope),
 		Origin:      string(origin),
 		SpaceID:     netAddr.SpaceID,
+		CIDR:        netAddr.CIDR,
 	}
 }
 
@@ -387,6 +389,7 @@ func (addr *address) networkAddress() network.SpaceAddress {
 			Value: addr.Value,
 			Type:  network.AddressType(addr.AddressType),
 			Scope: network.Scope(addr.Scope),
+			CIDR:  addr.CIDR,
 		},
 		SpaceID: addr.SpaceID,
 	}
