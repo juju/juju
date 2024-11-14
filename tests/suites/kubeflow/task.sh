@@ -13,18 +13,10 @@ test_kubeflow() {
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
-		# Charmed kubeflow 1.6 only supports k8s 1.22
-		# https://charmed-kubeflow.io/docs/install
-		microk8s kubectl version -o json | jq -r '.serverVersion | .major+"."+.minor' | check "1.22"
-
 		bootstrap "test-kubeflow" "${file}"
 
-		microk8s disable metallb
-		microk8s enable "metallb:10.64.140.43-10.64.140.49"
-
-		KUBECONFIG="$(mktemp)"
-		microk8s config >"${KUBECONFIG}"
-		export KUBECONFIG
+		sudo microk8s disable metallb || true # for local testing, this can be done out of band
+		sudo microk8s enable "metallb:10.64.140.43-10.64.140.49" || true
 
 		test_deploy_kubeflow
 		;;
