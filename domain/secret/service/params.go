@@ -13,7 +13,7 @@ import (
 )
 
 // SecretServiceParams defines parameters used to create a secret service for
-// managing secret centent.
+// managing secret content.
 type SecretServiceParams struct {
 	BackendAdminConfigGetter      BackendAdminConfigGetter
 	BackendUserSecretConfigGetter BackendUserSecretConfigGetter
