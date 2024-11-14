@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"io"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -25,8 +27,10 @@ import (
 type charmServiceSuite struct {
 	testing.IsolationSuite
 
-	state *MockCharmState
-	charm *MockCharm
+	state             *MockCharmState
+	charm             *MockCharm
+	objectStore       *MockObjectStore
+	objectStoreGetter *MockModelObjectStoreGetter
 
 	service *CharmService
 }
@@ -207,6 +211,64 @@ func (s *charmServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 
 	_, _, err := s.service.GetCharm(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *charmServiceSuite) TestGetCharmFromSha256ErrorDB(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmArchivePathFromSha256(gomock.Any(), "deadbeef").Return("", false, errors.New("boom!"))
+
+	_, err := s.service.GetCharmFromSha256(context.Background(), "deadbeef")
+	c.Assert(err, gc.ErrorMatches, "boom!")
+}
+
+func (s *charmServiceSuite) TestGetCharmFromSha256NotAvailable(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmArchivePathFromSha256(gomock.Any(), "deadbeef").Return("archive-path", false, nil)
+
+	_, err := s.service.GetCharmFromSha256(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotYetAvailable)
+}
+
+func (s *charmServiceSuite) TestGetCharmFromSha256ErrorObjectStore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmArchivePathFromSha256(gomock.Any(), "deadbeef").Return("archive-path", true, nil)
+
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(nil, errors.New("boom!"))
+
+	_, err := s.service.GetCharmFromSha256(context.Background(), "deadbeef")
+	c.Assert(err, gc.ErrorMatches, "accessing model object store: boom!")
+}
+
+func (s *charmServiceSuite) TestGetCharmFromSha256ErrorReadingCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmArchivePathFromSha256(gomock.Any(), "deadbeef").Return("archive-path", true, nil)
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.objectStore, nil)
+	s.objectStore.EXPECT().Get(gomock.Any(), "archive-path").Return(nil, 0, errors.New("boom!"))
+
+	_, err := s.service.GetCharmFromSha256(context.Background(), "deadbeef")
+	c.Assert(err, gc.ErrorMatches, "retrieving charm from model object storage: boom!")
+}
+
+func (s *charmServiceSuite) TestGetCharmFromSha256Success(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmArchivePathFromSha256(gomock.Any(), "deadbeef").Return("archive-path", true, nil)
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.objectStore, nil)
+	s.objectStore.EXPECT().Get(gomock.Any(), "archive-path").Return(io.NopCloser(strings.NewReader("charm-contents")), 14, nil)
+
+	reader, err := s.service.GetCharmFromSha256(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reader, gc.NotNil)
+
+	buf := make([]byte, 1024)
+	n, err := reader.Read(buf)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 14)
+	c.Assert(buf[:n], gc.DeepEquals, []byte("charm-contents"))
 }
 
 func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
@@ -577,8 +639,10 @@ func (s *charmServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.state = NewMockCharmState(ctrl)
 	s.charm = NewMockCharm(ctrl)
+	s.objectStore = NewMockObjectStore(ctrl)
+	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
-	s.service = NewCharmService(s.state, loggertesting.WrapCheckLog(c))
+	s.service = NewCharmService(s.state, s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }
@@ -614,7 +678,7 @@ func (s *watchableServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.state = NewMockCharmState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
-	s.service = NewWatchableCharmService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	s.service = NewWatchableCharmService(s.state, s.watcherFactory, nil, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }

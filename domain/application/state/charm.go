@@ -42,7 +42,7 @@ func NewCharmState(factory database.TxnRunnerFactory) *CharmState {
 
 // GetCharmIDByRevision returns the charm ID by the natural key, for a
 // specific revision.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -85,7 +85,7 @@ AND charm_origin.revision = $charmReferenceNameRevision.revision;
 }
 
 // IsControllerCharm returns whether the charm is a controller charm.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -123,7 +123,7 @@ WHERE uuid = $charmID.uuid;
 }
 
 // IsSubordinateCharm returns whether the charm is a subordinate charm.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -161,7 +161,7 @@ WHERE uuid = $charmID.uuid;
 }
 
 // SupportsContainers returns whether the charm supports containers.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -206,7 +206,7 @@ WHERE uuid = $charmID.uuid;
 }
 
 // IsCharmAvailable returns whether the charm is available for use.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -243,7 +243,7 @@ WHERE uuid = $charmID.uuid;
 }
 
 // SetCharmAvailable sets the charm as available for use.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
@@ -371,7 +371,7 @@ WHERE uuid = $charmID.uuid;
 
 // GetCharmArchivePath returns the archive storage path for the charm using
 // the charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -408,7 +408,7 @@ WHERE uuid = $charmID.uuid;
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -430,7 +430,7 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 }
 
 // GetCharmMetadataDescription returns the metadata for the charm using the
-// charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
+// charm ID. If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
 func (s *CharmState) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
@@ -467,7 +467,7 @@ WHERE uuid = $charmID.uuid;`
 }
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -490,7 +490,7 @@ func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (cha
 
 // GetCharmLXDProfile returns the LXD profile for the charm using the
 // charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, charm.Revision, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -515,7 +515,7 @@ func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([
 }
 
 // GetCharmConfig returns the config for the charm using the charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -533,11 +533,10 @@ func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm
 		return charm.Config{}, internalerrors.Capture(err)
 	}
 	return charmConfig, nil
-
 }
 
 // GetCharmActions returns the actions for the charm using the charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -559,7 +558,7 @@ func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (char
 }
 
 // GetCharm returns the charm using the charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -588,6 +587,44 @@ func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm
 	}
 
 	return ch, origin, nil
+}
+
+// GetCharmFromSha256 returns the charm's archive path from its SHA256 hash and
+// a boolean indicating whether the charm is available for download or not.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *CharmState) GetCharmArchivePathFromSha256(ctx context.Context, sha256 string) (string, bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", false, errors.Trace(err)
+	}
+
+	hash := charmHash{Hash: sha256}
+	query := `
+SELECT &charmArchivePathAvailable.*
+FROM   charm
+JOIN   charm_hash ON charm_hash.charm_uuid = charm.uuid
+WHERE  charm_hash.hash = $charmHash.hash;
+`
+	stmt, err := s.Prepare(query, charmArchivePathAvailable{}, hash)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var archivePath charmArchivePathAvailable
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, hash).Get(&archivePath); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.CharmNotFound
+			}
+			return fmt.Errorf("selecting charm archive path: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", false, fmt.Errorf("failed to get charm: %w", err)
+	}
+
+	return archivePath.ArchivePath, archivePath.Available, nil
 }
 
 // SetCharm persists the charm metadata, actions, config and manifest to
@@ -762,7 +799,7 @@ type deleteStatement struct {
 }
 
 // DeleteCharm removes the charm from the state.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
 func (s *CharmState) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
@@ -846,7 +883,8 @@ func (s *CharmState) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecha
 func (s *CharmState) setCharmInitialOrigin(
 	ctx context.Context, tx *sqlair.TX, id corecharm.ID,
 	referenceName string,
-	source charm.CharmSource, revision int, version string) error {
+	source charm.CharmSource, revision int, version string,
+) error {
 	ident := charmID{UUID: id.String()}
 
 	encodedOriginSource, err := encodeOriginSource(source)

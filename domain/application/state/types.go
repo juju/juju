@@ -196,6 +196,11 @@ type charmName struct {
 	Name string `db:"name"`
 }
 
+// charmHash is used to pass the hash to the query.
+type charmHash struct {
+	Hash string `db:"hash"`
+}
+
 // charmReferenceNameRevision is used to pass the reference name and revision to
 // the query.
 type charmReferenceNameRevision struct {
@@ -559,6 +564,13 @@ type setCharmAction struct {
 // charmArchivePath is used to get the archive path of a charm.
 type charmArchivePath struct {
 	ArchivePath string `db:"archive_path"`
+}
+
+// charmArchivePathAvailable is used to get the archive path of a charm as well
+// as a boolean indicating whether the charm is available for download or not.
+type charmArchivePathAvailable struct {
+	ArchivePath string `db:"archive_path"`
+	Available   bool   `db:"available"`
 }
 
 // charmOrigin is used to get the origin of a charm.

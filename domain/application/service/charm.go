@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
@@ -116,6 +118,12 @@ type CharmState interface {
 	// GetCharm returns the charm using the charm ID.
 	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error)
 
+	// GetCharmFromSha256 returns the charm's archive path from its SHA256 hash and
+	// a boolean indicating whether the charm is available for download or not.
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
+	GetCharmArchivePathFromSha256(ctx context.Context, sha256 string) (string, bool, error)
+
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
 	SetCharm(ctx context.Context, charm charm.Charm, state charm.SetStateArgs) (corecharm.ID, error)
@@ -137,15 +145,17 @@ type CharmState interface {
 
 // CharmService provides the API for working with charms.
 type CharmService struct {
-	st     CharmState
-	logger logger.Logger
+	st                CharmState
+	logger            logger.Logger
+	objectStoreGetter objectstore.ModelObjectStoreGetter
 }
 
 // NewCharmService returns a new service reference wrapping the input state.
-func NewCharmService(st CharmState, logger logger.Logger) *CharmService {
+func NewCharmService(st CharmState, objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) *CharmService {
 	return &CharmService{
-		st:     st,
-		logger: logger,
+		st:                st,
+		logger:            logger,
+		objectStoreGetter: objectStoreGetter,
 	}
 }
 
@@ -218,7 +228,7 @@ func (s *CharmService) IsSubordinateCharm(ctx context.Context, id corecharm.ID) 
 
 // GetCharm returns the charm using the charm ID.
 // Calling this method will return all the data associated with the charm.
-// It is not expected to call this method for all calls, instead use the move
+// It is not expected to call this method for all calls, instead use the more
 // focused and specific methods. That's because this method is very expensive
 // to call. This is implemented for the cases where all the charm data is
 // needed; model migration, charm export, etc.
@@ -269,6 +279,42 @@ func (s *CharmService) GetCharm(ctx context.Context, id corecharm.ID) (internalc
 		&actions,
 		&lxdProfile,
 	), resultOrigin, nil
+}
+
+// GetCharmFromSha256 returns a [io.Reader] that can be used to retrieve the
+// charm blob from the object storage given its SHA256 hash.
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+// If the charm is not available, a [applicationerrors.CharmNotYetAvailable]
+// error is returned.
+func (s *CharmService) GetCharmFromSha256(ctx context.Context, charmSha256 string) (io.ReadCloser, error) {
+	// Retrieve charm from state.
+	archivePath, available, err := s.st.GetCharmArchivePathFromSha256(ctx, charmSha256)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Check if the charm is still pending to be downloaded and return back
+	// a suitable error.
+	if !available {
+		return nil, applicationerrors.CharmNotYetAvailable
+	}
+
+	// Get the underlying object store for the model UUID, which we can then
+	// retrieve the blob from.
+	store, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("accessing model object store: %w", err)
+	}
+
+	// Use the storage to retrieve the charm archive.
+	reader, _, err := store.Get(ctx, archivePath)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving charm from model object storage: %w", err)
+	}
+	defer reader.Close()
+
+	return reader, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
@@ -526,12 +572,9 @@ type WatchableCharmService struct {
 }
 
 // NewWatchableCharmService returns a new service reference wrapping the input state.
-func NewWatchableCharmService(st CharmState, watcherFactory WatcherFactory, logger logger.Logger) *WatchableCharmService {
+func NewWatchableCharmService(st CharmState, watcherFactory WatcherFactory, objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) *WatchableCharmService {
 	return &WatchableCharmService{
-		CharmService: CharmService{
-			st:     st,
-			logger: logger,
-		},
+		CharmService:   *NewCharmService(st, objectStoreGetter, logger),
 		watcherFactory: watcherFactory,
 	}
 }

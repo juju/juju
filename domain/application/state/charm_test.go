@@ -524,7 +524,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_term (charm_uuid, array_index, value) 
+INSERT INTO charm_term (charm_uuid, array_index, value)
 VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 `, uuid, uuid, uuid)
 		if err != nil {
@@ -560,8 +560,8 @@ func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, key, name, role_id, scope_id) 
-VALUES 
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, key, name, role_id, scope_id)
+VALUES
     (?, ?, 0, 'foo', 'baz', 0, 0),
     (?, ?, 0, 'fred', 'bar', 0, 1),
     (?, ?, 1, 'faa', 'baz', 1, 1),
@@ -631,8 +631,8 @@ func (s *charmStateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_extra_binding (charm_uuid, key, name) 
-VALUES 
+INSERT INTO charm_extra_binding (charm_uuid, key, name)
+VALUES
     (?, 'foo', 'bar'),
     (?, 'fred', 'baz');`,
 			uuid, uuid)
@@ -688,7 +688,7 @@ INSERT INTO charm_storage (
     count_max,
     minimum_size_mib,
     location
-) VALUES 
+) VALUES
     (?, 'foo', 'bar', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
     (?, 'fred', 'baz', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
@@ -760,7 +760,7 @@ INSERT INTO charm_storage (
     count_max,
     minimum_size_mib,
     location
-) VALUES 
+) VALUES
     (?, 'foo', 'bar', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
     (?, 'fred', 'baz', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
@@ -842,7 +842,7 @@ INSERT INTO charm_device (
     device_type,
     count_min,
     count_max
-) VALUES 
+) VALUES
     (?, 'foo', 'bar', 'description 1', 'gpu', 1, 2),
     (?, 'fred', 'baz', 'description 2', 'tpu', 3, 4);`,
 			uuid, uuid)
@@ -897,7 +897,7 @@ INSERT INTO charm_payload (
     key,
     name,
     type
-) VALUES 
+) VALUES
     (?, 'foo', 'bar', 'docker'),
     (?, 'fred', 'baz', 'kvm');`,
 			uuid, uuid)
@@ -948,7 +948,7 @@ INSERT INTO charm_resource (
     kind_id,
     path,
     description
-) VALUES 
+) VALUES
     (?, 'foo', 'bar', 0, '/tmp/file.txt', 'description 1'),
     (?, 'fred', 'baz', 1, 'hub.docker.io/jujusolutions', 'description 2');`,
 			uuid, uuid)
@@ -1002,7 +1002,7 @@ INSERT INTO charm_container (
     resource,
     uid,
     gid
-) VALUES 
+) VALUES
     (?, 'foo', 'ubuntu@22.04', 100, 100),
     (?, 'fred', 'ubuntu@20.04', -1, -1);`,
 			uuid, uuid)
@@ -1052,7 +1052,7 @@ INSERT INTO charm_container (
     resource,
     uid,
     gid
-) VALUES 
+) VALUES
     (?, 'foo', 'ubuntu@22.04', 100, 100),
     (?, 'fred', 'ubuntu@20.04', -1, -1);`,
 			uuid, uuid)
@@ -1120,6 +1120,68 @@ func (s *charmStateSuite) TestDeleteCharm(c *gc.C) {
 
 	err := st.DeleteCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetCharmArchivePathFromSha256NotFound(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	sha256 := "hash"
+
+	_, _, err := st.GetCharmArchivePathFromSha256(context.Background(), sha256)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetCharmArchivePathFromSha256Available(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+	archivePath := "/archive/path/location"
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, archive_path, available) VALUES (?, ?, true)`, uuid, archivePath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_hash (charm_uuid, hash_kind_id, hash) VALUES (?, 0, 'hash')`, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	archivePath, available, err := st.GetCharmArchivePathFromSha256(context.Background(), "hash")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(archivePath, gc.Equals, archivePath)
+	c.Check(available, gc.Equals, true)
+}
+
+func (s *charmStateSuite) TestGetCharmArchivePathFromSha256NotAvailable(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, archive_path, available) VALUES (?, "", false)`, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_hash (charm_uuid, hash_kind_id, hash) VALUES (?, 0, 'hash')`, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	archivePath, available, err := st.GetCharmArchivePathFromSha256(context.Background(), "hash")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(archivePath, gc.Equals, "")
+	c.Check(available, gc.Equals, false)
 }
 
 func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
@@ -1884,7 +1946,7 @@ INSERT INTO charm_manifest_base (
     risk,
     branch,
     architecture_id
-) VALUES 
+) VALUES
     (?, 0, 1, 0, '', 'stable', '', 1),
     (?, 1, 0, 0, '', 'edge', 'foo', 0),
     (?, 0, 0, 0, '', 'stable', '', 0),
@@ -1987,6 +2049,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
 }
+
 func (s *charmStateSuite) TestGetCharmManifestCharmNotFound(c *gc.C) {
 	st := NewCharmState(s.TxnRunnerFactory())
 
@@ -2008,7 +2071,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfile(c *gc.C) {
 		}
 
 		_, err := tx.ExecContext(ctx, `
-UPDATE charm_metadata 
+UPDATE charm_metadata
 SET lxd_profile = ?
 WHERE charm_uuid = ?
 `, `{"profile": []}`, uuid)
@@ -2076,7 +2139,7 @@ INSERT INTO charm_config (
     type_id,
     default_value,
     description
-) VALUES 
+) VALUES
     (?, 'foo', 0, 'string', 'this is a string'),
     (?, 'bar', 1, '42', 'this is an int'),
 	(?, 'baz', 3, 'true', 'this is a bool'),
@@ -2235,7 +2298,7 @@ INSERT INTO charm_action (
     parallel,
     execution_group,
 	params
-) VALUES 
+) VALUES
     (?, 'foo', 'description1', true, 'group1', '{}'),
     (?, 'bar', 'description2', false, 'group2', null);`,
 			uuid, uuid)
@@ -2521,7 +2584,7 @@ func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) err
 	}
 
 	_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
+INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes)
 VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
 	if err != nil {
 		return errors.Trace(err)

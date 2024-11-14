@@ -74,29 +74,15 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	// Retrieve charm from state.
-	ch, err := st.CharmFromSha256(charmSha256)
+	domainServices, err := h.ctxt.domainServicesForRequest(r.Context())
 	if err != nil {
-		return errors.Annotate(err, "cannot get charm from state")
+		return errors.Trace(err)
 	}
+	applicationService := domainServices.Application()
 
-	// Check if the charm is still pending to be downloaded and return back
-	// a suitable error.
-	if !ch.IsUploaded() {
-		return errors.NewNotYetAvailable(nil, ch.URL())
-	}
-
-	// Get the underlying object store for the model UUID, which we can then
-	// retrieve the blob from.
-	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	reader, err := applicationService.GetCharmFromSha256(r.Context(), charmSha256)
 	if err != nil {
-		return errors.Annotate(err, "cannot get object store")
-	}
-
-	// Use the storage to retrieve the charm archive.
-	reader, _, err := store.Get(r.Context(), ch.StoragePath())
-	if err != nil {
-		return errors.Annotate(err, "cannot get charm from model storage")
+		return errors.Trace(err)
 	}
 	defer reader.Close()
 

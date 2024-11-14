@@ -64,6 +64,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 
