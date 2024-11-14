@@ -6,6 +6,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/juju/collections/set"
 
@@ -361,9 +362,9 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 		return charm.Metadata{}, fmt.Errorf("encode peers relation: %w", err)
 	}
 
-	err = verifyRelations(provides, requires, peers)
+	err = verifyRelations(metadata, provides, requires, peers)
 	if err != nil {
-		return charm.Metadata{}, err
+		return charm.Metadata{}, fmt.Errorf("verifying charm relations: %w", err)
 	}
 
 	storage, err := encodeMetadataStorage(metadata.Storage)
@@ -430,7 +431,11 @@ func encodeMetadataRelation(relations map[string]internalcharm.Relation) (map[st
 	}
 
 	result := make(map[string]charm.Relation, len(relations))
-	for k, v := range relations {
+	for name, v := range relations {
+		if name != v.Name {
+			return nil, errors.Errorf("expected relation name %q to match relation key %q", v.Name, name)
+		}
+
 		role, err := encodeMetadataRole(v.Role)
 		if err != nil {
 			return nil, fmt.Errorf("encode role: %w", err)
@@ -441,8 +446,8 @@ func encodeMetadataRelation(relations map[string]internalcharm.Relation) (map[st
 			return nil, fmt.Errorf("encode scope: %w", err)
 		}
 
-		result[k] = charm.Relation{
-			Key:       k,
+		result[name] = charm.Relation{
+			Key:       name,
 			Name:      v.Name,
 			Role:      role,
 			Scope:     scope,
@@ -463,7 +468,7 @@ func encodeMetadataRole(role internalcharm.RelationRole) (charm.RelationRole, er
 	case internalcharm.RolePeer:
 		return charm.RolePeer, nil
 	default:
-		return "", errors.Errorf("unknown role %q", role)
+		return "", errors.Errorf("%w; unknown role %q", applicationerrors.CharmRelationRoleNotValid, role)
 	}
 }
 
@@ -478,7 +483,21 @@ func encodeMetadataScope(scope internalcharm.RelationScope) (charm.RelationScope
 	}
 }
 
-func verifyRelations(provides, requires, peers map[string]charm.Relation) error {
+func verifyRelations(metadata *internalcharm.Meta, provides, requires, peers map[string]charm.Relation) error {
+	if err := verifyRelationRoles(provides, requires, peers); err != nil {
+		return err
+	}
+	if err := verifyRelationNamesAreUnique(provides, requires, peers); err != nil {
+		return err
+	}
+	if err := verifyNoReservedNameMisuses(metadata, provides, requires, peers); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func verifyRelationNamesAreUnique(provides, requires, peers map[string]charm.Relation) error {
 	seenKeys := set.NewStrings()
 	conflicts := set.NewStrings()
 	for k := range provides {
@@ -500,6 +519,81 @@ func verifyRelations(provides, requires, peers map[string]charm.Relation) error 
 		return errors.Errorf("%w %q", applicationerrors.CharmRelationNameConflict, conflicts.Values())
 	}
 	return nil
+}
+
+func verifyRelationRoles(provides, requires, peers map[string]charm.Relation) error {
+	for k, v := range provides {
+		if v.Role != charm.RoleProvider {
+			return errors.Errorf("%w; expected provides relation %q to have role %q",
+				applicationerrors.CharmRelationRoleNotValid, k, charm.RoleProvider)
+		}
+	}
+	for k, v := range requires {
+		if v.Role != charm.RoleRequirer {
+			return errors.Errorf("%w; expected requires relation %q to have role %q",
+				applicationerrors.CharmRelationRoleNotValid, k, charm.RoleRequirer)
+		}
+	}
+	for k, v := range peers {
+		if v.Role != charm.RolePeer {
+			return errors.Errorf("%w; expected peers relation %q to have role %q",
+				applicationerrors.CharmRelationRoleNotValid, k, charm.RolePeer)
+		}
+	}
+	return nil
+}
+
+func verifyNoReservedNameMisuses(metadata *internalcharm.Meta, provides, requires, peers map[string]charm.Relation) error {
+	// 'special' charms starting with "juju-" are allowed to use the reserved
+	// interface names.
+	if strings.HasPrefix(metadata.Name, "juju-") {
+		return nil
+	}
+
+	for _, rel := range provides {
+		if reservedRelationName(rel.Interface) {
+			return errors.Errorf("%w; provides relation %q has reserved interface name %q",
+				applicationerrors.CharmRelationReservedNameMisuse, rel.Name, rel.Interface)
+		}
+
+		if reservedRelationName(rel.Name) {
+			return errors.Errorf("%w; provides relation %q has reserved name",
+				applicationerrors.CharmRelationReservedNameMisuse, rel.Name)
+		}
+	}
+	for _, rel := range peers {
+		if reservedRelationName(rel.Interface) {
+			return errors.Errorf("%w; peer relation %q has reserved interface name %q",
+				applicationerrors.CharmRelationReservedNameMisuse, rel.Name, rel.Interface)
+		}
+		if reservedRelationName(rel.Name) {
+			return errors.Errorf("%w; peer relation %q has reserved name",
+				applicationerrors.CharmRelationReservedNameMisuse, rel.Name)
+		}
+	}
+
+	// Requires relation are handled differently. Charms are allowed to require
+	// interfaces with the reserved names, but not host them themselves.
+	//
+	// However, we still check for reserved names in the relation name, unless
+	// the relation is on a subordinate charm and is container-scoped.
+	for name, rel := range requires {
+		// Container-scoped require relations on subordinates are allowed
+		// to use the otherwise-reserved juju-* namespace.
+		if metadata.Subordinate && rel.Scope == charm.ScopeContainer {
+			continue
+		}
+		if reservedRelationName(name) {
+			return errors.Errorf("%w; requires relation %q has reserved relation name %q",
+				applicationerrors.CharmRelationReservedNameMisuse, rel.Name, rel.Interface)
+		}
+	}
+
+	return nil
+}
+
+func reservedRelationName(name string) bool {
+	return name == "juju" || strings.HasPrefix(name, "juju-")
 }
 
 func encodeMetadataStorage(storage map[string]internalcharm.Storage) (map[string]charm.Storage, error) {

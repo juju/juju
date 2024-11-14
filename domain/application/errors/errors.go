@@ -118,6 +118,15 @@ const (
 	// has multiple relations with the same name
 	CharmRelationNameConflict = errors.ConstError("charm relation name conflict")
 
+	// CharmRelationReservedNameMisuse describes an error that occurs when the charm
+	// relation name is a reserved name which it is not allowed to use.
+	CharmRelationReservedNameMisuse = errors.ConstError("charm relation reserved name misuse")
+
+	// CharmRelationRoleNotValid describes an error that occurs when the charm
+	// relation roles is not valid. Either it is an unknown role, or it has the
+	// wrong value.
+	CharmRelationRoleNotValid = errors.ConstError("charm relation role not valid")
+
 	// ResourceNotFound describes an error that occurs when a resource is
 	// not found.
 	ResourceNotFound = errors.ConstError("resource not found")

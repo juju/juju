@@ -695,45 +695,6 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 		return errors.Errorf("unknown format %v", format)
 	}
 
-	// Check for duplicate or forbidden relation names or interfaces.
-	names := make(map[string]bool)
-	checkRelations := func(src map[string]Relation, role RelationRole) error {
-		for name, rel := range src {
-			if rel.Name != name {
-				return errors.Errorf("charm %q has mismatched relation name %q; expected %q", m.Name, rel.Name, name)
-			}
-			if rel.Role != role {
-				return errors.Errorf("charm %q has mismatched role %q; expected %q", m.Name, rel.Role, role)
-			}
-			// Container-scoped require relations on subordinates are allowed
-			// to use the otherwise-reserved juju-* namespace.
-			if !m.Subordinate || role != RoleRequirer || rel.Scope != ScopeContainer {
-				if reserved, _ := reservedName(m.Name, name); reserved {
-					return errors.Errorf("charm %q using a reserved relation name: %q", m.Name, name)
-				}
-			}
-			if role != RoleRequirer {
-				if reserved, _ := reservedName(m.Name, rel.Interface); reserved {
-					return errors.Errorf("charm %q relation %q using a reserved interface: %q", m.Name, name, rel.Interface)
-				}
-			}
-			if names[name] {
-				return errors.Errorf("charm %q using a duplicated relation name: %q", m.Name, name)
-			}
-			names[name] = true
-		}
-		return nil
-	}
-	if err := checkRelations(m.Provides, RoleProvider); err != nil {
-		return err
-	}
-	if err := checkRelations(m.Requires, RoleRequirer); err != nil {
-		return err
-	}
-	if err := checkRelations(m.Peers, RolePeer); err != nil {
-		return err
-	}
-
 	if err := validateMetaExtraBindings(m); err != nil {
 		return errors.Errorf("charm %q has invalid extra bindings: %v", m.Name, err)
 	}
@@ -756,7 +717,7 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 		}
 	}
 
-	names = make(map[string]bool)
+	names := make(map[string]bool)
 	for name, store := range m.Storage {
 		if store.Location != "" && store.Type != StorageFilesystem {
 			return errors.Errorf(`charm %q storage %q: location may not be specified for "type: %s"`, m.Name, name, store.Type)
