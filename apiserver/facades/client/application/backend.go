@@ -4,7 +4,6 @@
 package application
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -41,7 +40,6 @@ type Backend interface {
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	InferActiveRelation(...string) (Relation, error)
 	Machine(string) (Machine, error)
-	Model() (Model, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
@@ -70,7 +68,6 @@ type Application interface {
 	ClearExposed() error
 	CharmConfig() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
-	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
@@ -82,11 +79,8 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
-	SetMinUnits(int) error
 	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
-	ChangeScale(int) (int, error)
-	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
 }
@@ -257,21 +251,6 @@ func NewStateApplication(
 	return stateApplicationShim{
 		Application: app,
 		st:          st,
-	}
-}
-
-// CharmToStateCharm converts a Charm into a state.Charm. This is
-// a hack that is required until the State interface methods we
-// deal with stop accepting state.Charms, and start accepting
-// charm.Charm and charm.URL.
-func CharmToStateCharm(ch Charm) (state.CharmRef, error) {
-	switch c := ch.(type) {
-	case stateCharmShim:
-		return c.Charm, nil
-	case *domainCharm:
-		return c, nil
-	default:
-		return nil, fmt.Errorf("unexpected charm type %T", ch)
 	}
 }
 

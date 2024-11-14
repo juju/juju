@@ -73,7 +73,6 @@ type DeployFromRepositoryAPI struct {
 	state              DeployFromRepositoryState
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
-	stateCharm         transformCharmFn
 	applicationService ApplicationService
 	logger             corelogger.Logger
 }
@@ -88,7 +87,6 @@ func NewDeployFromRepositoryAPI(
 		state:              state,
 		store:              store,
 		validator:          validator,
-		stateCharm:         CharmToStateCharm,
 		applicationService: applicationService,
 		logger:             logger,
 	}
@@ -143,15 +141,10 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	stateCharm, err := api.stateCharm(ch)
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-	}
-
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
-		Charm:             stateCharm,
+		Charm:             ch,
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,
@@ -296,7 +289,7 @@ type validatorConfig struct {
 	machineService     MachineService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
-	storagePoolGetter  StorageService
+	storageService     StorageService
 	logger             corelogger.Logger
 }
 
@@ -319,10 +312,10 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	}
 	if cfg.modelInfo.Type == model.CAAS {
 		return &caasDeployFromRepositoryValidator{
-			caasBroker:        cfg.caasBroker,
-			registry:          cfg.registry,
-			storagePoolGetter: cfg.storagePoolGetter,
-			validator:         v,
+			caasBroker:     cfg.caasBroker,
+			registry:       cfg.registry,
+			storageService: cfg.storageService,
+			validator:      v,
 			caasPrecheckFunc: func(dt deployTemplate) error {
 				attachStorage := make([]string, len(dt.attachStorage))
 				for i, tag := range dt.attachStorage {
@@ -336,7 +329,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					placement:       dt.placement,
 					storage:         dt.storage,
 				}
-				return cdp.precheck(ctx, v.modelConfigService, cfg.storagePoolGetter, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.modelConfigService, cfg.storageService, cfg.registry, cfg.caasBroker)
 			},
 		}
 	}
@@ -538,9 +531,9 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 
-	caasBroker        CaasBrokerInterface
-	registry          storage.ProviderRegistry
-	storagePoolGetter StorageService
+	caasBroker     CaasBrokerInterface
+	registry       storage.ProviderRegistry
+	storageService StorageService
 
 	// Needed for testing. caasDeployTemplate precheck functionality tested
 	// elsewhere

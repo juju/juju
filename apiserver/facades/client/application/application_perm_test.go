@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type permSuite struct {
+type permBaseSuite struct {
 	baseSuite
 
-	apiFn func(*gc.C)
+	newAPI func(*gc.C)
 }
 
-func (s *permSuite) TestAPIConstruction(c *gc.C) {
+func (s *permBaseSuite) TestAPIConstruction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().AuthClient().Return(false)
@@ -29,7 +29,7 @@ func (s *permSuite) TestAPIConstruction(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestAPIServiceConstruction(c *gc.C) {
+func (s *permBaseSuite) TestAPIServiceConstruction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
@@ -38,57 +38,57 @@ func (s *permSuite) TestAPIServiceConstruction(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *permSuite) TestDeployPermission(c *gc.C) {
+func (s *permBaseSuite) TestDeployPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDeployBlocked(c *gc.C) {
+func (s *permBaseSuite) TestDeployBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestSetCharmPermission(c *gc.C) {
+func (s *permBaseSuite) TestSetCharmPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestSetCharmBlocked(c *gc.C) {
+func (s *permBaseSuite) TestSetCharmBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestSetCharmBlockIgnoredWithForceUnits(c *gc.C) {
+func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
@@ -96,7 +96,7 @@ func (s *permSuite) TestSetCharmBlockIgnoredWithForceUnits(c *gc.C) {
 
 	// The check is not even called if force units is set.
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ForceUnits: true,
@@ -107,7 +107,7 @@ func (s *permSuite) TestSetCharmBlockIgnoredWithForceUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
-func (s *permSuite) TestSetCharmValidOrigin(c *gc.C) {
+func (s *permBaseSuite) TestSetCharmValidOrigin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
@@ -116,7 +116,7 @@ func (s *permSuite) TestSetCharmValidOrigin(c *gc.C) {
 
 	s.backend.EXPECT().Application("foo").Return(nil, errors.NotFound)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	// Ensure that a valid origin is required before setting a charm.
 	// There will be tests from ensuring correctness of the origin.
@@ -131,13 +131,13 @@ func (s *permSuite) TestSetCharmValidOrigin(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *permSuite) TestGetCharmURLOriginPermission(c *gc.C) {
+func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
 		ApplicationName: "foo",
@@ -145,13 +145,13 @@ func (s *permSuite) TestGetCharmURLOriginPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestCharmRelationsPermission(c *gc.C) {
+func (s *permBaseSuite) TestCharmRelationsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.CharmRelations(context.Background(), params.ApplicationCharmRelations{
 		ApplicationName: "foo",
@@ -159,13 +159,13 @@ func (s *permSuite) TestCharmRelationsPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestExposePermission(c *gc.C) {
+func (s *permBaseSuite) TestExposePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.Expose(context.Background(), params.ApplicationExpose{
 		ApplicationName: "foo",
@@ -173,13 +173,13 @@ func (s *permSuite) TestExposePermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestUnexposePermission(c *gc.C) {
+func (s *permBaseSuite) TestUnexposePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.Unexpose(context.Background(), params.ApplicationUnexpose{
 		ApplicationName: "foo",
@@ -187,398 +187,398 @@ func (s *permSuite) TestUnexposePermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDestroyApplicationPermission(c *gc.C) {
+func (s *permBaseSuite) TestDestroyApplicationPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDestroyApplicationBlocked(c *gc.C) {
+func (s *permBaseSuite) TestDestroyApplicationBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockRemoval(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestDestroyConsumedApplicationsPermission(c *gc.C) {
+func (s *permBaseSuite) TestDestroyConsumedApplicationsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDestroyConsumedApplicationsBlocked(c *gc.C) {
+func (s *permBaseSuite) TestDestroyConsumedApplicationsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockRemoval(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestGetConstraintsPermission(c *gc.C) {
+func (s *permBaseSuite) TestGetConstraintsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.GetConstraints(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestSetConstraintsPermission(c *gc.C) {
+func (s *permBaseSuite) TestSetConstraintsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.SetConstraints(context.Background(), params.SetConstraints{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestSetConstraintsBlocked(c *gc.C) {
+func (s *permBaseSuite) TestSetConstraintsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.SetConstraints(context.Background(), params.SetConstraints{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestAddRelationPermission(c *gc.C) {
+func (s *permBaseSuite) TestAddRelationPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.AddRelation(context.Background(), params.AddRelation{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestAddRelationBlocked(c *gc.C) {
+func (s *permBaseSuite) TestAddRelationBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.AddRelation(context.Background(), params.AddRelation{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestDestroyRelationPermission(c *gc.C) {
+func (s *permBaseSuite) TestDestroyRelationPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDestroyRelationBlocked(c *gc.C) {
+func (s *permBaseSuite) TestDestroyRelationBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockRemoval(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestSetRelationsSuspendedPermission(c *gc.C) {
+func (s *permBaseSuite) TestSetRelationsSuspendedPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestSetRelationsSuspendedBlocked(c *gc.C) {
+func (s *permBaseSuite) TestSetRelationsSuspendedBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestConsumePermission(c *gc.C) {
+func (s *permBaseSuite) TestConsumePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgsV5{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestConsumeBlocked(c *gc.C) {
+func (s *permBaseSuite) TestConsumeBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgsV5{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestGetPermission(c *gc.C) {
+func (s *permBaseSuite) TestGetPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.Get(context.Background(), params.ApplicationGet{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestCharmConfigPermission(c *gc.C) {
+func (s *permBaseSuite) TestCharmConfigPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestGetConfigPermission(c *gc.C) {
+func (s *permBaseSuite) TestGetConfigPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.GetConfig(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestSetConfigsPermission(c *gc.C) {
+func (s *permBaseSuite) TestSetConfigsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestSetConfigsBlocked(c *gc.C) {
+func (s *permBaseSuite) TestSetConfigsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestUnsetApplicationsConfigPermission(c *gc.C) {
+func (s *permBaseSuite) TestUnsetApplicationsConfigPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestUnsetApplicationsConfigBlocked(c *gc.C) {
+func (s *permBaseSuite) TestUnsetApplicationsConfigBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestResolveUnitErrorsPermission(c *gc.C) {
+func (s *permBaseSuite) TestResolveUnitErrorsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestResolveUnitErrorsBlocked(c *gc.C) {
+func (s *permBaseSuite) TestResolveUnitErrorsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestApplicationsInfoPermission(c *gc.C) {
+func (s *permBaseSuite) TestApplicationsInfoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.ApplicationsInfo(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestMergeBindingsPermission(c *gc.C) {
+func (s *permBaseSuite) TestMergeBindingsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.MergeBindings(context.Background(), params.ApplicationMergeBindingsArgs{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestMergeBindingsBlocked(c *gc.C) {
+func (s *permBaseSuite) TestMergeBindingsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.MergeBindings(context.Background(), params.ApplicationMergeBindingsArgs{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
-func (s *permSuite) TestUnitsInfoPermission(c *gc.C) {
+func (s *permBaseSuite) TestUnitsInfoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.UnitsInfo(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestLeaderPermission(c *gc.C) {
+func (s *permBaseSuite) TestLeaderPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.Leader(context.Background(), params.Entity{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDeployFromRepositoryPermission(c *gc.C) {
+func (s *permBaseSuite) TestDeployFromRepositoryPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DeployFromRepository(context.Background(), params.DeployFromRepositoryArgs{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *permSuite) TestDeployFromRepositoryBlocked(c *gc.C) {
+func (s *permBaseSuite) TestDeployFromRepositoryBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DeployFromRepository(context.Background(), params.DeployFromRepositoryArgs{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 }
 
 type permSuiteIAAS struct {
-	permSuite
+	permBaseSuite
 }
 
 var _ = gc.Suite(&permSuiteIAAS{})
 
 func (s *permSuiteIAAS) SetUpTest(c *gc.C) {
-	s.permSuite.apiFn = s.newIAASAPI
+	s.permBaseSuite.newAPI = s.newIAASAPI
 }
 
 func (s *permSuiteIAAS) TestAddUnitsPermission(c *gc.C) {
@@ -587,7 +587,7 @@ func (s *permSuiteIAAS) TestAddUnitsPermission(c *gc.C) {
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "foo",
@@ -602,7 +602,7 @@ func (s *permSuiteIAAS) TestAddUnitsBlocked(c *gc.C) {
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "foo",
@@ -616,7 +616,7 @@ func (s *permSuiteIAAS) TestDestroyUnitPermission(c *gc.C) {
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
@@ -629,7 +629,7 @@ func (s *permSuiteIAAS) TestDestroyUnitBlocked(c *gc.C) {
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockRemoval(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
@@ -640,20 +640,20 @@ func (s *permSuiteIAAS) TestScaleApplicationsInvalidForIAAS(c *gc.C) {
 
 	s.expectAuthClient(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{})
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 type permSuiteCAAS struct {
-	permSuite
+	permBaseSuite
 }
 
 var _ = gc.Suite(&permSuiteCAAS{})
 
 func (s *permSuiteCAAS) SetUpTest(c *gc.C) {
-	s.permSuite.apiFn = s.newCAASAPI
+	s.permBaseSuite.newAPI = s.newCAASAPI
 }
 
 func (s *permSuiteCAAS) TestAddUnitsInvalidForCAAS(c *gc.C) {
@@ -661,7 +661,7 @@ func (s *permSuiteCAAS) TestAddUnitsInvalidForCAAS(c *gc.C) {
 
 	s.expectAuthClient(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "foo",
@@ -674,7 +674,7 @@ func (s *permSuiteCAAS) TestDestroyUnitInvalidForCAAS(c *gc.C) {
 
 	s.expectAuthClient(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{})
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
@@ -686,7 +686,7 @@ func (s *permSuiteCAAS) TestScaleApplicationsPermission(c *gc.C) {
 	s.expectAuthClient(c)
 	s.expectHasIncorrectPermission(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
@@ -699,7 +699,7 @@ func (s *permSuiteCAAS) TestScaleApplicationsBlocked(c *gc.C) {
 	s.expectHasWritePermission(c)
 	s.expectDisallowBlockChange(c)
 
-	s.apiFn(c)
+	s.newAPI(c)
 
 	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{})
 	c.Assert(err, gc.ErrorMatches, "blocked")

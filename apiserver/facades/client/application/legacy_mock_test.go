@@ -18,7 +18,6 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	charm "github.com/juju/juju/internal/charm"
 	services "github.com/juju/juju/internal/charm/services"
-	tools "github.com/juju/juju/internal/tools"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
@@ -407,45 +406,6 @@ func (c *MockBackendMachineCall) Do(f func(string) (Machine, error)) *MockBacken
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendMachineCall) DoAndReturn(f func(string) (Machine, error)) *MockBackendMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Model mocks base method.
-func (m *MockBackend) Model() (Model, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(Model)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Model indicates an expected call of Model.
-func (mr *MockBackendMockRecorder) Model() *MockBackendModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockBackend)(nil).Model))
-	return &MockBackendModelCall{Call: call}
-}
-
-// MockBackendModelCall wrap *gomock.Call
-type MockBackendModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelCall) Return(arg0 Model, arg1 error) *MockBackendModelCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelCall) Do(f func() (Model, error)) *MockBackendModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelCall) DoAndReturn(f func() (Model, error)) *MockBackendModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -939,45 +899,6 @@ func (c *MockApplicationAddUnitCall) DoAndReturn(f func(state.AddUnitParams) (Un
 	return c
 }
 
-// AgentTools mocks base method.
-func (m *MockApplication) AgentTools() (*tools.Tools, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentTools")
-	ret0, _ := ret[0].(*tools.Tools)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AgentTools indicates an expected call of AgentTools.
-func (mr *MockApplicationMockRecorder) AgentTools() *MockApplicationAgentToolsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentTools", reflect.TypeOf((*MockApplication)(nil).AgentTools))
-	return &MockApplicationAgentToolsCall{Call: call}
-}
-
-// MockApplicationAgentToolsCall wrap *gomock.Call
-type MockApplicationAgentToolsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationAgentToolsCall) Return(arg0 *tools.Tools, arg1 error) *MockApplicationAgentToolsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationAgentToolsCall) Do(f func() (*tools.Tools, error)) *MockApplicationAgentToolsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAgentToolsCall) DoAndReturn(f func() (*tools.Tools, error)) *MockApplicationAgentToolsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllUnits mocks base method.
 func (m *MockApplication) AllUnits() ([]Unit, error) {
 	m.ctrl.T.Helper()
@@ -1090,45 +1011,6 @@ func (c *MockApplicationApplicationTagCall) Do(f func() names.ApplicationTag) *M
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationApplicationTagCall) DoAndReturn(f func() names.ApplicationTag) *MockApplicationApplicationTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ChangeScale mocks base method.
-func (m *MockApplication) ChangeScale(arg0 int) (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeScale", arg0)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ChangeScale indicates an expected call of ChangeScale.
-func (mr *MockApplicationMockRecorder) ChangeScale(arg0 any) *MockApplicationChangeScaleCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0)
-	return &MockApplicationChangeScaleCall{Call: call}
-}
-
-// MockApplicationChangeScaleCall wrap *gomock.Call
-type MockApplicationChangeScaleCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationChangeScaleCall) Return(arg0 int, arg1 error) *MockApplicationChangeScaleCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationChangeScaleCall) Do(f func(int) (int, error)) *MockApplicationChangeScaleCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationChangeScaleCall) DoAndReturn(f func(int) (int, error)) *MockApplicationChangeScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1322,44 +1204,6 @@ func (c *MockApplicationConstraintsCall) Do(f func() (constraints.Value, error))
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationConstraintsCall) DoAndReturn(f func() (constraints.Value, error)) *MockApplicationConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Destroy mocks base method.
-func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Destroy indicates an expected call of Destroy.
-func (mr *MockApplicationMockRecorder) Destroy(arg0 any) *MockApplicationDestroyCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0)
-	return &MockApplicationDestroyCall{Call: call}
-}
-
-// MockApplicationDestroyCall wrap *gomock.Call
-type MockApplicationDestroyCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationDestroyCall) Return(arg0 error) *MockApplicationDestroyCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationDestroyCall) Do(f func(objectstore.ObjectStore) error) *MockApplicationDestroyCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationDestroyCall) DoAndReturn(f func(objectstore.ObjectStore) error) *MockApplicationDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1857,44 +1701,6 @@ func (c *MockApplicationSetConstraintsCall) Do(f func(constraints.Value) error) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationSetConstraintsCall) DoAndReturn(f func(constraints.Value) error) *MockApplicationSetConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetMinUnits mocks base method.
-func (m *MockApplication) SetMinUnits(arg0 int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetMinUnits", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetMinUnits indicates an expected call of SetMinUnits.
-func (mr *MockApplicationMockRecorder) SetMinUnits(arg0 any) *MockApplicationSetMinUnitsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMinUnits", reflect.TypeOf((*MockApplication)(nil).SetMinUnits), arg0)
-	return &MockApplicationSetMinUnitsCall{Call: call}
-}
-
-// MockApplicationSetMinUnitsCall wrap *gomock.Call
-type MockApplicationSetMinUnitsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationSetMinUnitsCall) Return(arg0 error) *MockApplicationSetMinUnitsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationSetMinUnitsCall) Do(f func(int) error) *MockApplicationSetMinUnitsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationSetMinUnitsCall) DoAndReturn(f func(int) error) *MockApplicationSetMinUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -37,7 +37,7 @@ var _ = gc.Suite(&applicationSuite{})
 func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// This is ridiculous, the amount of requests to set a charm config.
+	// The amount of requests to set a charm config is ridiculous.
 	// We're requesting the new charm and the old charm, more than we require.
 	// We should fix this when we refactor the application service.
 

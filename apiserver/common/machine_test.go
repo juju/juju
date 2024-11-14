@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -154,6 +155,56 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 			DisplayName: "four-five-six",
 		},
 	})
+}
+
+func (s *machineSuite) TestMachineMachineNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	one := uint64(1)
+	amd64 := "amd64"
+	gig := uint64(1024)
+	hw := &instance.HardwareCharacteristics{
+		Arch:     &amd64,
+		Mem:      &gig,
+		CpuCores: &one,
+		CpuPower: &one,
+	}
+	st := mockState{
+		machines: map[string]*fakeMachine{
+			"1": {id: "1", life: state.Alive, containerType: instance.NONE,
+				hw: hw,
+			},
+		},
+	}
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
+	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "uuid-1").Return("123", "one-two-three", nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "uuid-1").Return(hw, machineerrors.MachineNotFound)
+	_, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *machineSuite) TestMachineHardwareInfoMachineNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	one := uint64(1)
+	amd64 := "amd64"
+	gig := uint64(1024)
+	hw := &instance.HardwareCharacteristics{
+		Arch:     &amd64,
+		Mem:      &gig,
+		CpuCores: &one,
+		CpuPower: &one,
+	}
+	st := mockState{
+		machines: map[string]*fakeMachine{
+			"1": {id: "1", life: state.Alive, containerType: instance.NONE,
+				hw: hw,
+			},
+		},
+	}
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", machineerrors.MachineNotFound)
+	_, err := common.ModelMachineInfo(context.Background(), &st, s.machineService)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {

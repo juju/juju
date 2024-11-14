@@ -162,7 +162,9 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 			}
 		}
 		machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(m.Id()))
-		if err != nil {
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, errors.NotFoundf("machine %q", m.Id())
+		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
 		instanceID, displayName, err := machineService.InstanceIDAndName(ctx, machineUUID)
@@ -170,6 +172,8 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 		case err == nil:
 			mInfo.InstanceId = instanceID.String()
 			mInfo.DisplayName = displayName
+		case errors.Is(err, machineerrors.MachineNotFound):
+			return nil, errors.NotFoundf("machine %q", m.Id())
 		case errors.Is(err, machineerrors.NotProvisioned):
 			// ok, but no instance ID to get.
 		default:
@@ -181,7 +185,9 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 		}
 		// Only include cores for physical machines.
 		hw, err := machineService.HardwareCharacteristics(ctx, machineUUID)
-		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, errors.NotFoundf("machine %q", m.Id())
+		} else if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, errors.Trace(err)
 		}
 		if hw != nil && hw.String() != "" {

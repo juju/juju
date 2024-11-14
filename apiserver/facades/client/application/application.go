@@ -68,8 +68,6 @@ type APIv19 struct {
 	*APIv20
 }
 
-type transformCharmFn func(Charm) (state.CharmRef, error)
-
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 type APIBase struct {
@@ -92,11 +90,11 @@ type APIBase struct {
 	networkService     NetworkService
 	portService        PortService
 	stubService        StubService
+	storageService     StorageService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
 
-	storagePoolGetter     StorageService
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
@@ -174,7 +172,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		applicationService: applicationService,
 		registry:           registry,
 		state:              state,
-		storagePoolGetter:  storageService,
+		storageService:     storageService,
 		logger:             repoLogger,
 	}
 
@@ -277,7 +275,7 @@ func NewAPIBase(
 		modelConfigService:        services.ModelConfigService,
 		networkService:            services.NetworkService,
 		portService:               services.PortService,
-		storagePoolGetter:         services.StorageService,
+		storageService:            services.StorageService,
 		stubService:               services.StubService,
 
 		logger: logger,
@@ -437,7 +435,7 @@ type caasDeployParams struct {
 func (c caasDeployParams) precheck(
 	ctx context.Context,
 	modelConfigService ModelConfigService,
-	storagePoolGetter StorageService,
+	storageService StorageService,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
@@ -473,7 +471,7 @@ func (c caasDeployParams) precheck(
 					"See https://discourse.charmhub.io/t/getting-started/152.",
 			)
 		}
-		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storagePoolGetter, registry)
+		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storageService, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
 		}
@@ -492,7 +490,7 @@ func (c caasDeployParams) precheck(
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 		}
-		_, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storagePoolGetter, registry)
+		_, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storageService, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
 		}
@@ -545,7 +543,7 @@ func (api *APIBase) deployApplication(
 			placement:       args.Placement,
 			storage:         args.Storage,
 		}
-		if err := caas.precheck(ctx, api.modelConfigService, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -963,8 +961,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 	params setCharmParams,
 	url string,
 ) error {
-	// TODO (stickupkid): This should be done, in the application service.
-	// We'll want to start migrating the logic to the service layer.
 	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
 	if err != nil {
 		return errors.Trace(err)
@@ -981,8 +977,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 	}
 
 	if api.modelInfo.Type == model.CAAS {
-		// TODO (stickupkid): This should be done, in the application service
-		// layer.
 		currentCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
 		if err != nil {
 			return errors.Trace(err)
@@ -1542,8 +1536,6 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, errors.Trace(err)
 		}
 
-		// TODO (stickupkid): This should be done in the application service,
-		// when destroying an application.
 		name, err := api.getCharmName(ctx, charmID)
 		if err != nil {
 			return nil, errors.Trace(err)
