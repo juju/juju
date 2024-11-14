@@ -24,6 +24,7 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -251,8 +252,10 @@ func (w *bootstrapWorker) loop() error {
 
 	// Set machine cloud instance data for the bootstrap machine.
 	bootstrapMachineUUID, err := w.cfg.MachineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
-	if err != nil {
-		w.logger.Errorf("unable to retrieve machine UUID for bootstrap machine %q: %w", agent.BootstrapControllerId, err)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		w.logger.Debugf("unable to retrieve machine UUID for bootstrap machine %q, it could mean that this is a k8s cloud: %w", agent.BootstrapControllerId, err)
+	} else if err != nil {
+		return errors.Trace(err)
 	} else if err := w.cfg.MachineService.SetMachineCloudInstance(
 		ctx,
 		bootstrapMachineUUID,
@@ -261,6 +264,7 @@ func (w *bootstrapWorker) loop() error {
 		bootstrapParams.BootstrapMachineHardwareCharacteristics,
 	); err != nil {
 		w.logger.Errorf("unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
+		return errors.Trace(err)
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance
