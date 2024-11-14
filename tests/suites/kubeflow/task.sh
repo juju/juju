@@ -15,8 +15,10 @@ test_kubeflow() {
 	"k8s")
 		bootstrap "test-kubeflow" "${file}"
 
-		sudo microk8s disable metallb || true # for local testing, this can be done out of band
-		sudo microk8s enable "metallb:10.64.140.43-10.64.140.49" || true
+		if [[ ${BOOTSTRAP_CLOUD} == "microk8s" ]]; then
+			sudo microk8s disable metallb || true # for local testing, this can be done out of band
+			sudo microk8s enable "metallb:10.64.140.43-10.64.140.49" || true
+		fi
 
 		test_deploy_kubeflow
 		;;

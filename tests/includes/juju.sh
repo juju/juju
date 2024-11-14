@@ -71,9 +71,15 @@ bootstrap() {
 		;;
 	"lxd")
 		cloud="${BOOTSTRAP_CLOUD:-localhost}"
+		export BOOTSTRAP_CLOUD="${cloud}"
 		;;
-	"vsphere" | "openstack" | "k8s" | "maas")
-		cloud="${BOOTSTRAP_CLOUD}"
+	"vsphere" | "openstack" | "maas")
+		cloud="${BOOTSTRAP_CLOUD:-$BOOTSTRAP_PROVIDER}"
+		export BOOTSTRAP_CLOUD="${cloud}"
+		;;
+	"k8s")
+		cloud="${BOOTSTRAP_CLOUD:-microk8s}"
+		export BOOTSTRAP_CLOUD="${cloud}"
 		;;
 	"manual")
 		manual_name=${1}
