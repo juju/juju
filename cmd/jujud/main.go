@@ -5,15 +5,8 @@
 
 package main
 
-import (
-	"os"
-)
-
-// MainWrapper exists to preserve test functionality.
-func MainWrapper(args []string) {
-	os.Exit(Main(args))
-}
+import "os"
 
 func main() {
-	MainWrapper(os.Args)
+	os.Exit(Main(os.Args))
 }
