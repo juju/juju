@@ -124,6 +124,5 @@ func (cd *CharmDownloader) Wait() error {
 }
 
 func (cd *CharmDownloader) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(cd.catacomb.Context(context.Background()))
-	return cd.catacomb.Context(ctx), cancel
+	return context.WithCancel(cd.catacomb.Context(context.Background()))
 }
