@@ -121,7 +121,7 @@ func getSocket() (sockets.Socket, error) {
 		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
 	}
 	rootCAs := x509.NewCertPool()
-	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
+	if ok := rootCAs.AppendCertsFromPEM(caCert); !ok {
 		return sockets.Socket{}, errors.Errorf("invalid ca certificate")
 	}
 

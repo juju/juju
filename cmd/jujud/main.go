@@ -8,10 +8,5 @@ package main
 import "os"
 
 func main() {
-	MainWrapper(os.Args)
-}
-
-// MainWrapper exists to preserve test functionality.
-func MainWrapper(args []string) {
-	os.Exit(Main(args))
+	os.Exit(Main(os.Args))
 }
