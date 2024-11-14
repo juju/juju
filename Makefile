@@ -87,7 +87,7 @@ EXTRA_BUILD_TAGS += libsqlite3
 EXTRA_BUILD_TAGS += dqlite
 endif
 
-ifeq ($(DEBUG_JUJU), 1)
+ifdef DEBUG_JUJU
 	EXTRA_BUILD_TAGS += debug
 endif
 
@@ -207,7 +207,7 @@ define link_flags_version
 endef
 
 # Compile with debug flags if requested.
-ifeq ($(DEBUG_JUJU), 1)
+ifdef DEBUG_JUJU
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS =  "$(link_flags_version)"
 	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
