@@ -49,7 +49,7 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

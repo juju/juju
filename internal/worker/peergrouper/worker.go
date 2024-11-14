@@ -456,7 +456,7 @@ func (w *pgWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, 
 	// Consume the initial events from the watchers. The watcher will
 	// dispatch an initial event when it is created, so we need to consume
 	// that event before we can start watching.
-	if _, err := eventsource.ConsumeInitialEvent[[]string](context.TODO(), watcher); err != nil {
+	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 

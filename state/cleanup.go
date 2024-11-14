@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -293,7 +294,9 @@ func (st *State) cleanupResourceBlob(ctx context.Context, store objectstore.Writ
 	}
 
 	err := store.Remove(ctx, storagePath)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, objectstoreerrors.ErrNotFound) {
+		return nil
+	} else if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	return errors.Trace(err)

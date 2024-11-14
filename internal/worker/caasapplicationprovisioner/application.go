@@ -246,6 +246,15 @@ func (a *appWorker) loop() error {
 					// State not ready for this application to be provisioned yet.
 					// Usually because the charm has not yet been downloaded.
 					break
+				} else if errors.Is(err, errors.NotFound) {
+					// We're transitioning the API over to be backed by dqlite,
+					// the application isn't transitioning through the expected
+					// lifecycle states, so we'll just log the error and
+					// continue.
+					//
+					// This should be removed once the transition is complete.
+					a.logger.Warningf(ctx, "application %q no longer exists", a.name)
+					break
 				} else if err != nil {
 					return errors.Trace(err)
 				}
