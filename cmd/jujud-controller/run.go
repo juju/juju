@@ -71,10 +71,10 @@ JUJU_CONTEXT_ID be set in its model.
 `
 
 const (
-	// exit_err is the value that is returned when the user has run juju in an invalid way.
-	exit_err = 2
-	// exit_panic is the value that is returned when we exit due to an unhandled panic.
-	exit_panic = 3
+	// ExitStatusCodeErr is the value that is returned when the user has run juju in an invalid way.
+	ExitStatusCodeErr = 2
+	// ExitStatusCodePanic is the value that is returned when we exit due to an unhandled panic.
+	ExitStatusCodePanic = 3
 )
 
 func getenv(name string) (string, error) {
@@ -299,14 +299,14 @@ func Main(args []string) int {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
 			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
-			os.Exit(exit_panic)
+			os.Exit(ExitStatusCodePanic)
 		}
 	}()
 
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		cmd.WriteError(os.Stderr, err)
-		os.Exit(exit_err)
+		os.Exit(ExitStatusCodeErr)
 	}
 
 	var code int
@@ -324,7 +324,7 @@ func Main(args []string) int {
 			LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 		})
 		if err != nil {
-			code = exit_err
+			code = ExitStatusCodeErr
 		} else {
 			run := &run.RunCommand{MachineLock: lock}
 			code = cmd.Main(run, ctx, args[1:])
