@@ -55,6 +55,7 @@ type Suite struct {
 	applicationService        *MockApplicationService
 	upgradeService            *MockUpgradeService
 	modelImporter             *MockModelImporter
+	objectStoreGetter         *MockModelObjectStoreGetter
 	modelMigrationService     *MockModelMigrationService
 	agentService              *MockModelAgentService
 
@@ -548,6 +549,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 
+	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 	s.modelImporter = NewMockModelImporter(ctrl)
 	s.modelMigrationService = NewMockModelMigrationService(ctrl)
 
@@ -649,6 +651,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 			corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 				return provider.CommonStorageProviders()
 			}),
+			s.objectStoreGetter,
 			loggertesting.WrapCheckLog(c),
 			clock.WallClock,
 		).ImportModel(ctx, bytes)

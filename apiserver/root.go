@@ -921,6 +921,13 @@ func (c modelStorageRegistry) GetStorageRegistry(ctx context.Context) (storage.P
 	return c(ctx)
 }
 
+type modelObjectStore func(context.Context) (objectstore.ObjectStore, error)
+
+// GetObjectStore returns the object store for the current model.
+func (c modelObjectStore) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
+	return c(ctx)
+}
+
 // ModelExporter returns a model exporter for the current model.
 func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.LegacyStateExporter) facade.ModelExporter {
 	logger := ctx.Logger()
@@ -929,7 +936,11 @@ func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.Leg
 	domainServices := ctx.DomainServicesForModel(modelUUID)
 	coordinator := modelmigration.NewCoordinator(logger)
 
-	exporter := domainmodelmigration.NewExporter(coordinator, logger, clock)
+	objectStoreGetter := modelObjectStore(func(stdCtx context.Context) (objectstore.ObjectStore, error) {
+		return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, ctx.ModelUUID().String())
+	})
+
+	exporter := domainmodelmigration.NewExporter(coordinator, objectStoreGetter, logger, clock)
 	return migration.NewModelExporter(
 		exporter,
 		backend,
@@ -957,6 +968,9 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
 			storageService := domainServices.Storage()
 			return storageService.GetStorageRegistry(ctx)
+		}),
+		modelObjectStore(func(stdCtx context.Context) (objectstore.ObjectStore, error) {
+			return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, ctx.ModelUUID().String())
 		}),
 		ctx.Logger(),
 		ctx.r.clock,

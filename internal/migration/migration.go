@@ -161,6 +161,7 @@ type ModelImporter struct {
 	controllerConfigService ControllerConfigService
 	domainServices          services.DomainServicesGetter
 	storageRegistryGetter   corestorage.ModelStorageRegistryGetter
+	objectStoreGetter       objectstore.ModelObjectStoreGetter
 
 	scope  modelmigration.ScopeForModel
 	logger corelogger.Logger
@@ -176,6 +177,7 @@ func NewModelImporter(
 	controllerConfigService ControllerConfigService,
 	domainServices services.DomainServicesGetter,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
@@ -185,6 +187,7 @@ func NewModelImporter(
 		controllerConfigService: controllerConfigService,
 		domainServices:          domainServices,
 		storageRegistryGetter:   storageRegistryGetter,
+		objectStoreGetter:       objectStoreGetter,
 		logger:                  logger,
 		clock:                   clock,
 	}
@@ -216,7 +219,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	modelDefaultsProvider := modelDefaults.ModelDefaultsProvider(modelUUID)
 
 	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(coordinator, modelDefaultsProvider, i.storageRegistryGetter, i.clock, i.logger)
+	migrations.ImportOperations(coordinator, modelDefaultsProvider, i.storageRegistryGetter, i.objectStoreGetter, i.clock, i.logger)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
