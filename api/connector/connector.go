@@ -10,5 +10,5 @@ import (
 // A Connector is able to provide a Connection.  This connection can be used to
 // make API calls via the various packages in github.com/juju/juju/api.
 type Connector interface {
-	Connect(...api.DialOption) (api.Connection, error)
+	Connect(api.OpenFunc, ...api.DialOption) (api.Connection, error)
 }

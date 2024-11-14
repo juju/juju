@@ -66,7 +66,7 @@ func NewClientStore(config ClientStoreConfig, dialOptions ...api.DialOption) (*C
 
 // Connect returns an api.Connection to the controller / model specified in c's
 // config, or an error if there was a problem opening the connection.
-func (c *ClientStoreConnector) Connect(dialOptions ...api.DialOption) (api.Connection, error) {
+func (c *ClientStoreConnector) Connect(openFunc api.OpenFunc, dialOptions ...api.DialOption) (api.Connection, error) {
 	opts := c.defaultDialOpts
 	for _, f := range dialOptions {
 		f(&opts)
@@ -87,7 +87,7 @@ func (c *ClientStoreConnector) Connect(dialOptions ...api.DialOption) (api.Conne
 	return juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		ControllerName: c.config.ControllerName,
 		Store:          c.config.ClientStore,
-		OpenAPI:        api.Open,
+		OpenAPI:        openFunc,
 		DialOpts:       opts,
 		AccountDetails: c.config.AccountDetails,
 		ModelUUID:      c.config.ModelUUID,
