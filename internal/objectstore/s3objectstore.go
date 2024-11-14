@@ -515,13 +515,25 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 	}
 	defer file.Close()
 
+	// The size is already done when it's written, but to ensure that we have
+	// the correct size, we can stat the file. This is very much, belt and
+	// braces approach.
 	if stat, err := file.Stat(); err != nil {
 		return errors.Trace(err)
 	} else if stat.Size() != size {
 		return fmt.Errorf("size mismatch for %q: expected %d, got %d", tmpFileName, size, stat.Size())
 	}
 
-	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+	// The file has been verified, so we can move it to the final location.
+	if err := t.putFile(ctx, file, fileEncodedHash, s3EncodedHash); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (t *s3ObjectStore) putFile(ctx context.Context, file io.ReadSeeker, fileEncodedHash, s3EncodedHash string) error {
+	return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		// Seek back to the beginning of the file, so that we can read it again.
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			return errors.Trace(err)
@@ -536,11 +548,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 		}
 
 		return errors.Trace(err)
-	}); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	})
 }
 
 func (t *s3ObjectStore) remove(ctx context.Context, path string) error {

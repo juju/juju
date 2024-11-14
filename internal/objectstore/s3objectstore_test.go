@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -685,6 +687,30 @@ func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *gc.C) {
 	bytes, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(bytes), gc.Equals, content)
+}
+
+func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	base64Hash := s.calculateBase64Hash(c, content)
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	dir := c.MkDir()
+	filePath := filepath.Join(dir, "foo.txt")
+	err := os.WriteFile(filePath, []byte(content), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = store.(*s3ObjectStore).persistTmpFile(context.Background(), filePath, hexHash, base64Hash, 42)
+	c.Assert(err, gc.ErrorMatches, `size mismatch for ".*foo.txt".*`)
 }
 
 func (s *s3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
