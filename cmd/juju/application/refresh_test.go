@@ -882,7 +882,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 
 func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	repoPath := testcharms.RepoWithSeries("jammy").ClonedDirPath(c.MkDir(), "multi-base")
-	err := runDeploy(c, repoPath, "multi-base", "--base", "22.04")
+	err := runDeploy(c, repoPath, "multi-base", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("multi-base")
 	c.Assert(err, jc.ErrorIsNil)
@@ -899,7 +899,7 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 
-	// Overwrite the metadata.yaml to change the supported series.
+	// Overwrite the manifest.yaml to change the supported series.
 	manifestPath := filepath.Join(repoPath, "manifest.yaml")
 	file, err := os.OpenFile(manifestPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
@@ -910,18 +910,19 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	// We deployed a version of the charm that supported jammy (22.04), but
 	// now we declare that this charm only supports focal, but with a
 	// --force-base we are allowed to target it anyway.
-	metadata := strings.Join(
+	manifest := strings.Join(
 		[]string{
 			`bases:`,
 			`- architectures:`,
 			`  - amd64`,
+			// Now only supports focal
 			`  channel: '20.04'`,
 			`  name: ubuntu`,
 		},
 		"\n",
 	)
-	if _, err := file.WriteString(metadata); err != nil {
-		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
+	if _, err := file.WriteString(manifest); err != nil {
+		c.Fatal(errors.Annotate(err, "cannot write to manifest.yaml"))
 	}
 
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
@@ -931,10 +932,29 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	}
 	// First confirm that normal refresh would be refused
 	_, err = s.runRefresh(c, s.cmd, "multi-base", "--path", repoPath)
-	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "base \"ubuntu@22\\.04\" not supported by charm, the charm supported bases are: ubuntu@20\\.04")
+	// jam (2024-11-15): The structure of this test suite is that you can only run
+	//  Refresh one time without reinitializing it. Since we are doing it 2x to test
+	//  that it fails properly before succeeding, we have to reset the internal structure
+	//  commands report back errors about "no model selected"
+	s.cmd = NewRefreshCommandForStateTest(
+		newCharmAdder,
+		func(conn base.APICallCloser) utils.CharmClient {
+			return &s.charmClient
+		},
+		deployer.DeployResources,
+		nil,
+	)
+
+	err = app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err = app.Charm()
+	// The charm should not have changed
+	c.Check(ch.Revision(), gc.Equals, 1)
 
 	// But with --force-base we are happy
-	_, err = s.runRefresh(c, s.cmd, "multi-series", "--path", repoPath, "--force-base")
+	_, err = s.runRefresh(c, s.cmd, "multi-base", "--path", repoPath, "--force-base")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Refresh()
