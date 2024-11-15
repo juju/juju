@@ -126,8 +126,8 @@ type unitStatusData struct {
 }
 
 type cloudContainer struct {
-	NetNodeID  string `db:"net_node_uuid"`
-	ProviderID string `db:"provider_id"`
+	UnitUUID   coreunit.UUID `db:"unit_uuid"`
+	ProviderID string        `db:"provider_id"`
 }
 
 type cloudService struct {
@@ -148,8 +148,8 @@ type cloudContainerDevice struct {
 }
 
 type cloudContainerPort struct {
-	NetNodeUUID string `db:"net_node_uuid"`
-	Port        string `db:"port"`
+	UnitUUID coreunit.UUID `db:"unit_uuid"`
+	Port     string        `db:"port"`
 }
 
 type ipAddress struct {

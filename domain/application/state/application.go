@@ -540,7 +540,7 @@ func (st *State) insertUnit(
 			return errors.Annotatef(err, "creating unit for unit %q", args.UnitName)
 		}
 		if args.CloudContainer != nil {
-			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, nodeUUID.String(), args.CloudContainer); err != nil {
+			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID.String(), args.CloudContainer); err != nil {
 				return errors.Annotatef(err, "creating cloud container for unit %q", args.UnitName)
 			}
 		}
@@ -569,21 +569,21 @@ func (st *State) UpdateUnitContainer(
 		return errors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, container)
+		return st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, container)
 	})
 	return errors.Annotatef(err, "updating cloud container unit %q", unitName)
 }
 
 func (st *State) upsertUnitCloudContainer(
-	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeID string, cc *application.CloudContainer,
+	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, unitUUID coreunit.UUID, netNodeID string, cc *application.CloudContainer,
 ) error {
 	existingContainerInfo := cloudContainer{
-		NetNodeID: netNodeID,
+		UnitUUID: unitUUID,
 	}
 	queryCloudContainer := `
 SELECT &cloudContainer.*
 FROM cloud_container
-WHERE net_node_uuid = $cloudContainer.net_node_uuid
+WHERE unit_uuid = $cloudContainer.unit_uuid
 `
 	queryStmt, err := st.Prepare(queryCloudContainer, existingContainerInfo)
 	if err != nil {
@@ -606,7 +606,7 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid
 	}
 
 	newContainerInfo := cloudContainer{
-		NetNodeID: netNodeID,
+		UnitUUID: unitUUID,
 	}
 	if newProviderId != "" {
 		newContainerInfo.ProviderID = newProviderId
@@ -614,7 +614,7 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid
 
 	upsertCloudContainer := `
 INSERT INTO cloud_container (*) VALUES ($cloudContainer.*)
-ON CONFLICT(net_node_uuid) DO UPDATE
+ON CONFLICT(unit_uuid) DO UPDATE
     SET provider_id = excluded.provider_id;
 `
 
@@ -633,7 +633,7 @@ ON CONFLICT(net_node_uuid) DO UPDATE
 		}
 	}
 	if cc.Ports != nil {
-		if err := st.upsertCloudContainerPorts(ctx, tx, netNodeID, *cc.Ports); err != nil {
+		if err := st.upsertCloudContainerPorts(ctx, tx, unitUUID, *cc.Ports); err != nil {
 			return errors.Annotatef(err, "updating cloud container ports for unit %q", unitName)
 		}
 	}
@@ -745,14 +745,14 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 type ports []string
 
-func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeUUID string, portValues []string) error {
+func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, portValues []string) error {
 	ccPort := cloudContainerPort{
-		NetNodeUUID: netNodeUUID,
+		UnitUUID: unitUUID,
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM cloud_container_port
 WHERE port NOT IN ($ports[:])
-AND net_node_uuid = $cloudContainerPort.net_node_uuid;
+AND unit_uuid = $cloudContainerPort.unit_uuid;
 `, ports{}, ccPort)
 	if err != nil {
 		return errors.Trace(err)
@@ -761,7 +761,7 @@ AND net_node_uuid = $cloudContainerPort.net_node_uuid;
 	upsertStmt, err := sqlair.Prepare(`
 INSERT INTO cloud_container_port (*)
 VALUES ($cloudContainerPort.*)
-ON CONFLICT(net_node_uuid, port)
+ON CONFLICT(unit_uuid, port)
 DO NOTHING
 `, ccPort)
 	if err != nil {
@@ -769,13 +769,13 @@ DO NOTHING
 	}
 
 	if err := tx.Query(ctx, deleteStmt, ports(portValues), ccPort).Run(); err != nil {
-		return fmt.Errorf("removing cloud container ports for %q: %w", netNodeUUID, err)
+		return fmt.Errorf("removing cloud container ports for %q: %w", unitUUID, err)
 	}
 
 	for _, port := range portValues {
 		ccPort.Port = port
 		if err := tx.Query(ctx, upsertStmt, ccPort).Run(); err != nil {
-			return fmt.Errorf("updating cloud container ports for %q: %w", netNodeUUID, err)
+			return fmt.Errorf("updating cloud container ports for %q: %w", unitUUID, err)
 		}
 	}
 
@@ -864,7 +864,7 @@ DELETE FROM net_node WHERE uuid = (
 		return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
 	}
 
-	if err := st.deleteCloudContainer(ctx, tx, unit.NetNodeID); err != nil {
+	if err := st.deleteCloudContainer(ctx, tx, unit.UUID, unit.NetNodeID); err != nil {
 		return errors.Annotatef(err, "deleting cloud container for unit %q", unitName)
 	}
 
@@ -887,10 +887,10 @@ DELETE FROM net_node WHERE uuid = (
 	return nil
 }
 
-func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
-	cloudContainer := cloudContainer{NetNodeID: netNodeID}
+func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, netNodeID string) error {
+	cloudContainer := cloudContainer{UnitUUID: unitUUID}
 
-	if err := st.deleteCloudContainerPorts(ctx, tx, netNodeID); err != nil {
+	if err := st.deleteCloudContainerPorts(ctx, tx, unitUUID); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -900,7 +900,7 @@ func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNod
 
 	deleteCloudContainerStmt, err := st.Prepare(`
 DELETE FROM cloud_container
-WHERE net_node_uuid = $cloudContainer.net_node_uuid`, cloudContainer)
+WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -940,19 +940,19 @@ WHERE net_node_uuid = $minimalUnit.net_node_uuid`, unit)
 	return nil
 }
 
-func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
 	unit := minimalUnit{
-		NetNodeID: netNodeID,
+		UUID: unitUUID,
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM cloud_container_port
-WHERE net_node_uuid = $minimalUnit.net_node_uuid
+WHERE unit_uuid = $minimalUnit.uuid
 `, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, unit).Run(); err != nil {
-		return fmt.Errorf("removing cloud container ports for %q: %w", netNodeID, err)
+		return fmt.Errorf("removing cloud container ports for %q: %w", unitUUID, err)
 	}
 	return nil
 }
