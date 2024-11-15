@@ -40,10 +40,13 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	jujuversion "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -157,7 +160,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
-		Logger:        logger,
+		Logger:        internalworker.WrapLogger(logger),
 	})
 
 	if err := ensureAgentConf(c.AgentConf); err != nil {
@@ -257,7 +260,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		})
 	}
 	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: internallogger.GetLogger("juju.localhub"),
+		Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 	})
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
@@ -288,7 +291,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 	workerMetricsSink := metrics.ForModel(agentConfig.Model())
 	eng, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		workerMetricsSink,
-		internallogger.GetLogger("juju.worker.dependency"),
+		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	))
 	if err != nil {
 		return nil, err

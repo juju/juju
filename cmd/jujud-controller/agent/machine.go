@@ -65,10 +65,12 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/services"
@@ -76,6 +78,7 @@ import (
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -294,7 +297,7 @@ func MachineAgentFactoryFn(
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
-				Logger:        logger,
+				Logger:        internalworker.WrapLogger(logger),
 			}),
 			looputil.NewLoopDeviceManager(),
 			newDBWorkerFunc,
@@ -585,13 +588,13 @@ func (a *MachineAgent) makeEngineCreator(
 		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
 		eng, err := dependency.NewEngine(engineConfigFunc(
 			controllerMetricsSink,
-			internallogger.GetLogger("juju.worker.dependency"),
+			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 		))
 		if err != nil {
 			return nil, err
 		}
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: internallogger.GetLogger("juju.localhub"),
+			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 		})
 		pubsubReporter := psworker.NewReporter()
 		presenceRecorder := presence.New(clock.WallClock)
@@ -648,7 +651,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
-					internallogger.GetLogger("juju.worker.dependency"),
+					internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 				)
 			},
 			SetupLogging:            agentconf.SetupAgentLogging,
@@ -959,7 +962,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 
 	config := agentengine.DependencyEngineConfig(
 		cfg.ModelMetrics,
-		internallogger.GetLogger("juju.worker.dependency"),
+		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError

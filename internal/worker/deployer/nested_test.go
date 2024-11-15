@@ -23,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	message "github.com/juju/juju/internal/pubsub/agent"
 	jt "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
@@ -46,7 +47,7 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	logger := loggertesting.WrapCheckLog(c).Child("nested-context")
 	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: logger,
+		Logger: internalpubsub.WrapLogger(logger),
 	})
 	datadir := c.MkDir()
 	machine := names.NewMachineTag("42")

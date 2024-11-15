@@ -21,6 +21,7 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/logger"
 	message "github.com/juju/juju/internal/pubsub/agent"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
 )
@@ -109,7 +110,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		return nil, errors.Trace(err)
 	}
 	agentConfig := config.Agent.CurrentConfig()
-	context := &nestedContext{
+	nContext := &nestedContext{
 		logger:      config.Logger,
 		agent:       config.Agent,
 		agentConfig: agentConfig,
@@ -125,7 +126,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		units:  make(map[string]*UnitAgent),
 		errors: make(map[string]error),
 		runner: worker.NewRunner(worker.RunnerParams{
-			Logger:        config.Logger,
+			Logger:        internalworker.WrapLogger(config.Logger),
 			IsFatal:       agenterrors.IsFatal,
 			MoreImportant: agenterrors.MoreImportant,
 			RestartDelay:  jworker.RestartDelay,
@@ -134,43 +135,43 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		rebootMonitorStatePurger: config.RebootMonitorStatePurger,
 	}
 
-	if context.rebootMonitorStatePurger == nil {
-		context.rebootMonitorStatePurger = reboot.NewMonitor(agentConfig.TransientDataDir())
+	if nContext.rebootMonitorStatePurger == nil {
+		nContext.rebootMonitorStatePurger = reboot.NewMonitor(agentConfig.TransientDataDir())
 	}
 
-	unsubStop := context.hub.Subscribe(message.StopUnitTopic, context.stopUnitRequest)
-	unsubStart := context.hub.Subscribe(message.StartUnitTopic, context.startUnitRequest)
-	unsubStatus := context.hub.Subscribe(message.UnitStatusTopic, context.unitStatusRequest)
-	context.unsub = func() {
+	unsubStop := nContext.hub.Subscribe(message.StopUnitTopic, nContext.stopUnitRequest)
+	unsubStart := nContext.hub.Subscribe(message.StartUnitTopic, nContext.startUnitRequest)
+	unsubStatus := nContext.hub.Subscribe(message.UnitStatusTopic, nContext.unitStatusRequest)
+	nContext.unsub = func() {
 		unsubStop()
 		unsubStart()
 		unsubStatus()
 	}
 	// Stat all the units that context should have deployed and started.
-	units := context.deployedUnits()
-	stopped := context.stoppedUnits()
+	units := nContext.deployedUnits()
+	stopped := nContext.stoppedUnits()
 	config.Logger.Infof(context.TODO(), "new context: units %q, stopped %q", strings.Join(units.Values(), ", "), strings.Join(stopped.Values(), ", "))
 	for _, u := range units.SortedValues() {
 		if u == "" {
 			config.Logger.Warningf(context.TODO(), "empty unit")
 			continue
 		}
-		agent, err := context.newUnitAgent(u)
+		agent, err := nContext.newUnitAgent(u)
 		if err != nil {
 			config.Logger.Errorf(context.TODO(), "unable to start unit %q: %v", u, err)
-			context.errors[u] = err
+			nContext.errors[u] = err
 			continue
 		}
-		context.units[u] = agent
+		nContext.units[u] = agent
 		if !stopped.Contains(u) {
-			if err := context.startUnitWorkers(u); err != nil {
+			if err := nContext.startUnitWorkers(u); err != nil {
 				config.Logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", u, err)
-				context.errors[u] = err
+				nContext.errors[u] = err
 			}
 		}
 	}
 
-	return context, nil
+	return nContext, nil
 }
 
 func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {

@@ -24,6 +24,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -49,7 +50,7 @@ func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
 		Logger:         logger,
 	})
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
-		Logger: logger,
+		Logger: internalpubsub.WrapLogger(logger),
 	})
 }
 

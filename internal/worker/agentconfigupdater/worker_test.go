@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -39,7 +40,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
-		Logger: s.logger,
+		Logger: internalpubsub.WrapLogger(s.logger),
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{

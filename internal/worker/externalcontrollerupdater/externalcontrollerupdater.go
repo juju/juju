@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc"
 )
 
@@ -75,7 +76,7 @@ func New(
 			// If the API connection fails, try again in 1 minute.
 			RestartDelay: time.Minute,
 			Clock:        clock,
-			Logger:       logger,
+			Logger:       internalworker.WrapLogger(logger),
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{

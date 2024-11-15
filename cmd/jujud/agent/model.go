@@ -29,8 +29,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -77,7 +79,7 @@ func (m *ModelCommand) Init(args []string) error {
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
-		Logger:        logger,
+		Logger:        internalworker.WrapLogger(logger),
 	})
 	return nil
 }
@@ -207,7 +209,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 	// should work out the best way to get it into here.
 	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		dependency.DefaultMetrics(),
-		internallogger.GetLogger("juju.worker.dependency"),
+		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	))
 	if err != nil {
 		return nil, err

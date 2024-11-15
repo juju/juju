@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/charm"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
@@ -187,7 +188,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		logger:                     cfg.Logger,
 		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
 			Clock:  clk,
-			Logger: cfg.Logger,
+			Logger: internalworker.WrapLogger(cfg.Logger),
 
 			// One of the remote relation workers failing should not
 			// prevent the others from running.

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -109,7 +110,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 			Clock:        config.Clock,
 			IsFatal:      func(error) bool { return false },
 			RestartDelay: 3 * time.Second,
-			Logger:       config.Logger.Child("runner"),
+			Logger:       internalworker.WrapLogger(config.Logger.Child("runner")),
 		}),
 	)
 }

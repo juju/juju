@@ -4,7 +4,6 @@
 package logsender_test
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -154,7 +153,7 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 	logger := loggo.GetLogger("bufferedLogWriter-test")
 
 	for i := 0; i < 5; i++ {
-		logger.Infof(context.TODO(), "%d", i)
+		logger.Infof("%d", i)
 	}
 
 	logsCh := bufferedLogger.Logs()

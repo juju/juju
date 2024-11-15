@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -20,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	internallogger "github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/pubsub/centralhub"
@@ -442,7 +442,7 @@ func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
 	}
 }
 
-var logger = loggo.GetLogger("workertest")
+var logger = internallogger.GetLogger("workertest")
 
 type fakeRemoteTracker struct {
 	remotes map[string]*fakeRemote

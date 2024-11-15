@@ -93,14 +93,14 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 
 	if loggingConfig != l.lastConfig {
 		logger.Debugf(context.TODO(), "reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
-		context := l.config.Context
-		context.ResetLoggerLevels()
-		if err := context.ConfigureLoggers(loggingConfig); err != nil {
+		loggerContext := l.config.Context
+		loggerContext.ResetLoggerLevels()
+		if err := loggerContext.ConfigureLoggers(loggingConfig); err != nil {
 			// This shouldn't occur as the loggingConfig should be
 			// validated by the original Config before it gets here.
 			logger.Warningf(context.TODO(), "configure loggers failed: %v", err)
 			// Try to reset to what we had before
-			_ = context.ConfigureLoggers(l.lastConfig)
+			_ = loggerContext.ConfigureLoggers(l.lastConfig)
 			return
 		}
 		mgo.ConfigureMgoLogging()

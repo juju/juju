@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -169,7 +169,7 @@ func New(config Config) (*Worker, error) {
 	if runner == nil {
 		runner = worker.NewRunner(worker.RunnerParams{
 			Clock:  config.Clock,
-			Logger: config.Logger,
+			Logger: internalworker.WrapLogger(config.Logger),
 
 			// One of the remote application workers failing should not
 			// prevent the others from running.
@@ -197,7 +197,7 @@ func New(config Config) (*Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
-	logger   loggo.Logger
+	logger   logger.Logger
 
 	runner *worker.Runner
 	mu     sync.Mutex

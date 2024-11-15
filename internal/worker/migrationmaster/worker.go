@@ -299,9 +299,9 @@ func (w *Worker) setErrorStatus(ctx context.Context, s string, a ...interface{})
 	w.setStatusAndLog(ctx, w.logger.Errorf, s, a...)
 }
 
-func (w *Worker) setStatusAndLog(ctx context.Context, log func(string, ...interface{}), s string, a ...interface{}) {
+func (w *Worker) setStatusAndLog(ctx context.Context, log func(context.Context, string, ...interface{}), s string, a ...interface{}) {
 	message := fmt.Sprintf(s, a...)
-	log(message)
+	log(context.TODO(), message)
 	if err := w.setStatus(ctx, message); err != nil {
 		// Setting status isn't critical. If it fails, just logging
 		// the problem here and not passing it upstream makes things a

@@ -30,6 +30,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	jujuversion "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -202,7 +203,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	})
 	depEngineConfig := a.unitEngineConfig()
 	// TODO: tweak IsFatal error func, maybe?
-	depEngineConfig.Logger = loggerContext.GetLogger("juju.worker.dependency")
+	depEngineConfig.Logger = internaldependency.WrapLogger(loggerContext.GetLogger("juju.worker.dependency"))
 	// Tweak as necessary.
 	engine, err := dependency.NewEngine(depEngineConfig)
 	if err != nil {
@@ -291,7 +292,7 @@ func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogW
 	// Add line for starting agent to logging context.
 	// TODO(logging) - add unit labels
 	ctx := internallogger.WrapLoggoContext(loggerContext)
-	ctx.GetLogger("juju").Infof("Starting unit workers for %q", a.name)
+	ctx.GetLogger("juju").Infof(context.TODO(), "Starting unit workers for %q", a.name)
 
 	a.setupLogging(ctx, a.agentConf)
 

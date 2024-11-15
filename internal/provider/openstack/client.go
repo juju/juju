@@ -249,7 +249,7 @@ func newClient(
 
 	logger := internallogger.GetLogger("goose")
 	gooseLogger := gooselogging.DebugLoggerAdapater{
-		Logger: logger,
+		Logger: WrapLogger(logger),
 	}
 
 	httpClient := jujuhttp.NewClient(
@@ -261,4 +261,21 @@ func newClient(
 		client.WithHTTPClient(httpClient.Client()),
 		client.WithHTTPHeadersFunc(opts.httpHeadersFunc),
 	), nil
+}
+
+// WrappedLogger is a logger.Logger that logs to dependency.Logger interface.
+type WrappedLogger struct {
+	logger corelogger.Logger
+}
+
+// WrapLogger returns a new instance of WrappedLogger.
+func WrapLogger(logger corelogger.Logger) *WrappedLogger {
+	return &WrappedLogger{
+		logger: logger,
+	}
+}
+
+// Debug logs a message at the debug level.
+func (c *WrappedLogger) Debugf(msg string, args ...any) {
+	c.logger.Debugf(context.Background(), msg, args...)
 }

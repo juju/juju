@@ -89,7 +89,7 @@ func (s *uniterResolver) NextOp(
 			return s.nextOpConflicted(ctx, localState, remoteState, opFactory)
 		}
 		// continue upgrading the charm
-		log.Infof("resuming charm upgrade")
+		log.Infof(stdcontext.TODO(), "resuming charm upgrade")
 		return s.newUpgradeOperation(ctx, localState, remoteState, opFactory)
 	}
 
@@ -168,12 +168,12 @@ func (s *uniterResolver) NextOp(
 		switch step {
 		case operation.Pending:
 			badge = "resolve hook"
-			log.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
+			log.Infof(stdcontext.TODO(), "awaiting error resolution for %q hook", localState.Hook.Kind)
 			return s.nextOpHookError(ctx, localState, remoteState, opFactory)
 
 		case operation.Queued:
 			badge = "queued hook"
-			log.Infof("found queued %q hook", localState.Hook.Kind)
+			log.Infof(stdcontext.TODO(), "found queued %q hook", localState.Hook.Kind)
 			if localState.Hook.Kind == hooks.Install {
 				// Special case: handle install in nextOp,
 				// so we do nothing when the unit is dying.
@@ -195,7 +195,7 @@ func (s *uniterResolver) NextOp(
 				}
 			}
 
-			log.Infof("committing %q hook", localState.Hook.Kind)
+			log.Infof(stdcontext.TODO(), "committing %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
 
 		default:

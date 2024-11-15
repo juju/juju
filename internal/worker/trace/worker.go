@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -113,7 +114,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 				return false
 			},
 			RestartDelay: time.Second * 10,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		tracerRequests: make(chan traceRequest),
 	}

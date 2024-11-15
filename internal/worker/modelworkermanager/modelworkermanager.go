@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state"
 )
 
@@ -173,7 +174,7 @@ func New(config Config) (worker.Worker, error) {
 			},
 			MoreImportant: neverImportant,
 			RestartDelay:  config.ErrorDelay,
-			Logger:        config.Logger,
+			Logger:        internalworker.WrapLogger(config.Logger),
 		}),
 	}
 

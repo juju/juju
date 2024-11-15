@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/database/pragma"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
@@ -241,7 +242,7 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 				return !errors.Is(err, database.ErrDBDead)
 			},
 			RestartDelay: time.Second * 10,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		dbReady:    make(chan struct{}),
 		dbRequests: make(chan dbRequest),
@@ -764,10 +765,10 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 		// fatal, it means we were checking it explicitly just in case it was
 		// written when we couldn't be notified.
 		// Having checked, we can rely hereafter on the charm notifying us.
-		log.Infof("unable to read cluster config at start-up; will await changes: %v", err)
+		log.Infof(context.TODO(), "unable to read cluster config at start-up; will await changes: %v", err)
 		return nil
 	}
-	log.Infof("read cluster config: %+v", clusterConf)
+	log.Infof(context.TODO(), "read cluster config: %+v", clusterConf)
 
 	mgr := w.cfg.NodeManager
 	extant, err := mgr.IsExistingNode()
@@ -824,7 +825,7 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 
 			addr, ok := clusterConf[w.cfg.ControllerID]
 			if !ok {
-				log.Infof("address for this Dqlite node to bind to not found")
+				log.Infof(context.TODO(), "address for this Dqlite node to bind to not found")
 				return nil
 			}
 
@@ -832,7 +833,7 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 				return errors.Trace(err)
 			}
 
-			log.Infof("successfully reconfigured Dqlite; restarting worker")
+			log.Infof(context.TODO(), "successfully reconfigured Dqlite; restarting worker")
 			return dependency.ErrBounce
 		}
 
@@ -848,19 +849,19 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 		// Make absolutely sure. We only reconfigure the cluster if the details
 		// indicate exactly one controller machine, and that machine is us.
 		if _, ok := clusterConf[w.cfg.ControllerID]; ok && serverCount == 1 {
-			log.Warningf("reconfiguring Dqlite cluster with this node as the only member")
+			log.Warningf(context.TODO(), "reconfiguring Dqlite cluster with this node as the only member")
 			if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
 				return errors.Annotatef(err, "reconfiguring Dqlite cluster")
 			}
 
-			log.Infof("successfully reconfigured Dqlite; restarting worker")
+			log.Infof(context.TODO(), "successfully reconfigured Dqlite; restarting worker")
 			return dependency.ErrBounce
 		}
 
 		// Otherwise there is no deterministic course of action.
 		// We don't want to throw an error here, because it can result in churn
 		// when entering HA. Just try again to start.
-		log.Infof("unable to reconcile current controller and Dqlite cluster status; reattempting node start-up")
+		log.Infof(context.TODO(), "unable to reconcile current controller and Dqlite cluster status; reattempting node start-up")
 		return errors.Trace(w.startExistingDqliteNode())
 	}
 

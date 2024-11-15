@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/socketlistener"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -107,7 +108,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 			ShouldRestart: func(err error) bool {
 				return false
 			},
-			Logger: cfg.Logger,
+			Logger: internalworker.WrapLogger(cfg.Logger),
 		}),
 	}
 

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -188,7 +189,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	// noticed. The clocks in the runner and the txn watcher are used to
 	// control polling, and never return the actual times.
 	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
-		Logger:       internallogger.GetLogger("juju.state.pool.txnwatcher"),
+		Logger:       internalworker.WrapLogger(internallogger.GetLogger("juju.state.pool.txnwatcher")),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
