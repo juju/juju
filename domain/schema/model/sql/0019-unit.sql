@@ -134,12 +134,12 @@ CREATE UNIQUE INDEX idx_cloud_container_provider
 ON cloud_container (provider_id);
 
 CREATE TABLE cloud_container_port (
-    cloud_container_uuid TEXT NOT NULL,
+    net_node_uuid TEXT NOT NULL,
     port TEXT NOT NULL,
     CONSTRAINT fk_cloud_container_port_net_node
-    FOREIGN KEY (cloud_container_uuid)
+    FOREIGN KEY (net_node_uuid)
     REFERENCES cloud_container (net_node_uuid),
-    PRIMARY KEY (cloud_container_uuid, port)
+    PRIMARY KEY (net_node_uuid, port)
 );
 
 -- Status values for unit agents.

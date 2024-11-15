@@ -428,7 +428,7 @@ JOIN unit u ON u.net_node_uuid = lld.net_node_uuid WHERE u.name = ?
 		}
 		rows, err := tx.QueryContext(ctx, `
 SELECT port FROM cloud_container_port ccp
-JOIN cloud_container cc ON cc.net_node_uuid = ccp.cloud_container_uuid
+JOIN cloud_container cc ON cc.net_node_uuid = ccp.net_node_uuid
 JOIN unit u ON u.net_node_uuid = cc.net_node_uuid WHERE u.name = ?
 `, name)
 		if err != nil {

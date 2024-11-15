@@ -148,8 +148,8 @@ type cloudContainerDevice struct {
 }
 
 type cloudContainerPort struct {
-	CloudContainerUUID string `db:"cloud_container_uuid"`
-	Port               string `db:"port"`
+	NetNodeUUID string `db:"net_node_uuid"`
+	Port        string `db:"port"`
 }
 
 type ipAddress struct {

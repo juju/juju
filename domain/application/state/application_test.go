@@ -370,7 +370,7 @@ func (s *applicationStateSuite) assertContainerPortValues(c *gc.C, unitName stri
 SELECT ccp.port
 FROM cloud_container cc
 JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
-JOIN cloud_container_port ccp ON ccp.cloud_container_uuid = cc.net_node_uuid
+JOIN cloud_container_port ccp ON ccp.net_node_uuid = cc.net_node_uuid
 WHERE u.name=?`,
 
 			unitName)
@@ -735,7 +735,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM ip_address WHERE device_uuid=?", deviceUUID).Scan(&addressCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE cloud_container_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE net_node_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
