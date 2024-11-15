@@ -6,10 +6,11 @@ package connector
 import (
 	"time"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/testing"
 	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/testing"
 )
 
 type simpleConnectorSuite struct {
@@ -104,7 +105,7 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 
 func (s *simpleConnectorSuite) TestSimpleConnector_Connect(c *gc.C) {
 	connector, err := NewSimple(SimpleConfig{
-		Username:            "alice",
+		Username:            "alice@canonical.com",
 		ControllerAddresses: []string{"localhost:17080"},
 	})
 	c.Assert(err, gc.IsNil)
