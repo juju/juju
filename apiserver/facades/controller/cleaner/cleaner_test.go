@@ -5,6 +5,7 @@ package cleaner_test
 
 import (
 	"context"
+	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -18,9 +19,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -56,7 +59,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		nil,
+		&stubResourceStoreGetter{},
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -166,4 +169,18 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationService) error {
 	st.MethodCall(st, "Cleanup", mr, ar)
 	return st.NextErr()
+}
+
+type stubResourceStoreGetter struct{}
+
+func (stubResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
+
+func (stubResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
+	return &stubResourceStore{}, nil
+}
+
+type stubResourceStore struct{}
+
+func (stubResourceStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
+	return nil, 0, nil
 }

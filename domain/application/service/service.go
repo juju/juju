@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/watcher"
@@ -37,13 +36,13 @@ func NewService(
 	charmSt CharmState,
 	resourceSt ResourceState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	objectstoreGetter objectstore.ModelObjectStoreGetter,
+	resourceStoreGetter ResourceStoreGetter,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
 		ApplicationService: NewApplicationService(appSt, deleteSecretSt, storageRegistryGetter, logger),
 		CharmService:       NewCharmService(charmSt, logger),
-		ResourceService:    NewResourceService(resourceSt, objectstoreGetter, logger),
+		ResourceService:    NewResourceService(resourceSt, resourceStoreGetter, logger),
 	}
 }
 
@@ -66,7 +65,7 @@ func NewWatchableService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	objectstoreGetter objectstore.ModelObjectStoreGetter,
+	resourceStoreGetter ResourceStoreGetter,
 	logger logger.Logger,
 ) *WatchableService {
 	watchableCharmService := NewWatchableCharmService(charmSt, watcherFactory, logger)
@@ -76,7 +75,7 @@ func NewWatchableService(
 		Service: Service{
 			CharmService:       &watchableCharmService.CharmService,
 			ApplicationService: &watchableApplicationService.ApplicationService,
-			ResourceService:    NewResourceService(resourceSt, objectstoreGetter, logger),
+			ResourceService:    NewResourceService(resourceSt, resourceStoreGetter, logger),
 		},
 		watchableCharmService:       watchableCharmService,
 		watchableApplicationService: watchableApplicationService,

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -51,29 +50,23 @@ type ResourceState interface {
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
 }
 
-// resourceStoreFn returns the appropriate object store for the
-// provided resource type.
-type resourceStoreFn func(context.Context, charmresource.Type) (objectstore.ObjectStore, error)
+type ResourceStoreGetter interface {
+	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
+}
 
 // ResourceService provides the API for working with resources.
 type ResourceService struct {
-	st               ResourceState
-	getResourceStore resourceStoreFn
-	logger           logger.Logger
+	st                  ResourceState
+	resourceStoreGetter ResourceStoreGetter
+	logger              logger.Logger
 }
 
 // NewResourceService returns a new service reference wrapping the input state.
-func NewResourceService(st ResourceState, objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) *ResourceService {
+func NewResourceService(st ResourceState, resourceStoreGetter ResourceStoreGetter, logger logger.Logger) *ResourceService {
 	return &ResourceService{
-		st: st,
-		getResourceStore: func(ctx context.Context, resourceType charmresource.Type) (objectstore.ObjectStore, error) {
-			if resourceType == charmresource.TypeContainerImage {
-				// TODO: Implement the OCI-Image object store backed by
-				// the resource_oci_image_metadata_store table.
-			}
-			return objectStoreGetter.GetObjectStore(ctx)
-		},
-		logger: logger.Child("resource"),
+		st:                  st,
+		resourceStoreGetter: resourceStoreGetter,
+		logger:              logger.Child("resource"),
 	}
 }
 

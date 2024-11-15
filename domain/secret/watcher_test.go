@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +23,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secret"
@@ -29,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -61,7 +64,8 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		nil, logger,
+		&stubResourceStoreGetter{},
+		logger,
 	)
 
 	unitName, err := unit.NewNameFromParts(appName, 0)
@@ -846,4 +850,18 @@ func (m *stubCharm) Actions() *charm.Actions {
 
 func (m *stubCharm) Revision() int {
 	return 1
+}
+
+type stubResourceStoreGetter struct{}
+
+func (stubResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
+
+func (stubResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
+	return &stubResourceStore{}, nil
+}
+
+type stubResourceStore struct{}
+
+func (stubResourceStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
+	return nil, 0, nil
 }
