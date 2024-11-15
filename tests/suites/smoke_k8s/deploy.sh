@@ -8,8 +8,9 @@ run_charmstore_deploy() {
 	juju deploy snappass-test --revision 8 --channel stable
 	wait_for "snappass-test" "$(idle_condition "snappass-test")"
 
-	juju refresh snappass-test
-	wait_for "snappass-test" "$(idle_condition_for_rev "snappass-test" "9")"
+	# Refresh is removed, add it back in when we support refresh.
+	# juju refresh snappass-test
+	# wait_for "snappass-test" "$(idle_condition_for_rev "snappass-test" "9")"
 
 	destroy_model "test-charmstore-deploy"
 }

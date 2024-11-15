@@ -139,16 +139,16 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 			}
 		}
 		modelData := modelData{
-			model.UUID,
-			model.Owner,
-			modelName[model.UUID],
-			model.Life,
-			model.HostedMachineCount,
-			model.ApplicationCount,
-			len(model.Volumes),
-			len(model.Filesystems),
-			persistentVolumeCount,
-			persistentFilesystemCount,
+			UUID:                      model.UUID,
+			Owner:                     model.Owner,
+			Name:                      modelName[model.UUID],
+			Life:                      model.Life,
+			HostedMachineCount:        model.HostedMachineCount,
+			ApplicationCount:          model.ApplicationCount,
+			VolumeCount:               len(model.Volumes),
+			FilesystemCount:           len(model.Filesystems),
+			PersistentVolumeCount:     persistentVolumeCount,
+			PersistentFilesystemCount: persistentFilesystemCount,
 		}
 		if model.UUID == controllerModelUUID {
 			ctrModelData = modelData
@@ -168,13 +168,13 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 	}
 
 	ctrFinalStatus := ctrData{
-		controllerModelUUID,
-		aliveModelCount,
-		hostedMachinesCount,
-		applicationsCount,
-		volumeCount,
-		filesystemCount,
-		ctrModelData,
+		UUID:                 controllerModelUUID,
+		HostedModelCount:     aliveModelCount,
+		HostedMachineCount:   hostedMachinesCount,
+		ApplicationCount:     applicationsCount,
+		TotalVolumeCount:     volumeCount,
+		TotalFilesystemCount: filesystemCount,
+		Model:                ctrModelData,
 	}
 
 	return environmentStatus{

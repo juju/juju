@@ -75,32 +75,24 @@ type APIBase struct {
 	storageAccess StorageInterface
 	store         objectstore.ObjectStore
 
-	ecService  ExternalControllerService
-	authorizer facade.Authorizer
-	check      BlockChecker
-	repoDeploy DeployFromRepository
+	externalControllerService ExternalControllerService
+	authorizer                facade.Authorizer
+	check                     BlockChecker
+	repoDeploy                DeployFromRepository
 
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
-	cloudService       common.CloudService
-	credentialService  common.CredentialService
 	machineService     MachineService
 	applicationService ApplicationService
 	networkService     NetworkService
 	portService        PortService
 	stubService        StubService
+	storageService     StorageService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
 
-	// TODO(axw) stateCharm only exists because I ran out
-	// of time unwinding all of the tendrils of state. We
-	// should pass a charm.Charm and charm.URL back into
-	// state wherever we pass in a state.Charm currently.
-	stateCharm func(Charm) *state.Charm
-
-	storagePoolGetter     StoragePoolGetter
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
@@ -126,7 +118,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 	domainServices := ctx.DomainServices()
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
-	stateCharm := CharmToStateCharm
 
 	storageService := domainServices.Storage()
 
@@ -179,7 +170,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		applicationService: applicationService,
 		registry:           registry,
 		state:              state,
-		storagePoolGetter:  storageService,
+		storageService:     storageService,
 		logger:             repoLogger,
 	}
 
@@ -193,25 +184,24 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	return NewAPIBase(
 		state,
-		domainServices.ExternalController(),
-		domainServices.Network(),
+		Services{
+			ExternalControllerService: domainServices.ExternalController(),
+			NetworkService:            domainServices.Network(),
+			ModelConfigService:        domainServices.Config(),
+			MachineService:            domainServices.Machine(),
+			ApplicationService:        applicationService,
+			PortService:               domainServices.Port(),
+			StorageService:            storageService,
+			StubService:               domainServices.Stub(),
+		},
 		storageAccess,
 		ctx.Auth(),
-		repoDeploy,
 		blockChecker,
 		model,
 		modelInfo,
-		domainServices.Config(),
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		domainServices.Machine(),
-		applicationService,
-		domainServices.Port(),
-		domainServices.Stub(),
 		leadershipReader,
-		stateCharm,
+		repoDeploy,
 		DeployApplication,
-		storageService,
 		registry,
 		resources,
 		caasBroker,
@@ -235,25 +225,15 @@ type DeployApplicationFunc = func(
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
-	ecService ExternalControllerService,
-	networkService NetworkService,
+	services Services,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
-	repoDeploy DeployFromRepository,
 	blockChecker BlockChecker,
 	model Model,
 	modelInfo model.ReadOnlyModel,
-	modelConfigService ModelConfigService,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
-	machineService MachineService,
-	applicationService ApplicationService,
-	portService PortService,
-	stubService StubService,
-	leadershipReader leadership.Reader,
-	stateCharm func(Charm) *state.Charm,
+	leadershipReader Leadership,
+	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
-	storagepoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
@@ -264,32 +244,35 @@ func NewAPIBase(
 		return nil, apiservererrors.ErrPerm
 	}
 
+	if err := services.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &APIBase{
 		backend:               backend,
-		ecService:             ecService,
-		networkService:        networkService,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
 		modelInfo:             modelInfo,
-		modelConfigService:    modelConfigService,
-		cloudService:          cloudService,
-		credentialService:     credentialService,
-		machineService:        machineService,
-		applicationService:    applicationService,
-		portService:           portService,
-		stubService:           stubService,
 		leadershipReader:      leadershipReader,
-		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
-		storagePoolGetter:     storagepoolGetter,
 		registry:              registry,
 		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
-		logger:                logger,
+
+		applicationService:        services.ApplicationService,
+		externalControllerService: services.ExternalControllerService,
+		machineService:            services.MachineService,
+		modelConfigService:        services.ModelConfigService,
+		networkService:            services.NetworkService,
+		portService:               services.PortService,
+		storageService:            services.StorageService,
+		stubService:               services.StubService,
+
+		logger: logger,
 	}, nil
 }
 
@@ -446,7 +429,7 @@ type caasDeployParams struct {
 func (c caasDeployParams) precheck(
 	ctx context.Context,
 	modelConfigService ModelConfigService,
-	storagePoolGetter StoragePoolGetter,
+	storageService StorageService,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
@@ -482,7 +465,7 @@ func (c caasDeployParams) precheck(
 					"See https://discourse.charmhub.io/t/getting-started/152.",
 			)
 		}
-		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storagePoolGetter, registry)
+		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storageService, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
 		}
@@ -501,7 +484,7 @@ func (c caasDeployParams) precheck(
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 		}
-		_, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storagePoolGetter, registry)
+		_, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storageService, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
 		}
@@ -532,7 +515,11 @@ func (api *APIBase) deployApplication(
 	}
 
 	// Try to find the charm URL in state first.
-	ch, err := api.backend.Charm(args.CharmURL)
+	charmID, err := api.getCharmID(ctx, args.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, err := api.getCharm(ctx, charmID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -550,7 +537,7 @@ func (api *APIBase) deployApplication(
 			placement:       args.Placement,
 			storage:         args.Storage,
 		}
-		if err := caas.precheck(ctx, api.modelConfigService, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -585,10 +572,11 @@ func (api *APIBase) deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// TODO: replace model with model info/config services
 	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Charm:             api.stateCharm(ch),
+		Charm:             ch,
 		CharmOrigin:       origin,
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
@@ -851,17 +839,26 @@ type forceParams struct {
 	ForceBase, ForceUnits, Force bool
 }
 
-func (api *APIBase) setConfig(app Application, settingsYAML string, settingsStrings map[string]string) error {
-	// Update settings for charm and/or application.
-	ch, _, err := app.Charm()
+func (api *APIBase) setConfig(
+	ctx context.Context,
+	app Application,
+	settingsYAML string,
+	settingsStrings map[string]string,
+) error {
+	charmID, err := api.getCharmIDByApplicationName(ctx, app.Name())
 	if err != nil {
-		return errors.Annotate(err, "obtaining charm for this application")
+		return errors.Trace(err)
+	}
+
+	charmConfig, err := api.getCharmConfig(ctx, charmID)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(charmConfig, app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -894,16 +891,17 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return err
 	}
 
-	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
-		return err
-	}
-
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+		return err
+	}
+
 	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -957,27 +955,38 @@ func (api *APIBase) setCharmWithAgentValidation(
 	params setCharmParams,
 	url string,
 ) error {
-	newCharm, err := api.backend.Charm(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	oneApplication := params.Application
-	currentCharm, _, err := oneApplication.Charm()
-	if err != nil {
-		api.logger.Debugf("Unable to locate current charm: %v", err)
-	}
 	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	newCharmID, err := api.getCharmID(ctx, url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	newCharm, err := api.getCharm(ctx, newCharmID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if api.modelInfo.Type == model.CAAS {
+		currentCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		currentMetadata, err := api.getCharmMetadata(ctx, currentCharmID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives.
 		// TODO(wallyworld) - support resizing of existing storage.
 		var unsupportedReason string
-		if !reflect.DeepEqual(currentCharm.Meta().Storage, newCharm.Meta().Storage) {
+		if !reflect.DeepEqual(currentMetadata.Storage, newCharm.Meta().Storage) {
 			unsupportedReason = storageUpgradeMessage
-		} else if !reflect.DeepEqual(currentCharm.Meta().Devices, newCharm.Meta().Devices) {
+		} else if !reflect.DeepEqual(currentMetadata.Devices, newCharm.Meta().Devices) {
 			unsupportedReason = devicesUpgradeMessage
 		}
 		if unsupportedReason != "" {
@@ -1038,7 +1047,7 @@ func (api *APIBase) applicationSetCharm(
 
 	force := params.Force
 	cfg := state.SetCharmConfig{
-		Charm:              api.stateCharm(newCharm),
+		Charm:              newCharm,
 		CharmOrigin:        newOrigin,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
@@ -1052,7 +1061,12 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Disallow downgrading from a v2 charm to a v1 charm.
-	oldCharm, _, err := params.Application.Charm()
+	oldCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	oldCharm, err := api.getCharm(ctx, oldCharmID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1132,7 +1146,7 @@ func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Set
 // GetCharmURLOrigin returns the charm URL and charm origin the given
 // application is running at present.
 func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.ApplicationGet) (params.CharmURLOriginResult, error) {
-	if err := api.checkCanWrite(ctx); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		return params.CharmURLOriginResult{}, errors.Trace(err)
 	}
 	oneApplication, err := api.backend.Application(args.ApplicationName)
@@ -1303,26 +1317,26 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
-	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
-	// Remove this check before 3.0 when enable-ha is refactored.
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-	if ch.Meta().Name == bootstrap.ControllerCharmName {
-		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
-	}
-
 	if err := api.checkCanWrite(ctx); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
+
+	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
+	// Remove this check before 3.0 when enable-ha is refactored.
+	charmID, err := api.getCharmIDByApplicationName(ctx, args.ApplicationName)
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+	charmName, err := api.getCharmName(ctx, charmID)
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	} else if charmName == bootstrap.ControllerCharmName {
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
+	}
+
 	units, err := api.addApplicationUnits(ctx, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
@@ -1401,7 +1415,6 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
 
-	appCharms := make(map[string]Charm)
 	destroyUnit := func(arg params.DestroyUnitParams) (*params.DestroyUnitInfo, error) {
 		unitTag, err := names.ParseUnitTag(arg.UnitTag)
 		if err != nil {
@@ -1419,22 +1432,18 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q", name, unit.ApplicationName())
 		}
 
-		// TODO(wallyworld) - enable-ha is how we remove controllers at the moment
-		// Remove this check before 3.0 when enable-ha is refactored.
+		// TODO(wallyworld) - enable-ha is how we remove controllers at the
+		// moment Remove this check before 3.0 when enable-ha is refactored.
 		appName, _ := names.UnitApplication(unitTag.Id())
-		ch, ok := appCharms[appName]
-		if !ok {
-			app, err := api.backend.Application(appName)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ch, _, err = app.Charm()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			appCharms[appName] = ch
+
+		charmID, err := api.getCharmIDByApplicationName(ctx, appName)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if ch.Meta().Name == bootstrap.ControllerCharmName {
+		charmName, err := api.getCharmName(ctx, charmID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if charmName == bootstrap.ControllerCharmName {
 			return nil, errors.NotSupportedf("removing units from the controller application")
 		}
 
@@ -1515,20 +1524,24 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		if err != nil {
 			return nil, err
 		}
+
+		charmID, err := api.getCharmIDByApplicationName(ctx, tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		name, err := api.getCharmName(ctx, charmID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if name == bootstrap.ControllerCharmName {
+			return nil, errors.NotSupportedf("removing the controller application")
+		}
+
 		var info params.DestroyApplicationInfo
 		app, err := api.backend.Application(tag.Id())
 		if err != nil {
 			return nil, err
 		}
-
-		ch, _, err := app.Charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if ch.Meta().Name == bootstrap.ControllerCharmName {
-			return nil, errors.NotSupportedf("removing the controller application")
-		}
-
 		units, err := app.AllUnits()
 		if err != nil {
 			return nil, err
@@ -1649,7 +1662,7 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 			op.MaxWait = common.MaxWait(arg.MaxWait)
 		}
 		err = api.backend.ApplyOperation(op)
-		if op.Errors != nil && len(op.Errors) > 0 {
+		if len(op.Errors) > 0 {
 			api.logger.Warningf("operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
 		}
 		if err != nil {
@@ -1765,6 +1778,13 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_ params.AddRelationResults, err error) {
+	if err := api.checkCanWrite(ctx); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+
 	var rel Relation
 	defer func() {
 		if err != nil && rel != nil {
@@ -1773,13 +1793,6 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 			}
 		}
 	}()
-
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-	if err := api.checkCanWrite(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
 
 	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
 	if err != nil {
@@ -1958,7 +1971,7 @@ func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicatio
 		// a different controller.
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
 			externalControllerUUID = controllerTag.Id()
-			if err = api.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+			if err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
 				Alias:         arg.ControllerInfo.Alias,
 				Addrs:         arg.ControllerInfo.Addrs,
@@ -2093,6 +2106,15 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	return existingRemoteApp, appStatus.Status, nil
 }
 
+// Get returns the charm configuration for an application.
+func (api *APIBase) Get(ctx context.Context, args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	if err := api.checkCanRead(ctx); err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+
+	return api.getConfig(ctx, args, describe)
+}
+
 // CharmConfig returns charm config for the input list of applications.
 func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
 	if err := api.checkCanRead(ctx); err != nil {
@@ -2102,7 +2124,7 @@ func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetA
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.ApplicationName)
+		config, err := api.getMergedAppAndCharmConfig(ctx, arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -2130,27 +2152,11 @@ func (api *APIBase) GetConfig(ctx context.Context, args params.Entities) (params
 		}
 
 		// Always deal with the master branch version of config.
-		config, err := api.getCharmConfig(tag.Id())
+		config, err := api.getMergedAppAndCharmConfig(ctx, tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
-}
-
-func (api *APIBase) getCharmConfig(appName string) (map[string]interface{}, error) {
-	app, err := api.backend.Application(appName)
-	if err != nil {
-		return nil, err
-	}
-	settings, err := app.CharmConfig()
-	if err != nil {
-		return nil, err
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return nil, err
-	}
-	return describe(settings, ch.Config()), nil
 }
 
 // SetConfigs implements the server side of Application.SetConfig.  Both
@@ -2171,7 +2177,7 @@ func (api *APIBase) SetConfigs(ctx context.Context, args params.ConfigSetArgs) (
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = api.setConfig(app, arg.ConfigYAML, arg.Config)
+		err = api.setConfig(ctx, app, arg.ConfigYAML, arg.Config)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -2232,6 +2238,14 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 
 // ResolveUnitErrors marks errors on the specified units as resolved.
 func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolved) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	if err := api.checkCanWrite(ctx); err != nil {
+		return result, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	if p.All {
 		unitsWithErrors, err := api.backend.UnitsInError()
 		if err != nil {
@@ -2242,14 +2256,6 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 				return params.ErrorResults{}, errors.Annotatef(err, "resolve error for unit %q", u.UnitTag().Id())
 			}
 		}
-	}
-
-	var result params.ErrorResults
-	if err := api.checkCanWrite(ctx); err != nil {
-		return result, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return result, errors.Trace(err)
 	}
 
 	result.Results = make([]params.ErrorResult, len(p.Tags.Entities))
@@ -2272,10 +2278,15 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (params.ApplicationInfoResults, error) {
+	var result params.ApplicationInfoResults
+	if err := api.checkCanRead(ctx); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	// Get all the space infos before iterating over the application infos.
 	allSpaceInfosLookup, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
-		return params.ApplicationInfoResults{}, apiservererrors.ServerError(err)
+		return result, apiservererrors.ServerError(err)
 	}
 
 	out := make([]params.ApplicationInfoResult, len(in.Entities))
@@ -2398,7 +2409,6 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 	if err := api.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, err
 	}
-
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -2478,6 +2488,10 @@ var (
 // UnitsInfo returns unit information for the given entities (units or
 // applications).
 func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.UnitInfoResults, error) {
+	if err := api.checkCanRead(ctx); err != nil {
+		return params.UnitInfoResults{}, err
+	}
+
 	var results []params.UnitInfoResult
 	leaders, err := api.leadershipReader.Leaders()
 	if err != nil {
@@ -2738,6 +2752,10 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 
 // Leader returns the unit name of the leader for the given application.
 func (api *APIBase) Leader(ctx context.Context, entity params.Entity) (params.StringResult, error) {
+	if err := api.checkCanRead(ctx); err != nil {
+		return params.StringResult{}, errors.Trace(err)
+	}
+
 	result := params.StringResult{}
 	application, err := names.ParseApplicationTag(entity.Tag)
 	if err != nil {
@@ -2764,7 +2782,7 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 	if err := api.checkCanWrite(ctx); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}
-	if err := api.check.RemoveAllowed(ctx); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}
 

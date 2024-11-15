@@ -4,7 +4,6 @@
 package application
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -37,12 +36,10 @@ type Backend interface {
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
-	Charm(string) (Charm, error)
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	InferActiveRelation(...string) (Relation, error)
 	Machine(string) (Machine, error)
-	Model() (Model, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
@@ -56,14 +53,6 @@ type Backend interface {
 	ReadSequence(name string) (int, error)
 }
 
-// BlockChecker defines the block-checking functionality required by
-// the application facade. This is implemented by
-// apiserver/common.BlockChecker.
-type BlockChecker interface {
-	ChangeAllowed(context.Context) error
-	RemoveAllowed(context.Context) error
-}
-
 // Application defines a subset of the functionality provided by the
 // state.Application type, as required by the application facade. For
 // details on the methods, see the methods on state.Application with
@@ -74,13 +63,11 @@ type Application interface {
 	AllUnits() ([]Unit, error)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
-	Charm() (Charm, bool, error)
 	CharmURL() (*string, bool)
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
 	CharmConfig() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
-	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
@@ -92,11 +79,8 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
-	SetMinUnits(int) error
 	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
-	ChangeScale(int) (int, error)
-	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
 }
@@ -120,6 +104,7 @@ type Charm interface {
 	Actions() *charm.Actions
 	Revision() int
 	IsUploaded() bool
+	URL() string
 }
 
 // CharmMeta describes methods that inform charm operation.
@@ -267,14 +252,6 @@ func NewStateApplication(
 		Application: app,
 		st:          st,
 	}
-}
-
-// CharmToStateCharm converts a Charm into a state.Charm. This is
-// a hack that is required until the State interface methods we
-// deal with stop accepting state.Charms, and start accepting
-// charm.Charm and charm.URL.
-func CharmToStateCharm(ch Charm) *state.Charm {
-	return ch.(stateCharmShim).Charm
 }
 
 func (s stateShim) Application(name string) (Application, error) {
@@ -475,14 +452,6 @@ func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
 		Unit: u,
 		st:   a.st,
 	}, nil
-}
-
-func (a stateApplicationShim) Charm() (Charm, bool, error) {
-	ch, force, err := a.Application.Charm()
-	if err != nil {
-		return nil, false, err
-	}
-	return ch, force, nil
 }
 
 func (a stateApplicationShim) AllUnits() ([]Unit, error) {

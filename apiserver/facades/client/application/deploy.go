@@ -42,7 +42,7 @@ type ModelService interface {
 // charm.
 type DeployApplicationParams struct {
 	ApplicationName   string
-	Charm             *state.Charm
+	Charm             Charm
 	CharmOrigin       corecharm.Origin
 	ApplicationConfig *config.Config
 	CharmConfig       charm.Settings
@@ -111,7 +111,7 @@ func DeployApplication(
 
 	if modelInfo.Type == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
-			return nil, errors.NotSupportedf("deploying format v1 charm %q", args.Charm.URL())
+			return nil, errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
 		}
 	}
 

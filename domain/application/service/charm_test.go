@@ -292,6 +292,36 @@ func (s *charmServiceSuite) TestGetCharmLXDProfileInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *charmServiceSuite) TestGetCharmMetadataName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmMetadataName(gomock.Any(), id).Return("name for a charm", nil)
+
+	name, err := s.service.GetCharmMetadataName(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(name, gc.Equals, "name for a charm")
+}
+
+func (s *charmServiceSuite) TestGetCharmMetadataNameCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmMetadataName(gomock.Any(), id).Return("", applicationerrors.CharmNotFound)
+
+	_, err := s.service.GetCharmMetadataName(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmServiceSuite) TestGetCharmMetadataNameInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmMetadataName(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 func (s *charmServiceSuite) TestGetCharmMetadataDescription(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

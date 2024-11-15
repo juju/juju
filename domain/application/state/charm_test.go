@@ -433,7 +433,7 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
+	c.Check(metadata, gc.DeepEquals, charm.Metadata{
 		Name:           "ubuntu",
 		Summary:        "summary",
 		Description:    "description",
@@ -442,6 +442,33 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
 		MinJujuVersion: version.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	})
+}
+
+func (s *charmStateSuite) TestGetCharmMetadataName(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertCharmMetadata(ctx, c, tx, uuid)
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	name, err := st.GetCharmMetadataName(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(name, gc.DeepEquals, "ubuntu")
+}
+
+func (s *charmStateSuite) TestGetCharmMetadataNameNotFound(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmMetadataName(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataDescription(c *gc.C) {
@@ -459,7 +486,16 @@ func (s *charmStateSuite) TestGetCharmMetadataDescription(c *gc.C) {
 
 	description, err := st.GetCharmMetadataDescription(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(description, gc.DeepEquals, "description")
+	c.Check(description, gc.DeepEquals, "description")
+}
+
+func (s *charmStateSuite) TestGetCharmMetadataDescriptionNotFound(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmMetadataDescription(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -74,7 +73,6 @@ type DeployFromRepositoryAPI struct {
 	state              DeployFromRepositoryState
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
-	stateCharm         func(Charm) *state.Charm
 	applicationService ApplicationService
 	logger             corelogger.Logger
 }
@@ -89,7 +87,6 @@ func NewDeployFromRepositoryAPI(
 		state:              state,
 		store:              store,
 		validator:          validator,
-		stateCharm:         CharmToStateCharm,
 		applicationService: applicationService,
 		logger:             logger,
 	}
@@ -147,7 +144,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
-		Charm:             api.stateCharm(ch),
+		Charm:             ch,
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,
@@ -177,7 +174,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 
 	if addApplicationErr != nil {
 		// Check the pending resources that are added before the AddApplication is called
-		if pendingIDs != nil && len(pendingIDs) != 0 {
+		if len(pendingIDs) != 0 {
 			// Remove if there's any pending resources before raising addApplicationErr
 			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs, api.store)
 			if removeResourcesErr != nil {
@@ -292,7 +289,7 @@ type validatorConfig struct {
 	machineService     MachineService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
-	storagePoolGetter  StoragePoolGetter
+	storageService     StorageService
 	logger             corelogger.Logger
 }
 
@@ -315,10 +312,10 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	}
 	if cfg.modelInfo.Type == model.CAAS {
 		return &caasDeployFromRepositoryValidator{
-			caasBroker:        cfg.caasBroker,
-			registry:          cfg.registry,
-			storagePoolGetter: cfg.storagePoolGetter,
-			validator:         v,
+			caasBroker:     cfg.caasBroker,
+			registry:       cfg.registry,
+			storageService: cfg.storageService,
+			validator:      v,
 			caasPrecheckFunc: func(dt deployTemplate) error {
 				attachStorage := make([]string, len(dt.attachStorage))
 				for i, tag := range dt.attachStorage {
@@ -332,7 +329,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					placement:       dt.placement,
 					storage:         dt.storage,
 				}
-				return cdp.precheck(ctx, v.modelConfigService, cfg.storagePoolGetter, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.modelConfigService, cfg.storageService, cfg.registry, cfg.caasBroker)
 			},
 		}
 	}
@@ -435,7 +432,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.pendingResourceUploads = pendingResourceUploads
 	dt.resolvedResources = resources
 
-	if v.logger.IsLevelEnabled(logger.TRACE) {
+	if v.logger.IsLevelEnabled(corelogger.TRACE) {
 		v.logger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	}
 	return dt, errs
@@ -534,9 +531,9 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 
-	caasBroker        CaasBrokerInterface
-	registry          storage.ProviderRegistry
-	storagePoolGetter StoragePoolGetter
+	caasBroker     CaasBrokerInterface
+	registry       storage.ProviderRegistry
+	storageService StorageService
 
 	// Needed for testing. caasDeployTemplate precheck functionality tested
 	// elsewhere

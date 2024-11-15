@@ -905,10 +905,11 @@ func (s *applicationStateSuite) TestGetUnitUUIDs(c *gc.C) {
 	var gotUUIDs []coreunit.UUID
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE name IN (?, ?)", u1.UnitName, u2.UnitName)
-		defer rows.Close()
 		if err != nil {
 			return err
 		}
+		defer func() { _ = rows.Close() }()
+
 		for rows.Next() {
 			var uuid coreunit.UUID
 			if err := rows.Scan(&uuid); err != nil {
@@ -949,10 +950,11 @@ func (s *applicationStateSuite) TestGetUnitNames(c *gc.C) {
 	var unitUUIDs []coreunit.UUID
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE name IN (?, ?)", u1.UnitName, u2.UnitName)
-		defer rows.Close()
 		if err != nil {
 			return err
 		}
+		defer func() { _ = rows.Close() }()
+
 		for rows.Next() {
 			var uuid coreunit.UUID
 			if err := rows.Scan(&uuid); err != nil {

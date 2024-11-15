@@ -429,9 +429,46 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 	return charmMetadata, nil
 }
 
-// GetCharmMetadataDescription returns the metadata for the charm using the
-// charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
+// GetCharmMetadataName returns the name from the metadata for the charm using
+// the charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
 // returned.
+func (s *CharmState) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT name AS &charmMetadata.name
+FROM v_charm_metadata
+WHERE uuid = $charmID.uuid;`
+
+	var metadata charmMetadata
+	stmt, err := s.Prepare(query, metadata, ident)
+	if err != nil {
+		return "", internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&metadata); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.CharmNotFound
+			}
+			return internalerrors.Errorf("selecting charm metadata: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", internalerrors.Errorf("getting charm metadata: %w", err)
+	}
+
+	return metadata.Name, nil
+}
+
+// GetCharmMetadataDescription returns the description for the metadata for the
+// charm using the charm ID. If the charm does not exist, a
+// [errors.CharmNotFound] error is returned.
 func (s *CharmState) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -448,7 +485,7 @@ WHERE uuid = $charmID.uuid;`
 	var metadata charmMetadata
 	stmt, err := s.Prepare(query, metadata, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
+		return "", internalerrors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -456,11 +493,11 @@ WHERE uuid = $charmID.uuid;`
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to select charm metadata: %w", err)
+			return internalerrors.Errorf("selecting charm metadata: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("failed to get charm metadata: %w", err)
+		return "", internalerrors.Errorf("getting charm metadata: %w", err)
 	}
 
 	return metadata.Description, nil
