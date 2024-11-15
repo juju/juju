@@ -373,7 +373,7 @@ func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash 
 			return errors.AlreadyExistsf("encoded as %q", filePath)
 		}
 		return nil
-	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		// There is an error attempting to stat the file, and it's not because
 		// the file doesn't exist.
 		return errors.Trace(err)
