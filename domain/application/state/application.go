@@ -789,14 +789,14 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 type ports []string
 
-func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, cloudContainerID string, portValues []string) error {
+func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeUUID string, portValues []string) error {
 	ccPort := cloudContainerPort{
-		CloudContainerUUID: cloudContainerID,
+		NetNodeUUID: netNodeUUID,
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM cloud_container_port
 WHERE port NOT IN ($ports[:])
-AND cloud_container_uuid = $cloudContainerPort.cloud_container_uuid;
+AND net_node_uuid = $cloudContainerPort.net_node_uuid;
 `, ports{}, ccPort)
 	if err != nil {
 		return errors.Trace(err)
@@ -805,7 +805,7 @@ AND cloud_container_uuid = $cloudContainerPort.cloud_container_uuid;
 	upsertStmt, err := sqlair.Prepare(`
 INSERT INTO cloud_container_port (*)
 VALUES ($cloudContainerPort.*)
-ON CONFLICT(cloud_container_uuid, port)
+ON CONFLICT(net_node_uuid, port)
 DO NOTHING
 `, ccPort)
 	if err != nil {
@@ -813,13 +813,13 @@ DO NOTHING
 	}
 
 	if err := tx.Query(ctx, deleteStmt, ports(portValues), ccPort).Run(); err != nil {
-		return fmt.Errorf("removing cloud container ports for %q: %w", cloudContainerID, err)
+		return fmt.Errorf("removing cloud container ports for %q: %w", netNodeUUID, err)
 	}
 
 	for _, port := range portValues {
 		ccPort.Port = port
 		if err := tx.Query(ctx, upsertStmt, ccPort).Run(); err != nil {
-			return fmt.Errorf("updating cloud container ports for %q: %w", cloudContainerID, err)
+			return fmt.Errorf("updating cloud container ports for %q: %w", netNodeUUID, err)
 		}
 	}
 
@@ -990,7 +990,7 @@ func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, n
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM cloud_container_port
-WHERE cloud_container_uuid = $minimalUnit.net_node_uuid
+WHERE net_node_uuid = $minimalUnit.net_node_uuid
 `, unit)
 	if err != nil {
 		return errors.Trace(err)
