@@ -20,7 +20,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -90,9 +89,9 @@ type Authorizer interface {
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, machine.Name) (string, error)
+	CreateMachine(context.Context, coremachine.Name) (string, error)
 	// DeleteMachine deletes a machine with the given name.
-	DeleteMachine(context.Context, machine.Name) error
+	DeleteMachine(context.Context, coremachine.Name) error
 	// GetBootstrapEnviron returns the bootstrap environ.
 	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
 	// GetInstanceTypesFetcher returns the instance types fetcher.
@@ -107,7 +106,7 @@ type MachineService interface {
 	// It returns a NotFound if the given machine doesn't exist.
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
@@ -345,7 +344,7 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName st
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
 	for machineName != "" {
-		_, err := mm.machineService.CreateMachine(ctx, machine.Name(machineName))
+		_, err := mm.machineService.CreateMachine(ctx, coremachine.Name(machineName))
 		// The machine might already exist e.g. if we are adding a subordinate
 		// unit to an already existing machine. In this case, just continue
 		// without error.

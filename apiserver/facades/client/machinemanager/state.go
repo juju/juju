@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -64,13 +63,6 @@ type Machine interface {
 
 type Application interface {
 	Name() string
-	Charm() (Charm, bool, error)
-	CharmOrigin() *state.CharmOrigin
-}
-
-type Charm interface {
-	Meta() *charm.Meta
-	Manifest() *charm.Manifest
 }
 
 type stateShim struct {
@@ -144,14 +136,6 @@ func (p *poolShim) SystemState() (ControllerBackend, error) {
 
 type applicationShim struct {
 	*state.Application
-}
-
-func (a applicationShim) Charm() (Charm, bool, error) {
-	ch, force, err := a.Application.Charm()
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
-	return ch, force, nil
 }
 
 type machineShim struct {

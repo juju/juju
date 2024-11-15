@@ -21,7 +21,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	instance "github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -148,9 +147,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 			},
 		},
 	}).Return(m1, nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"))
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("667/lxd/1"))
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("667"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667/lxd/1"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("667"))
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
@@ -853,7 +852,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		NetPort:      1,
 	}}}, nil).Times(2)
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
-		gomock.Any(), machine.Name("0"),
+		gomock.Any(), coremachine.Name("0"),
 	).Return([]string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 	}, nil)
@@ -922,7 +921,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	}}}, nil).Times(2)
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
-		gomock.Any(), machine.Name("0"),
+		gomock.Any(), coremachine.Name("0"),
 	).Return([]string{}, nil)
 
 	result, err := s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
