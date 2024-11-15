@@ -67,7 +67,11 @@ type ResourceService struct {
 }
 
 // NewResourceService returns a new service reference wrapping the input state.
-func NewResourceService(st ResourceState, resourceStoreGetter ResourceStoreGetter, logger logger.Logger) *ResourceService {
+func NewResourceService(
+	st ResourceState,
+	resourceStoreGetter ResourceStoreGetter,
+	logger logger.Logger,
+) *ResourceService {
 	// Note:
 	// The store for container image resources is really a DQLite table today.
 	// Using AddStore is a compromise to avoid injecting one service into
@@ -90,7 +94,10 @@ func NewResourceService(st ResourceState, resourceStoreGetter ResourceStoreGette
 //   - errors.NotValid is returned if the application ID is not valid.
 //   - application.ResourceNotFound if no resource with name exists for
 //     given application.
-func (s *ResourceService) GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (resources.ID, error) {
+func (s *ResourceService) GetApplicationResourceID(
+	ctx context.Context,
+	args resource.GetApplicationResourceIDArgs,
+) (resources.ID, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return "", fmt.Errorf("application id: %w", err)
 	}
@@ -111,7 +118,10 @@ func (s *ResourceService) GetApplicationResourceID(ctx context.Context, args res
 //     not exist.
 //
 // No error is returned if the provided application has no resources.
-func (s *ResourceService) ListResources(ctx context.Context, applicationID application.ID) (resource.ApplicationResources, error) {
+func (s *ResourceService) ListResources(
+	ctx context.Context,
+	applicationID application.ID,
+) (resource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
 		return resource.ApplicationResources{}, fmt.Errorf("application id: %w", err)
 	}
@@ -125,7 +135,10 @@ func (s *ResourceService) ListResources(ctx context.Context, applicationID appli
 //   - application.ApplicationDyingOrDead for dead or dying applications.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) GetResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error) {
+func (s *ResourceService) GetResource(
+	ctx context.Context,
+	resourceID resources.ID,
+) (resource.Resource, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
 	}
@@ -141,12 +154,16 @@ func (s *ResourceService) GetResource(ctx context.Context, resourceID resources.
 //     SuppliedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetResource(ctx context.Context, args resource.SetResourceArgs) (resource.Resource, error) {
+func (s *ResourceService) SetResource(
+	ctx context.Context,
+	args resource.SetResourceArgs,
+) (resource.Resource, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
-		return resource.Resource{}, fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
+		return resource.Resource{},
+			fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("resource: %w", err)
@@ -163,12 +180,16 @@ func (s *ResourceService) SetResource(ctx context.Context, args resource.SetReso
 //     SuppliedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetUnitResource(ctx context.Context, args resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error) {
+func (s *ResourceService) SetUnitResource(
+	ctx context.Context,
+	args resource.SetUnitResourceArgs,
+) (resource.SetUnitResourceResult, error) {
 	if err := args.UnitID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
+		return resource.SetUnitResourceResult{},
+			fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("resource: %w", err)
@@ -182,7 +203,10 @@ func (s *ResourceService) SetUnitResource(ctx context.Context, args resource.Set
 //   - errors.NotValid is returned if the resource ID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
-func (s *ResourceService) OpenApplicationResource(ctx context.Context, resourceID resources.ID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenApplicationResource(
+	ctx context.Context,
+	resourceID resources.ID,
+) (resource.Resource, io.ReadCloser, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
@@ -202,7 +226,11 @@ func (s *ResourceService) OpenApplicationResource(ctx context.Context, resourceI
 //     not exist.
 //   - application.UnitNotFound if the specified unit does
 //     not exist.
-func (s *ResourceService) OpenUnitResource(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenUnitResource(
+	ctx context.Context,
+	resourceID resources.ID,
+	unitID coreunit.UUID,
+) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
 	}
@@ -223,7 +251,10 @@ func (s *ResourceService) OpenUnitResource(ctx context.Context, resourceID resou
 //   - errors.NotValid is returned if the length of Info is zero.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetRepositoryResources(ctx context.Context, args resource.SetRepositoryResourcesArgs) error {
+func (s *ResourceService) SetRepositoryResources(
+	ctx context.Context,
+	args resource.SetRepositoryResourcesArgs,
+) error {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return fmt.Errorf("application id: %w", err)
 	}
