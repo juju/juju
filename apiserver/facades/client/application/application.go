@@ -83,8 +83,6 @@ type APIBase struct {
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
-	cloudService       CloudService
-	credentialService  CredentialService
 	machineService     MachineService
 	applicationService ApplicationService
 	networkService     NetworkService
@@ -190,8 +188,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			ExternalControllerService: domainServices.ExternalController(),
 			NetworkService:            domainServices.Network(),
 			ModelConfigService:        domainServices.Config(),
-			CloudService:              domainServices.Cloud(),
-			CredentialService:         domainServices.Credential(),
 			MachineService:            domainServices.Machine(),
 			ApplicationService:        applicationService,
 			PortService:               domainServices.Port(),
@@ -268,8 +264,6 @@ func NewAPIBase(
 		store:                 store,
 
 		applicationService:        services.ApplicationService,
-		cloudService:              services.CloudService,
-		credentialService:         services.CredentialService,
 		externalControllerService: services.ExternalControllerService,
 		machineService:            services.MachineService,
 		modelConfigService:        services.ModelConfigService,

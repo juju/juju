@@ -30,8 +30,6 @@ import (
 // Services represents all the services that the application facade requires.
 type Services struct {
 	ApplicationService        ApplicationService
-	CloudService              CloudService
-	CredentialService         CredentialService
 	ExternalControllerService ExternalControllerService
 	MachineService            MachineService
 	ModelConfigService        ModelConfigService
@@ -51,12 +49,6 @@ func (s Services) Validate() error {
 	}
 	if s.ModelConfigService == nil {
 		return errors.NotValidf("empty ModelConfigService")
-	}
-	if s.CloudService == nil {
-		return errors.NotValidf("empty CloudService")
-	}
-	if s.CredentialService == nil {
-		return errors.NotValidf("empty CredentialService")
 	}
 	if s.MachineService == nil {
 		return errors.NotValidf("empty MachineService")
@@ -91,14 +83,6 @@ type CredentialService interface {
 	// WatchCredential returns a watcher that observes changes to the specified
 	// credential.
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	// WatchCloud returns a watcher that observes changes to the specified cloud.
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 }
 
 // NetworkService is the interface that is used to interact with the
