@@ -865,7 +865,76 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 		Meta:     ch.Meta(),
 		Revision: ch.Revision(),
 	}
+	// TODO (jam) 2024-11-15: this test is kept for backward compatibility,
+	//  in 3.x the --force-series argument exists, though it is being
+	//  replaced by --force-base
 	_, err = s.runRefresh(c, s.cmd, "multi-series", "--path", repoPath, "--force-series")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch.Revision(), gc.Equals, 2)
+	c.Check(force, gc.Equals, false)
+}
+
+func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
+	repoPath := testcharms.RepoWithSeries("jammy").ClonedDirPath(c.MkDir(), "multi-base")
+	err := runDeploy(c, repoPath, "multi-base", "--base", "22.04")
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := s.State.Application("multi-base")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.Revision(), gc.Equals, 1)
+
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
+
+	// Overwrite the metadata.yaml to change the supported series.
+	manifestPath := filepath.Join(repoPath, "manifest.yaml")
+	file, err := os.OpenFile(manifestPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open manifest.yaml for overwriting"))
+	}
+	defer func() { _ = file.Close() }()
+
+	// We deployed a version of the charm that supported jammy (22.04), but
+	// now we declare that this charm only supports focal, but with a
+	// --force-base we are allowed to target it anyway.
+	metadata := strings.Join(
+		[]string{
+			`bases:`,
+			`- architectures:`,
+			`  - amd64`,
+			`  channel: '20.04'`,
+			`  name: ubuntu`,
+		},
+		"\n",
+	)
+	if _, err := file.WriteString(metadata); err != nil {
+		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
+	}
+
+	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
+		URL:      ch.URL(),
+		Meta:     ch.Meta(),
+		Revision: ch.Revision(),
+	}
+	// First confirm that normal refresh would be refused
+	_, err = s.runRefresh(c, s.cmd, "multi-base", "--path", repoPath)
+	c.Assert(err, gc.NotNil)
+
+	// But with --force-base we are happy
+	_, err = s.runRefresh(c, s.cmd, "multi-series", "--path", repoPath, "--force-base")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Refresh()
