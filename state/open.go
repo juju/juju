@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"runtime/pprof"
 	"strings"
@@ -117,7 +118,7 @@ func open(
 			session.Close()
 			return nil, errors.Trace(err)
 		}
-		logger.Debugf("mongodb initialised")
+		logger.Debugf(context.TODO(), "mongodb initialised")
 	}
 
 	return st, nil
@@ -198,7 +199,7 @@ func (st *State) Close() (err error) {
 		return errors.Trace(err)
 	}
 	st.session.Close()
-	logger.Debugf("closed state without error")
+	logger.Debugf(context.TODO(), "closed state without error")
 	// Remove the reference.
 	profileTracker.Remove(st)
 	return nil

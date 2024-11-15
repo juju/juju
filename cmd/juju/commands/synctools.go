@@ -147,7 +147,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	} else {
 		if c.public {
-			logger.Infof("--public is ignored unless --local-dir is specified")
+			logger.Infof(context.TODO(), "--public is ignored unless --local-dir is specified")
 		}
 		api, err := c.getSyncToolAPI(ctx)
 		if err != nil {

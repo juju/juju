@@ -114,25 +114,25 @@ func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
 	}()
 
 	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, span.Scope().TraceID()), func(ctx context.Context) {
-		x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
+		x.logger.Debugf(context.TODO(), "skipping operation %v for %s", op, x.unitName)
 		err = x.do(ctx, op, stepCommit)
 	})
 	return
 }
 
 func (x *executor) run(ctx context.Context, op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
-	x.logger.Debugf("running operation %v for %s", op, x.unitName)
+	x.logger.Debugf(context.TODO(), "running operation %v for %s", op, x.unitName)
 
 	if op.NeedsGlobalMachineLock() {
-		x.logger.Debugf("acquiring machine lock for %s", x.unitName)
+		x.logger.Debugf(context.TODO(), "acquiring machine lock for %s", x.unitName)
 		releaser, err := x.acquireMachineLock(op.String(), op.ExecutionGroup())
 		if err != nil {
 			return errors.Annotatef(err, "acquiring %q lock for %s", op, x.unitName)
 		}
-		defer x.logger.Debugf("lock released for %s", x.unitName)
+		defer x.logger.Debugf(context.TODO(), "lock released for %s", x.unitName)
 		defer releaser()
 	} else {
-		x.logger.Debugf("no machine lock needed for %s", x.unitName)
+		x.logger.Debugf(context.TODO(), "no machine lock needed for %s", x.unitName)
 	}
 
 	switch err := x.do(ctx, op, stepPrepare); errors.Cause(err) {
@@ -165,14 +165,14 @@ func (x *executor) run(ctx context.Context, op Operation, remoteStateChange <-ch
 
 func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err error) {
 	message := step.message(op, x.unitName)
-	x.logger.Debugf(message)
+	x.logger.Debugf(context.TODO(), message)
 	newState, firstErr := step.run(op, ctx, *x.state)
 	if newState != nil {
 		writeErr := x.writeState(ctx, *newState)
 		if firstErr == nil {
 			firstErr = writeErr
 		} else if writeErr != nil {
-			x.logger.Errorf("after %s for %s: %v", message, x.unitName, writeErr)
+			x.logger.Errorf(context.TODO(), "after %s for %s: %v", message, x.unitName, writeErr)
 		}
 	}
 	return errors.Annotatef(firstErr, "%s", message)

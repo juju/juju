@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	stdcontext "context"
 	stderrors "errors"
 	"fmt"
@@ -215,7 +216,7 @@ func ensureControllerInstanceProfile(
 			InstanceProfileName: res.InstanceProfile.InstanceProfileName,
 		})
 		if err != nil {
-			logger.Errorf("cleanup delete instance profile %q: %v",
+			logger.Errorf(context.TODO(), "cleanup delete instance profile %q: %v",
 				*res.InstanceProfile.InstanceProfileName,
 				err)
 		}
@@ -241,7 +242,7 @@ func ensureControllerInstanceProfile(
 			RoleName:            role.RoleName,
 		})
 		if err != nil {
-			logger.Errorf("cleanup remove role %q from instance profile %q: %v",
+			logger.Errorf(context.TODO(), "cleanup remove role %q from instance profile %q: %v",
 				*role.RoleName,
 				*res.InstanceProfile.InstanceProfileName,
 				err)
@@ -288,7 +289,7 @@ func ensureControllerInstanceRole(
 			RoleName: res.Role.RoleName,
 		})
 		if err != nil {
-			logger.Errorf("cleanup delete role %q: %v",
+			logger.Errorf(context.TODO(), "cleanup delete role %q: %v",
 				*res.Role.RoleName,
 				err)
 		}
@@ -310,7 +311,7 @@ func ensureControllerInstanceRole(
 			RoleName:   res.Role.RoleName,
 		})
 		if err != nil {
-			logger.Errorf("cleanup delete role %q policy %q: %v",
+			logger.Errorf(context.TODO(), "cleanup delete role %q policy %q: %v",
 				*res.Role.RoleName,
 				roleName,
 				err)

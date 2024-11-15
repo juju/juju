@@ -92,7 +92,7 @@ func (w *apiconfigwatcher) loop() error {
 		// first, in case there was a change between the start func
 		// and the call to Watch.
 		if !stringSliceEq(w.addrs, w.getAPIAddresses()) {
-			w.logger.Debugf("API addresses changed in agent config")
+			w.logger.Debugf(context.TODO(), "API addresses changed in agent config")
 			return dependency.ErrBounce
 		}
 
@@ -121,7 +121,7 @@ func (w *apiconfigwatcher) getAPIAddresses() []string {
 	config := w.agent.CurrentConfig()
 	addrs, err := config.APIAddresses()
 	if err != nil {
-		w.logger.Errorf("retrieving API addresses: %s", err)
+		w.logger.Errorf(context.TODO(), "retrieving API addresses: %s", err)
 		addrs = nil
 	}
 	sort.Strings(addrs)

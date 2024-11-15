@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -242,7 +243,7 @@ func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
 		return errors.Annotate(err, "locating loop device")
 	}
 	if len(deviceNames) > 1 {
-		logger.Errorf("expected 1 loop device, got %d", len(deviceNames))
+		logger.Errorf(context.TODO(), "expected 1 loop device, got %d", len(deviceNames))
 	}
 	for _, deviceName := range deviceNames {
 		if err := detachLoopDevice(lvs.run, deviceName); err != nil {
@@ -273,7 +274,7 @@ func attachLoopDevice(run runCommandFunc, filePath string, readOnly bool) (loopD
 	}
 	if len(devices) > 0 {
 		// Already attached.
-		logger.Debugf("%s already attached to %s", filePath, devices)
+		logger.Debugf(context.TODO(), "%s already attached to %s", filePath, devices)
 		return devices[0], nil
 	}
 	// -f automatically finds the first available loop-device.

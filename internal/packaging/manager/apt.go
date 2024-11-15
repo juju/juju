@@ -6,6 +6,7 @@ package manager
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -81,7 +82,7 @@ func (apt *apt) GetProxySettings() (proxy.Settings, error) {
 	out, err := CommandOutput(cmd)
 
 	if err != nil {
-		logger.Errorf("command failed: %v\nargs: %#v\n%s",
+		logger.Errorf(context.TODO(), "command failed: %v\nargs: %#v\n%s",
 			err, args, string(out))
 		return res, fmt.Errorf("command failed: %v", err)
 	}

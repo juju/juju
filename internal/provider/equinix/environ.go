@@ -188,7 +188,7 @@ func (e *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.I
 	for i, id := range ids {
 		d, resp, err := e.equinixClient.Devices.Get(string(id), nil)
 		if err != nil && resp != nil && resp.Response.StatusCode == http.StatusNotFound {
-			logger.Warningf("instance %s not found", string(id))
+			logger.Warningf(context.TODO(), "instance %s not found", string(id))
 			missingInstanceCount = missingInstanceCount + 1
 			continue
 		} else if err != nil {
@@ -476,7 +476,7 @@ func (e *environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 
 	var requestedPublicAddr, requestedPrivateAddr bool
 	if len(reservationIDs) != 0 {
-		logger.Debugf("requesting a machine with addresses from the following reservation IDs: %s", strings.Join(reservationIDs, ", "))
+		logger.Debugf(context.TODO(), "requesting a machine with addresses from the following reservation IDs: %s", strings.Join(reservationIDs, ", "))
 		for _, reservationID := range reservationIDs {
 			net, _, err := e.equinixClient.ProjectIPs.Get(reservationID, &packngo.GetOptions{})
 			if err != nil {
@@ -661,7 +661,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 nextPlan:
 	for _, plan := range plans {
 		if !validPlan(plan, e.cloud.Region) {
-			logger.Tracef("Plan %s not valid in metro %s", plan.Name, e.cloud.Region)
+			logger.Tracef(context.TODO(), "Plan %s not valid in metro %s", plan.Name, e.cloud.Region)
 			continue
 		}
 

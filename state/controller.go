@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -172,7 +174,7 @@ func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error
 		// Older Juju deployments discard the key because no one realised
 		// the certificate was flawed, so at best we can log a warning
 		// until an upgrade process is written.
-		logger.Warningf("state serving info has no CA certificate key")
+		logger.Warningf(context.TODO(), "state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
 		C:  controllersC,

@@ -4,6 +4,7 @@
 package spaces
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -240,7 +241,7 @@ func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spa
 		if !n.force {
 			return errors.New(msg)
 		}
-		n.logger.Warningf(msg)
+		n.logger.Warningf(context.TODO(), msg)
 	}
 
 	return nil
@@ -279,7 +280,7 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 			if !n.force {
 				return errors.New(msg)
 			}
-			n.logger.Warningf(msg)
+			n.logger.Warningf(context.TODO(), msg)
 		}
 	}
 
@@ -342,7 +343,7 @@ func (n *affectedNetworks) ensureApplicationBindingsIntegrity(appName string, ap
 			if !n.force {
 				return errors.New(msg)
 			}
-			n.logger.Warningf(msg)
+			n.logger.Warningf(context.TODO(), msg)
 		}
 	}
 

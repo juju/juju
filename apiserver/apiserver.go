@@ -403,14 +403,14 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		controllermsg.ConfigChanged,
 		func(topic string, data controllermsg.ConfigChangedMessage, err error) {
 			if err != nil {
-				logger.Criticalf("programming error in %s message data: %v", topic, err)
+				logger.Criticalf(context.TODO(), "programming error in %s message data: %v", topic, err)
 				return
 			}
 			srv.updateAgentRateLimiter(data.Config)
 			srv.updateResourceDownloadLimiters(data.Config)
 		})
 	if err != nil {
-		logger.Criticalf("programming error in subscribe function: %v", err)
+		logger.Criticalf(context.TODO(), "programming error in subscribe function: %v", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -1081,7 +1081,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// deferred to the facade methods.
 		ctx := model.WithContextModelUUID(req.Context(), resolvedModelUUID)
 
-		logger.Tracef("got a request for model %q", modelUUID)
+		logger.Tracef(context.TODO(), "got a request for model %q", modelUUID)
 		if err := srv.serveConn(
 			srv.tomb.Context(ctx),
 			conn,
@@ -1091,7 +1091,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			apiObserver,
 			req.Host,
 		); err != nil {
-			logger.Errorf("error serving RPCs: %v", err)
+			logger.Errorf(context.TODO(), "error serving RPCs: %v", err)
 		}
 	})
 }
@@ -1114,7 +1114,7 @@ func (srv *Server) serveConn(
 		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
 	if err != nil {
-		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
+		logger.Infof(context.TODO(), "failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
 

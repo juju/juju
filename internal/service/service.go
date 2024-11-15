@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -126,8 +127,8 @@ func InstallAndStart(svc ServiceActions) error {
 	if !ok {
 		return errors.Errorf("specified service has no name %+v", svc)
 	}
-	logger.Infof("Installing and starting service %s", service.Name())
-	logger.Debugf("Installing and starting service %+v", svc)
+	logger.Infof(context.TODO(), "Installing and starting service %s", service.Name())
+	logger.Debugf(context.TODO(), "Installing and starting service %+v", svc)
 
 	if err := svc.Install(); err != nil {
 		return errors.Trace(err)
@@ -138,7 +139,7 @@ func InstallAndStart(svc ServiceActions) error {
 	retryStrategy := installStartRetryStrategy
 	retryStrategy.Func = func() error { return manuallyRestart(svc) }
 	retryStrategy.NotifyFunc = func(lastError error, _ int) {
-		logger.Errorf("retrying start request (%v)", errors.Cause(lastError))
+		logger.Errorf(context.TODO(), "retrying start request (%v)", errors.Cause(lastError))
 	}
 	err := retry.Call(retryStrategy)
 	if err != nil {
@@ -162,7 +163,7 @@ func Restart(name string) error {
 
 func manuallyRestart(svc ServiceActions) error {
 	if err := svc.Stop(); err != nil {
-		logger.Errorf("could not stop service: %v", err)
+		logger.Errorf(context.TODO(), "could not stop service: %v", err)
 	}
 	if err := svc.Start(); err != nil {
 		return errors.Trace(err)
@@ -197,7 +198,7 @@ func FindAgents(dataDir string) (string, []string, []string, error) {
 			unitAgents = append(unitAgents, name)
 		default:
 			errAgentNames = append(errAgentNames, name)
-			logger.Infof("%s is not of type Machine nor Unit, ignoring", name)
+			logger.Infof(context.TODO(), "%s is not of type Machine nor Unit, ignoring", name)
 		}
 	}
 	return machineAgent, unitAgents, errAgentNames, nil

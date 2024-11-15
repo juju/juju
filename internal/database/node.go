@@ -266,7 +266,7 @@ func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.Co
 		return m.WithAddressOption(cloudLocal[0]), nil
 	}
 
-	m.logger.Warningf("failed to determine a unique local-cloud address; falling back to 127.0.0.1 for Dqlite")
+	m.logger.Warningf(context.TODO(), "failed to determine a unique local-cloud address; falling back to 127.0.0.1 for Dqlite")
 	return m.WithLoopbackAddressOption(), nil
 }
 
@@ -323,7 +323,7 @@ func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
 		return net.JoinHostPort(addr, strconv.Itoa(m.port))
 	})
 
-	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
+	m.logger.Debugf(context.TODO(), "determined Dqlite cluster members: %v", peerAddrs)
 	return app.WithCluster(peerAddrs)
 }
 
@@ -367,7 +367,7 @@ func (m *NodeManager) appLogFunc(level client.LogLevel, msg string, args ...inte
 	case client.LogError:
 		translatedLevel = logger.ERROR
 	}
-	m.logger.Logf(translatedLevel, msg, args...)
+	m.logger.Logf(context.TODO(), translatedLevel, msg, args...)
 }
 
 // QueryType represents the type of query that is being sent. This simplifies

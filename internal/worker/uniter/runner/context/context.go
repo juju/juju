@@ -562,7 +562,7 @@ func (c *HookContext) ApplicationStatus(ctx context.Context) (jujuc.ApplicationS
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (c *HookContext) SetUnitStatus(ctx context.Context, unitStatus jujuc.StatusInfo) error {
 	c.hasRunStatusSet = true
-	c.logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
+	c.logger.Tracef(context.TODO(), "[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return c.unit.SetUnitStatus(ctx,
 		status.Status(unitStatus.Status),
 		unitStatus.Info,
@@ -573,7 +573,7 @@ func (c *HookContext) SetUnitStatus(ctx context.Context, unitStatus jujuc.Status
 // SetAgentStatus will set the given status for this unit's agent.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (c *HookContext) SetAgentStatus(ctx context.Context, agentStatus jujuc.StatusInfo) error {
-	c.logger.Tracef("[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
+	c.logger.Tracef(context.TODO(), "[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
 	return c.unit.SetAgentStatus(
 		ctx,
 		status.Status(agentStatus.Status),
@@ -586,7 +586,7 @@ func (c *HookContext) SetAgentStatus(ctx context.Context, agentStatus jujuc.Stat
 // unit's belong, only if this unit is the leader.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (c *HookContext) SetApplicationStatus(ctx context.Context, applicationStatus jujuc.StatusInfo) error {
-	c.logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
+	c.logger.Tracef(context.TODO(), "[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := c.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -1261,7 +1261,7 @@ func (c *HookContext) RelationIds() ([]int, error) {
 	ids := []int{}
 	for id, r := range c.relations {
 		if r.broken {
-			c.logger.Debugf("relation %d is broken, excluding from relations-ids", id)
+			c.logger.Debugf(context.TODO(), "relation %d is broken, excluding from relations-ids", id)
 			continue
 		}
 		ids = append(ids, id)
@@ -1402,7 +1402,7 @@ func (c *HookContext) HookVars(
 }
 
 func (c *HookContext) handleReboot(ctx context.Context, ctxErr error) error {
-	c.logger.Tracef("checking for reboot request")
+	c.logger.Tracef(context.TODO(), "checking for reboot request")
 	rebootPriority := c.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
@@ -1420,7 +1420,7 @@ func (c *HookContext) handleReboot(ctx context.Context, ctxErr error) error {
 	// Do a best-effort attempt to set the unit agent status; we don't care
 	// if it fails as we will request a reboot anyway.
 	if err := c.unit.SetAgentStatus(ctx, status.Rebooting, "", nil); err != nil {
-		c.logger.Errorf("updating agent status: %v", err)
+		c.logger.Errorf(context.TODO(), "updating agent status: %v", err)
 	}
 
 	if err := c.unit.RequestReboot(ctx); err != nil {
@@ -1570,7 +1570,7 @@ func (c *HookContext) doFlush(ctx context.Context, process string) error {
 		} else {
 			toDelete = []int{*d.Revision}
 		}
-		c.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
+		c.logger.Debugf(context.TODO(), "deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(ctx, d.URI, rev); err != nil {
 				if errors.Is(err, secreterrors.SecretRevisionNotFound) {
@@ -1609,14 +1609,14 @@ func (c *HookContext) doFlush(ctx context.Context, process string) error {
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
 		if err := c.unit.CommitHookChanges(ctx, commitReq); err != nil {
-			c.logger.Errorf("cannot apply changes: %v", err)
+			c.logger.Errorf(context.TODO(), "cannot apply changes: %v", err)
 		cleanupDone:
 			for _, secretId := range cleanups {
 				if err2 := secretsBackend.DeleteExternalContent(ctx, secretId); err2 != nil {
 					if errors.Is(err, errors.NotSupported) {
 						break cleanupDone
 					}
-					c.logger.Errorf("cannot cleanup secret %q: %v", secretId, err2)
+					c.logger.Errorf(context.TODO(), "cannot cleanup secret %q: %v", secretId, err2)
 				}
 			}
 			return errors.Trace(err)
@@ -1683,7 +1683,7 @@ func (c *HookContext) finalizeAction(ctx context.Context, err, flushErr error) e
 	callErr := c.uniter.ActionFinish(ctx, tag, actionStatus, results, message)
 	// Prevent the unit agent from looping if it's impossible to finalise the action.
 	if params.IsCodeNotFoundOrCodeUnauthorized(callErr) || params.IsCodeAlreadyExists(callErr) {
-		c.logger.Warningf("error finalising action %v: %v", tag.Id(), callErr)
+		c.logger.Warningf(context.TODO(), "error finalising action %v: %v", tag.Id(), callErr)
 		callErr = nil
 	}
 	return errors.Trace(callErr)
@@ -1696,7 +1696,7 @@ func (c *HookContext) killCharmHook() error {
 		// nothing to kill
 		return charmrunner.ErrNoProcess
 	}
-	c.logger.Infof("trying to kill context process %v", proc.Pid())
+	c.logger.Infof(context.TODO(), "trying to kill context process %v", proc.Pid())
 
 	tick := c.clock.After(0)
 	timeout := c.clock.After(30 * time.Second)
@@ -1710,14 +1710,14 @@ func (c *HookContext) killCharmHook() error {
 		case <-tick:
 			err := proc.Kill()
 			if err != nil {
-				c.logger.Infof("kill returned: %s", err)
-				c.logger.Infof("assuming already killed")
+				c.logger.Infof(context.TODO(), "kill returned: %s", err)
+				c.logger.Infof(context.TODO(), "assuming already killed")
 				return nil
 			}
 		case <-timeout:
 			return errors.Errorf("failed to kill context process %v", proc.Pid())
 		}
-		c.logger.Infof("waiting for context process %v to die", proc.Pid())
+		c.logger.Infof(context.TODO(), "waiting for context process %v to die", proc.Pid())
 		tick = c.clock.After(100 * time.Millisecond)
 	}
 }

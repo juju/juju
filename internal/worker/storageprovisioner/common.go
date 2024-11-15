@@ -85,7 +85,7 @@ func removeEntities(ctx context.Context, deps *dependencies, tags []names.Tag) e
 	if len(tags) == 0 {
 		return nil
 	}
-	deps.config.Logger.Debugf("removing entities: %v", tags)
+	deps.config.Logger.Debugf(context.TODO(), "removing entities: %v", tags)
 	errorResults, err := deps.config.Life.Remove(ctx, tags)
 	if err != nil {
 		return errors.Annotate(err, "removing storage entities")
@@ -124,7 +124,7 @@ func removeAttachments(ctx context.Context, deps *dependencies, ids []params.Mac
 func setStatus(ctx context.Context, deps *dependencies, statuses []params.EntityStatusArgs) {
 	if len(statuses) > 0 {
 		if err := deps.config.Status.SetStatus(ctx, statuses); err != nil {
-			deps.config.Logger.Errorf("failed to set status: %v", err)
+			deps.config.Logger.Errorf(context.TODO(), "failed to set status: %v", err)
 		}
 	}
 }

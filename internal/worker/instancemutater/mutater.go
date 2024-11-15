@@ -75,7 +75,7 @@ func (m *mutater) startMachines(ctx context.Context, tags []names.MachineTag) er
 			return m.context.errDying()
 		default:
 		}
-		m.logger.Tracef("received tag %q", tag.String())
+		m.logger.Tracef(context.TODO(), "received tag %q", tag.String())
 		if ch := m.machines[tag]; ch == nil {
 			// First time we receive the tag, setup watchers.
 			api, err := m.context.getMachine(ctx, tag)
@@ -90,14 +90,14 @@ func (m *mutater) startMachines(ctx context.Context, tags []names.MachineTag) er
 				return errors.Trace(err)
 			}
 			if containerType != instance.LXD {
-				m.logger.Tracef("ignoring %q container machine-%s", containerType, id)
+				m.logger.Tracef(context.TODO(), "ignoring %q container machine-%s", containerType, id)
 				continue
 			}
 
 			profileChangeWatcher, err := api.WatchLXDProfileVerificationNeeded(ctx)
 			if err != nil {
 				if errors.Is(err, errors.NotSupported) {
-					m.logger.Tracef("ignoring manual machine-%s", id)
+					m.logger.Tracef(context.TODO(), "ignoring manual machine-%s", id)
 					continue
 				}
 				return errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", id)
@@ -157,7 +157,7 @@ func runMachine(
 
 // watchProfileChanges, any error returned will cause the worker to restart.
 func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profileChangeWatcher watcher.NotifyWatcher) error {
-	m.logger.Tracef("watching change on MutaterMachine %s", m.id)
+	m.logger.Tracef(context.TODO(), "watching change on MutaterMachine %s", m.id)
 	for {
 		select {
 		case <-m.context.dying():
@@ -168,7 +168,7 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 				// If the machine is not provisioned then we need to wait for
 				// new changes from the watcher.
 				if params.IsCodeNotProvisioned(errors.Cause(err)) {
-					m.logger.Tracef("got not provisioned machine-%s on charm profiling info, wait for another change", m.id)
+					m.logger.Tracef(context.TODO(), "got not provisioned machine-%s on charm profiling info, wait for another change", m.id)
 					continue
 				}
 				return errors.Trace(err)
@@ -212,13 +212,13 @@ func (m MutaterMachine) processMachineProfileChanges(ctx context.Context, info *
 
 	report := func(retErr error) error {
 		if retErr != nil {
-			m.logger.Errorf("cannot upgrade machine-%s lxd profiles: %s", m.id, retErr.Error())
+			m.logger.Errorf(context.TODO(), "cannot upgrade machine-%s lxd profiles: %s", m.id, retErr.Error())
 			if err := m.machineApi.SetModificationStatus(ctx, status.Error, fmt.Sprintf("cannot upgrade machine's lxd profile: %s", retErr.Error()), nil); err != nil {
-				m.logger.Errorf("cannot set modification status of machine %q error: %v", m.id, err)
+				m.logger.Errorf(context.TODO(), "cannot set modification status of machine %q error: %v", m.id, err)
 			}
 		} else {
 			if err := m.machineApi.SetModificationStatus(ctx, status.Applied, "", nil); err != nil {
-				m.logger.Errorf("cannot reset modification status of machine %q applied: %v", m.id, err)
+				m.logger.Errorf(context.TODO(), "cannot reset modification status of machine %q applied: %v", m.id, err)
 			}
 		}
 		return retErr
@@ -244,7 +244,7 @@ func (m MutaterMachine) processMachineProfileChanges(ctx context.Context, info *
 		return report(errors.Annotatef(err, "%s", m.id))
 	}
 	if verified {
-		m.logger.Infof("no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
+		m.logger.Infof(context.TODO(), "no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
 		return report(m.machineApi.SetCharmProfiles(ctx, lxdprofile.FilterLXDProfileNames(currentProfiles)))
 	}
 
@@ -252,18 +252,18 @@ func (m MutaterMachine) processMachineProfileChanges(ctx context.Context, info *
 	// Do not bother for the default or model profile.  We're not interested in non
 	// charm profiles.
 	if wrench.IsActive("instance-mutater", "disable-apply-lxdprofile") && len(expectedProfiles) > 1 {
-		m.logger.Warningf("waiting 3 minutes to apply lxd profiles %q due to wrench in the works", strings.Join(expectedProfiles, ", "))
+		m.logger.Warningf(context.TODO(), "waiting 3 minutes to apply lxd profiles %q due to wrench in the works", strings.Join(expectedProfiles, ", "))
 		select {
 		case <-clock.WallClock.After(3 * time.Minute):
-			m.logger.Warningf("continue with apply lxd profiles")
+			m.logger.Warningf(context.TODO(), "continue with apply lxd profiles")
 		}
 	}
 
-	m.logger.Infof("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
+	m.logger.Infof(context.TODO(), "machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
 	broker := m.context.getBroker()
 	currentProfiles, err = broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
-		m.logger.Errorf("failure to assign lxd profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
+		m.logger.Errorf(context.TODO(), "failure to assign lxd profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
 		return report(err)
 	}
 

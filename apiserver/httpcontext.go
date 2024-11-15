@@ -241,7 +241,7 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 // for errors encountered during processing.
 func sendError(w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := apiservererrors.ServerErrorAndStatus(errToSend)
-	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	logger.Debugf(context.TODO(), "sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
 	}))

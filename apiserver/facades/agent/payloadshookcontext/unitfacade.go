@@ -58,7 +58,7 @@ func NewUnitFacade(backend UnitPayloadBackend, logger logger.Logger) *UnitFacade
 
 // Track stores a payload to be tracked in state.
 func (uf UnitFacade) Track(ctx context.Context, args params.TrackPayloadArgs) (params.PayloadResults, error) {
-	uf.logger.Debugf("tracking %d payloads from API", len(args.Payloads))
+	uf.logger.Debugf(context.TODO(), "tracking %d payloads from API", len(args.Payloads))
 
 	var r params.PayloadResults
 	for _, apiPayload := range args.Payloads {
@@ -66,7 +66,7 @@ func (uf UnitFacade) Track(ctx context.Context, args params.TrackPayloadArgs) (p
 		if err != nil {
 			return r, errors.Trace(err)
 		}
-		uf.logger.Debugf("tracking payload from API: %#v", pl)
+		uf.logger.Debugf(context.TODO(), "tracking payload from API: %#v", pl)
 
 		id, err := uf.track(pl.Payload)
 		res := newPayloadResult(id, err)
@@ -128,7 +128,7 @@ func (uf UnitFacade) listAll() (params.PayloadResults, error) {
 		pl := result.Payload
 		id, err := uf.backend.LookUp(pl.Name, pl.ID)
 		if err != nil {
-			uf.logger.Errorf("failed to look up ID for %q: %v", pl.FullID(), err)
+			uf.logger.Errorf(context.TODO(), "failed to look up ID for %q: %v", pl.FullID(), err)
 			id = ""
 		}
 		apipl := api.Payload2api(*pl)

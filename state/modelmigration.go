@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -806,7 +807,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 			// function, the model should be in state. However, to make this
 			// function more resilient and allow it to be called when the models
 			// existence is unknown, we do not return an error here.
-			logger.Debugf("checking latest migration: migrated model has been removed from the state")
+			logger.Debugf(context.TODO(), "checking latest migration: migrated model has been removed from the state")
 			return mig, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)

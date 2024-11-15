@@ -5,6 +5,7 @@ package iptables
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -156,7 +157,7 @@ func ParseIngressRules(r io.Reader) (firewall.IngressRules, error) {
 		line := scanner.Text()
 		rule, ok, err := parseIngressRule(strings.TrimSpace(line))
 		if err != nil {
-			logger.Warningf("failed to parse iptables line %q: %v", line, err)
+			logger.Warningf(context.TODO(), "failed to parse iptables line %q: %v", line, err)
 			continue
 		}
 		if !ok {

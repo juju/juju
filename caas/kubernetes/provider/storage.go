@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -156,7 +157,7 @@ func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volI
 
 // DestroyVolumes is specified on the jujustorage.VolumeSource interface.
 func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]error, error) {
-	logger.Debugf("destroy k8s volumes: %v", volIds)
+	logger.Debugf(context.TODO(), "destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
 		vol, err := pVolumes.Get(ctx, volumeId, v1.GetOptions{})
@@ -166,7 +167,7 @@ func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volId
 		if err == nil && vol.Spec.ClaimRef != nil {
 			claimRef := vol.Spec.ClaimRef
 			pClaims := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
-			logger.Infof("deleting PVC %s due to call to volumeSource.DestroyVolumes(%q)", claimRef.Name, volumeId)
+			logger.Infof(context.TODO(), "deleting PVC %s due to call to volumeSource.DestroyVolumes(%q)", claimRef.Name, volumeId)
 			err := pClaims.Delete(ctx, claimRef.Name, v1.DeleteOptions{PropagationPolicy: constants.DefaultPropagationPolicy()})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)

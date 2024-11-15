@@ -116,7 +116,7 @@ func (a *appWorker) loop() error {
 	// Dead state, ensure it's deleted and terminated.
 	appLife, err := a.facade.Life(ctx, a.name)
 	if errors.Is(err, errors.NotFound) {
-		a.logger.Debugf("application %q no longer exists", a.name)
+		a.logger.Debugf(context.TODO(), "application %q no longer exists", a.name)
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "fetching life status for application %q", a.name)

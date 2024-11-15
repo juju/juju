@@ -145,7 +145,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 		result.Valid = supportsEmptyAuth
 		if !supportsEmptyAuth {
 			// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-			api.logger.Warningf("model credential is not set for the model but the cloud requires it")
+			api.logger.Warningf(context.TODO(), "model credential is not set for the model but the cloud requires it")
 		}
 		return result, nil
 	}
@@ -158,7 +158,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 		}
 		// In this situation, a model refers to a credential that does not exist in credentials collection.
 		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-		api.logger.Warningf("cloud credential reference is set for the model but the credential content is no longer on the controller")
+		api.logger.Warningf(context.TODO(), "cloud credential reference is set for the model but the credential content is no longer on the controller")
 		result.Valid = false
 		return result, nil
 	}

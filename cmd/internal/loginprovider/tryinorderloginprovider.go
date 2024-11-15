@@ -8,10 +8,10 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
 
 // NewTryInOrderLoginProvider returns a login provider that will attempt to
@@ -19,7 +19,7 @@ import (
 // of the first on that succeeds will be returned.
 // This login provider should only be used when connecting to a controller
 // for the first time when we still don't know which login method.
-func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...api.LoginProvider) api.LoginProvider {
+func NewTryInOrderLoginProvider(logger logger.Logger, providers ...api.LoginProvider) api.LoginProvider {
 	return &tryInOrderLoginProviders{
 		providers:  providers,
 		logger:     logger,
@@ -33,7 +33,7 @@ func missingHeader() (http.Header, error) {
 
 type tryInOrderLoginProviders struct {
 	providers  []api.LoginProvider
-	logger     loggo.Logger
+	logger     logger.Logger
 	authHeader func() (http.Header, error)
 }
 
@@ -50,9 +50,9 @@ func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICal
 	for i, provider := range p.providers {
 		result, err := provider.Login(ctx, caller)
 		if err != nil {
-			p.logger.Debugf("login error using provider %d - %s", i, err.Error())
+			p.logger.Debugf(context.TODO(), "login error using provider %d - %s", i, err.Error())
 		} else {
-			p.logger.Debugf("successful login using provider %d", i)
+			p.logger.Debugf(context.TODO(), "successful login using provider %d", i)
 			p.authHeader = func() (http.Header, error) { return provider.AuthHeader() }
 			return result, nil
 		}

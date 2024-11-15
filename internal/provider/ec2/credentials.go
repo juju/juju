@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -91,7 +92,7 @@ func (e environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 		}
 		// Basic validation check
 		if values.AwsAccessKeyId == "" || values.AwsSecretAccessKey == "" {
-			logger.Errorf("missing aws credential attributes in credentials file section %q", credName)
+			logger.Errorf(context.TODO(), "missing aws credential attributes in credentials file section %q", credName)
 			continue
 		}
 		accessKeyCredential := cloud.NewCredential(

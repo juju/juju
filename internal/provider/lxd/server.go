@@ -382,10 +382,10 @@ func (s *serverFactory) validateServer(svr Server) error {
 		return errors.Trace(err)
 	}
 	if err != nil {
-		logger.Warningf(err.Error())
-		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
+		logger.Warningf(context.TODO(), err.Error())
+		logger.Warningf(context.TODO(), "trying to use unsupported LXD API version %q", apiVersion)
 	} else {
-		logger.Tracef("using LXD API version %q", apiVersion)
+		logger.Tracef(context.TODO(), "using LXD API version %q", apiVersion)
 	}
 
 	return nil
@@ -424,7 +424,7 @@ func ValidateAPIVersion(version string) error {
 	if err != nil {
 		return err
 	}
-	logger.Tracef("current LXD version %q, min LXD version %q", ver, minLXDVersion)
+	logger.Tracef(context.TODO(), "current LXD version %q, min LXD version %q", ver, minLXDVersion)
 	if ver.Compare(minLXDVersion) < 0 {
 		return errors.NewNotSupported(nil,
 			fmt.Sprintf("LXD version has to be at least %q, but current version is only %q", minLXDVersion, ver),

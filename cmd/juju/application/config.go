@@ -295,7 +295,7 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 		return err
 	}
 
-	logger.Infof("format %v is ignored", c.out.Name())
+	logger.Infof(context.TODO(), "format %v is ignored", c.out.Name())
 	if len(c.configBase.KeysToGet) == 0 {
 		return errors.New("c.configBase.KeysToGet is empty")
 	}

@@ -144,7 +144,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 
 		if err := fn(ctx, tx); err != nil {
 			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
-				t.logger.Warningf("failed to rollback transaction: %v", rErr)
+				t.logger.Warningf(context.TODO(), "failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
 		}
@@ -170,7 +170,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 
 		if err := fn(ctx, tx); err != nil {
 			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
-				t.logger.Warningf("failed to rollback transaction: %v", rErr)
+				t.logger.Warningf(context.TODO(), "failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
 		}
@@ -184,7 +184,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 // done at the dqlite level.
 func (t *RetryingTxnRunner) commit(ctx context.Context, tx txn) (err error) {
 	if t.logger.IsLevelEnabled(logger.TRACE) {
-		t.logger.Tracef("running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
+		t.logger.Tracef(context.TODO(), "running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
 	}
 
 	// Hardcode the name of the span
@@ -299,7 +299,7 @@ func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 					metrics.RecordError(retryableError)
 
 					if log.IsLevelEnabled(logger.TRACE) {
-						log.Tracef("retrying transaction: %v", err)
+						log.Tracef(ctx, "retrying transaction: %v", err)
 					}
 					return false
 				}
@@ -342,7 +342,7 @@ type logTracer struct {
 
 func (d *logTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
 	// Log the start of the transaction.
-	d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
+	d.logger.Tracef(context.TODO(), "running txn (id: %d) with query: %s", d.txnID, query)
 
 	return ctx, d
 }
@@ -366,7 +366,7 @@ type dqliteTracer struct {
 // span.
 func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
 	// Log the start of the transaction.
-	d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
+	d.logger.Tracef(context.TODO(), "running txn (id: %d) with query: %s", d.txnID, query)
 
 	// Start the span.
 	ctx, span := d.tracer.Start(ctx, name, trace.WithAttributes(trace.StringAttr("query", query)))

@@ -127,7 +127,7 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 			return nil, errors.Trace(err)
 		}
 		if rc != nil {
-			logger.Tracef("using in-cluster config")
+			logger.Tracef(context.TODO(), "using in-cluster config")
 			return rc, nil
 		}
 	}
@@ -162,7 +162,7 @@ func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 
 // Open is part of the ContainerEnvironProvider interface.
 func (p kubernetesEnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
-	logger.Debugf("opening model %q.", args.Config.Name())
+	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}

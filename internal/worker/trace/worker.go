@@ -377,14 +377,14 @@ func (s *loggerSink) Enabled(level int) bool {
 // details.
 func (s *loggerSink) Info(level int, msg string, keysAndValues ...any) {
 	format, args := s.formatKeysAndValues([]any{level, msg}, keysAndValues)
-	s.Logger.Infof("%d: %s"+format, args...)
+	s.Logger.Infof(context.TODO(), "%d: %s"+format, args...)
 }
 
 // Error logs an error, with the given message and key/value pairs as
 // context.  See Logger.Error for more details.
 func (s *loggerSink) Error(err error, msg string, keysAndValues ...any) {
 	format, args := s.formatKeysAndValues([]any{msg, err}, keysAndValues)
-	s.Logger.Errorf("%s: %v"+format, args...)
+	s.Logger.Errorf(context.TODO(), "%s: %v"+format, args...)
 }
 
 // WithValues returns a new LogSink with additional key/value pairs.  See

@@ -17,6 +17,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -115,9 +116,9 @@ func (s *systemdServiceManager) WriteSystemdAgent(
 	}
 
 	if systemdLinked {
-		logger.Infof("wrote %s agent, enabled and linked by systemd", serviceName(machineAgent))
+		logger.Infof(context.TODO(), "wrote %s agent, enabled and linked by systemd", serviceName(machineAgent))
 	} else {
-		logger.Infof("wrote %s agent, enabled and linked by symlink", serviceName(machineAgent))
+		logger.Infof(context.TODO(), "wrote %s agent, enabled and linked by symlink", serviceName(machineAgent))
 	}
 	return nil
 }
@@ -141,11 +142,11 @@ func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMul
 		// Note that this error is already logged by the systemd package.
 		return false, errors.Trace(err)
 	} else {
-		logger.Infof("successfully wrote service for %s:", agentName)
+		logger.Infof(context.TODO(), "successfully wrote service for %s:", agentName)
 	}
 
 	if s.isRunning() {
-		logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
+		logger.Infof(context.TODO(), "wrote %s agent, enabled and linked by systemd", svcName)
 		return true, nil
 	}
 
@@ -156,7 +157,7 @@ func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMul
 		return false, errors.Annotatef(err, "linking service file (%s) in multi-user.target.wants dir", svcFileName)
 	}
 
-	logger.Infof("wrote %s agent, enabled and linked by symlink", svcName)
+	logger.Infof(context.TODO(), "wrote %s agent, enabled and linked by symlink", svcName)
 	return false, nil
 }
 
@@ -164,7 +165,7 @@ func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMul
 func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ common.Conf, err error) {
 	defer func() {
 		if err != nil {
-			logger.Infof("failed create agent conf for %s: %s", name, err)
+			logger.Infof(context.TODO(), "failed create agent conf for %s: %s", name, err)
 		}
 	}()
 

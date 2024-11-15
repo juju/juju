@@ -141,7 +141,7 @@ func (w *Worker) loop() error {
 				return errors.New("watcher channel closed")
 			}
 			if err := w.handle(context.TODO(), status); err != nil {
-				w.config.Logger.Errorf("handling migration phase %s failed: %v", status.Phase, err)
+				w.config.Logger.Errorf(context.TODO(), "handling migration phase %s failed: %v", status.Phase, err)
 				return errors.Trace(err)
 			}
 		}
@@ -149,7 +149,7 @@ func (w *Worker) loop() error {
 }
 
 func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) error {
-	w.config.Logger.Infof("migration phase is now: %s", status.Phase)
+	w.config.Logger.Infof(context.TODO(), "migration phase is now: %s", status.Phase)
 
 	if !status.Phase.IsRunning() {
 		return w.config.Guard.Unlock()
@@ -201,19 +201,19 @@ func (w *Worker) doVALIDATION(ctx context.Context, status watcher.MigrationStatu
 			break
 		}
 		if attempt.More() {
-			w.config.Logger.Warningf("validation failed (retrying): %v", err)
+			w.config.Logger.Warningf(context.TODO(), "validation failed (retrying): %v", err)
 		}
 	}
 	if errors.Is(err, apiservererrors.ErrTryAgain) || params.IsCodeTryAgain(err) {
 		// We treat TryAgainError as a retriable error,
 		// so ingore it and don't report to the migration master.
-		w.config.Logger.Errorf("validation failed due to rate limit reached: %v", err)
+		w.config.Logger.Errorf(context.TODO(), "validation failed due to rate limit reached: %v", err)
 		return nil
 	}
 	if err != nil {
 		// Don't return this error just log it and report to the
 		// migrationmaster that things didn't work out.
-		w.config.Logger.Errorf("validation failed: %v", err)
+		w.config.Logger.Errorf(context.TODO(), "validation failed: %v", err)
 	}
 	return w.report(ctx, status, err == nil)
 }
@@ -249,7 +249,7 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 	defer func() {
 		if err != nil {
 			cfg := w.config.Agent.CurrentConfig()
-			w.config.Logger.Criticalf("migration failed for %v: %s/agent.conf left unchanged and pointing to source controller: %v",
+			w.config.Logger.Criticalf(context.TODO(), "migration failed for %v: %s/agent.conf left unchanged and pointing to source controller: %v",
 				cfg.Tag(), cfg.Dir(), err,
 			)
 		}
@@ -279,7 +279,7 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 }
 
 func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, success bool) error {
-	w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
+	w.config.Logger.Infof(context.TODO(), "reporting back for phase %s: %v", status.Phase, success)
 	err := w.config.Facade.Report(ctx, status.MigrationId, status.Phase, success)
 	return errors.Annotate(err, "failed to report phase progress")
 }
@@ -291,7 +291,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 	} else if err == nil {
 		return nil
 	}
-	w.config.Logger.Warningf("report migration status failed: %v", err)
+	w.config.Logger.Warningf(context.TODO(), "report migration status failed: %v", err)
 
 	apiInfo, ok := w.config.Agent.CurrentConfig().APIInfo()
 	if !ok {
@@ -302,7 +302,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 
 	err = jujuretry.Call(jujuretry.CallArgs{
 		Func: func() error {
-			w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
+			w.config.Logger.Infof(context.TODO(), "reporting back for phase %s: %v", status.Phase, success)
 
 			conn, err := w.config.APIOpen(ctx, apiInfo, api.DialOpts{})
 			if err != nil {
@@ -321,7 +321,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 			return false
 		},
 		NotifyFunc: func(lastError error, attempt int) {
-			w.config.Logger.Warningf("report migration status failed (attempt %d): %v", attempt, lastError)
+			w.config.Logger.Warningf(context.TODO(), "report migration status failed (attempt %d): %v", attempt, lastError)
 		},
 		Clock:       w.config.Clock,
 		Delay:       initialRetryDelay,

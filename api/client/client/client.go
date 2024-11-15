@@ -112,7 +112,7 @@ func (c *Client) StatusHistory(ctx context.Context, kind status.HistoryKind, tag
 		}
 		// TODO(perrito666) https://launchpad.net/bugs/1577589
 		if !history[i].Kind.Valid() {
-			c.logger.Errorf("history returned an unknown status kind %q", h.Kind)
+			c.logger.Errorf(context.TODO(), "history returned an unknown status kind %q", h.Kind)
 		}
 	}
 	return history, nil

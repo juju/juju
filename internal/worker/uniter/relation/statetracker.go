@@ -122,7 +122,7 @@ func (r *relationStateTracker) loadInitialState(ctx stdcontext.Context) error {
 
 	if r.logger.IsLevelEnabled(logger.TRACE) {
 		if mgr, ok := r.stateMgr.(*stateManager); ok {
-			r.logger.Tracef("initialising relation state tracker: %# v", pretty.Formatter(mgr.relationState))
+			r.logger.Tracef(context.TODO(), "initialising relation state tracker: %# v", pretty.Formatter(mgr.relationState))
 		}
 	}
 	knownUnits := make(map[string]bool)
@@ -167,7 +167,7 @@ func (r *relationStateTracker) relationGone(id int) {
 // case it will return resolver.ErrLoopAborted.
 func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Relation) (err error) {
 	unitName := r.unit.Name()
-	r.logger.Tracef("%q (re-)joining: %q", unitName, rel)
+	r.logger.Tracef(context.TODO(), "%q (re-)joining: %q", unitName, rel)
 	ru, err := rel.Unit(ctx, r.unit.Tag())
 	if err != nil {
 		return errors.Trace(err)
@@ -182,7 +182,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 			if err == nil {
 				err = e
 			} else {
-				r.logger.Errorf("while stopping unit watcher: %v", e)
+				r.logger.Errorf(context.TODO(), "while stopping unit watcher: %v", e)
 			}
 		}
 	}()
@@ -201,7 +201,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 			}
 			err := relationer.Join(ctx)
 			if params.IsCodeCannotEnterScopeYet(err) {
-				r.logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				r.logger.Infof(context.TODO(), "cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
@@ -212,7 +212,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 			if err != nil {
 				return errors.Trace(err)
 			}
-			r.logger.Debugf("unit %q (leader=%v) entered scope for relation %q", unitName, isLeader, rel)
+			r.logger.Debugf(context.TODO(), "unit %q (leader=%v) entered scope for relation %q", unitName, isLeader, rel)
 			if isLeader {
 				err = rel.SetStatus(ctx, relation.Joined)
 				if err != nil {
@@ -228,7 +228,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote remotestate.Snapshot) error {
 	isTraceEnabled := r.logger.IsLevelEnabled(logger.TRACE)
 	if isTraceEnabled {
-		r.logger.Tracef("%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
+		r.logger.Tracef(context.TODO(), "%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
 	}
 	var charmSpec *charm.CharmDir
 	knownUnits := make(map[string]bool)
@@ -245,7 +245,7 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 				}
 			}
 			if isTraceEnabled {
-				r.logger.Tracef("already seen relation id %v", id)
+				r.logger.Tracef(context.TODO(), "already seen relation id %v", id)
 			}
 			continue
 		}
@@ -259,7 +259,7 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 		if err != nil {
 			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				r.relationGone(id)
-				r.logger.Tracef("relation id %v has been removed", id)
+				r.logger.Tracef(context.TODO(), "relation id %v has been removed", id)
 				continue
 			}
 			return errors.Trace(err)
@@ -284,11 +284,11 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 					if !os.IsNotExist(errors.Cause(err)) {
 						return errors.Trace(err)
 					}
-					r.logger.Warningf("charm deleted, skipping relation endpoint check for %q", rel)
+					r.logger.Warningf(context.TODO(), "charm deleted, skipping relation endpoint check for %q", rel)
 				}
 			}
 			if charmSpec != nil && !ep.ImplementedBy(charmSpec) {
-				r.logger.Warningf("skipping relation %q with unknown endpoint %q", rel, ep.Name)
+				r.logger.Warningf(context.TODO(), "skipping relation %q with unknown endpoint %q", rel, ep.Name)
 				continue
 			}
 		}
@@ -418,7 +418,7 @@ func (r *relationStateTracker) PrepareHook(hookInfo hook.Info) (string, error) {
 		// and the relation has since been deleted.
 		// There's nothing to prepare so allow the uniter
 		// to continue with the next operation.
-		r.logger.Warningf("preparing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
+		r.logger.Warningf(context.TODO(), "preparing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
 		return "", operation.ErrSkipExecute
 	}
 	return relationer.PrepareHook(hookInfo)
@@ -446,7 +446,7 @@ func (r *relationStateTracker) CommitHook(ctx stdcontext.Context, hookInfo hook.
 		// and the relation has since been deleted.
 		// There's nothing to commit so allow the uniter
 		// to continue with the next operation.
-		r.logger.Warningf("committing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
+		r.logger.Warningf(context.TODO(), "committing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
 		return nil
 	}
 	return relationer.CommitHook(ctx, hookInfo)

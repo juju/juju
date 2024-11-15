@@ -4,6 +4,7 @@
 package imageutils
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -128,7 +129,7 @@ func ubuntuSKU(ctx envcontext.ProviderCallContext,
 		offer = fmt.Sprintf("%s-daily", offer)
 	}
 
-	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
+	logger.Debugf(context.TODO(), "listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
@@ -140,14 +141,14 @@ func ubuntuSKU(ctx envcontext.ProviderCallContext,
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
 		if skuName == planV2 && !preferGen1Image {
-			logger.Debugf("found Azure SKU Name: %v", skuName)
+			logger.Debugf(context.TODO(), "found Azure SKU Name: %v", skuName)
 			return skuName, offer, nil
 		}
 		if skuName == planV1 {
 			v1SKU = skuName
 			continue
 		}
-		logger.Debugf("ignoring Azure SKU Name: %v", skuName)
+		logger.Debugf(context.TODO(), "ignoring Azure SKU Name: %v", skuName)
 	}
 	if v1SKU != "" {
 		return v1SKU, offer, nil
@@ -168,7 +169,7 @@ func legacyUbuntuSKU(ctx envcontext.ProviderCallContext,
 		offer = fmt.Sprintf("%s-daily", offer)
 	}
 
-	logger.Debugf(
+	logger.Debugf(context.TODO(),
 		"listing SKUs: Base=%s, Series=%s, Location=%s, Stream=%s, Publisher=%s, Offer=%s",
 		base.Channel.Track, series, location, stream, ubuntuPublisher, offer,
 	)
@@ -200,7 +201,7 @@ func selectUbuntuSKULegacy(
 		}
 
 		tag := getLegacyUbuntuSKUTag(skuName)
-		logger.Debugf("SKU %q has tag %q", skuName, tag)
+		logger.Debugf(context.TODO(), "SKU %q has tag %q", skuName, tag)
 		var skuStream string
 		switch tag {
 		case "", "LTS":
@@ -209,7 +210,7 @@ func selectUbuntuSKULegacy(
 			skuStream = dailyStream
 		}
 		if skuStream == "" || skuStream != stream {
-			logger.Debugf("ignoring SKU %q (not in %q stream)", skuName, stream)
+			logger.Debugf(context.TODO(), "ignoring SKU %q (not in %q stream)", skuName, stream)
 			return false
 		}
 		return true
@@ -217,13 +218,13 @@ func selectUbuntuSKULegacy(
 
 	for _, img := range images {
 		skuName := *img.Name
-		logger.Debugf("Azure SKU Name: %v", skuName)
+		logger.Debugf(context.TODO(), "Azure SKU Name: %v", skuName)
 		if strings.HasSuffix(skuName, legacyPlanArm64Suffix) {
 			// TODO: we don't support arm64 yet for azure.
 			continue
 		}
 		if !strings.HasPrefix(skuName, desiredSKUVersionPrefix) {
-			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
+			logger.Debugf(context.TODO(), "ignoring SKU %q (does not match series %q)", skuName, series)
 			continue
 		}
 		if strings.HasSuffix(skuName, legacyPlanGen2Suffix) {

@@ -4,6 +4,7 @@
 package status
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/names/v5"
@@ -209,7 +210,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	if curl, err := charm.ParseURL(application.Charm); err != nil {
 		// We should never fail to parse a charm url sent back
 		// but if we do, don't crash.
-		logger.Errorf("failed to parse charm: %v", err)
+		logger.Errorf(stdcontext.TODO(), "failed to parse charm: %v", err)
 	} else {
 		switch {
 		case charm.CharmHub.Matches(curl.Schema):
@@ -541,7 +542,7 @@ func getRelationIdFromData(unit *params.UnitStatus) int {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
 		} else {
-			logger.Infof("relation-id found status data but was unexpected "+
+			logger.Infof(stdcontext.TODO(), "relation-id found status data but was unexpected "+
 				"type: %q. Status output may be lacking some detail.", relationId_)
 		}
 	}

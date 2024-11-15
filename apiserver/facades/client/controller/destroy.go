@@ -65,7 +65,7 @@ func ensureNotBlocked(ctx context.Context, st Backend, blockCommandServiceGetter
 
 		blocks, err := blockService.GetBlocks(ctx)
 		if err != nil {
-			logger.Debugf("Unable to get blocks for controller: %s", err)
+			logger.Debugf(context.TODO(), "Unable to get blocks for controller: %s", err)
 			return errors.Trace(err)
 		}
 

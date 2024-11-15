@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	"strings"
 	"unicode"
 
@@ -216,7 +217,7 @@ func (mi *maasInstance) volumes(
 			// This should never happen, as we only request one block
 			// device per label. If it does happen, we'll just report
 			// the first block device and log this warning.
-			logger.Warningf(
+			logger.Warningf(context.TODO(),
 				"expected 1 block device for label %s, received %d",
 				label, len(devices),
 			)

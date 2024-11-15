@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -126,7 +127,7 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 // cannot accurately detect the CIDRs for any host devices that are not bridged
 // into the container.
 func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubnetIDs set.Strings, availabilityZones network.AvailabilityZones) ([]network.SubnetInfo, error) {
-	logger.Warningf("falling back to subnet discovery via introspection of devices bridged to the controller container; consider upgrading to a newer LXD version and running 'juju reload-spaces' to get full subnet discovery for the LXD host")
+	logger.Warningf(context.TODO(), "falling back to subnet discovery via introspection of devices bridged to the controller container; consider upgrading to a newer LXD version and running 'juju reload-spaces' to get full subnet discovery for the LXD host")
 
 	// If no instance ID is specified, list the alive containers, query the
 	// state of the first one on the list and use it to extrapolate the

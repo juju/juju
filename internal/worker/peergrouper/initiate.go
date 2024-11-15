@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,11 +35,11 @@ type InitiateMongoParams struct {
 // InitiateMongoServer checks for an existing mongo configuration.
 // If no existing configuration is found one is created using Initiate.
 func InitiateMongoServer(p InitiateMongoParams) error {
-	logger.Debugf("Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
-	defer logger.Infof("finished InitiateMongoServer")
+	logger.Debugf(context.TODO(), "Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
+	defer logger.Infof(context.TODO(), "finished InitiateMongoServer")
 
 	if len(p.DialInfo.Addrs) > 1 {
-		logger.Infof("more than one member; replica set must be already initiated")
+		logger.Infof(context.TODO(), "more than one member; replica set must be already initiated")
 		return nil
 	}
 	p.DialInfo.Direct = true
@@ -53,16 +54,16 @@ func InitiateMongoServer(p InitiateMongoParams) error {
 			return attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
 		},
 		NotifyFunc: func(lastError error, attempt int) {
-			logger.Debugf("replica set initiation attempt %d failed: %v", attempt, lastError)
+			logger.Debugf(context.TODO(), "replica set initiation attempt %d failed: %v", attempt, lastError)
 		},
 	}
 	err := retry.Call(retryCallArgs)
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		err = retry.LastError(err)
-		logger.Debugf("replica set initiation failed: %v", err)
+		logger.Debugf(context.TODO(), "replica set initiation failed: %v", err)
 	}
 	if err == nil {
-		logger.Infof("replica set initiated")
+		logger.Infof(context.TODO(), "replica set initiated")
 		return nil
 	}
 	return errors.Annotatef(err, "cannot initiate replica set")

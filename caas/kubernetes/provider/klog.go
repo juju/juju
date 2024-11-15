@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -37,14 +38,14 @@ func (k *klogAdapter) Enabled(level int) bool {
 // Error see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) Error(err error, msg string, keysAndValues ...any) {
 	if err != nil {
-		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
+		k.Logger.Errorf(context.TODO(), msg+": "+err.Error(), keysAndValues...)
 		return
 	}
 
 	if klogIgnorePrefixes.Matches(msg) {
 		return
 	}
-	k.Logger.Errorf(msg, keysAndValues...)
+	k.Logger.Errorf(context.TODO(), msg, keysAndValues...)
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
@@ -54,7 +55,7 @@ func (k *klogAdapter) Info(level int, msg string, keysAndValues ...any) {
 		return
 	}
 
-	k.Logger.Infof(msg, keysAndValues...)
+	k.Logger.Infof(context.TODO(), msg, keysAndValues...)
 }
 
 // V see https://pkg.go.dev/github.com/go-logr/logr#Logger
@@ -103,16 +104,16 @@ type klogSuppressMessagePrefix struct {
 
 // Do calls the logger function if the rate allows it. If the rate is nil, the
 // function is called directly, thus bypassing the rate.
-func (k klogSuppressMessagePrefix) Do(loggerFn func(string, ...any), msg string, args ...any) {
+func (k klogSuppressMessagePrefix) Do(loggerFn func(context.Context, string, ...any), msg string, args ...any) {
 	// If we don't have a rate, just call the function directly.
 	if k.rate == nil {
-		loggerFn(msg, args)
+		loggerFn(context.TODO(), msg, args)
 		return
 	}
 
 	// If we have a rate, use it to suppress the message.
 	k.rate.Do(func() {
-		loggerFn(msg, args)
+		loggerFn(context.TODO(), msg, args)
 	})
 }
 

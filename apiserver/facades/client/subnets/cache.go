@@ -4,6 +4,7 @@
 package subnets
 
 import (
+	"context"
 	stdcontext "context"
 	"strings"
 
@@ -41,11 +42,11 @@ func allZones(ctx envcontext.ProviderCallContext, api Backing, logger corelogger
 		if err != nil {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
-		logger.Tracef(
+		logger.Tracef(context.TODO(),
 			"updated the list of known zones from the model: %s", zonesAsString(zones),
 		)
 	} else {
-		logger.Tracef("using cached list of known zones: %s", zonesAsString(zones))
+		logger.Tracef(context.TODO(), "using cached list of known zones: %s", zonesAsString(zones))
 	}
 
 	results.Results = make([]params.ZoneResult, len(zones))

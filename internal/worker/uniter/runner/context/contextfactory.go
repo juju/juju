@@ -393,7 +393,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 
 	apiVersion, err := f.client.CloudAPIVersion(stdCtx)
 	if err != nil {
-		f.logger.Warningf("could not retrieve the cloud API version: %v", err)
+		f.logger.Warningf(context.TODO(), "could not retrieve the cloud API version: %v", err)
 	}
 	ctx.cloudAPIVersion = apiVersion
 
@@ -416,7 +416,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 
 		ctx.privateAddress, err = f.unit.PrivateAddress(stdCtx)
 		if err != nil && !params.IsCodeNoAddressSet(err) {
-			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
+			f.logger.Warningf(context.TODO(), "cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	case model.CAAS:
 		if appPortRanges, err = f.client.OpenedPortRangesByEndpoint(stdCtx); err != nil && !errors.Is(err, errors.NotSupported) {

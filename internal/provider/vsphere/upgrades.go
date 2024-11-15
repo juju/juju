@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"context"
 	"path"
 
 	"github.com/juju/errors"
@@ -120,7 +121,7 @@ func (step modelFoldersUpgradeStep) Run(ctx envcontext.ProviderCallContext) erro
 		}
 		refs := make([]types.ManagedObjectReference, len(vms))
 		for i, vm := range vms {
-			logger.Debugf("moving VM %q into %q", vm.Name, modelFolderPath)
+			logger.Debugf(context.TODO(), "moving VM %q into %q", vm.Name, modelFolderPath)
 			refs[i] = vm.Reference()
 		}
 		if err := env.client.MoveVMsInto(env.ctx, modelFolderPath, refs...); err != nil {

@@ -133,7 +133,7 @@ func (o *JaaSOfferBakery) refreshBakery(ctx context.Context, accessEndpoint stri
 	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
 		ctx, &http.Client{Transport: DefaultTransport}, accessEndpoint,
 	)
-	logger.Tracef("got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
+	logger.Tracef(context.TODO(), "got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -220,7 +220,7 @@ func (o *OfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValu
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
 func (o *JaaSOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
 	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
-	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
+	authlogger.Debugf(context.TODO(), "check macaroons with declared attrs: %v", declared)
 	// We only need to inject relationKey for jaas flow
 	// because the relation key injected in juju discharge
 	// process will not be injected in Jaas discharge endpoint.

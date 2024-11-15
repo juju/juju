@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -306,14 +307,14 @@ type jujuCommandRegistry struct {
 func (r jujuCommandRegistry) Register(c cmd.Command) {
 	cmdName := c.Info().Name
 	if r.whitelist.Size() > 0 && !r.whitelist.Contains(cmdName) {
-		logger.Tracef("command %q not allowed", cmdName)
+		logger.Tracef(context.TODO(), "command %q not allowed", cmdName)
 		r.excluded.Add(cmdName)
 		return
 	}
 	if se, ok := c.(supportsEmbedded); ok {
 		se.SetEmbedded(r.embedded)
 	} else {
-		logger.Tracef("command %q is not embeddable", cmdName)
+		logger.Tracef(context.TODO(), "command %q is not embeddable", cmdName)
 	}
 	if csc, ok := c.(hasClientStore); ok {
 		csc.SetClientStore(r.store)

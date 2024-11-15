@@ -9,17 +9,17 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/usermanager"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/user"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.user.test")
+var logger = internallogger.GetLogger("juju.cmd.user.test")
 
 // All of the functionality of the UserInfo api call is contained elsewhere.
 // This suite provides basic tests for the "show-user" command
@@ -46,7 +46,7 @@ func (*fakeUserInfoAPI) Close() error {
 }
 
 func (*fakeUserInfoAPI) UserInfo(ctx context.Context, usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
-	logger.Infof("fakeUserInfoAPI.UserInfo(%v, %v)", usernames, all)
+	logger.Infof(context.TODO(), "fakeUserInfoAPI.UserInfo(%v, %v)", usernames, all)
 	info := params.UserInfo{
 		DateCreated:    dateCreated,
 		LastConnection: &lastConnection,

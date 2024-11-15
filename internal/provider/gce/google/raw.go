@@ -168,7 +168,7 @@ func returnNotFoundOperationErrors(operation *compute.Operation) error {
 				result.cause = errors.NotFoundf("%v: resource", err.Message)
 				continue
 			}
-			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
+			logger.Errorf(context.TODO(), "GCE operation error: (%s) %s", err.Code, err.Message)
 		}
 		return result
 	}
@@ -178,7 +178,7 @@ func returnNotFoundOperationErrors(operation *compute.Operation) error {
 func logOperationErrors(operation *compute.Operation) error {
 	if operation.Error != nil {
 		for _, err := range operation.Error.Errors {
-			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
+			logger.Errorf(context.TODO(), "GCE operation error: (%s) %s", err.Code, err.Message)
 		}
 		return waitError{operation, nil}
 	}
@@ -379,7 +379,7 @@ var doOpCall = func(call opDoer) (*compute.Operation, error) {
 func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, retryStrategy retry.CallArgs, f handleOperationErrors) error {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	started := time.Now()
-	logger.Infof("GCE operation %q, waiting...", op.Name)
+	logger.Infof(context.TODO(), "GCE operation %q, waiting...", op.Name)
 
 	retryStrategy.IsFatalError = func(err error) bool {
 		return !errors.Is(err, errors.NotProvisioned)
@@ -412,7 +412,7 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, retryS
 		return err
 	}
 
-	logger.Infof("GCE operation %q finished", op.Name)
+	logger.Infof(context.TODO(), "GCE operation %q finished", op.Name)
 	return nil
 }
 

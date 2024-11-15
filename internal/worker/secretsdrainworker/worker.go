@@ -98,17 +98,17 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("secret backend changed watch closed")
 			}
-			w.config.Logger.Debugf("got new secret backend")
+			w.config.Logger.Debugf(context.TODO(), "got new secret backend")
 
 			secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if len(secrets) == 0 {
-				w.config.Logger.Debugf("no secrets to drain")
+				w.config.Logger.Debugf(context.TODO(), "no secrets to drain")
 				continue
 			}
-			w.config.Logger.Debugf("got %d secrets to drain", len(secrets))
+			w.config.Logger.Debugf(context.TODO(), "got %d secrets to drain", len(secrets))
 			backends, err := w.config.SecretsBackendGetter()
 			if err != nil {
 				return errors.Trace(err)
@@ -134,10 +134,10 @@ func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataF
 			return errors.Trace(err)
 		}
 		if rev.ValueRef != nil && rev.ValueRef.BackendID == activeBackendID {
-			w.config.Logger.Debugf("secret %q revision %d is already on the active backend %q", md.URI, rev.Revision, activeBackendID)
+			w.config.Logger.Debugf(context.TODO(), "secret %q revision %d is already on the active backend %q", md.URI, rev.Revision, activeBackendID)
 			continue
 		}
-		w.config.Logger.Debugf("draining %s/%d", md.URI.ID, rev.Revision)
+		w.config.Logger.Debugf(context.TODO(), "draining %s/%d", md.URI.ID, rev.Revision)
 
 		secretVal, err := client.GetRevisionContent(ctx, md.URI, rev.Revision)
 		if err != nil {
@@ -147,7 +147,7 @@ func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataF
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
-		w.config.Logger.Debugf("saved secret %s/%d to the new backend %q, %#v", md.URI.ID, rev.Revision, activeBackendID, err)
+		w.config.Logger.Debugf(context.TODO(), "saved secret %s/%d to the new backend %q, %#v", md.URI.ID, rev.Revision, activeBackendID, err)
 		var newValueRef *coresecrets.ValueRef
 		data := secretVal.EncodedValues()
 		if err == nil {
@@ -171,7 +171,7 @@ func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataF
 				return errors.Trace(err)
 			}
 			cleanUpInExternalBackend = func() error {
-				w.config.Logger.Debugf("cleanup secret %s/%d from old backend %q", md.URI.ID, rev.Revision, rev.ValueRef.BackendID)
+				w.config.Logger.Debugf(context.TODO(), "cleanup secret %s/%d from old backend %q", md.URI.ID, rev.Revision, rev.ValueRef.BackendID)
 				if activeBackendID == rev.ValueRef.BackendID {
 					// Ideally, We should have done all these drain steps in the controller via transaction, but by design, we only allow
 					// uniters to be able to access secret content. So we have to do these extra checks to avoid
@@ -199,7 +199,7 @@ func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataF
 		return nil
 	}
 
-	w.config.Logger.Debugf("content moved, updating backend info")
+	w.config.Logger.Debugf(context.TODO(), "content moved, updating backend info")
 	results, err := w.config.SecretsDrainFacade.ChangeSecretBackend(ctx, args)
 	if err != nil {
 		return errors.Trace(err)
@@ -211,12 +211,12 @@ func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataF
 			// We have already changed the secret to the active backend, so we
 			// can clean up the secret content in the old backend now.
 			if err := cleanUpInExternalBackendFuncs[i](); err != nil {
-				w.config.Logger.Warningf("failed to clean up secret %q-%d in the external backend: %v", arg.URI, arg.Revision, err)
+				w.config.Logger.Warningf(context.TODO(), "failed to clean up secret %q-%d in the external backend: %v", arg.URI, arg.Revision, err)
 			}
 		} else {
 			// If any of the ChangeSecretBackend calls failed, we will
 			// bounce the agent to retry those failed tasks.
-			w.config.Logger.Warningf("failed to change secret backend for %q-%d: %v", arg.URI, arg.Revision, err)
+			w.config.Logger.Warningf(context.TODO(), "failed to change secret backend for %q-%d: %v", arg.URI, arg.Revision, err)
 		}
 	}
 	if results.ErrorCount() > 0 {

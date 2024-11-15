@@ -5,6 +5,7 @@ package charm
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -304,7 +305,7 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo) error {
 	if filepath.Dir(relpath) == "hooks" {
 		hookName := filepath.Base(relpath)
 		if _, ok := zp.hooks[hookName]; ok && !fi.IsDir() && mode&0100 == 0 {
-			zp.logger.Warningf("making %q executable in charm", path)
+			zp.logger.Warningf(context.TODO(), "making %q executable in charm", path)
 			perm = perm | 0100
 		}
 	}

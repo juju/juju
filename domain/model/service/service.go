@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
@@ -119,7 +120,7 @@ type Service struct {
 	st                State
 	modelDeleter      ModelDeleter
 	agentBinaryFinder AgentBinaryFinder
-	logger            Logger
+	logger            logger.Logger
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -143,17 +144,12 @@ func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, erro
 	return t(v)
 }
 
-// Logger is an interface for logging information.
-type Logger interface {
-	Infof(string, ...any)
-}
-
 // NewService returns a new Service for interacting with a models state.
 func NewService(
 	st State,
 	modelDeleter ModelDeleter,
 	agentBinaryFinder AgentBinaryFinder,
-	logger Logger,
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		st:                st,
@@ -416,7 +412,7 @@ func (s *Service) DeleteModel(
 
 	// If the db should not be deleted then we can return early.
 	if !options.DeleteDB() {
-		s.logger.Infof("skipping model deletion, model database will still be present")
+		s.logger.Infof(context.TODO(), "skipping model deletion, model database will still be present")
 		return nil
 	}
 

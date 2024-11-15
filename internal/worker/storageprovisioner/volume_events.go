@@ -30,7 +30,7 @@ func volumesChanged(ctx context.Context, deps *dependencies, changes []string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deps.config.Logger.Debugf("volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	deps.config.Logger.Debugf(context.TODO(), "volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if err := processDyingVolumes(deps, dying); err != nil {
 		return errors.Annotate(err, "processing dying volumes")
 	}
@@ -67,7 +67,7 @@ func sortVolumeAttachmentPlans(
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	deps.config.Logger.Debugf("Found plans: %v", plans)
+	deps.config.Logger.Debugf(context.TODO(), "Found plans: %v", plans)
 	for _, plan := range plans {
 		switch plan.Result.Life {
 		case life.Alive:
@@ -84,13 +84,13 @@ func sortVolumeAttachmentPlans(
 func volumeAttachmentPlansChanged(
 	ctx context.Context,
 	deps *dependencies, watcherIds []watcher.MachineStorageID) error {
-	deps.config.Logger.Debugf("Got machine storage ids: %v", watcherIds)
+	deps.config.Logger.Debugf(context.TODO(), "Got machine storage ids: %v", watcherIds)
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := sortVolumeAttachmentPlans(ctx, deps, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deps.config.Logger.Debugf("volume attachment plans alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	deps.config.Logger.Debugf(context.TODO(), "volume attachment plans alive: %v, dying: %v, dead: %v", alive, dying, dead)
 
 	if err := processAliveVolumePlans(ctx, deps, alive); err != nil {
 		return err
@@ -213,11 +213,11 @@ func volumeAttachmentsChanged(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deps.config.Logger.Debugf("volume attachments alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	deps.config.Logger.Debugf(context.TODO(), "volume attachments alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if len(dead) != 0 {
 		// We should not see dead volume attachments;
 		// attachments go directly from Dying to removed.
-		deps.config.Logger.Warningf("unexpected dead volume attachments: %v", dead)
+		deps.config.Logger.Warningf(context.TODO(), "unexpected dead volume attachments: %v", dead)
 	}
 	// Clean up any attachments which have been removed.
 	for _, id := range gone {
@@ -283,7 +283,7 @@ func updatePendingVolume(deps *dependencies, params storage.VolumeParams) {
 		// NOTE(axw) this would only happen if the model is
 		// in an incoherent state; we should never have an
 		// alive, unprovisioned, and unattached volume.
-		deps.config.Logger.Warningf(
+		deps.config.Logger.Warningf(context.TODO(),
 			"%s is in an incoherent state, ignoring",
 			names.ReadableString(params.Tag),
 		)
@@ -345,7 +345,7 @@ func processDeadVolumes(
 	for i, result := range volumeResults {
 		tag := tags[i]
 		if result.Error == nil {
-			deps.config.Logger.Debugf("volume %s is provisioned, queuing for deprovisioning", tag.Id())
+			deps.config.Logger.Debugf(context.TODO(), "volume %s is provisioned, queuing for deprovisioning", tag.Id())
 			volume, err := volumeFromParams(result.Result)
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
@@ -355,7 +355,7 @@ func processDeadVolumes(
 			continue
 		}
 		if params.IsCodeNotProvisioned(result.Error) {
-			deps.config.Logger.Debugf("volume %s is not provisioned, queuing for removal", tag.Id())
+			deps.config.Logger.Debugf(context.TODO(), "volume %s is not provisioned, queuing for removal", tag.Id())
 			remove = append(remove, tag)
 			continue
 		}
@@ -435,7 +435,7 @@ func processAliveVolumes(
 		volumeTag := tags[i].(names.VolumeTag)
 		if result.Error == nil {
 			// Volume is already provisioned: skip.
-			deps.config.Logger.Debugf("volume %q is already provisioned, nothing to do", tags[i].Id())
+			deps.config.Logger.Debugf(context.TODO(), "volume %q is already provisioned, nothing to do", tags[i].Id())
 			volume, err := volumeFromParams(result.Result)
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
@@ -462,7 +462,7 @@ func processAliveVolumes(
 	}
 	for _, params := range volumeParams {
 		if params.Attachment != nil && params.Attachment.Machine.Kind() != names.MachineTagKind {
-			deps.config.Logger.Debugf("not queuing volume for non-machine %v", params.Attachment.Machine)
+			deps.config.Logger.Debugf(context.TODO(), "not queuing volume for non-machine %v", params.Attachment.Machine)
 			continue
 		}
 		updatePendingVolume(deps, params)
@@ -492,7 +492,7 @@ func processAliveVolumeAttachments(
 				pending = append(pending, ids[i])
 				action = "will reattach"
 			}
-			deps.config.Logger.Debugf(
+			deps.config.Logger.Debugf(context.TODO(),
 				"%s is already attached to %s, %s",
 				ids[i].AttachmentTag, ids[i].MachineTag, action,
 			)
@@ -517,7 +517,7 @@ func processAliveVolumeAttachments(
 	}
 	for i, params := range params {
 		if params.Machine.Kind() != names.MachineTagKind {
-			deps.config.Logger.Debugf("not queuing volume attachment for non-machine %v", params.Machine)
+			deps.config.Logger.Debugf(context.TODO(), "not queuing volume attachment for non-machine %v", params.Machine)
 			continue
 		}
 		if volume, ok := deps.volumes[params.Volume]; ok {

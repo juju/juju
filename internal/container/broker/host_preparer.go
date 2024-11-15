@@ -80,7 +80,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 	}
 
 	if len(devicesToBridge) == 0 {
-		hp.logger.Debugf("container %q requires no additional bridges", containerTag)
+		hp.logger.Debugf(context.TODO(), "container %q requires no additional bridges", containerTag)
 		return nil
 	}
 
@@ -89,7 +89,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 		return errors.Trace(err)
 	}
 
-	hp.logger.Debugf("bridging %+v devices on host %q for container %q with delay=%v",
+	hp.logger.Debugf(context.TODO(), "bridging %+v devices on host %q for container %q with delay=%v",
 		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay)
 
 	// TODO(jam): 2017-02-15 bridger.Bridge should probably also take AbortChan
@@ -107,7 +107,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 	}
 
 	if len(observedConfig) > 0 {
-		hp.logger.Debugf("updating observed network config for %q to %#v", hp.machineTag.String(), observedConfig)
+		hp.logger.Debugf(context.TODO(), "updating observed network config for %q to %#v", hp.machineTag.String(), observedConfig)
 		err := hp.api.SetHostMachineNetworkConfig(ctx, hp.machineTag, observedConfig)
 		if err != nil {
 			return errors.Trace(err)

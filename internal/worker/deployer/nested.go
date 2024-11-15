@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -148,22 +149,22 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 	// Stat all the units that context should have deployed and started.
 	units := context.deployedUnits()
 	stopped := context.stoppedUnits()
-	config.Logger.Infof("new context: units %q, stopped %q", strings.Join(units.Values(), ", "), strings.Join(stopped.Values(), ", "))
+	config.Logger.Infof(context.TODO(), "new context: units %q, stopped %q", strings.Join(units.Values(), ", "), strings.Join(stopped.Values(), ", "))
 	for _, u := range units.SortedValues() {
 		if u == "" {
-			config.Logger.Warningf("empty unit")
+			config.Logger.Warningf(context.TODO(), "empty unit")
 			continue
 		}
 		agent, err := context.newUnitAgent(u)
 		if err != nil {
-			config.Logger.Errorf("unable to start unit %q: %v", u, err)
+			config.Logger.Errorf(context.TODO(), "unable to start unit %q: %v", u, err)
 			context.errors[u] = err
 			continue
 		}
 		context.units[u] = agent
 		if !stopped.Contains(u) {
 			if err := context.startUnitWorkers(u); err != nil {
-				config.Logger.Errorf("unable to start workers for unit %q: %v", u, err)
+				config.Logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", u, err)
 				context.errors[u] = err
 			}
 		}
@@ -175,7 +176,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {
 	units, ok := data.(message.Units)
 	if !ok {
-		c.logger.Errorf("data should be a Units structure")
+		c.logger.Errorf(context.TODO(), "data should be a Units structure")
 	}
 	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
@@ -191,7 +192,7 @@ func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {
 func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
 	units, ok := data.(message.Units)
 	if !ok {
-		c.logger.Errorf("data should be a Units structure")
+		c.logger.Errorf(context.TODO(), "data should be a Units structure")
 	}
 	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
@@ -325,21 +326,21 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger.Tracef("starting the unit workers for %q", unitName)
+	c.logger.Tracef(context.TODO(), "starting the unit workers for %q", unitName)
 
 	agent, err := c.newUnitAgent(unitName)
 	c.units[unitName] = agent
 	if err != nil {
-		c.logger.Errorf("unable to create unit agent %q: %v", unitName, err)
+		c.logger.Errorf(context.TODO(), "unable to create unit agent %q: %v", unitName, err)
 		c.errors[unitName] = err
 	} else {
 		if err := c.startUnitWorkers(unitName); err != nil {
-			c.logger.Errorf("unable to start workers for unit %q: %v", unitName, err)
+			c.logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", unitName, err)
 			c.errors[unitName] = err
 		}
 	}
 
-	c.logger.Tracef("updating the deployed units to add %q", unitName)
+	c.logger.Tracef(context.TODO(), "updating the deployed units to add %q", unitName)
 	// Add to deployed-units stored in the machine agent config.
 	units := c.deployedUnits()
 	units.Add(unitName)
@@ -347,7 +348,7 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 	if err := c.updateConfigValue(deployedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the deployed-units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf("couldn't update stopped deployed units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(context.TODO(), "couldn't update stopped deployed units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
@@ -355,13 +356,13 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 
 func (c *nestedContext) startUnitWorkers(unitName string) error {
 	// Assumes lock is held.
-	c.logger.Infof("starting workers for %q", unitName)
+	c.logger.Infof(context.TODO(), "starting workers for %q", unitName)
 	agent, ok := c.units[unitName]
 	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if agent.running() {
-		c.logger.Infof("unit workers for %q are already running", unitName)
+		c.logger.Infof(context.TODO(), "unit workers for %q are already running", unitName)
 		return nil
 	}
 
@@ -380,7 +381,7 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if !agent.running() {
-		c.logger.Infof("unit workers for %q not running", unitName)
+		c.logger.Infof(context.TODO(), "unit workers for %q not running", unitName)
 		return nil
 	}
 	if err := c.runner.StopAndRemoveWorker(unitName, nil); err != nil {
@@ -417,7 +418,7 @@ func (c *nestedContext) stopUnit(unitName string) error {
 	if err := c.updateConfigValue(stoppedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the stopped units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf("couldn't update stopped units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(context.TODO(), "couldn't update stopped units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
@@ -440,7 +441,7 @@ func (c *nestedContext) startUnit(unitName string) error {
 	if err := c.updateConfigValue(stoppedUnitsKey, allUnits); err != nil {
 		// It isn't really fatal to the deployer if the stopped units can't
 		// be updated, but it is indicative of a disk error.
-		c.logger.Warningf("couldn't update stopped units to add %q, %s", unitName, err.Error())
+		c.logger.Warningf(context.TODO(), "couldn't update stopped units to add %q, %s", unitName, err.Error())
 	}
 
 	return nil
@@ -456,7 +457,7 @@ func (c *nestedContext) updateConfigValue(key, value string) error {
 }
 
 func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword string) (agent.Config, error) {
-	c.logger.Tracef("create unit agent config for %q", tag)
+	c.logger.Tracef(context.TODO(), "create unit agent config for %q", tag)
 	dataDir := c.agentConfig.DataDir()
 	logDir := c.agentConfig.LogDir()
 	apiAddresses, err := c.agentConfig.APIAddresses()
@@ -569,7 +570,7 @@ func (c *nestedContext) AgentConfig() agent.Config {
 func removeOnErr(err *error, logger logger.Logger, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
-			logger.Errorf("installer: cannot remove %q: %v", path, err)
+			logger.Errorf(context.TODO(), "installer: cannot remove %q: %v", path, err)
 		}
 	}
 }

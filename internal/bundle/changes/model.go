@@ -4,6 +4,7 @@
 package bundlechanges
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -499,15 +500,15 @@ func (e *inferenceEngine) processInitialPlacements() {
 				e.model.MachineMap[machine] = machine
 				e.initialMachines.Add(machine)
 				e.markUnitUsed(appName, uName)
-				e.logger.Tracef("unit %q satisfies %q", uName, to)
-				e.logger.Tracef("units left: %v", e.appUnits[appName])
+				e.logger.Tracef(context.TODO(), "unit %q satisfies %q", uName, to)
+				e.logger.Tracef(context.TODO(), "units left: %v", e.appUnits[appName])
 				// If we did use it, take it off the end.
 				unused = unused[:len(unused)-1]
 			}
 		}
 		sort.Strings(unused)
 		e.appPlacements[appName] = unused
-		e.logger.Tracef("unused placements: %#v", unused)
+		e.logger.Tracef(context.TODO(), "unused placements: %#v", unused)
 	}
 }
 
@@ -544,17 +545,17 @@ mainloop:
 		if _, found := e.model.MachineMap[id]; found {
 			continue
 		}
-		e.logger.Tracef("machine: %s", id)
+		e.logger.Tracef(context.TODO(), "machine: %s", id)
 		// Look for a unit placement directive that specifies the machine.
 		for _, appName := range applications {
-			e.logger.Tracef("app: %s", appName)
+			e.logger.Tracef(context.TODO(), "app: %s", appName)
 			for _, to := range e.appPlacements[appName] {
 				// Here we explicitly ignore the error return of the parse placement
 				// as the bundle should have been fully validated by now, which does
 				// check the placement. However we do check to make sure the placement
 				// is not nil (which it would be in an error case), because we don't
 				// want to panic if, for some weird reason, it does error.
-				e.logger.Tracef("to: %s", to)
+				e.logger.Tracef(context.TODO(), "to: %s", to)
 				placement, _ := charm.ParsePlacement(to)
 				if placement == nil || placement.Machine != id {
 					continue
@@ -568,7 +569,7 @@ mainloop:
 				// Find the first unit that we haven't already used.
 				unit := deployed[0]
 
-				e.logger.Tracef("unit: %#v", unit)
+				e.logger.Tracef(context.TODO(), "unit: %#v", unit)
 				machine := topLevelMachine(unit.Machine)
 				if e.initialMachines.Contains(machine) {
 					// Can't match the same machine twice.

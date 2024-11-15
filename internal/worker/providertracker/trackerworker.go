@@ -178,7 +178,7 @@ func (t *trackerWorker) loop() (err error) {
 			return errors.Annotate(err, "watching credential")
 		}
 	} else {
-		t.config.Logger.Warningf("cloud type %v doesn't support dynamic changing of cloud spec", cfg.Type())
+		t.config.Logger.Warningf(context.TODO(), "cloud type %v doesn't support dynamic changing of cloud spec", cfg.Type())
 	}
 
 	// Report the initial started state.
@@ -195,7 +195,7 @@ func (t *trackerWorker) loop() (err error) {
 			if !ok {
 				return errors.New("model config watch closed")
 			}
-			logger.Debugf("reloading model config")
+			logger.Debugf(context.TODO(), "reloading model config")
 
 			modelConfig, err := t.config.ConfigService.ModelConfig(ctx)
 			if err != nil {
@@ -209,7 +209,7 @@ func (t *trackerWorker) loop() (err error) {
 			if !ok {
 				return errors.New("cloud watch closed")
 			}
-			logger.Debugf("reloading cloud")
+			logger.Debugf(context.TODO(), "reloading cloud")
 
 			if err := t.updateCloudSpec(ctx, cloudSpecSetter); err != nil {
 				return errors.Annotate(err, "updating cloud spec")
@@ -219,7 +219,7 @@ func (t *trackerWorker) loop() (err error) {
 			if !ok {
 				return errors.New("credential watch closed")
 			}
-			logger.Debugf("reloading credential")
+			logger.Debugf(context.TODO(), "reloading credential")
 
 			if err := t.updateCloudSpec(ctx, cloudSpecSetter); err != nil {
 				return errors.Annotate(err, "updating cloud spec")

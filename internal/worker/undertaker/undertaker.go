@@ -171,7 +171,7 @@ func (u *Undertaker) run() (errOut error) {
 					changed = true
 				}
 				if changed {
-					u.config.Logger.Infof("model destroy parameters changed: restarting undertaker worker")
+					u.config.Logger.Infof(context.TODO(), "model destroy parameters changed: restarting undertaker worker")
 					return errors.Errorf("model destroy parameters changed")
 				}
 			}
@@ -186,14 +186,14 @@ func (u *Undertaker) run() (errOut error) {
 	}
 
 	if info.ForceDestroyed && info.DestroyTimeout != nil {
-		u.config.Logger.Infof("force destroying model %q with timeout %v", info.Name, info.DestroyTimeout)
+		u.config.Logger.Infof(context.TODO(), "force destroying model %q with timeout %v", info.Name, info.DestroyTimeout)
 		return u.forceDestroy(ctx, info)
 	} else if info.DestroyTimeout != nil {
-		u.config.Logger.Warningf("timeout ignored for graceful model destroy")
+		u.config.Logger.Warningf(context.TODO(), "timeout ignored for graceful model destroy")
 	}
 	// Even if ForceDestroyed is true, if we don't have a timeout, we treat them the same
 	// as a non-force destroyed model.
-	u.config.Logger.Infof("destroying model %q", info.Name)
+	u.config.Logger.Infof(context.TODO(), "destroying model %q", info.Name)
 	return u.cleanDestroy(ctx, info)
 }
 
@@ -220,11 +220,11 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 		}
 		// Wait for the model to become empty.
 		if err := u.processDyingModel(ctx); err != nil {
-			u.config.Logger.Errorf("destroy model failed: %v", err)
+			u.config.Logger.Errorf(context.TODO(), "destroy model failed: %v", err)
 			return fmt.Errorf("proccesing model death: %w", err)
 		}
 	} else {
-		u.config.Logger.Debugf("skipping processDyingModel as model is already dead")
+		u.config.Logger.Debugf(context.TODO(), "skipping processDyingModel as model is already dead")
 	}
 
 	if info.IsSystem {
@@ -247,7 +247,7 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 	retryStrategy := retry.LimitCount(1, retry.Regular{})
 	// Destroy environ resources.
 	if err := u.destroyEnviron(ctx, info, retryStrategy); err != nil {
-		u.config.Logger.Errorf("destroy environ failed: %v", err)
+		u.config.Logger.Errorf(context.TODO(), "destroy environ failed: %v", err)
 		return fmt.Errorf("cannot destroy cloud resources: %w", err)
 	}
 
@@ -259,7 +259,7 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 
 	// Finally, the model is going to be dead, and be removed.
 	if err := u.config.Facade.RemoveModel(ctx); err != nil {
-		u.config.Logger.Errorf("remove model failed: %v", err)
+		u.config.Logger.Errorf(context.TODO(), "remove model failed: %v", err)
 		return errors.Annotate(err, "cannot remove model")
 	}
 	return nil
@@ -277,7 +277,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 	}
 
 	if *info.DestroyTimeout == 0 {
-		u.config.Logger.Infof("skipping waiting for model to cleanly shutdown since timeout is 0")
+		u.config.Logger.Infof(context.TODO(), "skipping waiting for model to cleanly shutdown since timeout is 0")
 	} else if info.Life == life.Dying {
 		// TODO(axw) 2016-04-14 #1570285
 		// We should update status with information
@@ -299,12 +299,12 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 		defer processTimer.Stop()
 		if err := u.processDyingModel(proccessCtx); err != nil && !errors.Is(err, context.Canceled) {
 			proccessCancel()
-			u.config.Logger.Errorf("destroy model failed: %v", err)
+			u.config.Logger.Errorf(context.TODO(), "destroy model failed: %v", err)
 			return fmt.Errorf("proccesing model death: %w", err)
 		}
 		proccessCancel()
 	} else {
-		u.config.Logger.Debugf("skipping processDyingModel as model is already dead")
+		u.config.Logger.Debugf(context.TODO(), "skipping processDyingModel as model is already dead")
 	}
 
 	if info.IsSystem {
@@ -325,7 +325,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 	}
 
 	if *info.DestroyTimeout == 0 {
-		u.config.Logger.Infof("skipping tearing down cloud environment since timeout is 0")
+		u.config.Logger.Infof(context.TODO(), "skipping tearing down cloud environment since timeout is 0")
 	} else {
 		destroyCtx, destroyCancel := context.WithCancel(ctx)
 		destroyTimer := u.config.Clock.AfterFunc(*info.DestroyTimeout, func() {
@@ -339,7 +339,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 		}
 		if err := u.destroyEnviron(destroyCtx, info, retryStrategy); err != nil && !errors.Is(err, context.Canceled) {
 			destroyCancel()
-			u.config.Logger.Errorf("destroy environ failed: %v", err)
+			u.config.Logger.Errorf(context.TODO(), "destroy environ failed: %v", err)
 			return fmt.Errorf("tearing down cloud environment: %w", err)
 		}
 		destroyCancel()
@@ -353,7 +353,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 
 	// Finally, the model is going to be dead, and be removed.
 	if err := u.config.Facade.RemoveModel(ctx); err != nil {
-		u.config.Logger.Errorf("remove model failed: %v", err)
+		u.config.Logger.Errorf(context.TODO(), "remove model failed: %v", err)
 		return errors.Annotate(err, "cannot remove model")
 	}
 	return nil
@@ -389,7 +389,7 @@ func (u *Undertaker) invokeDestroyEnviron(callCtx environscontext.ProviderCallCo
 }
 
 func (u *Undertaker) destroyEnviron(ctx context.Context, info params.UndertakerModelInfo, retryStrategy retry.Strategy) error {
-	u.config.Logger.Debugf("destroying cloud resources for model %v", info.Name)
+	u.config.Logger.Debugf(context.TODO(), "destroying cloud resources for model %v", info.Name)
 	// Now the model is known to be hosted and dying, we can tidy up any
 	// provider resources it might have used.
 	if err := u.setStatus(
@@ -416,14 +416,14 @@ out:
 		default:
 		}
 		go func() {
-			u.config.Logger.Tracef("environ destroy enter")
-			defer u.config.Logger.Tracef("environ destroy leave")
+			u.config.Logger.Tracef(context.TODO(), "environ destroy enter")
+			defer u.config.Logger.Tracef(context.TODO(), "environ destroy leave")
 			err := u.invokeDestroyEnviron(callCtx)
 			select {
 			case errChan <- err:
 			case <-done:
 				if err != nil {
-					u.config.Logger.Errorf("attempt %d to destroy environ failed (will not retry):  %v", attempt, err)
+					u.config.Logger.Errorf(context.TODO(), "attempt %d to destroy environ failed (will not retry):  %v", attempt, err)
 				}
 			}
 		}()
@@ -435,7 +435,7 @@ out:
 			if destroyErr == nil {
 				break out
 			}
-			u.config.Logger.Errorf("attempt %d to destroy environ failed (will retry):  %v", attempt, destroyErr)
+			u.config.Logger.Errorf(context.TODO(), "attempt %d to destroy environ failed (will retry):  %v", attempt, destroyErr)
 		}
 	}
 	if destroyErr == nil {
@@ -461,12 +461,12 @@ func (u *Undertaker) processDyingModel(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			u.config.Logger.Debugf("processDyingModel timed out")
+			u.config.Logger.Debugf(context.TODO(), "processDyingModel timed out")
 			return errors.Annotatef(ctx.Err(), "process dying model")
 		case <-watch.Changes():
 			err := u.config.Facade.ProcessDyingModel(ctx)
 			if err == nil {
-				u.config.Logger.Debugf("processDyingModel done")
+				u.config.Logger.Debugf(context.TODO(), "processDyingModel done")
 				// ProcessDyingModel succeeded. We're free to
 				// destroy any remaining environ resources.
 				return nil
@@ -481,7 +481,7 @@ func (u *Undertaker) processDyingModel(ctx context.Context) error {
 				fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err),
 			)
 
-			u.config.Logger.Debugf("attempt %d to destroy model failed (will retry):  %v", attempt, err)
+			u.config.Logger.Debugf(context.TODO(), "attempt %d to destroy model failed (will retry):  %v", attempt, err)
 		}
 		attempt++
 	}

@@ -180,7 +180,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf("failed to write profile funcs: %v", err)
+		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
 	}
 	return nil
 }
@@ -295,7 +295,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 	}
 	if err := dependency.Install(eng, manifolds); err != nil {
 		if err := worker.Stop(eng); err != nil {
-			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+			logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}
@@ -313,13 +313,13 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		// but continue. It is very unlikely to happen in the real world
 		// as the only issue is connecting to the abstract domain socket
 		// and the agent is controlled by the OS to only have one.
-		logger.Errorf("failed to start introspection worker: %v", err)
+		logger.Errorf(context.TODO(), "failed to start introspection worker: %v", err)
 	}
 	if err := addons.RegisterEngineMetrics(c.prometheusRegistry, metrics, eng, workerMetricsSink); err != nil {
 		// If the dependency engine metrics fail, continue on. This is unlikely
 		// to happen in the real world, but should't stop or bring down an
 		// agent.
-		logger.Errorf("failed to start the dependency engine metrics %v", err)
+		logger.Errorf(context.TODO(), "failed to start the dependency engine metrics %v", err)
 	}
 
 	return eng, nil
@@ -396,19 +396,19 @@ func AgentDone(logger corelogger.Logger, err error) error {
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.
-		logger.Infof("agent terminating")
+		logger.Infof(context.TODO(), "agent terminating")
 		err = nil
 	}
 	if err == jworker.ErrRestartAgent {
 		// This does not seem to happen for k8s units.
-		logger.Infof("agent restarting")
+		logger.Infof(context.TODO(), "agent restarting")
 	}
 	return err
 }
 
 func ensureAgentConf(ac agentconf.AgentConf) error {
 	templateConfigPath := path.Join(ac.DataDir(), k8sconstants.TemplateFileNameAgentConf)
-	logger.Debugf("template config path %s", templateConfigPath)
+	logger.Debugf(context.TODO(), "template config path %s", templateConfigPath)
 	config, err := agent.ReadConfig(templateConfigPath)
 	if err != nil {
 		return errors.Annotate(err, "reading template agent config file")
@@ -416,7 +416,7 @@ func ensureAgentConf(ac agentconf.AgentConf) error {
 
 	unitTag := config.Tag()
 	configPath := agent.ConfigPath(ac.DataDir(), unitTag)
-	logger.Debugf("config path %s", configPath)
+	logger.Debugf(context.TODO(), "config path %s", configPath)
 	// if the rendered configuration already exists, use that copy
 	// as it likely has updated api addresses or could have a newer password,
 	// otherwise we need to copy the template.

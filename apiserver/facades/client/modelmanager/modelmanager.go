@@ -153,7 +153,7 @@ func NewModelManagerAPI(
 // are an administrator acting on behalf of another user.
 func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	if m.isAdmin {
-		logger.Tracef("%q is a controller admin", m.apiUser.Id())
+		logger.Tracef(context.TODO(), "%q is a controller admin", m.apiUser.Id())
 		return nil
 	}
 
@@ -318,7 +318,7 @@ func (m *ModelManagerAPI) createModelNew(
 func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error {
 	if err := modelNetworkService.ReloadSpaces(ctx); err != nil {
 		if errors.Is(err, errors.NotSupported) {
-			logger.Debugf("Not performing spaces load on a non-networking environment")
+			logger.Debugf(context.TODO(), "Not performing spaces load on a non-networking environment")
 		} else {
 			return errors.Annotate(err, "Failed to perform spaces discovery")
 		}
@@ -616,7 +616,7 @@ func (m *ModelManagerAPI) newIAASModel(
 	if err != nil {
 		// Clean up the environ.
 		if e := env.Destroy(callCtx); e != nil {
-			logger.Warningf("failed to destroy environ, error %v", e)
+			logger.Warningf(context.TODO(), "failed to destroy environ, error %v", e)
 		}
 		return nil, errors.Annotate(err, "failed to create new model")
 	}

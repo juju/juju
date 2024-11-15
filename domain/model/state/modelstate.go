@@ -150,7 +150,7 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 			return coremodel.ReadOnlyModel{}, errors.Trace(err)
 		}
 	} else {
-		s.logger.Infof("model %s: cloud credential owner name is empty", model.Name)
+		s.logger.Infof(context.TODO(), "model %s: cloud credential owner name is empty", model.Name)
 	}
 
 	var agentVersion string

@@ -4,6 +4,7 @@
 package controlleragentconfig
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -161,7 +162,7 @@ func (w *configWorker) idHandler(resp http.ResponseWriter, req *http.Request) {
 
 	_, err := resp.Write([]byte(w.cfg.ControllerID))
 	if err != nil {
-		w.cfg.Logger.Errorf("error writing HTTP response: %v", err)
+		w.cfg.Logger.Errorf(context.TODO(), "error writing HTTP response: %v", err)
 	}
 }
 
@@ -206,14 +207,14 @@ func (w *configWorker) loop() error {
 		case <-w.reloadRequested:
 			w.reportInternalState(stateReload)
 
-			w.cfg.Logger.Infof("reload config request received, reloading config")
+			w.cfg.Logger.Infof(context.TODO(), "reload config request received, reloading config")
 
 			for _, name := range w.runner.WorkerNames() {
 				runnerWorker, err := w.runner.Worker(name, w.catacomb.Dying())
 				if err != nil {
 					if errors.Is(err, errors.NotFound) {
 
-						w.cfg.Logger.Debugf("worker %q not found, skipping", name)
+						w.cfg.Logger.Debugf(context.TODO(), "worker %q not found, skipping", name)
 						continue
 					}
 					// If the runner is dead, we should stop.

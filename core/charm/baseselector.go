@@ -4,6 +4,7 @@
 package charm
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -112,7 +113,7 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []base.Ba
 			s.jujuSupportedBases.Add(jujuCharmBase.String())
 			if jujuCharmBase.IsCompatible(charmBase) {
 				supportedBases = append(supportedBases, charmBase)
-				s.logger.Infof(msgUserRequestedBase, charmBase)
+				s.logger.Infof(context.TODO(), msgUserRequestedBase, charmBase)
 			}
 		}
 	}
@@ -153,7 +154,7 @@ func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
 	// Try juju's current default supported Ubuntu LTS
 	jujuDefaultBase, err := BaseForCharm(version.DefaultSupportedLTSBase(), s.supportedBases)
 	if err == nil {
-		s.logger.Infof(msgLatestLTSBase, version.DefaultSupportedLTSBase())
+		s.logger.Infof(context.TODO(), msgLatestLTSBase, version.DefaultSupportedLTSBase())
 		return jujuDefaultBase, nil
 	}
 
@@ -182,7 +183,7 @@ func (s BaseSelector) userRequested(requestedBase base.Base) (base.Base, error) 
 		}
 		return base.Base{}, err
 	}
-	s.logger.Infof(msgUserRequestedBase, b)
+	s.logger.Infof(context.TODO(), msgUserRequestedBase, b)
 	return b, nil
 }
 

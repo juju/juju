@@ -464,7 +464,7 @@ func GetActionResult(ctx context.Context, api APIClient, requestedId string, clk
 		default:
 			return result, nil
 		}
-		logger.Debugf("after %s action was still %v, will wait %s more before next check",
+		logger.Debugf(context.TODO(), "after %s action was still %v, will wait %s more before next check",
 			clk.Now().Sub(startTime), result.Status, retryTime)
 
 		// Block until a tick happens, or the wait arrives.
@@ -837,7 +837,7 @@ func processLogMessages(
 				for _, msg := range messages {
 					logMsg, err := decodeLogMessage(msg, utc)
 					if err != nil {
-						logger.Warningf("badly formatted action log message: %v\n%v", err, msg)
+						logger.Warningf(context.TODO(), "badly formatted action log message: %v\n%v", err, msg)
 						continue
 					}
 					handler(ctx, logMsg)

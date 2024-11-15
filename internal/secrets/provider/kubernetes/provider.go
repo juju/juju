@@ -124,7 +124,7 @@ func (p k8sProvider) RestrictedConfig(
 	ctx context.Context,
 	adminCfg *provider.ModelBackendConfig, sameController, _ bool, accessor coresecrets.Accessor, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", accessor, owned, read)
+	logger.Tracef(context.TODO(), "getting k8s backend config for %q, owned %v, read %v", accessor, owned, read)
 
 	if accessor.Kind == coresecrets.ModelAccessor {
 		return &adminCfg.BackendConfig, nil
@@ -154,7 +154,7 @@ func (p k8sProvider) RestrictedConfig(
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 		if len(host) != 0 && len(port) != 0 {
 			cloudSpec.Endpoint = "https://" + net.JoinHostPort(host, port)
-			logger.Tracef("patching endpoint to %q", cloudSpec.Endpoint)
+			logger.Tracef(context.TODO(), "patching endpoint to %q", cloudSpec.Endpoint)
 			cloudSpec.IsControllerCloud = false
 		}
 	} else {

@@ -57,7 +57,7 @@ type CharmHubClient struct {
 // GetResource returns data about the resource including an io.ReadCloser
 // to download the resource.  The caller is responsible for closing it.
 func (ch *CharmHubClient) GetResource(req ResourceRequest) (ResourceData, error) {
-	ch.logger.Tracef("GetResource(%s)", pretty.Sprint(req))
+	ch.logger.Tracef(context.TODO(), "GetResource(%s)", pretty.Sprint(req))
 	var data ResourceData
 
 	// GetResource is called after a charm is installed, therefore the
@@ -94,7 +94,7 @@ func (ch *CharmHubClient) GetResource(req ResourceRequest) (ResourceData, error)
 	}
 	data.Resource = r
 
-	ch.logger.Tracef("Read resource %q from %q", r.Name, resourceURL)
+	ch.logger.Tracef(context.TODO(), "Read resource %q from %q", r.Name, resourceURL)
 
 	data.ReadCloser, err = ch.client.DownloadResource(context.TODO(), resourceURL)
 	if err != nil {

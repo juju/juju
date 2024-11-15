@@ -53,7 +53,7 @@ func mergeSelectors(selectors ...k8slabels.Selector) k8slabels.Selector {
 		if selectable {
 			s = s.Add(rs...)
 		} else {
-			logger.Warningf("%v is not selectable", v)
+			logger.Warningf(context.TODO(), "%v is not selectable", v)
 		}
 	}
 	return s

@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"bytes"
+	"context"
 	stdcontext "context"
 	"fmt"
 	"io"
@@ -200,9 +201,9 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	defer j.mu.Unlock()
 	// Beware, reducing the log level of the following line will lead
 	// to passwords leaking if passed as args.
-	logger.Tracef("running hook tool %q %q", req.CommandName)
-	logger.Debugf("running hook tool %q for %s", req.CommandName, req.ContextId)
-	logger.Tracef("hook context id %q; dir %q", req.ContextId, req.Dir)
+	logger.Tracef(context.TODO(), "running hook tool %q %q", req.CommandName)
+	logger.Debugf(context.TODO(), "running hook tool %q for %s", req.CommandName, req.ContextId)
+	logger.Tracef(context.TODO(), "hook context id %q; dir %q", req.ContextId, req.Dir)
 	wrapper := &cmdWrapper{c, nil}
 	resp.Code = cmd.Main(wrapper, ctx, req.Args)
 	if errors.Cause(wrapper.err) == ErrNoStdin {

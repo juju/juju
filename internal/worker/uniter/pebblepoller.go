@@ -100,9 +100,9 @@ func (p *pebblePoller) run(containerName string) error {
 			err := p.poll(containerName)
 			var socketNotFound *client.SocketNotFoundError
 			if errors.As(err, &socketNotFound) {
-				p.logger.Debugf("pebble still starting up on container %q: %v", containerName, socketNotFound)
+				p.logger.Debugf(context.TODO(), "pebble still starting up on container %q: %v", containerName, socketNotFound)
 			} else if err != nil && err != tomb.ErrDying {
-				p.logger.Errorf("pebble poll failed for container %q: %v", containerName, err)
+				p.logger.Errorf(context.TODO(), "pebble poll failed for container %q: %v", containerName, err)
 			}
 		}
 	}

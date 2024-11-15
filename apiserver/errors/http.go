@@ -4,6 +4,7 @@
 package errors
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 // processing.
 func sendError(w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := ServerErrorAndStatus(errToSend)
-	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	logger.Debugf(context.TODO(), "sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(SendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
 	}))

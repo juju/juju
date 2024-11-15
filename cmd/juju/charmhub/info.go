@@ -119,7 +119,7 @@ func (c *infoCommand) Init(args []string) error {
 func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
-		logger.Debugf("%s", err)
+		logger.Debugf(context.TODO(), "%s", err)
 		return errors.NotValidf("charm or bundle name, %q, is", charmOrBundle)
 	}
 	if !charm.CharmHub.Matches(curl.Schema) {

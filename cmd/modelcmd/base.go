@@ -157,7 +157,7 @@ func (c *CommandBase) setRunStarted() {
 func (c *CommandBase) closeAPIContexts() {
 	for name, ctx := range c.apiContexts {
 		if err := ctx.Close(); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		delete(c.apiContexts, name)
 	}
@@ -279,7 +279,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 		return nil, errors.New("no controller API addresses; is bootstrap still in progress?")
 	}
 	if proxyerrors.IsProxyConnectError(err) {
-		logger.Debugf("proxy connection error: %v", err)
+		logger.Debugf(context.TODO(), "proxy connection error: %v", err)
 		if proxyerrors.ProxyType(err) == k8sproxy.ProxierTypeKey {
 			return nil, errors.Annotate(err, "cannot connect to k8s api server; try running 'juju update-k8s --client <k8s cloud name>'")
 		}
@@ -300,15 +300,15 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 func (c *CommandBase) RemoveModelFromClientStore(store jujuclient.ClientStore, controllerName, modelName string) {
 	err := store.RemoveModel(controllerName, modelName)
 	if err != nil && !errors.Is(err, errors.NotFound) {
-		logger.Warningf("cannot remove unknown model from cache: %v", err)
+		logger.Warningf(context.TODO(), "cannot remove unknown model from cache: %v", err)
 	}
 	if c.CanClearCurrentModel {
 		currentModel, err := store.CurrentModel(controllerName)
 		if err != nil {
-			logger.Warningf("cannot read current model: %v", err)
+			logger.Warningf(context.TODO(), "cannot read current model: %v", err)
 		} else if currentModel == modelName {
 			if err := store.SetCurrentModel(controllerName, ""); err != nil {
-				logger.Warningf("cannot reset current model: %v", err)
+				logger.Warningf(context.TODO(), "cannot reset current model: %v", err)
 			}
 		}
 	}
@@ -455,7 +455,7 @@ func (c *CommandBase) ModelUUIDs(ctx context.Context, store jujuclient.ClientSto
 		model, err := store.ModelByName(controllerName, modelName)
 		if errors.Is(err, errors.NotFound) {
 			// The model isn't known locally, so query the models available in the controller.
-			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
+			logger.Infof(context.TODO(), "model %q not cached locally, refreshing models from controller", modelName)
 			if err := c.RefreshModels(ctx, store, controllerName); err != nil {
 				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
 			}

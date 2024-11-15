@@ -168,7 +168,7 @@ func (manager *Manager) loop() error {
 			if errors.Is(err, tomb.ErrDying) {
 				err = manager.tomb.Err()
 			}
-			manager.config.Logger.Tracef("[%s] exiting main loop with error: %v", manager.logContext, err)
+			manager.config.Logger.Tracef(context.TODO(), "[%s] exiting main loop with error: %v", manager.logContext, err)
 			return errors.Trace(err)
 		}
 	}
@@ -226,7 +226,7 @@ func (manager *Manager) choose(ctx context.Context, blocks blocks) error {
 		})
 
 	case block := <-manager.blocks:
-		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
+		manager.config.Logger.Tracef(context.TODO(), "[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
 	}
 	return nil
@@ -291,11 +291,11 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 		if a.More() {
 			switch {
 			case lease.IsInvalid(err):
-				manager.config.Logger.Tracef("[%s] request by %s for lease %s %v, retrying...",
+				manager.config.Logger.Tracef(context.TODO(), "[%s] request by %s for lease %s %v, retrying...",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease, err)
 
 			default:
-				manager.config.Logger.Tracef("[%s] timed out handling claim by %s for lease %s, retrying...",
+				manager.config.Logger.Tracef(context.TODO(), "[%s] timed out handling claim by %s for lease %s, retrying...",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			}
 		}
@@ -310,14 +310,14 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 	} else {
 		switch {
 		case lease.IsTimeout(err), txn.IsErrRetryable(err):
-			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
+			manager.config.Logger.Warningf(context.TODO(), "[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrTimeout)
 
 		case lease.IsInvalid(err):
 			// We want to see this, but it doesn't indicate something a user
 			// can do something about.
-			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
+			manager.config.Logger.Infof(context.TODO(), "[%s] got %v after %d retries, denying claim %q for %q",
 				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrClaimDenied)
 
@@ -325,7 +325,7 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 			// This can happen in HA if the original check for an extant lease
 			// (against the local node) returned nothing, but the leader FSM
 			// has this lease being held by another entity.
-			manager.config.Logger.Tracef(
+			manager.config.Logger.Tracef(context.TODO(),
 				"[%s] %s asked for lease %s, held by by another entity",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
@@ -358,13 +358,13 @@ func (manager *Manager) handleClaim(ctx context.Context, claim claim) (action, b
 
 		switch {
 		case !found:
-			logger.Tracef("[%s] %s asked for lease %s (%s), no lease found, claiming for %s",
+			logger.Tracef(context.TODO(), "[%s] %s asked for lease %s (%s), no lease found, claiming for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = claimAction
 			err = store.ClaimLease(ctx, claim.leaseKey, request)
 
 		case info.Holder == claim.holderName:
-			logger.Tracef("[%s] %s extending lease %s (%s) for %s",
+			logger.Tracef(context.TODO(), "[%s] %s extending lease %s (%s) for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = extendAction
 			err = store.ExtendLease(ctx, claim.leaseKey, request)
@@ -373,7 +373,7 @@ func (manager *Manager) handleClaim(ctx context.Context, claim claim) (action, b
 			// Note: (jam) 2017-10-31) We don't check here if the lease has
 			// expired for the current holder. Should we?
 			remaining := info.Expiry.Sub(manager.config.Clock.Now())
-			logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+			logger.Tracef(context.TODO(), "[%s] %s asked for lease %s, held by %s for another %s, rejecting",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
 			return "unknown", false, nil
 		}
@@ -386,7 +386,7 @@ func (manager *Manager) handleClaim(ctx context.Context, claim claim) (action, b
 		}
 	}
 
-	logger.Tracef("[%s] %s %s lease %s for %s successful",
+	logger.Tracef(context.TODO(), "[%s] %s %s lease %s for %s successful",
 		manager.logContext, claim.holderName, act.String(), claim.leaseKey.Lease, claim.duration)
 	return act, true, nil
 }
@@ -424,11 +424,11 @@ func (manager *Manager) retryingRevoke(ctx context.Context, revoke revoke) {
 		if a.More() {
 			switch {
 			case lease.IsInvalid(err):
-				manager.config.Logger.Tracef("[%s] request by %s for revoking lease %s %v, retrying...",
+				manager.config.Logger.Tracef(context.TODO(), "[%s] request by %s for revoking lease %s %v, retrying...",
 					manager.logContext, revoke.holderName, revoke.leaseKey.Lease, err)
 
 			default:
-				manager.config.Logger.Tracef("[%s] timed out handling revoke by %s for lease %s, retrying...",
+				manager.config.Logger.Tracef(context.TODO(), "[%s] timed out handling revoke by %s for lease %s, retrying...",
 					manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			}
 		}
@@ -445,19 +445,19 @@ func (manager *Manager) retryingRevoke(ctx context.Context, revoke revoke) {
 	} else {
 		switch {
 		case lease.IsTimeout(err), txn.IsErrRetryable(err):
-			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
+			manager.config.Logger.Warningf(context.TODO(), "[%s] retrying timed out while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrTimeout)
 
 		case lease.IsInvalid(err):
 			// we want to see this, but it doesn't indicate something a user can do something about
-			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
+			manager.config.Logger.Infof(context.TODO(), "[%s] got %v after %d retries, revoke %q for %q",
 				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
 			revoke.respond(err)
 
 		case lease.IsNotHeld(err):
 			// we want to see this, but it doesn't indicate something a user can do something about
-			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
+			manager.config.Logger.Infof(context.TODO(), "[%s] got %v after %d retries, revoke %q for %q",
 				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
 			revoke.respond(err)
 
@@ -484,16 +484,16 @@ func (manager *Manager) handleRevoke(ctx context.Context, revoke revoke) error {
 
 		switch {
 		case !found:
-			logger.Tracef("[%s] %s asked to revoke lease %s, no lease found",
+			logger.Tracef(context.TODO(), "[%s] %s asked to revoke lease %s, no lease found",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			return nil
 
 		case info.Holder == revoke.holderName:
-			logger.Tracef("[%s] %s revoking lease %s", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+			logger.Tracef(context.TODO(), "[%s] %s revoking lease %s", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			err = manager.config.Store.RevokeLease(ctx, revoke.leaseKey, revoke.holderName)
 
 		default:
-			logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
+			logger.Tracef(context.TODO(), "[%s] %s revoking lease %s, held by %s, rejecting",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease, info.Holder)
 			return lease.ErrNotHeld
 		}
@@ -506,7 +506,7 @@ func (manager *Manager) handleRevoke(ctx context.Context, revoke revoke) error {
 		}
 	}
 
-	logger.Tracef("[%s] %s revoked lease %s successful", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+	logger.Tracef(context.TODO(), "[%s] %s revoked lease %s successful", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 	return nil
 }
 
@@ -516,7 +516,7 @@ func (manager *Manager) handleRevoke(ctx context.Context, revoke revoke) error {
 func (manager *Manager) handleCheck(ctx context.Context, check check) (err error) {
 	key := check.leaseKey
 
-	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
+	manager.config.Logger.Tracef(context.TODO(), "[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
 	info, found, err := manager.lookupLease(ctx, key)
@@ -527,7 +527,7 @@ func (manager *Manager) handleCheck(ctx context.Context, check check) (err error
 	var response error
 	if !found || info.Holder != check.holderName {
 		if found {
-			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s",
+			manager.config.Logger.Tracef(context.TODO(), "[%s] handling Check for lease %s on behalf of %s, found held by %s",
 				manager.logContext, key.Lease, check.holderName, info.Holder)
 		} else {
 			// Someone thought they were the lease-holder, otherwise they
@@ -535,7 +535,7 @@ func (manager *Manager) handleCheck(ctx context.Context, check check) (err error
 			// expired, and they are out of sync. Schedule a block check.
 			manager.setNextTimeout(manager.config.Clock.Now().Add(time.Second))
 
-			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found",
+			manager.config.Logger.Tracef(context.TODO(), "[%s] handling Check for lease %s on behalf of %s, not found",
 				manager.logContext, key.Lease, check.holderName)
 		}
 
@@ -549,13 +549,13 @@ func (manager *Manager) handleCheck(ctx context.Context, check check) (err error
 // are leases to expire, and then unblock anything that is no longer blocked,
 // and then compute the next time we should wake up.
 func (manager *Manager) tick(ctx context.Context, now time.Time, blocks blocks) error {
-	manager.config.Logger.Tracef("[%s] tick at %v, running expiry checks\n", manager.logContext, now)
+	manager.config.Logger.Tracef(context.TODO(), "[%s] tick at %v, running expiry checks\n", manager.logContext, now)
 	// Check for blocks that need to be notified.
 	return errors.Trace(manager.checkBlocks(ctx, blocks))
 }
 
 func (manager *Manager) checkBlocks(ctx context.Context, blocks blocks) error {
-	manager.config.Logger.Tracef("[%s] evaluating %d blocks", manager.logContext, len(blocks))
+	manager.config.Logger.Tracef(context.TODO(), "[%s] evaluating %d blocks", manager.logContext, len(blocks))
 
 	leases, err := manager.config.Store.Leases(ctx)
 	if err != nil {
@@ -564,7 +564,7 @@ func (manager *Manager) checkBlocks(ctx context.Context, blocks blocks) error {
 
 	for leaseName := range blocks {
 		if _, found := leases[leaseName]; !found {
-			manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
+			manager.config.Logger.Tracef(context.TODO(), "[%s] unblocking: %s", manager.logContext, leaseName)
 			blocks.unblock(leaseName)
 		}
 	}
@@ -599,7 +599,7 @@ func (manager *Manager) computeNextTimeout(leases map[lease.Key]lease.Info) {
 	nextTick = nextTick.Add(time.Second)
 
 	nextDuration := nextTick.Sub(now).Round(time.Millisecond)
-	manager.config.Logger.Tracef("[%s] next expire in %v %v", manager.logContext, nextDuration, nextTick)
+	manager.config.Logger.Tracef(context.TODO(), "[%s] next expire in %v %v", manager.logContext, nextDuration, nextTick)
 	manager.setNextTimeout(nextTick)
 }
 
@@ -609,7 +609,7 @@ func (manager *Manager) setNextTimeout(t time.Time) {
 	// Ensure we never walk the next check back without have performed a
 	// scheduled check *unless* we think our last check was in the past.
 	if !manager.nextTimeout.Before(now) && !t.Before(manager.nextTimeout) {
-		manager.config.Logger.Tracef("[%s] not rescheduling check from %v to %v based on current time %v",
+		manager.config.Logger.Tracef(context.TODO(), "[%s] not rescheduling check from %v to %v based on current time %v",
 			manager.logContext, manager.nextTimeout, t, now)
 		return
 	}
@@ -730,9 +730,9 @@ func (manager *Manager) waitForGoroutines() {
 	dumpFile, err := manager.dumpDebug()
 	logger := manager.config.Logger
 	if err == nil {
-		logger.Warningf("%v\ndebug info written to %v", msg, dumpFile)
+		logger.Warningf(context.TODO(), "%v\ndebug info written to %v", msg, dumpFile)
 	} else {
-		logger.Warningf("%v\nerror writing debug info: %v", msg, err)
+		logger.Warningf(context.TODO(), "%v\nerror writing debug info: %v", msg, err)
 	}
 
 }

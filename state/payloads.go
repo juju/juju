@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -149,7 +151,7 @@ func (up UnitPayloads) SetStatus(name, status string) error {
 // trigger the actual destruction of the payload. If the payload is
 // missing then this is a noop.
 func (up UnitPayloads) Untrack(name string) error {
-	logger.Tracef("untracking %q", name)
+	logger.Tracef(context.TODO(), "untracking %q", name)
 	change := payloadUntrackChange{
 		Unit: up.unit,
 		Name: name,

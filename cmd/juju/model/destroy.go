@@ -329,7 +329,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			persistentVolumes, persistentFilesystems := countDetachableStorage(modelStatus)
 			return generatePersistentStorageErrorMsg(modelName, persistentVolumes, persistentFilesystems)
 		}
-		logger.Errorf(`failed to destroy model %q`, modelName)
+		logger.Errorf(context.TODO(), `failed to destroy model %q`, modelName)
 		return err
 	}
 

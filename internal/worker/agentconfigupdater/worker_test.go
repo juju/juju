@@ -4,6 +4,7 @@
 package agentconfigupdater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -120,7 +121,7 @@ func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
 			expectErr: "missing logger not valid",
 		},
 	} {
-		s.logger.Infof("%d: %s", i, test.name)
+		s.logger.Infof(context.TODO(), "%d: %s", i, test.name)
 		config := test.config()
 		err := config.Validate()
 		if test.expectErr == "" {

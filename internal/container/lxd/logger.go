@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	lxdLogger "github.com/canonical/lxd/shared/logger"
@@ -43,7 +44,7 @@ func (p *lxdLogProxy) render(msg string, ctx []lxdLogger.Ctx) string {
 }
 
 func (p *lxdLogProxy) Trace(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Tracef(p.render(msg, ctx))
+	p.logger.Tracef(context.TODO(), p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Debug(msg string, ctx ...lxdLogger.Ctx) {
@@ -51,31 +52,31 @@ func (p *lxdLogProxy) Debug(msg string, ctx ...lxdLogger.Ctx) {
 	// "debug" level, which is its highest level of logging.
 	// We transform this to Trace, to avoid spamming our
 	// logs with too much information.
-	p.logger.Tracef(p.render(msg, ctx))
+	p.logger.Tracef(context.TODO(), p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Info(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Infof(p.render(msg, ctx))
+	p.logger.Infof(context.TODO(), p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Warn(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Warningf(p.render(msg, ctx))
+	p.logger.Warningf(context.TODO(), p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Error(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Errorf(p.render(msg, ctx))
+	p.logger.Errorf(context.TODO(), p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Crit(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Criticalf(p.render(msg, ctx))
+	p.logger.Criticalf(context.TODO(), p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Fatal(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Criticalf("Fatal: %s", p.render(msg, ctx))
+	p.logger.Criticalf(context.TODO(), "Fatal: %s", p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Panic(msg string, ctx ...lxdLogger.Ctx) {
-	p.logger.Criticalf("Panic: %s", p.render(msg, ctx))
+	p.logger.Criticalf(context.TODO(), "Panic: %s", p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) AddContext(_ lxdLogger.Ctx) lxdLogger.Logger {

@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-goose/goose/v5/client"
@@ -171,7 +172,7 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
 		authOptions, err := newClient.IdentityAuthOptions()
 		if err != nil {
-			logger.Errorf("cannot determine available auth versions %v", err)
+			logger.Errorf(context.TODO(), "cannot determine available auth versions %v", err)
 		}
 
 		// Walk over the options to verify if the AuthUserPassV3 exists, if it

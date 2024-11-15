@@ -116,7 +116,7 @@ func CheckCIDRs(args []string, cidrsOptional bool) (set.Strings, error) {
 	for _, arg := range args {
 		_, ipNet, err := net.ParseCIDR(arg)
 		if err != nil {
-			logger.Debugf("cannot parse %q: %v", arg, err)
+			logger.Debugf(context.TODO(), "cannot parse %q: %v", arg, err)
 			return cidrs, errors.Errorf("%q is not a valid CIDR", arg)
 		}
 		cidr := ipNet.String()

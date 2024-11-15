@@ -430,7 +430,7 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 		if errors.Is(err, sql.ErrNoRows) {
 			// We do not want to return an error if there are no secret backends.
 			// We just return an empty list.
-			s.logger.Debugf("no secret backends found")
+			s.logger.Debugf(context.TODO(), "no secret backends found")
 			return nil
 		}
 		if err != nil {
@@ -489,7 +489,7 @@ GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
 	if errors.Is(err, sql.ErrNoRows) {
 		// We do not want to return an error if there are no secret backends.
 		// We just return an empty list.
-		s.logger.Debugf("no in-use kubernetes secret backends found")
+		s.logger.Debugf(context.TODO(), "no in-use kubernetes secret backends found")
 		return nil, nil
 	}
 	if err != nil {
@@ -580,7 +580,7 @@ WHERE  m.uuid = $M.uuid
 		if errors.Is(err, sql.ErrNoRows) {
 			// We do not want to return an error if there are no secret backends.
 			// We just return an empty list.
-			s.logger.Debugf("no secret backends found")
+			s.logger.Debugf(context.TODO(), "no secret backends found")
 			return nil
 		}
 		if err != nil {

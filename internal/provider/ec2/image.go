@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"context"
+
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/constraints"
@@ -19,13 +21,13 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 	for _, image := range images {
 		imagesByStorage[image.Storage] = append(imagesByStorage[image.Storage], image)
 	}
-	logger.Debugf("images by storage type %+v", imagesByStorage)
+	logger.Debugf(context.TODO(), "images by storage type %+v", imagesByStorage)
 	// If a storage directive has been specified, use that or else default to ssd.
 	storageTypes := []string{ssdStorage}
 	if ic != nil && len(ic.Storage) > 0 {
 		storageTypes = ic.Storage
 	}
-	logger.Debugf("filtering storage types %+v", storageTypes)
+	logger.Debugf(context.TODO(), "filtering storage types %+v", storageTypes)
 	// Return the first set of images for which we have a storage type match.
 	for _, storageType := range storageTypes {
 		if len(imagesByStorage[storageType]) > 0 {
@@ -44,12 +46,12 @@ func findInstanceSpec(
 	instanceTypes []instances.InstanceType,
 	ic *instances.InstanceConstraint,
 ) (*instances.InstanceSpec, error) {
-	logger.Debugf("received %d image(s)", len(allImageMetadata))
+	logger.Debugf(context.TODO(), "received %d image(s)", len(allImageMetadata))
 	if !controller {
 		ic.Constraints = withDefaultNonControllerConstraints(ic.Constraints)
 	}
 	suitableImages := filterImages(allImageMetadata, ic)
-	logger.Debugf("found %d suitable image(s) from %d available: %s",
+	logger.Debugf(context.TODO(), "found %d suitable image(s) from %d available: %s",
 		len(suitableImages),
 		len(allImageMetadata),
 		pretty.Sprint(suitableImages),

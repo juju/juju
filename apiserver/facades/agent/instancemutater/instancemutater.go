@@ -175,7 +175,7 @@ func (api *InstanceMutaterAPI) SetModificationStatus(ctx context.Context, args p
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		api.logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf(context.TODO(), "failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
@@ -379,7 +379,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 	var changeResults []params.ProfileInfoResult
 	for _, unit := range units {
 		if unit.Life() == state.Dead {
-			api.logger.Debugf("unit %q is dead, do not load profile", unit.Name())
+			api.logger.Debugf(context.TODO(), "unit %q is dead, do not load profile", unit.Name())
 			continue
 		}
 		appName := unit.ApplicationName()
@@ -434,21 +434,21 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(ctx context.Context, m
 
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
 	if err != nil {
-		api.logger.Errorf("getting machine uuid: %w", err)
+		api.logger.Errorf(context.TODO(), "getting machine uuid: %w", err)
 		return errors.Trace(err)
 	}
 	return errors.Trace(api.machineService.SetAppliedLXDProfileNames(ctx, machineUUID, profiles))
 }
 
 func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	api.logger.Tracef("SetInstanceStatus called with: %#v", arg)
+	api.logger.Tracef(context.TODO(), "SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
-		api.logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		api.logger.Debugf(context.TODO(), "SetModificationStatus unable to get machine %q", mTag)
 		return err
 	}
 
@@ -464,7 +464,7 @@ func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFun
 		Since:   since,
 	}
 	if err = machine.SetModificationStatus(s); err != nil {
-		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		api.logger.Debugf(context.TODO(), "failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}
 	return nil

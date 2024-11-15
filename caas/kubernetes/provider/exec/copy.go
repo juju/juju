@@ -71,7 +71,7 @@ func (c client) Copy(ctx context.Context, params CopyParams, cancel <-chan struc
 func (c client) copyFromPod(ctx context.Context, params CopyParams, cancel <-chan struct{}) error {
 	src := params.Src
 	dest := params.Dest
-	logger.Debugf("copying from %v to %v", src, dest)
+	logger.Debugf(context.TODO(), "copying from %v to %v", src, dest)
 
 	reader, writer := c.pipGetter()
 	var stderr bytes.Buffer
@@ -87,7 +87,7 @@ func (c client) copyFromPod(ctx context.Context, params CopyParams, cancel <-cha
 	go func() {
 		defer writer.Close()
 		if err := c.Exec(ctx, execParams, cancel); err != nil {
-			logger.Errorf("make tar %q failed: %v", src.Path, err)
+			logger.Errorf(context.TODO(), "make tar %q failed: %v", src.Path, err)
 		}
 	}()
 	prefix := getPrefix(src.Path)
@@ -140,7 +140,7 @@ func isDestRelative(base, dest string) bool {
 func (c client) copyToPod(ctx context.Context, params CopyParams, cancel <-chan struct{}) (err error) {
 	src := params.Src
 	dest := params.Dest
-	logger.Debugf("copying from %v to %v", src, dest)
+	logger.Debugf(context.TODO(), "copying from %v to %v", src, dest)
 
 	if _, err = os.Stat(src.Path); err != nil {
 		return errors.NewNotValid(nil, fmt.Sprintf("%q does not exist on local", src.Path))
@@ -160,7 +160,7 @@ func (c client) copyToPod(ctx context.Context, params CopyParams, cancel <-chan 
 		defer writer.Close()
 
 		if err := makeTar(src.Path, dest.Path, writer); err != nil {
-			logger.Errorf("make tar %q failed: %v", src.Path, err)
+			logger.Errorf(context.TODO(), "make tar %q failed: %v", src.Path, err)
 		}
 	}()
 
@@ -253,7 +253,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 				return err
 			}
 		} else if stat.Mode()&os.ModeSocket != 0 {
-			logger.Warningf("socket file %q ignored", fpath)
+			logger.Warningf(context.TODO(), "socket file %q ignored", fpath)
 		} else {
 			// case regular file or other file type like pipe.
 			hdr, err := tar.FileInfoHeader(stat, fpath)
@@ -306,7 +306,7 @@ func unTarAll(src FileResource, reader io.Reader, destDir, prefix string) error 
 		destFileName := filepath.Join(destDir, header.Name[len(prefix):])
 
 		if !isDestRelative(destDir, destFileName) {
-			logger.Warningf("file %q is outside target destination, skipping", destFileName)
+			logger.Warningf(context.TODO(), "file %q is outside target destination, skipping", destFileName)
 			continue
 		}
 
@@ -322,7 +322,7 @@ func unTarAll(src FileResource, reader io.Reader, destDir, prefix string) error 
 		}
 
 		if mode&os.ModeSymlink != 0 {
-			logger.Warningf("skipping symlink: %q -> %q", destFileName, header.Linkname)
+			logger.Warningf(context.TODO(), "skipping symlink: %q -> %q", destFileName, header.Linkname)
 			continue
 		}
 		outFile, err := os.Create(destFileName)

@@ -4,6 +4,7 @@
 package crossmodelsecrets
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"strings"
@@ -105,7 +106,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg 
 	}
 	consumerUnit := names.NewUnitTag(fmt.Sprintf("%s/%d", consumerApp.Id(), arg.UnitId))
 
-	s.logger.Debugf("consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
+	s.logger.Debugf(context.TODO(), "consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
 
 	secretService := s.secretServiceGetter(coremodel.UUID(uri.SourceUUID))
 	scopeTag, err := s.accessScope(ctx, secretService, uri, consumerUnit)
@@ -115,7 +116,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg 
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	s.logger.Debugf("access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit.Id(), scopeTag)
+	s.logger.Debugf(context.TODO(), "access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit.Id(), scopeTag)
 	return s.crossModelState.GetToken(scopeTag)
 }
 
@@ -127,7 +128,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx stdcontext.Context, co
 	// relation and that the consumer is in the relation.
 	relKey, offerUUID, ok := crossmodel.RelationInfoFromMacaroons(mac)
 	if !ok {
-		s.logger.Debugf("missing relation or offer uuid from macaroons for consumer %v", consumerTag.Id())
+		s.logger.Debugf(context.TODO(), "missing relation or offer uuid from macaroons for consumer %v", consumerTag.Id())
 		return apiservererrors.ErrPerm
 	}
 	valid, err := s.stateBackend.HasEndpoint(relKey, consumerTag.Id())
@@ -135,7 +136,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx stdcontext.Context, co
 		return errors.Trace(err)
 	}
 	if !valid {
-		s.logger.Debugf("secret consumer %q for relation %q not valid", consumerTag, relKey)
+		s.logger.Debugf(context.TODO(), "secret consumer %q for relation %q not valid", consumerTag, relKey)
 		return apiservererrors.ErrPerm
 	}
 
@@ -278,7 +279,7 @@ func tagFromAccessScope(scope secretservice.SecretAccessScope) names.Tag {
 }
 
 func (s *CrossModelSecretsAPI) accessScope(ctx stdcontext.Context, secretService SecretService, uri *coresecrets.URI, unit names.UnitTag) (names.Tag, error) {
-	s.logger.Debugf("scope for %q on secret %s", unit, uri.ID)
+	s.logger.Debugf(context.TODO(), "scope for %q on secret %s", unit, uri.ID)
 	scope, err := secretService.GetSecretAccessScope(ctx, uri, secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,
 		ID:   unit.Id(),

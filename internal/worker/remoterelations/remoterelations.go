@@ -215,7 +215,7 @@ func (w *Worker) Kill() {
 func (w *Worker) Wait() error {
 	err := w.catacomb.Wait()
 	if err != nil {
-		w.logger.Errorf("error in top level remote relations worker: %v", err)
+		w.logger.Errorf(context.TODO(), "error in top level remote relations worker: %v", err)
 	}
 	return err
 }
@@ -256,7 +256,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		return nil
 	}
 	logger := w.config.Logger
-	logger.Debugf("processing remote application changes for: %s", applicationIds)
+	logger.Debugf(context.TODO(), "processing remote application changes for: %s", applicationIds)
 
 	// Fetch the current state of each of the remote applications that have changed.
 	results, err := w.config.RelationsFacade.RemoteApplications(ctx, applicationIds)
@@ -285,10 +285,10 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		}
 		if appGone || offerChanged {
 			// The remote application has been removed, stop its worker.
-			logger.Debugf("saas application %q gone from offering model", name)
+			logger.Debugf(context.TODO(), "saas application %q gone from offering model", name)
 			err := w.runner.StopAndRemoveWorker(name, w.catacomb.Dying())
 			if err != nil && !errors.Is(err, errors.NotFound) {
-				w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
+				w.logger.Warningf(context.TODO(), "error stopping saas worker for %q: %v", name, err)
 			}
 			delete(w.offerUUIDs, name)
 			if appGone {
@@ -320,12 +320,12 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 			return appWorker, nil
 		}
 
-		logger.Debugf("starting watcher for remote application %q", name)
+		logger.Debugf(context.TODO(), "starting watcher for remote application %q", name)
 		// Start the application worker to watch for things like new relations.
 		w.offerUUIDs[name] = remoteApp.OfferUUID
 		if err := w.runner.StartWorker(name, startFunc); err != nil {
 			if errors.Is(err, errors.AlreadyExists) {
-				w.logger.Debugf("already running remote application worker for %q", name)
+				w.logger.Debugf(context.TODO(), "already running remote application worker for %q", name)
 			} else {
 				return errors.Annotate(err, "error starting remote application worker")
 			}

@@ -32,7 +32,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
@@ -41,7 +41,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	store, err := h.objectStore(r.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
@@ -51,7 +51,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 		res, err := h.processPost(r, st.State, store)
 		if err != nil {
 			if err := sendError(w, err); err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
@@ -59,11 +59,11 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 			ID:        res.ID,
 			Timestamp: res.Timestamp,
 		}); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 	default:
 		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 	}
 }

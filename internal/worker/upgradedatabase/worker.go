@@ -201,7 +201,7 @@ func (w *upgradeDBWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	w.logger.Debugf("attempting to create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Debugf(context.TODO(), "attempting to create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 	// Create an upgrade for this controller. If another controller has already
 	// created the upgrade, we will get an AlreadyExists error. The job of this
@@ -216,10 +216,10 @@ func (w *upgradeDBWorker) loop() error {
 		if errors.Is(err, upgradeerrors.AlreadyExists) {
 			// We're already running the upgrade, so we can just watch the
 			// upgrade and wait for it to complete.
-			w.logger.Tracef("upgrade already started, watching upgrade")
+			w.logger.Tracef(context.TODO(), "upgrade already started, watching upgrade")
 			return w.watchUpgrade(ctx)
 		}
-		w.logger.Errorf("failed to create upgrade: %v\nmanual manual intervention is required", err)
+		w.logger.Errorf(context.TODO(), "failed to create upgrade: %v\nmanual manual intervention is required", err)
 		// Failed to set the upgrade as failed, we can't do anything
 		// here. It requires a manual intervention to fix the problem.
 		return nil
@@ -231,7 +231,7 @@ func (w *upgradeDBWorker) loop() error {
 // watchUpgrade watches the upgrade until it is complete.
 // Once the upgrade is complete, the DBUpgradeCompleteLock is unlocked.
 func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
-	w.logger.Infof("watching upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Infof(context.TODO(), "watching upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 	upgradeUUID, err := w.upgradeService.ActiveUpgrade(ctx)
 	if err != nil {
@@ -263,7 +263,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		// We're in an error state, so we can't do anything about it, so we'll
 		// make a note and kill the worker. It's then up to the user to fix the
 		// problem and restart the agent.
-		w.logger.Errorf("database upgrade failed, already in an error state, check logs for details")
+		w.logger.Errorf(context.TODO(), "database upgrade failed, already in an error state, check logs for details")
 		return nil
 	}
 
@@ -292,10 +292,10 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		// If the set controller ready fails, we'll abort the upgrade. This will
 		// cause the upgrade to be marked as failed, and the next time the agent
 		// restarts, it will try again.
-		w.logger.Errorf("failed to set controller ready: %v", err)
+		w.logger.Errorf(context.TODO(), "failed to set controller ready: %v", err)
 		return w.abort(ctx, upgradeUUID)
 	}
-	w.logger.Infof("marking the controller ready for upgrade")
+	w.logger.Infof(context.TODO(), "marking the controller ready for upgrade")
 
 	for {
 		select {
@@ -304,7 +304,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 
 		case <-completedWatcher.Changes():
 			// The upgrade is complete, so we can unlock the lock.
-			w.logger.Infof("database upgrade completed")
+			w.logger.Infof(context.TODO(), "database upgrade completed")
 			w.dbUpgradeCompleteLock.Unlock()
 			return dependency.ErrUninstall
 
@@ -313,7 +313,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 			// a note about the failure to upgrade. We'll return
 			// dependency.ErrBounce, this will allow the workers to restart
 			// and try again.
-			w.logger.Errorf("database upgrade failed, check logs for details")
+			w.logger.Errorf(context.TODO(), "database upgrade failed, check logs for details")
 			return dependency.ErrBounce
 		}
 	}
@@ -328,7 +328,7 @@ func (w *upgradeDBWorker) upgradeDone() bool {
 	}
 
 	if w.fromVersion == w.toVersion {
-		w.logger.Infof("database upgrade for %v already completed", w.toVersion)
+		w.logger.Infof(context.TODO(), "database upgrade for %v already completed", w.toVersion)
 		w.dbUpgradeCompleteLock.Unlock()
 		return true
 	}
@@ -337,7 +337,7 @@ func (w *upgradeDBWorker) upgradeDone() bool {
 }
 
 func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
-	w.logger.Infof("leading the database upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Infof(context.TODO(), "leading the database upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
@@ -359,18 +359,18 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 		// If the set controller ready fails, we'll abort the upgrade. This will
 		// cause the upgrade to be marked as failed, and the next time the agent
 		// restarts, it will try again.
-		w.logger.Errorf("failed to set controller ready: %v", err)
+		w.logger.Errorf(context.TODO(), "failed to set controller ready: %v", err)
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
-	w.logger.Infof("marking the controller ready for upgrade")
+	w.logger.Infof(context.TODO(), "marking the controller ready for upgrade")
 
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			w.logger.Errorf("upgrade worker is dying whilst performing upgrade: %s, marking upgrade as failed", upgradeUUID)
+			w.logger.Errorf(context.TODO(), "upgrade worker is dying whilst performing upgrade: %s, marking upgrade as failed", upgradeUUID)
 			// We didn't perform the upgrade, so we need to mark it as failed.
 			if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
-				w.logger.Errorf("failed to set db upgrade failed: %v, manual intervention required.", err)
+				w.logger.Errorf(context.TODO(), "failed to set db upgrade failed: %v, manual intervention required.", err)
 			}
 			return w.catacomb.ErrDying()
 
@@ -378,7 +378,7 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 			return w.abort(ctx, upgradeUUID)
 
 		case <-watcher.Changes():
-			w.logger.Infof("database upgrade starting")
+			w.logger.Infof(context.TODO(), "database upgrade starting")
 
 			// Any errors within this block will need to set the upgrade as
 			// failed. Otherwise once the agent restarts upon the error, the
@@ -389,12 +389,12 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 
 			err := w.performUpgrade(ctx, upgradeUUID)
 			if err == nil {
-				w.logger.Infof("database upgrade completed")
+				w.logger.Infof(context.TODO(), "database upgrade completed")
 				w.dbUpgradeCompleteLock.Unlock()
 				return dependency.ErrUninstall
 			}
 
-			w.logger.Errorf("database upgrade failed, check logs for details")
+			w.logger.Errorf(context.TODO(), "database upgrade failed, check logs for details")
 
 			return w.abort(ctx, upgradeUUID)
 		}
@@ -410,7 +410,7 @@ func (w *upgradeDBWorker) abortWithError(ctx context.Context, upgradeUUID domain
 	// Set the upgrade as failed, so that the next time the agent
 	// restarts, it will try again.
 	if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
-		w.logger.Errorf("failed to set db upgrade failed: %v", err)
+		w.logger.Errorf(context.TODO(), "failed to set db upgrade failed: %v", err)
 
 		// Failed to set the upgrade as failed, we can't do anything
 		// here. It requires a manual intervention to fix the problem.
@@ -442,7 +442,7 @@ func (w *upgradeDBWorker) performUpgrade(ctx context.Context, upgradeUUID domain
 }
 
 func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
-	w.logger.Infof("upgrading controller database from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Infof(context.TODO(), "upgrading controller database from: %v to: %v", w.fromVersion, w.toVersion)
 
 	db, err := w.dbGetter.GetDB(coredatabase.ControllerNS)
 	if err != nil {
@@ -454,12 +454,12 @@ func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 	if err != nil {
 		return errors.Annotatef(err, "applying controller schema")
 	}
-	w.logger.Infof("applied controller schema changes from: %d to: %d", changeSet.Post, changeSet.Current)
+	w.logger.Infof(context.TODO(), "applied controller schema changes from: %d to: %d", changeSet.Post, changeSet.Current)
 	return nil
 }
 
 func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
-	w.logger.Infof("upgrading model databases from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Infof(context.TODO(), "upgrading model databases from: %v to: %v", w.fromVersion, w.toVersion)
 
 	models, err := w.modelService.ListModelIDs(ctx)
 	if err != nil {
@@ -486,7 +486,7 @@ func (w *upgradeDBWorker) upgradeModel(ctx context.Context, modelUUID coremodel.
 	if err != nil {
 		return errors.Annotatef(err, "applying model schema %s", modelUUID)
 	}
-	w.logger.Infof("applied model schema changes from: %d to: %d for model %s", changeSet.Post, changeSet.Current, modelUUID)
+	w.logger.Infof(context.TODO(), "applied model schema changes from: %d to: %d for model %s", changeSet.Post, changeSet.Current, modelUUID)
 	return nil
 }
 

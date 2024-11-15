@@ -4,6 +4,7 @@
 package run
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -232,7 +233,7 @@ func (c *RunCommand) getSocket() (sockets.Socket, error) {
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	unitDir := agent.Dir(config.DataDir, c.unit)
-	logger.Debugf("looking for unit dir %s", unitDir)
+	logger.Debugf(context.TODO(), "looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {

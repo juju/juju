@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -28,14 +29,14 @@ import (
 //     OvsPort.
 //   - TODO: IPv6 link-local addresses will be ignored and treated as empty ATM.
 func GetObservedNetworkConfig(source ConfigSource) (InterfaceInfos, error) {
-	logger.Tracef("discovering observed machine network config...")
+	logger.Tracef(context.TODO(), "discovering observed machine network config...")
 
 	interfaces, err := source.Interfaces()
 	if err != nil {
 		return nil, errors.Annotate(err, "detecting network interfaces")
 	}
 	if len(interfaces) == 0 {
-		logger.Tracef("no network interfaces")
+		logger.Tracef(context.TODO(), "no network interfaces")
 		return nil, nil
 	}
 
@@ -102,7 +103,7 @@ func GetObservedNetworkConfig(source ConfigSource) (InterfaceInfos, error) {
 		configs = append(configs, nicConfig)
 	}
 	if len(noAddressesNics) > 0 {
-		logger.Debugf("no addresses observed on interfaces %q", strings.Join(noAddressesNics, ", "))
+		logger.Debugf(context.TODO(), "no addresses observed on interfaces %q", strings.Join(noAddressesNics, ", "))
 	}
 
 	updateParentsForBridgePorts(configs, bridgeNames, source)
@@ -146,7 +147,7 @@ func addressesToConfig(nic InterfaceInfo, nicAddrs []ConfigSourceAddr) ([]Provid
 
 		// TODO (macgreagoir): Skip IPv6 link-local until we decide how to handle them.
 		if ip.To4() == nil && ip.IsLinkLocalUnicast() {
-			logger.Tracef("skipping observed IPv6 link-local address %q on %q", ip, nic.InterfaceName)
+			logger.Tracef(context.TODO(), "skipping observed IPv6 link-local address %q on %q", ip, nic.InterfaceName)
 			continue
 		}
 

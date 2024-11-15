@@ -101,12 +101,12 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse, now tim
 	for _, r := range response.Entity.Resources {
 		fingerprint, err := resource.ParseFingerprint(r.Download.HashSHA384)
 		if err != nil {
-			logger.Warningf("invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
+			logger.Warningf(context.TODO(), "invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
 			continue
 		}
 		typ, err := resource.ParseType(r.Type)
 		if err != nil {
-			logger.Warningf("invalid resource type %q: %v", r.Type, err)
+			logger.Warningf(context.TODO(), "invalid resource type %q: %v", r.Type, err)
 			continue
 		}
 		res := resource.Resource{

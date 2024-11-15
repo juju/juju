@@ -157,11 +157,11 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo(ctx context.Context)
 			origin := application.CharmOrigin()
 			if origin == nil {
 				// If this fails, we have big problems, so make this Errorf
-				api.logger.Errorf("charm %s has no origin, skipping", curl)
+				api.logger.Errorf(context.TODO(), "charm %s has no origin, skipping", curl)
 				continue
 			}
 			if origin.ID == "" || origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
-				api.logger.Errorf("charm %s has missing id(%s), revision (%p), channel (%p), or platform (%p), skipping",
+				api.logger.Errorf(context.TODO(), "charm %s has missing id(%s), revision (%p), channel (%p), or platform (%p), skipping",
 					curl, origin.Revision, origin.Channel, origin.Platform)
 				continue
 			}
@@ -345,12 +345,12 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ctx context.Context, cfg 
 	var latest []latestCharmInfo
 	for i, result := range results {
 		if i >= len(appInfos) {
-			api.logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
+			api.logger.Errorf(context.TODO(), "retrieved more results (%d) than charmhub applications (%d)",
 				i, len(appInfos))
 			break
 		}
 		if result.error != nil {
-			api.logger.Errorf("retrieving charm info for ID %s: %v", ids[i].id, result.error)
+			api.logger.Errorf(context.TODO(), "retrieving charm info for ID %s: %v", ids[i].id, result.error)
 			continue
 		}
 		appInfo := appInfos[i]

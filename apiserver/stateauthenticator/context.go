@@ -115,7 +115,7 @@ type OpenLoginAuthorizer struct{}
 
 // AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
 func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
-	logger.Debugf("authorize query ops check for %v: %v", authorizedOp, queryOps)
+	logger.Debugf(context.TODO(), "authorize query ops check for %v: %v", authorizedOp, queryOps)
 	allowed := make([]bool, len(queryOps))
 	for i := range allowed {
 		allowed[i] = queryOps[i] == identchecker.LoginOp

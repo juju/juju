@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -117,7 +118,7 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 			message += fmt.Sprintf("task: %s, error: %s\n", a.ID, a.Result.Message)
 		}
 
-		logger.Warningf(message)
+		logger.Warningf(context.TODO(), message)
 	}
 
 	return err

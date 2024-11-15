@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"sync"
@@ -212,7 +213,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if endpointVersion > 0 {
 			_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 			socket.SetPongHandler(func(string) error {
-				logger.Tracef("pong logsink %p", socket)
+				logger.Tracef(context.TODO(), "pong logsink %p", socket)
 				_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 				return nil
 			})
@@ -232,12 +233,12 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			case <-tickChannel:
 				deadline := time.Now().Add(websocket.WriteWait)
-				logger.Tracef("ping logsink %p", socket)
+				logger.Tracef(context.TODO(), "ping logsink %p", socket)
 				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
 					// This error is expected if the other end goes away. By
 					// returning we clean up the strategy and close the socket
 					// through the defer calls.
-					logger.Debugf("failed to write ping: %s", err)
+					logger.Debugf(context.TODO(), "failed to write ping: %s", err)
 					// Bump the ping failure count.
 					h.metrics.PingFailureCount(resolvedModelUUID).Inc()
 					return
@@ -316,13 +317,13 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 			var m params.LogRecord
 			if err := socket.ReadJSON(&m); err != nil {
 				if gorillaws.IsCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					logger.Tracef("logsink closed: %v", err)
+					logger.Tracef(context.TODO(), "logsink closed: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelDisconnect).Inc()
 				} else if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					logger.Debugf("logsink unexpected close error: %v", err)
+					logger.Debugf(context.TODO(), "logsink unexpected close error: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				} else {
-					logger.Debugf("logsink error: %v", err)
+					logger.Debugf(context.TODO(), "logsink error: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				}
 				// Try to tell the other end we are closing. If the other end
@@ -374,12 +375,12 @@ func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err er
 	// There is no need to log the error for normal operators as there is nothing
 	// they can action. This is for developers.
 	if err != nil && featureflag.Enabled(featureflag.DeveloperMode) {
-		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
+		logger.Errorf(context.TODO(), "returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf("closing websocket, %v", err)
+		logger.Errorf(context.TODO(), "closing websocket, %v", err)
 		ws.Close()
 	}
 }

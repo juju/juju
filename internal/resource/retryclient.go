@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -72,9 +73,9 @@ func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
-		logger.Warningf("attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
+		logger.Warningf(context.TODO(), "attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
 			i, client.retryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
-		logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
+		logger.Tracef(context.TODO(), "resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}
 

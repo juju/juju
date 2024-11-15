@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -59,7 +60,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 
 	errs := []string{}
 	addError := func(msg, controllerName string, err error) {
-		logger.Errorf(fmt.Sprintf("getting current %s for controller %s: %v", msg, controllerName, err))
+		logger.Errorf(context.TODO(), fmt.Sprintf("getting current %s for controller %s: %v", msg, controllerName, err))
 		errs = append(errs, msg)
 	}
 

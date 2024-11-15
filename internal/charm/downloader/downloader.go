@@ -122,7 +122,7 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 		// as the original origin might be different that the one
 		// requested by the caller, make sure to resolve it again.
 		if alreadyUploadedErr, valid := errors.Cause(err).(errCharmAlreadyStored); valid {
-			d.logger.Debugf("%v", alreadyUploadedErr)
+			d.logger.Debugf(context.TODO(), "%v", alreadyUploadedErr)
 
 			repo, err := d.getRepo(ctx, requestedOrigin.Source)
 			if err != nil {
@@ -143,7 +143,7 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 	defer func() {
 		_ = tmpFile.Close()
 		if err := os.Remove(tmpFile.Name()); err != nil {
-			d.logger.Warningf("unable to remove temporary charm download path %q", tmpFile.Name())
+			d.logger.Warningf(context.TODO(), "unable to remove temporary charm download path %q", tmpFile.Name())
 		}
 	}()
 
@@ -171,12 +171,12 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 }
 
 func (d *Downloader) downloadAndHash(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
-	d.logger.Debugf("downloading charm %q from requested origin %v", charmName, requestedOrigin)
+	d.logger.Debugf(context.TODO(), "downloading charm %q from requested origin %v", charmName, requestedOrigin)
 	chArchive, actualOrigin, err := repo.DownloadCharm(ctx, charmName, requestedOrigin, dstPath)
 	if err != nil {
 		return DownloadedCharm{}, corecharm.Origin{}, errors.Trace(err)
 	}
-	d.logger.Debugf("downloaded charm %q from actual origin %v", charmName, actualOrigin)
+	d.logger.Debugf(context.TODO(), "downloaded charm %q from actual origin %v", charmName, actualOrigin)
 
 	// Calculate SHA256 for the downloaded archive
 	f, err := os.Open(dstPath)
@@ -190,7 +190,7 @@ func (d *Downloader) downloadAndHash(ctx context.Context, charmName string, requ
 		return DownloadedCharm{}, corecharm.Origin{}, errors.Annotate(err, "cannot calculate SHA256 hash of charm")
 	}
 
-	d.logger.Tracef("downloadResult(%q) sha: %q, size: %d", f.Name(), sha, size)
+	d.logger.Tracef(context.TODO(), "downloadResult(%q) sha: %q, size: %d", f.Name(), sha, size)
 	return DownloadedCharm{
 		Charm:        chArchive,
 		CharmVersion: chArchive.Version(),
@@ -217,7 +217,7 @@ func (d *Downloader) storeCharm(ctx context.Context, charmURL string, dc Downloa
 func (d *Downloader) normalizePlatform(charmName string, platform corecharm.Platform) (corecharm.Platform, error) {
 	arc := platform.Architecture
 	if platform.Architecture == "" || platform.Architecture == "all" {
-		d.logger.Warningf("received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmName)
+		d.logger.Warningf(context.TODO(), "received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmName)
 		arc = arch.DefaultArchitecture
 	}
 

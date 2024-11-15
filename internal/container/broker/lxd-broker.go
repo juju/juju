@@ -62,7 +62,7 @@ func (broker *lxdBroker) StartInstance(ctx envcontext.ProviderCallContext, args 
 
 	config, err := broker.api.ContainerConfig(ctx)
 	if err != nil {
-		lxdLogger.Errorf("failed to get container config: %v", err)
+		lxdLogger.Errorf(context.TODO(), "failed to get container config: %v", err)
 		return nil, err
 	}
 
@@ -119,7 +119,7 @@ func (broker *lxdBroker) StartInstance(ctx envcontext.ProviderCallContext, args 
 		cloudInitUserData,
 		append([]string{"default"}, pNames...),
 	); err != nil {
-		lxdLogger.Errorf("failed to populate machine config: %v", err)
+		lxdLogger.Errorf(context.TODO(), "failed to populate machine config: %v", err)
 		return nil, err
 	}
 
@@ -140,9 +140,9 @@ func (broker *lxdBroker) StartInstance(ctx envcontext.ProviderCallContext, args 
 func (broker *lxdBroker) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
-		lxdLogger.Infof("stopping lxd container for instance: %s", id)
+		lxdLogger.Infof(context.TODO(), "stopping lxd container for instance: %s", id)
 		if err := broker.manager.DestroyContainer(id); err != nil {
-			lxdLogger.Errorf("container did not stop: %v", err)
+			lxdLogger.Errorf(context.TODO(), "container did not stop: %v", err)
 			return err
 		}
 		releaseContainerAddresses(ctx, broker.api, id, broker.manager.Namespace(), lxdLogger)

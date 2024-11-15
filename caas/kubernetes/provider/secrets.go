@@ -50,7 +50,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 			core.DockerConfigJsonKey: secretData,
 		},
 	}
-	logger.Debugf("ensuring docker secret %q", name)
+	logger.Debugf(context.TODO(), "ensuring docker secret %q", name)
 	return k.ensureSecret(ctx, newSecret)
 }
 
@@ -58,7 +58,7 @@ func (k *kubernetesClient) ensureSecret(ctx context.Context, sec *core.Secret) (
 	cleanUp := func() {}
 	out, err := k.createSecret(ctx, sec)
 	if err == nil {
-		logger.Debugf("secret %q created", out.GetName())
+		logger.Debugf(context.TODO(), "secret %q created", out.GetName())
 		cleanUp = func() { _ = k.deleteSecret(ctx, out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
@@ -74,7 +74,7 @@ func (k *kubernetesClient) ensureSecret(ctx context.Context, sec *core.Secret) (
 		return cleanUp, errors.Trace(err)
 	}
 	err = k.updateSecret(ctx, sec)
-	logger.Debugf("updating secret %q", sec.GetName())
+	logger.Debugf(context.TODO(), "updating secret %q", sec.GetName())
 	return cleanUp, errors.Trace(err)
 }
 
@@ -171,7 +171,7 @@ func (k *kubernetesClient) GetJujuSecret(ctx context.Context, backendId string) 
 	// backendId is the secret name.
 	secret, err := k.getSecret(ctx, backendId)
 	if k8serrors.IsForbidden(err) {
-		logger.Tracef("getting secret %q: %v", backendId, err)
+		logger.Tracef(context.TODO(), "getting secret %q: %v", backendId, err)
 		return nil, errors.Unauthorizedf("cannot access %q", backendId)
 	}
 	if err != nil {
@@ -211,7 +211,7 @@ func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, backendId strin
 	// backendId is the secret name.
 	secret, err := k.getSecret(ctx, backendId)
 	if k8serrors.IsForbidden(err) {
-		logger.Tracef("deleting secret %q: %v", backendId, err)
+		logger.Tracef(context.TODO(), "deleting secret %q: %v", backendId, err)
 		return errors.Unauthorizedf("cannot access %q", backendId)
 	}
 	if err != nil {

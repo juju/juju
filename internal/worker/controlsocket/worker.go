@@ -340,13 +340,13 @@ func validateMetricsUsername(username string) (user.Name, error) {
 }
 
 func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body any) {
-	w.logger.Debugf("operation finished with HTTP status %v", statusCode)
+	w.logger.Debugf(context.TODO(), "operation finished with HTTP status %v", statusCode)
 	resp.Header().Set("Content-Type", "application/json")
 
 	message, err := json.Marshal(body)
 	if err != nil {
-		w.logger.Errorf("error marshalling response body to JSON: %v", err)
-		w.logger.Errorf("response body was %#v", body)
+		w.logger.Errorf(context.TODO(), "error marshalling response body to JSON: %v", err)
+		w.logger.Errorf(context.TODO(), "response body was %#v", body)
 
 		// Mark this as an "internal server error"
 		statusCode = http.StatusInternalServerError
@@ -355,10 +355,10 @@ func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body an
 	}
 
 	resp.WriteHeader(statusCode)
-	w.logger.Tracef("returning response %q", message)
+	w.logger.Tracef(context.TODO(), "returning response %q", message)
 	_, err = resp.Write(message)
 	if err != nil {
-		w.logger.Warningf("error writing HTTP response: %v", err)
+		w.logger.Warningf(context.TODO(), "error writing HTTP response: %v", err)
 	}
 }
 

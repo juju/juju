@@ -59,7 +59,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute performs the import operation for cloud image metadata defined in the given model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	i.logger.Debugf("importing cloudimagemetadata")
+	i.logger.Debugf(context.TODO(), "importing cloudimagemetadata")
 
 	images := model.CloudImageMetadata()
 	metadata := make([]cloudimagemetadata.Metadata, 0, len(images))
@@ -94,6 +94,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	if err != nil {
 		return errors.Errorf("importing cloud image metadata: %w", err)
 	}
-	i.logger.Debugf("importing cloudimagemetadata succeeded")
+	i.logger.Debugf(context.TODO(), "importing cloudimagemetadata succeeded")
 	return nil
 }

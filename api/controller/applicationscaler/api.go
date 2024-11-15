@@ -80,7 +80,7 @@ func (api *API) Rescale(ctx context.Context, applications []string) error {
 			if err == nil {
 				err = result.Error
 			} else {
-				logger.Errorf("additional rescale error: %v", err)
+				logger.Errorf(context.TODO(), "additional rescale error: %v", err)
 			}
 		}
 	}

@@ -1271,7 +1271,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 		}
 		if !valid {
 			principalName, _ := unit.PrincipalName()
-			u.logger.Debugf("ignoring %q EnterScope for %q - unit has invalid principal %q",
+			u.logger.Debugf(context.TODO(), "ignoring %q EnterScope for %q - unit has invalid principal %q",
 				unit.Name(), rel.String(), principalName)
 			return nil
 		}
@@ -1298,7 +1298,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
 			settings["ingress-address"] = ingressAddress
 		} else if err != nil {
-			u.logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
+			u.logger.Warningf(context.TODO(), "cannot set ingress/egress addresses for unit %v in relation %v: %v",
 				unitTag.Id(), relTag, err)
 		}
 		if len(egressSubnets) > 0 {
@@ -2255,7 +2255,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 			if err == nil {
 				key = app.Name()
 			} else if errors.Is(err, errors.NotFound) {
-				u.logger.Debugf("application %q must be a remote application.", e.ApplicationName)
+				u.logger.Debugf(context.TODO(), "application %q must be a remote application.", e.ApplicationName)
 				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
@@ -2330,7 +2330,7 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 		unitLife := unit.Life()
 		if unitLife == state.Dead {
 			// only show Alive and Dying units
-			u.logger.Debugf("unit %q is dead, ignore it.", unit.Name())
+			u.logger.Debugf(context.TODO(), "unit %q is dead, ignore it.", unit.Name())
 			continue
 		}
 		unitGoalState := params.GoalStateStatus{}
@@ -2586,7 +2586,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg, canAccessUnit, canAccessApp); err != nil {
 			// Log quota-related errors to aid operators
 			if errors.Is(err, errors.QuotaLimitExceeded) {
-				u.logger.Errorf("%s: %v", unitTag, err)
+				u.logger.Errorf(context.TODO(), "%s: %v", unitTag, err)
 			}
 			res[i].Error = apiservererrors.ServerError(err)
 		}

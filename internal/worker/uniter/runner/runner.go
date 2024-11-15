@@ -220,7 +220,7 @@ func (runner *runner) runCommandsWithTimeout(ctx stdcontext.Context, commands st
 // runJujuExecAction is the function that executes when a juju-exec action is ran.
 func (runner *runner) runJujuExecAction(ctx stdcontext.Context) (err error) {
 	logger := runner.logger()
-	logger.Debugf("juju-exec action is running")
+	logger.Debugf(context.TODO(), "juju-exec action is running")
 	data, err := runner.context.ActionData()
 	if err != nil {
 		return errors.Trace(err)
@@ -235,7 +235,7 @@ func (runner *runner) runJujuExecAction(ctx stdcontext.Context) (err error) {
 	// But due to serialization it comes out as float64
 	timeout, ok := params["timeout"].(float64)
 	if !ok {
-		logger.Debugf("unable to read juju-exec action timeout, will continue running action without one")
+		logger.Debugf(context.TODO(), "unable to read juju-exec action timeout, will continue running action without one")
 	}
 
 	ctx = scopedActionCancel(ctx, data.Cancel)
@@ -311,7 +311,7 @@ func (runner *runner) RunAction(ctx stdcontext.Context, actionName string) (Hook
 	if actions.IsJujuExecAction(actionName) {
 		return InvalidHookHandler, runner.runJujuExecAction(ctx)
 	}
-	runner.logger().Debugf("running action %q", actionName)
+	runner.logger().Debugf(context.TODO(), "running action %q", actionName)
 	return runner.runCharmHookWithLocation(ctx, actionName, "actions")
 }
 
@@ -346,12 +346,12 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 			hookName, runner.paths.GetCharmDir(), charmLocation)
 		if session.DebugAt() != "" {
 			if hookHandlerType == InvalidHookHandler {
-				logger.Infof("debug-code active, but hook %s not implemented (skipping)", hookName)
+				logger.Infof(context.TODO(), "debug-code active, but hook %s not implemented (skipping)", hookName)
 				return InvalidHookHandler, err
 			}
-			logger.Infof("executing %s via debug-code; %s", hookName, hookHandlerType)
+			logger.Infof(context.TODO(), "executing %s via debug-code; %s", hookName, hookHandlerType)
 		} else {
-			logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
+			logger.Infof(context.TODO(), "executing %s via debug-hooks; %s", hookName, hookHandlerType)
 		}
 		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
 	}
@@ -544,7 +544,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	}
 
 	socket := runner.paths.GetJujucServerSocket()
-	runner.logger().Debugf("starting jujuc server %v", socket)
+	runner.logger().Debugf(context.TODO(), "starting jujuc server %v", socket)
 	srv, err := jujuc.NewServer(getCmd, socket)
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")

@@ -81,10 +81,10 @@ func (w *terminationWorker) Wait() error {
 func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
 	select {
 	case <-c:
-		w.logger.Infof("terminating due to SIGTERM")
+		w.logger.Infof(context.TODO(), "terminating due to SIGTERM")
 		term, err := w.state.UnitTerminating(context.TODO(), w.agent.CurrentConfig().Tag().(names.UnitTag))
 		if err != nil {
-			w.logger.Errorf("error while terminating unit: %v", err)
+			w.logger.Errorf(context.TODO(), "error while terminating unit: %v", err)
 			return err
 		}
 		if !term.WillRestart {
@@ -93,7 +93,7 @@ func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
 		}
 		err = w.unitTerminator.Terminate()
 		if err != nil {
-			w.logger.Errorf("error while terminating unit: %v", err)
+			w.logger.Errorf(context.TODO(), "error while terminating unit: %v", err)
 			return errors.Annotatef(err, "failed to terminate unit agent worker")
 		}
 		return nil

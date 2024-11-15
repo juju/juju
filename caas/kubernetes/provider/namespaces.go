@@ -93,7 +93,7 @@ func (k *kubernetesClient) listNamespacesByAnnotations(ctx context.Context, anno
 			// this should never happen before we enable multi controller in single cluster.
 			doLog = logger.Warningf
 		}
-		doLog("found %d matched namespaces with annotations %v", len(matchedNS), annotationMap)
+		doLog(context.TODO(), "found %d matched namespaces with annotations %v", len(matchedNS), annotationMap)
 		return matchedNS, nil
 	}
 	return nil, errors.NotFoundf("namespace for %v", k.annotations)

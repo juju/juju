@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
@@ -152,7 +153,7 @@ func main() {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			logger.Criticalf(context.TODO(), "Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(exit_panic)
 		}
 	}()

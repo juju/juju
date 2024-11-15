@@ -70,7 +70,7 @@ func (h *charmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if err := sendJSONError(w, r, errors.Trace(err)); err != nil {
-			logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
+			logger.Errorf(context.TODO(), "%v", errors.Annotate(err, "cannot return error to user"))
 		}
 	}
 }
@@ -94,7 +94,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if h.logger.IsLevelEnabled(corelogger.TRACE) {
-		h.logger.Tracef("ServeGet(%s)", r.URL)
+		h.logger.Tracef(context.TODO(), "ServeGet(%s)", r.URL)
 	}
 
 	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
@@ -346,9 +346,9 @@ func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
 		//
 		// We should log this at debug level to avoid unnecessary noise
 		// in the logs.
-		logger.Debugf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+		logger.Debugf(context.TODO(), "returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
 	} else {
-		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+		logger.Errorf(context.TODO(), "returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
 	}
 
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
@@ -368,7 +368,7 @@ func sendArchiveContent(
 	archivePath string,
 	sender archiveContentSenderFunc,
 ) error {
-	logger.Child("charmhttp").Tracef("sendArchiveContent %q", archivePath)
+	logger.Child("charmhttp").Tracef(context.TODO(), "sendArchiveContent %q", archivePath)
 	archive, err := charm.ReadCharmArchive(archivePath)
 	if err != nil {
 		return errors.Annotatef(err, "unable to read archive in %q", archivePath)

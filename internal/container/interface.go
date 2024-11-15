@@ -76,7 +76,7 @@ func (m ManagerConfig) PopValue(key string) string {
 // WarnAboutUnused emits a warning about each value in the map.
 func (m ManagerConfig) WarnAboutUnused() {
 	for key, value := range m {
-		logger.Infof("unused config option: %q -> %q", key, value)
+		logger.Infof(context.TODO(), "unused config option: %q -> %q", key, value)
 	}
 }
 

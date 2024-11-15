@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -377,7 +378,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	//	attr := transform.Map(pool.Attrs, func(k, v string) (string, any) { return k, v })
 	//	err = storageService.CreateStoragePool(context.Background(), pool.Name, storage.ProviderType(pool.Provider), attr)
 	//	if err != nil {
-	//		logger.Criticalf("saving storage pool %q: %v", pool.Name, err)
+	//		logger.Criticalf(context.TODO(),"saving storage pool %q: %v", pool.Name, err)
 	//		//			return nil, nil, errors.Annotatef(err, "saving storage pool %q", pool.Name)
 	//	}
 	//}
@@ -933,7 +934,7 @@ func (m *Model) destroyOps(
 		if !force {
 			return nil, errors.Annotatef(err, "getting model %v entity refs", m.UUID())
 		}
-		logger.Warningf("getting model %v entity refs: %v", m.UUID(), err)
+		logger.Warningf(context.TODO(), "getting model %v entity refs: %v", m.UUID(), err)
 	}
 	isEmpty := true
 	nextLife := Dying

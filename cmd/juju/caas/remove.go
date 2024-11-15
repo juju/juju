@@ -170,7 +170,7 @@ func cleanUpCredentialRBACResources(
 	}
 	for _, credential := range cloudCredentials.AuthCredentials {
 		if err := cleanUpCredentialRBAC(ctx, pCloud, credential); err != nil {
-			logger.Warningf("unable to remove RBAC resources for credential %q", credential.Label)
+			logger.Warningf(context.TODO(), "unable to remove RBAC resources for credential %q", credential.Label)
 		}
 	}
 	return nil

@@ -158,7 +158,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 		}, nil
 	} else if volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName == "" {
 		// Ignore volumes which are not Juju managed filesystems.
-		logger.Debugf("ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
+		logger.Debugf(context.TODO(), "ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
 		return nil, errors.NotSupportedf("volume %v", volume)
 	}
 
@@ -170,7 +170,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}
 
 	if pvc.Status.Phase == corev1.ClaimPending {
-		logger.Debugf(fmt.Sprintf("PersistentVolumeClaim for %v is pending", pvc.Name))
+		logger.Debugf(context.TODO(), fmt.Sprintf("PersistentVolumeClaim for %v is pending", pvc.Name))
 		return nil, nil
 	}
 

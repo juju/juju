@@ -295,7 +295,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 	defer machineManager.Close()
 
-	logger.Infof("load config")
+	logger.Infof(context.TODO(), "load config")
 	modelConfigClient, err := c.getModelConfigAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -320,7 +320,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	logger.Infof("model provisioning")
+	logger.Infof(context.TODO(), "model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
 		uuid, ok := machineManager.ModelUUID()
 		if !ok {

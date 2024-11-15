@@ -178,18 +178,18 @@ func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr Cont
 		return nil, errors.NotYetAvailablef("container types not yet available")
 	}
 	if len(types) == 0 {
-		cfg.Logger.Infof("uninstalling no supported containers on %q", mTag)
+		cfg.Logger.Infof(context.TODO(), "uninstalling no supported containers on %q", mTag)
 		return nil, dependency.ErrUninstall
 	}
 
-	cfg.Logger.Debugf("%s supported containers types set as %q", mTag, types)
+	cfg.Logger.Debugf(context.TODO(), "%s supported containers types set as %q", mTag, types)
 
 	typeSet := set.NewStrings()
 	for _, v := range types {
 		typeSet.Add(string(v))
 	}
 	if !typeSet.Contains(string(cfg.ContainerType)) {
-		cfg.Logger.Infof("%s does not support %s container", mTag, string(cfg.ContainerType))
+		cfg.Logger.Infof(context.TODO(), "%s does not support %s container", mTag, string(cfg.ContainerType))
 		return nil, dependency.ErrUninstall
 	}
 	return machine, nil

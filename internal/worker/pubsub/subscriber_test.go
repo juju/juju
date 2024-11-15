@@ -475,7 +475,7 @@ func (f *fakeRemote) IntrospectionReport() string {
 }
 
 func (f *fakeRemote) Publish(message *params.PubSubMessage) {
-	logger.Debugf("fakeRemote.Publish %s to %s", message.Topic, f.config.Target)
+	logger.Debugf(context.TODO(), "fakeRemote.Publish %s to %s", message.Topic, f.config.Target)
 	f.messages = append(f.messages, message)
 }
 func (f *fakeRemote) UpdateAddresses(addresses []string) {

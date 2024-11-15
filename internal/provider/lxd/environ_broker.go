@@ -31,7 +31,7 @@ import (
 func (env *environ) StartInstance(
 	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
-	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
+	logger.Debugf(context.TODO(), "StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
 
 	arch, virtType, err := env.finishInstanceConfig(args)
 	if err != nil {
@@ -46,7 +46,7 @@ func (env *environ) StartInstance(
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q", container.Name)
+	logger.Infof(context.TODO(), "started instance %q", container.Name)
 	inst := newInstance(container, env)
 
 	// Build the result.
@@ -156,7 +156,7 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 	for _, source := range metadataSources {
 		url, err := source.URL("")
 		if err != nil {
-			logger.Debugf("failed to get the URL for metadataSource: %s", err)
+			logger.Debugf(context.TODO(), "failed to get the URL for metadataSource: %s", err)
 			continue
 		}
 		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
@@ -214,7 +214,7 @@ func (env *environ) getContainerSpec(
 	}
 
 	if !(len(nics) == 1 && nics["eth0"] != nil) {
-		logger.Debugf("generating custom cloud-init networking")
+		logger.Debugf(context.TODO(), "generating custom cloud-init networking")
 
 		cSpec.Config[lxd.NetworkConfigKey] = cloudinit.CloudInitNetworkConfigDisabled
 
@@ -233,7 +233,7 @@ func (env *environ) getContainerSpec(
 	if err != nil {
 		return cSpec, errors.Annotate(err, "composing user data")
 	}
-	logger.Debugf("LXD user data; %d bytes", len(userData))
+	logger.Debugf(context.TODO(), "LXD user data; %d bytes", len(userData))
 
 	// TODO(ericsnow) Looks like LXD does not handle gzipped userdata
 	// correctly.  It likely has to do with the HTTP transport, much
@@ -247,7 +247,7 @@ func (env *environ) getContainerSpec(
 			// Since some metadata is interpreted by LXD, we cannot allow
 			// arbitrary tags to be passed in by the user.
 			// We currently only pass through Juju-defined tags.
-			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
+			logger.Debugf(context.TODO(), "ignoring non-juju tag: %s=%s", k, v)
 			continue
 		}
 		cSpec.Config[lxd.UserNamespacePrefix+k] = v
@@ -441,7 +441,7 @@ func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances 
 		if strings.HasPrefix(name, prefix) {
 			names = append(names, name)
 		} else {
-			logger.Warningf("ignoring request to stop container %q - not in namespace %q", name, prefix)
+			logger.Warningf(context.TODO(), "ignoring request to stop container %q - not in namespace %q", name, prefix)
 		}
 	}
 

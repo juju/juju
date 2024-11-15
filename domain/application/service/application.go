@@ -584,7 +584,7 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName coreu
 	}
 	// Delete unit owned secrets.
 	for _, uri := range uris {
-		s.logger.Debugf("deleting unit %q secret: %s", unitName, uri.ID)
+		s.logger.Debugf(context.TODO(), "deleting unit %q secret: %s", unitName, uri.ID)
 		err := s.secretDeleter.DeleteSecret(ctx, uri, nil)
 		if err != nil {
 			return errors.Annotatef(err, "deleting secret %q", uri)
@@ -639,7 +639,7 @@ func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName coreun
 	if err == nil {
 		appName, _ := names.UnitApplication(unitName.String())
 		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-			s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+			s.logger.Warningf(context.TODO(), "cannot revoke lease for dead unit %q", unitName)
 		}
 	}
 	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
@@ -686,7 +686,7 @@ func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName coreunit.N
 	}
 	appName, _ := names.UnitApplication(unitName.String())
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+		s.logger.Warningf(context.TODO(), "cannot revoke lease for dead unit %q", unitName)
 	}
 	return nil
 }
@@ -940,7 +940,7 @@ func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name st
 	}
 	// Delete app owned secrets.
 	for _, uri := range uris {
-		s.logger.Debugf("deleting application %q secret: %s", name, uri.ID)
+		s.logger.Debugf(context.TODO(), "deleting application %q secret: %s", name, uri.ID)
 		err := s.secretDeleter.DeleteSecret(ctx, uri, nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "deleting secret %q", uri)
@@ -1218,7 +1218,7 @@ func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName st
 		if err != nil {
 			return errors.Annotatef(err, "getting application scale state for app %q", appID)
 		}
-		s.logger.Tracef(
+		s.logger.Tracef(context.TODO(),
 			"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
 		)
 		return s.st.SetDesiredApplicationScale(ctx, appID, scale)
@@ -1269,7 +1269,7 @@ func (s *ApplicationService) ChangeApplicationScale(ctx context.Context, appName
 		}
 
 		newScale = currentScaleState.Scale + scaleChange
-		s.logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
+		s.logger.Tracef(context.TODO(), "ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
 		if newScale < 0 {
 			newScale = currentScaleState.Scale
 			return fmt.Errorf(

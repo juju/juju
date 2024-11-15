@@ -4,6 +4,7 @@
 package remoterelations
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -68,7 +69,7 @@ func (w *remoteRelationsWorker) Kill() {
 func (w *remoteRelationsWorker) Wait() error {
 	err := w.catacomb.Wait()
 	if err != nil {
-		w.logger.Errorf("error in remote relations worker for relation %v: %v", w.relationTag.Id(), err)
+		w.logger.Errorf(context.TODO(), "error in remote relations worker for relation %v: %v", w.relationTag.Id(), err)
 	}
 	return err
 }
@@ -85,12 +86,12 @@ func (w *remoteRelationsWorker) loop() error {
 				return w.catacomb.ErrDying()
 			}
 			if len(relChanges) == 0 {
-				w.logger.Warningf("relation status watcher event with no changes")
+				w.logger.Warningf(context.TODO(), "relation status watcher event with no changes")
 				continue
 			}
 			// We only care about the most recent change.
 			change := relChanges[len(relChanges)-1]
-			w.logger.Debugf("relation status changed for %v: %v", w.relationTag, change)
+			w.logger.Debugf(context.TODO(), "relation status changed for %v: %v", w.relationTag, change)
 			suspended := change.Suspended
 			w.mu.Lock()
 			w.mostRecentEvent = RelationUnitChangeEvent{

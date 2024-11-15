@@ -244,7 +244,7 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(
 		return nil
 	}
 	// The model was just migrated from a different controller.
-	logger.Debugf("model %q was migrated from controller %q, updating the controller annotation to %q", k.namespace,
+	logger.Debugf(context.TODO(), "model %q was migrated from controller %q, updating the controller annotation to %q", k.namespace,
 		ns.Annotations[annotationControllerUUIDKey], controllerUUID,
 	)
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
@@ -403,7 +403,7 @@ func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo 
 	if !imageRepo.IsPrivate() {
 		return nil
 	}
-	logger.Debugf("creating secret for image repo %q", imageRepo.Repository)
+	logger.Debugf(context.TODO(), "creating secret for image repo %q", imageRepo.Repository)
 	secretData, err := imageRepo.SecretData()
 	if err != nil {
 		return errors.Trace(err)
@@ -448,7 +448,7 @@ func (k *kubernetesClient) Bootstrap(
 			return errors.Trace(err)
 		}
 
-		logger.Debugf("controller pod config: \n%+v", pcfg)
+		logger.Debugf(context.TODO(), "controller pod config: \n%+v", pcfg)
 
 		// we use controller name to name controller namespace in bootstrap time.
 		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {
@@ -529,11 +529,11 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 func (k *kubernetesClient) Destroy(ctx envcontext.ProviderCallContext) (err error) {
 	defer func() {
 		if errors.Cause(err) == context.DeadlineExceeded {
-			logger.Warningf("destroy k8s model timeout")
+			logger.Warningf(context.TODO(), "destroy k8s model timeout")
 			return
 		}
 		if err != nil && k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
-			logger.Warningf("k8s cluster is not accessible: %v", err)
+			logger.Warningf(context.TODO(), "k8s cluster is not accessible: %v", err)
 			err = nil
 		}
 	}()
@@ -760,7 +760,7 @@ func CaasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
 		case caas.ServiceExternal:
 			serviceType = core.ServiceTypeExternalName
 		case caas.ServiceOmit:
-			logger.Debugf("no service to be created because service type is %q", in)
+			logger.Debugf(context.TODO(), "no service to be created because service type is %q", in)
 			return "", nil
 		default:
 			return "", errors.NotSupportedf("service type %q", in)
@@ -834,7 +834,7 @@ func (k *kubernetesClient) AnnotateUnit(ctx context.Context, appName string, pod
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
 	selector := k.applicationSelector(appName)
-	logger.Debugf("selecting units %q to watch", selector)
+	logger.Debugf(context.TODO(), "selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
@@ -912,7 +912,7 @@ func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Un
 		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
 			vol, ok := volumesByName[volMount.Name]
 			if !ok {
-				logger.Warningf("volume for volume mount %q not found", volMount.Name)
+				logger.Warningf(context.TODO(), "volume for volume mount %q not found", volMount.Name)
 				continue
 			}
 			var fsInfo *caas.FilesystemInfo
@@ -922,7 +922,7 @@ func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Un
 				fsInfo, err = k.volumeInfoForEmptyDir(vol, volMount, now)
 			} else {
 				// Ignore volumes which are not Juju managed filesystems.
-				logger.Debugf("ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
+				logger.Debugf(context.TODO(), "ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
 				continue
 			}
 			if err != nil {
@@ -938,7 +938,7 @@ func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Un
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
-			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
+			logger.Debugf(context.TODO(), "filesystem info for %v: %+v", volMount.Name, *fsInfo)
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)

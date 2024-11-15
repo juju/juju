@@ -1295,7 +1295,7 @@ FROM   secret_metadata sm
 	query += "\nGROUP BY sm.secret_id"
 	queryStmt, err := st.Prepare(query, queryTypes...)
 	if err != nil {
-		st.logger.Tracef("failed to prepare err: %v, query: \n%s", err, query)
+		st.logger.Tracef(context.TODO(), "failed to prepare err: %v, query: \n%s", err, query)
 		return nil, errors.Trace(err)
 	}
 
@@ -3291,7 +3291,7 @@ FROM secret_revision_obsolete sro
 	if len(conditions) > 0 {
 		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\n"))
 	}
-	st.logger.Tracef(
+	st.logger.Tracef(context.TODO(),
 		"revisionUUIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
 		revUUIDs, appOwners, unitOwners, q,
 	)
@@ -3621,7 +3621,7 @@ FROM   secret_rotation sro
 	}
 	q += `
 GROUP BY sro.secret_id`
-	st.logger.Tracef(
+	st.logger.Tracef(context.TODO(),
 		"secretIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
 		secretIDs, appOwners, unitOwners, q,
 	)
@@ -3807,7 +3807,7 @@ FROM   secret_revision_expire sre
 	}
 	q += `
 GROUP BY sr.secret_id`
-	st.logger.Tracef(
+	st.logger.Tracef(context.TODO(),
 		"revisionIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
 		revisionIDs, appOwners, unitOwners, q,
 	)

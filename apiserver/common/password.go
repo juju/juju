@@ -74,7 +74,7 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 		if err := entity0.SetMongoPassword(password); err != nil {
 			return err
 		}
-		logger.Infof("setting mongo password for %q", entity.Tag())
+		logger.Infof(context.TODO(), "setting mongo password for %q", entity.Tag())
 		return nil
 	}
 	// TODO(dfc) fix
@@ -99,7 +99,7 @@ func (pc *PasswordChanger) setPassword(tag names.Tag, password string) error {
 	}
 	if err == nil {
 		err = entity.SetPassword(password)
-		logger.Infof("setting password for %q", tag)
+		logger.Infof(context.TODO(), "setting password for %q", tag)
 	}
 	return err
 }

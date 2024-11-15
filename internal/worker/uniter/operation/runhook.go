@@ -92,7 +92,7 @@ func (rh *runHook) Prepare(ctx stdcontext.Context, state State) (*State, error) 
 		var isLeader bool
 		isLeader, err = rnr.Context().IsLeader()
 		if err == nil && !isLeader {
-			rh.logger.Infof("unit is no longer the leader; skipping %q execution", name)
+			rh.logger.Infof(context.TODO(), "unit is no longer the leader; skipping %q execution", name)
 			return nil, ErrSkipExecute
 		}
 		if err != nil {
@@ -167,7 +167,7 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 		// It is likely the whole process group was terminated as
 		// part of shutdown, but in case not, the unit agent will
 		// treat the hook as pending (not queued) and record a hook error.
-		rh.logger.Warningf("hook %q was terminated", rh.name)
+		rh.logger.Warningf(context.TODO(), "hook %q was terminated", rh.name)
 		step = Queued
 		return stateChange{
 			Kind:     RunHook,
@@ -177,16 +177,16 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 		}.apply(state), runner.ErrTerminated
 	case err == nil:
 	default:
-		rh.logger.Errorf("hook %q (via %s) failed: %v", rh.name, handlerType, err)
+		rh.logger.Errorf(context.TODO(), "hook %q (via %s) failed: %v", rh.name, handlerType, err)
 		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
 		return nil, ErrHookFailed
 	}
 
 	if rh.hookFound {
-		rh.logger.Infof("ran %q hook (via %s)", rh.name, handlerType)
+		rh.logger.Infof(context.TODO(), "ran %q hook (via %s)", rh.name, handlerType)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
 	} else {
-		rh.logger.Infof("skipped %q hook (missing)", rh.name)
+		rh.logger.Infof(context.TODO(), "skipped %q hook (missing)", rh.name)
 	}
 
 	var hasRunStatusSet bool
@@ -228,7 +228,7 @@ func (rh *runHook) beforeHook(ctx stdcontext.Context, state State) error {
 	}
 
 	if err != nil {
-		rh.logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
+		rh.logger.Errorf(context.TODO(), "error updating workload status before %v hook: %v", rh.info.Kind, err)
 		return err
 	}
 	return nil
@@ -240,7 +240,7 @@ func (rh *runHook) beforeHook(ctx stdcontext.Context, state State) error {
 func (rh *runHook) afterHook(stdCtx stdcontext.Context, state State) (_ bool, err error) {
 	defer func() {
 		if err != nil {
-			rh.logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
+			rh.logger.Errorf(context.TODO(), "error updating workload status after %v hook: %v", rh.info.Kind, err)
 		}
 	}()
 
@@ -260,7 +260,7 @@ func (rh *runHook) afterHook(stdCtx stdcontext.Context, state State) (_ bool, er
 		if hasRunStatusSet {
 			break
 		}
-		rh.logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
+		rh.logger.Debugf(context.TODO(), "unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
 		err = ctx.SetUnitStatus(stdCtx, jujuc.StatusInfo{
@@ -322,7 +322,7 @@ func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 		if m, ok := info[uri.ID]; ok {
 			originalRevision = m.LatestRevision
 		}
-		rh.logger.Debugf("set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
+		rh.logger.Debugf(context.TODO(), "set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
 		err = rh.callbacks.SetSecretRotated(ctx, rh.info.SecretURI, originalRevision)
 	}
 	if err != nil {

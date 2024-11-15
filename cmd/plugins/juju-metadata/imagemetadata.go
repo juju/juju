@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -130,7 +131,7 @@ func (c *imageMetadataCommand) Init(args []string) error {
 
 // setParams sets parameters based on the environment configuration
 // for those which have not been explicitly specified.
-func (c *imageMetadataCommand) setParams(context *cmd.Context, base corebase.Base) (corebase.Base, error) {
+func (c *imageMetadataCommand) setParams(cmdContext *cmd.Context, base corebase.Base) (corebase.Base, error) {
 	c.privateStorage = "<private storage name>"
 
 	controllerName, err := c.ControllerName()
@@ -141,8 +142,8 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context, base corebase.Bas
 
 	var environ environs.Environ
 	if err == nil {
-		if environ, err := prepare(context, controllerName, c.ClientStore()); err == nil {
-			logger.Infof("creating image metadata for model %q", environ.Config().Name())
+		if environ, err := prepare(cmdContext, controllerName, c.ClientStore()); err == nil {
+			logger.Infof(context.TODO(), "creating image metadata for model %q", environ.Config().Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
 				var cloudSpec simplestreams.CloudSpec
@@ -171,11 +172,11 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context, base corebase.Bas
 				base = b
 			}
 		} else {
-			logger.Warningf("bootstrap parameters could not be opened: %v", err)
+			logger.Warningf(context.TODO(), "bootstrap parameters could not be opened: %v", err)
 		}
 	}
 	if environ == nil {
-		logger.Infof("no model found, creating image metadata using user supplied data")
+		logger.Infof(context.TODO(), "no model found, creating image metadata using user supplied data")
 	}
 	if c.ImageId == "" {
 		return base, errors.Errorf("image id must be specified")
@@ -187,7 +188,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context, base corebase.Bas
 		return base, errors.Errorf("cloud endpoint URL must be specified")
 	}
 	if c.Dir == "" {
-		logger.Infof("no destination directory specified, using current directory")
+		logger.Infof(context.TODO(), "no destination directory specified, using current directory")
 		var err error
 		if c.Dir, err = os.Getwd(); err != nil {
 			return base, err

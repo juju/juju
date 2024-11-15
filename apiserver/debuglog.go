@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -148,9 +149,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
 			if isBrokenPipe(err) {
-				logger.Tracef("debug-log handler stopped (client disconnected)")
+				logger.Tracef(context.TODO(), "debug-log handler stopped (client disconnected)")
 			} else {
-				logger.Errorf("debug-log handler error: %v", err)
+				logger.Errorf(context.TODO(), "debug-log handler error: %v", err)
 			}
 		}
 	}
@@ -196,7 +197,7 @@ func (s *debugLogSocketImpl) sendOk() {
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
 	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf("closing websocket, %v", err)
+		logger.Errorf(context.TODO(), "closing websocket, %v", err)
 		s.conn.Close()
 		return
 	}

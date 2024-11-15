@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -66,7 +67,7 @@ func (s *uniterResolver) NextOp(
 	badge := "<unspecified>"
 	defer func() {
 		if err != nil && errors.Cause(err) != resolver.ErrNoOperation && err != resolver.ErrRestart {
-			s.config.Logger.Debugf("next %q operation could not be resolved: %v", badge, err)
+			s.config.Logger.Debugf(context.TODO(), "next %q operation could not be resolved: %v", badge, err)
 		}
 	}()
 
@@ -154,7 +155,7 @@ func (s *uniterResolver) NextOp(
 	// If we are to shut down, we don't want to start running any more queued/pending hooks.
 	if remoteState.Shutdown {
 		badge = "shutdown"
-		log.Debugf("unit agent is shutting down, will not run pending/queued hooks")
+		log.Debugf(context.TODO(), "unit agent is shutting down, will not run pending/queued hooks")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 	}
 
@@ -189,7 +190,7 @@ func (s *uniterResolver) NextOp(
 				// If it's set, the charm url will parse.
 				curl := jujucharm.MustParseURL(localState.CharmURL)
 				if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
-					s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+					s.config.Logger.Errorf(context.TODO(), "commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
 					return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
 				}
 			}
@@ -203,7 +204,7 @@ func (s *uniterResolver) NextOp(
 
 	case operation.Continue:
 		badge = "idle"
-		log.Debugf("no operations in progress; waiting for changes")
+		log.Debugf(context.TODO(), "no operations in progress; waiting for changes")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 
 	default:
@@ -325,12 +326,12 @@ func (s *uniterResolver) charmModified(local resolver.LocalState, remote remotes
 		return false
 	}
 	if local.CharmURL != remote.CharmURL {
-		s.config.Logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		s.config.Logger.Debugf(context.TODO(), "upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true
 	}
 
 	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
-		s.config.Logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		s.config.Logger.Debugf(context.TODO(), "upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
 		return true
 	}
 	return false

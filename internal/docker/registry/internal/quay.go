@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -41,7 +42,7 @@ func (c quayContainerRegistry) Ping() error {
 		return nil
 	}
 	url := c.url("/")
-	logger.Debugf("quay container registry ping %q", url)
+	logger.Debugf(context.TODO(), "quay container registry ping %q", url)
 	resp, err := c.client.Get(url)
 	if resp != nil {
 		defer resp.Body.Close()

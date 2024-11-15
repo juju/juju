@@ -20,7 +20,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -386,7 +386,7 @@ func (c *loginCommand) publicControllerLogin(
 	}
 
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
+		internallogger.GetLogger("juju.cmd.loginprovider"),
 		api.NewSessionTokenLoginProvider(
 			sessionToken,
 			ctx.Stderr,
@@ -494,7 +494,7 @@ Run "juju logout" first before attempting to log in as a different user.`,
 				// user. If we encounter an error after here, we need to clear it.
 				c.onRunError = func() {
 					if err := c.ClearControllerMacaroons(c.ClientStore(), c.controllerName); err != nil {
-						logger.Errorf("failed to clear macaroon: %v", err)
+						logger.Errorf(context.TODO(), "failed to clear macaroon: %v", err)
 					}
 				}
 			}

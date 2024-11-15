@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"math/rand"
 	"os/exec"
 	"strings"
@@ -160,7 +161,7 @@ func internalConfigureLXDProxies(
 	}
 
 	if !running {
-		logger.Debugf("LXD is not running; skipping proxy configuration")
+		logger.Debugf(context.TODO(), "LXD is not running; skipping proxy configuration")
 		return nil
 	}
 
@@ -202,12 +203,12 @@ func ensureDependencies(lxdSnapChannel string, base corebase.Base) error {
 		// a starts-with check instead of an equality check to avoid
 		// switching channels when we don't actually need to.
 		if strings.HasPrefix(trackedChannel, lxdSnapChannel) {
-			logger.Infof("LXD snap is already installed (channel: %s); skipping package installation", trackedChannel)
+			logger.Infof(context.TODO(), "LXD snap is already installed (channel: %s); skipping package installation", trackedChannel)
 			return nil
 		}
 
 		// We need to switch to a different channel
-		logger.Infof("switching LXD snap channel from %s to %s", trackedChannel, lxdSnapChannel)
+		logger.Infof(context.TODO(), "switching LXD snap channel from %s to %s", trackedChannel, lxdSnapChannel)
 		if err := snapManager.ChangeChannel("lxd", lxdSnapChannel); err != nil {
 			return errors.Trace(err)
 		}

@@ -42,10 +42,10 @@ func (r *relationsResolver) NextOp(
 	ctx context.Context, localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory,
 ) (_ operation.Operation, err error) {
 	if r.logger.IsLevelEnabled(logger.TRACE) {
-		r.logger.Tracef("relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
+		r.logger.Tracef(context.TODO(), "relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
 			if errors.Is(err, resolver.ErrNoOperation) {
-				r.logger.Tracef("no relation operation to run")
+				r.logger.Tracef(context.TODO(), "no relation operation to run")
 			}
 		}()
 	}
@@ -111,7 +111,7 @@ func (r *relationsResolver) processRelationSnapshot(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if !r.stateTracker.IsKnown(relationID) {
-		r.logger.Infof("unknown relation %d resolving next op", relationID)
+		r.logger.Infof(context.TODO(), "unknown relation %d resolving next op", relationID)
 		return nil, resolver.ErrNoOperation
 	} else if isImplicit, _ := r.stateTracker.IsImplicit(relationID); isImplicit {
 		return nil, resolver.ErrNoOperation
@@ -299,7 +299,7 @@ func (r *relationsResolver) nextHookForRelation(ctx context.Context, localState 
 	for _, unitName := range sortedUnitNames {
 		changeVersion, found := remote.Members[unitName]
 		if !found {
-			r.logger.Tracef("cannot join relation %d, no known Members for %q", relationId, unitName)
+			r.logger.Tracef(context.TODO(), "cannot join relation %d, no known Members for %q", relationId, unitName)
 			continue
 		}
 		if _, found := localState.Members[unitName]; !found {
@@ -315,7 +315,7 @@ func (r *relationsResolver) nextHookForRelation(ctx context.Context, localState 
 				ChangeVersion:     changeVersion,
 			}, nil
 		} else {
-			r.logger.Debugf("unit %q already joined relation %d", unitName, relationId)
+			r.logger.Debugf(context.TODO(), "unit %q already joined relation %d", unitName, relationId)
 		}
 	}
 
@@ -375,10 +375,10 @@ func (r *createdRelationsResolver) NextOp(
 	opFactory operation.Factory,
 ) (_ operation.Operation, err error) {
 	if r.logger.IsLevelEnabled(logger.TRACE) {
-		r.logger.Tracef("create relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
+		r.logger.Tracef(context.TODO(), "create relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
 			if errors.Is(err, resolver.ErrNoOperation) {
-				r.logger.Tracef("no create relation operation to run")
+				r.logger.Tracef(context.TODO(), "no create relation operation to run")
 			}
 		}()
 	}
