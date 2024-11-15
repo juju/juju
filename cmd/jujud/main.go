@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/debug/coveruploader"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
@@ -292,6 +293,7 @@ func MainWrapper(args []string) {
 }
 
 func main() {
+	coveruploader.Enable()
 	MainWrapper(os.Args)
 }
 
