@@ -340,7 +340,7 @@ func (s *applicationStateSuite) assertContainerAddressValues(
 		err := tx.QueryRowContext(ctx, `
 SELECT cc.provider_id, a.address_value, a.type_id, a.origin_id,a.scope_id,a.config_type_id
 FROM cloud_container cc
-JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
+JOIN unit u ON cc.unit_uuid = u.uuid
 JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
 JOIN ip_address a ON a.device_uuid = lld.uuid
 WHERE u.name=?`,
@@ -369,8 +369,8 @@ func (s *applicationStateSuite) assertContainerPortValues(c *gc.C, unitName stri
 		rows, err := tx.QueryContext(ctx, `
 SELECT ccp.port
 FROM cloud_container cc
-JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
-JOIN cloud_container_port ccp ON ccp.net_node_uuid = cc.net_node_uuid
+JOIN unit u ON cc.unit_uuid = u.uuid
+JOIN cloud_container_port ccp ON ccp.unit_uuid = cc.unit_uuid
 WHERE u.name=?`,
 			unitName)
 		if err != nil {
@@ -448,7 +448,7 @@ func (s *applicationStateSuite) TestUpdateUnitContainer(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
 SELECT provider_id FROM cloud_container cc
-JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
+JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
 			"foo/666").Scan(&providerId)
 		if err != nil {
@@ -484,7 +484,7 @@ func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
 SELECT provider_id FROM cloud_container cc
-JOIN unit u ON cc.net_node_uuid = u.net_node_uuid
+JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
 			"foo/666").Scan(&providerId)
 		if err != nil {
@@ -719,7 +719,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container WHERE net_node_uuid=?", netNodeUUID).Scan(&containerCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container WHERE unit_uuid=?", unitUUID).Scan(&containerCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM link_layer_device WHERE net_node_uuid=?", netNodeUUID).Scan(&deviceCount); err != nil {
@@ -728,7 +728,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM ip_address WHERE device_uuid=?", deviceUUID).Scan(&addressCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE net_node_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE unit_uuid=?", unitUUID).Scan(&portCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
