@@ -51,6 +51,11 @@ type ResourceState interface {
 }
 
 type ResourceStoreGetter interface {
+	// AddStore injects a ResourceStore for the given type into the ResourceStoreFactory.
+	AddStore(t charmresource.Type, store resource.ResourceStore)
+
+	// GetResourceStore returns the appropriate ResourceStore for the
+	// given resource type.
 	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
 }
 
@@ -63,6 +68,12 @@ type ResourceService struct {
 
 // NewResourceService returns a new service reference wrapping the input state.
 func NewResourceService(st ResourceState, resourceStoreGetter ResourceStoreGetter, logger logger.Logger) *ResourceService {
+	// Note:
+	// The store for container image resources is really a DQLite table today.
+	// Using AddStore is a compromise to avoid injecting one service into
+	// another, as would happen if NewResourceStoreFactory had a second
+	// argument to provide a ContainerImageResourceStore.
+	resourceStoreGetter.AddStore(charmresource.TypeContainerImage, newContainerImageResourceStore(st))
 	return &ResourceService{
 		st:                  st,
 		resourceStoreGetter: resourceStoreGetter,
