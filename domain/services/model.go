@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
@@ -78,11 +77,10 @@ type PublicKeyImporter interface {
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
+	modelServiceFactoryBase
+
 	clock             clock.Clock
-	logger            logger.Logger
-	controllerDB      changestream.WatchableDBFactory
 	modelUUID         model.UUID
-	modelDB           changestream.WatchableDBFactory
 	providerFactory   providertracker.ProviderFactory
 	objectstore       objectstore.ModelObjectStoreGetter
 	storageRegistry   corestorage.ModelStorageRegistryGetter
@@ -105,11 +103,15 @@ func NewModelFactory(
 	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
+		modelServiceFactoryBase: modelServiceFactoryBase{
+			serviceFactoryBase: serviceFactoryBase{
+				controllerDB: controllerDB,
+				logger:       logger,
+			},
+			modelDB: modelDB,
+		},
 		clock:             clock,
-		logger:            logger,
-		controllerDB:      controllerDB,
 		modelUUID:         modelUUID,
-		modelDB:           modelDB,
 		providerFactory:   providerFactory,
 		objectstore:       objectStore,
 		storageRegistry:   storageRegistry,
@@ -140,7 +142,7 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 		defaultsProvider,
 		config.ModelValidator(),
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
+		s.modelWatcherFactory("modelconfig"),
 	)
 }
 
@@ -148,10 +150,7 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 func (s *ModelFactory) Machine() *machineservice.WatchableService {
 	return machineservice.NewWatchableService(
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("machine")),
-		domain.NewWatcherFactory(
-			s.modelDB,
-			s.logger.Child("machine"),
-		),
+		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }
@@ -160,22 +159,20 @@ func (s *ModelFactory) Machine() *machineservice.WatchableService {
 func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
 	return blockdeviceservice.NewWatchableService(
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("blockdevice")),
+		s.modelWatcherFactory("blockdevice"),
 		s.logger.Child("blockdevice"),
 	)
 }
 
 // Application returns the model's application service.
 func (s *ModelFactory) Application() *applicationservice.WatchableService {
+	log := s.logger.Child("application")
+
 	return applicationservice.NewWatchableService(
-		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB),
-			s.logger.Child("application"),
-		),
-		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
-			s.logger.Child("application"),
-		),
+		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		applicationstate.NewCharmState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("application")),
+		s.modelWatcherFactory("application"),
 		s.modelUUID,
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
@@ -211,22 +208,22 @@ func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 	)
 	return keyupdaterservice.NewWatchableService(
-		keyupdaterservice.NewControllerKeyService(
-			controllerState,
-		),
+		keyupdaterservice.NewControllerKeyService(controllerState),
 		controllerState,
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.controllerDB, s.logger.Child("keyupdater")),
+		s.controllerWatcherFactory("keyupdater"),
 	)
 }
 
 // Network returns the model's network service.
 func (s *ModelFactory) Network() *networkservice.WatchableService {
+	log := s.logger.Child("network")
+
 	return networkservice.NewWatchableService(
-		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("network.state")),
+		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("network.watcherfactory")),
-		s.logger.Child("network.service"),
+		s.modelWatcherFactory("network"),
+		log,
 	)
 }
 
@@ -248,12 +245,12 @@ func (s *ModelFactory) Storage() *storageservice.Service {
 
 // Secret returns the model's secret service.
 func (s *ModelFactory) Secret(params secretservice.SecretServiceParams) *secretservice.WatchableService {
-	logger := s.logger.Child("secret")
+	log := s.logger.Child("secret")
 	return secretservice.NewWatchableService(
-		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger.Child("state")),
-		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger.Child("secretbackendstate")),
-		logger.Child("service"),
-		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
+		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+		log,
+		s.modelWatcherFactory("secret"),
 		params,
 	)
 }
@@ -270,14 +267,11 @@ func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
 
 // ModelSecretBackend returns the model secret backend service.
 func (s *ModelFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
-	logger := s.logger.Child("modelsecretbackend")
 	state := secretbackendstate.NewState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
-		logger.Child("state"),
+		s.logger.Child("modelsecretbackend"),
 	)
-	return secretbackendservice.NewModelSecretBackendService(
-		s.modelUUID, state,
-	)
+	return secretbackendservice.NewModelSecretBackendService(s.modelUUID, state)
 }
 
 // Agent returns the model's agent service.
@@ -285,7 +279,7 @@ func (s *ModelFactory) Agent() *modelagentservice.ModelService {
 	return modelagentservice.NewModelService(
 		modelagentstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelagent.watcherfactory")),
+		s.modelWatcherFactory("modelagent"),
 	)
 }
 
@@ -314,32 +308,24 @@ func (s *ModelFactory) UnitState() *unitstateservice.Service {
 	)
 }
 
-// CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for the current model.
+// CloudImageMetadata returns the service for persisting and retrieving cloud
+// image metadata for the current model.
 func (s *ModelFactory) CloudImageMetadata() *cloudimagemetadataservice.Service {
 	return cloudimagemetadataservice.NewService(
-		cloudimagemetadatastate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock, s.logger.Child("cloudimagemetadata")),
+		cloudimagemetadatastate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+			s.clock,
+			s.logger.Child("cloudimagemetadata"),
+		),
 	)
 }
 
 // Port returns the service for managing opened port ranges for units.
 func (s *ModelFactory) Port() *portservice.WatchableService {
-	logger := s.logger.Child("port")
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
-		logger.Child("service"),
-	)
-}
-
-// Stub returns the stub service. A special service which collects temporary
-// methods required to wire together domains which are not completely implemented
-// or wired up.
-//
-// Deprecated: Stub service contains only temporary methods and should be removed
-// as soon as possible.
-func (s *ModelFactory) Stub() *stubservice.StubService {
-	return stubservice.NewStubService(
-		changestream.NewTxnRunnerFactory(s.modelDB),
+		s.modelWatcherFactory("port"),
+		s.logger.Child("port"),
 	)
 }
 
@@ -348,5 +334,19 @@ func (s *ModelFactory) BlockCommand() *blockcommandservice.Service {
 	return blockcommandservice.NewService(
 		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("blockcommand"),
+	)
+}
+
+// Stub returns the stub service. A special service which collects temporary
+// methods required to wire together domains which are not completely implemented
+// or wired up.
+//
+// *** ADD NEW METHODS ABOVE THIS, NOT BELOW.
+//
+// Deprecated: Stub service contains only temporary methods and should be removed
+// as soon as possible.
+func (s *ModelFactory) Stub() *stubservice.StubService {
+	return stubservice.NewStubService(
+		changestream.NewTxnRunnerFactory(s.modelDB),
 	)
 }

@@ -6,7 +6,6 @@ package services
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/domain"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
@@ -16,9 +15,7 @@ import (
 // ObjectStoreServices provides access to the services required by the
 // apiserver.
 type ObjectStoreServices struct {
-	logger       logger.Logger
-	controllerDB changestream.WatchableDBFactory
-	modelDB      changestream.WatchableDBFactory
+	modelServiceFactoryBase
 }
 
 // NewObjectStoreServices returns a new set of services for the usage of the
@@ -29,9 +26,13 @@ func NewObjectStoreServices(
 	logger logger.Logger,
 ) *ObjectStoreServices {
 	return &ObjectStoreServices{
-		logger:       logger,
-		controllerDB: controllerDB,
-		modelDB:      modelDB,
+		modelServiceFactoryBase{
+			serviceFactoryBase: serviceFactoryBase{
+				controllerDB: controllerDB,
+				logger:       logger,
+			},
+			modelDB: modelDB,
+		},
 	}
 }
 
@@ -39,10 +40,7 @@ func NewObjectStoreServices(
 func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("controllerconfig"),
-		),
+		s.controllerWatcherFactory("controllerconfig"),
 	)
 }
 
@@ -50,10 +48,7 @@ func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.Watcha
 func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableService {
 	return objectstoreservice.NewWatchableService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("objectstore"),
-		),
+		s.controllerWatcherFactory("objectstore"),
 	)
 }
 
@@ -61,9 +56,6 @@ func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableSe
 func (s *ObjectStoreServices) ObjectStore() *objectstoreservice.WatchableService {
 	return objectstoreservice.NewWatchableService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(
-			s.modelDB,
-			s.logger.Child("objectstore"),
-		),
+		s.modelWatcherFactory("objectstore"),
 	)
 }

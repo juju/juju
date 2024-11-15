@@ -6,7 +6,6 @@ package services
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/domain"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	credentialservice "github.com/juju/juju/domain/credential/service"
@@ -19,9 +18,7 @@ import (
 
 // ProviderFactory provides access to the services required by the apiserver.
 type ProviderFactory struct {
-	logger       logger.Logger
-	controllerDB changestream.WatchableDBFactory
-	modelDB      changestream.WatchableDBFactory
+	modelServiceFactoryBase
 }
 
 // NewProviderFactory returns a new registry which uses the provided db
@@ -32,9 +29,13 @@ func NewProviderFactory(
 	logger logger.Logger,
 ) *ProviderFactory {
 	return &ProviderFactory{
-		logger:       logger,
-		controllerDB: controllerDB,
-		modelDB:      modelDB,
+		modelServiceFactoryBase{
+			serviceFactoryBase: serviceFactoryBase{
+				controllerDB: controllerDB,
+				logger:       logger,
+			},
+			modelDB: modelDB,
+		},
 	}
 }
 
@@ -52,10 +53,7 @@ func (s *ProviderFactory) Model() *modelservice.ProviderService {
 func (s *ProviderFactory) Cloud() *cloudservice.WatchableProviderService {
 	return cloudservice.NewWatchableProviderService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("cloud"),
-		),
+		s.controllerWatcherFactory("cloud"),
 	)
 }
 
@@ -63,10 +61,7 @@ func (s *ProviderFactory) Cloud() *cloudservice.WatchableProviderService {
 func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderService {
 	return credentialservice.NewWatchableProviderService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		domain.NewWatcherFactory(
-			s.controllerDB,
-			s.logger.Child("credential"),
-		),
+		s.controllerWatcherFactory("credential"),
 	)
 }
 
@@ -74,6 +69,6 @@ func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderServi
 func (s *ProviderFactory) Config() *modelconfigservice.WatchableProviderService {
 	return modelconfigservice.NewWatchableProviderService(
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
+		s.modelWatcherFactory("modelconfig"),
 	)
 }
