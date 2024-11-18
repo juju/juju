@@ -495,6 +495,45 @@ func (c *MockStateGetApplicationUnitLifeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetApplicationsWithPendingCharmsFromUUIDs mocks base method.
+func (m *MockState) GetApplicationsWithPendingCharmsFromUUIDs(arg0 context.Context, arg1 []application.ID) ([]application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationsWithPendingCharmsFromUUIDs", arg0, arg1)
+	ret0, _ := ret[0].([]application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationsWithPendingCharmsFromUUIDs indicates an expected call of GetApplicationsWithPendingCharmsFromUUIDs.
+func (mr *MockStateMockRecorder) GetApplicationsWithPendingCharmsFromUUIDs(arg0, arg1 any) *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationsWithPendingCharmsFromUUIDs", reflect.TypeOf((*MockState)(nil).GetApplicationsWithPendingCharmsFromUUIDs), arg0, arg1)
+	return &MockStateGetApplicationsWithPendingCharmsFromUUIDsCall{Call: call}
+}
+
+// MockStateGetApplicationsWithPendingCharmsFromUUIDsCall wrap *gomock.Call
+type MockStateGetApplicationsWithPendingCharmsFromUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall) Return(arg0 []application.ID, arg1 error) *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall) Do(f func(context.Context, []application.ID) ([]application.ID, error)) *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall) DoAndReturn(f func(context.Context, []application.ID) ([]application.ID, error)) *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharm mocks base method.
 func (m *MockState) GetCharm(arg0 context.Context, arg1 charm.ID) (charm0.Charm, charm0.CharmOrigin, error) {
 	m.ctrl.T.Helper()
@@ -1353,6 +1392,45 @@ func (c *MockStateGetUnitUUIDsCall) Do(f func(context.Context, []unit.Name) ([]u
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitUUIDsCall) DoAndReturn(f func(context.Context, []unit.Name) ([]unit.UUID, error)) *MockStateGetUnitUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementApplicationsWithPendingCharms mocks base method.
+func (m *MockState) InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementApplicationsWithPendingCharms")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementApplicationsWithPendingCharms indicates an expected call of InitialWatchStatementApplicationsWithPendingCharms.
+func (mr *MockStateMockRecorder) InitialWatchStatementApplicationsWithPendingCharms() *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementApplicationsWithPendingCharms", reflect.TypeOf((*MockState)(nil).InitialWatchStatementApplicationsWithPendingCharms))
+	return &MockStateInitialWatchStatementApplicationsWithPendingCharmsCall{Call: call}
+}
+
+// MockStateInitialWatchStatementApplicationsWithPendingCharmsCall wrap *gomock.Call
+type MockStateInitialWatchStatementApplicationsWithPendingCharmsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

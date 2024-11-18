@@ -52,9 +52,9 @@ type AtomicApplicationState interface {
 	GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error)
 
 	// CreateApplication creates an application, returning an error satisfying
-	// [applicationerrors.ApplicationAlreadyExists] if the application already exists.
-	// If returns as error satisfying [applicationerrors.CharmNotFound] if the charm
-	// for the application is not found.
+	// [applicationerrors.ApplicationAlreadyExists] if the application already
+	// exists. If returns as error satisfying [applicationerrors.CharmNotFound]
+	// if the charm for the application is not found.
 	CreateApplication(domain.AtomicContext, string, application.AddApplicationArg) (coreapplication.ID, error)
 
 	// AddUnits adds the specified units to the application.
@@ -73,20 +73,25 @@ type AtomicApplicationState interface {
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(domain.AtomicContext, coreunit.UUID, application.PasswordInfo) error
 
-	// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
-	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// SetCloudContainerStatus saves the given cloud container status,
+	// overwriting any current status data. If returns an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetCloudContainerStatus(domain.AtomicContext, coreunit.UUID, application.CloudContainerStatusStatusInfo) error
 
-	// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
-	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// SetUnitAgentStatus saves the given unit agent status, overwriting any
+	// current status data. If returns an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitAgentStatus(domain.AtomicContext, coreunit.UUID, application.UnitAgentStatusInfo) error
 
-	// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
-	// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// SetUnitWorkloadStatus saves the given unit workload status, overwriting
+	// any current status data. If returns an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
 
-	// GetApplicationLife looks up the life of the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+	// GetApplicationLife looks up the life of the specified application,
+	// returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// found.
 	GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error)
 
 	// SetApplicationLife sets the life of the specified application.
@@ -97,11 +102,12 @@ type AtomicApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
 	GetApplicationScaleState(domain.AtomicContext, coreapplication.ID) (application.ScaleState, error)
 
-	// SetApplicationScalingState sets the scaling details for the given caas application
-	// Scale is optional and is only set if not nil.
+	// SetApplicationScalingState sets the scaling details for the given caas
+	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
 
-	// SetDesiredApplicationScale updates the desired scale of the specified application.
+	// SetDesiredApplicationScale updates the desired scale of the specified
+	// application.
 	SetDesiredApplicationScale(domain.AtomicContext, coreapplication.ID, int) error
 
 	// GetUnitLife looks up the life of the specified unit, returning an error
@@ -111,8 +117,13 @@ type AtomicApplicationState interface {
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(domain.AtomicContext, coreunit.Name, life.Life) error
 
-	// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
+	// InitialWatchStatementUnitLife returns the initial namespace query for the
+	// application unit life watcher.
 	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
+
+	// InitialWatchStatementApplicationsWithPendingCharms returns the initial
+	// namespace query for the applications with pending charms watcher.
+	InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery)
 
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
@@ -132,7 +143,8 @@ type AtomicApplicationState interface {
 		ctx domain.AtomicContext, unitName coreunit.Name,
 	) ([]*coresecrets.URI, error)
 
-	// GetSecretsForApplication returns the secrets owned by the specified application.
+	// GetSecretsForApplication returns the secrets owned by the specified
+	// application.
 	GetSecretsForApplication(
 		ctx domain.AtomicContext, applicationName string,
 	) ([]*coresecrets.URI, error)
@@ -200,6 +212,11 @@ type ApplicationState interface {
 	// application. Returns [applicationerrors.ApplicationNotFound] if the
 	// application is not found.
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+
+	// GetApplicationsWithPendingCharmsFromUUIDs returns the applications
+	// with pending charms for the specified UUIDs. If the application has a
+	// different status, it's ignored.
+	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error)
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -1162,9 +1179,9 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 
 }
 
-// GetApplicationScalingState returns the scale state of an application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-// This is used on CAAS models.
+// GetApplicationScalingState returns the scale state of an application,
+// returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
+// the application doesn't exist. This is used on CAAS models.
 func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
 	var scaleState application.ScaleState
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
@@ -1179,4 +1196,14 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 		ScaleTarget: scaleState.ScaleTarget,
 		Scaling:     scaleState.Scaling,
 	}, errors.Trace(err)
+}
+
+// GetApplicationsWithPendingCharmsFromUUIDs returns the application UUIDs that
+// have pending charms from the provided UUIDs. If there are no applications
+// with pending status charms, then those applications are ignored.
+func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+	return s.st.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
 }

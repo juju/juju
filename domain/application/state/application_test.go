@@ -1857,6 +1857,106 @@ func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
+func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPendingCharms(c *gc.C) {
+	name, query := s.state.InitialWatchStatementApplicationsWithPendingCharms()
+	c.Check(name, gc.Equals, "application")
+
+	id := s.createApplication(c, "foo", life.Alive)
+
+	result, err := query(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{id.String()})
+}
+
+func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPendingCharmsIfAvailable(c *gc.C) {
+	// These use the same charm, so once you set one applications charm, you
+	// set both.
+
+	name, query := s.state.InitialWatchStatementApplicationsWithPendingCharms()
+	c.Check(name, gc.Equals, "application")
+
+	_ = s.createApplication(c, "foo", life.Alive)
+	id1 := s.createApplication(c, "bar", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET available = TRUE
+FROM application AS a
+INNER JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid=?`, id1.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := query(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPendingCharmsNothing(c *gc.C) {
+	name, query := s.state.InitialWatchStatementApplicationsWithPendingCharms()
+	c.Check(name, gc.Equals, "application")
+
+	result, err := query(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIfPending(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{id})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(expected, jc.DeepEquals, []coreapplication.ID{id})
+}
+
+func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIfAvailable(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET available = TRUE
+FROM application AS a
+INNER JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid=?`, id.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{id})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(expected, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsNotFound(c *gc.C) {
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{"foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(expected, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsForSameCharm(c *gc.C) {
+	// These use the same charm, so once you set one applications charm, you
+	// set both.
+
+	id0 := s.createApplication(c, "foo", life.Alive)
+	id1 := s.createApplication(c, "bar", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET available = TRUE
+FROM application AS a
+INNER JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid=?`, id1.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), []coreapplication.ID{id0, id1})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(expected, gc.HasLen, 0)
+}
+
 func (s *applicationStateSuite) assertApplication(
 	c *gc.C,
 	name string,
