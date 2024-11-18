@@ -38,7 +38,7 @@ func (s *loggerSuite) TestLogger(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	args := []any{0.1, "SELECT * FROM foo"}
-	s.logger.EXPECT().Warningf("slow query: hello", args)
+	s.logger.EXPECT().Warningf(gomock.Any(), "slow query: hello", args)
 
 	w.RecordSlowQuery("hello", "SELECT * FROM foo", args, 0.1)
 
@@ -73,7 +73,7 @@ func (s *loggerSuite) TestLoggerMultipleTimes(c *gc.C) {
 		stmt := fmt.Sprintf("SELECT %d FROM foo", i)
 		args := []any{i, stmt}
 
-		s.logger.EXPECT().Warningf("slow query: hello", args)
+		s.logger.EXPECT().Warningf(gomock.Any(), "slow query: hello", args)
 
 		w.RecordSlowQuery("hello", stmt, args, float64(i))
 	}
