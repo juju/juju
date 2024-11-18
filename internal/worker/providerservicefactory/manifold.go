@@ -137,7 +137,7 @@ func NewProviderServices(
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,
 ) services.ProviderServices {
-	return domainservicefactory.NewProviderFactory(
+	return domainservicefactory.NewProviderServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		logger,

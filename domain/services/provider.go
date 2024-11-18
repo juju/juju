@@ -16,19 +16,19 @@ import (
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 )
 
-// ProviderFactory provides access to the services required by the apiserver.
-type ProviderFactory struct {
+// ProviderServices provides access to the services required by the apiserver.
+type ProviderServices struct {
 	modelServiceFactoryBase
 }
 
-// NewProviderFactory returns a new registry which uses the provided db
+// NewProviderServices returns a new registry which uses the provided db
 // function to obtain a model database.
-func NewProviderFactory(
+func NewProviderServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	logger logger.Logger,
-) *ProviderFactory {
-	return &ProviderFactory{
+) *ProviderServices {
+	return &ProviderServices{
 		modelServiceFactoryBase{
 			serviceFactoryBase: serviceFactoryBase{
 				controllerDB: controllerDB,
@@ -40,7 +40,7 @@ func NewProviderFactory(
 }
 
 // Model returns the provider model service.
-func (s *ProviderFactory) Model() *modelservice.ProviderService {
+func (s *ProviderServices) Model() *modelservice.ProviderService {
 	return modelservice.NewProviderService(
 		modelstate.NewModelState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
@@ -50,7 +50,7 @@ func (s *ProviderFactory) Model() *modelservice.ProviderService {
 }
 
 // Cloud returns the provider cloud service.
-func (s *ProviderFactory) Cloud() *cloudservice.WatchableProviderService {
+func (s *ProviderServices) Cloud() *cloudservice.WatchableProviderService {
 	return cloudservice.NewWatchableProviderService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory("cloud"),
@@ -58,7 +58,7 @@ func (s *ProviderFactory) Cloud() *cloudservice.WatchableProviderService {
 }
 
 // Credential returns the provider credential service.
-func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderService {
+func (s *ProviderServices) Credential() *credentialservice.WatchableProviderService {
 	return credentialservice.NewWatchableProviderService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory("credential"),
@@ -66,7 +66,7 @@ func (s *ProviderFactory) Credential() *credentialservice.WatchableProviderServi
 }
 
 // Config returns the provider model config service.
-func (s *ProviderFactory) Config() *modelconfigservice.WatchableProviderService {
+func (s *ProviderServices) Config() *modelconfigservice.WatchableProviderService {
 	return modelconfigservice.NewWatchableProviderService(
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("modelconfig"),
