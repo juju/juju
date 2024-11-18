@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"io"
+
+	"github.com/juju/juju/core/errors"
 )
 
 // ContainerImageResourceState provides methods for interacting
@@ -23,5 +25,5 @@ type containerImageResourceStore struct {
 }
 
 func (f containerImageResourceStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	return nil, -1, nil
+	return nil, -1, errors.NotImplemented
 }
