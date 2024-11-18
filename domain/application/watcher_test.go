@@ -93,22 +93,6 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
-	ctx := context.Background()
-	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Platform: corecharm.Platform{
-			Channel:      "24.04",
-			OS:           "ubuntu",
-			Architecture: "amd64",
-		},
-	}, service.AddApplicationArgs{
-		ReferenceName: name,
-	}, units...)
-	c.Assert(err, jc.ErrorIsNil)
-	return appID
-}
-
 func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
@@ -389,6 +373,35 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+
+	svc := s.setupService(c, factory)
+
+	id0 := s.createApplication(c, &svc.Service, "foo")
+	id1 := s.createApplication(c, &svc.Service, "bar")
+
+	ctx := context.Background()
+	watcher, err := svc.WatchApplicationsWithPendingCharms(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
+
+	harness.AddTest(func(c *gc.C) {
+	}, func(w watchertest.WatcherC[[]string]) {
+		// No change should occur after the initial setup.
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *gc.C) {
+
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{id0.String(), id1.String()})
+}
+
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
 	return service.NewWatchableService(
 		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
@@ -411,6 +424,26 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		resource.NewResourceStoreFactory(nil),
 		loggertesting.WrapCheckLog(c),
 	)
+}
+
+func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
+	return s.createApplicationWithCharm(c, svc, name, &stubCharm{}, units...)
+}
+
+func (s *watcherSuite) createApplicationWithCharm(c *gc.C, svc *service.Service, name string, charm internalcharm.Charm, units ...service.AddUnitArg) coreapplication.ID {
+	ctx := context.Background()
+	appID, err := svc.CreateApplication(ctx, name, charm, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, service.AddApplicationArgs{
+		ReferenceName: name,
+	}, units...)
+	c.Assert(err, jc.ErrorIsNil)
+	return appID
 }
 
 type stubCharm struct{}

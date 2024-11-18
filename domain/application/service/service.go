@@ -103,3 +103,9 @@ func (s *WatchableService) WatchApplicationUnitLife(_ context.Context, appName s
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	return s.watchableApplicationService.WatchApplicationScale(ctx, appName)
 }
+
+// WatchApplicationsWithPendingCharms returns a watcher that observes changes to
+// applications that have pending charms.
+func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
+	return s.watchableApplicationService.WatchApplicationsWithPendingCharms(ctx)
+}

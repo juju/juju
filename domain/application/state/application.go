@@ -1293,8 +1293,9 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return appScale.toScaleState(), errors.Annotatef(err, "querying application %q scale", appID)
 }
 
-// GetApplicationLife looks up the life of the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
+// GetApplicationLife looks up the life of the specified application, returning
+// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+// application is not found.
 func (st *ApplicationState) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
 	app := applicationName{Name: appName}
 	query := `
@@ -1342,7 +1343,8 @@ AND life_id <= $applicationID.life_id
 	return errors.Annotatef(err, "updating application life for %q", appID)
 }
 
-// SetDesiredApplicationScale updates the desired scale of the specified application.
+// SetDesiredApplicationScale updates the desired scale of the specified
+// application.
 func (st *ApplicationState) SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error {
 	scaleDetails := applicationScale{
 		ApplicationID: appID,
@@ -1363,8 +1365,8 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return errors.Trace(err)
 }
 
-// SetApplicationScalingState sets the scaling details for the given caas application
-// Scale is optional and is only set if not nil.
+// SetApplicationScalingState sets the scaling details for the given caas
+// application Scale is optional and is only set if not nil.
 func (st *ApplicationState) SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
 	scaleDetails := applicationScale{
 		ApplicationID: appID,
@@ -1395,8 +1397,9 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return errors.Trace(err)
 }
 
-// UpsertCloudService updates the cloud service for the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// UpsertCloudService updates the cloud service for the specified application,
+// returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
+// the application doesn't exist.
 func (st *ApplicationState) UpsertCloudService(ctx context.Context, name, providerID string, sAddrs network.SpaceAddresses) error {
 	db, err := st.DB()
 	if err != nil {
@@ -1432,8 +1435,9 @@ ON CONFLICT(application_uuid) DO UPDATE
 
 type statusKeys []string
 
-// saveStatusData saves the status key value data for the specified unit in the specified table.
-// It's called from each different SaveStatus method which previously has confirmed the unit UUID exists.
+// saveStatusData saves the status key value data for the specified unit in the
+// specified table. It's called from each different SaveStatus method which
+// previously has confirmed the unit UUID exists.
 func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, table string, unitUUID coreunit.UUID, data map[string]string) error {
 	unit := minimalUnit{UUID: unitUUID}
 	var keys statusKeys
@@ -1475,8 +1479,9 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 	return nil
 }
 
-// SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
-// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetCloudContainerStatus saves the given cloud container status, overwriting
+// any current status data. If returns an error satisfying
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *ApplicationState) SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
@@ -1496,8 +1501,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, statusInfo).Run()
-		// This is purely defensive and is not expected in practice - the unitUUID
-		// is expected to be validated earlier in the atomic txn workflow.
+		// This is purely defensive and is not expected in practice - the
+		// unitUUID is expected to be validated earlier in the atomic txn
+		// workflow.
 		if jujudb.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
@@ -1507,8 +1513,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving cloud container status for unit %q", unitUUID)
 }
 
-// SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
-// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitAgentStatus saves the given unit agent status, overwriting any current
+// status data. If returns an error satisfying [applicationerrors.UnitNotFound]
+// if the unit doesn't exist.
 func (st *ApplicationState) SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
@@ -1539,8 +1546,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving unit agent status for unit %q", unitUUID)
 }
 
-// SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
-// If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitWorkloadStatus saves the given unit workload status, overwriting any
+// current status data. If returns an error satisfying
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *ApplicationState) SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
@@ -1560,8 +1568,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, statusInfo).Run()
-		// This is purely defensive and is not expected in practice - the unitUUID
-		// is expected to be validated earlier in the atomic txn workflow.
+		// This is purely defensive and is not expected in practice - the
+		// unitUUID is expected to be validated earlier in the atomic txn
+		// workflow.
 		if jujudb.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
@@ -1571,7 +1580,8 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return errors.Annotatef(err, "saving unit workload status for unit %q", unitUUID)
 }
 
-// InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
+// InitialWatchStatementUnitLife returns the initial namespace query for the
+// application unit life watcher.
 func (st *ApplicationState) InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		app := applicationName{Name: appName}
@@ -1604,8 +1614,79 @@ WHERE a.name = $applicationName.name
 	return "unit", queryFunc
 }
 
-// GetApplicationUnitLife returns the life values for the specified units of the given application.
-// The supplied ids may belong to a different application; the application name is used to filter.
+// InitialWatchStatementApplicationsWithPendingCharms returns the initial
+// namespace query for the applications with pending charms watcher.
+func (st *ApplicationState) InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		stmt, err := st.Prepare(`
+SELECT a.uuid AS &applicationID.uuid
+FROM application a
+JOIN charm c ON a.charm_uuid = c.uuid
+WHERE c.available = FALSE
+`, applicationID{})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		var results []applicationID
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt).GetAll(&results)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Trace(err)
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "querying all applications with pending charms")
+		}
+
+		return transform.Slice(results, func(r applicationID) string {
+			return r.ID.String()
+		}), nil
+	}
+	return "application", queryFunc
+}
+
+// GetApplicationsWithPendingCharmsFromUUIDs returns the application IDs for the
+// applications with pending charms from the specified UUIDs.
+func (st *ApplicationState) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	type applicationIDs []coreapplication.ID
+
+	stmt, err := st.Prepare(`
+SELECT a.uuid AS &applicationID.uuid
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
+`, applicationID{}, applicationIDs{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []applicationID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, applicationIDs(uuids)).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "querying all applications with pending charms")
+	}
+
+	return transform.Slice(results, func(r applicationID) coreapplication.ID {
+		return r.ID
+	}), nil
+}
+
+// GetApplicationUnitLife returns the life values for the specified units of the
+// given application. The supplied ids may belong to a different application;
+// the application name is used to filter.
 func (st *ApplicationState) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[coreunit.UUID]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
