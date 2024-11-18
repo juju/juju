@@ -14,23 +14,17 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/domain/unitstate"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type unitStateSuite struct {
 	testing.BaseSuite
 
 	unitTag1 names.UnitTag
-
-	api         *common.UnitStateAPI
-	mockBackend *mocks.MockUnitStateBackend
-	mockUnit    *mocks.MockUnitStateUnit
-	mockOp      *mocks.MockModelOperation
+	api      *common.UnitStateAPI
 
 	controllerConfigGetter *mocks.MockControllerConfigService
 	unitStateService       *MockUnitStateService
@@ -49,9 +43,6 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	}
 
 	ctrl := gomock.NewController(c)
-	s.mockBackend = mocks.NewMockUnitStateBackend(ctrl)
-	s.mockUnit = mocks.NewMockUnitStateUnit(ctrl)
-	s.mockOp = mocks.NewMockModelOperation(ctrl)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigService(ctrl)
 	s.unitStateService = NewMockUnitStateService(ctrl)
 
@@ -67,7 +58,6 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	s.api = common.NewUnitStateAPI(
 		s.controllerConfigGetter,
 		s.unitStateService,
-		s.mockBackend,
 		resources,
 		authorizer,
 		unitAuthFunc,
@@ -100,39 +90,6 @@ func (s *unitStateSuite) expectGetState(name string) (map[string]string, string,
 	}, nil)
 
 	return expCharmState, expUniterState, expRelationState, expStorageState, expSecretState
-}
-
-func (s *unitStateSuite) expectUnit() {
-	exp := s.mockBackend.EXPECT()
-	exp.Unit(s.unitTag1.Id()).Return(s.mockUnit, nil)
-}
-
-func (s *unitStateSuite) expectSetStateOperation() string {
-	unitState := state.NewUnitState()
-	expUniterState := "testing"
-	unitState.SetUniterState(expUniterState)
-
-	// Mock controller config which provides the limits passed to SetStateOperation.
-	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(
-		controller.Config{
-			"max-charm-state-size": 123,
-			"max-agent-state-size": 456,
-		}, nil)
-
-	exp := s.mockUnit.EXPECT()
-	exp.SetStateOperation(
-		unitState,
-		state.UnitStateSizeLimits{
-			MaxCharmStateSize: 123,
-			MaxAgentStateSize: 456,
-		},
-	).Return(s.mockOp)
-	return expUniterState
-}
-
-func (s *unitStateSuite) expectApplyOperation() {
-	exp := s.mockBackend.EXPECT()
-	exp.ApplyOperation(s.mockOp).Return(nil)
 }
 
 func (s *unitStateSuite) TestState(c *gc.C) {
@@ -168,9 +125,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 
 func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
 	defer s.assertBackendApi(c).Finish()
-	s.expectUnit()
-	expUniterState := s.expectSetStateOperation()
-	s.expectApplyOperation()
+	expUniterState := "testing"
 
 	args := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{
