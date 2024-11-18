@@ -200,7 +200,7 @@ func (w *controllerWatcher) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *controllerWatcher) Wait() error {
 	err := w.catacomb.Wait()
-	if errors.Cause(err) == rpc.ErrShutdown {
+	if rpc.IsShutdownErr(err) {
 		// RPC shutdown errors need to be ignored.
 		return nil
 	}
