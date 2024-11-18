@@ -94,12 +94,6 @@ type SecretService struct {
 	uuidGenerator   func() (uuid.UUID, error)
 }
 
-// WithBackendRefMutator is used in tests to override the default backend ref mutator.
-func (s *SecretService) WithBackendRefMutator(mutator SecretBackendReferenceMutator) *SecretService {
-	s.secretBackendReferenceMutator = mutator
-	return s
-}
-
 // CreateSecretURIs returns the specified number of new secret URIs.
 func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error) {
 	if count <= 0 {
