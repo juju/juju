@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 	"github.com/juju/juju/internal/ssh"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
@@ -58,13 +59,43 @@ import (
 )
 
 var (
-	jammyImageReference = armcompute.ImageReference{
+	jammyImageReferenceGen2 = armcompute.ImageReference{
 		Publisher: to.Ptr("Canonical"),
 		Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
-		SKU:       to.Ptr("22_04-LTS"),
+		SKU:       to.Ptr("22_04-lts-gen2"),
+		Version:   to.Ptr("latest"),
+	}
+	jammyImageReferenceArm64 = armcompute.ImageReference{
+		Publisher: to.Ptr("Canonical"),
+		Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
+		SKU:       to.Ptr("22_04-lts-arm64"),
 		Version:   to.Ptr("latest"),
 	}
 )
+
+func toValue[T any](v *T) T {
+	if v == nil {
+		return *new(T)
+	}
+	return *v
+}
+
+func toMapPtr(in map[string]string) map[string]*string {
+	result := make(map[string]*string)
+	for k, v := range in {
+		result[k] = to.Ptr(v)
+	}
+	return result
+}
+
+type keyBundle struct {
+	Key *jsonWebKey `json:"key"`
+}
+
+type jsonWebKey struct {
+	Kid *string `json:"kid"`
+	Kty string  `json:"kty"`
+}
 
 type environSuite struct {
 	testing.BaseSuite
@@ -186,19 +217,36 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			Name:  to.Ptr("OSVhdSizeMB"),
 			Value: to.Ptr("1047552"),
 		}},
+	}, {
+		Name:         to.Ptr("Standard_D8ps_v5"),
+		Locations:    to.SliceOfPtrs("westus"),
+		ResourceType: to.Ptr("virtualMachines"),
+		Capabilities: []*armcompute.ResourceSKUCapabilities{{
+			Name:  to.Ptr("MemoryGB"),
+			Value: to.Ptr("32"),
+		}, {
+			Name:  to.Ptr("vCPUs"),
+			Value: to.Ptr("8"),
+		}, {
+			Name:  to.Ptr("OSVhdSizeMB"),
+			Value: to.Ptr("1047552"),
+		}},
+		Family: to.Ptr("standardDPSv5Family"),
 	}}
 	s.skus = resourceSKUs
 
 	s.ubuntuServerSKUs = []armcompute.VirtualMachineImageResource{
-		{Name: to.Ptr("12.04-LTS")},
+		{Name: to.Ptr("12.04-lts")},
 		{Name: to.Ptr("12.10")},
-		{Name: to.Ptr("14.04-LTS")},
+		{Name: to.Ptr("14.04-lts")},
 		{Name: to.Ptr("15.04")},
 		{Name: to.Ptr("15.10")},
-		{Name: to.Ptr("16.04-LTS")},
-		{Name: to.Ptr("18.04-LTS")},
-		{Name: to.Ptr("20_04-LTS")},
-		{Name: to.Ptr("22_04-LTS")},
+		{Name: to.Ptr("16.04-lts")},
+		{Name: to.Ptr("18.04-lts")},
+		{Name: to.Ptr("20_04-lts")},
+		{Name: to.Ptr("22_04-lts")},
+		{Name: to.Ptr("22_04-lts-gen2")},
+		{Name: to.Ptr("22_04-lts-arm64")},
 	}
 
 	s.commonDeployment = &armresources.DeploymentExtended{
@@ -345,13 +393,14 @@ type startInstanceSenderParams struct {
 	vaultKeyName            string
 	existingNetwork         string
 	withQuotaRetry          bool
+	withHypervisorGenRetry  bool
 	withConflictRetry       bool
 	existingAvailabilitySet bool
 	existingCommon          bool
 	hasSpaceConstraints     bool
 }
 
-func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azuretesting.Senders {
+func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderParams) azuretesting.Senders {
 	senders := azuretesting.Senders{}
 	if args.existingAvailabilitySet {
 		senders = append(senders, makeSender("/availabilitySets/mysql", &armcompute.AvailabilitySet{}))
@@ -420,12 +469,27 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 		}))
 	}
 	if args.withQuotaRetry {
-		quotaErr := newAzureResponseError(http.StatusBadRequest, "QuotaExceeded")
+		quotaErr := newAzureResponseError(c, http.StatusBadRequest, "QuotaExceeded", "")
 		senders = append(senders, s.makeErrorSender("/deployments/juju-06f00d-0", quotaErr, 1))
 		return senders
 	}
+	if args.withHypervisorGenRetry {
+		requestError := errorutils.RequestError{
+			ServiceError: &errorutils.ServiceError{
+				Code:    "BadRequest",
+				Message: "The selected VM size 'Standard_D2_v2' cannot boot Hypervisor Generation '2'. If this was a Create operation please check that the Hypervisor Generation of the Image matches the Hypervisor Generation of the selected VM Size. If this was an Update operation please select a Hypervisor Generation '2' VM Size. For more information, see https://aka.ms/azuregen2vm",
+			},
+		}
+		rErr, err := json.Marshal(requestError)
+		c.Assert(err, jc.ErrorIsNil)
+		hypervisorGenErr := newAzureResponseError(c, http.StatusBadRequest,
+			"DeploymentFailed", string(rErr),
+		)
+		senders = append(senders, s.makeErrorSender("/deployments/juju-06f00d-0", hypervisorGenErr, 1))
+		return senders
+	}
 	if args.withConflictRetry {
-		conflictErr := newAzureResponseError(http.StatusConflict, "Conflict")
+		conflictErr := newAzureResponseError(c, http.StatusConflict, "Conflict", "")
 		senders = append(senders, s.makeErrorSender("/deployments/juju-06f00d-0", conflictErr, 1))
 		return senders
 	}
@@ -476,10 +540,19 @@ func makeSenderWithStatus(pattern string, statusCode int) *azuretesting.MockSend
 	return &sender
 }
 
-func newAzureResponseError(code int, status string) error {
+func newAzureResponseError(c *gc.C, code int, status, message string) error {
 	header := make(http.Header)
 	header.Set("Content-Type", "application/json")
-	body := fmt.Sprintf(`{"error": {"code": "DeployError", "details": [{"code": "%s", "message": "boom"}]}}`, status)
+	requestError := errorutils.RequestError{
+		ServiceError: &errorutils.ServiceError{
+			Code: "DeployError",
+			Details: []errorutils.ServiceErrorDetail{
+				{Code: status, Message: message},
+			},
+		},
+	}
+	body, err := json.Marshal(requestError)
+	c.Assert(err, jc.ErrorIsNil)
 	return &azcore.ResponseError{
 		ErrorCode:  status,
 		StatusCode: code,
@@ -489,7 +562,7 @@ func newAzureResponseError(code int, status string) error {
 			},
 			Header:     header,
 			StatusCode: code,
-			Body:       io.NopCloser(bytes.NewBufferString(body)),
+			Body:       io.NopCloser(bytes.NewBuffer(body)),
 		},
 	}
 }
@@ -574,34 +647,38 @@ func (s *environSuite) TestOpen(c *gc.C) {
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, true, false, false)
+	s.assertStartInstance(c, nil, nil, true, false, false, false)
 }
 
 func (s *environSuite) TestStartInstancePrivateIP(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, false, false, false)
+	s.assertStartInstance(c, nil, nil, false, false, false, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *gc.C) {
 	wantedRootDisk := 22
-	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false)
+	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
 	wantedRootDisk := 40
-	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false)
+	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false, false)
 }
 
 func (s *environSuite) TestStartInstanceQuotaRetry(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, false, true, false)
+	s.assertStartInstance(c, nil, nil, false, true, false, false)
+}
+
+func (s *environSuite) TestStartInstanceHypervisorGenRetry(c *gc.C) {
+	s.assertStartInstance(c, nil, nil, false, false, true, false)
 }
 
 func (s *environSuite) TestStartInstanceConflictRetry(c *gc.C) {
-	s.assertStartInstance(c, nil, nil, false, false, true)
+	s.assertStartInstance(c, nil, nil, false, false, false, true)
 }
 
 func (s *environSuite) assertStartInstance(
 	c *gc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
-	publicIP, withQuotaRetry, withConflictRetry bool,
+	publicIP, withQuotaRetry, withHypervisorGenRetry, withConflictRetry bool,
 ) {
 	env := s.openEnviron(c)
 
@@ -625,18 +702,19 @@ func (s *environSuite) assertStartInstance(
 			vaultKeyName, _ = rootDiskSourceParams["vault-key-name"].(string)
 		}
 	}
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{
-		bootstrap:             false,
-		diskEncryptionSetName: diskEncryptionSetName,
-		vaultName:             vaultName,
-		vaultKeyName:          vaultKeyName,
-		withQuotaRetry:        withQuotaRetry,
-		withConflictRetry:     withConflictRetry,
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap:              false,
+		diskEncryptionSetName:  diskEncryptionSetName,
+		vaultName:              vaultName,
+		vaultKeyName:           vaultKeyName,
+		withQuotaRetry:         withQuotaRetry,
+		withHypervisorGenRetry: withHypervisorGenRetry,
+		withConflictRetry:      withConflictRetry,
 	})
 	if withConflictRetry {
 		// Retry after a conflict - the same instance creation senders are
 		// used except that the availability set now exists.
-		s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{
+		s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{
 			bootstrap:               false,
 			diskEncryptionSetName:   diskEncryptionSetName,
 			vaultName:               vaultName,
@@ -645,11 +723,24 @@ func (s *environSuite) assertStartInstance(
 			existingAvailabilitySet: true,
 		})...)
 	}
+	if withHypervisorGenRetry {
+		// Retry after a hypervisor generation error - the same instance creation senders are
+		// used except that the VM size is changed.
+		// s.sender = append(s.sender, makeSender(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent))
+		s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{
+			bootstrap:             false,
+			diskEncryptionSetName: diskEncryptionSetName,
+			vaultName:             vaultName,
+			vaultKeyName:          vaultKeyName,
+			existingCommon:        true,
+		})...)
+
+	}
 	if withQuotaRetry {
 		// Retry after a quota error - the same instance creation senders are
 		// used except that the availability set now exists.
 		s.sender = append(s.sender, makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent))
-		s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{
+		s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{
 			bootstrap:             false,
 			diskEncryptionSetName: diskEncryptionSetName,
 			vaultName:             vaultName,
@@ -692,15 +783,16 @@ func (s *environSuite) assertStartInstance(
 		CpuCores: &cpuCores,
 	})
 	startParams := assertStartInstanceRequestsParams{
-		imageReference:    &jammyImageReference,
-		diskSizeGB:        expectedDiskSize,
-		osProfile:         &s.linuxOsProfile,
-		instanceType:      "Standard_A1",
-		publicIP:          publicIP,
-		diskEncryptionSet: diskEncryptionSetName,
-		vaultName:         vaultName,
-		withQuotaRetry:    withQuotaRetry,
-		withConflictRetry: withConflictRetry,
+		imageReference:         &jammyImageReferenceGen2,
+		diskSizeGB:             expectedDiskSize,
+		osProfile:              &s.linuxOsProfile,
+		instanceType:           "Standard_A1",
+		publicIP:               publicIP,
+		diskEncryptionSet:      diskEncryptionSetName,
+		vaultName:              vaultName,
+		withQuotaRetry:         withQuotaRetry,
+		withHypervisorGenRetry: withHypervisorGenRetry,
+		withConflictRetry:      withConflictRetry,
 	}
 	if withConflictRetry {
 		startParams.availabilitySetName = "mysql"
@@ -715,7 +807,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 	err = env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
@@ -727,7 +819,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 		KeyData: to.Ptr(testing.FakeAuthKeys),
 	}}
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference: &jammyImageReference,
+		imageReference: &jammyImageReferenceGen2,
 		diskSizeGB:     32,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
@@ -765,7 +857,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.commonDeployment.Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateFailed)
 
 	env := s.openEnviron(c)
-	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.sender = senders
 	s.requests = nil
 
@@ -782,7 +874,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.commonDeployment.Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCreating)
 
 	env := s.openEnviron(c)
-	senders := s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 
 	const failures = 60 // 5 minutes / 5 seconds
 	head, tail := senders[:2], senders[2:]
@@ -811,7 +903,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	env := s.openEnviron(c)
 	s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
@@ -821,7 +913,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		availabilitySetName: "mysql",
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
@@ -831,7 +923,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 
 func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false, hasSpaceConstraints: true})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false, hasSpaceConstraints: true})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
@@ -844,7 +936,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
@@ -856,7 +948,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 
 func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "foo"
@@ -868,7 +960,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 
 func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=foo"
@@ -892,7 +984,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 			AddressPrefix: to.Ptr("192.168.1.0/20"),
 		},
 	}}
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
 		bootstrap: false,
 		subnets:   subnets,
 	})
@@ -904,7 +996,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:  &jammyImageReference,
+		imageReference:  &jammyImageReferenceGen2,
 		diskSizeGB:      32,
 		osProfile:       &s.linuxOsProfile,
 		instanceType:    "Standard_A1",
@@ -929,7 +1021,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 			AddressPrefix: to.Ptr("192.168.1.0/20"),
 		},
 	}}
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
 		bootstrap: false,
 		subnets:   subnets,
 	})
@@ -946,7 +1038,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:  &jammyImageReference,
+		imageReference:  &jammyImageReferenceGen2,
 		diskSizeGB:      32,
 		osProfile:       &s.linuxOsProfile,
 		instanceType:    "Standard_A1",
@@ -965,25 +1057,26 @@ const (
 )
 
 type assertStartInstanceRequestsParams struct {
-	autocert            bool
-	availabilitySetName string
-	imageReference      *armcompute.ImageReference
-	vmExtension         *armcompute.VirtualMachineExtensionProperties
-	diskSizeGB          int
-	diskEncryptionSet   string
-	vaultName           string
-	osProfile           *armcompute.OSProfile
-	needsProviderInit   bool
-	resourceGroupName   string
-	instanceType        string
-	publicIP            bool
-	existingNetwork     string
-	subnets             []string
-	placementSubnet     string
-	withQuotaRetry      bool
-	withConflictRetry   bool
-	hasSpaceConstraints bool
-	managedIdentity     string
+	autocert               bool
+	availabilitySetName    string
+	imageReference         *armcompute.ImageReference
+	vmExtension            *armcompute.VirtualMachineExtensionProperties
+	diskSizeGB             int
+	diskEncryptionSet      string
+	vaultName              string
+	osProfile              *armcompute.OSProfile
+	needsProviderInit      bool
+	resourceGroupName      string
+	instanceType           string
+	publicIP               bool
+	existingNetwork        string
+	subnets                []string
+	placementSubnet        string
+	withQuotaRetry         bool
+	withHypervisorGenRetry bool
+	withConflictRetry      bool
+	hasSpaceConstraints    bool
+	managedIdentity        string
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1343,6 +1436,8 @@ func (s *environSuite) assertStartInstanceRequests(
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+3)
 			} else if args.withQuotaRetry {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+5)
+			} else if args.withHypervisorGenRetry {
+				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+4)
 			} else {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
 			}
@@ -1450,7 +1545,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	}
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1470,7 +1565,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1490,7 +1585,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	}
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1510,7 +1605,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1529,8 +1624,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	}
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(
-		startInstanceSenderParams{bootstrap: true, existingNetwork: "mynetwork"})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true, existingNetwork: "mynetwork"})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1551,7 +1645,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1572,8 +1666,7 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	}
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(
-		startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1593,7 +1686,7 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1614,7 +1707,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	}
 
 	s.createSenderWithUnauthorisedStatusCode(c)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
@@ -1666,15 +1759,25 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	// If we aren't on amd64, this should correctly fail. See also:
-	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
+
+	var imageReference *armcompute.ImageReference
+	var instanceType string
+	if corearch.HostArch() == "amd64" {
+		imageReference = &jammyImageReferenceGen2
+		instanceType = "Standard_D1"
+	} else if corearch.HostArch() == "arm64" {
+		imageReference = &jammyImageReferenceArm64
+		instanceType = "Standard_D8ps_v5"
+	} else {
+		// If we aren't on amd64/arm64, this should correctly fail. See also:
+		// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
 			corearch.HostArch())
 		c.Assert(err, gc.ErrorMatches, wantErr)
 		c.SucceedNow()
+		return
 	}
 	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
@@ -1683,11 +1786,11 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      imageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
-		instanceType:        "Standard_D1",
+		instanceType:        instanceType,
 		publicIP:            true,
 	})
 }
@@ -1723,15 +1826,24 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	// If we aren't on amd64, this should correctly fail. See also:
-	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
+	var imageReference *armcompute.ImageReference
+	var instanceType string
+	if corearch.HostArch() == "amd64" {
+		imageReference = &jammyImageReferenceGen2
+		instanceType = "Standard_D1"
+	} else if corearch.HostArch() == "arm64" {
+		imageReference = &jammyImageReferenceArm64
+		instanceType = "Standard_D8ps_v5"
+	} else {
+		// If we aren't on amd64/arm64, this should correctly fail. See also:
+		// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
 			corearch.HostArch())
 		c.Assert(err, gc.ErrorMatches, wantErr)
 		c.SucceedNow()
+		return
 	}
 	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
@@ -1740,12 +1852,12 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      imageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
 		resourceGroupName:   "foo",
-		instanceType:        "Standard_D1",
+		instanceType:        instanceType,
 		publicIP:            true,
 	})
 }
@@ -1757,7 +1869,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 	config := testing.FakeControllerConfig()
 	config["api-port"] = 443
@@ -1787,7 +1899,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		autocert:            true,
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReference,
+		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1968,11 +2080,11 @@ func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64\\]",
+		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64 arm64\\]",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 Standard_A1 Standard_D1 Standard_D2\\]",
+		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 D8ps_v5 Standard_A1 Standard_D1 Standard_D2 Standard_D8ps_v5\\]",
 	)
 }
 
@@ -1983,8 +2095,15 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 		constraints.MustParse("instance-type=D1"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	// For now we can have a compatible arch and instance-type due to charmhub arch workarounds.
-	c.Assert(cons.String(), gc.Equals, "arch=amd64 instance-type=D1")
+	c.Assert(cons.String(), gc.Equals, "instance-type=D1")
+}
+
+func (s *environSuite) TestConstraintsConflict(c *gc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("arch=amd64 instance-type=Standard_D1"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("arch=arm64 instance-type=Standard_D1"))
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="Standard_D1" expected arch="amd64" not "arm64"`)
 }
 
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
@@ -2048,14 +2167,14 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent), // POST
 		s.networkInterfacesSender(nic0),
 		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "juju-06f00d-0", "1.2.3.4")),
-		makeSender(".*/virtualMachines/juju-06f00d-0", nil),                                                       // DELETE
-		makeSender(".*/disks/juju-06f00d-0", nil),                                                                 // DELETE
-		makeSender(".*/networkInterfaces/nic-0", nil),                                                             // DELETE
-		makeSender(".*/publicIPAddresses/pip-0", nil),                                                             // DELETE
-		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent),                                // DELETE
-		s.makeErrorSender("/networkSecurityGroups/nsg-0", newAzureResponseError(http.StatusConflict, "InUse"), 1), // DELETE
-		makeSender("/networkSecurityGroups/nsg-0", nil),                                                           // DELETE
-		makeSender(".*/vaults/secret-0", nil),                                                                     // DELETE
+		makeSender(".*/virtualMachines/juju-06f00d-0", nil),                                                              // DELETE
+		makeSender(".*/disks/juju-06f00d-0", nil),                                                                        // DELETE
+		makeSender(".*/networkInterfaces/nic-0", nil),                                                                    // DELETE
+		makeSender(".*/publicIPAddresses/pip-0", nil),                                                                    // DELETE
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent),                                       // DELETE
+		s.makeErrorSender("/networkSecurityGroups/nsg-0", newAzureResponseError(c, http.StatusConflict, "InUse", ""), 1), // DELETE
+		makeSender("/networkSecurityGroups/nsg-0", nil),                                                                  // DELETE
+		makeSender(".*/vaults/secret-0", nil),                                                                            // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2184,15 +2303,15 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 
 func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 4)
+	c.Assert(types.InstanceTypes, gc.HasLen, 6)
 
 	cons := constraints.MustParse("mem=4G")
 	types, err = env.InstanceTypes(s.callCtx, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 2)
+	c.Assert(types.InstanceTypes, gc.HasLen, 4)
 }
 
 func (s *environSuite) TestInstanceInformationWithInvalidCredential(c *gc.C) {
@@ -2520,7 +2639,7 @@ func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *gc.C) {
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 	}
-	s.assertStartInstance(c, nil, rootDiskParams, true, false, false)
+	s.assertStartInstance(c, nil, rootDiskParams, true, false, false, false)
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
@@ -2530,5 +2649,39 @@ func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
 		"vault-name-prefix":        "my-vault",
 		"vault-key-name":           "shhhh",
 	}
-	s.assertStartInstance(c, nil, rootDiskParams, true, false, false)
+	s.assertStartInstance(c, nil, rootDiskParams, true, false, false, false)
+}
+
+func (s *environSuite) TestGetArchFromResourceSKUARM64(c *gc.C) {
+	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardDPSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardDPLSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardEPSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+}
+
+func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *gc.C) {
+	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr(""),
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("StandardNCadsH100v5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("StandardNCADSA100v4Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
 }

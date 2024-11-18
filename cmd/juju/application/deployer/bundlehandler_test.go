@@ -276,8 +276,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.runDeploy(c, kubernetesGitlabBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "22.04")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "22.04")
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "24.04")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "24.04")
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Directive{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
@@ -1727,7 +1727,7 @@ applications:
 `
 	s.runDeploy(c, content)
 
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "22.04")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "24.04")
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+

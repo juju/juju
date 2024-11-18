@@ -35,6 +35,9 @@ This document will describe how to do a forward merge. In the following example,
    finish the merge.
 
 5. Push your branch to GitHub and open a new PR to the target branch. In the PR description, please include a list of
-   the patches being merged, and list any merge conflicts you encountered.
+   the patches being merged, and list any merge conflicts you encountered. To get
+   the PR numbers of the patches in your merge up, use `git log
+   upstream/<TARGET-BRANCH-NAME>..upstream/<SOURCE-BRANCH-NAME> --first-parent
+   --oneline --no-decorate | sed 's~.*\(#.*\)/.*~- \1~g'`
 
 **Exercise**: write a Bash script to automate the above process.

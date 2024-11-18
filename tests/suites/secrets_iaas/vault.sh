@@ -1,3 +1,6 @@
+# Copyright 2024 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
+
 run_secrets_vault() {
 	echo
 
@@ -158,12 +161,12 @@ prepare_vault() {
 	add_model "model-vault-provider"
 
 	if ! which "vault" >/dev/null 2>&1; then
-		sudo snap install vault
+		sudo snap install vault --channel=1.8/stable
 	fi
 
 	# If no databases are related, vault will be auto configured to
 	# use its embedded raft storage backend for storage and HA.
-	juju --show-log deploy vault
+	juju --show-log deploy vault --channel=1.8/stable
 	juju --show-log expose vault
 
 	wait_for "blocked" "$(workload_status vault 0).current"

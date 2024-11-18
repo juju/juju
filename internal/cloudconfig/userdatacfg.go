@@ -315,6 +315,9 @@ func (w *userdataConfig) ConfigureJuju() error {
 		// we also softly fail on ed25519 as it may not be supported by the target
 		// machine.
 		w.conf.AddBootCmd(`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`)
+		// Reload the ssh service to ensure that the newly generated keys are
+		// loaded into the ssh daemon.
+		w.conf.AddBootCmd(`service ssh reload`)
 	}
 
 	if err := w.conf.AddPackageCommands(

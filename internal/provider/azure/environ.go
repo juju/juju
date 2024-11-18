@@ -31,7 +31,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/arch"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
@@ -440,7 +440,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(
 		constraints.Arch,
-		[]string{arch.AMD64},
+		[]string{corearch.AMD64, corearch.ARM64},
 	)
 	validator.RegisterVocabulary(
 		constraints.InstanceType,
@@ -451,10 +451,34 @@ func (env *azureEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext
 		[]string{
 			constraints.Mem,
 			constraints.Cores,
-			// TODO: move to a dynamic conflict for arch when azure supports more than amd64
-			//constraints.Arch,
+			constraints.Arch,
 		},
 	)
+	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
+		instanceTypeName, ok := attrValues[constraints.InstanceType].(string)
+		if !ok {
+			return nil
+		}
+		arch, ok := attrValues[constraints.Arch].(string)
+		if !ok {
+			return nil
+		}
+		for _, itype := range instanceTypes {
+			if itype.Name != instanceTypeName {
+				continue
+			}
+			if itype.Arch != arch {
+				return fmt.Errorf("%v=%q expected %v=%q not %q",
+					constraints.InstanceType, instanceTypeName,
+					constraints.Arch, itype.Arch, arch)
+			}
+			// The instance-type and arch are a valid combination.
+			return nil
+		}
+		// Should never get here as the instance type value should be already validated to be
+		// in instanceTypes.
+		return errors.NotFoundf("%v %q", constraints.InstanceType, instanceTypeName)
+	})
 	return validator, nil
 }
 
@@ -523,6 +547,7 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	preferGen1Image := false
 	for i := 0; i < 15; i++ {
 		// Identify the instance type and image to provision.
 		instanceSpec, err := env.findInstanceSpec(
@@ -534,7 +559,7 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 				Arch:        arch,
 				Constraints: args.Constraints,
 			},
-			imageStream,
+			imageStream, preferGen1Image,
 		)
 		if err != nil {
 			return nil, err
@@ -552,10 +577,18 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 			deleteInstanceFamily(instanceTypes, instanceSpec.InstanceType.Name)
 			continue
 		}
+		hypervisorGenErr, ok := errorutils.MaybeHypervisorGenNotSupportedError(err)
+		if ok && !preferGen1Image {
+			logger.Warningf("hypervisor generation 2 not supported for %q error: %q", instanceSpec.InstanceType.Name, hypervisorGenErr.Error())
+			logger.Warningf("retrying with generation 1 image")
+			preferGen1Image = true
+			continue
+		}
 		return result, errorutils.SimpleError(err)
 	}
 	return nil, errors.New("no suitable instance type found for this subscription")
 }
+
 func (env *azureEnviron) startInstance(
 	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 	instanceSpec *instances.InstanceSpec, envTags map[string]string,
@@ -631,9 +664,8 @@ func (env *azureEnviron) startInstance(
 		provisioningState: armresources.ProvisioningStateCreating,
 		env:               env,
 	}
-	amd64 := arch.AMD64
 	hc := &instance.HardwareCharacteristics{
-		Arch:     &amd64,
+		Arch:     &instanceSpec.Image.Arch,
 		Mem:      &instanceSpec.InstanceType.Mem,
 		RootDisk: &instanceSpec.InstanceType.RootDisk,
 		CpuCores: &instanceSpec.InstanceType.CpuCores,
@@ -2335,12 +2367,16 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx envcontext.ProviderCallConte
 					rootDisk = to.Ptr(int32(rootDiskValue))
 				}
 			}
-			instanceType := newInstanceType(armcompute.VirtualMachineSize{
-				Name:           resource.Name,
-				NumberOfCores:  cores,
-				OSDiskSizeInMB: rootDisk,
-				MemoryInMB:     mem,
-			})
+			instanceType := newInstanceType(
+				getArchFromResourceSKU(resource),
+				armcompute.VirtualMachineSize{
+					Name:           resource.Name,
+					NumberOfCores:  cores,
+					OSDiskSizeInMB: rootDisk,
+					MemoryInMB:     mem,
+				},
+			)
+
 			instanceTypes[instanceType.Name] = instanceType
 			// Create aliases for standard role sizes.
 			if strings.HasPrefix(instanceType.Name, "Standard_") {
@@ -2350,6 +2386,22 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx envcontext.ProviderCallConte
 	}
 	env.instanceTypes = instanceTypes
 	return instanceTypes, nil
+}
+
+// getArchFromResourceSKU returns the architecture of the instance type based on the resource SKU.
+func getArchFromResourceSKU(resource *armcompute.ResourceSKU) corearch.Arch {
+	// These are the instance families that are ARM64 based in Azure for now.
+	arm64InstanceFamilies := set.NewStrings(
+		"standardDPSv5Family",
+		"standardDPLSv5Family",
+		"standardEPSv5Family",
+	)
+
+	instanceFamily := toValue(resource.Family)
+	if arm64InstanceFamilies.Contains(instanceFamily) {
+		return corearch.ARM64
+	}
+	return corearch.AMD64
 }
 
 // Region is specified in the HasRegion interface.

@@ -47,6 +47,8 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 			select {
 			case sender <- logWriter:
 			case <-ctx.Done():
+				// Loop has been stopped before returning the writer. Need to close it in order to avoid
+				// possible ressources leak
 				logWriter.Close()
 			}
 		}()
@@ -59,6 +61,8 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		case <-ctx.Done():
 			return nil
 		}
+		// the logwriter has been successfully retrieved from the inside goroutine and its lifecycle is now handled
+		// in the loop function.
 		defer logWriter.Close()
 		for {
 			select {
