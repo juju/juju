@@ -5,6 +5,7 @@ package highavailability
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -169,6 +170,15 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 		if len(addresses) == 0 {
 			// machines without any address are essentially not started yet
 			continue
+		}
+		if len(addresses) > 1 {
+			// ignore /32 and /128 addresses, which can be associated with a virtual IP (see https://bugs.launchpad.net/juju/+bug/2073986)
+			addresses = slices.DeleteFunc(addresses, func(addr network.SpaceAddress) bool {
+				if addr.AddressType() == network.IPv6Address {
+					return strings.HasSuffix(addr.AddressCIDR(), "/128")
+				}
+				return strings.HasSuffix(addr.AddressCIDR(), "/32")
+			})
 		}
 		internal := addresses.AllMatchingScope(network.ScopeMatchCloudLocal)
 		if len(internal) != 1 {
