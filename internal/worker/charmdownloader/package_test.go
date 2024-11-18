@@ -9,8 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mocks.go github.com/juju/juju/internal/worker/charmdownloader CharmDownloaderAPI
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mock_watcher.go github.com/juju/juju/core/watcher StringsWatcher
+//go:generate go run go.uber.org/mock/mockgen -typed -package charmdownloader -destination service_mocks_test.go github.com/juju/juju/internal/worker/charmdownloader ApplicationService
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)

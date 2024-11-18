@@ -449,8 +449,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
+			DomainServicesName: domainServicesName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
 		}))),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -584,8 +584,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 
 		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
+			DomainServicesName: domainServicesName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
 		}))),
 	}
 	result := commonManifolds(config)

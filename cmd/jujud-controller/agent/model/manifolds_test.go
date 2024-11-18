@@ -324,6 +324,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"charm-downloader": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -507,13 +508,15 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"charm-downloader": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"not-dead-flag",
-		"valid-credential-flag"},
+		"valid-credential-flag",
+	},
 
 	"charm-revision-updater": {
 		"agent",

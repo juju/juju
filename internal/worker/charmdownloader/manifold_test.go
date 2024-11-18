@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -27,9 +26,8 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func validConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
-		APICallerName:         "api-caller",
-		Logger:                loggertesting.WrapCheckLog(c),
-		NewCharmDownloaderAPI: func(base.APICaller) CharmDownloaderAPI { return nil },
+		DomainServicesName: "api-caller",
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -37,9 +35,9 @@ func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
 	c.Check(s.config.Validate(), jc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
-	s.config.APICallerName = ""
-	s.checkNotValid(c, "empty APICallerName not valid")
+func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *gc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {

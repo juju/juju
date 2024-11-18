@@ -10,28 +10,21 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	client "github.com/juju/juju/api/controller/charmdownloader"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/services"
 )
 
 // ManifoldConfig describes the resources used by the charmdownloader worker.
 type ManifoldConfig struct {
-	APICallerName string
-	Logger        logger.Logger
-
-	// A constructor for the charmdownloader API which can be overridden
-	// during testing. If omitted, the default client for the charmdownloader
-	// facade will be automatically used.
-	NewCharmDownloaderAPI func(base.APICaller) CharmDownloaderAPI
+	DomainServicesName string
+	Logger             logger.Logger
 }
 
 // Manifold returns a Manifold that encapsulates the charmdownloader worker.
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			cfg.APICallerName,
+			cfg.DomainServicesName,
 		},
 		Start: cfg.start,
 	}
@@ -39,8 +32,8 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -54,21 +47,14 @@ func (cfg ManifoldConfig) start(context context.Context, getter dependency.Gette
 		return nil, errors.Trace(err)
 	}
 
-	var apiConn api.Connection
-	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
+	var domainServices services.DomainServices
+	if err := getter.Get(cfg.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	newCharmDownloaderAPI := cfg.NewCharmDownloaderAPI
-	if newCharmDownloaderAPI == nil {
-		newCharmDownloaderAPI = func(apiCaller base.APICaller) CharmDownloaderAPI {
-			return client.NewClient(apiCaller)
-		}
-	}
-
-	w, err := NewCharmDownloader(Config{
-		Logger:             cfg.Logger,
-		CharmDownloaderAPI: newCharmDownloaderAPI(apiConn),
+	w, err := NewWorker(Config{
+		Logger: cfg.Logger,
+		//ApplicationService: domainServices.Application(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

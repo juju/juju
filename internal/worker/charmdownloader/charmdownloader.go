@@ -9,17 +9,22 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
+// ApplicationService describes the API exposed by the charm downloader facade.
+type ApplicationService interface {
+	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
+	DownloadApplicationCharms(ctx context.Context, applications []names.ApplicationTag) error
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
 	Logger             logger.Logger
-	CharmDownloaderAPI CharmDownloaderAPI
+	ApplicationService ApplicationService
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -27,8 +32,8 @@ func (cfg Config) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.CharmDownloaderAPI == nil {
-		return errors.NotValidf("nil CharmDownloader API")
+	if cfg.ApplicationService == nil {
+		return errors.NotValidf("nil ApplicationService")
 	}
 	return nil
 }
@@ -37,22 +42,21 @@ func (cfg Config) Validate() error {
 // yet been downloaded and triggers an asynchronous download request for each
 // one.
 type CharmDownloader struct {
-	charmDownloaderAPI CharmDownloaderAPI
+	applicationService ApplicationService
 	logger             logger.Logger
 
-	catacomb   catacomb.Catacomb
-	appWatcher watcher.StringsWatcher
+	catacomb catacomb.Catacomb
 }
 
-// NewCharmDownloader returns a new CharmDownloader worker.
-func NewCharmDownloader(cfg Config) (worker.Worker, error) {
+// NewWorker returns a new CharmDownloader worker.
+func NewWorker(cfg Config) (*CharmDownloader, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	cd := &CharmDownloader{
 		logger:             cfg.Logger,
-		charmDownloaderAPI: cfg.CharmDownloaderAPI,
+		applicationService: cfg.ApplicationService,
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -65,33 +69,26 @@ func NewCharmDownloader(cfg Config) (worker.Worker, error) {
 	return cd, nil
 }
 
-func (cd *CharmDownloader) setup(ctx context.Context) error {
-	var err error
-	cd.appWatcher, err = cd.charmDownloaderAPI.WatchApplicationsWithPendingCharms(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := cd.catacomb.Add(cd.appWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
-	cd.logger.Debugf("started watching applications referencing charms that have not yet been downloaded")
-	return nil
-}
-
 func (cd *CharmDownloader) loop() error {
 	ctx, cancel := cd.scopedContext()
 	defer cancel()
 
-	if err := cd.setup(ctx); err != nil {
+	watcher, err := cd.applicationService.WatchApplicationsWithPendingCharms(ctx)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := cd.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	cd.logger.Debugf("watching applications referencing charms that have not yet been downloaded")
 
 	for {
 		select {
 		case <-cd.catacomb.Dying():
 			return cd.catacomb.ErrDying()
-		case changes, ok := <-cd.appWatcher.Changes():
+		case changes, ok := <-watcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
 			}
@@ -106,7 +103,7 @@ func (cd *CharmDownloader) loop() error {
 			}
 
 			cd.logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
-			if err := cd.charmDownloaderAPI.DownloadApplicationCharms(ctx, appTags); err != nil {
+			if err := cd.applicationService.DownloadApplicationCharms(ctx, appTags); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -124,6 +121,5 @@ func (cd *CharmDownloader) Wait() error {
 }
 
 func (cd *CharmDownloader) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(cd.catacomb.Context(context.Background()))
-	return cd.catacomb.Context(ctx), cancel
+	return context.WithCancel(cd.catacomb.Context(context.Background()))
 }

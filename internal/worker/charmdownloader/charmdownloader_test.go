@@ -5,20 +5,21 @@ package charmdownloader
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/charmdownloader/mocks"
 )
 
 type charmDownloaderSuite struct {
-	api     *mocks.MockCharmDownloaderAPI
-	watcher *mocks.MockStringsWatcher
+	applicationService *MockApplicationService
 }
 
 var _ = gc.Suite(&charmDownloaderSuite{})
@@ -26,39 +27,48 @@ var _ = gc.Suite(&charmDownloaderSuite{})
 func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changeCh := make(chan []string, 1)
-	changeCh <- []string{"ufo", "cons", "piracy"}
-	close(changeCh)
-	s.watcher.EXPECT().Changes().DoAndReturn(func() watcher.StringsChannel {
-		return changeCh
-	}).AnyTimes()
+	changeCh := make(chan []string)
+	w := watchertest.NewMockStringsWatcher(changeCh)
 
-	s.api.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
-		return s.watcher, nil
-	})
-	s.api.EXPECT().DownloadApplicationCharms(gomock.Any(), []names.ApplicationTag{
+	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).Return(w, nil)
+
+	done := make(chan struct{})
+
+	// This should only be called once, as the first change is empty.
+	s.applicationService.EXPECT().DownloadApplicationCharms(gomock.Any(), []names.ApplicationTag{
 		names.NewApplicationTag("ufo"),
 		names.NewApplicationTag("cons"),
 		names.NewApplicationTag("piracy"),
-	}).Return(nil)
+	}).DoAndReturn(func(ctx context.Context, at []names.ApplicationTag) error {
+		defer close(done)
+		return nil
+	})
 
-	worker, err := NewCharmDownloader(Config{
+	worker, err := NewWorker(Config{
 		Logger:             loggertesting.WrapCheckLog(c),
-		CharmDownloaderAPI: s.api,
+		ApplicationService: s.applicationService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
 
-	// Wait for the worker to process the changes and exit when it detects
-	// that changeCh has been closed.
-	_ = worker.Wait()
+	go func() {
+		changeCh <- []string{}
+		changeCh <- []string{"ufo", "cons", "piracy"}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for download trigger")
+	}
+
+	workertest.CleanKill(c, worker)
 }
 
 func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.api = mocks.NewMockCharmDownloaderAPI(ctrl)
-	s.watcher = mocks.NewMockStringsWatcher(ctrl)
-	s.watcher.EXPECT().Wait().Return(nil).AnyTimes()
-	s.watcher.EXPECT().Kill().Return().AnyTimes()
+
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	return ctrl
 }
