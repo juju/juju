@@ -104,14 +104,14 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	}).AnyTimes()
 
 	s.service = &SecretService{
-		secretState:                   s.state,
-		secretBackendReferenceMutator: s.secretBackendReferenceMutator,
-		logger:                        loggertesting.WrapCheckLog(c),
-		clock:                         s.clock,
-		providerGetter:                func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil },
-		adminConfigGetter:             s.backendConfigGetter,
-		userSecretConfigGetter:        s.userSecretConfigGetter,
-		uuidGenerator:                 func() (uuid.UUID, error) { return s.fakeUUID, nil },
+		secretState:            s.state,
+		secretBackendState:     s.secretBackendReferenceMutator,
+		logger:                 loggertesting.WrapCheckLog(c),
+		clock:                  s.clock,
+		providerGetter:         func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil },
+		adminConfigGetter:      s.backendConfigGetter,
+		userSecretConfigGetter: s.userSecretConfigGetter,
+		uuidGenerator:          func() (uuid.UUID, error) { return s.fakeUUID, nil },
 	}
 	return ctrl
 }

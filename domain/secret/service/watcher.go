@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // WatchableService provides the API for working with the secret service.
@@ -30,20 +27,12 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
-	secretState State, secretBackendReferenceMutator SecretBackendReferenceMutator,
+	secretState State, secretBackendState SecretBackendState,
 	logger logger.Logger, watcherFactory WatcherFactory, params SecretServiceParams,
 ) *WatchableService {
+	svc := NewSecretService(secretState, secretBackendState, logger, params)
 	return &WatchableService{
-		SecretService: SecretService{
-			secretState:                   secretState,
-			secretBackendReferenceMutator: secretBackendReferenceMutator,
-			logger:                        logger,
-			clock:                         clock.WallClock,
-			providerGetter:                provider.Provider,
-			adminConfigGetter:             params.BackendAdminConfigGetter,
-			userSecretConfigGetter:        params.BackendUserSecretConfigGetter,
-			uuidGenerator:                 uuid.NewUUID,
-		},
+		SecretService:  *svc,
 		watcherFactory: watcherFactory,
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
+	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -138,14 +139,43 @@ type State interface {
 	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)
 }
 
-// SecretBackendReferenceMutator describes methods for interacting with the secret backend state.
+// SecretBackendReferenceMutator describes methods
+// for modifying secret back-end references.
 type SecretBackendReferenceMutator interface {
-	// AddSecretBackendReference adds a reference to the secret backend for the given secret revision.
-	AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error)
-	// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revision.
+	// AddSecretBackendReference adds a reference to the
+	// secret backend for the given secret revision.
+	AddSecretBackendReference(
+		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
+	) (func() error, error)
+
+	// RemoveSecretBackendReference removes the reference
+	// to the secret backend for the given secret revision.
 	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
-	// UpdateSecretBackendReference updates the reference to the secret backend for the given secret revision.
-	UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string) (func() error, error)
+
+	// UpdateSecretBackendReference updates the reference
+	// to the secret backend for the given secret revision.
+	UpdateSecretBackendReference(
+		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
+	) (func() error, error)
+}
+
+// SecretBackendState describes persistence methods for working
+// with secret backends in the controller database.
+type SecretBackendState interface {
+	SecretBackendReferenceMutator
+
+	// GetModelSecretBackendDetails returns the details of the secret
+	// backend that the input model is configured to use.
+	GetModelSecretBackendDetails(
+		ctx context.Context, modelUUID coremodel.UUID,
+	) (secretbackend.ModelSecretBackend, error)
+
+	// ListSecretBackendsForModel returns a list of all secret backends that
+	// contain secrets for the specified model, unless includeEmpty is true,
+	// in which case all backends are returned.
+	ListSecretBackendsForModel(
+		ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool,
+	) ([]*secretbackend.SecretBackend, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

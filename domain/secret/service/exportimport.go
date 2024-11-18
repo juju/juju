@@ -239,7 +239,7 @@ func (s *SecretService) importSecretRevisions(
 
 		rollBack := func() error { return nil }
 		if params.ValueRef != nil || len(params.Data) != 0 {
-			rollBack, err = s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
+			rollBack, err = s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -281,7 +281,7 @@ func (s *SecretService) createImportedSecret(
 	}
 	params.RevisionID = ptr(revisionID.String())
 
-	rollBack, err := s.secretBackendReferenceMutator.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
+	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
