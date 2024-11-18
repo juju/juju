@@ -16,9 +16,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// WildcardEndpoint is a special endpoint that represents all endpoints.
-const WildcardEndpoint = ""
-
 // AtomicState describes the subset of methods on state that run within an atomic
 // context.
 type AtomicState interface {
@@ -192,7 +189,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		}
 	}
 	// Ensure endpoints closed on the wildcard endpoint are not in the map.
-	for _, wildcardClosePorts := range closePorts[WildcardEndpoint] {
+	for _, wildcardClosePorts := range closePorts[port.WildcardEndpoint] {
 		delete(closePortsToEndpointMap, wildcardClosePorts)
 	}
 
@@ -208,10 +205,10 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			return errors.Errorf("cannot update unit ports with conflict(s) on co-located units: %w", err)
 		}
 
-		wildcardOpen := openPorts[WildcardEndpoint]
-		wildcardClose := closePorts[WildcardEndpoint]
+		wildcardOpen, _ := openPorts[port.WildcardEndpoint]
+		wildcardClose, _ := closePorts[port.WildcardEndpoint]
 
-		wildcardOpened, err := s.st.GetEndpointOpenedPorts(ctx, unitUUID, WildcardEndpoint)
+		wildcardOpened, err := s.st.GetEndpointOpenedPorts(ctx, unitUUID, port.WildcardEndpoint)
 		if err != nil {
 			return errors.Errorf("failed to get opened ports for wildcard endpoint: %w", err)
 		}
@@ -223,7 +220,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			wildcardOpenedSet[portRange] = true
 		}
 		for endpoint, endpointOpenPorts := range openPorts {
-			if endpoint == WildcardEndpoint {
+			if endpoint == port.WildcardEndpoint {
 				continue
 			}
 			for i, portRange := range endpointOpenPorts {
@@ -255,7 +252,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			}
 
 			for _, endpoint := range endpoints {
-				if endpoint == WildcardEndpoint {
+				if endpoint == port.WildcardEndpoint {
 					continue
 				}
 				closePorts[endpoint] = append(closePorts[endpoint], openPortRange)
@@ -273,7 +270,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			}
 
 			for _, endpoint := range endpoints {
-				if endpoint == WildcardEndpoint {
+				if endpoint == port.WildcardEndpoint {
 					continue
 				}
 				closePorts[endpoint] = append(closePorts[endpoint], closePortRange)
@@ -295,10 +292,10 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 				// This port range, open on the wildcard endpoint, is being closed
 				// on some endpoint. We need to close it on the wildcard, and open
 				// it on all endpoints other than the wildcard & targeted endpoint.
-				closePorts[WildcardEndpoint] = append(closePorts[WildcardEndpoint], portRange)
+				closePorts[port.WildcardEndpoint] = append(closePorts[port.WildcardEndpoint], portRange)
 
 				for _, otherEndpoint := range endpoints {
-					if otherEndpoint == WildcardEndpoint || otherEndpoint == endpoint {
+					if otherEndpoint == port.WildcardEndpoint || otherEndpoint == endpoint {
 						continue
 					}
 					openPorts[otherEndpoint] = append(openPorts[otherEndpoint], portRange)
