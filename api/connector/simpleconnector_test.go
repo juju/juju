@@ -103,14 +103,18 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 	}
 }
 
-func (s *simpleConnectorSuite) TestSimpleConnector_Connect(c *gc.C) {
+func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
 	connector, err := NewSimple(SimpleConfig{
 		Username:            "alice@canonical.com",
 		ControllerAddresses: []string{"localhost:17080"},
 	})
 	c.Assert(err, gc.IsNil)
 
+	var called bool
+
 	openFunc := func(i *api.Info, do api.DialOpts) (api.Connection, error) {
+		called = true
+
 		// Zeros to false, ensure it is true after Connect dial opt.
 		c.Assert(do.InsecureSkipVerify, gc.Equals, true)
 
@@ -127,4 +131,5 @@ func (s *simpleConnectorSuite) TestSimpleConnector_Connect(c *gc.C) {
 		},
 	)
 
+	c.Assert(called, gc.Equals, true)
 }
