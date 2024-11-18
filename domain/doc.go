@@ -12,8 +12,8 @@
 // Each domain service package has several key artefacts:
 //   - the service providing public APIs called by API server facades.
 //   - the state providing functionality to read and write persistent data.
-//   - params structs which are used as arguments / results for service API calls.
-//   - arg structs which are used as arguments / results for state calls.
+//   - params structs which are used as arguments/results for service API calls.
+//   - arg structs which are used as arguments/results for state calls.
 //   - type structs which are used a sqlair in/out parameters.
 //
 // The layout of a domain package providing a service is as follows:
@@ -36,8 +36,8 @@
 //		   |- export.go
 //
 //	 [1] contains structs which model core domain entities.
-//	 [2] contains DTOs used as arguments / results for state calls
-//	 [3] optional - contains structs used as arguments / results for service API calls
+//	 [2] contains DTOs used as arguments/results for state calls
+//	 [3] optional - contains structs used as arguments/results for service API calls
 //	 [4] contains package private structs which act as in/out params for sqlair.
 //
 // At the time of writing, most domain entity structs are defined in juju/core.
@@ -57,6 +57,21 @@
 //	    }
 //	    return s.st.RecordStart(ctx, args)
 //	}
+//
+// # Enumerated types
+//
+// Enumerated types are modelled as integer values in the relational model;
+// the integer value is a foreign key to a lookup table containing the semantic enum
+// values. Each enumerated type has its own top level domain package. The responsibilities
+// of an enumerated type domain package include:
+//   - defining consts for the integer lookup values defined in the DDL.
+//   - providing tests to ensure there's no skew between the db values and golang consts.
+//   - mapping the db values to the equivalent domain consts.
+//
+// Examples:
+//   - [github.com/juju/juju/ipaddress]
+//   - [github.com/juju/juju/life]
+//   - [github.com/juju/juju/linklayerdevice]
 //
 // # Testing
 //
@@ -110,19 +125,4 @@
 // [github.com/juju/juju/domain/modelmigration.RegisterExport] and
 // [github.com/juju/juju/domain/modelmigration.RegisterImport] in order to implement
 // the export and import of model artefacts for migration.
-//
-// # Enumerated types
-//
-// Enumerated types are modelled as integer values in the relational model;
-// the integer value is a foreign key to a lookup table containing the semantic enum
-// values. Each enumerated type has its own top level domain package. The responsibilities
-// of an enumerated type domain package include:
-//   - defining consts for the integer lookup values defined in the DDL.
-//   - providing tests to ensure there's no skew between the db values and golang consts.
-//   - mapping the db values to the equivalent domain consts.
-//
-// Examples:
-//   - [github.com/juju/juju/ipaddress]
-//   - [github.com/juju/juju/life]
-//   - [github.com/juju/juju/linklayerdevice]
 package domain
