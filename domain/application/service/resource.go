@@ -16,6 +16,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // ResourceState describes retrieval and persistence methods for resources.
@@ -36,16 +37,12 @@ type ResourceState interface {
 	// SetUnitResource sets the resource metadata for a specific unit.
 	SetUnitResource(ctx context.Context, config resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error)
 
-	// OpenResource returns the metadata for a resource and a reader for
-	// the resource.
-	OpenResource(ctx context.Context, resourceID resources.ID) (resource.Resource, io.ReadCloser, error)
-	// OpenApplicationResource?
+	// OpenApplicationResource returns the metadata for an application's resource.
+	OpenApplicationResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error)
 
-	// OpenResourceForUniter returns the metadata for a resource and a reader
-	// for the resource. A unit resource is created to track the given unit and
-	// which resource its using.
-	OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error)
-	// OpenUnitResource?
+	// OpenUnitResource returns the metadata for a resource a. A unit resource is
+	// created to track the given unit and which resource its using.
+	OpenUnitResource(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, error)
 
 	// SetRepositoryResources sets the "polled" resources for the
 	// application to the provided values. The current data for this
@@ -53,17 +50,38 @@ type ResourceState interface {
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
 }
 
+type ResourceStoreGetter interface {
+	// AddStore injects a ResourceStore for the given type into the ResourceStoreFactory.
+	AddStore(t charmresource.Type, store resource.ResourceStore)
+
+	// GetResourceStore returns the appropriate ResourceStore for the
+	// given resource type.
+	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
+}
+
 // ResourceService provides the API for working with resources.
 type ResourceService struct {
-	st     ResourceState
-	logger logger.Logger
+	st                  ResourceState
+	resourceStoreGetter ResourceStoreGetter
+	logger              logger.Logger
 }
 
 // NewResourceService returns a new service reference wrapping the input state.
-func NewResourceService(st ResourceState, logger logger.Logger) *ResourceService {
+func NewResourceService(
+	st ResourceState,
+	resourceStoreGetter ResourceStoreGetter,
+	logger logger.Logger,
+) *ResourceService {
+	// Note:
+	// The store for container image resources is really a DQLite table today.
+	// Using AddStore is a compromise to avoid injecting one service into
+	// another, as would happen if NewResourceStoreFactory had a second
+	// argument to provide a ContainerImageResourceStore.
+	resourceStoreGetter.AddStore(charmresource.TypeContainerImage, newContainerImageResourceStore(st))
 	return &ResourceService{
-		st:     st,
-		logger: logger,
+		st:                  st,
+		resourceStoreGetter: resourceStoreGetter,
+		logger:              logger.Child("resource"),
 	}
 }
 
@@ -76,7 +94,10 @@ func NewResourceService(st ResourceState, logger logger.Logger) *ResourceService
 //   - errors.NotValid is returned if the application ID is not valid.
 //   - application.ResourceNotFound if no resource with name exists for
 //     given application.
-func (s *ResourceService) GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (resources.ID, error) {
+func (s *ResourceService) GetApplicationResourceID(
+	ctx context.Context,
+	args resource.GetApplicationResourceIDArgs,
+) (resources.ID, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return "", fmt.Errorf("application id: %w", err)
 	}
@@ -97,7 +118,10 @@ func (s *ResourceService) GetApplicationResourceID(ctx context.Context, args res
 //     not exist.
 //
 // No error is returned if the provided application has no resources.
-func (s *ResourceService) ListResources(ctx context.Context, applicationID application.ID) (resource.ApplicationResources, error) {
+func (s *ResourceService) ListResources(
+	ctx context.Context,
+	applicationID application.ID,
+) (resource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
 		return resource.ApplicationResources{}, fmt.Errorf("application id: %w", err)
 	}
@@ -111,7 +135,10 @@ func (s *ResourceService) ListResources(ctx context.Context, applicationID appli
 //   - application.ApplicationDyingOrDead for dead or dying applications.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) GetResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error) {
+func (s *ResourceService) GetResource(
+	ctx context.Context,
+	resourceID resources.ID,
+) (resource.Resource, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
 	}
@@ -127,12 +154,16 @@ func (s *ResourceService) GetResource(ctx context.Context, resourceID resources.
 //     SuppliedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetResource(ctx context.Context, args resource.SetResourceArgs) (resource.Resource, error) {
+func (s *ResourceService) SetResource(
+	ctx context.Context,
+	args resource.SetResourceArgs,
+) (resource.Resource, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
-		return resource.Resource{}, fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
+		return resource.Resource{},
+			fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("resource: %w", err)
@@ -149,12 +180,16 @@ func (s *ResourceService) SetResource(ctx context.Context, args resource.SetReso
 //     SuppliedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetUnitResource(ctx context.Context, args resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error) {
+func (s *ResourceService) SetUnitResource(
+	ctx context.Context,
+	args resource.SetUnitResourceArgs,
+) (resource.SetUnitResourceResult, error) {
 	if err := args.UnitID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
+		return resource.SetUnitResourceResult{},
+			fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("resource: %w", err)
@@ -162,20 +197,24 @@ func (s *ResourceService) SetUnitResource(ctx context.Context, args resource.Set
 	return s.st.SetUnitResource(ctx, args)
 }
 
-// OpenResource returns the details of and a reader for the resource.
+// OpenApplicationResource returns the details of and a reader for the resource.
 //
 // The following error types can be expected to be returned:
 //   - errors.NotValid is returned if the resource ID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
-func (s *ResourceService) OpenResource(ctx context.Context, resourceID resources.ID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenApplicationResource(
+	ctx context.Context,
+	resourceID resources.ID,
+) (resource.Resource, io.ReadCloser, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
-	return s.st.OpenResource(ctx, resourceID)
+	res, err := s.st.OpenApplicationResource(ctx, resourceID)
+	return res, &noopReadCloser{}, err
 }
 
-// OpenResourceForUniter returns metadata about the resource and a reader for
+// OpenUnitResource returns metadata about the resource and a reader for
 // the resource. The resource is associated with the unit once the reader is
 // completely exhausted. Read progress is stored until the reader is completely
 // exhausted. Typically used for File resources.
@@ -187,14 +226,19 @@ func (s *ResourceService) OpenResource(ctx context.Context, resourceID resources
 //     not exist.
 //   - application.UnitNotFound if the specified unit does
 //     not exist.
-func (s *ResourceService) OpenResourceForUniter(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, io.ReadCloser, error) {
+func (s *ResourceService) OpenUnitResource(
+	ctx context.Context,
+	resourceID resources.ID,
+	unitID coreunit.UUID,
+) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
 	}
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
-	return s.st.OpenResourceForUniter(ctx, resourceID, unitID)
+	res, err := s.st.OpenUnitResource(ctx, resourceID, unitID)
+	return res, &noopReadCloser{}, err
 }
 
 // SetRepositoryResources sets the "polled" resources for the application to
@@ -207,7 +251,10 @@ func (s *ResourceService) OpenResourceForUniter(ctx context.Context, resourceID 
 //   - errors.NotValid is returned if the length of Info is zero.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetRepositoryResources(ctx context.Context, args resource.SetRepositoryResourcesArgs) error {
+func (s *ResourceService) SetRepositoryResources(
+	ctx context.Context,
+	args resource.SetRepositoryResourcesArgs,
+) error {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return fmt.Errorf("application id: %w", err)
 	}
@@ -223,4 +270,15 @@ func (s *ResourceService) SetRepositoryResources(ctx context.Context, args resou
 		return fmt.Errorf("zero LastPolled %w", errors.NotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
+}
+
+// TODO: remove me once OpenApplicationResource and OpenUnitResource implemented.
+type noopReadCloser struct{}
+
+func (noopReadCloser) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func (noopReadCloser) Close() error {
+	return nil
 }

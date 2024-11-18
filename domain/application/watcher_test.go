@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -399,11 +400,15 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		state.NewCharmState(func() (database.TxnRunner, error) {
 			return s.ModelTxnRunner(), nil
 		}),
+		state.NewResourceState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		"", nil, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		resource.NewResourceStoreFactory(nil),
 		loggertesting.WrapCheckLog(c),
 	)
 }

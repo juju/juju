@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/ipaddress"
@@ -61,9 +62,13 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
+		state.NewResourceState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+			loggertesting.WrapCheckLog(c),
+		),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		resource.NewResourceStoreFactory(nil),
 		loggertesting.WrapCheckLog(c),
 	)
 

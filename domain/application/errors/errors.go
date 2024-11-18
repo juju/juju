@@ -133,7 +133,7 @@ const (
 
 	// UnknownResourceType describes an error where the resource type is
 	// not oci-image or file.
-	UnknownResourceType = errors.ConstError("unknown resource type resource")
+	UnknownResourceType = errors.ConstError("unknown resource type")
 
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.
