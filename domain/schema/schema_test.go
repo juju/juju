@@ -293,6 +293,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Model config
 		"model_config",
 
+		// Model status
+		"model_status",
+		"model_status_value",
+
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",
