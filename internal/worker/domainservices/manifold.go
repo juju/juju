@@ -254,7 +254,7 @@ func NewProviderTrackerModelDomainServices(
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
-	return domainservices.NewModelFactory(
+	return domainservices.NewModelServices(
 		modelUUID,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),

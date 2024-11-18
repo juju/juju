@@ -19,7 +19,7 @@ import (
 // DomainServices provides access to the services required by the apiserver.
 type DomainServices struct {
 	*ControllerServices
-	*ModelFactory
+	*ModelServices
 }
 
 // NewDomainServices returns a new domain services which can be used to
@@ -40,7 +40,7 @@ func NewDomainServices(
 	controllerServices := NewControllerServices(controllerDB, deleterDB, clock, logger)
 	return &DomainServices{
 		ControllerServices: controllerServices,
-		ModelFactory: NewModelFactory(
+		ModelServices: NewModelServices(
 			modelUUID,
 			controllerDB,
 			modelDB,

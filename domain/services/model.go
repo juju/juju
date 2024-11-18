@@ -75,8 +75,8 @@ type PublicKeyImporter interface {
 	FetchPublicKeysForSubject(context.Context, *url.URL) ([]string, error)
 }
 
-// ModelFactory provides access to the services required by the apiserver.
-type ModelFactory struct {
+// ModelServices provides access to the services required by the apiserver.
+type ModelServices struct {
 	modelServiceFactoryBase
 
 	clock             clock.Clock
@@ -88,9 +88,9 @@ type ModelFactory struct {
 	leaseManager      lease.ModelLeaseManagerGetter
 }
 
-// NewModelFactory returns a new registry which uses the provided modelDB
+// NewModelServices returns a new registry which uses the provided modelDB
 // function to obtain a model database.
-func NewModelFactory(
+func NewModelServices(
 	modelUUID model.UUID,
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
@@ -101,8 +101,8 @@ func NewModelFactory(
 	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
-) *ModelFactory {
-	return &ModelFactory{
+) *ModelServices {
+	return &ModelServices{
 		modelServiceFactoryBase: modelServiceFactoryBase{
 			serviceFactoryBase: serviceFactoryBase{
 				controllerDB: controllerDB,
@@ -121,7 +121,7 @@ func NewModelFactory(
 }
 
 // AgentProvisioner returns the agent provisioner service.
-func (s *ModelFactory) AgentProvisioner() *agentprovisionerservice.Service {
+func (s *ModelServices) AgentProvisioner() *agentprovisionerservice.Service {
 	return agentprovisionerservice.NewService(
 		agentprovisionerstate.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
@@ -131,7 +131,7 @@ func (s *ModelFactory) AgentProvisioner() *agentprovisionerservice.Service {
 }
 
 // Config returns the model's configuration service.
-func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
+func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 	defaultsProvider := modeldefaultsservice.NewService(
 		modeldefaultsservice.ProviderModelConfigGetter(),
 		modeldefaultsstate.NewState(
@@ -147,7 +147,7 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 }
 
 // Machine returns the model's machine service.
-func (s *ModelFactory) Machine() *machineservice.WatchableService {
+func (s *ModelServices) Machine() *machineservice.WatchableService {
 	return machineservice.NewWatchableService(
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("machine")),
 		s.modelWatcherFactory("machine"),
@@ -156,7 +156,7 @@ func (s *ModelFactory) Machine() *machineservice.WatchableService {
 }
 
 // BlockDevice returns the model's block device service.
-func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
+func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
 	return blockdeviceservice.NewWatchableService(
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("blockdevice"),
@@ -165,7 +165,7 @@ func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
 }
 
 // Application returns the model's application service.
-func (s *ModelFactory) Application() *applicationservice.WatchableService {
+func (s *ModelServices) Application() *applicationservice.WatchableService {
 	log := s.logger.Child("application")
 
 	return applicationservice.NewWatchableService(
@@ -183,7 +183,7 @@ func (s *ModelFactory) Application() *applicationservice.WatchableService {
 
 // KeyManager  returns the model's user public ssh key manager. Use this service
 // when wanting to modify a user's public ssh keys within a model.
-func (s *ModelFactory) KeyManager() *keymanagerservice.Service {
+func (s *ModelServices) KeyManager() *keymanagerservice.Service {
 	return keymanagerservice.NewService(
 		s.modelUUID,
 		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -193,7 +193,7 @@ func (s *ModelFactory) KeyManager() *keymanagerservice.Service {
 // KeyManagerWithImporter returns the model's user public ssh key manager with
 // the ability to import ssh public keys from external sources. Use this service
 // when wanting to modify a user's public ssh keys within a model.
-func (s *ModelFactory) KeyManagerWithImporter() *keymanagerservice.ImporterService {
+func (s *ModelServices) KeyManagerWithImporter() *keymanagerservice.ImporterService {
 	return keymanagerservice.NewImporterService(
 		s.modelUUID,
 		s.publicKeyImporter,
@@ -203,7 +203,7 @@ func (s *ModelFactory) KeyManagerWithImporter() *keymanagerservice.ImporterServi
 
 // KeyUpdater returns the model's key updater service. Use this service when
 // wanting to retrieve the authorised ssh public keys for a model.
-func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
+func (s *ModelServices) KeyUpdater() *keyupdaterservice.WatchableService {
 	controllerState := keyupdaterstate.NewControllerState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 	)
@@ -216,7 +216,7 @@ func (s *ModelFactory) KeyUpdater() *keyupdaterservice.WatchableService {
 }
 
 // Network returns the model's network service.
-func (s *ModelFactory) Network() *networkservice.WatchableService {
+func (s *ModelServices) Network() *networkservice.WatchableService {
 	log := s.logger.Child("network")
 
 	return networkservice.NewWatchableService(
@@ -228,14 +228,14 @@ func (s *ModelFactory) Network() *networkservice.WatchableService {
 }
 
 // Annotation returns the model's annotation service.
-func (s *ModelFactory) Annotation() *annotationService.Service {
+func (s *ModelServices) Annotation() *annotationService.Service {
 	return annotationService.NewService(
 		annotationState.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
 // Storage returns the model's storage service.
-func (s *ModelFactory) Storage() *storageservice.Service {
+func (s *ModelServices) Storage() *storageservice.Service {
 	return storageservice.NewService(
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("storage"),
@@ -244,7 +244,7 @@ func (s *ModelFactory) Storage() *storageservice.Service {
 }
 
 // Secret returns the model's secret service.
-func (s *ModelFactory) Secret(params secretservice.SecretServiceParams) *secretservice.WatchableService {
+func (s *ModelServices) Secret(params secretservice.SecretServiceParams) *secretservice.WatchableService {
 	log := s.logger.Child("secret")
 	return secretservice.NewWatchableService(
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
@@ -257,7 +257,7 @@ func (s *ModelFactory) Secret(params secretservice.SecretServiceParams) *secrets
 
 // ModelMigration returns the model's migration service for supporting migration
 // operations.
-func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
+func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 	return modelmigrationservice.NewService(
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
@@ -266,7 +266,7 @@ func (s *ModelFactory) ModelMigration() *modelmigrationservice.Service {
 }
 
 // ModelSecretBackend returns the model secret backend service.
-func (s *ModelFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
+func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
 	state := secretbackendstate.NewState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 		s.logger.Child("modelsecretbackend"),
@@ -275,7 +275,7 @@ func (s *ModelFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBac
 }
 
 // Agent returns the model's agent service.
-func (s *ModelFactory) Agent() *modelagentservice.ModelService {
+func (s *ModelServices) Agent() *modelagentservice.ModelService {
 	return modelagentservice.NewModelService(
 		modelagentstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -284,7 +284,7 @@ func (s *ModelFactory) Agent() *modelagentservice.ModelService {
 }
 
 // ModelInfo returns the model info service.
-func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
+func (s *ModelServices) ModelInfo() *modelservice.ModelService {
 	return modelservice.NewModelService(
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -293,7 +293,7 @@ func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 }
 
 // Proxy returns the proxy service.
-func (s *ModelFactory) Proxy() *proxy.Service {
+func (s *ModelServices) Proxy() *proxy.Service {
 	return proxy.NewService(
 		providertracker.ProviderRunner[proxy.Provider](s.providerFactory, s.modelUUID.String()),
 	)
@@ -302,7 +302,7 @@ func (s *ModelFactory) Proxy() *proxy.Service {
 // UnitState returns the service for persisting and retrieving remote unit
 // state. This is used to reconcile with local state to determine which
 // hooks to run, and is saved upon hook completion.
-func (s *ModelFactory) UnitState() *unitstateservice.Service {
+func (s *ModelServices) UnitState() *unitstateservice.Service {
 	return unitstateservice.NewService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
@@ -310,7 +310,7 @@ func (s *ModelFactory) UnitState() *unitstateservice.Service {
 
 // CloudImageMetadata returns the service for persisting and retrieving cloud
 // image metadata for the current model.
-func (s *ModelFactory) CloudImageMetadata() *cloudimagemetadataservice.Service {
+func (s *ModelServices) CloudImageMetadata() *cloudimagemetadataservice.Service {
 	return cloudimagemetadataservice.NewService(
 		cloudimagemetadatastate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
@@ -321,7 +321,7 @@ func (s *ModelFactory) CloudImageMetadata() *cloudimagemetadataservice.Service {
 }
 
 // Port returns the service for managing opened port ranges for units.
-func (s *ModelFactory) Port() *portservice.WatchableService {
+func (s *ModelServices) Port() *portservice.WatchableService {
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("port"),
@@ -330,7 +330,7 @@ func (s *ModelFactory) Port() *portservice.WatchableService {
 }
 
 // BlockCommand returns the service for blocking commands.
-func (s *ModelFactory) BlockCommand() *blockcommandservice.Service {
+func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 	return blockcommandservice.NewService(
 		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("blockcommand"),
@@ -345,7 +345,7 @@ func (s *ModelFactory) BlockCommand() *blockcommandservice.Service {
 //
 // Deprecated: Stub service contains only temporary methods and should be removed
 // as soon as possible.
-func (s *ModelFactory) Stub() *stubservice.StubService {
+func (s *ModelServices) Stub() *stubservice.StubService {
 	return stubservice.NewStubService(
 		changestream.NewTxnRunnerFactory(s.modelDB),
 	)

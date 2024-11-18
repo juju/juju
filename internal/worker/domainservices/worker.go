@@ -68,7 +68,7 @@ func (config Config) Validate() error {
 		return errors.NotValidf("nil DBGetter")
 	}
 	if config.ProviderFactory == nil {
-		return errors.NotValidf("nil ProviderFactory")
+		return errors.NotValidf("nil ProviderServices")
 	}
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
