@@ -9,25 +9,36 @@ import (
 	"sync"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/domain/application/errors"
+	coreresource "github.com/juju/juju/core/resources"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ResourceStore provides a list of methods necessary for interacting with
 // a store for the resource.
 type ResourceStore interface {
-	// Get returns an io.ReadCloser for data at path, namespaced to the
-	// model.
-	Get(context.Context, string) (io.ReadCloser, int64, error)
-}
+	// Get returns an io.ReadCloser for a resource in the resource store.
+	Get(
+		ctx context.Context,
+		resourceUUID coreresource.ID,
+	) (r io.ReadCloser, size int64, err error)
 
-// FileResourceStore is a ResourceStore for file resource types.
-type FileResourceStore struct {
-	objectStore objectstore.ObjectStore
-}
+	// Put stores data from io.Reader in the resource store at the
+	// using the resourceUUID as the key.
+	Put(
+		ctx context.Context,
+		resourceUUID coreresource.ID,
+		r io.Reader,
+		size int64,
+		fingerprint resource.Fingerprint,
+	) (ResourceStorageUUID, error)
 
-func (f FileResourceStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	return f.objectStore.Get(ctx, path)
+	// Remove removes a resource from storage.
+	Remove(
+		ctx context.Context,
+		resourceUUID coreresource.ID,
+	) error
 }
 
 // ResourceStoreFactory contains the information to provide the required
@@ -54,15 +65,15 @@ func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.
 	case resource.TypeFile:
 		store, err := f.objectStore.GetObjectStore(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Errorf("getting file resource store: %w", err)
 		}
-		return FileResourceStore{objectStore: store}, nil
+		return fileResourceStore{objectStore: store}, nil
 	default:
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		store, ok := f.storeMap[t]
 		if !ok {
-			return nil, errors.UnknownResourceType
+			return nil, applicationerrors.UnknownResourceType
 		}
 		return store, nil
 	}
