@@ -7,7 +7,7 @@ test_kubeflow() {
 	set_verbosity
 
 	echo "==> Checking for dependencies"
-	check_dependencies juju charmcraft
+	check_dependencies juju
 
 	file="${TEST_DIR}/test-deploy-kubeflow.log"
 

@@ -256,6 +256,7 @@ func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
 			Value: "foo",
 			Type:  network.IPv4Address,
 			Scope: network.ScopePublic,
+			CIDR:  "foo/24",
 		},
 	}
 	stateAddress := fromNetworkAddress(machineAddress, "machine")
@@ -266,6 +267,7 @@ func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
 			Value: "bar",
 			Type:  network.IPv4Address,
 			Scope: network.ScopePublic,
+			CIDR:  "bar/24",
 		},
 		SpaceID: "666",
 	}
