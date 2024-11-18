@@ -5,10 +5,11 @@ package resource
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"sync"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm/resource"
 )
 
@@ -33,6 +34,7 @@ func (f FileResourceStore) Get(ctx context.Context, path string) (io.ReadCloser,
 // ResourceStore.
 type ResourceStoreFactory struct {
 	objectStore objectstore.ModelObjectStoreGetter
+	mu          sync.Mutex
 	storeMap    map[resource.Type]ResourceStore
 }
 
@@ -56,9 +58,11 @@ func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.
 		}
 		return FileResourceStore{objectStore: store}, nil
 	default:
+		f.mu.Lock()
+		defer f.mu.Unlock()
 		store, ok := f.storeMap[t]
 		if !ok {
-			return nil, fmt.Errorf("unknown resource type %q", t)
+			return nil, errors.UnknownResourceType
 		}
 		return store, nil
 	}
@@ -74,5 +78,7 @@ func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.
 // NewResourceStoreFactory. If we get a new implementation of a container image
 // resource store this should be re-evaluated and hopefully removed.
 func (f *ResourceStoreFactory) AddStore(t resource.Type, store ResourceStore) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.storeMap[t] = store
 }
