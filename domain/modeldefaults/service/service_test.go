@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
@@ -418,4 +419,46 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudRegionNotFound(c *gc.C)
 		[]string{"foo"},
 	)
 	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+}
+
+// TestModelDefaultsNoProviderDefaults is a regression test to ensure a bug fix.
+// With this test we want to see that provider model defaults are not populated
+// in model default values set by the user. More specifically if a provider says
+// that the hard coded default value for key "foo" is "bar" we need to be
+// certain that when reading model default values set by a user for either a
+// cloud or a region that "foo" is not set unless the user has explicitly done
+// this.
+func (s *serviceSuite) TestModelDefaultsNoProviderDefaults(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	cloudUUID := cloudtesting.GenCloudUUID(c)
+
+	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), modelUUID).Return(cloudUUID, nil)
+	s.state.EXPECT().CloudDefaults(gomock.Any(), cloudUUID).Return(map[string]string{}, nil)
+	s.state.EXPECT().ConfigDefaults(gomock.Any()).Return(nil)
+	s.state.EXPECT().CloudType(gomock.Any(), cloudUUID).Return("dummy", nil)
+	s.state.EXPECT().ModelCloudRegionDefaults(gomock.Any(), modelUUID).Return(map[string]string{}, nil)
+	s.state.EXPECT().ModelMetadataDefaults(gomock.Any(), modelUUID).Return(map[string]string{
+		"uuid": modelUUID.String(),
+		"name": "test",
+		"type": "dummy",
+	}, nil)
+
+	s.modelConfigProvider.EXPECT().ConfigSchema().Return(schema.Fields{
+		"test-provider-key": schema.String(),
+	}).AnyTimes()
+	s.modelConfigProvider.EXPECT().ConfigDefaults().Return(schema.Defaults{
+		"test-provider-key": "val",
+	}).AnyTimes()
+	s.modelConfigProvider.EXPECT().ModelConfigDefaults(gomock.Any()).Return(nil, nil)
+
+	defaults, err := NewService(s.modelConfigProviderFunc(c), s.state).ModelDefaults(
+		context.Background(),
+		modelUUID,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	fmt.Printf("%+v\n", defaults["test-provider-key"])
+	c.Check(defaults["test-provider-key"].Region, gc.IsNil)
+	c.Check(defaults["test-provider-key"].Controller, gc.IsNil)
 }

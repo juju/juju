@@ -501,7 +501,7 @@ func (s *Service) cloudDefaults(
 		return modeldefaults.ModelCloudDefaultAttributes{}, errors.Errorf("getting model %q cloud defaults: %w", cloudUUID, err)
 	}
 
-	coercedCloudDefaults, err := coerceConfig(dbCloudDefaults, cloudType, s.modelConfigProviderGetter)
+	coercedCloudDefaults, err := coerceDefaultsToSchema(dbCloudDefaults, cloudType, s.modelConfigProviderGetter)
 	if err != nil {
 		return modeldefaults.ModelCloudDefaultAttributes{}, err
 	}
@@ -528,7 +528,7 @@ func (s *Service) cloudAllRegionDefaults(
 	cloudRegionDefaults := make(map[string]map[string]any)
 	// Coerce the cloud region config defaults if a cloud config schema has been found.
 	for regionName, regionAttr := range dbCloudRegionDefaults {
-		coercedAttrs, err := coerceConfig(regionAttr, cloudType, s.modelConfigProviderGetter)
+		coercedAttrs, err := coerceDefaultsToSchema(regionAttr, cloudType, s.modelConfigProviderGetter)
 		if err != nil {
 			return nil, errors.Errorf(
 				"coercing cloud %q region %q config: %w",
@@ -552,16 +552,17 @@ func (s *Service) modelCloudRegionDefaults(
 	}
 
 	// Coerce the cloud region config defaults if a cloud config schema has been found.
-	coercedAttrs, err := coerceConfig(dbCloudRegionDefaults, cloudType, s.modelConfigProviderGetter)
+	coercedAttrs, err := coerceDefaultsToSchema(dbCloudRegionDefaults, cloudType, s.modelConfigProviderGetter)
 	if err != nil {
 		return nil, err
 	}
 	return coercedAttrs, nil
 }
 
-// coerceConfig takes the config strings as stored in the database and uses the
-// provider and Juju schemas to coerce them to their actual types.
-func coerceConfig(
+// coerceDefaultsToSchema is responsible for taking string representations of model
+// default values from state and coercing them into the correct types according
+// to the Juju config schema.
+func coerceDefaultsToSchema(
 	strConfig map[string]string,
 	cloudType string,
 	providerGetter ModelConfigProviderFunc,
@@ -581,10 +582,13 @@ func coerceConfig(
 
 	providerFieldMap := schema.FieldMap(nil, nil)
 	if configProvider != nil {
-		providerFieldMap = schema.FieldMap(
-			configProvider.ConfigSchema(),
-			configProvider.ConfigDefaults(),
-		)
+		providerSchema := configProvider.ConfigSchema()
+		omitDefaults := make(schema.Defaults, len(providerSchema))
+		for k := range providerSchema {
+			omitDefaults[k] = schema.Omit
+		}
+
+		providerFieldMap = schema.FieldMap(providerSchema, omitDefaults)
 	}
 
 	coercedProviderCfg, err := providerFieldMap.Coerce(strConfig, nil)
