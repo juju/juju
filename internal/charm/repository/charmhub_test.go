@@ -218,7 +218,21 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 
 	curl.Revision = revision
 
-	expectedOrigin := origin
+	expectedOrigin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Channel:      "20.04",
+		},
+		Revision: &revision,
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		Hash: "SHA256 hash",
+	}
 	expectedOrigin.Type = "charm"
 	expectedOrigin.Revision = &revision
 
@@ -251,7 +265,18 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 
 	curl.Revision = 16
 
-	expectedOrigin := origin
+	expectedOrigin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+		},
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		Hash: "SHA256 hash",
+	}
 	expectedOrigin.Type = "charm"
 	expectedOrigin.Revision = &curl.Revision
 	expectedOrigin.Platform.OS = "ubuntu"

@@ -72,12 +72,13 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
-	essMeta.ResolvedOrigin = resolvedOrigin
 
 	// Get ID and Hash for the origin. Needed in the case where this
 	// charm has been downloaded before.
 	resolvedOrigin.ID = resp.Entity.ID
 	resolvedOrigin.Hash = resp.Entity.Download.HashSHA256
+
+	essMeta.ResolvedOrigin = resolvedOrigin
 
 	// Resources are best attempt here. If we were able to resolve the charm
 	// via a channel, the resource data will be here. If using a revision,
