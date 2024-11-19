@@ -23,7 +23,7 @@ type CleanerAPI struct {
 	resources      facade.Resources
 	objectStore    objectstore.ObjectStore
 	machineRemover state.MachineRemover
-	appService     state.ApplicationService
+	appService     state.ApplicationAndUnitRemover
 }
 
 // Cleanup triggers a state cleanup

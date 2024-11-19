@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -63,6 +64,9 @@ type State struct {
 	newPolicy              NewPolicyFunc
 	runTransactionObserver RunTransactionObserverFunc
 	maxTxnAttempts         int
+	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
+	// and should disapear as soon as we migrate units and applications.
+	charmServiceGetter func(modelUUID coremodel.UUID) CharmService
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -80,6 +84,7 @@ func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
 		session,
 		st.newPolicy,
 		st.stateClock,
+		st.charmServiceGetter,
 		st.runTransactionObserver,
 		st.maxTxnAttempts,
 	)
@@ -1181,14 +1186,18 @@ func (st *State) AddApplication(
 		}
 		ops = append(ops, addPeerOps...)
 
-		isSidecar, err := app.IsSidecar()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if isSidecar {
-			if err := resetSequence(st, app.Tag().String()); err != nil {
+		if len(args.Resources) > 0 {
+			// Collect pending resource resolution operations.
+			resources := st.resources(store)
+			resOps, err := resources.resolveApplicationPendingResourcesOps(args.Name, args.Resources)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			ops = append(ops, resOps...)
+		}
+
+		if err := resetSequence(st, app.Tag().String()); err != nil {
+			return nil, errors.Trace(err)
 		}
 
 		// Collect unit-adding operations.
@@ -1198,6 +1207,7 @@ func (st *State) AddApplication(
 					cons:          args.Constraints,
 					storageCons:   args.Storage,
 					attachStorage: args.AttachStorage,
+					charmMeta:     args.Charm.Meta(),
 				},
 			)
 			if err != nil {

@@ -21,7 +21,7 @@ import (
 type State interface {
 	AddCharmPlaceholder(curl *charm.URL) error
 	AllApplications() ([]Application, error)
-	Charm(curl string) (*state.Charm, error)
+	Charm(curl string) (state.CharmRefFull, error)
 	ControllerUUID() string
 	Model() (Model, error)
 	Resources(objectstore.ObjectStore) Resources
