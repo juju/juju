@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -348,7 +349,7 @@ func (t *tracedWorker) Get(ctx context.Context, path string) (_ io.ReadCloser, _
 }
 
 // Put stores data from reader at path, namespaced to the model.
-func (t *tracedWorker) Put(ctx context.Context, path string, r io.Reader, length int64) (err error) {
+func (t *tracedWorker) Put(ctx context.Context, path string, r io.Reader, length int64) (uuid objectstore.UUID, err error) {
 	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc(),
 		coretrace.WithAttributes(
 			coretrace.StringAttr("objectstore.path", path),

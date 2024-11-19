@@ -14,6 +14,7 @@ import (
 	io "io"
 	reflect "reflect"
 
+	objectstore "github.com/juju/juju/core/objectstore"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -181,11 +182,12 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // Put mocks base method.
-func (m *MockStorage) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) error {
+func (m *MockStorage) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(objectstore.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Put indicates an expected call of Put.
@@ -201,19 +203,19 @@ type MockStoragePutCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStoragePutCall) Return(arg0 error) *MockStoragePutCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStoragePutCall) Return(arg0 objectstore.UUID, arg1 error) *MockStoragePutCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStoragePutCall) Do(f func(context.Context, string, io.Reader, int64) error) *MockStoragePutCall {
+func (c *MockStoragePutCall) Do(f func(context.Context, string, io.Reader, int64) (objectstore.UUID, error)) *MockStoragePutCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStoragePutCall) DoAndReturn(f func(context.Context, string, io.Reader, int64) error) *MockStoragePutCall {
+func (c *MockStoragePutCall) DoAndReturn(f func(context.Context, string, io.Reader, int64) (objectstore.UUID, error)) *MockStoragePutCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

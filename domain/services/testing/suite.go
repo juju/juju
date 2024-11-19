@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
@@ -360,14 +361,14 @@ func (TestingObjectStore) Get(ctx context.Context, name string) (io.ReadCloser, 
 }
 
 // Put stores data from reader at path, namespaced to the model.
-func (TestingObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
-	return nil
+func (TestingObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
+	return "", nil
 }
 
 // Put stores data from reader at path, namespaced to the model.
 // It also ensures the stored data has the correct hash.
-func (TestingObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
-	return nil
+func (TestingObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (objectstore.UUID, error) {
+	return "", nil
 }
 
 // Remove removes data at path, namespaced to the model.

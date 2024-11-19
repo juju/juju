@@ -82,7 +82,7 @@ func AddCharm(st *state.State, objectStore coreobjectstore.ObjectStore, curl str
 	}
 
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl, digest)
-	if err := objectStore.Put(context.Background(), storagePath, f, size); err != nil {
+	if _, err := objectStore.Put(context.Background(), storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
 	info := state.CharmInfo{

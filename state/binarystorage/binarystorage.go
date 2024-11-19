@@ -14,6 +14,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/core/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
@@ -31,7 +32,7 @@ type ManagedStorage interface {
 	Get(ctx context.Context, path string) (r io.ReadCloser, length int64, err error)
 
 	// Put stores data from reader at path, namespaced to the bucket.
-	Put(ctx context.Context, path string, r io.Reader, length int64) error
+	Put(ctx context.Context, path string, r io.Reader, length int64) (objectstore.UUID, error)
 
 	// Remove deletes data at path, namespaced to the bucket.
 	Remove(ctx context.Context, path string) error
@@ -64,7 +65,7 @@ func New(
 func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the binary file to storage.
 	path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
-	if err := s.managedStorage.Put(ctx, path, r, metadata.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
+	if _, err := s.managedStorage.Put(ctx, path, r, metadata.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
 		return errors.Annotate(err, "cannot store binary file")
 	}
 	defer func() {

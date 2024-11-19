@@ -33,7 +33,7 @@ type ObjectStoreMetadata interface {
 	GetMetadata(ctx context.Context, path string) (Metadata, error)
 
 	// PutMetadata adds a new specified path for the persistence metadata.
-	PutMetadata(ctx context.Context, metadata Metadata) error
+	PutMetadata(ctx context.Context, metadata Metadata) (UUID, error)
 
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -20,7 +21,7 @@ type State interface {
 	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error)
 	// PutMetadata adds a new specified path for the persistence metadata.
-	PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error
+	PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (objectstore.UUID, error)
 	// ListMetadata returns the persistence metadata for all paths.
 	ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error)
 	// RemoveMetadata removes the specified path for the persistence metadata.
@@ -80,16 +81,16 @@ func (s *Service) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata,
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.
-func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
-	err := s.st.PutMetadata(ctx, coreobjectstore.Metadata{
+func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (objectstore.UUID, error) {
+	uuid, err := s.st.PutMetadata(ctx, coreobjectstore.Metadata{
 		Hash: metadata.Hash,
 		Path: metadata.Path,
 		Size: metadata.Size,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "adding path %s", metadata.Path)
+		return "", errors.Annotatef(err, "adding path %s", metadata.Path)
 	}
-	return nil
+	return uuid, nil
 }
 
 // RemoveMetadata removes the specified path for the persistence metadata.

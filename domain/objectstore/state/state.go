@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State implements the domain objectstore state.
@@ -95,15 +94,15 @@ LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.
-func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
+func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	uuid, err := uuid.NewUUID()
+	uuid, err := coreobjectstore.NewUUID()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	dbMetadata := dbMetadata{
@@ -122,14 +121,14 @@ func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metada
 INSERT INTO object_store_metadata (uuid, hash_type_id, hash, size)
 VALUES ($dbMetadata.*) ON CONFLICT (hash) DO NOTHING`, dbMetadata)
 	if err != nil {
-		return errors.Annotate(err, "preparing insert metadata statement")
+		return "", errors.Annotate(err, "preparing insert metadata statement")
 	}
 
 	pathStmt, err := s.Prepare(`
 INSERT INTO object_store_metadata_path (path, metadata_uuid)
 VALUES ($dbMetadataPath.*)`, dbMetadataPath)
 	if err != nil {
-		return errors.Annotate(err, "preparing insert metadata path statement")
+		return "", errors.Annotate(err, "preparing insert metadata path statement")
 	}
 
 	metadataLookupStmt, err := s.Prepare(`
@@ -138,13 +137,15 @@ FROM   object_store_metadata
 WHERE  hash = $dbMetadata.hash 
 AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 	if err != nil {
-		return errors.Annotate(err, "preparing select metadata statement")
+		return "", errors.Annotate(err, "preparing select metadata statement")
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var outcome sqlair.Outcome
 		err := tx.Query(ctx, metadataStmt, dbMetadata).Get(&outcome)
-		if err != nil {
+		if database.IsErrConstraintPrimaryKey(err) {
+			return objectstoreerrors.ErrHashAlreadyExists
+		} else if err != nil {
 			return errors.Annotatef(err, "inserting metadata")
 		}
 
@@ -163,7 +164,9 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		}
 
 		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
-		if err != nil {
+		if database.IsErrConstraintPrimaryKey(err) {
+			return objectstoreerrors.ErrHashAlreadyExists
+		} else if err != nil {
 			return errors.Annotatef(err, "inserting metadata path")
 		}
 		if rows, err := outcome.Result().RowsAffected(); err != nil {
@@ -174,12 +177,9 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		return nil
 	})
 	if err != nil {
-		if database.IsErrConstraintPrimaryKey(err) {
-			return objectstoreerrors.ErrHashAlreadyExists
-		}
-		return errors.Annotatef(err, "adding path %s", metadata.Path)
+		return "", errors.Annotatef(err, "adding path %s", metadata.Path)
 	}
-	return nil
+	return uuid, nil
 }
 
 // RemoveMetadata removes the specified key for the persistence path.
