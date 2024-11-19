@@ -349,10 +349,11 @@ func makeCreateApplicationArgs(
 	}
 
 	return application.AddApplicationArg{
-		Charm:    ch,
-		Platform: platformArg,
-		Origin:   originArg,
-		Channel:  channelArg,
+		Charm:            ch,
+		Platform:         platformArg,
+		Origin:           originArg,
+		Channel:          channelArg,
+		CharmStoragePath: args.CharmStoragePath,
 	}, nil
 }
 

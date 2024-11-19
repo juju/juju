@@ -378,28 +378,75 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 
 	svc := s.setupService(c, factory)
 
-	id0 := s.createApplication(c, svc, "foo")
-	id1 := s.createApplication(c, svc, "bar")
-
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationsWithPendingCharms(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
+	var id0, id1 coreapplication.ID
 	harness.AddTest(func(c *gc.C) {
+		id0 = s.createApplication(c, svc, "foo")
+		id1 = s.createApplication(c, svc, "bar")
 	}, func(w watchertest.WatcherC[[]string]) {
-		// No change should occur after the initial setup.
+		w.Check(
+			watchertest.StringSliceAssert[string](id0.String(), id1.String()),
+		)
+	})
+
+	// Updating the charm doesn't emit an event.
+	harness.AddTest(func(c *gc.C) {
+		db, err := factory()
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+UPDATE charm SET available = TRUE
+FROM application AS a
+INNER JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid=?`, id0.String())
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
+	// Updating the application doesn't emit an event.
 	harness.AddTest(func(c *gc.C) {
+		db, err := factory()
+		c.Assert(err, jc.ErrorIsNil)
 
+		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+UPDATE application SET charm_modified_version = 1
+WHERE uuid=?`, id0.String())
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c, []string{id0.String(), id1.String()})
+	// Add another application with a pending charm.
+	var id2 coreapplication.ID
+	harness.AddTest(func(c *gc.C) {
+		id2 = s.createApplication(c, svc, "baz")
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](id2.String()),
+		)
+	})
+
+	// Add another application with a available charm.
+	// Available charms are not pending charms!
+	harness.AddTest(func(c *gc.C) {
+		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{})
 }
 
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
@@ -422,10 +469,10 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 }
 
 func (s *watcherSuite) createApplication(c *gc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
-	return s.createApplicationWithCharm(c, svc, name, &stubCharm{}, units...)
+	return s.createApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createApplicationWithCharm(c *gc.C, svc *service.WatchableService, name string, charm internalcharm.Charm, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *service.WatchableService, name string, charm internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := svc.CreateApplication(ctx, name, charm, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -435,17 +482,24 @@ func (s *watcherSuite) createApplicationWithCharm(c *gc.C, svc *service.Watchabl
 			Architecture: "amd64",
 		},
 	}, service.AddApplicationArgs{
-		ReferenceName: name,
+		ReferenceName:    name,
+		CharmStoragePath: storagePath,
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
 }
 
-type stubCharm struct{}
+type stubCharm struct {
+	name string
+}
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
+	name := s.name
+	if name == "" {
+		name = "test"
+	}
 	return &internalcharm.Meta{
-		Name: "test",
+		Name: name,
 	}
 }
 

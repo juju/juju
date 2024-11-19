@@ -14,11 +14,12 @@ import (
 
 // AddApplicationArg contains parameters for saving an application to state.
 type AddApplicationArg struct {
-	Charm    domaincharm.Charm
-	Origin   domaincharm.CharmOrigin
-	Scale    int
-	Platform Platform
-	Channel  *Channel
+	Charm            domaincharm.Charm
+	Origin           domaincharm.CharmOrigin
+	Scale            int
+	Platform         Platform
+	Channel          *Channel
+	CharmStoragePath string
 }
 
 // Channel represents the channel of a application charm.

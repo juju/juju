@@ -102,7 +102,7 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "666", platform, channel, scale, origin)
+	s.assertApplication(c, "666", platform, channel, scale, origin, false)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
@@ -150,8 +150,8 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	scale := application.ScaleState{}
-	s.assertApplication(c, "foo1", platform, channel, scale, origin)
-	s.assertApplication(c, "foo2", platform, channel, scale, origin)
+	s.assertApplication(c, "foo1", platform, channel, scale, origin, false)
+	s.assertApplication(c, "foo2", platform, channel, scale, origin, false)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
@@ -180,7 +180,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "666", platform, nil, scale, origin)
+	s.assertApplication(c, "666", platform, nil, scale, origin, false)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
@@ -209,7 +209,37 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "666", platform, channel, scale, origin)
+	s.assertApplication(c, "666", platform, channel, scale, origin, false)
+}
+
+func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       charm.Ubuntu,
+		Architecture: charm.ARM64,
+	}
+	channel := &application.Channel{}
+	origin := charm.CharmOrigin{
+		Source:   charm.LocalSource,
+		Revision: 42,
+	}
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+			Platform: platform,
+			Origin:   origin,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "666",
+				},
+			},
+			CharmStoragePath: "some-path",
+			Scale:            1,
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, origin, true)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {
@@ -1964,6 +1994,7 @@ func (s *applicationStateSuite) assertApplication(
 	channel *application.Channel,
 	scale application.ScaleState,
 	origin charm.CharmOrigin,
+	available bool,
 ) {
 	var (
 		gotName      string
@@ -1973,6 +2004,7 @@ func (s *applicationStateSuite) assertApplication(
 		gotChannel   application.Channel
 		gotScale     application.ScaleState
 		gotOrigin    charm.CharmOrigin
+		gotAvailable bool
 	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
@@ -1999,7 +2031,10 @@ func (s *applicationStateSuite) assertApplication(
 		if err != nil {
 			return err
 		}
-
+		err = tx.QueryRowContext(ctx, "SELECT available FROM charm WHERE uuid=?", gotCharmUUID).Scan(&gotAvailable)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2007,6 +2042,7 @@ func (s *applicationStateSuite) assertApplication(
 	c.Check(gotPlatform, jc.DeepEquals, platform)
 	c.Check(gotScale, jc.DeepEquals, scale)
 	c.Check(gotOrigin, gc.DeepEquals, origin)
+	c.Check(gotAvailable, gc.Equals, available)
 
 	// Channel is optional, so we need to check it separately.
 	if channel != nil {

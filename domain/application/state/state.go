@@ -152,6 +152,7 @@ func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, id corecharm.ID, ch
 	if err := s.setCharmManifest(ctx, tx, id, charm.Manifest); err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
@@ -164,6 +165,7 @@ func (s *State) setCharmState(
 	data := setCharm{
 		UUID:        id.String(),
 		ArchivePath: archivePath,
+		Available:   archivePath != "",
 	}
 
 	query := `INSERT INTO charm (*) VALUES ($setCharm.*);`
