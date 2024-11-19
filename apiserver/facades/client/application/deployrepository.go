@@ -964,11 +964,6 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		return charmResult{}, errors.Trace(err)
 	}
 
-	// This charm needs to be downloaded, remove the ID and Hash to
-	// allow it to happen.
-	resolvedOrigin.ID = ""
-	resolvedOrigin.Hash = ""
-
 	return charmResult{
 		CharmURL:     resolvedData.URL,
 		Origin:       resolvedOrigin,

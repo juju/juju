@@ -392,7 +392,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		bootstrap.ControllerApplicationName,
 		ch, origin,
 		applicationservice.AddApplicationArgs{
-			ReferenceName: bootstrap.ControllerApplicationName,
+			ReferenceName: bootstrap.ControllerCharmName,
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				// We do have all the information we need to download the charm,
 				// we should fill this in with the correct information.

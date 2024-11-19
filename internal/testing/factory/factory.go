@@ -342,7 +342,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	}
 	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	return charm
+	return charm.(*state.Charm)
 }
 
 func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
@@ -376,7 +376,7 @@ func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
 	}
 	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	return charm
+	return charm.(*state.Charm)
 }
 
 // MakeApplication creates an application with the specified parameters, substituting
@@ -607,7 +607,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = factory.applicationService.CreateApplication(
 			context.Background(), params.Application.Name(),
-			charm.NewCharmBase(ch.Meta(), ch.Manifest(), ch.Config(), ch.Actions(), ch.LXDProfile()),
+			charm.NewCharmBase(ch.Meta(), ch.Manifest(), ch.Config(), ch.Actions(), nil),
 			chOrigin.AsCoreCharmOrigin(), applicationservice.AddApplicationArgs{
 				ReferenceName: params.Application.Name(),
 				Storage:       directives,

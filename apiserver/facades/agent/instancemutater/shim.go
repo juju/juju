@@ -50,7 +50,7 @@ func (s *instanceMutaterStateShim) Charm(curl string) (Charm, error) {
 		return nil, errors.Trace(err)
 	}
 	return &charmShim{
-		Charm: ch,
+		CharmRefFull: ch,
 	}, nil
 }
 
@@ -67,19 +67,22 @@ func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
 // charmShim is used as a shim for a state Charm to enable better
 // mock testing.
 type charmShim struct {
-	*state.Charm
+	state.CharmRefFull
 }
 
 func (s *charmShim) LXDProfile() lxdprofile.Profile {
-	profile := s.Charm.LXDProfile()
-	if profile == nil {
-		return lxdprofile.Profile{}
-	}
-	return lxdprofile.Profile{
-		Config:      profile.Config,
-		Description: profile.Description,
-		Devices:     profile.Devices,
-	}
+	// TODO(nvinuesa): LXDProfile is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-7076
+	// profile := s.CharmRefFull.LXDProfile()
+	// if profile == nil {
+	// 	return lxdprofile.Profile{}
+	// }
+	// return lxdprofile.Profile{
+	// 	Config:      profile.Config,
+	// 	Description: profile.Description,
+	// 	Devices:     profile.Devices,
+	// }
+	return lxdprofile.Profile{}
 }
 
 // unitShim is used as a shim for a state Unit to enable better
