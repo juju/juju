@@ -9,9 +9,9 @@ run_model_metrics() {
 	ensure "${testname}" "${file}"
 
 	# deploy ubuntu with a different name, check that the metric send the charm name, not the application name.
-	juju deploy ubuntu app-one
+	juju deploy ubuntu app-one --base ubuntu@22.04
 	juju deploy juju-qa-test
-	juju deploy ntp
+	juju deploy ntp # ntp currently only works on 22.04 and before.
 	juju relate ntp app-one
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
