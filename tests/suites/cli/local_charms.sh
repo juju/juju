@@ -14,8 +14,8 @@ run_deploy_local_charm_revision() {
 	cd "${TMP}/ubuntu-plus" || exit 1
 
 	# Initialise a git repo to check the commit SHA is used as the charm version.
-	git init
-	git add . && git commit -m "commit everything"
+
+	create_local_git_folder
 	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
 
 	# Deploy from directory.
