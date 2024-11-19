@@ -112,7 +112,7 @@ func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
 
 	var called bool
 
-	openFunc := func(i *api.Info, do api.DialOpts) (api.Connection, error) {
+	s.PatchValue(&apiOpen, func(i *api.Info, do api.DialOpts) (api.Connection, error) {
 		called = true
 
 		// Zeros to false, ensure it is true after Connect dial opt.
@@ -121,10 +121,9 @@ func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
 		// Defaults to 10 * time.Minute, ensure it is overwritten after Connect dial opt.
 		c.Assert(do.Timeout, gc.Equals, 5*time.Minute)
 		return nil, nil
-	}
+	})
 
 	connector.Connect(
-		openFunc,
 		func(do *api.DialOpts) {
 			do.InsecureSkipVerify = true
 			do.Timeout = 5 * time.Minute

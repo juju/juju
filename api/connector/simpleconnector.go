@@ -94,10 +94,10 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 }
 
 // Connect returns a Connection according to c's configuration.
-func (c *SimpleConnector) Connect(openFunc api.OpenFunc, dialOptions ...api.DialOption) (api.Connection, error) {
+func (c *SimpleConnector) Connect(dialOptions ...api.DialOption) (api.Connection, error) {
 	opts := c.defaultDialOpts
 	for _, f := range dialOptions {
 		f(&opts)
 	}
-	return openFunc(&c.info, opts)
+	return apiOpen(&c.info, opts)
 }
