@@ -7,7 +7,7 @@ run_dashboard_deploy() {
 	juju relate dashboard controller
 
 	juju wait-for application dashboard
-	sleep 5 # short wait for relation data to update
+	sleep 10 # short wait for relation data to update
 	open_dashboard
 
 	# Switch to different model and test
@@ -17,7 +17,7 @@ run_dashboard_deploy() {
 
 	destroy_model "${model_name}"
 	juju switch controller
-	juju remove-application dashboard
+	juju remove-application --no-prompt dashboard
 }
 
 test_dashboard_deploy() {
@@ -38,7 +38,7 @@ test_dashboard_deploy() {
 open_dashboard() {
 	juju dashboard &
 	PID=$!
-	sleep 2
+	sleep 10
 	# TODO: capture url from dashboard output
 	curl -L http://localhost:31666 | grep "Juju Dashboard"
 	kill -SIGINT "$PID"
