@@ -232,7 +232,7 @@ jobs:
         run: |
           set -euxo pipefail
           
-          make operator-image
+          DOCKER_USERNAME=docker.io/jujusolutions make operator-image
           
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
