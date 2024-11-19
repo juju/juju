@@ -200,6 +200,16 @@ type ApplicationState interface {
 	// be used as a cheap way to see if a charm exists without needing to load
 	// the charm metadata.
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
+
+	// GetApplicationIDByUnitName returns the application ID for the named unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+	// doesn't exist.
+	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
+
+	// GetCharmModifiedVersion looks up the charm modified version of the given
+	// application. Returns [applicationerrors.ApplicationNotFound] if the
+	// application is not found.
+	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -493,6 +503,20 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 		return s.st.AddUnits(ctx, appID, args...)
 	})
 	return errors.Annotatef(err, "adding units to application %q", name)
+}
+
+// GetApplicationIDByUnitName returns the application ID for the named unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *ApplicationService) GetApplicationIDByUnitName(
+	ctx context.Context,
+	unitName coreunit.Name,
+) (coreapplication.ID, error) {
+	id, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
+	if err != nil {
+		return "", internalerrors.Errorf("getting application id: %w", err)
+	}
+	return id, nil
 }
 
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
@@ -1004,6 +1028,18 @@ func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, na
 	}
 
 	return s.st.GetCharmIDByApplicationName(ctx, name)
+}
+
+// GetCharmModifiedVersion looks up the charm modified version of the given
+// application.
+//
+// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+func (s *ApplicationService) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
+	charmModifiedVersion, err := s.st.GetCharmModifiedVersion(ctx, id)
+	if err != nil {
+		return -1, internalerrors.Errorf("getting the application charm modified version: %w", err)
+	}
+	return charmModifiedVersion, nil
 }
 
 // GetCharmByApplicationID returns the charm for the specified application
