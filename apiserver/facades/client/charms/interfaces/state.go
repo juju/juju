@@ -12,9 +12,9 @@ import (
 )
 
 type BackendState interface {
-	AddCharmMetadata(state.CharmInfo) (*state.Charm, error)
+	AddCharmMetadata(state.CharmInfo) (state.CharmRefFull, error)
 	Application(string) (Application, error)
-	Charm(curl string) (*state.Charm, error)
+	Charm(curl string) (state.CharmRefFull, error)
 	ControllerTag() names.ControllerTag
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)

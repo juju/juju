@@ -687,11 +687,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	exApplication.SetCharmOrigin(charmOriginArgs)
 
 	// Set Tools for application - this is only for CAAS models.
-	isSidecar, err := ctx.application.IsSidecar()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
 
@@ -761,7 +756,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		if (e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries) || isSidecar {
+		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
 			tools, err := unit.AgentTools()
 			if err != nil && !e.cfg.IgnoreIncompleteModel {
 				// This means the tools aren't set, but they should be.
@@ -794,17 +789,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Trace(err)
 		}
 		exUnit.SetConstraints(constraintsArgs)
-	}
-
-	if e.dbModel.Type() == ModelTypeCAAS && !isSidecar {
-		tools, err := ctx.application.AgentTools()
-		if err != nil {
-			// This means the tools aren't set, but they should be.
-			return errors.Trace(err)
-		}
-		exApplication.SetTools(description.AgentToolsArgs{
-			Version: tools.Version,
-		})
 	}
 
 	return nil
@@ -2145,7 +2129,7 @@ func (e *exporter) charmData(charmURL string) (charmData, error) {
 	}, nil
 }
 
-func (e *exporter) charmMetadata(ch *Charm) (description.CharmMetadataArgs, error) {
+func (e *exporter) charmMetadata(ch CharmRefFull) (description.CharmMetadataArgs, error) {
 	meta := ch.Meta()
 	if meta == nil {
 		return description.CharmMetadataArgs{}, errors.Errorf("missing metadata")
@@ -2154,13 +2138,6 @@ func (e *exporter) charmMetadata(ch *Charm) (description.CharmMetadataArgs, erro
 	assumes, err := json.Marshal(meta.Assumes)
 	if err != nil {
 		return description.CharmMetadataArgs{}, errors.Annotate(err, "marshalling assumes")
-	}
-
-	var lxdProfile []byte
-	if charmProfile := ch.LXDProfile(); charmProfile != nil {
-		if lxdProfile, err = json.Marshal(charmProfile); err != nil {
-			return description.CharmMetadataArgs{}, errors.Annotate(err, "marshalling lxd profile")
-		}
 	}
 
 	return description.CharmMetadataArgs{
@@ -2183,11 +2160,11 @@ func (e *exporter) charmMetadata(ch *Charm) (description.CharmMetadataArgs, erro
 		Payloads:       e.charmPayloads(meta.PayloadClasses),
 		Resources:      e.charmResources(meta.Resources),
 		Containers:     e.charmContainers(meta.Containers),
-		LXDProfile:     string(lxdProfile),
+		LXDProfile:     "",
 	}, nil
 }
 
-func (e *exporter) charmManifest(ch *Charm) (description.CharmManifestArgs, error) {
+func (e *exporter) charmManifest(ch CharmRefFull) (description.CharmManifestArgs, error) {
 	manifest := ch.Manifest()
 	if manifest == nil {
 		return description.CharmManifestArgs{}, nil
@@ -2208,7 +2185,7 @@ func (e *exporter) charmManifest(ch *Charm) (description.CharmManifestArgs, erro
 	}, nil
 }
 
-func (e *exporter) charmActions(ch *Charm) (description.CharmActionsArgs, error) {
+func (e *exporter) charmActions(ch CharmRefFull) (description.CharmActionsArgs, error) {
 	actions := ch.Actions()
 	if actions == nil {
 		return description.CharmActionsArgs{}, nil
@@ -2229,7 +2206,7 @@ func (e *exporter) charmActions(ch *Charm) (description.CharmActionsArgs, error)
 	}, nil
 }
 
-func (e *exporter) charmConfig(ch *Charm) (description.CharmConfigsArgs, error) {
+func (e *exporter) charmConfig(ch CharmRefFull) (description.CharmConfigsArgs, error) {
 	config := ch.Config()
 	if config == nil {
 		return description.CharmConfigsArgs{}, nil

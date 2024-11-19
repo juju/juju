@@ -179,10 +179,11 @@ type CharmStore interface {
 	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 }
 
-// GetCharmID returns a charm ID by name. It returns an error if the charm can
-// not be found by the name. This can also be used as a cheap way to see if a
-// charm exists without needing to load the charm metadata. Returns
-// [applicationerrors.CharmNameNotValid] if the name is not valid, and
+// GetCharmID returns a charm ID by name, source and revision. It returns an
+// error if the charm can not be found.
+// This can also be used as a cheap way to see if a charm exists without
+// needing to load the charm metadata.
+// Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
@@ -548,6 +549,24 @@ func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefi
 	}
 
 	return reader, nil
+}
+
+// GetCharmHash returns the hash of the charm archive identified by its charm
+// ID.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *Service) GetCharmHash(ctx context.Context, id corecharm.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", internalerrors.Errorf("charm id: %w", err)
+	}
+
+	_, hash, err := s.st.GetCharmArchiveMetadata(ctx, id)
+	if err != nil {
+		return "", internalerrors.Errorf("getting charm hash: %w", err)
+	}
+
+	return hash, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This

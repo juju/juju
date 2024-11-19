@@ -569,14 +569,6 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		isSidecar, err := app.IsSidecar()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !isSidecar {
-			agentTags.Add(applicationTag)
-			continue
-		}
 		unitNames, err := app.UnitNames()
 		if err != nil {
 			return nil, errors.Trace(err)

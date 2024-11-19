@@ -51,14 +51,16 @@ func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 // charm URL. If the blob for the charm is already stored, the method returns
 // an error to indicate this.
 func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
-	ch, err := s.stateBackend.PrepareCharmUpload(charmURL)
+	_, err := s.stateBackend.PrepareCharmUpload(charmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if ch.IsUploaded() {
-		return charmdownloader.NewCharmAlreadyStoredError(charmURL)
-	}
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// if ch.IsUploaded() {
+	// 	return charmdownloader.NewCharmAlreadyStoredError(charmURL)
+	// }
 
 	return nil
 }

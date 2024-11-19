@@ -241,8 +241,8 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	}, nil)
 
 	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
-		func(ci state.CharmInfo) (*state.Charm, error) {
-			c.Check(ci.ID, gc.DeepEquals, curl.String())
+		func(ci state.CharmInfo) (state.CharmRefFull, error) {
+			c.Check(ci.ID, gc.DeepEquals, curl)
 			// Check that the essential metadata matches what
 			// the repository returned. We use pointer checks here.
 			c.Check(ci.Charm.Meta(), gc.Equals, expMeta)

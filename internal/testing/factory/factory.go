@@ -341,7 +341,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	}
 	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	return charm
+	return charm.(*state.Charm)
 }
 
 func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
@@ -375,7 +375,7 @@ func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
 	}
 	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	return charm
+	return charm.(*state.Charm)
 }
 
 // MakeApplication creates an application with the specified parameters, substituting

@@ -116,14 +116,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	// Queue async charm download.
 	// AddCharmMetadata returns no error if the charm
 	// has already been queue'd or downloaded.
-	ch, err := api.state.AddCharmMetadata(state.CharmInfo{
-		Charm: dt.charm,
-		ID:    dt.charmURL.String(),
-	})
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-	}
-
 	stOrigin, err := StateCharmOrigin(dt.origin)
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
@@ -139,8 +131,8 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
-		Charm:             ch,
-		CharmURL:          ch.URL(),
+		Charm:             dt.charm,
+		CharmURL:          dt.charmURL.String(),
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,
@@ -161,7 +153,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			}
 			unitArgs[i].UnitName = unitName
 		}
-		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
+		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, dt.charm, dt.origin, applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,
 			Storage:       dt.storage,
 			// We always have download info for a charm from the charmhub store.

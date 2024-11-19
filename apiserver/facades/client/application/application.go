@@ -977,7 +977,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 func (api *APIBase) applicationSetCharm(
 	ctx context.Context,
 	params setCharmParams,
-	newCharm Charm,
+	newCharm state.CharmRefFull,
 	newOrigin *state.CharmOrigin,
 ) error {
 	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)

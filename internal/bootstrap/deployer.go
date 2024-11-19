@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // DeployCharmResult holds the result of deploying a charm.
@@ -492,15 +491,6 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-	_, err = b.charmUploader.UpdateUploadedCharm(state.CharmInfo{
-		Charm:       info.Charm,
-		ID:          info.URL.String(),
-		StoragePath: info.ArchivePath,
-		SHA256:      info.Origin.Hash,
-	})
-	if err != nil && !stateerrors.IsCharmAlreadyUploadedError(err) {
-		return nil, errors.Annotatef(err, "updating uploaded charm")
 	}
 
 	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{

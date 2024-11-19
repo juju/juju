@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 // Register the state tracker as a new profile.
@@ -52,6 +53,10 @@ type OpenParams struct {
 
 	// MaxTxnAttempts is defaulted by OpenStatePool if otherwise not set.
 	MaxTxnAttempts int
+
+	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
+	// and should disapear as soon as we migrate units and applications.
+	CharmServiceGetter func(modelUUID coremodel.UUID) CharmService
 
 	// WatcherPollInterval is defaulted by the TxnWatcher if otherwise not set.
 	WatcherPollInterval time.Duration
@@ -98,6 +103,7 @@ func open(
 	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	charmServiceGetter func(modelUUID coremodel.UUID) CharmService,
 	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
 ) (*State, error) {
@@ -107,6 +113,7 @@ func open(
 		session,
 		newPolicy,
 		clock,
+		charmServiceGetter,
 		runTransactionObserver,
 		maxTxnAttempts)
 	if err != nil {
@@ -135,6 +142,7 @@ func newState(
 	session *mgo.Session,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	charmServiceGetter func(modelUUID coremodel.UUID) CharmService,
 	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
 ) (_ *State, err error) {
@@ -179,6 +187,7 @@ func newState(
 		database:               db,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
+		charmServiceGetter:     charmServiceGetter,
 		maxTxnAttempts:         maxTxnAttempts,
 	}
 	if newPolicy != nil {

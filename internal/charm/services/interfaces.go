@@ -20,7 +20,9 @@ type StateBackend interface {
 
 // UploadedCharm represents a charm whose upload status can be queried.
 type UploadedCharm interface {
-	IsUploaded() bool
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// IsUploaded() bool
 }
 
 // Storage describes an API for storing and deleting blobs.

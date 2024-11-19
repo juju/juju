@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -18,12 +19,31 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	coremodel "github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	mongoutils "github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 )
+
+// CharmService represents a service for retrieving charms.
+type CharmService interface {
+	// GetCharm returns the charm using the charm ID.
+	// Calling this method will return all the data associated with the charm.
+	// It is not expected to call this method for all calls, instead use the move
+	// focused and specific methods. That's because this method is very expensive
+	// to call. This is implemented for the cases where all the charm data is
+	// needed; model migration, charm export, etc.
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, error)
+	// GetCharmID returns a charm ID by name, source and revision. It returns an
+	// error if the charm can not be found.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+}
 
 // Channel identifies and describes completely a store channel.
 type Channel struct {
@@ -553,11 +573,14 @@ func (c *Charm) Life() Life {
 // Refresh loads fresh charm data from the database. In practice, the
 // only observable change should be to its Life value.
 func (c *Charm) Refresh() error {
-	ch, err := c.st.Charm(c.URL())
+	_, err := c.st.Charm(c.URL())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.doc = ch.doc
+	// TODO(nvinuesa): We have broken refresh, until we fully implement
+	// the new charm service, this method is a no-op.
+	// See https://warthogs.atlassian.net/browse/JUJU-4767
+	// c.doc = ch.doc
 	return nil
 }
 
@@ -663,7 +686,7 @@ func (c *Charm) IsPlaceholder() bool {
 // TODO(achilleasa) Overwrite this implementation with the body of the
 // AddCharmMetadata method once the server-side bundle expansion work is
 // complete.
-func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
+func (st *State) AddCharm(info CharmInfo) (stch CharmRefFull, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
@@ -708,24 +731,48 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
 // are returned for Charmhub charms. Charm placeholders are never returned.
-func (st *State) Charm(curl string) (*Charm, error) {
+func (st *State) Charm(curl string) (CharmRefFull, error) {
 	parsedURL, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, err
 	}
-	ch, err := st.findCharm(parsedURL)
-	if err != nil {
-		return nil, err
+	return st.findCharm(parsedURL)
+}
+
+type charmImpl struct {
+	charm.Charm
+	url string
+}
+
+func (c *charmImpl) Meta() *charm.Meta {
+	return c.Charm.Meta()
+}
+
+func (c *charmImpl) Manifest() *charm.Manifest {
+	return c.Charm.Manifest()
+}
+
+func (c *charmImpl) Actions() *charm.Actions {
+	return c.Charm.Actions()
+}
+
+func (c *charmImpl) Config() *charm.Config {
+	return c.Charm.Config()
+}
+
+func (c *charmImpl) Revision() int {
+	return c.Charm.Revision()
+}
+
+func (c *charmImpl) URL() string {
+	return c.url
+}
+
+func fromInternalCharm(ch charm.Charm, url string) CharmRefFull {
+	return &charmImpl{
+		Charm: ch,
+		url:   url,
 	}
-	// TODO - this is problematic because charmhub charms which are not downloaded are returned regardless.
-	// See - https://pad.lv/2058700 and https://pad.lv/2059990
-	// We could return not found here for any pending charm (not just local), but there's numerous call
-	// sites to consider. The safest approach to fix bug 2059990 is to add a sha == "" check.
-	// We need to take another look at the async deploy logic and fix some fundamental flaws.
-	if (!ch.IsUploaded() && !charm.CharmHub.Matches(parsedURL.Schema)) || ch.IsPlaceholder() {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	return ch, nil
 }
 
 // findCharm returns a charm matching the curl if it exists.  This method should
@@ -736,28 +783,32 @@ func (st *State) Charm(curl string) (*Charm, error) {
 // refreshing a charm can happen before a charm is actually downloaded. Therefore
 // it must be able to find placeholders and update them to allow for a download
 // to happen as part of refresh.
-func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
-	var cdoc charmDoc
-
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	what := bson.D{
-		{"_id", curl.String()},
+func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
+	var charmSource applicationcharm.CharmSource
+	// We must map the charm schema to the charm source. If the schema is
+	// not ch nor local, then it will fail retrieving the charm.
+	if curl.Schema == "ch" {
+		charmSource = applicationcharm.CharmHubSource
+	} else if curl.Schema == "local" {
+		charmSource = applicationcharm.LocalSource
 	}
-	what = append(what, nsLife.notDead()...)
-	err := charms.Find(what).One(&cdoc)
-	if err == mgo.ErrNotFound {
+	charmService := st.charmServiceGetter(coremodel.UUID(st.ModelUUID()))
+	charmID, err := charmService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+		Name:     curl.Name,
+		Revision: &curl.Revision,
+		Source:   charmSource,
+	})
+	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
+		return nil, errors.Annotatef(err, "cannot get charm ID for URL %q", curl)
 	}
-
-	if cdoc.PendingUpload && !charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.NotFoundf("charm %q", curl)
+	ch, _, err := charmService.GetCharm(context.TODO(), charmID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve charm with ID %q", charmID.String())
 	}
-	return newCharm(st, &cdoc), nil
+	return fromInternalCharm(ch, curl.String()), nil
 }
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
@@ -998,7 +1049,7 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 //
 // TODO(achilleas): This call will be removed once the server-side bundle
 // deployment work lands.
-func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
+func (st *State) UpdateUploadedCharm(info CharmInfo) (CharmRefFull, error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
@@ -1037,7 +1088,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 //
 // The charm URL must either have a charmhub ("ch") schema and it must include
 // a revision that isn't a negative value. Otherwise, an error will be returned.
-func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
+func (st *State) AddCharmMetadata(info CharmInfo) (CharmRefFull, error) {
 	// Perform a few sanity checks first.
 	curl, err := charm.ParseURL(info.ID)
 	if err != nil {
@@ -1052,17 +1103,6 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if the charm doc already exists.
-		ch, err := st.findCharm(curl)
-		if errors.Is(err, errors.NotFound) {
-			return insertCharmOps(st, info)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !ch.IsPlaceholder() {
-			// The charm has already been downloaded, no need to
-			// so again.
-			return nil, jujutxn.ErrNoOperations
-		}
 		// This doc was inserted by the charm revision updater worker.
 		// Add the charm metadata and mark for download.
 		assert := bson.D{
