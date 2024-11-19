@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	watcher "github.com/juju/juju/core/watcher"
-	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +42,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // DownloadApplicationCharms mocks base method.
-func (m *MockApplicationService) DownloadApplicationCharms(arg0 context.Context, arg1 []names.ApplicationTag) error {
+func (m *MockApplicationService) DownloadApplicationCharms(arg0 context.Context, arg1 []application.ID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadApplicationCharms", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -68,13 +68,13 @@ func (c *MockApplicationServiceDownloadApplicationCharmsCall) Return(arg0 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDownloadApplicationCharmsCall) Do(f func(context.Context, []names.ApplicationTag) error) *MockApplicationServiceDownloadApplicationCharmsCall {
+func (c *MockApplicationServiceDownloadApplicationCharmsCall) Do(f func(context.Context, []application.ID) error) *MockApplicationServiceDownloadApplicationCharmsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDownloadApplicationCharmsCall) DoAndReturn(f func(context.Context, []names.ApplicationTag) error) *MockApplicationServiceDownloadApplicationCharmsCall {
+func (c *MockApplicationServiceDownloadApplicationCharmsCall) DoAndReturn(f func(context.Context, []application.ID) error) *MockApplicationServiceDownloadApplicationCharmsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

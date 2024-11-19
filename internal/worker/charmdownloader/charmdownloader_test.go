@@ -7,12 +7,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -34,12 +35,13 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 
 	done := make(chan struct{})
 
+	var apps []application.ID
+	for i := 0; i < 3; i++ {
+		apps = append(apps, applicationtesting.GenApplicationUUID(c))
+	}
+
 	// This should only be called once, as the first change is empty.
-	s.applicationService.EXPECT().DownloadApplicationCharms(gomock.Any(), []names.ApplicationTag{
-		names.NewApplicationTag("ufo"),
-		names.NewApplicationTag("cons"),
-		names.NewApplicationTag("piracy"),
-	}).DoAndReturn(func(ctx context.Context, at []names.ApplicationTag) error {
+	s.applicationService.EXPECT().DownloadApplicationCharms(gomock.Any(), apps).DoAndReturn(func(ctx context.Context, at []application.ID) error {
 		defer close(done)
 		return nil
 	})
@@ -53,7 +55,12 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 
 	go func() {
 		changeCh <- []string{}
-		changeCh <- []string{"ufo", "cons", "piracy"}
+
+		var changes []string
+		for _, app := range apps {
+			changes = append(changes, app.String())
+		}
+		changeCh <- changes
 	}()
 
 	select {

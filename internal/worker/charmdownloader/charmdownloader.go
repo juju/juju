@@ -8,17 +8,22 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
 // ApplicationService describes the API exposed by the charm downloader facade.
 type ApplicationService interface {
+	// WatchApplicationsWithPendingCharms returns a watcher that notifies of
+	// changes to applications that reference charms that have not yet been
+	// downloaded.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
-	DownloadApplicationCharms(ctx context.Context, applications []names.ApplicationTag) error
+	// DownloadApplicationCharms triggers a download of the charms referenced by
+	// the given applications.
+	DownloadApplicationCharms(ctx context.Context, applications []application.ID) error
 }
 
 // Config defines the operation of a Worker.
@@ -97,13 +102,18 @@ func (cd *CharmDownloader) loop() error {
 				continue
 			}
 
-			appTags := make([]names.ApplicationTag, len(changes))
-			for i, appName := range changes {
-				appTags[i] = names.NewApplicationTag(appName)
+			appIDs := make([]application.ID, len(changes))
+			for i, change := range changes {
+				appID, err := application.ParseID(change)
+				if err != nil {
+					cd.logger.Warningf("ignoring invalid application ID %q: %v", change, err)
+					continue
+				}
+				appIDs[i] = appID
 			}
 
 			cd.logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
-			if err := cd.applicationService.DownloadApplicationCharms(ctx, appTags); err != nil {
+			if err := cd.applicationService.DownloadApplicationCharms(ctx, appIDs); err != nil {
 				return errors.Trace(err)
 			}
 		}
