@@ -225,7 +225,7 @@ func (s *stateShim) Charm(name string) (bootstrap.Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &charmShim{Charm: c}, nil
+	return &charmShim{CharmRefFull: c}, nil
 }
 
 func (s *stateShim) Unit(tag string) (bootstrap.Unit, error) {
@@ -257,7 +257,7 @@ type applicationShim struct {
 }
 
 type charmShim struct {
-	*state.Charm
+	state.CharmRefFull
 }
 
 type unitShim struct {

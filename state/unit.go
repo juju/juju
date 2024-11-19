@@ -133,15 +133,6 @@ func (u *Unit) isCaas() bool {
 	return u.modelType == ModelTypeCAAS
 }
 
-// IsSidecar returns true when using new CAAS charms in sidecar mode.
-func (u *Unit) IsSidecar() (bool, error) {
-	app, err := u.Application()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return app.IsSidecar()
-}
-
 // Application returns the application.
 func (u *Unit) Application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
@@ -1545,7 +1536,7 @@ func (u *Unit) SetCharmURL(curl string) error {
 
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
-func (u *Unit) charm() (*Charm, error) {
+func (u *Unit) charm() (CharmRefFull, error) {
 	cURL := u.CharmURL()
 	if cURL == nil {
 		app, err := u.Application()
@@ -1565,7 +1556,7 @@ func (u *Unit) charm() (*Charm, error) {
 // assertCharmOps returns txn.Ops to assert the current charm of the unit.
 // If the unit currently has no charm URL set, then the application's charm
 // URL will be checked by the txn.Ops also.
-func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
+func (u *Unit) assertCharmOps(ch CharmRefFull) []txn.Op {
 	ops := []txn.Op{{
 		C:      unitsC,
 		Id:     u.doc.Name,

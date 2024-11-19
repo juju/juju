@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -882,15 +883,30 @@ func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (str
 	var sha string
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			sch, err := u.st.Charm(curl)
+			// Parse the URL to get the charm name and revision, so that we can
+			// look up the charm ID. The charm ID is used to fetch the charm
+			// information.
+			url, err := charm.ParseURL(curl)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			sha = sch.BundleSha256()
-			if sha == "" {
-				return errors.NotFoundf("downloaded charm %q", curl)
+
+			// Get the charm ID, the charm ID is the unique UUID for the charm. All
+			// operations on the charm are done using the charm ID.
+			charmSource, err := applicationcharm.ParseCharmSchema(charm.Schema(url.Schema))
+			if err != nil {
+				return errors.Trace(err)
 			}
-			return nil
+			id, err := u.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+				Name:     url.Name,
+				Revision: ptr(url.Revision),
+				Source:   charmSource,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			sha, err = u.applicationService.GetCharmHash(ctx, id)
+			return err
 		},
 		IsFatalError: func(err error) bool {
 			return !errors.Is(err, errors.NotFound)
@@ -2834,4 +2850,8 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 	}
 
 	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
