@@ -5225,3 +5225,51 @@ func (s *StateSuite) TestPeerRelationCreatesApplicationSettings(c *gc.C) {
 	_, err = settings.ReadSettings(key)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *StateSuite) TestAddRelationAssertsRelationCount(c *gc.C) {
+	f := factory.NewFactory(s.State, s.StatePool)
+	wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
+
+	mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlCharm})
+
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// we modify the relationcount of the wordpress application as if
+		// another relation was added in the meantime and we expect the
+		// AddRelation call to fail because an assertion for relationcount
+		// was added.
+		s.applications.Update(
+			bson.D{{Name: "_id", Value: state.DocID(s.State, "wordpress")}},
+			bson.D{{Name: "$inc", Value: bson.D{{"relationcount", 1}}}},
+		)
+	}).Check()
+
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation \"wordpress:db mysql:server\": state changing too quickly; try again soon`)
+}
+
+func (s *StateSuite) TestAddRelationEnforcesRelationLimits(c *gc.C) {
+	f := factory.NewFactory(s.State, s.StatePool)
+	wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
+
+	mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql1", Charm: mysqlCharm})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql2", Charm: mysqlCharm})
+
+	eps, err := s.State.InferEndpoints("wordpress", "mysql1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err = s.State.InferEndpoints("wordpress", "mysql2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation \"wordpress:db mysql2:server\": establishing a new relation for wordpress:db would exceed its maximum relation limit of 1`)
+}
