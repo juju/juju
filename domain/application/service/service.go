@@ -65,6 +65,7 @@ func NewWatchableService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	charmDownloader CharmDownloader,
 	resourceStoreGetter ResourceStoreGetter,
 	logger logger.Logger,
 ) *WatchableService {

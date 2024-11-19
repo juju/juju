@@ -179,6 +179,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.storageRegistry,
+		charm.NewCharmDownloader(s.objectstore),
 		resource.NewResourceStoreFactory(s.objectstore),
 		s.logger.Child("application"),
 	)

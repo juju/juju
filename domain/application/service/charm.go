@@ -138,6 +138,13 @@ type CharmState interface {
 	ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error)
 }
 
+// CharmDownloader defines the interface for downloading charms.
+type CharmDownloader interface {
+	// DownloadCharm downloads the charm from the specified URL and returns the
+	// charm ID.
+	DownloadCharm(ctx context.Context, url string) (corecharm.ID, error)
+}
+
 // CharmService provides the API for working with charms.
 type CharmService struct {
 	st     CharmState

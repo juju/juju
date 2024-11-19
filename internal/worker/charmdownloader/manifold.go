@@ -53,8 +53,8 @@ func (cfg ManifoldConfig) start(context context.Context, getter dependency.Gette
 	}
 
 	w, err := NewWorker(Config{
-		Logger: cfg.Logger,
-		//ApplicationService: domainServices.Application(),
+		Logger:             cfg.Logger,
+		ApplicationService: domainServices.Application(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

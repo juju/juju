@@ -35,16 +35,18 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 
 	done := make(chan struct{})
 
-	var apps []application.ID
+	var apps []string
 	for i := 0; i < 3; i++ {
-		apps = append(apps, applicationtesting.GenApplicationUUID(c))
-	}
+		appID := applicationtesting.GenApplicationUUID(c)
+		apps = append(apps, appID.String())
 
-	// This should only be called once, as the first change is empty.
-	s.applicationService.EXPECT().DownloadApplicationCharms(gomock.Any(), apps).DoAndReturn(func(ctx context.Context, at []application.ID) error {
-		defer close(done)
-		return nil
-	})
+		s.applicationService.EXPECT().DownloadApplicationCharm(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, at application.ID) error {
+			if i == 2 {
+				close(done)
+			}
+			return nil
+		})
+	}
 
 	worker, err := NewWorker(Config{
 		Logger:             loggertesting.WrapCheckLog(c),
@@ -55,12 +57,7 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 
 	go func() {
 		changeCh <- []string{}
-
-		var changes []string
-		for _, app := range apps {
-			changes = append(changes, app.String())
-		}
-		changeCh <- changes
+		changeCh <- apps
 	}()
 
 	select {

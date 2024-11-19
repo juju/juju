@@ -1119,6 +1119,41 @@ func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *gc.C) {
 	c.Check(obtained, gc.DeepEquals, 42)
 }
 
+func (s *applicationServiceSuite) TestGetApplicationsWithPendingCharmsFromUUIDs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []coreapplication.ID{
+		applicationtesting.GenApplicationUUID(c),
+		applicationtesting.GenApplicationUUID(c),
+	}
+
+	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), uuids).Return(uuids[0:1], nil)
+
+	received, err := s.service.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), uuids)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(received, gc.DeepEquals, uuids[0:1])
+}
+
+func (s *applicationServiceSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIsInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []coreapplication.ID{
+		"foo",
+	}
+
+	_, err := s.service.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), uuids)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationsWithPendingCharmsFromUUIDsWithNoUUIDs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []coreapplication.ID{}
+
+	_, err := s.service.GetApplicationsWithPendingCharmsFromUUIDs(context.Background(), uuids)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockApplicationState(ctrl)

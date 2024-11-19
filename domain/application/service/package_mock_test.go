@@ -1004,6 +1004,45 @@ func (c *MockApplicationStateInsertUnitCall) DoAndReturn(f func(domain.AtomicCon
 	return c
 }
 
+// IsApplicationCharmAvailable mocks base method.
+func (m *MockApplicationState) IsApplicationCharmAvailable(arg0 context.Context, arg1 application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationCharmAvailable", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationCharmAvailable indicates an expected call of IsApplicationCharmAvailable.
+func (mr *MockApplicationStateMockRecorder) IsApplicationCharmAvailable(arg0, arg1 any) *MockApplicationStateIsApplicationCharmAvailableCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationCharmAvailable", reflect.TypeOf((*MockApplicationState)(nil).IsApplicationCharmAvailable), arg0, arg1)
+	return &MockApplicationStateIsApplicationCharmAvailableCall{Call: call}
+}
+
+// MockApplicationStateIsApplicationCharmAvailableCall wrap *gomock.Call
+type MockApplicationStateIsApplicationCharmAvailableCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateIsApplicationCharmAvailableCall) Return(arg0 bool, arg1 error) *MockApplicationStateIsApplicationCharmAvailableCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateIsApplicationCharmAvailableCall) Do(f func(context.Context, application.ID) (bool, error)) *MockApplicationStateIsApplicationCharmAvailableCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateIsApplicationCharmAvailableCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockApplicationStateIsApplicationCharmAvailableCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RunAtomic mocks base method.
 func (m *MockApplicationState) RunAtomic(arg0 context.Context, arg1 func(domain.AtomicContext) error) error {
 	m.ctrl.T.Helper()

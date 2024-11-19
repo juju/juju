@@ -1684,6 +1684,36 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 	}), nil
 }
 
+// IsApplicationCharmAvailable returns whether the application charm is
+// available for the specified application ID. Returns
+// [applicationerrors.ApplicationNotFound] if the application is not found.
+func (st *ApplicationState) IsApplicationCharmAvailable(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT c.available AS &charmAvailable.available
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid = $applicationID.uuid
+`, charmAvailable{}, applicationID{})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	var result charmAvailable
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, applicationID{ID: appID}).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		}
+		return errors.Trace(err)
+	})
+	return result.Available, errors.Trace(err)
+}
+
 // GetApplicationUnitLife returns the life values for the specified units of the
 // given application. The supplied ids may belong to a different application;
 // the application name is used to filter.

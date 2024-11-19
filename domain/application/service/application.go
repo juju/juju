@@ -137,7 +137,7 @@ type AtomicApplicationState interface {
 	InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery)
 
 	// DeleteApplication deletes the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// satisfying [applicationerrors.ApplicationNotFound] if the
 	// application doesn't exist. If the application still has units, as error
 	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
 	DeleteApplication(domain.AtomicContext, string) error
@@ -164,6 +164,11 @@ type AtomicApplicationState interface {
 	// with pending charms for the specified UUIDs. If the application has a
 	// different status, it's ignored.
 	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error)
+
+	// IsApplicationCharmAvailable returns whether the application charm is
+	// available for the specified application ID. Returns
+	// [applicationerrors.ApplicationNotFound] if the application is not found.
+	IsApplicationCharmAvailable(ctx context.Context, appID coreapplication.ID) (bool, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
@@ -253,16 +258,24 @@ type ApplicationService struct {
 	logger logger.Logger
 	clock  clock.Clock
 
+	charmDownloader       CharmDownloader
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	secretDeleter         DeleteSecretState
 }
 
 // NewApplicationService returns a new service reference wrapping the input state.
-func NewApplicationService(st ApplicationState, deleteSecretState DeleteSecretState, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) *ApplicationService {
+func NewApplicationService(
+	st ApplicationState,
+	deleteSecretState DeleteSecretState,
+	charmDownloader CharmDownloader,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	logger logger.Logger,
+) *ApplicationService {
 	return &ApplicationService{
 		st:                    st,
 		logger:                logger,
 		clock:                 clock.WallClock,
+		charmDownloader:       charmDownloader,
 		storageRegistryGetter: storageRegistryGetter,
 		secretDeleter:         deleteSecretState,
 	}
@@ -1360,7 +1373,42 @@ func (s *ApplicationService) GetApplicationsWithPendingCharmsFromUUIDs(ctx conte
 	if len(uuids) == 0 {
 		return nil, nil
 	}
+
+	// Validate all the UUIDs, before we start the transaction.
+	for _, uuid := range uuids {
+		if err := uuid.Validate(); err != nil {
+			return nil, errors.Annotate(err, "application")
+		}
+	}
+
 	return s.st.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
+}
+
+// DownloadApplicationCharm downloads the charms for the specified
+// applications. If the charm has already been downloaded, it will be skipped.
+func (s *ApplicationService) DownloadApplicationCharm(ctx context.Context, uuid coreapplication.ID) error {
+	if err := uuid.Validate(); err != nil {
+		return errors.Annotate(err, "application")
+	}
+
+	// Although this isn't a fool proof way to ensure that we don't download
+	// the identical charm twice, it's a good enough heuristic for now.
+	if available, err := s.st.IsApplicationCharmAvailable(ctx, uuid); available {
+		return nil
+	} else if err != nil {
+		return internalerrors.Errorf("checking if charm is available: %w", err)
+	}
+
+	objectStoreUUID, err := s.charmDownloader.DownloadCharm(ctx, uuid)
+	if err != nil {
+		return internalerrors.Errorf("downloading charm: %w", err)
+	}
+
+	if err := s.st.ResolveDownloadedCharm(ctx, uuid, objectStoreUUID); err != nil {
+		return internalerrors.Errorf("resolving downloaded charm: %w", err)
+	}
+
+	return nil
 }
 
 // AgentVersionGetter is responsible for retrieving the agent version for a

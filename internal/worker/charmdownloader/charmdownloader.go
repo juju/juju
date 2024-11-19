@@ -21,9 +21,9 @@ type ApplicationService interface {
 	// changes to applications that reference charms that have not yet been
 	// downloaded.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
-	// DownloadApplicationCharms triggers a download of the charms referenced by
+	// DownloadApplicationCharm triggers a download of the charms referenced by
 	// the given applications.
-	DownloadApplicationCharms(ctx context.Context, applications []application.ID) error
+	DownloadApplicationCharm(ctx context.Context, applications application.ID) error
 }
 
 // Config defines the operation of a Worker.
@@ -102,19 +102,17 @@ func (cd *CharmDownloader) loop() error {
 				continue
 			}
 
-			appIDs := make([]application.ID, len(changes))
-			for i, change := range changes {
+			cd.logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
+
+			for _, change := range changes {
 				appID, err := application.ParseID(change)
 				if err != nil {
 					cd.logger.Warningf("ignoring invalid application ID %q: %v", change, err)
 					continue
 				}
-				appIDs[i] = appID
-			}
-
-			cd.logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
-			if err := cd.applicationService.DownloadApplicationCharms(ctx, appIDs); err != nil {
-				return errors.Trace(err)
+				if err := cd.applicationService.DownloadApplicationCharm(ctx, appID); err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}

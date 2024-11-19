@@ -1989,6 +1989,28 @@ WHERE a.uuid=?`, id1.String())
 	c.Check(expected, gc.HasLen, 0)
 }
 
+func (s *applicationStateSuite) TestIsApplicationCharmAvailable(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	available, err := s.state.IsApplicationCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(available, jc.IsFalse)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET available = TRUE
+FROM application AS a
+INNER JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid=?`, id.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	available, err = s.state.IsApplicationCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(available, jc.IsTrue)
+}
+
 func (s *applicationStateSuite) assertApplication(
 	c *gc.C,
 	name string,

@@ -41,40 +41,40 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// DownloadApplicationCharms mocks base method.
-func (m *MockApplicationService) DownloadApplicationCharms(arg0 context.Context, arg1 []application.ID) error {
+// DownloadApplicationCharm mocks base method.
+func (m *MockApplicationService) DownloadApplicationCharm(arg0 context.Context, arg1 application.ID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadApplicationCharms", arg0, arg1)
+	ret := m.ctrl.Call(m, "DownloadApplicationCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DownloadApplicationCharms indicates an expected call of DownloadApplicationCharms.
-func (mr *MockApplicationServiceMockRecorder) DownloadApplicationCharms(arg0, arg1 any) *MockApplicationServiceDownloadApplicationCharmsCall {
+// DownloadApplicationCharm indicates an expected call of DownloadApplicationCharm.
+func (mr *MockApplicationServiceMockRecorder) DownloadApplicationCharm(arg0, arg1 any) *MockApplicationServiceDownloadApplicationCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadApplicationCharms", reflect.TypeOf((*MockApplicationService)(nil).DownloadApplicationCharms), arg0, arg1)
-	return &MockApplicationServiceDownloadApplicationCharmsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadApplicationCharm", reflect.TypeOf((*MockApplicationService)(nil).DownloadApplicationCharm), arg0, arg1)
+	return &MockApplicationServiceDownloadApplicationCharmCall{Call: call}
 }
 
-// MockApplicationServiceDownloadApplicationCharmsCall wrap *gomock.Call
-type MockApplicationServiceDownloadApplicationCharmsCall struct {
+// MockApplicationServiceDownloadApplicationCharmCall wrap *gomock.Call
+type MockApplicationServiceDownloadApplicationCharmCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceDownloadApplicationCharmsCall) Return(arg0 error) *MockApplicationServiceDownloadApplicationCharmsCall {
+func (c *MockApplicationServiceDownloadApplicationCharmCall) Return(arg0 error) *MockApplicationServiceDownloadApplicationCharmCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDownloadApplicationCharmsCall) Do(f func(context.Context, []application.ID) error) *MockApplicationServiceDownloadApplicationCharmsCall {
+func (c *MockApplicationServiceDownloadApplicationCharmCall) Do(f func(context.Context, application.ID) error) *MockApplicationServiceDownloadApplicationCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDownloadApplicationCharmsCall) DoAndReturn(f func(context.Context, []application.ID) error) *MockApplicationServiceDownloadApplicationCharmsCall {
+func (c *MockApplicationServiceDownloadApplicationCharmCall) DoAndReturn(f func(context.Context, application.ID) error) *MockApplicationServiceDownloadApplicationCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
