@@ -385,10 +385,11 @@ func (s *ApplicationService) makeCreateApplicationArgs(
 	}
 
 	return application.AddApplicationArg{
-		Charm:    ch,
-		Platform: platformArg,
-		Origin:   originArg,
-		Channel:  channelArg,
+		Charm:            ch,
+		Platform:         platformArg,
+		Origin:           originArg,
+		Channel:          channelArg,
+		CharmStoragePath: args.CharmStoragePath,
 	}, nil
 }
 
@@ -1566,8 +1567,8 @@ func (s *WatchableApplicationService) WatchApplicationsWithPendingCharms(ctx con
 
 		// Grab the changes in the order they were received.
 		var results []changestream.ChangeEvent
-		for i, result := range indexed {
-			results[i] = result.change
+		for _, result := range indexed {
+			results = append(results, result.change)
 		}
 
 		return results, nil
@@ -1575,7 +1576,7 @@ func (s *WatchableApplicationService) WatchApplicationsWithPendingCharms(ctx con
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		table,
-		changestream.Create|changestream.Update,
+		changestream.Create,
 		query,
 		mapper,
 	)

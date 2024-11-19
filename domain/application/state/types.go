@@ -225,6 +225,7 @@ type setCharmHash struct {
 type setCharm struct {
 	UUID        string `db:"uuid"`
 	ArchivePath string `db:"archive_path"`
+	Available   bool   `db:"available"`
 }
 
 // setInitialCharmOrigin is used to set the reference_name, source, revision

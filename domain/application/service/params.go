@@ -27,6 +27,8 @@ type AddApplicationArgs struct {
 	// that specific revision. The only way to then locate the charm directly
 	// via the name is use the proxy name.
 	ReferenceName string
+	// CharmStoragePath is the path to the charm in the storage.
+	CharmStoragePath string
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
 }

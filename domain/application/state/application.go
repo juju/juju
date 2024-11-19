@@ -208,7 +208,7 @@ func (st *ApplicationState) CreateApplication(ctx domain.AtomicContext, name str
 			// platforms for a charm, or just remove the charm_platform table
 			// altogether. We can do a reverse lookup from the application
 			// to the installed charm architecture.
-			if err := st.setCharm(ctx, tx, charmID, app.Charm, ""); err != nil {
+			if err := st.setCharm(ctx, tx, charmID, app.Charm, app.CharmStoragePath); err != nil {
 				return errors.Annotate(err, "setting charm")
 			}
 			if err := tx.Query(ctx, createOriginStmt, originInfo).Run(); err != nil {
