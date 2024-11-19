@@ -33,7 +33,7 @@ Issue tracker: https://bugs.launchpad.net/juju/+bugs
 
 Documentation:
 * https://juju.is/docs
-* [source tree docs](doc/)
+* [source tree docs](./)
 
 Community:
 * https://chat.charmhub.io
@@ -308,7 +308,7 @@ Conventional commits
 Once you have written some code and have tested the changes, the next step is to
 `git commit` it. For commit messages Juju follows
 [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) -- see our
-[conventional commits guidelines](doc/conventional-commits.md) for our commit types.
+[conventional commits guidelines](conventional-commits.md) for our commit types.
 In short the commits should be of the following form:
 ```
 <type>(optional <scope>): <description>
