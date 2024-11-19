@@ -103,7 +103,9 @@ type Charm interface {
 	Config() *charm.Config
 	Actions() *charm.Actions
 	Revision() int
-	IsUploaded() bool
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// IsUploaded() bool
 	URL() string
 }
 
@@ -297,7 +299,7 @@ func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{Charm: c}, nil
+	return stateCharmShim{CharmRefFull: c}, nil
 }
 
 func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
@@ -305,7 +307,7 @@ func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedC
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{Charm: c}, nil
+	return stateCharmShim{CharmRefFull: c}, nil
 }
 
 func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
@@ -313,7 +315,7 @@ func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, erro
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{Charm: c}, nil
+	return stateCharmShim{CharmRefFull: c}, nil
 }
 
 type remoteApplicationShim struct {
@@ -359,7 +361,7 @@ func (s stateShim) Charm(curl string) (Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{Charm: ch}, nil
+	return stateCharmShim{CharmRefFull: ch}, nil
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -493,7 +495,7 @@ func (a stateApplicationShim) SetCharm(
 }
 
 type stateCharmShim struct {
-	*state.Charm
+	state.CharmRefFull
 }
 
 type stateMachineShim struct {
