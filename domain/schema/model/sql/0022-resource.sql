@@ -124,8 +124,6 @@ CREATE TABLE repository_resource (
 CREATE TABLE unit_resource (
     resource_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
-    -- Download progress between the controller and the unit.
-    download_progress INT,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid),
