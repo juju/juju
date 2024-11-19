@@ -95,7 +95,7 @@ func SetCloudDefaults(
 	cloudName string,
 	defaults map[string]any,
 ) internaldatabase.BootstrapOpt {
-	return func(ctx context.Context, controller, model database.TxnRunner) error {
+	return func(ctx context.Context, controller, _ database.TxnRunner) error {
 		strDefaults, err := modelconfigservice.CoerceConfigForStorage(defaults)
 		if err != nil {
 			return fmt.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
