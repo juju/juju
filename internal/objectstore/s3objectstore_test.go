@@ -182,9 +182,10 @@ func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	uuid, err := store.Put(context.Background(), "foo", strings.NewReader(content), 12)
+	received, err := store.Put(context.Background(), "foo", strings.NewReader(content), 12)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid.Validate(), jc.ErrorIsNil)
+	c.Check(received, gc.Equals, uuid)
 
 	c.Check(receivedContent, gc.Equals, content)
 }

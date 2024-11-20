@@ -370,7 +370,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	return uuid, nil
 }
 
-func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash string, size int64) error {
+func (t *fileObjectStore) persistTmpFile(_ context.Context, tmpFileName, hash string, size int64) error {
 	filePath := t.filePath(hash)
 
 	// Check to see if the file already exists with the same name.

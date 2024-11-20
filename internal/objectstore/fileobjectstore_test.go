@@ -157,9 +157,10 @@ func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 		Size: 12,
 	}).Return(uuid, nil)
 
-	uuid, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	received, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid.Validate(), jc.ErrorIsNil)
+	c.Check(received.Validate(), jc.ErrorIsNil)
+	c.Check(received, gc.Equals, uuid)
 }
 
 func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {

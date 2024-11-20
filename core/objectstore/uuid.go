@@ -27,7 +27,7 @@ func NewUUID() (UUID, error) {
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUUID(value string) (UUID, error) {
 	if !uuid.IsValidUUIDString(value) {
-		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+		return "", fmt.Errorf("id %q: %w", value, errors.NotValid)
 	}
 	return UUID(value), nil
 }
