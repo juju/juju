@@ -26,9 +26,7 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
-	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -39,7 +37,7 @@ type serviceSuite struct {
 	modelUUID coremodel.UUID
 	svc       *service.SecretService
 
-	secretBackendReferenceMutator *secret.MockSecretBackendReferenceMutator
+	secretBackendState *secret.MockSecretBackendState
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -59,14 +57,14 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.secretBackendReferenceMutator = secret.NewMockSecretBackendReferenceMutator(ctrl)
+	s.secretBackendState = secret.NewMockSecretBackendState(ctrl)
 
 	s.svc = service.NewSecretService(
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
-		secretbackendstate.NewState(func() (database.TxnRunner, error) { return s.ControllerTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
+		s.secretBackendState,
 		loggertesting.WrapCheckLog(c),
 		service.SecretServiceParams{},
-	).WithBackendRefMutator(s.secretBackendReferenceMutator)
+	)
 
 	return ctrl
 }
@@ -134,7 +132,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
 	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
 
 	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
@@ -151,30 +149,6 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
-var backendConfigs = &provider.ModelBackendConfigInfo{
-	ActiveID: "backend-id",
-	Configs: map[string]provider.ModelBackendConfig{
-		"backend-id": {
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			ModelName:      "some-model",
-			BackendConfig: provider.BackendConfig{
-				BackendType: "active-type",
-				Config:      map[string]interface{}{"foo": "active-type"},
-			},
-		},
-		"other-backend-id": {
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			ModelName:      "some-model",
-			BackendConfig: provider.BackendConfig{
-				BackendType: "other-type",
-				Config:      map[string]interface{}{"foo": "other-type"},
-			},
-		},
-	},
-}
-
 func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -182,7 +156,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}
-	s.secretBackendReferenceMutator.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
 	uri := s.createSecret(c, nil, ref)
 
 	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
