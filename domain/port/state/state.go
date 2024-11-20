@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -14,10 +15,10 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
+	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -136,7 +137,7 @@ JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
 // So to join units to machines we go via their net_nodes.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
-func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[unit.Name]network.GroupedPortRanges, error) {
+func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[coreunit.Name]network.GroupedPortRanges, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -588,4 +589,41 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 		endpoints[i] = ep.Endpoint
 	}
 	return endpoints, nil
+}
+
+// GetUnitUUID returns the UUID of the unit with the given name, returning an
+// error satisfying [porterrors.UnitNotFound] if the unit does not exist.
+func (st State) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", jujuerrors.Trace(err)
+	}
+
+	var unitUUID coreunit.UUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitUUID, err = st.getUnitUUID(ctx, tx, unitName.String())
+		return jujuerrors.Trace(err)
+	})
+	return unitUUID, jujuerrors.Trace(err)
+}
+
+func (st State) getUnitUUID(ctx context.Context, tx *sqlair.TX, name string) (coreunit.UUID, error) {
+	u := unitName{Name: name}
+
+	selectUnitUUIDStmt, err := st.Prepare(`
+SELECT &unitName.uuid
+FROM unit
+WHERE name=$unitName.name`, u)
+	if err != nil {
+		return "", jujuerrors.Trace(err)
+	}
+	err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
+	if jujuerrors.Is(err, sqlair.ErrNoRows) {
+		return "", fmt.Errorf("%s %w", name, porterrors.UnitNotFound)
+	}
+	if err != nil {
+		return "", jujuerrors.Annotatef(err, "looking up unit UUID for %q", name)
+	}
+	return u.UUID, jujuerrors.Trace(err)
 }

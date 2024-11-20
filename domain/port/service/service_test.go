@@ -494,3 +494,14 @@ func (s *serviceSuite) TestUpdateUnitPortsNilPortMaps(c *gc.C) {
 	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, openPorts, closePorts)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *serviceSuite) TestGetUnitUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("unit/0")
+	s.st.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+
+	res, err := s.srv.GetUnitUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.Equals, unitUUID)
+}

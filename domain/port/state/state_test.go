@@ -20,6 +20,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/port"
+	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
@@ -930,4 +931,21 @@ func (s *stateSuite) TestGetEndpointsWithEmptyEndpoint(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestGetUnitUUID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	unitUUID, err := st.GetUnitUUID(ctx, s.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unitUUID, gc.Equals, s.unitUUID)
+}
+
+func (s *stateSuite) TestGetUnitUUIDNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	_, err := st.GetUnitUUID(ctx, "blah")
+	c.Assert(err, jc.ErrorIs, porterrors.UnitNotFound)
 }
