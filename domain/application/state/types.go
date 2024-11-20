@@ -26,10 +26,12 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
-// applicationID is used to get the ID (and life) of an application.
-type applicationID struct {
-	ID     coreapplication.ID `db:"uuid"`
-	LifeID life.Life          `db:"life_id"`
+// minimalApplication is used to get the minimal attributes of an application.
+type minimalApplication struct {
+	ID          coreapplication.ID `db:"uuid"`
+	Name        string             `db:"name"`
+	NetNodeUUID string             `db:"net_node_uuid"`
+	LifeID      life.Life          `db:"life_id"`
 }
 
 type applicationChannel struct {
@@ -54,6 +56,7 @@ type applicationName struct {
 type applicationDetails struct {
 	ApplicationID coreapplication.ID `db:"uuid"`
 	Name          string             `db:"name"`
+	NetNodeUUID   string             `db:"net_node_uuid"`
 	CharmID       string             `db:"charm_uuid"`
 	LifeID        life.Life          `db:"life_id"`
 }
@@ -126,13 +129,15 @@ type unitStatusData struct {
 }
 
 type cloudContainer struct {
-	UnitUUID   coreunit.UUID `db:"unit_uuid"`
-	ProviderID string        `db:"provider_id"`
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
+	ProviderID  string `db:"provider_id"`
 }
 
 type cloudService struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	ProviderID    string             `db:"provider_id"`
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
+	ProviderID  string `db:"provider_id"`
 }
 
 type applicationCharmUUID struct {
@@ -148,8 +153,8 @@ type cloudContainerDevice struct {
 }
 
 type cloudContainerPort struct {
-	UnitUUID coreunit.UUID `db:"unit_uuid"`
-	Port     string        `db:"port"`
+	CloudContainerUUID string `db:"cloud_container_uuid"`
+	Port               string `db:"port"`
 }
 
 type ipAddress struct {
