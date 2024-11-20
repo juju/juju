@@ -135,11 +135,15 @@ WHERE  type = $Lease.type;`, lease)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, lease).Run()
+		err := tx.Query(ctx, stmt, lease).Run()
+		if database.IsErrConstraintUnique(err) {
+			return corelease.ErrHeld
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	})
-	if database.IsErrConstraintUnique(err) {
-		return corelease.ErrHeld
-	}
+
 	return errors.Trace(err)
 }
 
@@ -322,11 +326,15 @@ AND    l.name = $Lease.name;`, leasePin, lease)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, stmt, leasePin, lease).Run())
-	})
-	if database.IsErrConstraintUnique(err) {
+		err := tx.Query(ctx, stmt, leasePin, lease).Run()
+		if database.IsErrConstraintUnique(err) {
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
-	}
+	})
+
 	return errors.Trace(err)
 }
 

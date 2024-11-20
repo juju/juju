@@ -59,11 +59,15 @@ VALUES ($Info.*)`, info)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, info).Run()
+		err := tx.Query(ctx, stmt, info).Run()
+		if database.IsErrConstraintUnique(err) {
+			return upgradeerrors.AlreadyExists
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	})
-	if database.IsErrConstraintUnique(err) {
-		return "", upgradeerrors.AlreadyExists
-	} else if err != nil {
+	if err != nil {
 		return "", errors.Trace(err)
 	}
 

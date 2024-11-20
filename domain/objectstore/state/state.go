@@ -143,9 +143,7 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var outcome sqlair.Outcome
 		err := tx.Query(ctx, metadataStmt, dbMetadata).Get(&outcome)
-		if database.IsErrConstraintPrimaryKey(err) {
-			return objectstoreerrors.ErrHashAlreadyExists
-		} else if err != nil {
+		if err != nil {
 			return errors.Annotatef(err, "inserting metadata")
 		}
 

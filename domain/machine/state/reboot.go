@@ -32,13 +32,16 @@ func (st *State) RequireMachineReboot(ctx context.Context, uuid string) error {
 		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, setRebootFlagStmt, machineUUIDParam).Run()
+		err := tx.Query(ctx, setRebootFlagStmt, machineUUIDParam).Run()
+		if database.IsErrConstraintPrimaryKey(err) {
+			// if the same uuid is added twice, do nothing (idempotency)
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	})
 
-	if database.IsErrConstraintPrimaryKey(err) {
-		// if the same uuid is added twice, do nothing (idempotency)
-		return nil
-	}
 	return errors.Annotatef(err, "requiring reboot of machine %q", uuid)
 }
 

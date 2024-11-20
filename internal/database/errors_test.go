@@ -59,9 +59,66 @@ func (s *errorSuite) TestIsErrCode(c *gc.C) {
 	c.Check(isErrCode(sErr, sqlite3.ErrConstraintUnique), checkers.IsTrue)
 }
 
-// TestIsError checks that IsError is reporting true for dqlite and sqlite based
-// errors.
+// TestIsError checks that IsError is reporting true for dqlite
+// and sqlite based errors.
 func (s *errorSuite) TestIsError(c *gc.C) {
+	tests := []struct {
+		Name string
+		Err  error
+		Rval bool
+	}{
+		{
+			Name: "Check DQlite pointer errors",
+			Err: &dqlite.Error{
+				Code:    dqlite.ErrBusy,
+				Message: "some message",
+			},
+			Rval: false,
+		},
+		{
+			Name: "Check SQlite non pointer errors",
+			Err: sqlite3.Error{
+				Code:         sqlite3.ErrAbort,
+				ExtendedCode: sqlite3.ErrBusyRecovery,
+			},
+			Rval: true,
+		},
+		{
+			Name: "Check DQlite non pointer errors",
+			Err: dqlite.Error{
+				Code:    dqlite.ErrBusy,
+				Message: "some message",
+			},
+			Rval: true,
+		},
+		{
+			Name: "Check SQlite pointer errors",
+			Err: &sqlite3.Error{
+				Code:         sqlite3.ErrAbort,
+				ExtendedCode: sqlite3.ErrBusyRecovery,
+			},
+			Rval: false,
+		},
+		{
+			Name: "Check non database errors",
+			Err:  errors.New("I am a teapot"),
+			Rval: false,
+		},
+		{
+			Name: "Check nil target",
+			Err:  nil,
+			Rval: false,
+		},
+	}
+
+	for _, test := range tests {
+		c.Check(IsError(test.Err), gc.Equals, test.Rval, gc.Commentf(test.Name))
+	}
+}
+
+// TestIsErrorTarget checks that IsErrorTarget is reporting true for dqlite
+// and sqlite based errors.
+func (s *errorSuite) TestIsErrorTarget(c *gc.C) {
 	tests := []struct {
 		Name string
 		T    any
@@ -112,6 +169,6 @@ func (s *errorSuite) TestIsError(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Check(IsError(test.T), gc.Equals, test.Rval, gc.Commentf(test.Name))
+		c.Check(IsErrorTarget(test.T), gc.Equals, test.Rval, gc.Commentf(test.Name))
 	}
 }
