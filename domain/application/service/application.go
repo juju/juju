@@ -1441,10 +1441,11 @@ func NewProviderApplicationService(
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	charmDownloader CharmDownloader,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	logger logger.Logger,
 ) *ProviderApplicationService {
-	service := NewApplicationService(st, deleteSecretState, storageRegistryGetter, logger)
+	service := NewApplicationService(st, deleteSecretState, charmDownloader, storageRegistryGetter, logger)
 
 	return &ProviderApplicationService{
 		ApplicationService: *service,

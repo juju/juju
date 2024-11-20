@@ -34,13 +34,14 @@ func NewService(
 	appSt ApplicationState,
 	deleteSecretSt DeleteSecretState,
 	charmSt CharmState,
+	charmDownloader CharmDownloader,
 	resourceSt ResourceState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	resourceStoreGetter ResourceStoreGetter,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		ApplicationService: NewApplicationService(appSt, deleteSecretSt, storageRegistryGetter, logger),
+		ApplicationService: NewApplicationService(appSt, deleteSecretSt, charmDownloader, storageRegistryGetter, logger),
 		CharmService:       NewCharmService(charmSt, logger),
 		ResourceService:    NewResourceService(resourceSt, resourceStoreGetter, logger),
 	}
