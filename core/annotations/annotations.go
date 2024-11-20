@@ -7,8 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
+
+	"github.com/juju/juju/internal/charm"
 )
 
 // Kind identifies different kinds of entities that'll get associated with
