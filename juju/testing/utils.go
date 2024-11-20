@@ -98,10 +98,13 @@ func AddCharm(st *state.State, objectStore coreobjectstore.ObjectStore, curl str
 	return sch, nil
 }
 
+// NewObjectStore creates a new object store for testing.
+// This uses the memory metadata service.
 func NewObjectStore(c *gc.C, modelUUID string) coreobjectstore.ObjectStore {
 	return NewObjectStoreWithMetadataService(c, modelUUID, objectstoretesting.MemoryMetadataService())
 }
 
+// NewObjectStoreWithMetadataService creates a new object store for testing.
 func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
 	store, err := objectstore.ObjectStoreFactory(
 		context.Background(),

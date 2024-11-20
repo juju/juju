@@ -82,11 +82,12 @@ func (c *MockObjectStoreGetCall) DoAndReturn(f func(context.Context, string) (io
 }
 
 // Put mocks base method.
-func (m *MockObjectStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) error {
+func (m *MockObjectStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(objectstore.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Put indicates an expected call of Put.
@@ -102,29 +103,30 @@ type MockObjectStorePutCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockObjectStorePutCall) Return(arg0 error) *MockObjectStorePutCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockObjectStorePutCall) Return(arg0 objectstore.UUID, arg1 error) *MockObjectStorePutCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStorePutCall) Do(f func(context.Context, string, io.Reader, int64) error) *MockObjectStorePutCall {
+func (c *MockObjectStorePutCall) Do(f func(context.Context, string, io.Reader, int64) (objectstore.UUID, error)) *MockObjectStorePutCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStorePutCall) DoAndReturn(f func(context.Context, string, io.Reader, int64) error) *MockObjectStorePutCall {
+func (c *MockObjectStorePutCall) DoAndReturn(f func(context.Context, string, io.Reader, int64) (objectstore.UUID, error)) *MockObjectStorePutCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PutAndCheckHash mocks base method.
-func (m *MockObjectStore) PutAndCheckHash(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64, arg4 string) error {
+func (m *MockObjectStore) PutAndCheckHash(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64, arg4 string) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutAndCheckHash", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(objectstore.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PutAndCheckHash indicates an expected call of PutAndCheckHash.
@@ -140,19 +142,19 @@ type MockObjectStorePutAndCheckHashCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockObjectStorePutAndCheckHashCall) Return(arg0 error) *MockObjectStorePutAndCheckHashCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockObjectStorePutAndCheckHashCall) Return(arg0 objectstore.UUID, arg1 error) *MockObjectStorePutAndCheckHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStorePutAndCheckHashCall) Do(f func(context.Context, string, io.Reader, int64, string) error) *MockObjectStorePutAndCheckHashCall {
+func (c *MockObjectStorePutAndCheckHashCall) Do(f func(context.Context, string, io.Reader, int64, string) (objectstore.UUID, error)) *MockObjectStorePutAndCheckHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStorePutAndCheckHashCall) DoAndReturn(f func(context.Context, string, io.Reader, int64, string) error) *MockObjectStorePutAndCheckHashCall {
+func (c *MockObjectStorePutAndCheckHashCall) DoAndReturn(f func(context.Context, string, io.Reader, int64, string) (objectstore.UUID, error)) *MockObjectStorePutAndCheckHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
