@@ -64,6 +64,11 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 	s.annotationService.EXPECT().GetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindCharm,
 		Name: "mysql-1",
+		Parts: annotations.CharmID{
+			Source:   "ch",
+			Name:     "mysql",
+			Revision: 1,
+		},
 	}).Return(map[string]string{"other": "one"}, nil)
 
 	results := s.annotationsAPI.Get(context.Background(), params.Entities{
