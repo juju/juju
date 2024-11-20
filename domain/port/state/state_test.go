@@ -909,7 +909,7 @@ func (s *stateSuite) TestUpdateUnitPortsNilOpenPort(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestGetEndpoints(c *gc.C) {
+func (s *stateSuite) TestGetEndpointsForPopulatedUnit(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
@@ -921,28 +921,21 @@ func (s *stateSuite) TestGetEndpoints(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1"})
+	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2"})
 }
 
-func (s *stateSuite) TestGetEndpointsWithEmptyEndpoint(c *gc.C) {
+func (s *stateSuite) TestGetEndpointsForUnpopulatedUnit(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
-	s.initialiseOpenPort(c, st)
 
+	var endpoints []string
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.UpdateUnitPorts(ctx, s.unitUUID,
-			network.GroupedPortRanges{"ep2": {}},
-			network.GroupedPortRanges{"ep1": {{Protocol: "tcp", FromPort: 8080, ToPort: 8080}}},
-		)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		endpoints, err := st.GetEndpoints(ctx, s.unitUUID)
-		c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2"})
+		var err error
+		endpoints, err = st.GetEndpoints(ctx, s.unitUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2"})
 }
 
 func (s *stateSuite) TestGetUnitUUID(c *gc.C) {

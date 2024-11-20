@@ -30,7 +30,8 @@ type AtomicState interface {
 	// given unit.
 	GetEndpointOpenedPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID, endpoint string) ([]network.PortRange, error)
 
-	// GetEndpoints returns all endpoints for a given unit.
+	// GetEndpoints returns all the valid relation endpoints for a given unit. This
+	// does not include the special wildcard endpoint.
 	GetEndpoints(ctx domain.AtomicContext, unitUUID coreunit.UUID) ([]string, error)
 
 	// UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
@@ -252,9 +253,6 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			}
 
 			for _, endpoint := range endpoints {
-				if endpoint == port.WildcardEndpoint {
-					continue
-				}
 				closePorts[endpoint] = append(closePorts[endpoint], openPortRange)
 
 			}
@@ -270,9 +268,6 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			}
 
 			for _, endpoint := range endpoints {
-				if endpoint == port.WildcardEndpoint {
-					continue
-				}
 				closePorts[endpoint] = append(closePorts[endpoint], closePortRange)
 			}
 		}
@@ -295,7 +290,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 				closePorts[port.WildcardEndpoint] = append(closePorts[port.WildcardEndpoint], portRange)
 
 				for _, otherEndpoint := range endpoints {
-					if otherEndpoint == port.WildcardEndpoint || otherEndpoint == endpoint {
+					if otherEndpoint == endpoint {
 						continue
 					}
 					openPorts[otherEndpoint] = append(openPorts[otherEndpoint], portRange)

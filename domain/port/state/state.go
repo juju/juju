@@ -551,21 +551,17 @@ WHERE uuid IN ($portRangeUUIDs[:])
 	return nil
 }
 
-// GetEndpoints returns all the endpoints for the given unit
-//
-// TODO(jack-w-shaw): At the moment, we calculate this by checking the unit_endpoints
-// table. However, this will not always return a complete list, as it only includes
-// endpoints that have had ports opened on them at some point.
-//
-// Once it has been implemented, we should check the charm_relation table to get a
-// complete list of endpoints instead.
+// GetEndpoints returns all the valid relation endpoints for a given unit. This
+// does not include the special wildcard endpoint.
 func (st *State) GetEndpoints(ctx domain.AtomicContext, unit coreunit.UUID) ([]string, error) {
 	unitUUID := unitUUID{UUID: unit}
 
 	getEndpoints, err := st.Prepare(`
-SELECT &endpointName.*
-FROM unit_endpoint
-WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
+SELECT charm_relation.key AS &endpointName.endpoint
+FROM unit
+JOIN application ON unit.application_uuid = application.uuid
+JOIN charm_relation ON application.charm_uuid = charm_relation.charm_uuid
+WHERE unit.uuid = $unitUUID.unit_uuid
 `, endpointName{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get endpoints statement: %w", err)
@@ -592,7 +588,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
 // error satisfying [porterrors.UnitNotFound] if the unit does not exist.
-func (st State) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+func (st *State) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -607,7 +603,7 @@ func (st State) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreun
 	return unitUUID, errors.Capture(err)
 }
 
-func (st State) getUnitUUID(ctx context.Context, tx *sqlair.TX, name string) (coreunit.UUID, error) {
+func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, name string) (coreunit.UUID, error) {
 	u := unitName{Name: name}
 
 	selectUnitUUIDStmt, err := st.Prepare(`

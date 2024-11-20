@@ -364,7 +364,7 @@ func (s *serviceSuite) TestUpdateUnitPortsOpenWildcard(c *gc.C) {
 
 	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
 	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{port.WildcardEndpoint, "ep1", "ep2", "ep3"}, nil)
+	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
 	s.st.EXPECT().UpdateUnitPorts(
 		domaintesting.IsAtomicContextChecker, unitUUID,
 		network.GroupedPortRanges{
@@ -413,7 +413,7 @@ func (s *serviceSuite) TestUpdateUnitPortsCloseWildcard(c *gc.C) {
 
 	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
 	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{port.WildcardEndpoint, "ep1", "ep2", "ep3"}, nil)
+	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
 	s.st.EXPECT().UpdateUnitPorts(domaintesting.IsAtomicContextChecker, unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
 		port.WildcardEndpoint: {
 			network.MustParsePortRange("100-200/tcp"),
@@ -447,7 +447,7 @@ func (s *serviceSuite) TestUpdateUnitPortsClosePortRangeOpenOnWildcard(c *gc.C) 
 	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
 	}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{port.WildcardEndpoint, "ep1", "ep2", "ep3"}, nil)
+	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
 	s.st.EXPECT().UpdateUnitPorts(domaintesting.IsAtomicContextChecker, unitUUID, network.GroupedPortRanges{
 		"ep2": {
 			network.MustParsePortRange("100-200/tcp"),
