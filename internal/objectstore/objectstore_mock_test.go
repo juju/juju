@@ -121,11 +121,12 @@ func (c *MockObjectStoreMetadataListMetadataCall) DoAndReturn(f func(context.Con
 }
 
 // PutMetadata mocks base method.
-func (m *MockObjectStoreMetadata) PutMetadata(arg0 context.Context, arg1 objectstore.Metadata) error {
+func (m *MockObjectStoreMetadata) PutMetadata(arg0 context.Context, arg1 objectstore.Metadata) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutMetadata", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(objectstore.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PutMetadata indicates an expected call of PutMetadata.
@@ -141,19 +142,19 @@ type MockObjectStoreMetadataPutMetadataCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockObjectStoreMetadataPutMetadataCall) Return(arg0 error) *MockObjectStoreMetadataPutMetadataCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockObjectStoreMetadataPutMetadataCall) Return(arg0 objectstore.UUID, arg1 error) *MockObjectStoreMetadataPutMetadataCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreMetadataPutMetadataCall) Do(f func(context.Context, objectstore.Metadata) error) *MockObjectStoreMetadataPutMetadataCall {
+func (c *MockObjectStoreMetadataPutMetadataCall) Do(f func(context.Context, objectstore.Metadata) (objectstore.UUID, error)) *MockObjectStoreMetadataPutMetadataCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreMetadataPutMetadataCall) DoAndReturn(f func(context.Context, objectstore.Metadata) error) *MockObjectStoreMetadataPutMetadataCall {
+func (c *MockObjectStoreMetadataPutMetadataCall) DoAndReturn(f func(context.Context, objectstore.Metadata) (objectstore.UUID, error)) *MockObjectStoreMetadataPutMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

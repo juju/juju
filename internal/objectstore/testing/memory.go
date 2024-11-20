@@ -67,7 +67,7 @@ func (s *objectStore) GetMetadata(ctx context.Context, path string) (coreobjects
 }
 
 // PutMetadata implements objectstore.ObjectStoreMetadata.
-func (s *objectStore) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
+func (s *objectStore) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
 	return s.store.put(metadata)
 }
 
@@ -85,14 +85,19 @@ func (*objectStore) Watch() (watcher.Watcher[[]string], error) {
 	return nil, errors.NotImplementedf("watching not implemented")
 }
 
+type uuidMetadata struct {
+	uuid     coreobjectstore.UUID
+	metadata coreobjectstore.Metadata
+}
+
 type store struct {
 	mutex    sync.Mutex
-	metadata map[string]coreobjectstore.Metadata
+	metadata map[string]uuidMetadata
 }
 
 func newStore() *store {
 	return &store{
-		metadata: make(map[string]coreobjectstore.Metadata),
+		metadata: make(map[string]uuidMetadata),
 	}
 }
 
@@ -102,7 +107,7 @@ func (s *store) list() ([]coreobjectstore.Metadata, error) {
 
 	var metadata []coreobjectstore.Metadata
 	for _, m := range s.metadata {
-		metadata = append(metadata, m)
+		metadata = append(metadata, m.metadata)
 	}
 	sort.Slice(metadata, func(i, j int) bool {
 		return metadata[i].Path < metadata[j].Path
@@ -114,19 +119,27 @@ func (s *store) get(path string) (coreobjectstore.Metadata, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	metadata, ok := s.metadata[path]
+	m, ok := s.metadata[path]
 	if !ok {
 		return coreobjectstore.Metadata{}, errors.NotFoundf("metadata for %q", path)
 	}
-	return metadata, nil
+	return m.metadata, nil
 }
 
-func (s *store) put(metadata coreobjectstore.Metadata) error {
+func (s *store) put(metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.metadata[metadata.Path] = metadata
-	return nil
+	uuid, err := coreobjectstore.NewUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "generating uuid")
+	}
+
+	s.metadata[metadata.Path] = uuidMetadata{
+		uuid:     uuid,
+		metadata: metadata,
+	}
+	return uuid, nil
 }
 
 func (s *store) remove(path string) error {

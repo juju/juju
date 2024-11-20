@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/cloudimagemetadata/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	dberrors "github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -218,7 +217,7 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(dberrors.IsErrConstraintUnique(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.ImageMetadataAlreadyExists)
 }
 
 // TestSaveMetadataSeveralMetadataWithInvalidArchitecture verifies that metadata with an invalid architecture is ignored

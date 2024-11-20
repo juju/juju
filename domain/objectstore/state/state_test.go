@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +38,7 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata)
+	_, err := st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
@@ -54,12 +55,37 @@ func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata)
+	_, err := st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	received, err := st.ListMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, gc.DeepEquals, []coreobjectstore.Metadata{metadata})
+}
+
+func (s *stateSuite) TestPutMetadata(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata := coreobjectstore.Metadata{
+		Hash: "hash",
+		Path: "blah-foo",
+		Size: 666,
+	}
+
+	uuid, err := st.PutMetadata(context.Background(), metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var received coreobjectstore.Metadata
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT path, size, hash FROM v_object_store_metadata WHERE uuid = ?`, uuid)
+		return row.Scan(&received.Path, &received.Size, &received.Hash)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(received, gc.DeepEquals, metadata)
 }
 
 func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
@@ -71,10 +97,10 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata)
+	_, err := st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.PutMetadata(context.Background(), metadata)
+	_, err = st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrHashAlreadyExists)
 }
@@ -93,10 +119,10 @@ func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata1)
+	_, err := st.PutMetadata(context.Background(), metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.PutMetadata(context.Background(), metadata2)
+	_, err = st.PutMetadata(context.Background(), metadata2)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -118,10 +144,10 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
 		Size: 42,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata1)
+	_, err := st.PutMetadata(context.Background(), metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.PutMetadata(context.Background(), metadata2)
+	_, err = st.PutMetadata(context.Background(), metadata2)
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 }
 
@@ -138,7 +164,7 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
 			Size: 666,
 		}
 
-		err := st.PutMetadata(context.Background(), metadatas[i])
+		_, err := st.PutMetadata(context.Background(), metadatas[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -170,10 +196,10 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata1)
+	_, err := st.PutMetadata(context.Background(), metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.PutMetadata(context.Background(), metadata2)
+	_, err = st.PutMetadata(context.Background(), metadata2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveMetadata(context.Background(), metadata2.Path)
@@ -199,9 +225,9 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 	}
 
 	// Add both metadata.
-	err := st.PutMetadata(context.Background(), metadata1)
+	_, err := st.PutMetadata(context.Background(), metadata1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.PutMetadata(context.Background(), metadata2)
+	_, err = st.PutMetadata(context.Background(), metadata2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove both metadata.
@@ -222,7 +248,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 		Path: "blah-foo-3",
 		Size: 666,
 	}
-	err = st.PutMetadata(context.Background(), metadata3)
+	_, err = st.PutMetadata(context.Background(), metadata3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We guarantee that the metadata has been added is unique, because
@@ -242,13 +268,13 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata)
+	_, err := st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveMetadata(context.Background(), metadata.Path)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.PutMetadata(context.Background(), metadata)
+	_, err = st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
@@ -265,7 +291,7 @@ func (s *stateSuite) TestListMetadata(c *gc.C) {
 		Size: 666,
 	}
 
-	err := st.PutMetadata(context.Background(), metadata)
+	_, err := st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	metadatas, err := st.ListMetadata(context.Background())

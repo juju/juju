@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 )
@@ -160,12 +161,14 @@ func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	s.expectClaim(hexHash, 1)
 	s.expectRelease(hexHash, 1)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hexHash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return(uuid, nil)
 
 	var receivedContent string
 	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash), gomock.Any(), base64Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
@@ -179,8 +182,10 @@ func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.Put(context.Background(), "foo", strings.NewReader(content), 12)
+	received, err := store.Put(context.Background(), "foo", strings.NewReader(content), 12)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid.Validate(), jc.ErrorIsNil)
+	c.Check(received, gc.Equals, uuid)
 
 	c.Check(receivedContent, gc.Equals, content)
 }
@@ -194,12 +199,14 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	s.expectClaim(hexHash, 1)
 	s.expectRelease(hexHash, 1)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hexHash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return(uuid, nil)
 
 	var receivedContent string
 	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash), gomock.Any(), base64Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
@@ -213,8 +220,9 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid.Validate(), jc.ErrorIsNil)
 
 	c.Check(receivedContent, gc.Equals, content)
 }
@@ -234,7 +242,7 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, fakeHash)
+	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, fakeHash)
 	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
 }
 
@@ -247,12 +255,14 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	s.expectClaim(hexHash, 2)
 	s.expectRelease(hexHash, 2)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hexHash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil).Times(2)
+	}).Return(uuid, nil).Times(2)
 
 	var receivedContent string
 	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash), gomock.Any(), base64Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
@@ -267,13 +277,17 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid0.Validate(), jc.ErrorIsNil)
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	uuid1, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid1.Validate(), jc.ErrorIsNil)
 
 	c.Check(receivedContent, gc.Equals, content)
+
+	c.Check(uuid0, gc.Equals, uuid1)
 }
 
 func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
@@ -288,12 +302,14 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	s.expectClaim(hexHash, 1)
 	s.expectRelease(hexHash, 1)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hexHash,
 		Path: "foo",
 		Size: 12,
-	}).Return(errors.Errorf("boom"))
+	}).Return(uuid, errors.Errorf("boom"))
 	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash), gomock.Any(), base64Hash).Return(nil)
 
 	store := s.newS3ObjectStore(c)
@@ -302,7 +318,7 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 }
 

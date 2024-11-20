@@ -240,6 +240,9 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 		"v_permission_model",
 		"v_permission_offer",
 		"v_everyone_external",
+
+		// Object store metadata
+		"v_object_store_metadata",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
@@ -514,6 +517,9 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_port_range",
 		"v_secret_permission",
 		"v_space_subnet",
+
+		// Object store metadata
+		"v_object_store_metadata",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

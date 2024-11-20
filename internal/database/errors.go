@@ -131,10 +131,26 @@ func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
 // Juju. The purpose of this function is so that our domain error masking can
 // assert if a specific error needs to be hidden from layers above that of the
 // domain/state.
-func IsError(target any) bool {
+func IsError(err error) bool {
 	// Check for the dqlite error type, before checking sqlite3 error type. In
 	// production we should only be using dqlite, but in tests we may use
 	// sqlite3 directly.
+
+	// Check if the error is a dqlite error, if so, check the code.
+	var dqliteErr dqlite.Error
+	if errors.As(err, &dqliteErr) {
+		return true
+	}
+
+	// TODO (stickupkid): This is a compatibility layer for sqlite3, we should
+	// remove this once we are only using dqlite.
+	var sqliteErr sqlite3.Error
+	return errors.As(err, &sqliteErr)
+}
+
+// IsErrorTarget reports if the any type passed to it is a database driver
+// error.
+func IsErrorTarget(target any) bool {
 	if _, is := target.(*dqlite.Error); is {
 		return true
 	}

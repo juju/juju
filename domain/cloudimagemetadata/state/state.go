@@ -206,7 +206,12 @@ VALUES ($inputMetadata.*)`, inputMetadata{})
 		if len(toInsert) == 0 {
 			return nil
 		}
-		return errors.Trace(tx.Query(ctx, insertMetadataStmt, toInsert).Run())
+		if err := tx.Query(ctx, insertMetadataStmt, toInsert).Run(); dberrors.IsErrConstraintUnique(err) {
+			return cloudmetadataerrors.ImageMetadataAlreadyExists
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	}))
 }
 

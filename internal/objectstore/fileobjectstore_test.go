@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -148,14 +149,18 @@ func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return(uuid, nil)
 
-	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	received, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(received.Validate(), jc.ErrorIsNil)
+	c.Check(received, gc.Equals, uuid)
 }
 
 func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
@@ -170,17 +175,23 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil).Times(2)
+	}).Return(uuid, nil).Times(2)
 
-	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	uuid0, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid0.Validate(), jc.ErrorIsNil)
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	uuid1, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid1.Validate(), jc.ErrorIsNil)
+
+	c.Check(uuid0, gc.Equals, uuid1)
 }
 
 func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
@@ -198,13 +209,15 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(errors.Errorf("boom"))
+	}).Return(uuid, errors.Errorf("boom"))
 
-	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
 	s.expectFileDoesExist(c, path, hash)
@@ -226,22 +239,24 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return(uuid, nil)
 
-	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(errors.Errorf("boom"))
+	}).Return(uuid, errors.Errorf("boom"))
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	_, err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
 	s.expectFileDoesExist(c, path, hash)
@@ -259,14 +274,17 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return(uuid, nil)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid.Validate(), jc.ErrorIsNil)
 }
 
 func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
@@ -280,7 +298,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, fakeHash)
+	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, fakeHash)
 	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
 }
 
@@ -296,17 +314,23 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil).Times(2)
+	}).Return(uuid, nil).Times(2)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid0.Validate(), jc.ErrorIsNil)
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	uuid1, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid1.Validate(), jc.ErrorIsNil)
+
+	c.Check(uuid0, gc.Equals, uuid1)
 }
 
 func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(c *gc.C) {
@@ -328,9 +352,9 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(errors.Errorf("boom"))
+	}).Return("", errors.Errorf("boom"))
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
 	s.expectFileDoesExist(c, path, hash)
@@ -356,18 +380,18 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 		Hash: s.calculateHexHash(c, "some content"),
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return("", nil)
 
-	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(errors.Errorf("boom"))
+	}).Return("", errors.Errorf("boom"))
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	_, err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
 	s.expectFileDoesExist(c, path, hash)
@@ -418,9 +442,9 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 		Hash: hash,
 		Path: "foo",
 		Size: 12,
-	}).Return(nil)
+	}).Return("", nil)
 
-	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectFileDoesExist(c, path, hash)

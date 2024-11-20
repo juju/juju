@@ -13,7 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -85,15 +87,17 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 		Size: 666,
 	}
 
-	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(coreobjectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data coreobjectstore.Metadata) error {
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(coreobjectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data coreobjectstore.Metadata) (objectstore.UUID, error) {
 		c.Check(data.Path, gc.Equals, metadata.Path)
 		c.Check(data.Size, gc.Equals, metadata.Size)
 		c.Check(data.Hash, gc.Equals, metadata.Hash)
-		return nil
+		return uuid, nil
 	})
 
-	err := NewService(s.state).PutMetadata(context.Background(), metadata)
+	result, err := NewService(s.state).PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, uuid)
 }
 
 func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {

@@ -52,7 +52,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 		Hash: "hash",
 		Size: 666,
 	}
-	err = svc.PutMetadata(context.Background(), metadata)
+	_, err = svc.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the change.
@@ -88,7 +88,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 		Hash: "hash",
 		Size: 666,
 	}
-	err = svc.PutMetadata(context.Background(), metadata)
+	_, err = svc.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the change.

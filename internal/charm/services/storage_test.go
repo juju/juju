@@ -70,7 +70,7 @@ func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 		Size:      7337,
 	}
 
-	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(errors.New("failed"))
+	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", errors.New("failed"))
 
 	_, err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, gc.ErrorMatches, "cannot add charm to storage.*")
@@ -91,7 +91,7 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 		CharmVersion: "the-version",
 	}
 
-	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(objectstoreerrors.ErrHashAlreadyExists)
+	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", objectstoreerrors.ErrHashAlreadyExists)
 	s.stateBackend.EXPECT().UpdateUploadedCharm(state.CharmInfo{
 		StoragePath: expStoreCharmPath,
 		ID:          curl,
@@ -122,7 +122,7 @@ func (s *storageTestSuite) TestStoreCharmAlreadyStored(c *gc.C) {
 		CharmVersion: "the-version",
 	}
 
-	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(nil)
+	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", nil)
 	s.stateBackend.EXPECT().UpdateUploadedCharm(state.CharmInfo{
 		StoragePath: expStoreCharmPath,
 		ID:          curl,

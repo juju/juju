@@ -29,3 +29,15 @@ CREATE TABLE object_store_metadata_path (
     FOREIGN KEY (metadata_uuid)
     REFERENCES object_store_metadata (uuid)
 );
+
+CREATE VIEW v_object_store_metadata AS
+SELECT
+    osm.uuid,
+    osm.hash,
+    osm.size,
+    osmp.path
+FROM object_store_metadata AS osm
+LEFT JOIN object_store_metadata_hash_type AS osmht
+    ON osm.hash_type_id = osmht.id
+LEFT JOIN object_store_metadata_path AS osmp
+    ON osm.uuid = osmp.metadata_uuid;

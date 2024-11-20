@@ -990,7 +990,7 @@ func (p *resourcePersistence) storeResource(ctx context.Context, res resources.R
 	hash := res.Fingerprint.String()
 	switch res.Type {
 	case charmresource.TypeFile:
-		if err = p.storage.PutAndCheckHash(ctx, storagePath, r, res.Size, hash); err != nil {
+		if _, err = p.storage.PutAndCheckHash(ctx, storagePath, r, res.Size, hash); err != nil {
 			return errors.Trace(err)
 		}
 	case charmresource.TypeContainerImage:

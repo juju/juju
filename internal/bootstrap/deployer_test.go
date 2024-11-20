@@ -347,9 +347,9 @@ func (s *deployerSuite) expectLocalCharmUpload(c *gc.C) {
 		Architecture: "arm64",
 	}, nil)
 	// Ensure that the charm uploaded to the object store is the one we expect.
-	s.objectStore.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, path string, reader io.Reader, size int64) error {
+	s.objectStore.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, path string, reader io.Reader, size int64) (objectstore.UUID, error) {
 		c.Check(strings.HasPrefix(path, "charms/local:arm64/juju-controller-0"), jc.IsTrue)
-		return nil
+		return "", nil
 	})
 	s.charmUploader.EXPECT().UpdateUploadedCharm(gomock.Any()).DoAndReturn(func(info state.CharmInfo) (services.UploadedCharm, error) {
 		c.Check(info.ID, gc.Equals, "local:arm64/juju-controller-0")

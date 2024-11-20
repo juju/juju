@@ -44,7 +44,7 @@ type maskError struct {
 // As implements standard errors As interface. As will check if the target type
 // is a sql error that is trying to be retrieved and return false.
 func (e maskError) As(target any) bool {
-	if database.IsError(target) {
+	if database.IsErrorTarget(target) {
 		return false
 	}
 

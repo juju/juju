@@ -184,13 +184,13 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 }
 
 // Put stores data from reader at path, namespaced to the model.
-func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
+func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return "", ctx.Err()
 	case <-t.tomb.Dying():
-		return tomb.ErrDying
+		return "", tomb.ErrDying
 	case t.requests <- request{
 		op:            opPut,
 		path:          path,
@@ -203,26 +203,26 @@ func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size 
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return "", ctx.Err()
 	case <-t.tomb.Dying():
-		return tomb.ErrDying
+		return "", tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return errors.Annotatef(resp.err, "putting blob")
+			return "", errors.Annotatef(resp.err, "putting blob")
 		}
-		return nil
+		return resp.uuid, nil
 	}
 }
 
 // Put stores data from reader at path, namespaced to the model.
 // It also ensures the stored data has the correct hash.
-func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
+func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (objectstore.UUID, error) {
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return "", ctx.Err()
 	case <-t.tomb.Dying():
-		return tomb.ErrDying
+		return "", tomb.ErrDying
 	case t.requests <- request{
 		op:            opPut,
 		path:          path,
@@ -235,14 +235,14 @@ func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.R
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return "", ctx.Err()
 	case <-t.tomb.Dying():
-		return tomb.ErrDying
+		return "", tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return errors.Annotatef(resp.err, "putting blob and check hash")
+			return "", errors.Annotatef(resp.err, "putting blob and check hash")
 		}
-		return nil
+		return resp.uuid, nil
 	}
 }
 
@@ -356,12 +356,15 @@ func (t *s3ObjectStore) loop() error {
 				}
 
 			case opPut:
+				uuid, err := t.put(ctx, req.path, req.reader, req.size, req.hashValidator)
+
 				select {
 				case <-t.tomb.Dying():
 					return tomb.ErrDying
 
 				case req.response <- response{
-					err: t.put(ctx, req.path, req.reader, req.size, req.hashValidator),
+					uuid: uuid,
+					err:  err,
 				}:
 				}
 
@@ -451,7 +454,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 	return reader, size, nil
 }
 
-func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
+func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {
 	t.logger.Debugf("putting object %q to s3 storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
@@ -471,7 +474,7 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 	// then we need seek back to the beginning of the file.
 	fileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(fileHash, s3Hash)), size)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Ensure that we remove the temporary file if we fail to persist it.
@@ -483,12 +486,13 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 
 	// Ensure that the hash of the file matches the expected hash.
 	if expected, ok := validator(fileEncodedHash); !ok {
-		return errors.Annotatef(objectstore.ErrHashMismatch, "hash mismatch for %q: expected %q, got %q", path, expected, fileEncodedHash)
+		return "", errors.Annotatef(objectstore.ErrHashMismatch, "hash mismatch for %q: expected %q, got %q", path, expected, fileEncodedHash)
 	}
 
 	// Lock the file with the given hash (fileEncodedHash), so that we can't
 	// remove the file while we're writing it.
-	return t.withLock(ctx, fileEncodedHash, func(ctx context.Context) error {
+	var uuid objectstore.UUID
+	if err := t.withLock(ctx, fileEncodedHash, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
 		if err := t.persistTmpFile(ctx, fileName, fileEncodedHash, s3EncodedHash, size); err != nil {
 			return errors.Trace(err)
@@ -497,7 +501,8 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		// Save the metadata for the file after we've written it. That way we
 		// correctly sequence the watch events. Otherwise there is a potential
 		// race where the watch event is emitted before the file is written.
-		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
+		var err error
+		if uuid, err = t.metadataService.PutMetadata(ctx, objectstore.Metadata{
 			Path: path,
 			Hash: fileEncodedHash,
 			Size: size,
@@ -505,7 +510,10 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 			return errors.Trace(err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return "", errors.Trace(err)
+	}
+	return uuid, nil
 }
 
 func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEncodedHash, s3EncodedHash string, size int64) error {

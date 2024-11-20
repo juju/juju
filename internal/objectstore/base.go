@@ -69,6 +69,7 @@ type request struct {
 type response struct {
 	reader io.ReadCloser
 	size   int64
+	uuid   objectstore.UUID
 	err    error
 }
 
