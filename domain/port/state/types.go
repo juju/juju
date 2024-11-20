@@ -168,3 +168,9 @@ type machineName struct {
 type applicationUUID struct {
 	UUID application.ID `db:"application_uuid"`
 }
+
+// unitName represents a unit's name.
+type unitName struct {
+	UUID unit.UUID `db:"uuid"`
+	Name string    `db:"name"`
+}

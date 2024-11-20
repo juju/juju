@@ -10,7 +10,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
@@ -63,6 +62,9 @@ type State interface {
 	// given application. We return opened ports paired with the unit UUIDs, grouped
 	// by endpoint.
 	GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (port.UnitEndpointPortRanges, error)
+
+	// GetUnitUUID returns the UUID of the unit with the given name.
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -104,7 +106,7 @@ func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string)
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit name and then by endpoint.
-func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[unit.Name]network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[coreunit.Name]network.GroupedPortRanges, error) {
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
@@ -202,8 +204,8 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 			return errors.Errorf("cannot update unit ports with conflict(s) on co-located units: %w", err)
 		}
 
-		wildcardOpen, _ := openPorts[WildcardEndpoint]
-		wildcardClose, _ := closePorts[WildcardEndpoint]
+		wildcardOpen := openPorts[WildcardEndpoint]
+		wildcardClose := closePorts[WildcardEndpoint]
 
 		wildcardOpened, err := s.st.GetEndpointOpenedPorts(ctx, unitUUID, WildcardEndpoint)
 		if err != nil {
@@ -310,6 +312,14 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		return errors.Errorf("failed to update unit ports: %w", err)
 	}
 	return nil
+}
+
+// GetUnitUUID returns the UUID of the unit with the given name.
+func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+	return s.st.GetUnitUUID(ctx, unitName)
 }
 
 // verifyNoPortRangeConflicts verifies the provided port ranges do not conflict

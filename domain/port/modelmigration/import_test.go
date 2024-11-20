@@ -15,14 +15,14 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	porterrors "github.com/juju/juju/domain/port/errors"
 	uniterrors "github.com/juju/juju/domain/unitstate/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
-	coordinator        *MockCoordinator
-	portService        *MockPortService
-	applicationService *MockApplicationService
+	coordinator *MockCoordinator
+	portService *MockPortService
 }
 
 var _ = gc.Suite(&importSuite{})
@@ -32,15 +32,13 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.portService = NewMockPortService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
 
 	return ctrl
 }
 
 func (s *importSuite) newImportOperation() *importOperation {
 	return &importOperation{
-		portService:        s.portService,
-		applicationService: s.applicationService,
+		portService: s.portService,
 	}
 }
 
@@ -89,7 +87,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	})
 
 	unit1UUID := coreunittesting.GenUnitUUID(c)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/1")).Return(unit1UUID, nil)
+	s.portService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/1")).Return(unit1UUID, nil)
 	s.portService.EXPECT().UpdateUnitPorts(gomock.Any(), unit1UUID, network.GroupedPortRanges{
 		"endpoint-1": []network.PortRange{{
 			FromPort: 100,
@@ -99,7 +97,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	}, nil)
 
 	unit2UUID := coreunittesting.GenUnitUUID(c)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/2")).Return(unit2UUID, nil)
+	s.portService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/2")).Return(unit2UUID, nil)
 	s.portService.EXPECT().UpdateUnitPorts(gomock.Any(), unit2UUID, network.GroupedPortRanges{
 		"endpoint-2": []network.PortRange{{
 			FromPort: 300,
@@ -128,7 +126,7 @@ func (s *importSuite) TestImportUnitNotFound(c *gc.C) {
 		Protocol:     "udp",
 	})
 
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/1")).Return("", uniterrors.UnitNotFound)
+	s.portService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/1")).Return("", porterrors.UnitNotFound)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)

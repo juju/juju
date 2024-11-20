@@ -12,16 +12,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	resourcestore "github.com/juju/juju/domain/application/resource"
-	applicationservice "github.com/juju/juju/domain/application/service"
-	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/port/service"
 	"github.com/juju/juju/domain/port/state"
-	secretstate "github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -40,23 +34,22 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // PortService provides a subset of the port domain
 // service methods needed for open ports import.
 type PortService interface {
+	// UpdateUnitPorts updates the open ports on the unit with the given UUID.
 	UpdateUnitPorts(
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		openPorts, closePorts network.GroupedPortRanges,
 	) error
-}
 
-type ApplicationService interface {
+	// GetUnitUUID returns the UUID of the unit with the given name.
 	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
 }
 
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	logger             logger.Logger
-	applicationService ApplicationService
-	portService        PortService
+	logger      logger.Logger
+	portService PortService
 }
 
 // Name returns the name of this operation.
@@ -68,17 +61,6 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.portService = service.NewService(
 		state.NewState(scope.ModelDB()), i.logger)
-	i.applicationService = applicationservice.NewService(
-		applicationstate.NewApplicationState(scope.ModelDB(), i.logger),
-		secretstate.NewState(scope.ModelDB(), i.logger),
-		applicationstate.NewCharmState(scope.ModelDB()),
-		applicationstate.NewResourceState(scope.ModelDB(), i.logger),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return storage.NotImplementedProviderRegistry{}
-		}),
-		resourcestore.NewResourceStoreFactory(nil),
-		i.logger,
-	)
 	return nil
 }
 
@@ -127,7 +109,7 @@ func (i *importOperation) importUnitPorts(
 			})
 			openPorts[endpointName] = portRangeList
 		}
-		unitUUID, err := i.applicationService.GetUnitUUID(ctx, unitName)
+		unitUUID, err := i.portService.GetUnitUUID(ctx, unitName)
 		if err != nil {
 			return errors.Errorf("getting uuid for unit %s: %w", unitName, err)
 		}
