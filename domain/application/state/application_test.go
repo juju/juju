@@ -1000,6 +1000,36 @@ func (s *applicationStateSuite) TestGetUnitNamesOneNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	expectedAppUUID := s.createApplication(c, "foo", life.Alive, u1)
+
+	obtainedAppUUID, err := s.state.GetApplicationIDByUnitName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedAppUUID, gc.Equals, expectedAppUUID)
+}
+
+func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitNotFound(c *gc.C) {
+	_, err := s.state.GetApplicationIDByUnitName(context.Background(), "failme")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetCharmModifiedVersion(c *gc.C) {
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	s.addCharmModifiedVersion(c, appUUID, 7)
+
+	charmModifiedVersion, err := s.state.GetCharmModifiedVersion(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmModifiedVersion, gc.Equals, 7)
+}
+
+func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *gc.C) {
+	_, err := s.state.GetCharmModifiedVersion(context.Background(), applicationtesting.GenApplicationUUID(c))
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) assertUnitStatus(
 	c *gc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since time.Time, data map[string]string,
 ) {
@@ -1941,7 +1971,16 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	return appID
+}
+
+func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreapplication.ID, charmModifiedVersion int) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {

@@ -256,6 +256,45 @@ func (c *MockApplicationStateGetApplicationIDCall) DoAndReturn(f func(domain.Ato
 	return c
 }
 
+// GetApplicationIDByUnitName mocks base method.
+func (m *MockApplicationState) GetApplicationIDByUnitName(arg0 context.Context, arg1 unit.Name) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationIDByUnitName", arg0, arg1)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationIDByUnitName indicates an expected call of GetApplicationIDByUnitName.
+func (mr *MockApplicationStateMockRecorder) GetApplicationIDByUnitName(arg0, arg1 any) *MockApplicationStateGetApplicationIDByUnitNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByUnitName", reflect.TypeOf((*MockApplicationState)(nil).GetApplicationIDByUnitName), arg0, arg1)
+	return &MockApplicationStateGetApplicationIDByUnitNameCall{Call: call}
+}
+
+// MockApplicationStateGetApplicationIDByUnitNameCall wrap *gomock.Call
+type MockApplicationStateGetApplicationIDByUnitNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetApplicationIDByUnitNameCall) Return(arg0 application.ID, arg1 error) *MockApplicationStateGetApplicationIDByUnitNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetApplicationIDByUnitNameCall) Do(f func(context.Context, unit.Name) (application.ID, error)) *MockApplicationStateGetApplicationIDByUnitNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetApplicationIDByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (application.ID, error)) *MockApplicationStateGetApplicationIDByUnitNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationLife mocks base method.
 func (m *MockApplicationState) GetApplicationLife(arg0 domain.AtomicContext, arg1 string) (application.ID, life.Life, error) {
 	m.ctrl.T.Helper()
@@ -455,6 +494,45 @@ func (c *MockApplicationStateGetCharmIDByApplicationNameCall) Do(f func(context.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationStateGetCharmIDByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.ID, error)) *MockApplicationStateGetCharmIDByApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmModifiedVersion mocks base method.
+func (m *MockApplicationState) GetCharmModifiedVersion(arg0 context.Context, arg1 application.ID) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmModifiedVersion", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmModifiedVersion indicates an expected call of GetCharmModifiedVersion.
+func (mr *MockApplicationStateMockRecorder) GetCharmModifiedVersion(arg0, arg1 any) *MockApplicationStateGetCharmModifiedVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmModifiedVersion", reflect.TypeOf((*MockApplicationState)(nil).GetCharmModifiedVersion), arg0, arg1)
+	return &MockApplicationStateGetCharmModifiedVersionCall{Call: call}
+}
+
+// MockApplicationStateGetCharmModifiedVersionCall wrap *gomock.Call
+type MockApplicationStateGetCharmModifiedVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateGetCharmModifiedVersionCall) Return(arg0 int, arg1 error) *MockApplicationStateGetCharmModifiedVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateGetCharmModifiedVersionCall) Do(f func(context.Context, application.ID) (int, error)) *MockApplicationStateGetCharmModifiedVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Context, application.ID) (int, error)) *MockApplicationStateGetCharmModifiedVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

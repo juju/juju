@@ -1874,3 +1874,81 @@ func decodeArchitecture(arch int) (application.Architecture, error) {
 		return -1, fmt.Errorf("unsupported architecture: %d", arch)
 	}
 }
+
+// GetApplicationIDByUnitName returns the application ID for the named unit.
+//
+// Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (st *ApplicationState) GetApplicationIDByUnitName(
+	ctx context.Context,
+	name coreunit.Name,
+) (coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	queryUnit := `
+SELECT application_uuid AS &applicationID.uuid
+FROM unit
+WHERE name = $unitNameAndUUID.name
+`
+	query, err := st.Prepare(queryUnit, applicationID{}, unitNameAndUUID{})
+	if err != nil {
+		return "", internalerrors.Errorf("preparing query for unit %q: %w", name, err)
+	}
+
+	unit := unitNameAndUUID{Name: name}
+	var app applicationID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, unit).Get(&app)
+		if internalerrors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return "", internalerrors.Errorf("querying unit %q application id: %w", name, err)
+	}
+	return app.ID, nil
+}
+
+// GetCharmModifiedVersion looks up the charm modified version of the given
+// application.
+//
+// Returns [applicationerrors.ApplicationNotFound] if the
+// application is not found.
+func (st *ApplicationState) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, internalerrors.Capture(err)
+	}
+
+	type cmv struct {
+		CharmModifiedVersion int `db:"charm_modified_version"`
+	}
+
+	queryApp := `
+SELECT &cmv.*
+FROM application
+WHERE uuid = $applicationID.uuid
+`
+	query, err := st.Prepare(queryApp, cmv{}, applicationID{})
+	if err != nil {
+		return -1, internalerrors.Errorf("preparing query for application %q: %w", id, err)
+	}
+
+	appID := applicationID{ID: id}
+	var version cmv
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, appID).Get(&version)
+		if internalerrors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return -1, internalerrors.Errorf("querying charm modified version: %w", err)
+	}
+	return version.CharmModifiedVersion, err
+}

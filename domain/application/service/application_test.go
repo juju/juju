@@ -1091,6 +1091,29 @@ func (s *applicationServiceSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 	c.Check(charmID, gc.DeepEquals, id)
 }
 
+func (s *applicationServiceSuite) TestGetApplicationIDByUnitName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedAppID := applicationtesting.GenApplicationUUID(c)
+	unitName := coreunit.Name("foo")
+	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(expectedAppID, nil)
+
+	obtainedAppID, err := s.service.GetApplicationIDByUnitName(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedAppID, gc.DeepEquals, expectedAppID)
+}
+
+func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetCharmModifiedVersion(gomock.Any(), appUUID).Return(42, nil)
+
+	obtained, err := s.service.GetCharmModifiedVersion(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, gc.DeepEquals, 42)
+}
+
 func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockApplicationState(ctrl)
