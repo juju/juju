@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	annotations "github.com/juju/juju/core/annotations"
+	annotation "github.com/juju/juju/domain/annotation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -79,6 +80,45 @@ func (c *MockAnnotationServiceGetAnnotationsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetCharmAnnotations mocks base method.
+func (m *MockAnnotationService) GetCharmAnnotations(arg0 context.Context, arg1 annotation.GetCharmArgs) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmAnnotations", arg0, arg1)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmAnnotations indicates an expected call of GetCharmAnnotations.
+func (mr *MockAnnotationServiceMockRecorder) GetCharmAnnotations(arg0, arg1 any) *MockAnnotationServiceGetCharmAnnotationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmAnnotations", reflect.TypeOf((*MockAnnotationService)(nil).GetCharmAnnotations), arg0, arg1)
+	return &MockAnnotationServiceGetCharmAnnotationsCall{Call: call}
+}
+
+// MockAnnotationServiceGetCharmAnnotationsCall wrap *gomock.Call
+type MockAnnotationServiceGetCharmAnnotationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAnnotationServiceGetCharmAnnotationsCall) Return(arg0 map[string]string, arg1 error) *MockAnnotationServiceGetCharmAnnotationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAnnotationServiceGetCharmAnnotationsCall) Do(f func(context.Context, annotation.GetCharmArgs) (map[string]string, error)) *MockAnnotationServiceGetCharmAnnotationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAnnotationServiceGetCharmAnnotationsCall) DoAndReturn(f func(context.Context, annotation.GetCharmArgs) (map[string]string, error)) *MockAnnotationServiceGetCharmAnnotationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetAnnotations mocks base method.
 func (m *MockAnnotationService) SetAnnotations(arg0 context.Context, arg1 annotations.ID, arg2 map[string]string) error {
 	m.ctrl.T.Helper()
@@ -113,6 +153,44 @@ func (c *MockAnnotationServiceSetAnnotationsCall) Do(f func(context.Context, ann
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAnnotationServiceSetAnnotationsCall) DoAndReturn(f func(context.Context, annotations.ID, map[string]string) error) *MockAnnotationServiceSetAnnotationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetCharmAnnotations mocks base method.
+func (m *MockAnnotationService) SetCharmAnnotations(arg0 context.Context, arg1 annotation.GetCharmArgs, arg2 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCharmAnnotations", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetCharmAnnotations indicates an expected call of SetCharmAnnotations.
+func (mr *MockAnnotationServiceMockRecorder) SetCharmAnnotations(arg0, arg1, arg2 any) *MockAnnotationServiceSetCharmAnnotationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmAnnotations", reflect.TypeOf((*MockAnnotationService)(nil).SetCharmAnnotations), arg0, arg1, arg2)
+	return &MockAnnotationServiceSetCharmAnnotationsCall{Call: call}
+}
+
+// MockAnnotationServiceSetCharmAnnotationsCall wrap *gomock.Call
+type MockAnnotationServiceSetCharmAnnotationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAnnotationServiceSetCharmAnnotationsCall) Return(arg0 error) *MockAnnotationServiceSetCharmAnnotationsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAnnotationServiceSetCharmAnnotationsCall) Do(f func(context.Context, annotation.GetCharmArgs, map[string]string) error) *MockAnnotationServiceSetCharmAnnotationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAnnotationServiceSetCharmAnnotationsCall) DoAndReturn(f func(context.Context, annotation.GetCharmArgs, map[string]string) error) *MockAnnotationServiceSetCharmAnnotationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

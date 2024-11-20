@@ -15,3 +15,8 @@ type Annotation struct {
 type annotationUUID struct {
 	UUID string `db:"uuid"`
 }
+
+type charmArgs struct {
+	Name     string `db:"name"`
+	Revision int    `db:"revision"`
+}

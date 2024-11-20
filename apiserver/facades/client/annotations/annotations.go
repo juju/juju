@@ -13,13 +13,25 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/annotation"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
-// AnnotationService defines the methods on the annotation service API end point.
+// AnnotationService defines the methods on the annotation service API end
+// point.
 type AnnotationService interface {
+	// GetCharmAnnotations returns the annotations for the given ID.
 	GetAnnotations(context.Context, annotations.ID) (map[string]string, error)
+
+	// GetCharmAnnotations returns the annotations for the given ID.
+	GetCharmAnnotations(context.Context, annotation.GetCharmArgs) (map[string]string, error)
+
+	// SetAnnotations sets the annotations for the given ID.
 	SetAnnotations(context.Context, annotations.ID, map[string]string) error
+
+	// SetCharmAnnotations sets the annotations for the given ID.
+	SetCharmAnnotations(context.Context, annotation.GetCharmArgs, map[string]string) error
 }
 
 // API implements the service interface and is the concrete
@@ -84,10 +96,7 @@ func (api *API) Set(ctx context.Context, args params.AnnotationsSet) params.Erro
 }
 
 func annotateError(err error, tag, op string) *params.Error {
-	return apiservererrors.ServerError(
-		errors.Trace(
-			errors.Annotatef(
-				err, "%v annotations for %q", op, tag)))
+	return apiservererrors.ServerError(errors.Annotatef(err, "%v annotations for %q", op, tag))
 }
 
 func (api *API) getEntityAnnotations(ctx context.Context, entityTag string) (map[string]string, error) {
@@ -96,16 +105,35 @@ func (api *API) getEntityAnnotations(ctx context.Context, entityTag string) (map
 		return nil, errors.Trace(err)
 	}
 
-	id, err := annotations.ConvertTagToID(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	switch tag.Kind() {
+	case names.CharmTagKind:
+		url, err := charm.ParseURL(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	annotations, err := api.annotationService.GetAnnotations(ctx, id)
-	if err != nil {
-		return nil, errors.Trace(err)
+		results, err := api.annotationService.GetCharmAnnotations(ctx, annotation.GetCharmArgs{
+			Source:   url.Schema,
+			Name:     url.Name,
+			Revision: url.Revision,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return results, nil
+
+	default:
+		id, err := annotations.ConvertTagToID(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		results, err := api.annotationService.GetAnnotations(ctx, id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return results, nil
 	}
-	return annotations, nil
 }
 
 func (api *API) setEntityAnnotations(ctx context.Context, entityTag string, values map[string]string) error {
@@ -113,9 +141,29 @@ func (api *API) setEntityAnnotations(ctx context.Context, entityTag string, valu
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id, err := annotations.ConvertTagToID(tag)
-	if err != nil {
-		return errors.Trace(err)
+
+	switch tag.Kind() {
+	case names.CharmTagKind:
+		url, err := charm.ParseURL(tag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = api.annotationService.SetCharmAnnotations(ctx, annotation.GetCharmArgs{
+			Source:   url.Schema,
+			Name:     url.Name,
+			Revision: url.Revision,
+		}, values)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+
+	default:
+		id, err := annotations.ConvertTagToID(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return api.annotationService.SetAnnotations(ctx, id, values)
 	}
-	return api.annotationService.SetAnnotations(ctx, id, values)
 }

@@ -159,17 +159,3 @@ func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
 	_, err = ConvertTagToID(names.NewEnvironTag("env/0"))
 	c.Assert(err, jc.DeepEquals, fmt.Errorf("unknown kind %q", names.EnvironTagKind))
 }
-
-func (s *annotationsSuite) TestConvertTagToIDCharm(c *gc.C) {
-	id, err := ConvertTagToID(names.NewCharmTag("local:wordpress-42"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(id, jc.DeepEquals, ID{
-		Kind: KindCharm,
-		Name: "local:wordpress-42",
-		Parts: CharmID{
-			Source:   "local",
-			Name:     "wordpress",
-			Revision: 42,
-		},
-	})
-}

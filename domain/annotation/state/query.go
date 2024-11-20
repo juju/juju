@@ -79,8 +79,6 @@ WHERE uuid = $annotationUUID.uuid`, kindName), nil
 //	machine: TABLE machine, reference field: name
 //	unit: TABLE unit, reference field: name
 //	application: TABLE application, reference field: name
-//	storage_instance: TABLE storage_instance, reference field: name
-//	charm: TABLE charm, reference field: url
 func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 	kindName, err := kindNameFromID(id)
 	if err != nil {
@@ -97,25 +95,6 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 		selector = "name"
 	case annotations.KindStorage:
 		selector = "name"
-	case annotations.KindCharm:
-		// Special case the charm.
-		charmID, ok := id.Parts.(annotations.CharmID)
-		if !ok {
-			return "", sqlair.M{}, fmt.Errorf("%w for charm", annotationerrors.InvalidIDParts)
-		}
-
-		args := sqlair.M{
-			"name":     charmID.Name,
-			"revision": charmID.Revision,
-		}
-
-		return `
-SELECT &annotationUUID.uuid
-FROM v_charm_annotation
-WHERE name = $M.name
-AND revision = $M.revision;
-`, args, nil
-
 	}
 
 	query := fmt.Sprintf(`SELECT &annotationUUID.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)
@@ -136,8 +115,6 @@ func kindNameFromID(id annotations.ID) (string, error) {
 		kindName = "application"
 	case annotations.KindStorage:
 		kindName = "storage_instance"
-	case annotations.KindCharm:
-		kindName = "charm"
 	case annotations.KindModel:
 		kindName = "model"
 	default:

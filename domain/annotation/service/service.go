@@ -5,10 +5,12 @@ package service
 
 import (
 	"context"
-
-	"github.com/juju/errors"
+	"strings"
 
 	"github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/domain/annotation"
+	annotationerrors "github.com/juju/juju/domain/annotation/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State describes retrieval and persistence methods for annotations.
@@ -17,11 +19,21 @@ type State interface {
 	// If no annotations are found, an empty map is returned.
 	GetAnnotations(ctx context.Context, ID annotations.ID) (map[string]string, error)
 
+	// GetCharmAnnotations retrieves all the annotations associated with a given
+	// ID. If no annotations are found, an empty map is returned.
+	GetCharmAnnotations(ctx context.Context, ID annotation.GetCharmArgs) (map[string]string, error)
+
 	// SetAnnotations associates key/value annotation pairs with a given ID.
 	// If an annotation already exists for the given ID, then it will be updated
 	// with the given value. First all annotations are deleted, then the given
 	// pairs are inserted, so unsetting an annotation is implicit.
 	SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error
+
+	// SetCharmAnnotations associates key/value annotation pairs with a given ID.
+	// If an annotation already exists for the given ID, then it will be updated
+	// with the given value. First all annotations are deleted, then the given
+	// pairs are inserted, so unsetting an annotation is implicit.
+	SetCharmAnnotations(ctx context.Context, ID annotation.GetCharmArgs, annotations map[string]string) error
 }
 
 // Service provides the API for working with annotations.
@@ -39,14 +51,73 @@ func NewService(st State) *Service {
 // GetAnnotations retrieves all the annotations associated with a given ID. If
 // no annotations are found, an empty map is returned.
 func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (map[string]string, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
 	annotations, err := s.st.GetAnnotations(ctx, id)
-	return annotations, errors.Trace(err)
+	return annotations, errors.Capture(err)
+}
+
+// GetAnnotations retrieves all the annotations associated with a given ID. If
+// no annotations are found, an empty map is returned.
+func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	annotations, err := s.st.GetCharmAnnotations(ctx, id)
+	return annotations, errors.Capture(err)
 }
 
 // SetAnnotations associates key/value annotation pairs with a given ID. If
 // an annotation already exists for the given ID, then it will be updated with
 // the given value.
 func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) error {
+	if err := id.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := s.validateAnnotations(annotations); err != nil {
+		return errors.Capture(err)
+	}
+
 	err := s.st.SetAnnotations(ctx, id, annotations)
-	return errors.Annotatef(err, "updating annotations for ID: %q", id.Name)
+	if err != nil {
+		return errors.Errorf("updating annotations for %q: %w", id.Name, err)
+	}
+	return nil
+}
+
+// SetCharmAnnotations associates key/value annotation pairs with a given ID. If
+// an annotation already exists for the given ID, then it will be updated with
+// the given value.
+func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) error {
+	if err := id.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := s.validateAnnotations(annotations); err != nil {
+		return errors.Capture(err)
+	}
+
+	err := s.st.SetCharmAnnotations(ctx, id, annotations)
+	if err != nil {
+		return errors.Errorf("updating annotations for %q: %w", id.Name, err)
+	}
+	return nil
+}
+
+func (s *Service) validateAnnotations(annotations map[string]string) error {
+	for key := range annotations {
+		if strings.Contains(key, ".") {
+			return errors.Errorf("key %q contains period: %w", key, annotationerrors.InvalidKey)
+		}
+
+		k := strings.TrimSpace(key)
+		if k == "" {
+			return errors.Errorf("key is empty string: %w", annotationerrors.InvalidKey)
+		}
+	}
+
+	return nil
 }

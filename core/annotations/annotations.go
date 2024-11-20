@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-
-	"github.com/juju/juju/internal/charm"
 )
 
 // Kind identifies different kinds of entities that'll get associated with
@@ -18,11 +16,10 @@ type Kind int
 
 const (
 	KindApplication Kind = 1
-	KindCharm       Kind = 2
-	KindMachine     Kind = 3
-	KindUnit        Kind = 4
-	KindModel       Kind = 5
-	KindStorage     Kind = 6
+	KindMachine     Kind = 2
+	KindUnit        Kind = 3
+	KindModel       Kind = 4
+	KindStorage     Kind = 5
 )
 
 // ID reifies annotatable GlobalEntities into an internal representation using
@@ -30,40 +27,26 @@ const (
 type ID struct {
 	Kind Kind
 	Name string
-
-	// Parts is optional and is used to store additional information about the
-	// entity.
-	Parts any
 }
 
-// CharmID reifies a charm into an internal representation.
-type CharmID struct {
-	Source   string
-	Name     string
-	Revision int
+// Validate checks if the ID is valid or not.
+func (i ID) Validate() error {
+	if i.Name == "" {
+		return errors.NotValidf("name cannot be empty")
+	}
+
+	switch i.Kind {
+	case KindApplication, KindMachine, KindUnit, KindModel, KindStorage:
+		return nil
+	default:
+		return errors.NotValidf("unknown kind %d", i.Kind)
+	}
 }
 
 // ConvertTagToID converts the names.Tag into an ID for different names.Kinds
 // of entities, registering them as annotations.Kinds of entities.
 func ConvertTagToID(n names.Tag) (ID, error) {
 	switch n.Kind() {
-	case names.CharmTagKind:
-		// It's unfortunate that we have to parse the URL here, but we need to
-		// extract the schema, name and revision from the URL.
-		url, err := charm.ParseURL(n.Id())
-		if err != nil {
-			return ID{}, errors.Trace(err)
-		}
-
-		return ID{
-			Kind: KindCharm,
-			Name: n.Id(),
-			Parts: CharmID{
-				Source:   url.Schema,
-				Name:     url.Name,
-				Revision: url.Revision,
-			},
-		}, nil
 	case names.MachineTagKind:
 		return ID{
 			Kind: KindMachine,
