@@ -49,7 +49,7 @@ ON unit (name);
 CREATE INDEX idx_unit_application
 ON unit (application_uuid);
 
-CREATE INDEX idx_unit_net_node
+CREATE UNIQUE INDEX idx_unit_net_node_uuid
 ON unit (net_node_uuid);
 
 -- unit_principal table is a table which is used to store the.
@@ -122,25 +122,26 @@ CREATE TABLE unit_state_relation (
 
 -- cloud containers belong to a k8s unit.
 CREATE TABLE cloud_container (
-    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
+    net_node_uuid TEXT NOT NULL,
     -- provider_id comes from the provider, no FK.
     -- it represents the k8s pod UID.
     provider_id TEXT NOT NULL,
     CONSTRAINT fk_cloud_container_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit (uuid)
+    FOREIGN KEY (net_node_uuid)
+    REFERENCES unit (net_node_uuid)
 );
 
 CREATE UNIQUE INDEX idx_cloud_container_provider
 ON cloud_container (provider_id);
 
 CREATE TABLE cloud_container_port (
-    unit_uuid TEXT NOT NULL,
+    cloud_container_uuid TEXT NOT NULL,
     port TEXT NOT NULL,
     CONSTRAINT fk_cloud_container_port_cloud_container
-    FOREIGN KEY (unit_uuid)
-    REFERENCES cloud_container (unit_uuid),
-    PRIMARY KEY (unit_uuid, port)
+    FOREIGN KEY (cloud_container_uuid)
+    REFERENCES cloud_container (uuid),
+    PRIMARY KEY (cloud_container_uuid, port)
 );
 
 -- Status values for unit agents.
