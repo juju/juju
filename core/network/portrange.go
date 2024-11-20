@@ -95,7 +95,7 @@ func (grp GroupedPortRanges) UniquePortRanges() []PortRange {
 
 // Clone returns a copy of this port range grouping.
 func (grp GroupedPortRanges) Clone() GroupedPortRanges {
-	if len(grp) == 0 {
+	if grp == nil {
 		return nil
 	}
 

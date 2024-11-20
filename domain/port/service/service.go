@@ -170,6 +170,10 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		return nil
 	}
 
+	// Clone input vars so they can be safely mutated
+	openPorts = openPorts.Clone()
+	closePorts = closePorts.Clone()
+
 	allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
 	//  verify input port ranges do not conflict with each other.
 	err := verifyNoPortRangeConflicts(allInputPortRanges, allInputPortRanges)
@@ -209,12 +213,13 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		if err != nil {
 			return errors.Errorf("failed to get opened ports for wildcard endpoint: %w", err)
 		}
+
+		// Remove openPorts ranges that are already open on the wildcard endpoint,
+		// or are about to be opened on the wildcard endpoint
 		wildcardOpenedSet := map[network.PortRange]bool{}
-		for _, portRange := range wildcardOpened {
+		for _, portRange := range append(wildcardOpened, wildcardOpen...) {
 			wildcardOpenedSet[portRange] = true
 		}
-
-		// Remove openPorts ranges that are already open on the wildcard endpoint.
 		for endpoint, endpointOpenPorts := range openPorts {
 			if endpoint == WildcardEndpoint {
 				continue
@@ -223,6 +228,9 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 				if _, ok := wildcardOpenedSet[portRange]; ok {
 					openPorts[endpoint] = append(openPorts[endpoint][:i], openPorts[endpoint][i+1:]...)
 				}
+			}
+			if len(openPorts[endpoint]) == 0 {
+				delete(openPorts, endpoint)
 			}
 		}
 
@@ -234,7 +242,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		// If we're opening a port range on the wildcard endpoint, we need to
 		// close it on all other endpoints.
 		//
-		// NOTE: This ensures that is a port range is open on the wildcard
+		// NOTE: This ensures that if a port range is open on the wildcard
 		// endpoint, it is closed on all other endpoints.
 		for _, openPortRange := range wildcardOpen {
 			if endpoints == nil {
@@ -248,8 +256,8 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 				if endpoint == WildcardEndpoint {
 					continue
 				}
-				delete(openPorts, endpoint)
 				closePorts[endpoint] = append(closePorts[endpoint], openPortRange)
+
 			}
 		}
 
@@ -300,6 +308,9 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 						openPorts[endpoint] = append(openPorts[endpoint][:i], openPorts[endpoint][i+1:]...)
 						break
 					}
+				}
+				if len(openPorts[endpoint]) == 0 {
+					delete(openPorts, endpoint)
 				}
 			}
 		}
