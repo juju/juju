@@ -40,7 +40,6 @@ type serviceSuite struct {
 
 	clock                  *testclock.Clock
 	modelID                coremodel.UUID
-	backendConfigGetter    BackendAdminConfigGetter
 	userSecretConfigGetter BackendUserSecretConfigGetter
 	secretsBackend         *MockSecretsBackend
 	secretsBackendProvider *MockSecretBackendProvider
@@ -84,9 +83,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.fakeUUID, err = uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	s.clock = testclock.NewClock(time.Time{})
-	s.backendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendConfigs, nil
-	}
 	s.userSecretConfigGetter = func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error) {
 		return backendConfigs, nil
 	}
@@ -109,7 +105,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		logger:                 loggertesting.WrapCheckLog(c),
 		clock:                  s.clock,
 		providerGetter:         func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil },
-		adminConfigGetter:      s.backendConfigGetter,
 		userSecretConfigGetter: s.userSecretConfigGetter,
 		uuidGenerator:          func() (uuid.UUID, error) { return s.fakeUUID, nil },
 	}
