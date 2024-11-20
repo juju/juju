@@ -502,6 +502,7 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 	// Ensure that each view is present.
 	expected := set.NewStrings(
 		"v_address",
+		"v_charm_annotation",
 		"v_charm_config",
 		"v_charm_container",
 		"v_charm_list_name_origin",
@@ -512,7 +513,6 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_relation",
 		"v_charm_resource",
 		"v_charm_storage",
-		"v_charm_url",
 		"v_hardware_characteristics",
 		"v_port_range",
 		"v_secret_permission",

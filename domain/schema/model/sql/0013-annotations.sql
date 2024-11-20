@@ -19,12 +19,10 @@ CREATE TABLE annotation_charm (
     uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
     value TEXT NOT NULL,
-    PRIMARY KEY (uuid, "key")
-    -- Following needs to be uncommented when we do have the
-    -- annotatables as real domain entities.
-    -- CONSTRAINT          fk_annotation_charm
-    --     FOREIGN KEY     (uuid)
-    --     REFERENCES      charm(uuid)
+    PRIMARY KEY (uuid, "key"),
+    CONSTRAINT fk_annotation_charm
+    FOREIGN KEY (uuid)
+    REFERENCES charm (uuid)
 );
 
 CREATE TABLE annotation_machine (

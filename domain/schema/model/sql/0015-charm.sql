@@ -116,6 +116,15 @@ SELECT
 FROM charm_origin AS co
 LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
 
+CREATE VIEW v_charm_annotation AS
+SELECT
+    c.uuid,
+    cm.name,
+    co.revision
+FROM charm AS c
+LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid;
+
 CREATE TABLE charm_platform (
     charm_uuid TEXT NOT NULL,
     os_id TEXT NOT NULL,
@@ -496,15 +505,6 @@ CREATE TABLE charm_container_mount (
 
 CREATE INDEX idx_charm_container_mount_charm
 ON charm_container_mount (charm_uuid);
-
--- Create a charm url view for backwards compatibility.
-CREATE VIEW v_charm_url AS
-SELECT
-    c.uuid,
-    cs.name || ':' || co.reference_name || '-' || COALESCE(co.revision, 0) AS url
-FROM charm AS c
-INNER JOIN charm_origin AS co ON c.uuid = co.charm_uuid
-LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
 
 CREATE TABLE charm_action (
     charm_uuid TEXT NOT NULL,

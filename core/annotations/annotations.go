@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 )
 
@@ -28,6 +29,17 @@ const (
 type ID struct {
 	Kind Kind
 	Name string
+
+	// Parts is optional and is used to store additional information about the
+	// entity.
+	Parts any
+}
+
+// CharmID reifies a charm into an internal representation.
+type CharmID struct {
+	Source   string
+	Name     string
+	Revision int
 }
 
 // ConvertTagToID converts the names.Tag into an ID for different names.Kinds
@@ -35,9 +47,21 @@ type ID struct {
 func ConvertTagToID(n names.Tag) (ID, error) {
 	switch n.Kind() {
 	case names.CharmTagKind:
+		// It's unfortunate that we have to parse the URL here, but we need to
+		// extract the schema, name and revision from the URL.
+		url, err := charm.ParseURL(n.Id())
+		if err != nil {
+			return ID{}, errors.Trace(err)
+		}
+
 		return ID{
 			Kind: KindCharm,
 			Name: n.Id(),
+			Parts: CharmID{
+				Source:   url.Schema,
+				Name:     url.Name,
+				Revision: url.Revision,
+			},
 		}, nil
 	case names.MachineTagKind:
 		return ID{

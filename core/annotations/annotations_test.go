@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package annotations_test
+package annotations
 
 import (
 	"fmt"
@@ -11,14 +11,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujuannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/internal/testing"
 )
 
 type annotationsSuite struct {
 	testing.BaseSuite
 
-	annotations jujuannotations.Annotation
+	annotations Annotation
 }
 
 var _ = gc.Suite(&annotationsSuite{})
@@ -26,7 +25,7 @@ var _ = gc.Suite(&annotationsSuite{})
 func (s *annotationsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.annotations = jujuannotations.New(nil)
+	s.annotations = New(nil)
 }
 
 func (s *annotationsSuite) TestExistAndAdd(c *gc.C) {
@@ -58,7 +57,7 @@ func (s *annotationsSuite) TestCopy(c *gc.C) {
 	annotation1 := map[string]string{
 		"annotation-1-key": "annotation-1-val",
 	}
-	s.annotations.Merge(jujuannotations.New(annotation1))
+	s.annotations.Merge(New(annotation1))
 	c.Assert(s.annotations.ToMap(), jc.DeepEquals, annotation1)
 
 	newAnnotation1 := s.annotations.Copy()
@@ -115,7 +114,7 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 	c.Assert(s.annotations.ToMap(), jc.DeepEquals, make(map[string]string))
 
 	// merge 1, has 1.
-	s.annotations.Merge(jujuannotations.New(annotation1))
+	s.annotations.Merge(New(annotation1))
 	c.Assert(s.annotations.HasAll(mergeMap(annotation1, annotation2, annotation3)), jc.IsFalse)
 	c.Assert(s.annotations.HasAny(annotation1), jc.IsTrue)
 	c.Assert(s.annotations.HasAny(annotation2), jc.IsFalse)
@@ -123,7 +122,7 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 	c.Assert(s.annotations.ToMap(), jc.DeepEquals, mergeMap(annotation1))
 
 	// merge 2, has 1, 2.
-	s.annotations.Merge(jujuannotations.New(annotation2))
+	s.annotations.Merge(New(annotation2))
 	c.Assert(s.annotations.HasAll(mergeMap(annotation1, annotation2, annotation3)), jc.IsFalse)
 	c.Assert(s.annotations.HasAny(annotation1), jc.IsTrue)
 	c.Assert(s.annotations.HasAny(annotation2), jc.IsTrue)
@@ -131,7 +130,7 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 	c.Assert(s.annotations.ToMap(), jc.DeepEquals, mergeMap(annotation1, annotation2))
 
 	// merge 3, has 1, 2, 3.
-	s.annotations.Merge(jujuannotations.New(annotation3))
+	s.annotations.Merge(New(annotation3))
 	c.Assert(s.annotations.HasAll(mergeMap(annotation1, annotation2, annotation3)), jc.IsTrue)
 	c.Assert(s.annotations.HasAny(annotation1), jc.IsTrue)
 	c.Assert(s.annotations.HasAny(annotation2), jc.IsTrue)
@@ -152,11 +151,25 @@ func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
 
 func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
 	// ConvertTagToID happy path
-	id, err := jujuannotations.ConvertTagToID(names.NewUnitTag("unit/0"))
+	id, err := ConvertTagToID(names.NewUnitTag("unit/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, jc.DeepEquals, jujuannotations.ID{jujuannotations.KindUnit, "unit/0"})
+	c.Assert(id, jc.DeepEquals, ID{Kind: KindUnit, Name: "unit/0"})
 
 	// ConvertTagToID unknown kind
-	_, err = jujuannotations.ConvertTagToID(names.NewEnvironTag("env/0"))
+	_, err = ConvertTagToID(names.NewEnvironTag("env/0"))
 	c.Assert(err, jc.DeepEquals, fmt.Errorf("unknown kind %q", names.EnvironTagKind))
+}
+
+func (s *annotationsSuite) TestConvertTagToIDCharm(c *gc.C) {
+	id, err := ConvertTagToID(names.NewCharmTag("local:wordpress-42"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(id, jc.DeepEquals, ID{
+		Kind: KindCharm,
+		Name: "local:wordpress-42",
+		Parts: CharmID{
+			Source:   "local",
+			Name:     "wordpress",
+			Revision: 42,
+		},
+	})
 }

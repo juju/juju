@@ -98,8 +98,24 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 	case annotations.KindStorage:
 		selector = "name"
 	case annotations.KindCharm:
-		kindName = "v_charm_url"
-		selector = "url"
+		// Special case the charm.
+		charmID, ok := id.Parts.(annotations.CharmID)
+		if !ok {
+			return "", sqlair.M{}, fmt.Errorf("%w for charm", annotationerrors.InvalidIDParts)
+		}
+
+		args := sqlair.M{
+			"name":     charmID.Name,
+			"revision": charmID.Revision,
+		}
+
+		return `
+SELECT &annotationUUID.uuid
+FROM v_charm_annotation
+WHERE name = $M.name
+AND revision = $M.revision;
+`, args, nil
+
 	}
 
 	query := fmt.Sprintf(`SELECT &annotationUUID.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)

@@ -6,8 +6,10 @@ package state
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
@@ -142,10 +144,10 @@ func (s *stateSuite) TestSetAnnotationsUpdateCharm(c *gc.C) {
 	s.ensureCharm(c, "local:mycharmurl-5", "123")
 	s.ensureAnnotation(c, "charm", "123", "foo", "5")
 
-	testAnnotationUpdate(c, st, annotations.ID{
-		Kind: annotations.KindCharm,
-		Name: "local:mycharmurl-5",
-	})
+	id, err := annotations.ConvertTagToID(names.NewCharmTag("local:mycharmurl-5"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	testAnnotationUpdate(c, st, id)
 }
 
 // TestSetAnnotationsUpdateModel asserts the happy path, updates some
@@ -232,21 +234,34 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 }
 
 // TestUUIDQueryForID asserts the happy path of the utility uuidQueryForID
-func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
-	// machine
-	kindQuery, kindQueryParam, _ := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
+func (s *stateSuite) TestUUIDQueryForIDMachine(c *gc.C) {
+	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "my-machine"})
+}
 
-	// application
-	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
+func (s *stateSuite) TestUUIDQueryForIDApplication(c *gc.C) {
+	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "appname"})
+}
 
-	// charm
-	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindCharm, Name: "charmurl"})
-	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM v_charm_url WHERE url = $M.entity_id`)
-	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "charmurl"})
+func (s *stateSuite) TestUUIDQueryForIDCharm(c *gc.C) {
+	id, err := annotations.ConvertTagToID(names.NewCharmTag("local:mycharmurl-5"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	kindQuery, kindQueryParam, err := uuidQueryForID(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	query := `SELECT &annotationUUID.uuid FROM v_charm_annotation WHERE name = $M.name AND revision = $M.revision;`
+
+	c.Check(strings.ReplaceAll(strings.TrimSpace(kindQuery), "\n", " "), gc.Equals, query)
+	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{
+		"name":     "mycharmurl",
+		"revision": 5,
+	})
 }
 
 // TestKindNameFromID asserts the mapping of annotation.Kind -> actual table
@@ -254,7 +269,6 @@ func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
 // Keeping these explicit here should ensure we quickly detect any changes in
 // the future.
 func (s *stateSuite) TestKindNameFromID(c *gc.C) {
-
 	t1, err := kindNameFromID(annotations.ID{Kind: annotations.KindMachine, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(t1, gc.Equals, "machine")
@@ -271,7 +285,10 @@ func (s *stateSuite) TestKindNameFromID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(t4, gc.Equals, "storage_instance")
 
-	t5, err := kindNameFromID(annotations.ID{Kind: annotations.KindCharm, Name: "foo"})
+	charmID, err := annotations.ConvertTagToID(names.NewCharmTag("local:mycharmurl-5"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	t5, err := kindNameFromID(charmID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(t5, gc.Equals, "charm")
 
@@ -319,8 +336,8 @@ func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 	s.ensureNetNode(c, "node2")
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-		VALUES (?, "node2", ?, "0")`, uuid, id)
+INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+VALUES (?, "node2", ?, "0")`, uuid, id)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -426,9 +443,7 @@ VALUES (?, ?, ?, ?, ?)
 // key for entries in other tables (e.g. machine)
 func (s *stateSuite) ensureNetNode(c *gc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO net_node (uuid)
-		VALUES (?)`, uuid)
+		_, err := tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, uuid)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
