@@ -280,7 +280,7 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm from Charmhub")
-	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if the series of the deployed application is not supported by the new charm")
+	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if the series of the deployed application is not supported by the new charm. DEPRECATED: use --force-base")
 	f.BoolVar(&c.ForceBase, "force-base", false, "Refresh even if the base of the deployed application is not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
