@@ -61,7 +61,6 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		domainServices.ModelInfo(),
 		domainServices.Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),

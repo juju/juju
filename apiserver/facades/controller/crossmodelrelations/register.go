@@ -53,7 +53,6 @@ func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelCon
 		authCtxt.(*commoncrossmodel.AuthContext),
 		ctx.DomainServices().Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),

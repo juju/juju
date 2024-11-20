@@ -39,8 +39,6 @@ type serviceSuite struct {
 	modelUUID coremodel.UUID
 	svc       *service.SecretService
 
-	backendConfigGetter service.BackendAdminConfigGetter
-
 	secretBackendReferenceMutator *secret.MockSecretBackendReferenceMutator
 }
 
@@ -56,9 +54,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		`, s.modelUUID, coretesting.ControllerTag.Id(), jujuversion.Current.String())
 		return err
 	})
-	s.backendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendConfigs, nil
-	}
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -70,8 +65,8 @@ func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
 		secretbackendstate.NewState(func() (database.TxnRunner, error) { return s.ControllerTxnRunner(), nil }, loggertesting.WrapCheckLog(c)),
 		loggertesting.WrapCheckLog(c),
-		service.SecretServiceParams{BackendAdminConfigGetter: s.backendConfigGetter}).
-		WithBackendRefMutator(s.secretBackendReferenceMutator)
+		service.SecretServiceParams{},
+	).WithBackendRefMutator(s.secretBackendReferenceMutator)
 
 	return ctrl
 }

@@ -50,17 +50,8 @@ func NewSecretService(
 // ProviderGetter is a func used to get a secret backend provider for a specified type.
 type ProviderGetter func(backendType string) (provider.SecretBackendProvider, error)
 
-// BackendAdminConfigGetter is a func used to get admin level secret backend config.
-type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
-
 // BackendUserSecretConfigGetter is a func used to get admin level secret backend config.
 type BackendUserSecretConfigGetter func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error)
-
-// NotImplementedBackendConfigGetter is a not implemented secret backend getter.
-// It is used by callers of the secret service that do not need any backend functionality.
-var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBackendConfigInfo, error) {
-	return nil, jujuerrors.NotImplemented
-}
 
 // NotImplementedBackendUserSecretConfigGetter is a not implemented secret backend getter.
 // It is used by callers of the secret service that do not need any backend functionality.

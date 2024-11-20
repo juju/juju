@@ -48,7 +48,6 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 		domainServices.ModelInfo(),
 		domainServices.Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
@@ -89,7 +88,6 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 		domainServices.ModelInfo(),
 		domainServices.Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),

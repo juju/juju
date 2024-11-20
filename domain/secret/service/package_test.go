@@ -17,10 +17,3 @@ import (
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }
-
-// WithBackendRefMutator is used in tests to
-// override the default backend ref mutator.
-func (s *SecretService) WithBackendRefMutator(mutator SecretBackendState) *SecretService {
-	s.secretBackendState = mutator
-	return s
-}
