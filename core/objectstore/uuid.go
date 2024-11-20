@@ -11,10 +11,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// UUID represents a charm unique identifier.
+// UUID represents a object store unique identifier.
 type UUID string
 
-// NewUUID is a convince function for generating a new charm uuid.
+// NewUUID is a convince function for generating a new object store uuid.
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
@@ -23,8 +23,8 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
-// ParseUUID returns a new UUID from the given string. If the string is not a valid
-// uuid an error satisfying [errors.NotValid] will be returned.
+// ParseUUID returns a new UUID from the given string. If the string is not a
+// valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUUID(value string) (UUID, error) {
 	if !uuid.IsValidUUIDString(value) {
 		return "", fmt.Errorf("id %q %w", value, errors.NotValid)

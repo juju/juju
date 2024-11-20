@@ -12,13 +12,13 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-type CharmSuite struct {
+type ObjectStoreUUIDSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&CharmSuite{})
+var _ = gc.Suite(&ObjectStoreUUIDSuite{})
 
-func (*CharmSuite) TestIDValidate(c *gc.C) {
+func (*ObjectStoreUUIDSuite) TestIDValidate(c *gc.C) {
 	tests := []struct {
 		uuid string
 		err  error
