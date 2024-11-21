@@ -55,7 +55,8 @@ func WithProgressBar(pb ProgressBar) DownloadOption {
 // Digest represents a digest of a file.
 type Digest struct {
 	DigestType DigestType
-	Value      string
+	Hash       string
+	Size       int64
 }
 
 // DigestType defines the type of digest to compute.
@@ -159,23 +160,33 @@ func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 }
 
 // DownloadAndRead returns a charm archive retrieved from the given URL.
-func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
-	_, err := c.Download(ctx, resourceURL, archivePath, options...)
+func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, *Digest, error) {
+	digest, err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return charm.ReadCharmArchive(archivePath)
+	archive, err := charm.ReadCharmArchive(archivePath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return archive, digest, nil
 }
 
 // DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
-func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, error) {
-	_, err := c.Download(ctx, resourceURL, archivePath, options...)
+func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, *Digest, error) {
+	digest, err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return charm.ReadBundleArchive(archivePath)
+	archive, err := charm.ReadBundleArchive(archivePath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return archive, digest, nil
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.
@@ -228,7 +239,8 @@ func (c *downloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 	hasher := c.getHasher(opts.digestType)
 
 	writer := io.MultiWriter(f, hasher, progressBar)
-	if size, err := io.Copy(writer, r.Body); err != nil {
+	size, err := io.Copy(writer, r.Body)
+	if err != nil {
 		return nil, errors.Trace(err)
 	} else if size != r.ContentLength {
 		return nil, errors.Errorf("downloaded size %d does not match expected size %d", size, r.ContentLength)
@@ -238,7 +250,8 @@ func (c *downloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 
 	return &Digest{
 		DigestType: opts.digestType,
-		Value:      digest,
+		Hash:       digest,
+		Size:       size,
 	}, nil
 }
 

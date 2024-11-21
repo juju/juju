@@ -433,12 +433,23 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	resolvedArchive := new(charm.CharmArchive)
 
 	s.expectCharmRefreshInstallOneFromChannel(c)
-	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo").Return(resolvedArchive, nil)
+	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo").Return(resolvedArchive, &charmhub.Digest{
+		DigestType: charmhub.SHA256,
+		Hash:       "SHA256 hash",
+		Size:       10,
+	}, nil)
 
-	gotArchive, gotOrigin, err := s.newClient(c).DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
+	client := s.newClient(c)
+
+	gotArchive, gotOrigin, digest, err := client.DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
-	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
+	c.Check(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
+	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
+	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
+		DigestType: charmhub.SHA256,
+		Hash:       "SHA256 hash",
+		Size:       10,
+	})
 }
 
 func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {

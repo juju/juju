@@ -20,7 +20,7 @@ import (
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
-	DownloadAndReadBundle(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, error)
+	DownloadAndReadBundle(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, *charmhub.Digest, error)
 }
 
 // DownloadBundleClientFunc lazily construct a download bundle client.
@@ -120,5 +120,9 @@ func (ch chBundleFactory) GetBundle(ctx context.Context, curl *charm.URL, origin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.DownloadAndReadBundle(ctx, url, path)
+	bundle, _, err := client.DownloadAndReadBundle(ctx, url, path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bundle, nil
 }

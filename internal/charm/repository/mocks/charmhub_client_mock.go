@@ -44,7 +44,7 @@ func (m *MockCharmHubClient) EXPECT() *MockCharmHubClientMockRecorder {
 }
 
 // DownloadAndRead mocks base method.
-func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charm.CharmArchive, error) {
+func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -52,8 +52,9 @@ func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL
 	}
 	ret := m.ctrl.Call(m, "DownloadAndRead", varargs...)
 	ret0, _ := ret[0].(*charm.CharmArchive)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*charmhub.Digest)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // DownloadAndRead indicates an expected call of DownloadAndRead.
@@ -70,19 +71,19 @@ type MockCharmHubClientDownloadAndReadCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmHubClientDownloadAndReadCall) Return(arg0 *charm.CharmArchive, arg1 error) *MockCharmHubClientDownloadAndReadCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockCharmHubClientDownloadAndReadCall) Return(arg0 *charm.CharmArchive, arg1 *charmhub.Digest, arg2 error) *MockCharmHubClientDownloadAndReadCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmHubClientDownloadAndReadCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charm.CharmArchive, error)) *MockCharmHubClientDownloadAndReadCall {
+func (c *MockCharmHubClientDownloadAndReadCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)) *MockCharmHubClientDownloadAndReadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmHubClientDownloadAndReadCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charm.CharmArchive, error)) *MockCharmHubClientDownloadAndReadCall {
+func (c *MockCharmHubClientDownloadAndReadCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)) *MockCharmHubClientDownloadAndReadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

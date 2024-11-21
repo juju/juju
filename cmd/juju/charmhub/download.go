@@ -338,7 +338,7 @@ func (c *downloadCommand) calculateHashFromDigest(path string, digest *charmhub.
 	if digest.DigestType != charmhub.SHA256 {
 		return "", errors.Errorf("expected SHA256 digest, got %s", digest.DigestType)
 	}
-	return digest.Value, nil
+	return digest.Hash, nil
 }
 
 func (c *downloadCommand) refresh(

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charm/downloader/mocks"
+	"github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -128,7 +129,11 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 	resolvedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
 
-	s.repo.EXPECT().DownloadCharm(gomock.Any(), name, requestedOrigin, tmpFile).Return(s.charmArchive, resolvedOrigin, nil)
+	s.repo.EXPECT().DownloadCharm(gomock.Any(), name, requestedOrigin, tmpFile).Return(s.charmArchive, resolvedOrigin, &charmhub.Digest{
+		DigestType: charmhub.SHA256,
+		Hash:       "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461",
+		Size:       10,
+	}, nil)
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
@@ -228,11 +233,15 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 			return "", nil
 		},
 	)
-	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdaptor{s.repo}, nil)
+	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdaptor{repo: s.repo}, nil)
 	s.repo.EXPECT().DownloadCharm(gomock.Any(), curl.Name, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+		func(ctx context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error) {
 			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
-			return s.charmArchive, resolvedOrigin, nil
+			return s.charmArchive, resolvedOrigin, &charmhub.Digest{
+				DigestType: charmhub.SHA256,
+				Hash:       "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461",
+				Size:       10,
+			}, nil
 		},
 	)
 	s.charmArchive.EXPECT().Meta().Return(&charm.Meta{
@@ -275,7 +284,7 @@ type repoAdaptor struct {
 	repo *mocks.MockCharmRepository
 }
 
-func (r repoAdaptor) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+func (r repoAdaptor) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error) {
 	return r.repo.DownloadCharm(ctx, charmName, requestedOrigin, archivePath)
 }
 

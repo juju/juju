@@ -285,7 +285,7 @@ func (m *MockDownloadBundleClient) EXPECT() *MockDownloadBundleClientMockRecorde
 }
 
 // DownloadAndReadBundle mocks base method.
-func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (charm0.Bundle, error) {
+func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (charm0.Bundle, *charmhub.Digest, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -293,8 +293,9 @@ func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, a
 	}
 	ret := m.ctrl.Call(m, "DownloadAndReadBundle", varargs...)
 	ret0, _ := ret[0].(charm0.Bundle)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*charmhub.Digest)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // DownloadAndReadBundle indicates an expected call of DownloadAndReadBundle.
@@ -311,19 +312,19 @@ type MockDownloadBundleClientDownloadAndReadBundleCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Return(arg0 charm0.Bundle, arg1 error) *MockDownloadBundleClientDownloadAndReadBundleCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Return(arg0 charm0.Bundle, arg1 *charmhub.Digest, arg2 error) *MockDownloadBundleClientDownloadAndReadBundleCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm0.Bundle, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
+func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm0.Bundle, *charmhub.Digest, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDownloadBundleClientDownloadAndReadBundleCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm0.Bundle, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
+func (c *MockDownloadBundleClientDownloadAndReadBundleCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm0.Bundle, *charmhub.Digest, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

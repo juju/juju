@@ -192,12 +192,12 @@ func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath
 }
 
 // DownloadAndRead defines a client for downloading charms directly.
-func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, *Digest, error) {
 	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndReadBundle defines a client for downloading bundles directly.
-func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, error) {
+func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, *Digest, error) {
 	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
 }
 
