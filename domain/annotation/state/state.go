@@ -68,7 +68,7 @@ func (st *State) GetCharmAnnotations(ctx context.Context, id annotation.GetCharm
 	query, err := st.Prepare(`
 SELECT (key, value) AS (&Annotation.*)
 FROM annotation_charm AS ac
-JOIN v_charm_annotation AS c ON ac.uuid = c.uuid
+JOIN v_charm_annotation_index AS c ON ac.uuid = c.uuid
 WHERE c.name = $charmArgs.name AND c.revision = $charmArgs.revision;
 `, args, Annotation{})
 	if err != nil {
@@ -312,7 +312,7 @@ func (st *State) SetCharmAnnotations(
 	}
 
 	getStmt, err := st.Prepare(`
-SELECT &annotationUUID.* FROM v_charm_annotation
+SELECT &annotationUUID.* FROM v_charm_annotation_index
 WHERE name = $charmArgs.name AND revision = $charmArgs.revision;
 `, args, annotationUUID{})
 	if err != nil {

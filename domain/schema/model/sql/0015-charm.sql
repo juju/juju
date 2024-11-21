@@ -116,7 +116,7 @@ SELECT
 FROM charm_origin AS co
 LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
 
-CREATE VIEW v_charm_annotation AS
+CREATE VIEW v_charm_annotation_index AS
 SELECT
     c.uuid,
     cm.name,

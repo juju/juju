@@ -58,8 +58,8 @@ func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (map[st
 	return annotations, errors.Capture(err)
 }
 
-// GetAnnotations retrieves all the annotations associated with a given ID. If
-// no annotations are found, an empty map is returned.
+// GetCharmAnnotations retrieves all the annotations associated with a given
+// charm argument. If no annotations are found, an empty map is returned.
 func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
 	if err := id.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -88,9 +88,9 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 	return nil
 }
 
-// SetCharmAnnotations associates key/value annotation pairs with a given ID. If
-// an annotation already exists for the given ID, then it will be updated with
-// the given value.
+// SetCharmAnnotations associates key/value annotation pairs with a given charm
+// argument. If an annotation already exists for the given ID, then it will be
+// updated with the given value.
 func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) error {
 	if err := id.Validate(); err != nil {
 		return errors.Capture(err)
