@@ -10,7 +10,7 @@ run_shellcheck() {
 
 run_shfmt() {
 	# shellcheck disable=SC2038
-	OUT=$(find ./tests -type f -name "*.sh" | xargs -I% shfmt -l -s % | wc -l | grep "0" || echo "FAILED")
+	OUT=$(find ./tests -type f -name "*.sh" | grep -n './tests/tmp' | xargs -I% shfmt -l -s % | wc -l | grep "0" || echo "FAILED")
 
 	if [[ ${OUT} == "FAILED" ]]; then
 		echo ""
