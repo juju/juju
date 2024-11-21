@@ -660,6 +660,19 @@ type ResolveCharmWithChannelResults struct {
 	Results []ResolveCharmWithChannelResult
 }
 
+// ResolveCharmWithChannelResultV6 is the result of a single charm resolution.
+type ResolveCharmWithChannelResultV6 struct {
+	URL             string      `json:"url"`
+	Origin          CharmOrigin `json:"charm-origin"`
+	SupportedSeries []string    `json:"supported-series"`
+	Error           *Error      `json:"error,omitempty"`
+}
+
+// ResolveCharmWithChannelResultsV6 holds the results of ResolveCharmsWithChannel.
+type ResolveCharmWithChannelResultsV6 struct {
+	Results []ResolveCharmWithChannelResultV6
+}
+
 // CharmURLAndOrigins contains a slice of charm urls with a given origin.
 type CharmURLAndOrigins struct {
 	Entities []CharmURLAndOrigin `json:"entities"`
