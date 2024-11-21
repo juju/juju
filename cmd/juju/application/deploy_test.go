@@ -684,7 +684,7 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployableWithPlacement(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 1, instance.MustParsePlacement("1"))
 
-	err := s.runDeploy(c, "--to", "1", charmDir.Path, "--base", "ubuntu@22.04")
+	err := s.runDeploy(c, "--to", "1", charmDir.Path, "--base", "ubuntu@24.04")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

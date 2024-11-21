@@ -1,4 +1,4 @@
-FROM public.ecr.aws/ubuntu/ubuntu:22.04
+FROM public.ecr.aws/ubuntu/ubuntu:24.04
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -18,13 +18,10 @@ RUN apt-get update \
     sudo \
     python3-yaml \
     python3-pip \
-    python3-distutils \
+    python3-setuptools \
     # for debug-hooks.
     tmux byobu \
-    # below apt dependencies are required by controller pod.
-    iproute2 \
-    curl \
-    && pip3 install --upgrade pip setuptools \
+    curl iproute2 \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
 
@@ -35,7 +32,7 @@ ENV PIP_FIND_LINKS=/tmp/wheelhouse
 
 RUN mkdir -p /tmp/wheelhouse
 COPY docker-staging/requirements.txt /tmp/wheelhouse/requirements.txt
-RUN pip3 install -r /tmp/wheelhouse/requirements.txt
+RUN pip3 install -r /tmp/wheelhouse/requirements.txt --break-system-packages
 
 WORKDIR /var/lib/juju
 COPY ${TARGETOS}_${TARGETARCH}/bin/jujud /opt/
