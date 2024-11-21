@@ -25,5 +25,5 @@ type CharmHubClient interface {
 	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Find(ctx context.Context, query string, options ...charmhub.FindOption) ([]transport.FindResponse, error)
 	Refresh(context.Context, charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
-	Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) error
+	Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charmhub.Digest, error)
 }

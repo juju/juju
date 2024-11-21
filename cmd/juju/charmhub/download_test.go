@@ -5,8 +5,6 @@ package charmhub
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"net/url"
 
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -80,7 +78,6 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 
 	s.expectRefresh(url)
 	s.expectDownload(c, url)
-	s.expectFilesystem(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -125,7 +122,6 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 
 	s.expectRefresh(url)
 	s.expectDownload(c, url)
-	s.expectFilesystem(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -147,7 +143,6 @@ func (s *downloadSuite) TestRunWithUnsupportedSeriesPicksFirstSuggestion(c *gc.C
 	s.expectRefreshUnsupportedBase()
 	s.expectRefresh(url)
 	s.expectDownload(c, url)
-	s.expectFilesystem(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -230,7 +225,6 @@ func (s *downloadSuite) TestRunWithRevision(c *gc.C) {
 
 	s.expectRefresh(url)
 	s.expectDownload(c, url)
-	s.expectFilesystem(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -291,9 +285,7 @@ func (s *downloadSuite) TestRunWithResources(c *gc.C) {
 
 	s.expectRefreshWithResources(charmDownloadUrl, resourceDownloadUrl)
 	s.expectDownload(c, charmDownloadUrl)
-	s.expectFilesystem(c)
 	s.expectResourceDownload(c, resourceDownloadUrl)
-	s.expectFilesystemResource(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -429,30 +421,17 @@ func (s *downloadSuite) expectRefreshUnsupportedBase() {
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {
 	resourceURL, err := url.Parse(charmHubURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_r123.charm", gomock.Any()).Return(nil)
+	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_r123.charm", gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
+		DigestType: charmhub.SHA256,
+		Value:      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+	}, nil)
 }
 
 func (s *downloadSuite) expectResourceDownload(c *gc.C, resourceDownloadURL string) {
 	resourceURL, err := url.Parse(resourceDownloadURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "resource_foo_r5_a.tar.gz", gomock.Any()).Return(nil)
-}
-
-func (s *downloadSuite) expectFilesystem(c *gc.C) {
-	s.file.EXPECT().Read(gomock.Any()).Return(0, io.EOF).AnyTimes()
-	s.file.EXPECT().Close().Return(nil)
-	s.filesystem.EXPECT().Open("test_r123.charm").Return(s.file, nil)
-}
-
-func (s *downloadSuite) expectFilesystemResource(c *gc.C) {
-	s.resourceFile.EXPECT().Read(gomock.Any()).DoAndReturn(func(buf []byte) (int, error) {
-		data := []byte("resource\n")
-		if len(data) > len(buf) {
-			return 0, fmt.Errorf("buffer too small")
-		}
-		copy(buf, data)
-		return len(data), io.EOF
-	})
-	s.resourceFile.EXPECT().Close().Return(nil)
-	s.filesystem.EXPECT().Open("resource_foo_r5_a.tar.gz").Return(s.resourceFile, nil)
+	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "resource_foo_r5_a.tar.gz", gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
+		DigestType: charmhub.SHA256,
+		Value:      "533513c1397cb8ccec05852b52514becd5fd8c9c21509f7bc2f5d460c6143dd8",
+	}, nil)
 }

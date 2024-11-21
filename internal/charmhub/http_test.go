@@ -209,7 +209,7 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
-	_, err := client.Get(nil, base, &result)
+	_, err := client.Get(context.Background(), base, &result)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 

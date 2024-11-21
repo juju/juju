@@ -187,7 +187,7 @@ func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmme
 }
 
 // Download defines a client for downloading charms directly.
-func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
 	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
 }
 
