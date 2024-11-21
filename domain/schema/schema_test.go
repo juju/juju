@@ -483,7 +483,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Opened Ports
 		"protocol",
 		"port_range",
-		"unit_endpoint",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -515,6 +514,7 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_storage",
 		"v_hardware_characteristics",
 		"v_port_range",
+		"v_endpoint",
 		"v_secret_permission",
 		"v_space_subnet",
 

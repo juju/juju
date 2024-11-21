@@ -117,21 +117,18 @@ type portRangeUUIDs []string
 // unitPortRange represents a range of ports for a given protocol by id for a
 // given unit's endpoint by uuid.
 type unitPortRange struct {
-	UUID             string `db:"uuid"`
-	ProtocolID       int    `db:"protocol_id"`
-	FromPort         int    `db:"from_port"`
-	ToPort           int    `db:"to_port"`
-	UnitEndpointUUID string `db:"unit_endpoint_uuid"`
+	UUID         string    `db:"uuid"`
+	ProtocolID   int       `db:"protocol_id"`
+	FromPort     int       `db:"from_port"`
+	ToPort       int       `db:"to_port"`
+	RelationUUID string    `db:"relation_uuid,omitempty"`
+	UnitUUID     unit.UUID `db:"unit_uuid"`
 }
 
 // endpoint represents a network endpoint and its UUID.
 type endpoint struct {
 	UUID     string `db:"uuid"`
 	Endpoint string `db:"endpoint"`
-}
-
-type endpointUUID struct {
-	UUID string `db:"uuid"`
 }
 
 // endpointName represents a network endpoint's name.
@@ -142,12 +139,7 @@ type endpointName struct {
 // endpoints represents a list of network endpoints.
 type endpoints []string
 
-// unitEndpoint represents a unit's endpoint and its UUID.
-type unitEndpoint struct {
-	UUID     string    `db:"uuid"`
-	Endpoint string    `db:"endpoint"`
-	UnitUUID unit.UUID `db:"unit_uuid"`
-}
+type unitUUIDs []unit.UUID
 
 // unitUUID represents a unit's UUID.
 type unitUUID struct {

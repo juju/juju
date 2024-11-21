@@ -240,14 +240,14 @@ func (s *filteringStatusSuite) TestFilterByPortRange(c *gc.C) {
 
 	portService := s.ControllerDomainServices(c).Port()
 	err = portService.UpdateUnitPorts(context.Background(), unit0UUID, network.GroupedPortRanges{
-		"":    []network.PortRange{network.MustParsePortRange("1000/tcp")},
-		"foo": []network.PortRange{network.MustParsePortRange("2000/tcp")},
+		"":   []network.PortRange{network.MustParsePortRange("1000/tcp")},
+		"db": []network.PortRange{network.MustParsePortRange("2000/tcp")},
 	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = portService.UpdateUnitPorts(context.Background(), unit1UUID, network.GroupedPortRanges{
-		"":    []network.PortRange{network.MustParsePortRange("2000/tcp")},
-		"bar": []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"":      []network.PortRange{network.MustParsePortRange("2000/tcp")},
+		"cache": []network.PortRange{network.MustParsePortRange("3000/tcp")},
 	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -15,4 +15,8 @@ const (
 	// PortRangeConflict describes an error that occurs when a user tries to open
 	// or close a port range overlaps with another.
 	PortRangeConflict = errors.ConstError("port range conflict")
+
+	// InvalidEndpoint describes an error that occurs when a user trying to open
+	// or close a port range with an endpoint which does not exist on the unit.
+	InvalidEndpoint = errors.ConstError("invalid endpoint(s)")
 )

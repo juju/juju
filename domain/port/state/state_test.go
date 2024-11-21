@@ -196,7 +196,7 @@ func (s *stateSuite) TestGetAllOpenedPorts(c *gc.C) {
 				{Protocol: "tcp", FromPort: 443, ToPort: 443},
 				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
 			},
-			"endpoint-2": {
+			"ep1": {
 				{Protocol: "udp", FromPort: 2000, ToPort: 2500},
 			},
 		}, network.GroupedPortRanges{})
@@ -571,6 +571,36 @@ func (s *stateSuite) TestUpdateUnitPortsOpenPort(c *gc.C) {
 
 	c.Check(groupedPortRanges["ep1"], gc.HasLen, 1)
 	c.Check(groupedPortRanges["ep1"][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 8080, ToPort: 8080})
+}
+
+func (s *stateSuite) TestUpdateUnitPortsOpenPortWildcardEndpoint(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
+			port.WildcardEndpoint: {{Protocol: "tcp", FromPort: 1000, ToPort: 1500}},
+		}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(groupedPortRanges, gc.HasLen, 1)
+	c.Check(groupedPortRanges[port.WildcardEndpoint], gc.HasLen, 1)
+	c.Check(groupedPortRanges[port.WildcardEndpoint][0], jc.DeepEquals, network.PortRange{Protocol: "tcp", FromPort: 1000, ToPort: 1500})
+}
+
+func (s *stateSuite) TestUpdateUnitPortsOpenOnInvalidEndpoint(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
+			"invalid": {{Protocol: "tcp", FromPort: 1000, ToPort: 1500}},
+		}, network.GroupedPortRanges{})
+	})
+	c.Assert(err, jc.ErrorIs, porterrors.InvalidEndpoint)
 }
 
 func (s *stateSuite) TestUpdateUnitPortsClosePort(c *gc.C) {

@@ -23,6 +23,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit.gen.go -package=triggers -tables=unit
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-scale.gen.go -package=triggers -tables=application_scale
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/port-range.gen.go -package=triggers -tables=port_range
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -111,7 +112,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
-		triggers.ChangeLogTriggersForPortRange("unit_endpoint_uuid", tablePortRange),
+		triggers.ChangeLogTriggersForPortRange("unit_uuid", tablePortRange),
 		triggers.ChangeLogTriggersForSecretDeletedValueRef("revision_uuid", tableSecretDeletedValueRef),
 	)
 

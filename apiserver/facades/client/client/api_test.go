@@ -228,6 +228,7 @@ var scenarioStatus = &params.FullStatus{
 				"":               network.AlphaSpaceName,
 				"server":         network.AlphaSpaceName,
 				"server-admin":   network.AlphaSpaceName,
+				"db":             network.AlphaSpaceName,
 				"db-router":      network.AlphaSpaceName,
 				"metrics-client": network.AlphaSpaceName,
 			},

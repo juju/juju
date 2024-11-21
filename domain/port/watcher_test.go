@@ -19,13 +19,11 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/port/service"
 	"github.com/juju/juju/domain/port/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -76,27 +74,45 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, relations ...string) coreapplication.ID {
+	relationsMap := map[string]charm.Relation{}
+	for _, relation := range relations {
+		relationsMap[relation] = charm.Relation{
+			Name:  relation,
+			Key:   relation,
+			Role:  charm.RoleRequirer,
+			Scope: charm.ScopeGlobal,
+		}
+	}
+
+	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	var appUUID coreapplication.ID
+	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appUUID, err = applicationSt.CreateApplication(ctx, appName, application.AddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name:     appName,
+					Requires: relationsMap,
+				},
+			},
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return appUUID
+}
+
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
-func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreapplication.ID) {
+func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit.UUID {
 	applicationSt := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)
 	err = applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		appID, err := applicationSt.GetApplicationID(ctx, appName)
-		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return err
-		}
 		if err != nil {
-			if appID, err = applicationSt.CreateApplication(ctx, appName, application.AddApplicationArg{
-				Charm: charm.Charm{
-					Metadata: charm.Metadata{
-						Name: appName,
-					},
-				},
-			}); err != nil {
-				return err
-			}
+			return err
 		}
 		err = applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
 		if err != nil {
@@ -107,17 +123,9 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreuni
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var (
-		unitUUID coreunit.UUID
-		appUUID  coreapplication.ID
-	)
+	var unitUUID coreunit.UUID
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
-		if err != nil {
-			return err
-		}
-
-		err = tx.QueryRowContext(ctx, "SELECT uuid FROM application WHERE name = ?", appName).Scan(&appUUID)
 		if err != nil {
 			return err
 		}
@@ -135,7 +143,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreuni
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return unitUUID, appUUID
+	return unitUUID
 }
 
 /*
@@ -150,9 +158,12 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreuni
  */
 
 func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
-	s.unitUUIDs[0], s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
-	s.unitUUIDs[1], s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
-	s.unitUUIDs[2], _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
+	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2", "ep3")
+	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2", "ep3")
+
+	s.unitUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
+	s.unitUUIDs[2] = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 
 	watcher, err := s.srv.WatchMachineOpenedPorts(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,9 +268,12 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 }
 
 func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
-	s.unitUUIDs[0], s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
-	s.unitUUIDs[1], s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
-	s.unitUUIDs[2], _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
+	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
+	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2")
+
+	s.unitUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
+	s.unitUUIDs[2] = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 
 	watcher, err := s.srv.WatchOpenedPortsForApplication(context.Background(), s.appUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)

@@ -46,10 +46,8 @@ func (st *State) GetUnitOpenedPorts(ctx context.Context, unit coreunit.UUID) (ne
 
 	query, err := st.Prepare(`
 SELECT &endpointPortRange.*
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
+FROM v_port_range
+WHERE unit_uuid = $unitUUID.unit_uuid
 `, endpointPortRange{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get unit opened ports statement: %w", err)
@@ -95,10 +93,8 @@ func (s *State) GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRang
 
 	query, err := s.Prepare(`
 SELECT DISTINCT &unitNamePortRange.*
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-JOIN unit ON unit_endpoint.unit_uuid = unit.uuid
+FROM v_port_range
+JOIN unit ON unit_uuid = unit.uuid
 `, unitNamePortRange{})
 	if err != nil {
 		return nil, errors.Errorf("preparing get all opened ports statement: %w", err)
@@ -146,8 +142,9 @@ func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map
 
 	query, err := st.Prepare(`
 SELECT &unitEndpointPortRange.*
-FROM v_port_range AS pr
-JOIN machine ON pr.net_node_uuid = machine.net_node_uuid
+FROM v_port_range
+JOIN unit ON unit_uuid = unit.uuid
+JOIN machine ON unit.net_node_uuid = machine.net_node_uuid
 WHERE machine.uuid = $machineUUID.machine_uuid
 `, unitEndpointPortRange{}, machineUUID)
 	if err != nil {
@@ -186,6 +183,7 @@ func (st *State) GetApplicationOpenedPorts(ctx context.Context, application core
 	query, err := st.Prepare(`
 SELECT &unitEndpointPortRange.*
 FROM v_port_range
+JOIN unit ON unit_uuid = unit.uuid
 WHERE application_uuid = $applicationUUID.application_uuid
 `, unitEndpointPortRange{}, applicationUUID)
 	if err != nil {
@@ -218,10 +216,8 @@ func (st *State) GetColocatedOpenedPorts(ctx domain.AtomicContext, unit coreunit
 
 	getOpenedPorts, err := st.Prepare(`
 SELECT &portRange.*
-FROM port_range AS pr
-JOIN protocol AS p ON pr.protocol_id = p.id
-JOIN unit_endpoint AS ep ON pr.unit_endpoint_uuid = ep.uuid
-JOIN unit AS u ON ep.unit_uuid = u.uuid
+FROM v_port_range AS pr
+JOIN unit AS u ON unit_uuid = u.uuid
 JOIN unit AS u2 on u2.net_node_uuid = u.net_node_uuid
 WHERE u2.uuid = $unitUUID.unit_uuid
 `, portRange{}, unitUUID)
@@ -241,7 +237,7 @@ WHERE u2.uuid = $unitUUID.unit_uuid
 		return nil, errors.Errorf("getting opened ports for colocated units with %q: %w", unit, err)
 	}
 
-	ret := transform.Slice(portRanges, func(p portRange) network.PortRange { return p.decode() })
+	ret := transform.Slice(portRanges, portRange.decode)
 	network.SortPortRanges(ret)
 	return ret, nil
 }
@@ -254,11 +250,9 @@ func (st *State) GetEndpointOpenedPorts(ctx domain.AtomicContext, unit coreunit.
 
 	query, err := st.Prepare(`
 SELECT &portRange.*
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
-AND unit_endpoint.endpoint = $endpointName.endpoint
+FROM v_port_range
+WHERE unit_uuid = $unitUUID.unit_uuid
+AND endpoint = $endpointName.endpoint
 `, portRange{}, unitUUID, endpointName)
 	if err != nil {
 		return nil, errors.Errorf("preparing get endpoint opened ports statement: %w", err)
@@ -297,14 +291,15 @@ func (st *State) UpdateUnitPorts(
 	for endpoint := range closePorts {
 		endpointsUnderActionSet.Add(endpoint)
 	}
+	endpointsUnderActionSet.Remove(port.WildcardEndpoint)
 	endpointsUnderAction := endpoints(endpointsUnderActionSet.Values())
 
 	unitUUID := unitUUID{UUID: unit}
 
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		endpoints, err := st.ensureEndpoints(ctx, tx, unitUUID, endpointsUnderAction)
+		endpoints, err := st.lookupRelationUUIDs(ctx, tx, unitUUID, endpointsUnderAction)
 		if err != nil {
-			return errors.Errorf("ensuring endpoints exist for unit %q: %w", unit, err)
+			return errors.Errorf("looking up relation endpoint uuids for unit %q: %w", unit, err)
 		}
 
 		currentUnitOpenedPorts, err := st.getUnitOpenedPorts(ctx, tx, unitUUID)
@@ -312,7 +307,7 @@ func (st *State) UpdateUnitPorts(
 			return errors.Errorf("getting opened ports for unit %q: %w", unit, err)
 		}
 
-		err = st.openPorts(ctx, tx, openPorts, currentUnitOpenedPorts, endpoints)
+		err = st.openPorts(ctx, tx, openPorts, currentUnitOpenedPorts, unitUUID, endpoints)
 		if err != nil {
 			return errors.Errorf("opening ports for unit %q: %w", unit, err)
 		}
@@ -326,64 +321,34 @@ func (st *State) UpdateUnitPorts(
 	})
 }
 
-// ensureEndpoints ensures that the given endpoints are present in the database.
-// Return all endpoints under action with their corresponding UUIDs.
-//
-// TODO(jack-w-shaw): Once it has been implemented, we should verify new endpoints
-// are valid by checking the charm_relation table.
-func (st *State) ensureEndpoints(
+func (st *State) lookupRelationUUIDs(
 	ctx context.Context, tx *sqlair.TX, unitUUID unitUUID, endpointsUnderAction endpoints,
 ) ([]endpoint, error) {
-	getUnitEndpoints, err := st.Prepare(`
+	getEndpoints, err := st.Prepare(`
 SELECT &endpoint.*
-FROM unit_endpoint
+FROM v_endpoint
 WHERE unit_uuid = $unitUUID.unit_uuid
 AND endpoint IN ($endpoints[:])
 `, endpoint{}, unitUUID, endpointsUnderAction)
 	if err != nil {
-		return nil, errors.Errorf("preparing get unit endpoints statement: %w", err)
+		return nil, errors.Errorf("preparing get endpoints statement: %w", err)
 	}
 
-	insertUnitEndpoint, err := st.Prepare("INSERT INTO unit_endpoint (*) VALUES ($unitEndpoint.*)", unitEndpoint{})
-	if err != nil {
-		return nil, errors.Errorf("preparing insert unit endpoint statement: %w", err)
-	}
-
-	var endpoints []endpoint
-	err = tx.Query(ctx, getUnitEndpoints, unitUUID, endpointsUnderAction).GetAll(&endpoints)
+	endpoints := []endpoint{}
+	err = tx.Query(ctx, getEndpoints, unitUUID, endpointsUnderAction).GetAll(&endpoints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
 	}
 
-	foundEndpoints := set.NewStrings()
-	for _, ep := range endpoints {
-		foundEndpoints.Add(ep.Endpoint)
-	}
-
-	// Insert any new endpoints that are required.
-	requiredEndpoints := set.NewStrings(endpointsUnderAction...).Difference(foundEndpoints)
-	newUnitEndpoints := make([]unitEndpoint, requiredEndpoints.Size())
-	for i, requiredEndpoint := range requiredEndpoints.Values() {
-		uuid, err := uuid.NewUUID()
-		if err != nil {
-			return nil, errors.Errorf("generating UUID for unit endpoint: %w", err)
+	if len(endpoints) != len(endpointsUnderAction) {
+		endpointsSet := set.NewStrings([]string(endpointsUnderAction)...)
+		for _, ep := range endpoints {
+			endpointsSet.Remove(ep.Endpoint)
 		}
-		newUnitEndpoints[i] = unitEndpoint{
-			UUID:     uuid.String(),
-			UnitUUID: unitUUID.UUID,
-			Endpoint: requiredEndpoint,
-		}
-		endpoints = append(endpoints, endpoint{
-			Endpoint: requiredEndpoint,
-			UUID:     uuid.String(),
-		})
-	}
-
-	if len(newUnitEndpoints) > 0 {
-		err = tx.Query(ctx, insertUnitEndpoint, newUnitEndpoints).Run()
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
+		return nil, errors.Errorf(
+			"%w; %v does exist on unit %v",
+			porterrors.InvalidEndpoint, endpointsSet.Values(), unitUUID.UUID,
+		)
 	}
 
 	return endpoints, nil
@@ -395,16 +360,9 @@ AND endpoint IN ($endpoints[:])
 // their UUIDs, which are not needed by GetUnitOpenedPorts.
 func (st *State) getUnitOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]endpointPortRangeUUID, error) {
 	getOpenedPorts, err := st.Prepare(`
-SELECT 
-	port_range.uuid AS &endpointPortRangeUUID.uuid,
-	protocol.protocol AS &endpointPortRangeUUID.protocol,
-	port_range.from_port AS &endpointPortRangeUUID.from_port,
-	port_range.to_port AS &endpointPortRangeUUID.to_port,
-	unit_endpoint.endpoint AS &endpointPortRangeUUID.endpoint
-FROM port_range
-JOIN protocol ON port_range.protocol_id = protocol.id
-JOIN unit_endpoint ON port_range.unit_endpoint_uuid = unit_endpoint.uuid
-WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
+SELECT &endpointPortRangeUUID.*
+FROM v_port_range
+WHERE unit_uuid = $unitUUID.unit_uuid
 `, endpointPortRangeUUID{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get opened ports statement: %w", err)
@@ -424,7 +382,7 @@ WHERE unit_endpoint.unit_uuid = $unitUUID.unit_uuid
 // openPorts inserts the given port ranges into the database, unless they're already open.
 func (st *State) openPorts(
 	ctx context.Context, tx *sqlair.TX,
-	openPorts network.GroupedPortRanges, currentOpenedPorts []endpointPortRangeUUID, endpoints []endpoint,
+	openPorts network.GroupedPortRanges, currentOpenedPorts []endpointPortRangeUUID, unitUUID unitUUID, endpoints []endpoint,
 ) error {
 	insertPortRange, err := st.Prepare("INSERT INTO port_range (*) VALUES ($unitPortRange.*)", unitPortRange{})
 	if err != nil {
@@ -436,6 +394,12 @@ func (st *State) openPorts(
 		return errors.Errorf("getting protocol map: %w", err)
 	}
 
+	// construct a map from endpoint name to it's UUID.
+	endpointUUIDMaps := make(map[string]string)
+	for _, ep := range endpoints {
+		endpointUUIDMaps[ep.Endpoint] = ep.UUID
+	}
+
 	// index the current opened ports by endpoint and port range
 	currentOpenedPortRangeExistenceIndex := make(map[string]map[network.PortRange]bool)
 	for _, openedPortRange := range currentOpenedPorts {
@@ -445,41 +409,35 @@ func (st *State) openPorts(
 		currentOpenedPortRangeExistenceIndex[openedPortRange.Endpoint][openedPortRange.decode()] = true
 	}
 
-	// Construct the new port ranges to open
-	var openPortRanges []unitPortRange
-
-	for _, ep := range endpoints {
-		ports, ok := openPorts[ep.Endpoint]
-		if !ok {
-			continue
-		}
-
+	for ep, ports := range openPorts {
 		for _, portRange := range ports {
 			// skip port range if it's already open on this endpoint
-			if _, ok := currentOpenedPortRangeExistenceIndex[ep.Endpoint][portRange]; ok {
+			if _, ok := currentOpenedPortRangeExistenceIndex[ep][portRange]; ok {
 				continue
 			}
-
 			uuid, err := uuid.NewUUID()
 			if err != nil {
 				return errors.Errorf("generating UUID for port range: %w", err)
 			}
-			openPortRanges = append(openPortRanges, unitPortRange{
-				UUID:             uuid.String(),
-				ProtocolID:       protocolMap[portRange.Protocol],
-				FromPort:         portRange.FromPort,
-				ToPort:           portRange.ToPort,
-				UnitEndpointUUID: ep.UUID,
-			})
+			var relationUUID string
+			if ep != port.WildcardEndpoint {
+				relationUUID = endpointUUIDMaps[ep]
+			}
+			unitPortRange := unitPortRange{
+				UUID:         uuid.String(),
+				ProtocolID:   protocolMap[portRange.Protocol],
+				FromPort:     portRange.FromPort,
+				ToPort:       portRange.ToPort,
+				UnitUUID:     unitUUID.UUID,
+				RelationUUID: relationUUID,
+			}
+			err = tx.Query(ctx, insertPortRange, unitPortRange).Run()
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 	}
 
-	if len(openPortRanges) > 0 {
-		err = tx.Query(ctx, insertPortRange, openPortRanges).Run()
-		if err != nil {
-			return errors.Capture(err)
-		}
-	}
 	return nil
 }
 
@@ -557,11 +515,9 @@ func (st *State) GetEndpoints(ctx domain.AtomicContext, unit coreunit.UUID) ([]s
 	unitUUID := unitUUID{UUID: unit}
 
 	getEndpoints, err := st.Prepare(`
-SELECT charm_relation.key AS &endpointName.endpoint
-FROM unit
-JOIN application ON unit.application_uuid = application.uuid
-JOIN charm_relation ON application.charm_uuid = charm_relation.charm_uuid
-WHERE unit.uuid = $unitUUID.unit_uuid
+SELECT &endpointName.*
+FROM v_endpoint
+WHERE unit_uuid = $unitUUID.unit_uuid
 `, endpointName{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get endpoints statement: %w", err)
