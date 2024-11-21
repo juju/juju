@@ -13,6 +13,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
+	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -342,5 +343,5 @@ func verifyNoPortRangeConflicts(rangesA, rangesB []network.PortRange) error {
 	if len(conflicts) == 0 {
 		return nil
 	}
-	return errors.Errorf("%w: %s", port.ErrPortRangeConflict, conflicts)
+	return errors.Errorf("%w: %s", porterrors.PortRangeConflict, conflicts)
 }

@@ -15,6 +15,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	domain "github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
+	porterrors "github.com/juju/juju/domain/port/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
 )
 
@@ -303,7 +304,7 @@ func (s *serviceSuite) TestUpdateUnitPortsConflict(c *gc.C) {
 			network.MustParsePortRange("150-250/tcp"),
 		},
 	}, network.GroupedPortRanges{})
-	c.Assert(err, jc.ErrorIs, port.ErrPortRangeConflict)
+	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
 
 	err = s.srv.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
 		"ep1": {
@@ -314,7 +315,7 @@ func (s *serviceSuite) TestUpdateUnitPortsConflict(c *gc.C) {
 			network.MustParsePortRange("150-250/tcp"),
 		},
 	})
-	c.Assert(err, jc.ErrorIs, port.ErrPortRangeConflict)
+	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
 
 	err = s.srv.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
 		"ep1": {
@@ -322,7 +323,7 @@ func (s *serviceSuite) TestUpdateUnitPortsConflict(c *gc.C) {
 			network.MustParsePortRange("200/tcp"),
 		},
 	}, network.GroupedPortRanges{})
-	c.Assert(err, jc.ErrorIs, port.ErrPortRangeConflict)
+	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
 }
 
 func (s *serviceSuite) TestUpdateUnitPortsOpenPortConflictColocated(c *gc.C) {
@@ -339,7 +340,7 @@ func (s *serviceSuite) TestUpdateUnitPortsOpenPortConflictColocated(c *gc.C) {
 		network.GroupedPortRanges{},
 	)
 
-	c.Assert(err, jc.ErrorIs, port.ErrPortRangeConflict)
+	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
 }
 
 func (s *serviceSuite) TestUpdateUnitPortsClosePortConflictColocated(c *gc.C) {
@@ -356,7 +357,7 @@ func (s *serviceSuite) TestUpdateUnitPortsClosePortConflictColocated(c *gc.C) {
 		},
 	)
 
-	c.Assert(err, jc.ErrorIs, port.ErrPortRangeConflict)
+	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
 }
 
 func (s *serviceSuite) TestUpdateUnitPortsOpenWildcard(c *gc.C) {
