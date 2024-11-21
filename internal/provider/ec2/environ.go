@@ -289,8 +289,14 @@ func (e *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
-		instanceTypeName := attrValues[constraints.InstanceType].(string)
-		arch := attrValues[constraints.Arch].(string)
+		instanceTypeName, ok := attrValues[constraints.InstanceType].(string)
+		if !ok {
+			return nil
+		}
+		arch, ok := attrValues[constraints.Arch].(string)
+		if !ok {
+			return nil
+		}
 		for _, itype := range instanceTypes {
 			if itype.Name != instanceTypeName {
 				continue
