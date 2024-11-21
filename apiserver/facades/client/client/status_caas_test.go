@@ -114,6 +114,8 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	if info != "installing agent" && info != "blocked" {
 		workloadVersion = "gitlab/latest"
 	}
+	c.Assert(appStatus.CharmRev, jc.GreaterThan, 0)
+	appStatus.CharmRev = 0
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
 		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
