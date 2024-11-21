@@ -950,6 +950,7 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
 	// The charm should not have changed
 	c.Check(ch.Revision(), gc.Equals, 1)
 
