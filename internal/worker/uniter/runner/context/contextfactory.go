@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -367,7 +368,8 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 		// If there are no members and the relation is dying or suspended, a relation is broken.
 		rel := info.RelationUnit.Relation()
 		relationInactive := rel.Life() != life.Alive || rel.Suspended()
-		broken := relationInactive && len(memberNames) == 0
+		isPeer := info.RelationUnit.Endpoint().Role == charm.RolePeer
+		broken := !isPeer && relationInactive && len(memberNames) == 0
 		contextRelations[id] = NewContextRelation(relationUnit, cache, broken)
 	}
 	f.relationCaches = relationCaches

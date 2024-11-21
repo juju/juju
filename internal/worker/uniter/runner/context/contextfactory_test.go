@@ -15,11 +15,14 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
+	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	contextmocks "github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
@@ -567,4 +570,41 @@ func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *g
 	cached4, member := s.getCache(1, "r/4")
 	c.Assert(cached4, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(member, jc.IsTrue)
+}
+
+func (s *ContextFactorySuite) TestRelationIsPeerHookContext(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Add a dead peer relation.
+	relId := len(s.relunits)
+	rel := uniterapi.NewMockRelation(ctrl)
+	rel.EXPECT().Id().Return(relId).AnyTimes()
+	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:peer mysql:peer")).AnyTimes()
+	rel.EXPECT().Life().Return(life.Dead).AnyTimes()
+	rel.EXPECT().Suspended().Return(false).AnyTimes()
+
+	relUnit := uniterapi.NewMockRelationUnit(ctrl)
+	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
+	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "peer", Role: charm.RolePeer}}).AnyTimes()
+	relUnit.EXPECT().Settings(gomock.Any()).Return(
+		apiuniter.NewSettings(rel.Tag().String(), names.NewUnitTag("u/0").String(), params.Settings{}), nil,
+	).AnyTimes()
+	s.relunits[relId] = relUnit
+
+	s.setupContextFactory(c, ctrl)
+
+	hi := hook.Info{
+		Kind:       hooks.RelationBroken,
+		RelationId: relId,
+	}
+	ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(context.RelationBroken(ctx, relId), jc.IsFalse)
+
+	s.AssertNotActionContext(c, ctx)
+	s.AssertRelationContext(c, ctx, relId, "", "")
+	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
