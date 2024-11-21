@@ -27,25 +27,29 @@ run_bootstrap_authorized_keys_loaded() {
 	extra_key_file_pub="${extra_key_file}.pub"
 	ssh-keygen -t ed25519 -f "$extra_key_file" -C "isgreat@juju.is" -P ""
 
-	HOME="${SUB_TEST_DIR}"
-	bootstrap_additional_args=(--config "'authorized-keys=$(cat ${extra_key_file_pub})'")
-	export BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}"
-	export BOOTSTRAP_REUSE=false
-	bootstrap "authorized-keys-default" "$log_file"
-	juju switch controller
+	(
+		export HOME="${SUB_TEST_DIR}"
+		export JUJU_DATA="${JUJU_DATA:=$juju_home_dir}"
 
-	fingerprint=$(ssh-keygen -lf "${extra_key_file_pub}" | cut -f 2 -d ' ')
-	check_contains "$(juju ssh-keys)" "$fingerprint"
+		bootstrap_additional_args=(--config "'authorized-keys=$(cat ${extra_key_file_pub})'")
+		BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}" \
+			BOOTSTRAP_REUSE=false \
+			bootstrap "authorized-keys-loaded" "$log_file"
+		juju switch controller
 
-	fingerprint=$(ssh-keygen -lf "${default_key_file_pub}" | cut -f 2 -d ' ')
-	check_not_contains "$(juju ssh-keys)" "$fingerprint"
+		fingerprint=$(ssh-keygen -lf "${extra_key_file_pub}" | cut -f 2 -d ' ')
+		check_contains "$(juju ssh-keys)" "$fingerprint"
 
-	# Load the default key made by juju in the juju data directory and make sure
-	# that is has automatically been loaded by bootstrap.
-	fingerprint=$(ssh-keygen -lf "${juju_home_dir}/ssh/juju_id_ed25519.pub" | cut -f 2 -d ' ')
-	check_contains "$(juju ssh-keys)" "$fingerprint"
+		fingerprint=$(ssh-keygen -lf "${default_key_file_pub}" | cut -f 2 -d ' ')
+		check_not_contains "$(juju ssh-keys)" "$fingerprint"
 
-	destroy_controller "$BOOTSTRAPPED_JUJU_CTRL_NAME"
+		# Load the default key made by juju in the juju data directory and make sure
+		# that is has automatically been loaded by bootstrap.
+		fingerprint=$(ssh-keygen -lf "${JUJU_DATA}/ssh/juju_id_ed25519.pub" | cut -f 2 -d ' ')
+		check_contains "$(juju ssh-keys)" "$fingerprint"
+
+		destroy_controller "$BOOTSTRAPPED_JUJU_CTRL_NAME"
+	)
 }
 
 # run_bootstrap_authorized_keys_default is here to test the default loading of
@@ -72,20 +76,24 @@ run_bootstrap_authorized_keys_default() {
 	default_key_file_pub="${default_key_file}.pub"
 	ssh-keygen -t ed25519 -f "$default_key_file" -C "isgreat@juju.is" -P ""
 
-	HOME="${SUB_TEST_DIR}"
-	export BOOTSTRAP_REUSE=false
-	bootstrap "authorized-keys-default" "$log_file"
-	juju switch controller
+	(
+		export HOME="${SUB_TEST_DIR}"
+		export JUJU_DATA="${JUJU_DATA:=$juju_home_dir}"
 
-	fingerprint=$(ssh-keygen -lf "${default_key_file_pub}" | cut -f 2 -d ' ')
-	check_contains "$(juju ssh-keys)" "$fingerprint"
+		BOOTSTRAP_REUSE=false \
+			bootstrap "authorized-keys-default" "$log_file"
+		juju switch controller
 
-	# Load the default key made by juju in the juju data directory and make sure
-	# that is has automatically been loaded by bootstrap.
-	fingerprint=$(ssh-keygen -lf "${juju_home_dir}/ssh/juju_id_ed25519.pub" | cut -f 2 -d ' ')
-	check_contains "$(juju ssh-keys)" "$fingerprint"
+		fingerprint=$(ssh-keygen -lf "${default_key_file_pub}" | cut -f 2 -d ' ')
+		check_contains "$(juju ssh-keys)" "$fingerprint"
 
-	destroy_controller "$BOOTSTRAPPED_JUJU_CTRL_NAME"
+		# Load the default key made by juju in the juju data directory and make sure
+		# that is has automatically been loaded by bootstrap.
+		fingerprint=$(ssh-keygen -lf "${JUJU_DATA}/ssh/juju_id_ed25519.pub" | cut -f 2 -d ' ')
+		check_contains "$(juju ssh-keys)" "$fingerprint"
+
+		destroy_controller "$BOOTSTRAPPED_JUJU_CTRL_NAME"
+	)
 }
 
 test_bootstrap_authorized_keys() {
