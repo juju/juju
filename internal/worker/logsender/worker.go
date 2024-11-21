@@ -59,6 +59,8 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		case <-ctx.Done():
 			return nil
 		}
+		// the logwriter has been successfully retrieved from the inside goroutine and its lifecycle is now handled
+		// in the loop function.
 		defer logWriter.Close()
 		for {
 			select {

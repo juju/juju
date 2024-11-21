@@ -1,5 +1,7 @@
 run_schema() {
-	CUR_SHA=$(git show HEAD:apiserver/facades/schema.json | shasum -a 1 | awk '{ print $1 }')
+	TMP_ORIG=$(mktemp /tmp/schema-XXXXX)
+	git show "HEAD:apiserver/facades/schema.json" >"${TMP_ORIG}"
+	CUR_SHA=$(cat "${TMP_ORIG}" | shasum -a 1 | awk '{ print $1 }')
 	TMP=$(mktemp /tmp/schema-XXXXX)
 	OUT=$(make --no-print-directory SCHEMA_PATH="${TMP}" rebuild-schema 2>&1)
 	OUT_CODE=$?
@@ -14,6 +16,7 @@ run_schema() {
 
 	if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
 		(echo >&2 "\\nError: facades schema is not in sync. Run 'make rebuild-schema' and commit source.")
+		(>&2 diff "${TMP_ORIG}" "${TMP}")
 		exit 1
 	fi
 }

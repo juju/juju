@@ -523,6 +523,7 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	preferGen1Image := false
 	for i := 0; i < 15; i++ {
 		// Identify the instance type and image to provision.
 		instanceSpec, err := env.findInstanceSpec(
@@ -534,7 +535,7 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 				Arch:        arch,
 				Constraints: args.Constraints,
 			},
-			imageStream,
+			imageStream, preferGen1Image,
 		)
 		if err != nil {
 			return nil, err
@@ -552,10 +553,18 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 			deleteInstanceFamily(instanceTypes, instanceSpec.InstanceType.Name)
 			continue
 		}
+		hypervisorGenErr, ok := errorutils.MaybeHypervisorGenNotSupportedError(err)
+		if ok && !preferGen1Image {
+			logger.Warningf("hypervisor generation 2 not supported for %q error: %q", instanceSpec.InstanceType.Name, hypervisorGenErr.Error())
+			logger.Warningf("retrying with generation 1 image")
+			preferGen1Image = true
+			continue
+		}
 		return result, errorutils.SimpleError(err)
 	}
 	return nil, errors.New("no suitable instance type found for this subscription")
 }
+
 func (env *azureEnviron) startInstance(
 	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 	instanceSpec *instances.InstanceSpec, envTags map[string]string,

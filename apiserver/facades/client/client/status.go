@@ -1328,6 +1328,7 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		Charm:        applicationCharm.URL(),
 		CharmVersion: applicationCharm.Version(),
 		CharmProfile: charmProfileName,
+		CharmRev:     applicationCharm.Revision(),
 		CharmChannel: channel,
 		Base: params.Base{
 			Name:    base.OS,

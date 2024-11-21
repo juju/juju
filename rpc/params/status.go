@@ -145,6 +145,7 @@ type ApplicationStatus struct {
 	CharmVersion     string                     `json:"charm-version"`
 	CharmProfile     string                     `json:"charm-profile"`
 	CharmChannel     string                     `json:"charm-channel,omitempty"`
+	CharmRev         int                        `json:"charm-rev,omitempty"`
 	Base             Base                       `json:"base"`
 	Exposed          bool                       `json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
