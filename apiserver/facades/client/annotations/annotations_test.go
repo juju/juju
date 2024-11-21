@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/annotation"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -61,9 +62,10 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 		Kind: annotations.KindApplication,
 		Name: "mysql",
 	}).Return(nil, errors.New("boom"))
-	s.annotationService.EXPECT().GetAnnotations(gomock.Any(), annotations.ID{
-		Kind: annotations.KindCharm,
-		Name: "mysql-1",
+	s.annotationService.EXPECT().GetCharmAnnotations(gomock.Any(), annotation.GetCharmArgs{
+		Source:   "ch",
+		Name:     "mysql",
+		Revision: 1,
 	}).Return(map[string]string{"other": "one"}, nil)
 
 	results := s.annotationsAPI.Get(context.Background(), params.Entities{

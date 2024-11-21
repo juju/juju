@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
@@ -24,7 +25,6 @@ type stateSuite struct {
 
 var _ = gc.Suite(&stateSuite{})
 
-// TestGetAnnotations asserts the happy path, retrieves annotations from the DB.
 func (s *stateSuite) TestGetAnnotations(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -38,10 +38,25 @@ func (s *stateSuite) TestGetAnnotations(c *gc.C) {
 		Name: "my-machine",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(annotations, gc.HasLen, 2)
+	c.Check(annotations, gc.HasLen, 2)
 }
 
-// TestGetAnnotations asserts the happy path, retrieves annotations from the DB.
+func (s *stateSuite) TestGetCharmAnnotations(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.ensureCharm(c, "local:mycharmurl-5", "123")
+	s.ensureAnnotation(c, "charm", "123", "foo", "5")
+	s.ensureAnnotation(c, "charm", "123", "bar", "6")
+
+	annotations, err := st.GetCharmAnnotations(context.Background(), annotation.GetCharmArgs{
+		Source:   "local",
+		Name:     "mycharmurl",
+		Revision: 5,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(annotations, gc.DeepEquals, map[string]string{"foo": "5", "bar": "6"})
+}
+
 func (s *stateSuite) TestGetAnnotationsModel(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -52,11 +67,9 @@ func (s *stateSuite) TestGetAnnotationsModel(c *gc.C) {
 		Kind: annotations.KindModel,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(annotations, gc.HasLen, 2)
+	c.Check(annotations, gc.HasLen, 2)
 }
 
-// TestSetAnnotations asserts the happy path, sets some annotations in the DB
-// for an ID.
 func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -68,7 +81,6 @@ func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 		Name: "my-machine",
 	}
 
-	// Set annotations bar:6 and foo:15
 	err := st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "foo": "15"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -76,6 +88,44 @@ func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 	annotations, err := st.GetAnnotations(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(annotations, gc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
+
+	err = st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "baz": "7"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the final annotation set
+	annotations, err = st.GetAnnotations(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(annotations, gc.DeepEquals, map[string]string{"bar": "6", "baz": "7"})
+}
+
+func (s *stateSuite) TestSetCharmAnnotations(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.ensureCharm(c, "local:mycharmurl-5", "123")
+
+	args := annotation.GetCharmArgs{
+		Source:   "local",
+		Name:     "mycharmurl",
+		Revision: 5,
+	}
+
+	// Set annotations bar:6 and foo:15
+	err := st.SetCharmAnnotations(context.Background(), args, map[string]string{"bar": "6", "foo": "15"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the final annotation set
+	annotations, err := st.GetCharmAnnotations(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(annotations, gc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
+
+	// Set annotations bar:6 and foo:15
+	err = st.SetCharmAnnotations(context.Background(), args, map[string]string{"bar": "6", "baz": "7"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the final annotation set
+	annotations, err = st.GetCharmAnnotations(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(annotations, gc.DeepEquals, map[string]string{"bar": "6", "baz": "7"})
 }
 
 // TestSetAnnotationsUpdateMachine asserts the happy path, updates some
@@ -131,20 +181,6 @@ func (s *stateSuite) TestSetAnnotationsUpdateStorage(c *gc.C) {
 	testAnnotationUpdate(c, st, annotations.ID{
 		Kind: annotations.KindStorage,
 		Name: "mystorage",
-	})
-}
-
-// TestSetAnnotationsUpdateCharm asserts the happy path, updates some
-// annotations in the DB for a Storage ID.
-func (s *stateSuite) TestSetAnnotationsUpdateCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	s.ensureCharm(c, "local:mycharmurl-5", "123")
-	s.ensureAnnotation(c, "charm", "123", "foo", "5")
-
-	testAnnotationUpdate(c, st, annotations.ID{
-		Kind: annotations.KindCharm,
-		Name: "local:mycharmurl-5",
 	})
 }
 
@@ -232,21 +268,18 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 }
 
 // TestUUIDQueryForID asserts the happy path of the utility uuidQueryForID
-func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
-	// machine
-	kindQuery, kindQueryParam, _ := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
+func (s *stateSuite) TestUUIDQueryForIDMachine(c *gc.C) {
+	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "my-machine"})
+}
 
-	// application
-	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
+func (s *stateSuite) TestUUIDQueryForIDApplication(c *gc.C) {
+	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "appname"})
-
-	// charm
-	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindCharm, Name: "charmurl"})
-	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM v_charm_url WHERE url = $M.entity_id`)
-	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "charmurl"})
 }
 
 // TestKindNameFromID asserts the mapping of annotation.Kind -> actual table
@@ -254,7 +287,6 @@ func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
 // Keeping these explicit here should ensure we quickly detect any changes in
 // the future.
 func (s *stateSuite) TestKindNameFromID(c *gc.C) {
-
 	t1, err := kindNameFromID(annotations.ID{Kind: annotations.KindMachine, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(t1, gc.Equals, "machine")
@@ -270,10 +302,6 @@ func (s *stateSuite) TestKindNameFromID(c *gc.C) {
 	t4, err := kindNameFromID(annotations.ID{Kind: annotations.KindStorage, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(t4, gc.Equals, "storage_instance")
-
-	t5, err := kindNameFromID(annotations.ID{Kind: annotations.KindCharm, Name: "foo"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(t5, gc.Equals, "charm")
 
 	t6, err := kindNameFromID(annotations.ID{Kind: annotations.KindModel, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -319,8 +347,8 @@ func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 	s.ensureNetNode(c, "node2")
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-		VALUES (?, "node2", ?, "0")`, uuid, id)
+INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+VALUES (?, "node2", ?, "0")`, uuid, id)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -426,9 +454,7 @@ VALUES (?, ?, ?, ?, ?)
 // key for entries in other tables (e.g. machine)
 func (s *stateSuite) ensureNetNode(c *gc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO net_node (uuid)
-		VALUES (?)`, uuid)
+		_, err := tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, uuid)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

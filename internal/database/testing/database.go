@@ -4,9 +4,12 @@
 package testing
 
 import (
+	"bufio"
+	"bytes"
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	jc "github.com/juju/testing/checkers"
@@ -16,38 +19,53 @@ import (
 // DumpTable dumps the contents of the given table to stdout.
 // This is useful for debugging tests. It is not intended for use
 // in production code.
-func DumpTable(c *gc.C, db *sql.DB, table string) {
-	rows, err := db.Query("SELECT * FROM " + table)
-	c.Assert(err, jc.ErrorIsNil)
-	defer rows.Close()
+func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
+	for _, t := range append([]string{table}, extraTables...) {
+		rows, err := db.Query("SELECT * FROM " + t)
+		c.Assert(err, jc.ErrorIsNil)
+		defer rows.Close()
 
-	cols, err := rows.Columns()
-	c.Assert(err, jc.ErrorIsNil)
-
-	fmt.Fprintln(os.Stdout)
-
-	writer := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
-	for _, col := range cols {
-		fmt.Fprintf(writer, "%s\t", col)
-	}
-	fmt.Fprintln(writer)
-
-	vals := make([]any, len(cols))
-	for i := range vals {
-		vals[i] = new(any)
-	}
-
-	for rows.Next() {
-		err = rows.Scan(vals...)
+		cols, err := rows.Columns()
 		c.Assert(err, jc.ErrorIsNil)
 
-		for _, val := range vals {
-			fmt.Fprintf(writer, "%v\t", *val.(*any))
+		buffer := new(bytes.Buffer)
+		writer := tabwriter.NewWriter(buffer, 0, 8, 4, ' ', 0)
+		for _, col := range cols {
+			fmt.Fprintf(writer, "%s\t", col)
 		}
-	}
-	err = rows.Err()
-	c.Assert(err, jc.ErrorIsNil)
 
-	writer.Flush()
-	fmt.Fprintln(os.Stdout)
+		fmt.Fprintln(writer)
+
+		vals := make([]any, len(cols))
+		for i := range vals {
+			vals[i] = new(any)
+		}
+
+		for rows.Next() {
+			err = rows.Scan(vals...)
+			c.Assert(err, jc.ErrorIsNil)
+
+			for _, val := range vals {
+				fmt.Fprintf(writer, "%v\t", *val.(*any))
+			}
+		}
+		err = rows.Err()
+		c.Assert(err, jc.ErrorIsNil)
+		writer.Flush()
+
+		fmt.Fprintf(os.Stdout, "Table - %s:\n", t)
+
+		var width int
+		scanner := bufio.NewScanner(bytes.NewBuffer(buffer.Bytes()))
+		for scanner.Scan() {
+			if num := len(scanner.Text()); num > width {
+				width = num
+			}
+		}
+
+		fmt.Fprintln(os.Stdout, strings.Repeat("-", width-4))
+		fmt.Fprintln(os.Stdout, buffer.String())
+		fmt.Fprintln(os.Stdout, strings.Repeat("-", width-4))
+		fmt.Fprintln(os.Stdout)
+	}
 }
