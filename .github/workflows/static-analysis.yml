@@ -43,7 +43,7 @@ jobs:
         sudo chmod +x /usr/bin/shfmt
         
         go install github.com/google/go-licenses@latest
-    
+
     - name: Download Go Dependencies
       run: go mod download
 

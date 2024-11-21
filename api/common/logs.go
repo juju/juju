@@ -145,6 +145,7 @@ func StreamDebugLog(ctx context.Context, source base.StreamConnector, args Debug
 
 	messages := make(chan LogMessage)
 	go func() {
+		defer func() { _ = connection.Close() }()
 		defer close(messages)
 
 		for {

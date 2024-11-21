@@ -11217,6 +11217,9 @@
                         "charm-profile": {
                             "type": "string"
                         },
+                        "charm-rev": {
+                            "type": "integer"
+                        },
                         "charm-version": {
                             "type": "string"
                         },
