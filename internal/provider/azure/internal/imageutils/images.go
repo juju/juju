@@ -27,7 +27,10 @@ const (
 
 	dailyStream = "daily"
 
-	plan = "server-gen1"
+	planV2                = "server"
+	planV1                = "server-gen1"
+	legacyPlanGen2Suffix  = "-gen2"
+	legacyPlanArm64Suffix = "-arm64"
 )
 
 // BaseImage gets an instances.Image for the specified base, image stream
@@ -40,6 +43,7 @@ func BaseImage(
 	ctx envcontext.ProviderCallContext,
 	base jujubase.Base, stream, location string,
 	client *armcompute.VirtualMachineImagesClient,
+	preferGen1Image bool,
 ) (*instances.Image, error) {
 	seriesOS := ostype.OSTypeForName(base.OS)
 
@@ -48,7 +52,7 @@ func BaseImage(
 	case ostype.Ubuntu:
 		publisher = ubuntuPublisher
 		var err error
-		sku, offering, err = ubuntuSKU(ctx, base, stream, location, client)
+		sku, offering, err = ubuntuSKU(ctx, base, stream, location, client, preferGen1Image)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
@@ -78,9 +82,9 @@ func BaseImage(
 //
 // The new format offer ids have format `ubuntu-${version_number}`,
 // `ubuntu-${version_number}-lts`, `ubuntu-${version_number}-lts-daily`,
-// etc. and have SKUs `server`, `server-gen1`m, `server-arm64`, etc.
+// etc. and have SKUs `server`, `server-gen1`, `server-arm64`, etc.
 //
-// Since there are only a finte number of Ubuntu versions we support
+// Since there are only a finite number of Ubuntu versions we support
 // before Noble, we hardcode this list. So when new versions of Ubuntu
 // are
 //
@@ -108,9 +112,12 @@ func ubuntuBaseIslegacy(base jujubase.Base) bool {
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
-func ubuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
+func ubuntuSKU(ctx envcontext.ProviderCallContext,
+	base jujubase.Base, stream, location string,
+	client *armcompute.VirtualMachineImagesClient, preferGen1Image bool,
+) (string, string, error) {
 	if ubuntuBaseIslegacy(base) {
-		return legacyUbuntuSKU(ctx, base, stream, location, client)
+		return legacyUbuntuSKU(ctx, base, stream, location, client, preferGen1Image)
 	}
 
 	offer := fmt.Sprintf("ubuntu-%s", strings.ReplaceAll(base.Channel.Track, ".", "_"))
@@ -126,18 +133,32 @@ func ubuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, stream, l
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
+	// We prefer to use v2 SKU if available.
+	// If we don't find any v2 SKU, we return the v1 SKU.
+	// If preferGen1Image is true, we return the v1 SKU.
+	var v1SKU string
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
-		if skuName == plan {
+		if skuName == planV2 && !preferGen1Image {
 			logger.Debugf("found Azure SKU Name: %v", skuName)
 			return skuName, offer, nil
 		}
+		if skuName == planV1 {
+			v1SKU = skuName
+			continue
+		}
 		logger.Debugf("ignoring Azure SKU Name: %v", skuName)
+	}
+	if v1SKU != "" {
+		return v1SKU, offer, nil
 	}
 	return "", "", errors.NotFoundf("ubuntu %q SKUs for %v stream", base, stream)
 }
 
-func legacyUbuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
+func legacyUbuntuSKU(ctx envcontext.ProviderCallContext,
+	base jujubase.Base, stream, location string,
+	client *armcompute.VirtualMachineImagesClient, preferGen1Image bool,
+) (string, string, error) {
 	series, err := jujubase.GetSeriesFromBase(base)
 	if err != nil {
 		return "", "", errors.Trace(err)
@@ -146,22 +167,40 @@ func legacyUbuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, str
 	if stream == dailyStream {
 		offer = fmt.Sprintf("%s-daily", offer)
 	}
-	desiredSKUPrefix := strings.ReplaceAll(base.Channel.Track, ".", "_")
 
-	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
+	logger.Debugf(
+		"listing SKUs: Base=%s, Series=%s, Location=%s, Stream=%s, Publisher=%s, Offer=%s",
+		base.Channel.Track, series, location, stream, ubuntuPublisher, offer,
+	)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
-	for _, img := range result.VirtualMachineImageResourceArray {
-		skuName := *img.Name
-		logger.Debugf("found Azure SKU Name: %v", skuName)
-		if !strings.HasPrefix(skuName, desiredSKUPrefix) {
-			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
-			continue
+
+	skuName, err := selectUbuntuSKULegacy(base, series, stream, result.VirtualMachineImageResourceArray, preferGen1Image)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return skuName, offer, nil
+}
+
+func selectUbuntuSKULegacy(
+	base jujubase.Base, series, stream string,
+	images []*armcompute.VirtualMachineImageResource, preferGen1Image bool,
+) (string, error) {
+	// We prefer to use v2 SKU if available.
+	// If we don't find any v2 SKU, we return the v1 SKU.
+	// If preferGen1Image is true, we return the v1 SKU.
+	var v1SKU string
+	desiredSKUVersionPrefix := strings.ReplaceAll(base.Channel.Track, ".", "_")
+
+	validStream := func(skuName string) bool {
+		if skuName == "" {
+			return false
 		}
+
 		tag := getLegacyUbuntuSKUTag(skuName)
-		logger.Debugf("SKU has tag %q", tag)
+		logger.Debugf("SKU %q has tag %q", skuName, tag)
 		var skuStream string
 		switch tag {
 		case "", "LTS":
@@ -171,19 +210,42 @@ func legacyUbuntuSKU(ctx envcontext.ProviderCallContext, base jujubase.Base, str
 		}
 		if skuStream == "" || skuStream != stream {
 			logger.Debugf("ignoring SKU %q (not in %q stream)", skuName, stream)
+			return false
+		}
+		return true
+	}
+
+	for _, img := range images {
+		skuName := *img.Name
+		logger.Debugf("Azure SKU Name: %v", skuName)
+		if strings.HasSuffix(skuName, legacyPlanArm64Suffix) {
+			// TODO: we don't support arm64 yet for azure.
 			continue
 		}
-		return skuName, offer, nil
-
+		if !strings.HasPrefix(skuName, desiredSKUVersionPrefix) {
+			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
+			continue
+		}
+		if strings.HasSuffix(skuName, legacyPlanGen2Suffix) {
+			if preferGen1Image || !validStream(skuName) {
+				continue
+			}
+			return skuName, nil
+		}
+		v1SKU = skuName
 	}
-	return "", "", errors.NotFoundf("legacy ubuntu %q SKUs for %s stream", series, stream)
+	if validStream(v1SKU) {
+		return v1SKU, nil
+	}
+	return "", errors.NotFoundf("legacy ubuntu %q SKUs for %s stream", series, stream)
 }
 
-// getLegacyUbuntuSKUTag splits an UbuntuServer SKU and extracts
-// the tag ("LTS") part.
+// getLegacyUbuntuSKUTag splits an UbuntuServer SKU and extracts the tag ("LTS") part.
+// The SKU is expected to be in the format "${version_number}-${tag}[-${gen}]" or "${version_number}-${tag}-arm64".
+// For example, "22_04-lts", "22_04-lts-gen2", "22_04-lts-arm64".
 func getLegacyUbuntuSKUTag(sku string) string {
 	var tag string
-	parts := strings.SplitN(sku, "-", 2)
+	parts := strings.SplitN(sku, "-", -1)
 	if len(parts) > 1 {
 		tag = strings.ToUpper(parts[1])
 	}

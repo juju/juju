@@ -111,6 +111,20 @@ func (*ErrorSuite) TestMaybeQuotaExceededError(c *gc.C) {
 	c.Assert(quotaErr, gc.ErrorMatches, "boom")
 }
 
+func (*ErrorSuite) TestMaybeHypervisorGenNotSupportedError(c *gc.C) {
+	buf := strings.NewReader(`
+{"error":{"code":"DeployError","message":"","details":[{"code":"DeploymentFailed","message":"{\"error\":{\"code\":\"BadRequest\",\"message\":\"The selected VM size 'Standard_D2_v2' cannot boot Hypervisor Generation '2'. If this was a Create operation please check that the Hypervisor Generation of the Image matches the Hypervisor Generation of the selected VM Size. If this was an Update operation please select a Hypervisor Generation '2' VM Size. For more information, see https://aka.ms/azuregen2vm\",\"details\":null}}"}]}}`[1:])
+	re := &azcore.ResponseError{
+		StatusCode: http.StatusBadRequest,
+		ErrorCode:  "DeploymentFailed",
+		RawResponse: &http.Response{
+			Body: io.NopCloser(buf),
+		},
+	}
+	_, ok := errorutils.MaybeHypervisorGenNotSupportedError(re)
+	c.Assert(ok, jc.IsTrue)
+}
+
 func (*ErrorSuite) TestIsConflictError(c *gc.C) {
 	buf := strings.NewReader(
 		`{"error": {"code": "DeployError", "details": [{"code": "Conflict", "message": "boom"}]}}`)

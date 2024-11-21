@@ -6,6 +6,7 @@ package errorutils
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -18,17 +19,20 @@ import (
 
 var logger = internallogger.GetLogger("juju.provider.azure")
 
-type requestError struct {
-	ServiceError *serviceError `json:"error"`
+// RequestError represents an error response from Azure.
+type RequestError struct {
+	ServiceError *ServiceError `json:"error"`
 }
 
-type serviceError struct {
-	Code    string                `json:"code"`
-	Message string                `json:"message"`
-	Details []serviceErrorDetails `json:"details"`
+// ServiceError represents an error response from Azure.
+type ServiceError struct {
+	Code    string               `json:"code"`
+	Message string               `json:"message"`
+	Details []ServiceErrorDetail `json:"details"`
 }
 
-type serviceErrorDetails struct {
+// ServiceErrorDetail represents an error detail from Azure.
+type ServiceErrorDetail struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
@@ -43,7 +47,7 @@ func MaybeQuotaExceededError(err error) (error, bool) {
 	if respErr.StatusCode != http.StatusBadRequest {
 		return respErr, false
 	}
-	var reqErr requestError
+	var reqErr RequestError
 	if err = runtime.UnmarshalAsJSON(respErr.RawResponse, &reqErr); err != nil {
 		return respErr, false
 	}
@@ -61,11 +65,58 @@ func MaybeQuotaExceededError(err error) (error, bool) {
 	return respErr, false
 }
 
+var hypervisorGenNotSupportedErrorRegex = regexp.MustCompile(`The selected VM size '.*?' cannot boot Hypervisor Generation '2'.*`)
+
+// MaybeHypervisorGenNotSupportedError returns the relevant error message and true
+// if the error is caused by a Hypervisor Generation not supported for the selected VM size.
+// Azure does not give a specific error code for this issue, so we have to check the error message.
+// Example error message:
+//
+//	&errorutils.serviceError{
+//	    Code:    "DeploymentFailed",
+//	    Message: "At least one resource deployment operation failed. Please list deployment operations for details. Please see https://aka.ms/arm-deployment-operations for usage details.",
+//	    Details: {
+//	        {Code:"BadRequest", Message:"{
+//	          "error": {
+//	            "code": "BadRequest",
+//	            "message": "The selected VM size 'Standard_D2_v2' cannot boot Hypervisor Generation '2'. If this was a Create operation please check that the Hypervisor Generation of the Image matches the Hypervisor Generation of the selected VM Size. If this was an Update operation please select a Hypervisor Generation '2' VM Size. For more information, see https://aka.ms/azuregen2vm"
+//	          }
+//	        }"},
+//	    },
+//	}
+func MaybeHypervisorGenNotSupportedError(err error) (error, bool) {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return err, false
+	}
+	if respErr.ErrorCode != "DeploymentFailed" {
+		return respErr, false
+	}
+
+	var reqErr RequestError
+	if err = runtime.UnmarshalAsJSON(respErr.RawResponse, &reqErr); err != nil {
+		return respErr, false
+	}
+	if reqErr.ServiceError == nil {
+		return respErr, false
+	}
+
+	if hypervisorGenNotSupportedErrorRegex.MatchString(reqErr.ServiceError.Message) {
+		return errors.New(reqErr.ServiceError.Message), true
+	}
+	for _, d := range reqErr.ServiceError.Details {
+		if hypervisorGenNotSupportedErrorRegex.MatchString(d.Message) {
+			return errors.New(d.Message), true
+		}
+	}
+	return respErr, false
+}
+
 func hasErrorCode(resp *http.Response, code string) bool {
 	if resp == nil {
 		return false
 	}
-	var reqErr requestError
+	var reqErr RequestError
 	if err := runtime.UnmarshalAsJSON(resp, &reqErr); err != nil {
 		return false
 	}
@@ -143,7 +194,7 @@ func SimpleError(err error) error {
 	if !errors.As(err, &respErr) {
 		return err
 	}
-	var reqErr requestError
+	var reqErr RequestError
 	if err := runtime.UnmarshalAsJSON(respErr.RawResponse, &reqErr); err != nil {
 		return respErr
 	}
