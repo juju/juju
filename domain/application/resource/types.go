@@ -138,10 +138,10 @@ type SetResourceArgs struct {
 
 // SetUnitResourceArgs holds the arguments for the SetUnitResource method.
 type SetUnitResourceArgs struct {
-	UnitID         unit.UUID
+	ResourceID     resources.ID
 	SuppliedBy     string
 	SuppliedByType SuppliedByType
-	Resource       resource.Resource
+	UnitID         unit.UUID
 }
 
 // SetUnitResourceResult is the result data from setting a unit's resource.

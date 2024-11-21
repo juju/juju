@@ -185,24 +185,12 @@ func (s *resourceServiceSuite) TestSetResourceBadResource(c *gc.C) {
 func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fp, err := charmresource.NewFingerprint(fingerprint)
-	c.Assert(err, jc.ErrorIsNil)
+	resID := resourcestesting.GenResourceID(c)
 	args := resource.SetUnitResourceArgs{
-		UnitID:         unittesting.GenUnitUUID(c),
+		ResourceID:     resID,
 		SuppliedBy:     "admin",
 		SuppliedByType: resource.User,
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:        "my-resource",
-				Type:        charmresource.TypeFile,
-				Path:        "filename.tgz",
-				Description: "One line that is useful when operators need to push it.",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    1,
-			Fingerprint: fp,
-			Size:        1,
-		},
+		UnitID:         unittesting.GenUnitUUID(c),
 	}
 	expectedRet := resource.SetUnitResourceResult{
 		UUID: resourcestesting.GenResourceUUID(c),
