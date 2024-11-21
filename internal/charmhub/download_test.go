@@ -89,7 +89,9 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	pgBar := NewMockProgressBar(ctrl)
-	pgBar.EXPECT().Write(gomock.Any()).AnyTimes()
+	pgBar.EXPECT().Write(gomock.Any()).MinTimes(1).DoAndReturn(func(p []byte) (int, error) {
+		return len(p), nil
+	})
 	pgBar.EXPECT().Start("dummy", float64(11))
 	pgBar.EXPECT().Finished()
 

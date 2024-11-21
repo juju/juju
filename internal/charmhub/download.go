@@ -234,6 +234,8 @@ func (c *downloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 		downloadSize := float64(r.ContentLength)
 		opts.progressBar.Start(name, downloadSize)
 		defer opts.progressBar.Finished()
+
+		progressBar = opts.progressBar
 	}
 
 	hasher := c.getHasher(opts.digestType)
