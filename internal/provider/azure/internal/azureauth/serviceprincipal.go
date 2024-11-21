@@ -184,32 +184,42 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 	return applicationId, servicePrincipalObjectId, password, nil
 }
 
-func (c *ServicePrincipalCreator) ensureRoleDefinition(
-	ctx context.Context, clientFactory *armauthorization.ClientFactory, subscriptionId, roleName string,
-) (string, error) {
-	roleScope := path.Join("subscriptions", subscriptionId)
-
-	// Find any existing role definition with the name params.RoleDefinitionName.
-	roleDefinitionClient := clientFactory.NewRoleDefinitionsClient()
-	pager := roleDefinitionClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
-		Filter: to.Ptr(fmt.Sprintf("roleName eq '%s'", roleName)),
+func (c *ServicePrincipalCreator) getExistingRoleDefinition(ctx context.Context, client *armauthorization.RoleDefinitionsClient, roleScope, roleName string) (string, error) {
+	pager := client.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
+		Filter: to.Ptr("type eq 'CustomRole'"),
 	})
-	var roleDefinitionId string
-done:
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
 			return "", errors.Annotate(err, "fetching role definitions")
 		}
 		for _, r := range next.Value {
-			roleDefinitionId = toValue(r.ID)
-			break done
+			if r.Properties != nil && toValue(r.Properties.RoleName) == roleName {
+				roleDefinitionId := toValue(r.ID)
+				return roleDefinitionId, nil
+			}
 		}
 	}
+	return "", errors.NotFoundf("role definition %q", roleName)
+}
 
-	if roleDefinitionId != "" {
+func (c *ServicePrincipalCreator) ensureRoleDefinition(
+	ctx context.Context, clientFactory *armauthorization.ClientFactory, subscriptionId, roleName string,
+) (string, error) {
+	roleScope := path.Join("subscriptions", subscriptionId)
+
+	// Find any existing role definition with the name params.RoleDefinitionName.
+	// Try subscription scope first, then tenant scope.
+	roleDefinitionClient := clientFactory.NewRoleDefinitionsClient()
+	roleDefinitionId, err := c.getExistingRoleDefinition(ctx, roleDefinitionClient, roleScope, roleName)
+	if err != nil && errors.Is(err, errors.NotFound) {
+		roleDefinitionId, err = c.getExistingRoleDefinition(ctx, roleDefinitionClient, "", roleName)
+	}
+	if err == nil {
 		logger.Debugf("found existing role definition %q", roleDefinitionId)
 		return roleDefinitionId, nil
+	} else if !errors.Is(err, errors.NotFound) {
+		return "", errors.Annotate(err, "finding existing tenant scoped role definition")
 	}
 
 	roleDefinitionUUID, err := c.newUUID()
