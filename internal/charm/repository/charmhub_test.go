@@ -433,7 +433,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	resolvedArchive := new(charm.CharmArchive)
 
 	s.expectCharmRefreshInstallOneFromChannel(c)
-	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo").Return(resolvedArchive, &charmhub.Digest{
+	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(resolvedArchive, &charmhub.Digest{
 		DigestType: charmhub.SHA256,
 		Hash:       "SHA256 hash",
 		Size:       10,
