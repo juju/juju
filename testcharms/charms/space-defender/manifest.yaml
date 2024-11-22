@@ -1,13 +1,16 @@
 bases:
-  - architectures:
+  - name: ubuntu
+    channel: 24.04/stable
+    architectures:
       - amd64
-    channel: '20.04'
-    name: ubuntu
-  - architectures:
+      - arm64
+  - name: ubuntu
+    channel: 22.04/stable
+    architectures:
       - amd64
-    channel: '22.04'
-    name: ubuntu
-  - architectures:
+      - arm64
+  - name: ubuntu
+    channel: 20.04/stable
+    architectures:
       - amd64
-    channel: '24.04'
-    name: ubuntu
+      - arm64
