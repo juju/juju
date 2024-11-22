@@ -35,6 +35,9 @@ CREATE TABLE resource (
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
     created_at TIMESTAMP NOT NULL,
+    -- last_polled is when the repository was last polled for new resource
+    -- revisions. Only set if resource_state is 1.
+    last_polled TIMESTAMP NOT NULL,
     CONSTRAINT fk_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
@@ -88,15 +91,6 @@ CREATE TABLE resource_retrieved_by (
     CONSTRAINT fk_resource_retrieved_by_type
     FOREIGN KEY (retrieved_by_type_id)
     REFERENCES resource_retrieved_by_type (id)
-);
-
--- Polled resource values from the repository.
-CREATE TABLE repository_resource (
-    resource_uuid TEXT NOT NULL PRIMARY KEY,
-    last_polled TIMESTAMP NOT NULL,
-    CONSTRAINT fk_resource_uuid
-    FOREIGN KEY (resource_uuid)
-    REFERENCES resource (uuid)
 );
 
 -- This is an container image resource used by a kubernetes application.

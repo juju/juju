@@ -412,7 +412,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Resources
 		"application_resource",
 		"kubernetes_application_resource",
-		"repository_resource",
 		"resource",
 		"resource_container_image_metadata_store",
 		"resource_file_store",
