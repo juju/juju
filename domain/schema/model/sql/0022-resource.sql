@@ -29,14 +29,18 @@ INSERT INTO resource_state VALUES
 
 CREATE TABLE resource (
     uuid TEXT NOT NULL PRIMARY KEY,
+    charm_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     revision INT,
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
     created_at TIMESTAMP NOT NULL,
+    CONSTRAINT fk_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid),
     CONSTRAINT fk_resource_name
     FOREIGN KEY (name)
-    REFERENCES resource_meta (name),
+    REFERENCES charm_resource (name),
     CONSTRAINT fk_resource_origin_type_id
     FOREIGN KEY (origin_type_id)
     REFERENCES resource_origin_type (id),
@@ -56,20 +60,6 @@ CREATE TABLE application_resource (
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid)
 );
-
-CREATE TABLE resource_meta (
-    application_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
-    type_id INT NOT NULL,
-    path TEXT,
-    description TEXT,
-    CONSTRAINT fk_resource_type_id
-    FOREIGN KEY (type_id)
-    REFERENCES charm_resource_kind (id),
-    PRIMARY KEY (application_uuid, name)
-);
-
-CREATE UNIQUE INDEX idx_resource_meta ON resource_meta (application_uuid, name);
 
 CREATE TABLE resource_supplied_by_type (
     id INT PRIMARY KEY,
