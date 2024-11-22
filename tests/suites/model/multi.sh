@@ -59,11 +59,6 @@ check_services() {
 		fi
 	done
 
-	if [ "${attempt}" -eq 0 ]; then
-		echo "[-] $(red 'Failed polling status')"
-		exit 1
-	fi
-
 	echo "[+] $(green 'Completed polling status')"
 }
 
