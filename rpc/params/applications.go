@@ -460,17 +460,18 @@ type ScaleApplicationInfo struct {
 // ApplicationResult holds an application info.
 // NOTE: we should look to combine ApplicationResult and ApplicationInfo.
 type ApplicationResult struct {
-	Tag              string                     `json:"tag"`
-	Charm            string                     `json:"charm,omitempty"`
-	Base             Base                       `json:"base,omitempty"`
-	Channel          string                     `json:"channel,omitempty"`
-	Constraints      constraints.Value          `json:"constraints,omitempty"`
-	Principal        bool                       `json:"principal"`
-	Exposed          bool                       `json:"exposed"`
-	Remote           bool                       `json:"remote"`
-	Life             string                     `json:"life"`
-	EndpointBindings map[string]string          `json:"endpoint-bindings,omitempty"`
-	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
+	Tag               string                        `json:"tag"`
+	Charm             string                        `json:"charm,omitempty"`
+	Base              Base                          `json:"base,omitempty"`
+	Channel           string                        `json:"channel,omitempty"`
+	Constraints       constraints.Value             `json:"constraints,omitempty"`
+	Principal         bool                          `json:"principal"`
+	Exposed           bool                          `json:"exposed"`
+	Remote            bool                          `json:"remote"`
+	Life              string                        `json:"life"`
+	EndpointBindings  map[string]string             `json:"endpoint-bindings,omitempty"`
+	ExposedEndpoints  map[string]ExposedEndpoint    `json:"exposed-endpoints,omitempty"`
+	StorageDirectives map[string]StorageConstraints `json:"storage-directives,omitempty"`
 }
 
 // ApplicationInfoResults holds an application info result or a retrieval error.

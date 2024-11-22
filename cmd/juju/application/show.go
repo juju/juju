@@ -173,16 +173,17 @@ func formatApplicationInfos(all []params.ApplicationResult) (map[string]Applicat
 
 // ApplicationInfo defines the serialization behaviour of the application information.
 type ApplicationInfo struct {
-	Charm            string                     `yaml:"charm,omitempty" json:"charm,omitempty"`
-	Base             string                     `yaml:"base,omitempty" json:"base,omitempty"`
-	Channel          string                     `yaml:"channel,omitempty" json:"channel,omitempty"`
-	Constraints      constraints.Value          `yaml:"constraints,omitempty" json:"constraints,omitempty"`
-	Principal        bool                       `yaml:"principal" json:"principal"`
-	Exposed          bool                       `yaml:"exposed" json:"exposed"`
-	ExposedEndpoints map[string]ExposedEndpoint `yaml:"exposed-endpoints,omitempty" json:"exposed-endpoints,omitempty"`
-	Remote           bool                       `yaml:"remote" json:"remote"`
-	Life             string                     `yaml:"life,omitempty" json:"life,omitempty"`
-	EndpointBindings map[string]string          `yaml:"endpoint-bindings,omitempty" json:"endpoint-bindings,omitempty"`
+	Charm             string                      `yaml:"charm,omitempty" json:"charm,omitempty"`
+	Base              string                      `yaml:"base,omitempty" json:"base,omitempty"`
+	Channel           string                      `yaml:"channel,omitempty" json:"channel,omitempty"`
+	Constraints       constraints.Value           `yaml:"constraints,omitempty" json:"constraints,omitempty"`
+	Principal         bool                        `yaml:"principal" json:"principal"`
+	Exposed           bool                        `yaml:"exposed" json:"exposed"`
+	ExposedEndpoints  map[string]ExposedEndpoint  `yaml:"exposed-endpoints,omitempty" json:"exposed-endpoints,omitempty"`
+	Remote            bool                        `yaml:"remote" json:"remote"`
+	Life              string                      `yaml:"life,omitempty" json:"life,omitempty"`
+	EndpointBindings  map[string]string           `yaml:"endpoint-bindings,omitempty" json:"endpoint-bindings,omitempty"`
+	StorageDirectives map[string]StorageDirective `yaml:"storage-directives,omitempty" json:"storage-directives,omitempty"`
 }
 
 // ExposedEndpoint defines the serialization behavior of the expose settings
@@ -190,6 +191,12 @@ type ApplicationInfo struct {
 type ExposedEndpoint struct {
 	ExposeToSpaces []string `yaml:"expose-to-spaces,omitempty" json:"expose-to-spaces,omitempty"`
 	ExposeToCIDRs  []string `yaml:"expose-to-cidrs,omitempty" json:"expose-to-cidrs,omitempty"`
+}
+
+type StorageDirective struct {
+	Pool  string  `yaml:"pool,omitempty" json:"pool,omitempty"`
+	Size  *uint64 `yaml:"size,omitempty" json:"size,omitempty"`
+	Count *uint64 `yaml:"count,omitempty" json:"count,omitempty"`
 }
 
 func createApplicationInfo(details params.ApplicationResult) (names.ApplicationTag, ApplicationInfo, error) {
@@ -207,24 +214,34 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 				ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
 			}
 		}
-
 	}
 
 	base, err := corebase.ParseBase(details.Base.Name, details.Base.Channel)
 	if err != nil {
 		return names.ApplicationTag{}, ApplicationInfo{}, errors.Trace(err)
 	}
+
+	storageDirectives := make(map[string]StorageDirective, len(details.StorageDirectives))
+	for k, v := range details.StorageDirectives {
+		storageDirectives[k] = StorageDirective{
+			Pool:  v.Pool,
+			Size:  v.Size,
+			Count: v.Count,
+		}
+	}
+
 	info := ApplicationInfo{
-		Charm:            details.Charm,
-		Base:             base.DisplayString(),
-		Channel:          details.Channel,
-		Constraints:      details.Constraints,
-		Principal:        details.Principal,
-		Exposed:          details.Exposed,
-		ExposedEndpoints: exposedEndpoints,
-		Remote:           details.Remote,
-		Life:             details.Life,
-		EndpointBindings: details.EndpointBindings,
+		Charm:             details.Charm,
+		Base:              base.DisplayString(),
+		Channel:           details.Channel,
+		Constraints:       details.Constraints,
+		Principal:         details.Principal,
+		Exposed:           details.Exposed,
+		ExposedEndpoints:  exposedEndpoints,
+		Remote:            details.Remote,
+		Life:              details.Life,
+		EndpointBindings:  details.EndpointBindings,
+		StorageDirectives: storageDirectives,
 	}
 	return tag, info, nil
 }
