@@ -103,9 +103,11 @@ CREATE TABLE kubernetes_application_resource (
     REFERENCES resource (uuid)
 );
 
+-- This is a resource used by to a unit.
 CREATE TABLE unit_resource (
     resource_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
+    added_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid),
