@@ -11,12 +11,11 @@ type modelUUID struct {
 	UUID string `db:"uuid"`
 }
 
-type cloudUUID struct {
+type cloudUUIDValue struct {
 	UUID string `db:"uuid"`
 }
 
-type dbCloud struct {
-	UUID string `db:"uuid"`
+type cloudNameValue struct {
 	Name string `db:"name"`
 }
 

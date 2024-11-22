@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
-	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -513,117 +512,6 @@ func (s *stateSuite) TestNullCloudType(c *gc.C) {
 		return err
 	})
 	c.Assert(jujudb.IsErrConstraintNotNull(err), jc.IsTrue)
-}
-
-// TestSetCloudDefaults is testing the happy path for [SetCloudDefaults]
-func (s *stateSuite) TestSetCloudDefaults(c *gc.C) {
-	cld := testCloud
-	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
-			"clouddefault": "one",
-		})
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	defaultsSt := modeldefaultsstate.NewState(s.TxnRunnerFactory())
-	defaults, err := defaultsSt.CloudDefaults(context.Background(), cloudUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
-		"clouddefault": "one",
-	})
-}
-
-// TestSetCloudDefaultsNotFound is asserting that if we try and set cloud
-// defaults for a cloud that doesn't exist we get back an error that satisfies
-// [clouderrors.NotFound].
-func (s *stateSuite) TestSetCloudDefaultsNotFound(c *gc.C) {
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return SetCloudDefaults(ctx, tx, "noexist", map[string]string{
-			"clouddefault": "one",
-		})
-	})
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
-
-	st := modeldefaultsstate.NewState(s.TxnRunnerFactory())
-	defaults, err := st.CloudDefaults(context.Background(), "noexist")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(defaults), gc.Equals, 0)
-}
-
-// TestSetCloudDefaultsOverrides checks that successive calls to
-// SetCloudDefaults overrides the previously set values for cloud defaults.
-func (s *stateSuite) TestSetCloudDefaultsOverrides(c *gc.C) {
-	cld := testCloud
-	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
-			"clouddefault": "one",
-		})
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	defaultsSt := modeldefaultsstate.NewState(s.TxnRunnerFactory())
-	defaults, err := defaultsSt.CloudDefaults(context.Background(), cloudUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
-		"clouddefault": "one",
-	})
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
-			"clouddefaultnew": "two",
-		})
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	defaults, err = defaultsSt.CloudDefaults(context.Background(), cloudUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
-		"clouddefaultnew": "two",
-	})
-}
-
-// TestSetCloudDefaultsDelete is testing that if we call [SetCloudDefaults] with
-// a empty map of defaults the existing cloud defaults are removed and no
-// further actions are taken.
-func (s *stateSuite) TestSetCloudDefaultsDelete(c *gc.C) {
-	cld := testCloud
-	st := NewState(s.TxnRunnerFactory())
-	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return SetCloudDefaults(ctx, tx, cld.Name, map[string]string{
-			"clouddefault": "one",
-		})
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	defaultsSt := modeldefaultsstate.NewState(s.TxnRunnerFactory())
-	defaults, err := defaultsSt.CloudDefaults(context.Background(), cloudUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
-		"clouddefault": "one",
-	})
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return SetCloudDefaults(ctx, tx, cld.Name, nil)
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	defaults, err = defaultsSt.CloudDefaults(context.Background(), cloudUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(len(defaults), gc.Equals, 0)
 }
 
 // TestCloudSupportsAuthTypeTrue is asserting the happy path that for a valid

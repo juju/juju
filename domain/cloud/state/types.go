@@ -86,18 +86,6 @@ type cloudWithAuthType struct {
 	AuthType string `db:"auth_type"`
 }
 
-// cloudDefaults represents a single row from the cloud__defaults table.
-type cloudDefaults struct {
-	// UUID holds the cloud uuid.
-	UUID string `db:"cloud_uuid"`
-
-	// Key is the key value.
-	Key string `db:"key"`
-
-	// Value is the value associated with key.
-	Value string `db:"value"`
-}
-
 type cloudAuthType struct {
 	// CloudUUID holds the cloud reference.
 	CloudUUID string `db:"cloud_uuid"`
