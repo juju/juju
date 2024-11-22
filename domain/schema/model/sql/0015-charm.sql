@@ -417,8 +417,7 @@ INSERT INTO charm_resource_kind VALUES
 
 CREATE TABLE charm_resource (
     charm_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    name TEXT,
+    name TEXT NOT NULL,
     kind_id INT NOT NULL,
     path TEXT,
     description TEXT,
@@ -428,13 +427,12 @@ CREATE TABLE charm_resource (
     CONSTRAINT fk_charm_resource_charm_resource_kind
     FOREIGN KEY (kind_id)
     REFERENCES charm_resource_kind (id),
-    PRIMARY KEY (charm_uuid, "key")
+    PRIMARY KEY (charm_uuid, name)
 );
 
 CREATE VIEW v_charm_resource AS
 SELECT
     cr.charm_uuid,
-    cr."key",
     cr.name,
     crk.name AS kind,
     cr.path,

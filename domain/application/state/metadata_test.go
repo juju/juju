@@ -366,14 +366,12 @@ var metadataDecodeTestCases = [...]struct {
 		inputArgs: decodeMetadataArgs{
 			resources: []charmResource{
 				{
-					Key:         "alpha",
 					Name:        "foo",
 					Kind:        "file",
 					Path:        "path1",
 					Description: "description1",
 				},
 				{
-					Key:         "beta",
 					Name:        "baz",
 					Kind:        "oci-image",
 					Path:        "path2",
@@ -384,13 +382,13 @@ var metadataDecodeTestCases = [...]struct {
 		output: charm.Metadata{
 			RunAs: charm.RunAsDefault,
 			Resources: map[string]charm.Resource{
-				"alpha": {
+				"foo": {
 					Name:        "foo",
 					Type:        charm.ResourceTypeFile,
 					Path:        "path1",
 					Description: "description1",
 				},
-				"beta": {
+				"baz": {
 					Name:        "baz",
 					Type:        charm.ResourceTypeContainerImage,
 					Path:        "path2",

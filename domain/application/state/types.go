@@ -432,7 +432,6 @@ type setCharmPayload struct {
 // charmResource is used to get the resources of a charm.
 type charmResource struct {
 	CharmUUID   string `db:"charm_uuid"`
-	Key         string `db:"key"`
 	Name        string `db:"name"`
 	Kind        string `db:"kind"`
 	Path        string `db:"path"`
@@ -442,7 +441,6 @@ type charmResource struct {
 // setCharmResource is used to set the resources of a charm.
 type setCharmResource struct {
 	CharmUUID   string `db:"charm_uuid"`
-	Key         string `db:"key"`
 	Name        string `db:"name"`
 	KindID      int    `db:"kind_id"`
 	Path        string `db:"path"`
