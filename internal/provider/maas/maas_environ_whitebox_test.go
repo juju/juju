@@ -92,6 +92,12 @@ func (suite *maasEnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
+func (suite *maasEnvironSuite) TestNewEnvironWithControllerSkipTLSVerify(c *gc.C) {
+	env, err := suite.getEnvWithServer(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+}
+
 func (suite *maasEnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) (*maasEnviron, *fakeController) {
 	machine := newFakeMachine("Bruce Sterling", arch.HostArch(), "")
 	return suite.injectControllerWithMachine(c, machine, spaces, expected)
@@ -456,7 +462,8 @@ func (suite *maasEnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.Config().UUID()})
+				AgentName: env.Config().UUID(),
+			})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
@@ -1743,6 +1750,7 @@ func makeFakeSubnet(id int) fakeSubnet {
 		cidr:    fmt.Sprintf("10.20.%d.0/24", 16+id),
 	}
 }
+
 func (suite *maasEnvironSuite) TestAllocateContainerAddressesMachinesError(c *gc.C) {
 	var env *maasEnviron
 	subnet := makeFakeSubnet(3)
