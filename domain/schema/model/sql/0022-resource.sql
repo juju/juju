@@ -37,7 +37,7 @@ CREATE TABLE resource (
     created_at TIMESTAMP NOT NULL,
     -- last_polled is when the repository was last polled for new resource
     -- revisions. Only set if resource_state is 1.
-    last_polled TIMESTAMP NOT NULL,
+    last_polled TIMESTAMP,
     CONSTRAINT fk_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
