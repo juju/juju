@@ -63,9 +63,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv21 provides the Application API facade for version 21.
+type APIv21 struct {
+	*APIBase
+}
+
 // APIv20 provides the Application API facade for version 20.
 type APIv20 struct {
-	*APIBase
+	*APIv21
 }
 
 // APIv19 provides the Application API facade for version 19.
@@ -2513,6 +2518,18 @@ func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResul
 	return result, nil
 }
 
+// ApplicationsInfo returns applications information without the storage directives.
+func (api *APIv20) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
+	res, err := api.APIBase.ApplicationsInfo(in)
+	for _, v := range res.Results {
+		if v.Result == nil {
+			continue
+		}
+		v.Result.StorageDirectives = nil
+	}
+	return res, err
+}
+
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
 	// Get all the space infos before iterating over the application infos.
@@ -2567,18 +2584,25 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			channel = details.Channel
 		}
 
+		storageDirectives, err := app.StorageConstraints()
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		out[i].Result = &params.ApplicationResult{
-			Tag:              tag.String(),
-			Charm:            details.Charm,
-			Base:             details.Base,
-			Channel:          channel,
-			Constraints:      details.Constraints,
-			Principal:        app.IsPrincipal(),
-			Exposed:          app.IsExposed(),
-			Remote:           app.IsRemote(),
-			Life:             app.Life().String(),
-			EndpointBindings: bindingsMap,
-			ExposedEndpoints: exposedEndpoints,
+			Tag:               tag.String(),
+			Charm:             details.Charm,
+			Base:              details.Base,
+			Channel:           channel,
+			Constraints:       details.Constraints,
+			Principal:         app.IsPrincipal(),
+			Exposed:           app.IsExposed(),
+			Remote:            app.IsRemote(),
+			Life:              app.Life().String(),
+			EndpointBindings:  bindingsMap,
+			ExposedEndpoints:  exposedEndpoints,
+			StorageDirectives: convertStorageDirectives(storageDirectives),
 		}
 	}
 	return params.ApplicationInfoResults{
@@ -3075,4 +3099,16 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	return params.DeployFromRepositoryResults{
 		Results: results,
 	}, nil
+}
+
+func convertStorageDirectives(directives map[string]state.StorageConstraints) map[string]params.StorageConstraints {
+	res := make(map[string]params.StorageConstraints, len(directives))
+	for k, v := range directives {
+		res[k] = params.StorageConstraints{
+			Pool:  v.Pool,
+			Size:  &v.Size,
+			Count: &v.Count,
+		}
+	}
+	return res
 }

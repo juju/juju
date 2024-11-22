@@ -1144,7 +1144,7 @@
     {
         "Name": "Application",
         "Description": "APIv20 provides the Application API facade for version 20.",
-        "Version": 20,
+        "Version": 21,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -1188,7 +1188,7 @@
                             "$ref": "#/definitions/ApplicationInfoResults"
                         }
                     },
-                    "description": "ApplicationsInfo returns applications information."
+                    "description": "ApplicationsInfo returns applications information without the storage directives."
                 },
                 "CharmConfig": {
                     "type": "object",
@@ -2056,6 +2056,14 @@
                         },
                         "remote": {
                             "type": "boolean"
+                        },
+                        "storage-directives": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
                         },
                         "tag": {
                             "type": "string"
