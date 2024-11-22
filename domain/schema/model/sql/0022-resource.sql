@@ -29,15 +29,11 @@ INSERT INTO resource_state VALUES
 
 CREATE TABLE resource (
     uuid TEXT NOT NULL PRIMARY KEY,
-    application_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     revision INT,
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
     created_at TIMESTAMP NOT NULL,
-    CONSTRAINT fk_resource_application_uuid
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
     CONSTRAINT fk_resource_name
     FOREIGN KEY (name)
     REFERENCES resource_meta (name),
@@ -49,7 +45,17 @@ CREATE TABLE resource (
     REFERENCES resource_state (id)
 );
 
-CREATE UNIQUE INDEX idx_resource ON resource (application_uuid, name, state_id);
+-- Link table for applications and their resources.
+CREATE TABLE application_resource (
+    resource_uuid TEXT NOT NULL PRIMARY KEY,
+    application_uuid TEXT NOT NULL,
+    CONSTRAINT fk_application_uuid
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_resource_uuid
+    FOREIGN KEY (resource_uuid)
+    REFERENCES resource (uuid)
+);
 
 CREATE TABLE resource_meta (
     application_uuid TEXT NOT NULL,
@@ -94,22 +100,20 @@ CREATE TABLE resource_supplied_by (
 CREATE UNIQUE INDEX idx_resource_supplied_by
 ON resource_supplied_by (name);
 
-CREATE TABLE application_resource (
-    resource_uuid TEXT NOT NULL PRIMARY KEY,
-    supplied_by_uuid TEXT,
-    storage_path TEXT,
-    CONSTRAINT fk_resource_uuid
-    FOREIGN KEY (resource_uuid)
-    REFERENCES resource (uuid),
-    CONSTRAINT fk_resource_supplied_by_uuid
-    FOREIGN KEY (supplied_by_uuid)
-    REFERENCES resource_supplied_by (uuid)
-);
-
 -- Polled resource values from the repository.
 CREATE TABLE repository_resource (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
     last_polled TIMESTAMP NOT NULL,
+    CONSTRAINT fk_resource_uuid
+    FOREIGN KEY (resource_uuid)
+    REFERENCES resource (uuid)
+);
+
+-- This is an container image resource used by a kubernetes application.
+-- They are not recorded by unit.
+CREATE TABLE kubernetes_application_resource (
+    resource_uuid TEXT NOT NULL PRIMARY KEY,
+    added_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid)
