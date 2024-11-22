@@ -13,6 +13,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -21,6 +22,9 @@ import (
 type dummyModelState struct {
 	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
 	setID  coremodel.UUID
+
+	modelState      model.ModelState
+	modelStatusInfo model.StatusInfo
 }
 
 func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
@@ -77,6 +81,22 @@ func (d *dummyModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, e
 
 func (d *dummyModelState) Delete(ctx context.Context, modelUUID coremodel.UUID) error {
 	delete(d.models, modelUUID)
+	return nil
+}
+
+func (d *dummyModelState) GetModelState(context.Context, coremodel.UUID) (model.ModelState, error) {
+	return d.modelState, nil
+}
+
+func (d *dummyModelState) GetStatus(context.Context) (model.StatusInfo, error) {
+	return d.modelStatusInfo, nil
+}
+
+func (d *dummyModelState) SetStatus(_ context.Context, arg model.SetStatusArg) error {
+	d.modelStatusInfo = model.StatusInfo{
+		Status:  arg.Status,
+		Message: arg.Message,
+	}
 	return nil
 }
 
@@ -145,4 +165,125 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 
 	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *modelServiceSuite) TestValidModelStatus(c *gc.C) {
+	for _, v := range []corestatus.Status{
+		corestatus.Available,
+		corestatus.Busy,
+		corestatus.Error,
+	} {
+		c.Assert(validSettableModelStatus(v), jc.IsTrue, gc.Commentf("status %q is not valid for a model", v))
+	}
+}
+
+func (s *modelServiceSuite) TestInvalidModelStatus(c *gc.C) {
+	for _, v := range []corestatus.Status{
+		corestatus.Active,
+		corestatus.Allocating,
+		corestatus.Applied,
+		corestatus.Attached,
+		corestatus.Attaching,
+		corestatus.Blocked,
+		corestatus.Broken,
+		corestatus.Detached,
+		corestatus.Detaching,
+		corestatus.Destroying,
+		corestatus.Down,
+		corestatus.Empty,
+		corestatus.Executing,
+		corestatus.Failed,
+		corestatus.Idle,
+		corestatus.Joined,
+		corestatus.Joining,
+		corestatus.Lost,
+		corestatus.Maintenance,
+		corestatus.Pending,
+		corestatus.Provisioning,
+		corestatus.ProvisioningError,
+		corestatus.Rebooting,
+		corestatus.Running,
+		corestatus.Suspending,
+		corestatus.Started,
+		corestatus.Stopped,
+		corestatus.Terminated,
+		corestatus.Unknown,
+		corestatus.Waiting,
+		corestatus.Suspended,
+	} {
+		c.Assert(validSettableModelStatus(v), jc.IsFalse, gc.Commentf("status %q is valid for a model", v))
+	}
+}
+
+func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
+	s.state.modelState.Destroying = true
+
+	status, err := svc.Status(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.DeepEquals, model.StatusInfo{
+		Status:  corestatus.Destroying,
+		Message: "the model is being destroyed",
+	})
+}
+
+func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
+	s.state.modelState.InvalidCloudCredentialReason = "invalid credential"
+
+	status, err := svc.Status(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.DeepEquals, model.StatusInfo{
+		Status:  corestatus.Suspended,
+		Message: "suspended since cloud credential is not valid",
+		Reason:  "invalid credential",
+	})
+}
+
+func (s *modelServiceSuite) TestStatus(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
+	s.state.modelStatusInfo = model.StatusInfo{
+		Status: corestatus.Available,
+	}
+
+	status, err := svc.Status(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.DeepEquals, model.StatusInfo{
+		Status: corestatus.Available,
+	})
+}
+
+func (s *modelServiceSuite) TestSetStatus(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
+	s.state.modelStatusInfo = model.StatusInfo{
+		Status: corestatus.Available,
+	}
+
+	err := svc.SetStatus(context.Background(), model.SetStatusArg{
+		Status:  corestatus.Error,
+		Message: "error",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.state.modelStatusInfo, gc.DeepEquals, model.StatusInfo{
+		Status:  corestatus.Error,
+		Message: "error",
+	})
+}
+
+func (s *modelServiceSuite) TestSetStatusInvalidStatus(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
+	err := svc.SetStatus(context.Background(), model.SetStatusArg{
+		Status: corestatus.Suspended,
+	})
+	c.Assert(err, jc.ErrorIs, modelerrors.InvalidModelStatus)
 }

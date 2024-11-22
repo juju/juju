@@ -1687,9 +1687,3 @@ func (s *State) GetModelState(context.Context, coremodel.UUID) (model.ModelState
 	return model.ModelState{}, nil
 }
 
-// GetModelInvalidCloudCredentaialReason returns the reason why the model cloud
-// credential is invalid.
-func (s *State) GetModelInvalidCloudCredentaialReason(context.Context) (string, error) {
-	// TODO: Implement GetModelInvalidCloudCredentaialReason
-	return "", nil
-}
