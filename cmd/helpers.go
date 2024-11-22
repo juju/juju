@@ -18,7 +18,7 @@ import (
 
 const yesNoMsg = "\nContinue [y/N]? "
 
-var nameVerificationMsg = "\nTo continue, enter the name of the %s to be destroyed: "
+var nameVerificationMsg = "\nTo continue, enter the name of the %s to be unregistered: "
 
 type userAbortedError string
 
