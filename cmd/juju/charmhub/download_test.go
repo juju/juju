@@ -93,7 +93,7 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "(?s)"+`
-Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/22.04"
+Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/24.04"
 Install the "test" charm with:
     juju deploy ./test_r123\.charm
 `[1:])
@@ -306,7 +306,7 @@ func (s *downloadSuite) TestRunWithResources(c *gc.C) {
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "(?s)"+`
-Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/22.04"
+Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/24.04"
 Install the "test" charm with:
     juju deploy \./test_r123\.charm --resource foo=./resource_foo_r5_a\.tar\.gz
 `[1:])

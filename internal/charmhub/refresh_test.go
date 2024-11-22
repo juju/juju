@@ -915,7 +915,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {
 			Channel:     &channel,
 			Base: &transport.Base{
 				Name:         "ubuntu",
-				Channel:      "22.04",
+				Channel:      "24.04",
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},

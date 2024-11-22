@@ -1907,7 +1907,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02204133", "ami-02204135", "ami-02204139"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02404133", "ami-02404135", "ami-02404139"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -3141,7 +3141,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = testing.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"22.04"},
+		[]string{"24.04"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

@@ -200,7 +200,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultBase(c *g
 	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL("local:dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@24.04"), charmDir.Meta(), false, 1, nil, nil)
 
 	err := s.runDeploy(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -311,7 +311,7 @@ func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 
 	// Putting a config file in home is okay as $HOME is set to a tempdir
 	_, content := setupConfigFile(c, jujutesting.HomePath())
-	withCharmDeployableWithYAMLConfig(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@22.04"), charmDir.Meta(), false, 1, nil, content, nil)
+	withCharmDeployableWithYAMLConfig(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@24.04"), charmDir.Meta(), false, 1, nil, content, nil)
 
 	err := s.runDeploy(c, charmDir.Path, "multi-series", "--config", "~/testconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -401,7 +401,7 @@ func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(c.MkDir(), "lxd-profile")
 	curl := charm.MustParseURL("local:lxd-profile-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@24.04"), charmDir.Meta(), false, 1, nil, nil)
 
 	err := s.runDeploy(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)

@@ -67,6 +67,30 @@ var (
 	}
 )
 
+func toValue[T any](v *T) T {
+	if v == nil {
+		return *new(T)
+	}
+	return *v
+}
+
+func toMapPtr(in map[string]string) map[string]*string {
+	result := make(map[string]*string)
+	for k, v := range in {
+		result[k] = to.Ptr(v)
+	}
+	return result
+}
+
+type keyBundle struct {
+	Key *jsonWebKey `json:"key"`
+}
+
+type jsonWebKey struct {
+	Kid *string `json:"kid"`
+	Kty string  `json:"kty"`
+}
+
 type environSuite struct {
 	testing.BaseSuite
 
@@ -2015,7 +2039,7 @@ func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64\\]",
+		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64 arm64\\]",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,
@@ -2030,8 +2054,15 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 		constraints.MustParse("instance-type=D1"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	// For now we can have a compatible arch and instance-type due to charmhub arch workarounds.
-	c.Assert(cons.String(), gc.Equals, "arch=amd64 instance-type=D1")
+	c.Assert(cons.String(), gc.Equals, "instance-type=D1")
+}
+
+func (s *environSuite) TestConstraintsConflict(c *gc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("arch=amd64 instance-type=Standard_D1"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("arch=arm64 instance-type=Standard_D1"))
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="Standard_D1" expected arch="amd64" not "arm64"`)
 }
 
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
@@ -2578,4 +2609,38 @@ func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
 		"vault-key-name":           "shhhh",
 	}
 	s.assertStartInstance(c, nil, rootDiskParams, true, false, false, false)
+}
+
+func (s *environSuite) TestGetArchFromResourceSKUARM64(c *gc.C) {
+	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardDPSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardDPLSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("standardEPSv5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.ARM64)
+}
+
+func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *gc.C) {
+	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr(""),
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("StandardNCadsH100v5Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
+
+	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
+		Family: to.Ptr("StandardNCADSA100v4Family"),
+	})
+	c.Assert(arch, gc.Equals, corearch.AMD64)
 }

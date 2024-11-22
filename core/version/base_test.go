@@ -16,5 +16,5 @@ var _ = gc.Suite(&seriesSuite{})
 
 func (s *seriesSuite) TestDefaultSupportedLTSBase(c *gc.C) {
 	b := DefaultSupportedLTSBase()
-	c.Assert(b.String(), gc.Equals, "ubuntu@22.04/stable")
+	c.Assert(b.String(), gc.Equals, "ubuntu@24.04/stable")
 }
