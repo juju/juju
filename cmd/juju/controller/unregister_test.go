@@ -84,10 +84,10 @@ func (s *UnregisterSuite) TestUnregisterController(c *gc.C) {
 
 var unregisterMsg = `
 This command will remove connection information for controller "fake1".
-Doing so will prevent you from accessing this controller until
-you register it again.
+The controller will not be destroyed but you must register it again
+if you want to access it.
 
-To continue, enter the name of the controller to be destroyed: `[1:]
+To continue, enter the name of the controller to be unregistered: `[1:]
 
 func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
 	var stdin, stderr bytes.Buffer

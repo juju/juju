@@ -56,9 +56,10 @@ func main() {
 	var (
 		facadeGroups Strings
 		adminFacades = flag.Bool("admin-facades", false, "add the admin facades when generating the schema")
+		comments     = flag.Bool("comments", false, "add comments from go source")
 	)
 
-	flag.Var(&facadeGroups, "facade-group", "facade group to export (latest, all, client, jimm)")
+	flag.Var(&facadeGroups, "facade-group", "facade group to export (latest, all, client, agent, jimm)")
 	flag.Parse()
 	args := flag.Args()
 
@@ -95,9 +96,17 @@ func main() {
 		watcherRegistry: watcherRegistry,
 	}
 
-	result, err := gen.Generate(defaultPackages{
-		path: "github.com/juju/juju/apiserver",
-	}, linker, apiServerShim{},
+	var packages gen.PackageRegistry
+	if *comments {
+		// Resolving comments requires being able to load the go source.
+		packages = defaultPackages{
+			path: "github.com/juju/juju/apiserver",
+		}
+	} else {
+		packages = noPackages{}
+	}
+
+	result, err := gen.Generate(packages, linker, apiServerShim{},
 		gen.WithAdminFacades(*adminFacades),
 		gen.WithFacadeGroups(groups),
 	)
@@ -124,6 +133,12 @@ func (apiServerShim) AllFacades() gen.Registry {
 
 func (apiServerShim) AdminFacadeDetails() []facade.Details {
 	return apiserver.AdminFacadeDetails()
+}
+
+type noPackages struct{}
+
+func (p noPackages) LoadPackage() (*packages.Package, error) {
+	return nil, nil
 }
 
 type defaultPackages struct {
