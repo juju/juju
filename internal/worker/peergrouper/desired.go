@@ -530,6 +530,16 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	for _, id := range ids {
 		m := p.info.controllers[id]
 		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
+
+		if len(hostPorts) > 1 {
+			// ignore /32 and /64 addresses, which can be associated with a virtual IP (see https://bugs.launchpad.net/juju/+bug/2073986)
+			hostPorts = slices.DeleteFunc(hostPorts, func(addr network.SpaceHostPort) bool {
+				if addr.AddressType() == network.IPv6Address {
+					return strings.HasSuffix(addr.AddressCIDR(), "/128")
+				}
+				return strings.HasSuffix(addr.AddressCIDR(), "/32")
+			})
+		}
 		addrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
 
 		// This should not happen because SelectInternalHostPorts will choose a

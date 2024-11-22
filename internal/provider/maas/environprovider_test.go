@@ -65,7 +65,7 @@ func (s *EnvironProviderSuite) TestPrepareConfigSkipTLSVerify(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloud := s.cloudSpec()
 	cloud.SkipTLSVerify = true
-	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  cloud,
 	})
