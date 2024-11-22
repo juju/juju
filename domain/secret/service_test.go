@@ -100,6 +100,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 	appService := applicationservice.NewApplicationService(
 		factory,
 		noopSecretDeleter{},
+		nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),

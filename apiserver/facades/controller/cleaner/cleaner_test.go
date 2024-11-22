@@ -60,6 +60,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		nil,
 		&stubResourceStoreGetter{},
 		loggertesting.WrapCheckLog(c),
 	)
