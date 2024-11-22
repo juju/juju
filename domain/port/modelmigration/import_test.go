@@ -16,7 +16,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	porterrors "github.com/juju/juju/domain/port/errors"
-	uniterrors "github.com/juju/juju/domain/unitstate/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -130,5 +129,5 @@ func (s *importSuite) TestImportUnitNotFound(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, uniterrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, porterrors.UnitNotFound)
 }

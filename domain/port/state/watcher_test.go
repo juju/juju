@@ -46,6 +46,12 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
+	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2")
+
+	s.unitUUIDs[0], _ = s.createUnit(c, netNodeUUIDs[0], appNames[0])
+	s.unitUUIDs[1], _ = s.createUnit(c, netNodeUUIDs[0], appNames[1])
+	s.unitUUIDs[2], _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 }
 
 func (s *watcherSuite) initialiseOpenPorts(c *gc.C, st *State) ([]string, map[string]string) {
@@ -107,10 +113,6 @@ FROM unit_endpoint
  */
 
 func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
-	s.unitUUIDs[0], _, s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
-	s.unitUUIDs[1], _, s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
-	s.unitUUIDs[2], _, _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
-
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
@@ -125,10 +127,6 @@ func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
 }
 
 func (s *watcherSuite) TestFilterEndpointForApplication(c *gc.C) {
-	s.unitUUIDs[0], _, s.appUUIDs[0] = s.createUnit(c, netNodeUUIDs[0], appNames[0])
-	s.unitUUIDs[1], _, s.appUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
-	s.unitUUIDs[2], _, _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
-
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
