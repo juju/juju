@@ -1686,4 +1686,3 @@ func (s *State) GetModelState(context.Context, coremodel.UUID) (model.ModelState
 	// TODO: Implement GetModelState
 	return model.ModelState{}, nil
 }
-
