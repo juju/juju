@@ -65,7 +65,7 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 	logger.Debugf("Adding agent binary: %v", agentTools.Version)
 
 	// If the hash already exists, we don't need to add it again.
-	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
+	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil && !errors.Is(err, objectstoreerrors.ErrPathAlreadyExistsDifferentHash) {
 		return nil, errors.Trace(err)
 	}
 

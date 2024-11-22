@@ -91,7 +91,7 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 		CharmVersion: "the-version",
 	}
 
-	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", objectstoreerrors.ErrHashAlreadyExists)
+	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 	s.stateBackend.EXPECT().UpdateUploadedCharm(state.CharmInfo{
 		StoragePath: expStoreCharmPath,
 		ID:          curl,

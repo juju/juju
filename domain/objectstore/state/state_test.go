@@ -102,7 +102,7 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 
 	_, err = st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrHashAlreadyExists)
+	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {

@@ -88,7 +88,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryTwiceShouldSucceed(c *gc.C) {
 		Version: current.String(),
 		Size:    size,
 		SHA256:  "sha256",
-	}).Return(objectstoreerrors.ErrHashAlreadyExists)
+	}).Return(objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 
 	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
 	c.Assert(err, jc.ErrorIsNil)

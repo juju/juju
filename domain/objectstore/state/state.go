@@ -163,7 +163,7 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 
 		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
 		if database.IsErrConstraintPrimaryKey(err) {
-			return objectstoreerrors.ErrHashAlreadyExists
+			return objectstoreerrors.ErrPathAlreadyExistsDifferentHash
 		} else if err != nil {
 			return errors.Annotatef(err, "inserting metadata path")
 		}

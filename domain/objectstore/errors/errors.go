@@ -14,6 +14,6 @@ const (
 	// there is a collision in the hash function.
 	ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists for different file size")
 
-	// ErrHashAlreadyExists is returned when a hash already exists.
-	ErrHashAlreadyExists = errors.ConstError("hash already exists")
+	// ErrPathAlreadyExistsDifferentHash is returned when a hash already exists.
+	ErrPathAlreadyExistsDifferentHash = errors.ConstError("path already exists with different hash")
 )
