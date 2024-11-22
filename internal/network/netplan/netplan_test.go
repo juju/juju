@@ -140,6 +140,179 @@ network:
 `)
 }
 
+func (s *NetplanSuite) TestDecodeBondsWithOVS(c *gc.C) {
+	_ = MustNetplanFromYaml(c, `
+network:
+  version: 2
+  ethernets:
+    ens13f0:
+      match:
+        macaddress: "d4:04:e6:80:6e:62"
+      set-name: "ens13f0"
+      mtu: 1500
+    ens13f1:
+      match:
+        macaddress: "d4:04:e6:80:6e:63"
+      set-name: "ens13f1"
+      mtu: 1500
+    ens13f2:
+      match:
+        macaddress: "d4:04:e6:80:6e:64"
+      optional: true
+      set-name: "ens13f2"
+      mtu: 1500
+    ens13f3:
+      match:
+        macaddress: "d4:04:e6:80:6e:65"
+      optional: true
+      set-name: "ens13f3"
+      mtu: 1500
+    ens4f0np0:
+      match:
+        macaddress: "a0:88:c2:a1:a6:26"
+      set-name: "ens4f0np0"
+      mtu: 9000
+    ens4f1np1:
+      match:
+        macaddress: "a0:88:c2:a1:a6:27"
+      set-name: "ens4f1np1"
+      mtu: 9000
+  bridges:
+    br-data:
+      macaddress: "a0:88:c2:a1:a6:26"
+      mtu: 9000
+      interfaces:
+      - bond1
+      parameters:
+        forward-delay: "15"
+        stp: false
+      openvswitch: {}
+  bonds:
+    bond1:
+      macaddress: "a0:88:c2:a1:a6:26"
+      mtu: 9000
+      interfaces:
+      - ens4f0np0
+      - ens4f1np1
+      parameters:
+        mode: "802.3ad"
+        mii-monitor-interval: "100"
+        up-delay: "0"
+        down-delay: "0"
+        lacp-rate: "fast"
+        transmit-hash-policy: "layer3+4"
+    bondm:
+      addresses:
+      - "10.150.11.23/24"
+      nameservers:
+        addresses:
+        - 10.150.11.10
+        search:
+        - ps7.canonical.com
+        - maas
+      gateway4: 10.150.11.1
+      macaddress: "d4:04:e6:80:6e:62"
+      mtu: 1500
+      interfaces:
+      - ens13f0
+      - ens13f1
+      parameters:
+        mode: "802.3ad"
+        mii-monitor-interval: "100"
+        up-delay: "0"
+        down-delay: "0"
+        lacp-rate: "fast"
+        transmit-hash-policy: "layer3+4"
+      routes:
+      - metric: 0
+        to: "10.150.12.0/24"
+        via: "10.150.11.1"
+      - metric: 0
+        to: "10.150.13.0/24"
+        via: "10.150.11.1"
+  vlans:
+    bondm.3216:
+      addresses:
+      - "10.150.50.54/23"
+      nameservers:
+        addresses:
+        - 10.150.50.11
+        - 10.150.11.10
+        - 10.150.50.12
+        - 10.150.50.32
+        - 10.150.50.10
+        search:
+        - ps7.canonical.com
+        - maas
+      mtu: 1500
+      id: 3216
+      link: "bondm"
+    br-data.3207:
+      addresses:
+      - "10.150.21.15/24"
+      mtu: 9000
+      routes:
+      - metric: 0
+        to: "10.150.22.0/24"
+        via: "10.150.21.1"
+      - metric: 0
+        to: "10.150.23.0/24"
+        via: "10.150.21.1"
+      id: 3207
+      link: "br-data"
+      openvswitch: {}
+    br-data.3210:
+      addresses:
+      - "10.150.31.15/24"
+      mtu: 9000
+      routes:
+      - metric: 0
+        to: "10.150.32.0/24"
+        via: "10.150.31.1"
+      - metric: 0
+        to: "10.150.33.0/24"
+        via: "10.150.31.1"
+      id: 3210
+      link: "br-data"
+      openvswitch: {}
+    br-data.3213:
+      addresses:
+      - "10.150.41.15/24"
+      mtu: 9000
+      routes:
+      - metric: 0
+        to: "10.150.42.0/24"
+        via: "10.150.41.1"
+      - metric: 0
+        to: "10.150.43.0/24"
+        via: "10.150.41.1"
+      id: 3213
+      link: "br-data"
+      openvswitch: {}
+    br-data.3217:
+      addresses:
+      - "10.150.52.42/23"
+      mtu: 9000
+      id: 3217
+      link: "br-data"
+      openvswitch: {}
+    br-data.3218:
+      addresses:
+      - "10.150.54.42/23"
+      mtu: 9000
+      id: 3218
+      link: "br-data"
+      openvswitch: {}
+    br-data.3219:
+      addresses:
+      - "10.150.56.27/22"
+      mtu: 9000
+      id: 3219
+      link: "br-data"
+      openvswitch: {}  
+  `)
+}
+
 func (s *NetplanSuite) TestSerializationOfEthernetDevicesWithLinkLocalFields(c *gc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
@@ -198,7 +371,7 @@ network:
         lacp-rate: fast
         mii-monitor-interval: 100
         transmit-hash-policy: layer2
-        up-delay: 0
+        up-delay: "0"
         down-delay: 0
 `)
 }
@@ -230,7 +403,7 @@ network:
         mii-monitor-interval: 100
         transmit-hash-policy: layer2
         up-delay: 0
-        down-delay: 0
+        down-delay: "0"
 `)
 }
 
@@ -354,7 +527,7 @@ network:
       parameters:
         mode: 802.3ad
         lacp-rate: fast
-        mii-monitor-interval: 100
+        mii-monitor-interval: "100"
         min-links: 0
         transmit-hash-policy: layer2
         ad-select: 1

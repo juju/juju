@@ -40,7 +40,7 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	mockGetController := func(string, string) (gomaasapi.Controller, error) {
+	mockGetController := func(gomaasapi.ControllerArgs) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
 	s.PatchValue(&GetMAASController, mockGetController)

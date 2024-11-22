@@ -52,6 +52,16 @@ type Interface struct {
 	// specified, this instructs netplan not to bring any ipv4/ipv6 address
 	// up.
 	LinkLocal *[]string `yaml:"link-local,omitempty"`
+
+	// According to the netplan examples, this section typically includes
+	// some OVS-specific configuration bits. However, MAAS may just
+	// include an empty block to indicate the presence of an OVS-managed
+	// bridge (LP1942328). As a workaround, we make this an optional map
+	// so we can tell whether it is present (but empty) vs not being
+	// present.
+	//
+	// See: https://github.com/canonical/netplan/blob/main/examples/openvswitch.yaml
+	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 // Ethernet defines fields for just Ethernet devices
@@ -61,11 +71,13 @@ type Ethernet struct {
 	SetName   string            `yaml:"set-name,omitempty"`
 	Interface `yaml:",inline"`
 }
+
 type AccessPoint struct {
 	Password string `yaml:"password,omitempty"`
 	Mode     string `yaml:"mode,omitempty"`
 	Channel  int    `yaml:"channel,omitempty"`
 }
+
 type Wifi struct {
 	Match        map[string]string      `yaml:"match,omitempty"`
 	SetName      string                 `yaml:"set-name,omitempty"`
@@ -76,7 +88,7 @@ type Wifi struct {
 
 type BridgeParameters struct {
 	AgeingTime   *int           `yaml:"ageing-time,omitempty"`
-	ForwardDelay *int           `yaml:"forward-delay,omitempty"`
+	ForwardDelay IntString      `yaml:"forward-delay,omitempty"`
 	HelloTime    *int           `yaml:"hello-time,omitempty"`
 	MaxAge       *int           `yaml:"max-age,omitempty"`
 	PathCost     map[string]int `yaml:"path-cost,omitempty"`
@@ -89,16 +101,6 @@ type Bridge struct {
 	Interfaces []string `yaml:"interfaces,omitempty,flow"`
 	Interface  `yaml:",inline"`
 	Parameters BridgeParameters `yaml:"parameters,omitempty"`
-
-	// According to the netplan examples, this section typically includes
-	// some OVS-specific configuration bits. However, MAAS may just
-	// include an empty block to indicate the presence of an OVS-managed
-	// bridge (LP1942328). As a workaround, we make this an optional map
-	// so we can tell whether it is present (but empty) vs not being
-	// present.
-	//
-	// See: https://github.com/canonical/netplan/blob/main/examples/openvswitch.yaml
-	OVSParameters *map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 type Route struct {
@@ -194,7 +196,7 @@ func (i IntString) MarshalYAML() (interface{}, error) {
 type BondParameters struct {
 	Mode               IntString `yaml:"mode,omitempty"`
 	LACPRate           IntString `yaml:"lacp-rate,omitempty"`
-	MIIMonitorInterval *int      `yaml:"mii-monitor-interval,omitempty"`
+	MIIMonitorInterval IntString `yaml:"mii-monitor-interval,omitempty"`
 	MinLinks           *int      `yaml:"min-links,omitempty"`
 	TransmitHashPolicy string    `yaml:"transmit-hash-policy,omitempty"`
 	ADSelect           IntString `yaml:"ad-select,omitempty"`
@@ -203,8 +205,8 @@ type BondParameters struct {
 	ARPIPTargets       []string  `yaml:"arp-ip-targets,omitempty"`
 	ARPValidate        IntString `yaml:"arp-validate,omitempty"`
 	ARPAllTargets      IntString `yaml:"arp-all-targets,omitempty"`
-	UpDelay            *int      `yaml:"up-delay,omitempty"`
-	DownDelay          *int      `yaml:"down-delay,omitempty"`
+	UpDelay            IntString `yaml:"up-delay,omitempty"`
+	DownDelay          IntString `yaml:"down-delay,omitempty"`
 	FailOverMACPolicy  IntString `yaml:"fail-over-mac-policy,omitempty"`
 	// Netplan misspelled this as 'gratuitious-arp', not sure if it works with that name.
 	// We may need custom handling of both spellings.

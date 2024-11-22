@@ -6,6 +6,7 @@ package maas
 import (
 	"context"
 	stdcontext "context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -52,6 +53,7 @@ var defaultShortRetryStrategy = retry.CallArgs{
 	Delay:       200 * time.Millisecond,
 	MaxDuration: 5 * time.Second,
 }
+
 var defaultLongRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
 	Delay:       10 * time.Second,
@@ -63,11 +65,8 @@ var (
 	GetMAASController    = getMAASController
 )
 
-func getMAASController(maasServer, apiKey string) (gomaasapi.Controller, error) {
-	return gomaasapi.NewController(gomaasapi.ControllerArgs{
-		BaseURL: maasServer,
-		APIKey:  apiKey,
-	})
+func getMAASController(args gomaasapi.ControllerArgs) (gomaasapi.Controller, error) {
+	return gomaasapi.NewController(args)
 }
 
 type maasEnviron struct {
@@ -105,8 +104,10 @@ type maasEnviron struct {
 	longRetryStrategy  retry.CallArgs
 }
 
-var _ environs.Environ = (*maasEnviron)(nil)
-var _ environs.Networking = (*maasEnviron)(nil)
+var (
+	_ environs.Environ    = (*maasEnviron)(nil)
+	_ environs.Networking = (*maasEnviron)(nil)
+)
 
 // Capabilities is an alias for a function that gets
 // the capabilities of a MAAS installation.
@@ -262,7 +263,22 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 	}
 
 	apiVersion := apiVersion2
-	controller, err := GetMAASController(maasServer, maasOAuth)
+	args := gomaasapi.ControllerArgs{
+		BaseURL: maasServer,
+		APIKey:  maasOAuth,
+	}
+	// If the user has specified to skip TLS verification, we need to
+	// add a new http client with insecure TLS (skip verify).
+	if spec.SkipTLSVerify {
+		args.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+	}
+	controller, err := GetMAASController(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -631,7 +647,6 @@ func (env *maasEnviron) acquireNode(
 		acquireParams.SystemId = systemId
 	}
 	machine, constraintMatches, err := env.maasController.AllocateMachine(acquireParams)
-
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
@@ -648,7 +663,6 @@ func (env *maasEnviron) StartInstance(
 	ctx envcontext.ProviderCallContext,
 	args environs.StartInstanceParams,
 ) (_ *environs.StartInstanceResult, err error) {
-
 	availabilityZone := args.AvailabilityZone
 	var nodeName, systemId string
 	if args.Placement != "" {
@@ -1013,7 +1027,6 @@ func (env *maasEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids ..
 		return errors.Trace(err)
 	}
 	return common.RemoveStateInstances(env.Storage(), ids...)
-
 }
 
 // Instances returns the instances.Instance objects corresponding to the given

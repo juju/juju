@@ -33,7 +33,7 @@ type maasSuite struct {
 }
 
 func (suite *maasSuite) injectController(controller gomaasapi.Controller) {
-	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+	mockGetController := func(args gomaasapi.ControllerArgs) (gomaasapi.Controller, error) {
 		return controller, nil
 	}
 	suite.PatchValue(&GetMAASController, mockGetController)
@@ -188,6 +188,7 @@ func (c *fakeController) StaticRoutes() ([]gomaasapi.StaticRoute, error) {
 	}
 	return c.staticRoutes, nil
 }
+
 func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
 	c.MethodCall(c, "Files", prefix)
 	return c.files, c.NextErr()

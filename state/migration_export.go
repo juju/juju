@@ -407,6 +407,11 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 		Scope:   a.Scope,
 		Origin:  a.Origin,
 		SpaceID: a.SpaceID,
+		// CIDR is not supported in juju/description@v5,
+		// but it has been added in DB to fix the bug https://bugs.launchpad.net/juju/+bug/2073986
+		// In this use case, CIDR are always fetched from machine before using them anyway, so not migrating them
+		// is not harmful.
+		// CIDR:    a.CIDR,
 	}
 }
 

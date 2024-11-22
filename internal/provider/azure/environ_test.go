@@ -65,6 +65,12 @@ var (
 		SKU:       to.Ptr("22_04-lts-gen2"),
 		Version:   to.Ptr("latest"),
 	}
+	jammyImageReferenceArm64 = armcompute.ImageReference{
+		Publisher: to.Ptr("Canonical"),
+		Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
+		SKU:       to.Ptr("22_04-lts-arm64"),
+		Version:   to.Ptr("latest"),
+	}
 )
 
 func toValue[T any](v *T) T {
@@ -211,6 +217,21 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			Name:  to.Ptr("OSVhdSizeMB"),
 			Value: to.Ptr("1047552"),
 		}},
+	}, {
+		Name:         to.Ptr("Standard_D8ps_v5"),
+		Locations:    to.SliceOfPtrs("westus"),
+		ResourceType: to.Ptr("virtualMachines"),
+		Capabilities: []*armcompute.ResourceSKUCapabilities{{
+			Name:  to.Ptr("MemoryGB"),
+			Value: to.Ptr("32"),
+		}, {
+			Name:  to.Ptr("vCPUs"),
+			Value: to.Ptr("8"),
+		}, {
+			Name:  to.Ptr("OSVhdSizeMB"),
+			Value: to.Ptr("1047552"),
+		}},
+		Family: to.Ptr("standardDPSv5Family"),
 	}}
 	s.skus = resourceSKUs
 
@@ -225,6 +246,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.Ptr("20_04-lts")},
 		{Name: to.Ptr("22_04-lts")},
 		{Name: to.Ptr("22_04-lts-gen2")},
+		{Name: to.Ptr("22_04-lts-arm64")},
 	}
 
 	s.commonDeployment = &armresources.DeploymentExtended{
@@ -1737,15 +1759,25 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	// If we aren't on amd64, this should correctly fail. See also:
-	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
+
+	var imageReference *armcompute.ImageReference
+	var instanceType string
+	if corearch.HostArch() == "amd64" {
+		imageReference = &jammyImageReferenceGen2
+		instanceType = "Standard_D1"
+	} else if corearch.HostArch() == "arm64" {
+		imageReference = &jammyImageReferenceArm64
+		instanceType = "Standard_D8ps_v5"
+	} else {
+		// If we aren't on amd64/arm64, this should correctly fail. See also:
+		// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
 			corearch.HostArch())
 		c.Assert(err, gc.ErrorMatches, wantErr)
 		c.SucceedNow()
+		return
 	}
 	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
@@ -1754,11 +1786,11 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReferenceGen2,
+		imageReference:      imageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
-		instanceType:        "Standard_D1",
+		instanceType:        instanceType,
 		publicIP:            true,
 	})
 }
@@ -1794,15 +1826,24 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	// If we aren't on amd64, this should correctly fail. See also:
-	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if corearch.HostArch() != "amd64" {
+	var imageReference *armcompute.ImageReference
+	var instanceType string
+	if corearch.HostArch() == "amd64" {
+		imageReference = &jammyImageReferenceGen2
+		instanceType = "Standard_D1"
+	} else if corearch.HostArch() == "arm64" {
+		imageReference = &jammyImageReferenceArm64
+		instanceType = "Standard_D8ps_v5"
+	} else {
+		// If we aren't on amd64/arm64, this should correctly fail. See also:
+		// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
 			corearch.HostArch())
 		c.Assert(err, gc.ErrorMatches, wantErr)
 		c.SucceedNow()
+		return
 	}
 	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
@@ -1811,12 +1852,12 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &jammyImageReferenceGen2,
+		imageReference:      imageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
 		resourceGroupName:   "foo",
-		instanceType:        "Standard_D1",
+		instanceType:        instanceType,
 		publicIP:            true,
 	})
 }
@@ -2043,7 +2084,7 @@ func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 Standard_A1 Standard_D1 Standard_D2\\]",
+		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 D8ps_v5 Standard_A1 Standard_D1 Standard_D2 Standard_D8ps_v5\\]",
 	)
 }
 
@@ -2265,12 +2306,12 @@ func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 4)
+	c.Assert(types.InstanceTypes, gc.HasLen, 6)
 
 	cons := constraints.MustParse("mem=4G")
 	types, err = env.InstanceTypes(s.callCtx, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 2)
+	c.Assert(types.InstanceTypes, gc.HasLen, 4)
 }
 
 func (s *environSuite) TestInstanceInformationWithInvalidCredential(c *gc.C) {

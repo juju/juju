@@ -65,7 +65,6 @@ TEST_NAMES="actions \
             hooktools \
             kubeflow \
             machine \
-            magma \
             manual \
             model \
             network \
