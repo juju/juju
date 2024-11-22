@@ -1680,3 +1680,16 @@ AND    ot.type = $dbPermission.object_type
 	}
 	return nil
 }
+
+// GetModelState returns the model state for the given model UUID.
+func (s *State) GetModelState(context.Context, coremodel.UUID) (model.ModelState, error) {
+	// TODO: Implement GetModelState
+	return model.ModelState{}, nil
+}
+
+// GetModelInvalidCloudCredentaialReason returns the reason why the model cloud
+// credential is invalid.
+func (s *State) GetModelInvalidCloudCredentaialReason(context.Context) (string, error) {
+	// TODO: Implement GetModelInvalidCloudCredentaialReason
+	return "", nil
+}
