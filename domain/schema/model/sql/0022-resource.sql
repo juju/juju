@@ -61,34 +61,34 @@ CREATE TABLE application_resource (
     REFERENCES resource (uuid)
 );
 
-CREATE TABLE resource_supplied_by_type (
+CREATE TABLE resource_retrieved_by_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_resource_supplied_by_type
-ON resource_supplied_by_type (name);
+CREATE UNIQUE INDEX idx_resource_retrieved_by_type
+ON resource_retrieved_by_type (name);
 
-INSERT INTO resource_supplied_by_type VALUES
+INSERT INTO resource_retrieved_by_type VALUES
 (0, 'user'),
 (1, 'unit'),
 (2, 'application');
 
-CREATE TABLE resource_supplied_by (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    supplied_by_type_id INT NOT NULL,
-    -- Name is the entity who supplied the resource blob:
+CREATE TABLE resource_retrieved_by (
+    resource_uuid TEXT NOT NULL PRIMARY KEY,
+    retrieved_by_type_id INT NOT NULL,
+    -- Name is the entity who retrieved the resource blob:
     --   The name of the user who uploaded the resource.
     --   Unit or application name of which triggered the download
     --     from a repository.
     name TEXT NOT NULL,
-    CONSTRAINT fk_resource_supplied_by_type
-    FOREIGN KEY (supplied_by_type_id)
-    REFERENCES resource_supplied_by_type (id)
+    CONSTRAINT fk_resource
+    FOREIGN KEY (resource_uuid)
+    REFERENCES resource (uuid),
+    CONSTRAINT fk_resource_retrieved_by_type
+    FOREIGN KEY (retrieved_by_type_id)
+    REFERENCES resource_retrieved_by_type (id)
 );
-
-CREATE UNIQUE INDEX idx_resource_supplied_by
-ON resource_supplied_by (name);
 
 -- Polled resource values from the repository.
 CREATE TABLE repository_resource (
