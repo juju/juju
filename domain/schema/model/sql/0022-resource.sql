@@ -34,9 +34,6 @@ CREATE TABLE resource (
     revision INT,
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
-    size INT,
-    hash TEXT,
-    hash_type_id TEXT,
     created_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_resource_application_uuid
     FOREIGN KEY (application_uuid)
@@ -49,10 +46,7 @@ CREATE TABLE resource (
     REFERENCES resource_origin_type (id),
     CONSTRAINT fk_resource_state_id
     FOREIGN KEY (state_id)
-    REFERENCES resource_state (id),
-    CONSTRAINT fk_resource_hash_type_id
-    FOREIGN KEY (hash_type_id)
-    REFERENCES object_store_metadata_hash_type (id)
+    REFERENCES resource_state (id)
 );
 
 CREATE UNIQUE INDEX idx_resource ON resource (application_uuid, name, state_id);
@@ -133,12 +127,35 @@ CREATE TABLE unit_resource (
     PRIMARY KEY (resource_uuid, unit_uuid)
 );
 
-CREATE TABLE resource_oci_image_metadata_store (
-    resource_uuid TEXT NOT NULL,
+-- This is the actual store for container image resources. The metadata
+-- necessary to retrieve the OCI Image from a registry.
+CREATE TABLE resource_container_image_metadata_store (
+    uuid TEXT NOT NULL PRIMARY KEY,
     registry_path TEXT NOT NULL,
     username TEXT,
-    password TEXT,
+    password TEXT
+);
+
+-- Link table between a file resource and where its stored.
+CREATE TABLE resource_file_store (
+    resource_uuid TEXT NOT NULL PRIMARY KEY,
+    store_uuid TEXT NOT NULL,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
-    REFERENCES resource (uuid)
+    REFERENCES resource (uuid),
+    CONSTRAINT fk_store_uuid
+    FOREIGN KEY (store_uuid)
+    REFERENCES object_store_metadata (uuid)
+);
+
+-- Link table between a container image resource and where its stored.
+CREATE TABLE resource_image_store (
+    resource_uuid TEXT NOT NULL PRIMARY KEY,
+    store_uuid TEXT NOT NULL,
+    CONSTRAINT fk_resource_uuid
+    FOREIGN KEY (resource_uuid)
+    REFERENCES resource (uuid),
+    CONSTRAINT fk_store_uuid
+    FOREIGN KEY (store_uuid)
+    REFERENCES resource_container_image_metadata_store (uuid)
 );
