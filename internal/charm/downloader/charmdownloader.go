@@ -19,7 +19,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// ObjectStore is an interface for storing objects.
 type ObjectStore interface {
+	// Put stores the data in the object store at the specified path.
+	// The resulting UUID can be used as RI against the object store.
 	Put(ctx context.Context, path string, data io.Reader, size int64) (string, error)
 }
 
@@ -27,7 +30,23 @@ type ObjectStore interface {
 // name.
 type UniqueBlobNamer func(string) (string, error)
 
-// CharmDownloader implements store-agnostic download and pesistence of charm
+// DownloadUUID is a unique identifier for a downloaded charm that relates
+// to the object store.
+type DownloadUUID string
+
+// Validate checks that the download UUID is a valid UUID.
+func (u DownloadUUID) Validate() error {
+	if !uuid.IsValidUUIDString(string(u)) {
+		return errors.Errorf("invalid download UUID %q", u)
+	}
+	return nil
+}
+
+func (u DownloadUUID) String() string {
+	return string(u)
+}
+
+// CharmDownloader implements store-agnostic download and persistence of charm
 // blobs.
 type CharmDownloader struct {
 	repoGetter  RepositoryGetter
@@ -52,13 +71,15 @@ func NewCharmDownloader(repoGetter RepositoryGetter, objectStore ObjectStore, lo
 	}
 }
 
-// DownloadCharm looks up the requested charm using the appropriate store,
+// DownloadAndStore looks up the requested charm using the appropriate store,
 // downloads it to a temporary file and passes it to the configured storage API
 // so it can be persisted.
 //
 // The method ensures that all temporary resources are cleaned up before
 // returning.
-func (d *CharmDownloader) DownloadCharm(ctx context.Context, name string, requestedOrigin corecharm.Origin, force bool) (string, corecharm.Origin, error) {
+//
+// The resulting UUID can be used as RI against the object store.
+func (d *CharmDownloader) DownloadAndStore(ctx context.Context, name string, requestedOrigin corecharm.Origin, force bool) (DownloadUUID, corecharm.Origin, error) {
 	channelOrigin := requestedOrigin
 
 	var err error
@@ -75,27 +96,12 @@ func (d *CharmDownloader) DownloadCharm(ctx context.Context, name string, reques
 	}
 
 	// Download the charm from the repository and hash it.
-	downloadedCharm, actualOrigin, err := d.downloadAndHash(ctx, name, channelOrigin, repo)
+	result, err := d.download(ctx, name, channelOrigin, repo)
 	if err != nil {
-		return "", corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", name, requestedOrigin)
+		return "", corecharm.Origin{}, errors.Annotatef(err, "downloading %q using origin %v", name, requestedOrigin)
 	}
 
-	// Grab a unique name for the charm blob. This can be totally random, we
-	// just need to ensure that it is unique. The name is the prefix to see
-	// the charm in the storage, but eventually, we don't need this.
-	storageName, err := d.namer(name)
-	if err != nil {
-		return "", corecharm.Origin{}, errors.Trace(err)
-	}
-
-	// Put the charm in the blob store. We don't need to store the charm
-	// directly.
-	uuid, err := d.objectStore.Put(ctx, storageName, downloadedCharm.CharmData, downloadedCharm.Size)
-	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
-		return "", corecharm.Origin{}, errors.Annotate(err, "cannot add charm to storage")
-	}
-
-	return uuid, actualOrigin, nil
+	return d.store(ctx, name, result)
 }
 
 func (d *CharmDownloader) getRepo(ctx context.Context, src corecharm.Source) (CharmRepository, error) {
@@ -107,34 +113,67 @@ func (d *CharmDownloader) getRepo(ctx context.Context, src corecharm.Source) (Ch
 	return repo, nil
 }
 
-func (d *CharmDownloader) downloadAndHash(ctx context.Context, name string, requestedOrigin corecharm.Origin, repo CharmRepository) (*DownloadedCharm, corecharm.Origin, error) {
-	d.logger.Debugf("downloading charm %q from requested origin %v", name, requestedOrigin)
+func (d *CharmDownloader) download(ctx context.Context, name string, requestedOrigin corecharm.Origin, repo CharmRepository) (*downloadResult, error) {
+	d.logger.Debugf("downloading charm %q using origin %v", name, requestedOrigin)
 
-	// Download charm blob to a temp file
-	tmpFile, err := os.CreateTemp("", name)
+	// Create a new temporary file to store the charm.
+	tmpFile, err := newTempFile(name, d.logger)
 	if err != nil {
-		return nil, corecharm.Origin{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	defer func() {
+
+	// Do not close or defer close the file in this function, as a successful
+	// download will return the file to the caller.
+
+	actualOrigin, digest, err := repo.Download(ctx, name, requestedOrigin, tmpFile.Name())
+	if err != nil {
+		// Ensure we cleanup if the download fails.
 		_ = tmpFile.Close()
-		if err := os.Remove(tmpFile.Name()); err != nil {
-			d.logger.Warningf("unable to remove temporary charm download path %q", tmpFile.Name())
-		}
-	}()
 
-	chArchive, actualOrigin, err := repo.DownloadCharm(ctx, name, requestedOrigin, tmpFile.Name())
-	if err != nil {
-		return nil, corecharm.Origin{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+
 	d.logger.Debugf("downloaded charm %q from actual origin %v", name, actualOrigin)
 
-	return &DownloadedCharm{
-		Charm:        chArchive,
-		CharmVersion: chArchive.Version(),
-		Size:         size,
-		LXDProfile:   chArchive.LXDProfile(),
-		SHA256:       sha,
-	}, actualOrigin, nil
+	return &downloadResult{
+		Reader: tmpFile,
+		Origin: actualOrigin,
+		Size:   digest.Size,
+	}, nil
+}
+
+func (d *CharmDownloader) store(ctx context.Context, name string, result *downloadResult) (DownloadUUID, corecharm.Origin, error) {
+	// Grab a unique name for the charm blob. This can be totally random, we
+	// just need to ensure that it is unique. The name is the prefix to see
+	// the charm in the storage, but eventually, we don't need this.
+	storageName, err := d.namer(name)
+	if err != nil {
+		return "", corecharm.Origin{}, errors.Trace(err)
+	}
+
+	// Put the charm in the blob store. We don't need to store the charm
+	// directly.
+	//
+	// Do not attempt to stream the data directly from the download, directly
+	// into the object store. The hash might not be correct, and attempting to
+	// evict the charm from the object store will incur costs if it's hosted
+	// on a cloud provider.
+	uuid, err := d.objectStore.Put(ctx, storageName, result.Reader, result.Size)
+	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
+		return "", corecharm.Origin{}, errors.Annotate(err, "adding to object store")
+	}
+
+	// Close the reader now the data has been stored.
+	defer result.Reader.Close()
+
+	downloadUUID := DownloadUUID(uuid)
+	if err := downloadUUID.Validate(); err != nil {
+		return "", corecharm.Origin{}, errors.Trace(err)
+	}
+
+	d.logger.Debugf("stored charm %q with UUID %q", name, uuid)
+
+	return downloadUUID, result.Origin, nil
 }
 
 func (d *CharmDownloader) normalizePlatform(charmName string, platform corecharm.Platform) (corecharm.Platform, error) {
@@ -151,4 +190,48 @@ func (d *CharmDownloader) normalizePlatform(charmName string, platform corecharm
 		OS:           strings.ToLower(platform.OS),
 		Channel:      platform.Channel,
 	}, nil
+}
+
+type downloadResult struct {
+	Reader io.ReadCloser
+	Origin corecharm.Origin
+	Size   int64
+}
+
+type tmpFileCloser struct {
+	reader io.ReadCloser
+	path   string
+	logger logger.Logger
+}
+
+func newTempFile(name string, logger logger.Logger) (*tmpFileCloser, error) {
+	tmpFile, err := os.CreateTemp("", name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &tmpFileCloser{
+		reader: tmpFile,
+		path:   tmpFile.Name(),
+		logger: logger,
+	}, nil
+}
+
+func (t *tmpFileCloser) Name() string {
+	return t.path
+}
+
+func (t *tmpFileCloser) Read(p []byte) (n int, err error) {
+	return t.reader.Read(p)
+}
+
+func (t *tmpFileCloser) Close() error {
+	err := t.reader.Close()
+
+	// Remove the temporary file, even if it fails to close the reader.
+	if removeErr := os.Remove(t.path); removeErr != nil {
+		t.logger.Warningf("unable to remove temporary download path %q: %v", t.path, removeErr)
+	}
+
+	return err
 }

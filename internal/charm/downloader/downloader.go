@@ -28,8 +28,27 @@ type CharmArchive interface {
 
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
+	// GetDownloadURL returns the URL from which the blob with the specified
+	// name and origin can be downloaded. The origin is used to determine the
+	// source of the blob and the channel to use when downloading the blob.
 	GetDownloadURL(context.Context, string, corecharm.Origin) (*url.URL, corecharm.Origin, error)
+
+	// ResolveWithPreferredChannel returns the URL from which the blob with the
+	// specified name and origin can be downloaded. The origin is used to
+	// determine the source of the blob and the channel to use when downloading
+	// the blob. If the origin specifies a channel, the channel is used to
+	// download the charm.
 	ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
+
+	// Download downloads a blob with the specified name and origin to the
+	// specified path. The origin is used to determine the source of the blob
+	// and the channel to use when downloading the blob.
+	Download(ctx context.Context, blobName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.Origin, *charmhub.Digest, error)
+
+	// DownloadCharm downloads the charm with the specified name and origin to
+	// the specified path. The origin is used to determine the source of the
+	// charm and the channel to use when downloading the charm. Deprecated: use
+	// Download instead.
 	DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error)
 }
 
@@ -73,7 +92,7 @@ func (dc DownloadedCharm) verify(downloadOrigin corecharm.Origin, force bool) er
 	}
 
 	if dc.LXDProfile != nil {
-		if err := lxdprofile.ValidateLXDProfile(lxdProfiler{dc.LXDProfile}); err != nil && !force {
+		if err := lxdprofile.ValidateLXDProfile(lxdProfiler{profile: dc.LXDProfile}); err != nil && !force {
 			return errors.Annotate(err, "cannot verify charm-provided LXD profile")
 		}
 	}
@@ -85,7 +104,8 @@ func (dc DownloadedCharm) verify(downloadOrigin corecharm.Origin, force bool) er
 	return nil
 }
 
-// Downloader implements store-agnostic download and pesistence of charm blobs.
+// Downloader implements store-agnostic download and persistence of charm blobs.
+// Deprecated: use CharmDownloader instead.
 type Downloader struct {
 	logger     logger.Logger
 	repoGetter RepositoryGetter
@@ -102,10 +122,12 @@ func NewDownloader(logger logger.Logger, storage Storage, repoGetter RepositoryG
 }
 
 // DownloadAndStore looks up the requested charm using the appropriate store,
-// downloads it to a temporary file and passes it to the configured storage
-// API so it can be persisted.
+// downloads it to a temporary file and passes it to the configured storage API
+// so it can be persisted.
 //
-// The method ensures that all temporary resources are cleaned up before returning.
+// The method ensures that all temporary resources are cleaned up before
+// returning.
+// Deprecated: use NewCharmDownloader instead.
 func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
 	var (
 		err           error

@@ -23,9 +23,21 @@ import (
 
 // CharmHubClient describes the API exposed by the charmhub client.
 type CharmHubClient interface {
-	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)
+	// Download retrieves the specified charm from the store and saves its
+	// contents to the specified path.
+	// Read the path to get the contents of the charm.
+	Download(ctx context.Context, url *url.URL, path string, options ...charmhub.DownloadOption) (*charmhub.Digest, error)
+
+	// ListResourceRevisions returns a list of resources associated with a given
+	// charm.
 	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
+
+	// Refresh retrieves the specified charm from the store and returns the
+	// metadata and configuration.
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+
+	// Deprecated: Use Download instead.
+	DownloadAndRead(ctx context.Context, url *url.URL, path string, options ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)
 }
 
 // CharmHubRepository provides an API for charm-related operations using charmhub.
@@ -353,8 +365,37 @@ func transformRefreshResult(charmName string, refreshResult transport.RefreshRes
 	return corecharm.EssentialMetadata{Meta: chMeta, Config: chConfig, Manifest: chManifest}, nil
 }
 
+// Download retrieves a blob from the store and saves its contents to the
+// specified path.
+//
+// To get the contents of the blob, read the path on success.
+func (c *CharmHubRepository) Download(ctx context.Context, name string, requestedOrigin corecharm.Origin, path string) (corecharm.Origin, *charmhub.Digest, error) {
+	c.logger.Tracef("Download %q, origin: %q", name, requestedOrigin)
+
+	// Resolve charm URL to a link to the charm blob and keep track of the
+	// actual resolved origin which may be different from the requested one.
+	resURL, actualOrigin, err := c.GetDownloadURL(ctx, name, requestedOrigin)
+	if err != nil {
+		return corecharm.Origin{}, nil, errors.Trace(err)
+	}
+
+	// Force the sha256 digest to be calculated on download.
+	digest, err := c.client.Download(ctx, resURL, path, charmhub.WithEnsureDigest(charmhub.SHA256))
+	if err != nil {
+		return corecharm.Origin{}, nil, errors.Trace(err)
+	}
+
+	// Verify the hash if the requested origin has supplied one.
+	if digest.Hash != requestedOrigin.Hash {
+		return corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.Hash, requestedOrigin.Hash)
+	}
+
+	return actualOrigin, digest, nil
+}
+
 // DownloadCharm retrieves specified charm from the store and saves its
 // contents to the specified path.
+// Deprecated: Use Download instead.
 func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error) {
 	c.logger.Tracef("DownloadCharm %q, origin: %q", charmName, requestedOrigin)
 

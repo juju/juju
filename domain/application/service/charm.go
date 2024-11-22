@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/downloader"
 )
 
 var (
@@ -140,9 +141,9 @@ type CharmState interface {
 
 // CharmDownloader defines the interface for downloading charms.
 type CharmDownloader interface {
-	// DownloadCharm downloads the charm from the specified URL and returns the
-	// charm ID.
-	DownloadCharm(ctx context.Context, url string) (corecharm.ID, error)
+	// DownloadAndStore downloads a charm and persists it to the object store.
+	// The resulting UUID can be used as RI against the object store.
+	DownloadAndStore(ctx context.Context, name string, origin corecharm.Origin, force bool) (downloader.DownloadUUID, corecharm.Origin, error)
 }
 
 // CharmService provides the API for working with charms.

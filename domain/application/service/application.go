@@ -1399,7 +1399,7 @@ func (s *ApplicationService) DownloadApplicationCharm(ctx context.Context, uuid 
 		return internalerrors.Errorf("checking if charm is available: %w", err)
 	}
 
-	objectStoreUUID, err := s.charmDownloader.DownloadCharm(ctx, uuid)
+	objectStoreUUID, err := s.charmDownloader.DownloadAndStore(ctx, uuid)
 	if err != nil {
 		return internalerrors.Errorf("downloading charm: %w", err)
 	}

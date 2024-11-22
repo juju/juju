@@ -60,6 +60,7 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/downloader"
 )
 
 // PublicKeyImporter describes a service that is capable of fetching and
@@ -173,15 +174,15 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		applicationstate.NewCharmState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		applicationstate.NewResourceState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("resource")),
+		applicationstate.NewResourceState(changestream.NewTxnRunnerFactory(s.modelDB), log.Child("resource")),
 		s.modelWatcherFactory("application"),
 		s.modelUUID,
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.storageRegistry,
-		downloader.NewCharmDownloader(s.objectstore),
+		downloader.NewCharmDownloader(repo, s.objectstore, log.Child("charmdownloader")),
 		resource.NewResourceStoreFactory(s.objectstore),
-		s.logger.Child("application"),
+		log.Child("application"),
 	)
 }
 
