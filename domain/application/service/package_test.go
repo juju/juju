@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/changestream"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service ApplicationState,CharmState,DeleteSecretState,ResourceState,ResourceStoreGetter,WatcherFactory,AgentVersionGetter,Provider
@@ -18,4 +20,24 @@ func TestPackage(t *testing.T) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+type changeEvent struct {
+	typ       changestream.ChangeType
+	namespace string
+	changed   string
+}
+
+var _ changestream.ChangeEvent = (*changeEvent)(nil)
+
+func (c *changeEvent) Type() changestream.ChangeType {
+	return c.typ
+}
+
+func (c *changeEvent) Namespace() string {
+	return c.namespace
+}
+
+func (c *changeEvent) Changed() string {
+	return c.changed
 }

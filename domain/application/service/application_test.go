@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"math/rand/v2"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -15,11 +16,14 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -37,17 +41,18 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
-	jujutesting "github.com/juju/juju/internal/testing"
+	internaltesting "github.com/juju/juju/internal/testing"
 )
 
 type applicationServiceSuite struct {
 	testing.IsolationSuite
 
-	state   *MockApplicationState
-	charm   *MockCharm
-	secret  *MockDeleteSecretState
-	clock   *testclock.Clock
 	service *ApplicationService
+
+	state  *MockApplicationState
+	charm  *MockCharm
+	secret *MockDeleteSecretState
+	clock  *testclock.Clock
 }
 
 var _ = gc.Suite(&applicationServiceSuite{})
@@ -1137,7 +1142,231 @@ func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+type applicationWatcherServiceSuite struct {
+	testing.IsolationSuite
+
+	service *WatchableApplicationService
+
+	state          *MockApplicationState
+	charm          *MockCharm
+	secret         *MockDeleteSecretState
+	clock          *testclock.Clock
+	watcherFactory *MockWatcherFactory
+}
+
+var _ = gc.Suite(&applicationWatcherServiceSuite{})
+
+func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapper(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// There is an integration test to ensure correct wire up. This test ensures
+	// that the mapper correctly orders the results based on changes emitted by
+	// the watcher.
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), []coreapplication.ID{appID}).Return([]coreapplication.ID{
+		appID,
+	}, nil)
+
+	changes := []changestream.ChangeEvent{&changeEvent{
+		typ:       changestream.All,
+		namespace: "application",
+		changed:   appID.String(),
+	}}
+
+	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, changes)
+}
+
+func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// There is an integration test to ensure correct wire up. This test ensures
+	// that the mapper correctly orders the results based on changes emitted by
+	// the watcher.
+
+	changes := []changestream.ChangeEvent{&changeEvent{
+		typ:       changestream.All,
+		namespace: "application",
+		changed:   "foo",
+	}}
+
+	_, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperOrder(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// There is an integration test to ensure correct wire up. This test ensures
+	// that the mapper correctly orders the results based on changes emitted by
+	// the watcher.
+
+	appIDs := make([]coreapplication.ID, 4)
+	for i := range appIDs {
+		appIDs[i] = applicationtesting.GenApplicationUUID(c)
+	}
+
+	changes := make([]changestream.ChangeEvent, len(appIDs))
+	for i, appID := range appIDs {
+		changes[i] = &changeEvent{
+			typ:       changestream.All,
+			namespace: "application",
+			changed:   appID.String(),
+		}
+	}
+
+	// Ensure order is persvered if the state returns the uuids in an unexpected
+	// order. This is because we can't guarantee the order if there are holes in
+	// the pending sequence.
+
+	shuffle := make([]coreapplication.ID, len(appIDs))
+	copy(shuffle, appIDs)
+	rand.Shuffle(len(shuffle), func(i, j int) {
+		shuffle[i], shuffle[j] = shuffle[j], shuffle[i]
+	})
+
+	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(shuffle, nil)
+
+	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, changes)
+}
+
+func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperDropped(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// There is an integration test to ensure correct wire up. This test ensures
+	// that the mapper correctly orders the results based on changes emitted by
+	// the watcher.
+
+	appIDs := make([]coreapplication.ID, 10)
+	for i := range appIDs {
+		appIDs[i] = applicationtesting.GenApplicationUUID(c)
+	}
+
+	changes := make([]changestream.ChangeEvent, len(appIDs))
+	for i, appID := range appIDs {
+		changes[i] = &changeEvent{
+			typ:       changestream.All,
+			namespace: "application",
+			changed:   appID.String(),
+		}
+	}
+
+	// Ensure order is persvered if the state returns the uuids in an unexpected
+	// order. This is because we can't guarantee the order if there are holes in
+	// the pending sequence.
+
+	var dropped []coreapplication.ID
+	var expected []changestream.ChangeEvent
+	for i, appID := range appIDs {
+		if rand.IntN(2) == 0 {
+			continue
+		}
+		dropped = append(dropped, appID)
+		expected = append(expected, changes[i])
+	}
+
+	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(dropped, nil)
+
+	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, expected)
+}
+
+func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperOrderDropped(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// There is an integration test to ensure correct wire up. This test ensures
+	// that the mapper correctly orders the results based on changes emitted by
+	// the watcher.
+
+	appIDs := make([]coreapplication.ID, 10)
+	for i := range appIDs {
+		appIDs[i] = applicationtesting.GenApplicationUUID(c)
+	}
+
+	changes := make([]changestream.ChangeEvent, len(appIDs))
+	for i, appID := range appIDs {
+		changes[i] = &changeEvent{
+			typ:       changestream.All,
+			namespace: "application",
+			changed:   appID.String(),
+		}
+	}
+
+	// Ensure order is persvered if the state returns the uuids in an unexpected
+	// order. This is because we can't guarantee the order if there are holes in
+	// the pending sequence.
+
+	var dropped []coreapplication.ID
+	var expected []changestream.ChangeEvent
+	for i, appID := range appIDs {
+		if rand.IntN(2) == 0 {
+			continue
+		}
+		dropped = append(dropped, appID)
+		expected = append(expected, changes[i])
+	}
+
+	// Shuffle them to replicate out of order return.
+
+	shuffle := make([]coreapplication.ID, len(dropped))
+	copy(shuffle, dropped)
+	rand.Shuffle(len(shuffle), func(i, j int) {
+		shuffle[i], shuffle[j] = shuffle[j], shuffle[i]
+	})
+
+	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), appIDs).Return(shuffle, nil)
+
+	result, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, expected)
+}
+
+func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockApplicationState(ctrl)
+	s.charm = NewMockCharm(ctrl)
+	s.secret = NewMockDeleteSecretState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+		return storage.ChainedProviderRegistry{
+			dummystorage.StorageProviders(),
+			provider.CommonStorageProviders(),
+		}
+	})
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.clock = testclock.NewClock(time.Time{})
+	s.service = NewWatchableApplicationService(
+		s.state,
+		s.secret,
+		s.watcherFactory,
+		modelUUID,
+		nil,
+		nil,
+		registry,
+		loggertesting.WrapCheckLog(c),
+	)
+	s.service.clock = s.clock
+
+	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
+		return fn(domaintesting.NewAtomicContext(ctx))
+	}).AnyTimes()
+
+	return ctrl
+}
+
 type providerApplicationServiceSuite struct {
+	testing.IsolationSuite
+
 	service *ProviderApplicationService
 
 	modelID model.UUID
@@ -1195,7 +1424,7 @@ func (s *providerApplicationServiceSuite) TestGetSupportedFeaturesNotSupported(c
 func (s *providerApplicationServiceSuite) setupMocks(c *gc.C, fn func(ctx context.Context) (Provider, error)) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelID = model.UUID(jujutesting.ModelTag.Id())
+	s.modelID = model.UUID(internaltesting.ModelTag.Id())
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
