@@ -13,16 +13,16 @@ expected to change much faster than the general interactions between components.
 
 A Juju model is a distributed system comprising:
 
-* A data store (mongodb) which describes the desired state of the world, in terms
+* A data store (MongoDB/DQLite) which describes the desired state of the world, in terms
   of running workloads or *applications*, and the *relations* between them; and of the
   *units* that comprise those applications, and the *machines* on which those units run.
-* A bunch of *agents*, each of which runs the same `jujud` binary, and which are
+* A bunch of *agents*, each of which runs the `jujud` binary, and which are
   variously responsible for causing reality to converge towards the idealised world-
   state encoded in the data store.
 * Some number of *clients* which talk over an API, implemented by the agents, to
   update the desired world-state (and thereby cause the agents to update the world
   to match). The `juju` binary is one of many possible clients; the `juju-dashboard` web
-  application, and the `juju-deployer` python tool, are other examples.
+  application, JIMM, and the Juju terraform provider, are other examples.
 
 The whole system depends upon a substrate, or *provider*, which supplies the compute,
 storage, and network resources used by the workloads (and by Juju itself; but never
@@ -77,9 +77,9 @@ Here's the various high level parts of Juju system and how they interact:
 ```
 
 At the centre is a *controller agent*. It is responsible for maintaining the
-state for one or more Juju models and runs a server which provides the Juju
-API. Juju's state is kept in MongoDB. Juju's MongoDB may only be accessed by
-the controller agents.
+state for one or more Juju models and runs a server which provides the Juju API.
+Juju's state is kept in MongoDB/DQLite. Juju's state may only be accessed by the
+controller agents.
 
 A controller agent runs a number of *workers*, many of which are specific to
 controller tasks. Some workers in the controller agent use the Juju *provider*
@@ -91,9 +91,9 @@ Almost all workers will interact with Juju's state using Juju's API, even
 workers running within a controller agent.
 
 If a Juju deployment has high-availability enabled there will be multiple
-controller agents. An consumer of the Juju API may connect to any controller
-agent. In HA mode, there will be a MongoDB instance on each controller machine,
-with a MongoDB replicaset configured to synchronise data between the nodes.
+controller agents. A consumer of the Juju API may connect to any controller
+agent. In HA mode, there will be a MongoDB/DQLite instance on each controller
+machine. The data on these instances will replicated between the nodes.
 
 Each Juju deployed machine runs a *machine agent*. Each machine agent runs a
 number of workers.
@@ -106,7 +106,7 @@ responsible for installing, running and maintaining charm code. It runs a
 different set of workers to a machine agent.
 
 There are a number of *clients* which interact with Juju using the Juju
-API. These include the `juju` command line tool and Juju Dashboard.
+API. These include the `juju` command line tool.
 
 ## The Domain
 
@@ -161,8 +161,8 @@ side API facade are implemented as subpackages underneath `api`.
 
 ## The Agents
 
-Agents all use the same `jujud` binary, and all follow roughly the same model.
-When starting up, they authenticate with an API server; possibly reset their
+Agents all use the `jujud` binary, and all follow roughly the same model. When
+starting up, they authenticate with an API server; possibly reset their
 password, if the one they used has been stored persistently somewhere and is
 thus vulnerable; determine their responsibilities; and run a set of tasks in
 parallel until one of those tasks returns an error indicating that the agent
@@ -249,11 +249,11 @@ the following.
 * Maintain the MongoDB replica set (`worker/peergrouper`)
 * Resume incomplete MongoDB transactions (`worker/resumer`)
 
-Many of these workers (more than strictly need to be) are wrapped as "singular"
-workers, which only run on the same machine as the current MongoDB replicaset
-master. When the master changes, the state connection is dropped, causing all
-those workers to also be stopped; when they're restarted, they won't run because
-they're no longer running on the master.
+Many of these workers are wrapped as "singular" workers, which only run on the
+same machine as the current MongoDB replicaset master. When the master changes,
+the state connection is dropped, causing all those workers to also be stopped;
+when they're restarted, they won't run because they're no longer running on the
+master.
 
 ### Unit Agents
 
