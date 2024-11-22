@@ -1174,7 +1174,7 @@ func (s *ApplicationService) UpdateCloudService(ctx context.Context, appName, pr
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
 }
 
-// Broker provides access to the k8s cluster to guery the scale
+// Broker provides access to the k8s cluster to query the scale
 // of a specified application.
 type Broker interface {
 	Application(string, caas.DeploymentType) caas.Application
@@ -1521,12 +1521,12 @@ func (s *WatchableApplicationService) WatchApplicationUnitLife(appName string) (
 		if err != nil {
 			return nil, err
 		}
-		unitLifes, err := s.st.GetApplicationUnitLife(ctx, appName, unitUUIDs...)
+		lives, err := s.st.GetApplicationUnitLife(ctx, appName, unitUUIDs...)
 		if err != nil {
 			return nil, err
 		}
-		result := make(map[string]life.Life, len(unitLifes))
-		for unitUUID, life := range unitLifes {
+		result := make(map[string]life.Life, len(lives))
+		for unitUUID, life := range lives {
 			result[unitUUID.String()] = life
 		}
 		return result, nil
