@@ -1920,6 +1920,15 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			if err != nil {
 				return nil, err
 			}
+			// Enforce max-relation limits for the app:ep combination
+			existingRelationCount, assertRelationCount, err := enforceMaxRelationLimit(app, ep)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			assertions := bson.D{{Name: "life", Value: Alive}}
+			if assertRelationCount {
+				assertions = append(assertions, bson.DocElem{Name: "relationcount", Value: existingRelationCount})
+			}
 			if app.IsRemote() {
 				// If the remote application is known to be terminated, we don't
 				// allow a relation to it.
@@ -1933,8 +1942,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				ops = append(ops, txn.Op{
 					C:      remoteApplicationsC,
 					Id:     st.docID(ep.ApplicationName),
-					Assert: bson.D{{"life", Alive}},
-					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
+					Assert: assertions,
+					Update: bson.D{{Name: "$inc", Value: bson.D{{Name: "relationcount", Value: 1}}}},
 				})
 			} else {
 				localApp := app.(*Application)
@@ -1956,17 +1965,13 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					return nil, errors.NotValidf("charm %q does not support any bases", ch.Meta().Name)
 				}
 				appBases[localApp.doc.Name] = charmBases
+				assertions = append(assertions, bson.DocElem{Name: "charmurl", Value: ch.URL()})
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
-					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
-					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
+					Assert: assertions,
+					Update: bson.D{{Name: "$inc", Value: bson.D{{Name: "relationcount", Value: 1}}}},
 				})
-			}
-
-			// Enforce max-relation limits for the app:ep combination
-			if err := enforceMaxRelationLimit(app, ep); err != nil {
-				return nil, errors.Trace(err)
 			}
 		}
 		// We need to ensure that there's intersection between the supported
@@ -2033,26 +2038,27 @@ func compatibleSupportedBases(b1s, b2s []corebase.Base) bool {
 
 // enforceMaxRelationLimit returns an error if adding an additional relation
 // from app:ep exceeds the maximum allowed relation limit as specified in the
-// charm metadata.
-func enforceMaxRelationLimit(app ApplicationEntity, ep Endpoint) error {
+// charm metadata. It also returns the number of existing relations and a bool
+// if a limit is to be enforced.
+func enforceMaxRelationLimit(app ApplicationEntity, ep Endpoint) (int, bool, error) {
 	// No limit defined
 	if ep.Relation.Limit == 0 {
-		return nil
+		return -1, false, nil
 	}
 
 	// Count the number of already established relations for this app:endpoint
 	existingRels, err := app.Relations()
 	if err != nil {
-		return errors.Trace(err)
+		return 0, false, errors.Trace(err)
 	}
 
 	// Adding a new relation would bump the already established limit by 1
 	establishedCount := establishedRelationCount(existingRels, ep.ApplicationName, ep.Relation)
 	if establishedCount+1 > ep.Relation.Limit {
-		return errors.QuotaLimitExceededf("establishing a new relation for %s:%s would exceed its maximum relation limit of %d", ep.ApplicationName, ep.Relation.Name, ep.Relation.Limit)
+		return 0, false, errors.QuotaLimitExceededf("establishing a new relation for %s:%s would exceed its maximum relation limit of %d", ep.ApplicationName, ep.Relation.Name, ep.Relation.Limit)
 	}
 
-	return nil
+	return len(existingRels), true, nil
 }
 
 func aliveApplication(st *State, name string) (ApplicationEntity, error) {
