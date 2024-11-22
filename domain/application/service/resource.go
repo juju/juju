@@ -10,9 +10,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/application"
+	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -24,8 +25,8 @@ type ResourceState interface {
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
-	// ListResources returns the list of resources for the given application.
-	ListResources(ctx context.Context, applicationID application.ID) (resource.ApplicationResources, error)
+	// ListResources returns the list of resource for the given application.
+	ListResources(ctx context.Context, applicationID coreapplication.ID) (resource.ApplicationResources, error)
 
 	// GetResource returns the identified resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
@@ -56,6 +57,30 @@ type ResourceStoreGetter interface {
 	// GetResourceStore returns the appropriate ResourceStore for the
 	// given resource type.
 	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
+}
+
+// ContainerImageMetadataState provides methods for interacting
+// with the container image resource store.
+type ContainerImageMetadataState interface {
+	// RemoveContainerImageMetadata removes a container image resources metadata
+	// from the container image metadata resource store.
+	RemoveContainerImageMetadata(
+		ctx context.Context,
+		storageKey string,
+	) error
+	// PutContainerImageMetadata puts a container image resources metadata into
+	// the container image metadata resource store.
+	PutContainerImageMetadata(
+		ctx context.Context,
+		storageKey string,
+		registryPath, userName, password string,
+	) (resource.ResourceStorageUUID, error)
+	// GetContainerImageMetadata gets a container image resources metadata from
+	// the container image metadata resource store.
+	GetContainerImageMetadata(
+		ctx context.Context,
+		storageKey string,
+	) (application.ContainerImageMetadata, error)
 }
 
 // GetApplicationResourceID returns the ID of the application resource specified by
@@ -90,10 +115,10 @@ func (s *Service) GetApplicationResourceID(
 //   - application.ApplicationNotFound when the specified application does
 //     not exist.
 //
-// No error is returned if the provided application has no resources.
+// No error is returned if the provided application has no resource.
 func (s *Service) ListResources(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID coreapplication.ID,
 ) (resource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
 		return resource.ApplicationResources{}, fmt.Errorf("application id: %w", err)
@@ -190,7 +215,7 @@ func (s *Service) OpenApplicationResource(
 // OpenUnitResource returns metadata about the resource and a reader for
 // the resource. The resource is associated with the unit once the reader is
 // completely exhausted. Read progress is stored until the reader is completely
-// exhausted. Typically used for File resources.
+// exhausted. Typically used for File resource.
 //
 // The following error types can be returned:
 //   - errors.NotValid is returned if the resource.UUID is not valid.
@@ -214,8 +239,8 @@ func (s *Service) OpenUnitResource(
 	return res, &noopReadCloser{}, err
 }
 
-// SetRepositoryResources sets the "polled" resources for the application to
-// the provided values. These are resources collected from the repository for
+// SetRepositoryResources sets the "polled" resource for the application to
+// the provided values. These are resource collected from the repository for
 // the application.
 //
 // The following error types can be expected to be returned:

@@ -8,7 +8,6 @@ import (
 	"io"
 
 	"github.com/juju/juju/core/objectstore"
-	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
@@ -21,45 +20,49 @@ type fileResourceStore struct {
 // Get the specified resource from the object store.
 func (f fileResourceStore) Get(
 	ctx context.Context,
-	resourceUUID coreresource.UUID,
+	storageKey string,
 ) (io.ReadCloser, int64, error) {
-	if err := resourceUUID.Validate(); err != nil {
-		return nil, 0, errors.Errorf("validating resource UUID: %w", err)
+	if storageKey == "" {
+		return nil, 0, errors.Errorf("storage key empty")
 	}
-	return f.objectStore.Get(ctx, resourceUUID.String())
+	return f.objectStore.Get(ctx, storageKey)
 }
 
-// Put the given resource in the object store using the resource UUID as the
+// Put the given resource in the object store using the storage key as the
 // storage path. It returns the UUID of the object store metadata.
 func (f fileResourceStore) Put(
 	ctx context.Context,
-	resourceUUID coreresource.UUID,
+	storageKey string,
 	r io.Reader,
 	size int64,
 	fingerprint resource.Fingerprint,
 ) (ResourceStorageUUID, error) {
-	if err := resourceUUID.Validate(); err != nil {
-		return nil, errors.Errorf("validating resource UUID: %w", err)
+	if storageKey == "" {
+		return "", errors.Errorf("storage key empty")
 	}
 	if r == nil {
-		return nil, errors.Errorf("validating resource: reader is nil")
+		return "", errors.Errorf("validating resource: reader is nil")
 	}
 	if size == 0 {
-		return nil, errors.Errorf("validating resource: size is 0")
+		return "", errors.Errorf("validating resource size: size is 0")
 	}
 	if err := fingerprint.Validate(); err != nil {
-		return nil, errors.Errorf("validating resource fingerprint: %w", err)
+		return "", errors.Errorf("validating resource fingerprint: %w", err)
 	}
-	return f.objectStore.PutAndCheckHash(ctx, resourceUUID.String(), r, size, fingerprint.String())
+	uuid, err := f.objectStore.PutAndCheckHash(ctx, storageKey, r, size, fingerprint.String())
+	if err != nil {
+		return "", err
+	}
+	return ResourceStorageUUID(uuid.String()), nil
 }
 
 // Remove the specified resource from the object store.
 func (f fileResourceStore) Remove(
 	ctx context.Context,
-	resourceUUID coreresource.UUID,
+	storageKey string,
 ) error {
-	if err := resourceUUID.Validate(); err != nil {
-		return errors.Errorf("validating resource UUID: %w", err)
+	if storageKey == "" {
+		return errors.Errorf("storage key empty")
 	}
-	return f.objectStore.Remove(ctx, resourceUUID.String())
+	return f.objectStore.Remove(ctx, storageKey)
 }

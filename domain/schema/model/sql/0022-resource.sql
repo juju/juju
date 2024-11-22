@@ -122,7 +122,7 @@ CREATE TABLE unit_resource (
 -- This is the actual store for container image resources. The metadata
 -- necessary to retrieve the OCI Image from a registry.
 CREATE TABLE resource_container_image_metadata_store (
-    uuid TEXT NOT NULL PRIMARY KEY,
+    storage_key TEXT NOT NULL PRIMARY KEY,
     registry_path TEXT NOT NULL,
     username TEXT,
     password TEXT
@@ -143,13 +143,13 @@ CREATE TABLE resource_file_store (
 -- Link table between a container image resource and where its stored.
 CREATE TABLE resource_image_store (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
-    store_uuid TEXT NOT NULL,
+    store_storage_key TEXT NOT NULL,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid),
     CONSTRAINT fk_store_uuid
-    FOREIGN KEY (store_uuid)
-    REFERENCES resource_container_image_metadata_store (uuid)
+    FOREIGN KEY (store_storage_key)
+    REFERENCES resource_container_image_metadata_store (storage_key)
 );
 
 
