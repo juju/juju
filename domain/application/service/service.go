@@ -247,72 +247,78 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
-	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		// Preserve the ordering of the changes, as this is a strings watcher
-		// and we want to return the changes in the order they were received.
 
-		appChanges := make(map[coreapplication.ID][]indexedChanged)
-		uuids := make([]coreapplication.ID, 0)
-		for i, change := range changes {
-			appID, err := coreapplication.ParseID(change.Changed())
-			if err != nil {
-				return nil, err
-			}
+	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		table,
+		changestream.Create,
+		query,
+		func(ctx context.Context, _ coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)
+		},
+	)
+}
 
-			if _, ok := appChanges[appID]; !ok {
-				uuids = append(uuids, appID)
-			}
+// watchApplicationsWithPendingCharmsMapper removes any applications that do not
+// have pending charms.
+func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	// Preserve the ordering of the changes, as this is a strings watcher
+	// and we want to return the changes in the order they were received.
 
-			appChanges[appID] = append(appChanges[appID], indexedChanged{
-				change: change,
-				index:  i,
-			})
-		}
-
-		// Get all the applications with pending charms using the uuids.
-		apps, err := s.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
+	appChanges := make(map[coreapplication.ID][]indexedChanged)
+	uuids := make([]coreapplication.ID, 0)
+	for i, change := range changes {
+		appID, err := coreapplication.ParseID(change.Changed())
 		if err != nil {
 			return nil, err
 		}
 
-		// If any applications have no pending charms, then return no changes.
-		if len(apps) == 0 {
-			return nil, nil
+		if _, ok := appChanges[appID]; !ok {
+			uuids = append(uuids, appID)
 		}
 
-		// Grab all the changes for the applications with pending charms,
-		// ensuring they're indexed so we can sort them later.
-		var indexed []indexedChanged
-		for _, appID := range apps {
-			events, ok := appChanges[appID]
-			if !ok {
-				s.logger.Errorf("application %q has pending charms but no change events", appID)
-				continue
-			}
-
-			indexed = append(indexed, events...)
-		}
-
-		// Sort the index so they're preserved
-		sort.Slice(indexed, func(i, j int) bool {
-			return indexed[i].index < indexed[j].index
+		appChanges[appID] = append(appChanges[appID], indexedChanged{
+			change: change,
+			index:  i,
 		})
+	}
 
-		// Grab the changes in the order they were received.
-		var results []changestream.ChangeEvent
-		for i, result := range indexed {
-			results[i] = result.change
+	// Get all the applications with pending charms using the uuids.
+	apps, err := s.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
+	if err != nil {
+		return nil, err
+	}
+
+	// If any applications have no pending charms, then return no changes.
+	if len(apps) == 0 {
+		return nil, nil
+	}
+
+	// Grab all the changes for the applications with pending charms,
+	// ensuring they're indexed so we can sort them later.
+	var indexed []indexedChanged
+	for _, appID := range apps {
+		events, ok := appChanges[appID]
+		if !ok {
+			s.logger.Errorf("application %q has pending charms but no change events", appID)
+			continue
 		}
 
-		return results, nil
+		indexed = append(indexed, events...)
 	}
-	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
-	return s.watcherFactory.NewNamespaceMapperWatcher(
-		table,
-		changestream.Create|changestream.Update,
-		query,
-		mapper,
-	)
+
+	// Sort the index so they're preserved
+	sort.Slice(indexed, func(i, j int) bool {
+		return indexed[i].index < indexed[j].index
+	})
+
+	// Grab the changes in the order they were received.
+	var results []changestream.ChangeEvent
+	for _, result := range indexed {
+		results = append(results, result.change)
+	}
+
+	return results, nil
 }
 
 type indexedChanged struct {
