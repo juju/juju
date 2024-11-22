@@ -172,7 +172,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *gc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c)
+	harness.Run(c, struct{}{})
 }
 
 // TestWatchMachineForReboot tests the functionality of watching machines for reboot.
@@ -245,7 +245,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *gc.C) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
-	harness.Run(c)
+	harness.Run(c, struct{}{})
 }
 
 func uintptr(u uint64) *uint64 {

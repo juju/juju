@@ -91,5 +91,5 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c)
+	harness.Run(c, []string(nil))
 }

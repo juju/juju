@@ -22,7 +22,7 @@ type WatcherAssert[T any] func(c *gc.C, changes []T) bool
 func SliceAssert[T any](expect ...T) WatcherAssert[T] {
 	return func(c *gc.C, changes []T) bool {
 		if len(changes) >= len(expect) {
-			c.Assert(expect, jc.SameContents, expect)
+			c.Assert(changes, jc.SameContents, expect)
 			return true
 		}
 		return false

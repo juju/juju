@@ -336,5 +336,5 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *gc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c)
+	harness.Run(c, struct{}{})
 }
