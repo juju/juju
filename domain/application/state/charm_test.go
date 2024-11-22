@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2024 Canonical Ltd
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -27,7 +27,7 @@ type charmStateSuite struct {
 
 var _ = gc.Suite(&charmStateSuite{})
 
-func (s *charmStateSuite) TestGetCharmIDByRevision(c *gc.C) {
+func (s *charmStateSuite) TestGetCharmIDCharmhubCharm(c *gc.C) {
 	st := NewCharmState(s.TxnRunnerFactory())
 
 	id := charmtesting.GenCharmID(c)
@@ -52,12 +52,42 @@ func (s *charmStateSuite) TestGetCharmIDByRevision(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmID, err := st.GetCharmIDByRevision(context.Background(), "foo", 1)
+	charmID, err := st.GetCharmID(context.Background(), "foo", 1, charm.CharmHubSource) // default source
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(charmID, gc.Equals, id)
 }
 
-func (s *charmStateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
+func (s *charmStateSuite) TestGetCharmIDLocalCharm(c *gc.C) {
+	st := NewCharmState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'foo')`, id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm_origin (reference_name, charm_uuid, revision, source_id) VALUES (?, ?, 1, 0)`, "foo", id.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmID, err := st.GetCharmID(context.Background(), "foo", 1, charm.LocalSource)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(charmID, gc.Equals, id)
+}
+
+func (s *charmStateSuite) TestSetCharmGetCharmID(c *gc.C) {
 	st := NewCharmState(s.TxnRunnerFactory())
 
 	expected := charm.Metadata{
@@ -75,15 +105,15 @@ func (s *charmStateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
 	}, setStateArgs("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmID, err := st.GetCharmIDByRevision(context.Background(), "foo", 42)
+	charmID, err := st.GetCharmID(context.Background(), "foo", 42, charm.LocalSource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(charmID, gc.Equals, id)
 }
 
-func (s *charmStateSuite) TestGetCharmIDByRevisionWithNoCharm(c *gc.C) {
+func (s *charmStateSuite) TestGetCharmIDWithNoCharm(c *gc.C) {
 	st := NewCharmState(s.TxnRunnerFactory())
 
-	_, err := st.GetCharmIDByRevision(context.Background(), "foo", 0)
+	_, err := st.GetCharmID(context.Background(), "foo", 0, charm.CharmHubSource) // default source
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -1313,7 +1343,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmWithDifferentReferenceName(c *
 	}, setStateArgs("baz"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	id, err := st.GetCharmIDByRevision(context.Background(), "baz", 42)
+	id, err := st.GetCharmID(context.Background(), "baz", 42, charm.LocalSource)
 	c.Assert(err, jc.ErrorIsNil)
 
 	gotCharm, gotOrigin, err := st.GetCharm(context.Background(), id)

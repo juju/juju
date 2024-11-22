@@ -40,6 +40,7 @@ func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
 	s.charmService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(1),
+		Source:   charm.CharmHubSource,
 	}).Return(corecharm.ID("deadbeef"), nil)
 
 	metadata := &internalcharm.Meta{Name: "foo"}
@@ -81,6 +82,7 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *gc.C) {
 	s.charmService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(1),
+		Source:   charm.CharmHubSource,
 	}).Return(corecharm.ID("deadbeef"), nil)
 
 	metadata := &internalcharm.Meta{Name: "foo"}

@@ -33,7 +33,7 @@ type charmServiceSuite struct {
 
 var _ = gc.Suite(&charmServiceSuite{})
 
-func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
@@ -42,6 +42,15 @@ func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
+func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name:     "foo",
+		Revision: ptr(42),
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
 func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -51,18 +60,19 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *charmServiceSuite) TestGetCharmIDWithRevision(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
 	rev := 42
 
-	s.state.EXPECT().GetCharmIDByRevision(gomock.Any(), "foo", rev).Return(id, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", rev, domaincharm.LocalSource).Return(id, nil)
 
 	result, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
 		Name:     "foo",
 		Revision: &rev,
+		Source:   domaincharm.LocalSource,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, id)

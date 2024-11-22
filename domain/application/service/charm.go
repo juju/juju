@@ -43,10 +43,10 @@ type WatcherFactory interface {
 
 // CharmState describes retrieval and persistence methods for charms.
 type CharmState interface {
-	// GetCharmIDByRevision returns the charm ID by the natural key, for a
-	// specific revision. If the charm does not exist, a
+	// GetCharmID returns the charm ID by the natural key, for a
+	// specific revision and source. If the charm does not exist, a
 	// [applicationerrors.CharmNotFound] error is returned.
-	GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error)
+	GetCharmID(ctx context.Context, name string, revision int, source charm.CharmSource) (corecharm.ID, error)
 
 	// IsControllerCharm returns whether the charm is a controller charm. If the
 	// charm does not exist, a [applicationerrors.CharmNotFound] error is
@@ -163,8 +163,8 @@ func (s *CharmService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) 
 		return "", applicationerrors.CharmNameNotValid
 	}
 
-	if rev := args.Revision; rev != nil && *rev >= 0 {
-		return s.st.GetCharmIDByRevision(ctx, args.Name, *rev)
+	if rev := args.Revision; rev != nil && *rev >= 0 && args.Source != "" {
+		return s.st.GetCharmID(ctx, args.Name, *rev, args.Source)
 	}
 
 	return "", applicationerrors.CharmNotFound

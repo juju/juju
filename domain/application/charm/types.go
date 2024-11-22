@@ -20,6 +20,9 @@ type GetCharmArgs struct {
 	// Revision allows the selection of a specific revision of the charm.
 	// Otherwise, the latest revision is returned.
 	Revision *int
+
+	// Source is the source of the charm.
+	Source CharmSource
 }
 
 // CharmSource represents the source of a charm.
@@ -31,6 +34,17 @@ const (
 	// CharmHubSource represents a charmhub charm source.
 	CharmHubSource CharmSource = "charmhub"
 )
+
+func FromLegacySchema(s string) CharmSource {
+	switch s {
+	case "local":
+		return LocalSource
+	case "ch":
+		return CharmHubSource
+	default:
+		return CharmHubSource
+	}
+}
 
 // SetCharmArgs holds the arguments for the SetCharm method.
 type SetCharmArgs struct {

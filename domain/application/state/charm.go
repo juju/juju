@@ -40,37 +40,41 @@ func NewCharmState(factory database.TxnRunnerFactory) *CharmState {
 	}
 }
 
-// GetCharmIDByRevision returns the charm ID by the natural key, for a
-// specific revision.
+// GetCharmID returns the charm ID by the natural key, for a
+// specific revision and source.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error) {
+func (s *CharmState) GetCharmID(ctx context.Context, name string, revision int, source charm.CharmSource) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
 	}
 
 	var ident charmID
-	args := charmReferenceNameRevision{
+	charmRef := charmReferenceNameRevision{
 		ReferenceName: name,
 		Revision:      revision,
+		Source:        string(source),
 	}
 
 	query := `
 SELECT &charmID.*
 FROM charm
-INNER JOIN charm_origin
-ON charm.uuid = charm_origin.charm_uuid
-WHERE charm_origin.reference_name = $charmReferenceNameRevision.reference_name
-AND charm_origin.revision = $charmReferenceNameRevision.revision;
+INNER JOIN charm_origin AS co
+ON charm.uuid = co.charm_uuid
+INNER JOIN charm_source AS cs
+ON cs.id = co.source_id
+WHERE co.reference_name = $charmReferenceNameRevision.reference_name
+AND co.revision = $charmReferenceNameRevision.revision
+AND cs.name = $charmReferenceNameRevision.source;
 `
-	stmt, err := s.Prepare(query, ident, args)
+	stmt, err := s.Prepare(query, ident, charmRef)
 	if err != nil {
 		return "", internalerrors.Errorf("failed to prepare query: %w", err)
 	}
 
 	var id corecharm.ID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, args).Get(&ident); err != nil {
+		if err := tx.Query(ctx, stmt, charmRef).Get(&ident); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
@@ -79,7 +83,7 @@ AND charm_origin.revision = $charmReferenceNameRevision.revision;
 		id = corecharm.ID(ident.UUID)
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("failed to get charm id by revision: %w", err)
+		return "", internalerrors.Errorf("failed to get charm id by revision and source: %w", err)
 	}
 	return id, nil
 }

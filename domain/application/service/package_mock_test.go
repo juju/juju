@@ -1601,41 +1601,41 @@ func (c *MockCharmStateGetCharmConfigCall) DoAndReturn(f func(context.Context, c
 	return c
 }
 
-// GetCharmIDByRevision mocks base method.
-func (m *MockCharmState) GetCharmIDByRevision(arg0 context.Context, arg1 string, arg2 int) (charm.ID, error) {
+// GetCharmID mocks base method.
+func (m *MockCharmState) GetCharmID(arg0 context.Context, arg1 string, arg2 int, arg3 charm0.CharmSource) (charm.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmIDByRevision", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetCharmID", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCharmIDByRevision indicates an expected call of GetCharmIDByRevision.
-func (mr *MockCharmStateMockRecorder) GetCharmIDByRevision(arg0, arg1, arg2 any) *MockCharmStateGetCharmIDByRevisionCall {
+// GetCharmID indicates an expected call of GetCharmID.
+func (mr *MockCharmStateMockRecorder) GetCharmID(arg0, arg1, arg2, arg3 any) *MockCharmStateGetCharmIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmIDByRevision", reflect.TypeOf((*MockCharmState)(nil).GetCharmIDByRevision), arg0, arg1, arg2)
-	return &MockCharmStateGetCharmIDByRevisionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmID", reflect.TypeOf((*MockCharmState)(nil).GetCharmID), arg0, arg1, arg2, arg3)
+	return &MockCharmStateGetCharmIDCall{Call: call}
 }
 
-// MockCharmStateGetCharmIDByRevisionCall wrap *gomock.Call
-type MockCharmStateGetCharmIDByRevisionCall struct {
+// MockCharmStateGetCharmIDCall wrap *gomock.Call
+type MockCharmStateGetCharmIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmStateGetCharmIDByRevisionCall) Return(arg0 charm.ID, arg1 error) *MockCharmStateGetCharmIDByRevisionCall {
+func (c *MockCharmStateGetCharmIDCall) Return(arg0 charm.ID, arg1 error) *MockCharmStateGetCharmIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStateGetCharmIDByRevisionCall) Do(f func(context.Context, string, int) (charm.ID, error)) *MockCharmStateGetCharmIDByRevisionCall {
+func (c *MockCharmStateGetCharmIDCall) Do(f func(context.Context, string, int, charm0.CharmSource) (charm.ID, error)) *MockCharmStateGetCharmIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStateGetCharmIDByRevisionCall) DoAndReturn(f func(context.Context, string, int) (charm.ID, error)) *MockCharmStateGetCharmIDByRevisionCall {
+func (c *MockCharmStateGetCharmIDCall) DoAndReturn(f func(context.Context, string, int, charm0.CharmSource) (charm.ID, error)) *MockCharmStateGetCharmIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

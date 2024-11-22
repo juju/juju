@@ -71,6 +71,7 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 	id, err := a.service.GetCharmID(ctx, applicationcharm.GetCharmArgs{
 		Name:     url.Name,
 		Revision: ptr(url.Revision),
+		Source:   applicationcharm.FromLegacySchema(url.Schema),
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return params.Charm{}, errors.NotFoundf("charm %q", args.URL)

@@ -201,6 +201,7 @@ type charmName struct {
 type charmReferenceNameRevision struct {
 	ReferenceName string `db:"reference_name"`
 	Revision      int    `db:"revision"`
+	Source        string `db:"source"`
 }
 
 // charmAvailable is used to get the available status of a charm.
