@@ -1,7 +1,7 @@
 [
     {
         "Name": "Action",
-        "Description": "APIv7 provides the Action API facade for version 7.",
+        "Description": "",
         "Version": 7,
         "AvailableTo": [
             "model-user"
@@ -18,8 +18,7 @@
                         "Result": {
                             "$ref": "#/definitions/ActionResults"
                         }
-                    },
-                    "description": "Actions takes a list of ActionTags, and returns the full Action for\neach ID."
+                    }
                 },
                 "ApplicationsCharmsActions": {
                     "type": "object",
@@ -30,8 +29,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationsCharmActionsResults"
                         }
-                    },
-                    "description": "ApplicationsCharmsActions returns a slice of charm Actions for a slice of\nservices."
+                    }
                 },
                 "Cancel": {
                     "type": "object",
@@ -42,8 +40,7 @@
                         "Result": {
                             "$ref": "#/definitions/ActionResults"
                         }
-                    },
-                    "description": "Cancel attempts to cancel enqueued Actions from running."
+                    }
                 },
                 "EnqueueOperation": {
                     "type": "object",
@@ -54,8 +51,7 @@
                         "Result": {
                             "$ref": "#/definitions/EnqueuedActions"
                         }
-                    },
-                    "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
+                    }
                 },
                 "ListOperations": {
                     "type": "object",
@@ -66,8 +62,7 @@
                         "Result": {
                             "$ref": "#/definitions/OperationResults"
                         }
-                    },
-                    "description": "ListOperations fetches the called actions for specified apps/units."
+                    }
                 },
                 "Operations": {
                     "type": "object",
@@ -78,8 +73,7 @@
                         "Result": {
                             "$ref": "#/definitions/OperationResults"
                         }
-                    },
-                    "description": "Operations fetches the specified operation ids."
+                    }
                 },
                 "Run": {
                     "type": "object",
@@ -90,8 +84,7 @@
                         "Result": {
                             "$ref": "#/definitions/EnqueuedActions"
                         }
-                    },
-                    "description": "Run the commands specified on the machines identified through the\nlist of machines, units and services."
+                    }
                 },
                 "RunOnAllMachines": {
                     "type": "object",
@@ -102,8 +95,7 @@
                         "Result": {
                             "$ref": "#/definitions/EnqueuedActions"
                         }
-                    },
-                    "description": "RunOnAllMachines attempts to run the specified command on all the machines."
+                    }
                 },
                 "WatchActionsProgress": {
                     "type": "object",
@@ -114,8 +106,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringsWatchResults"
                         }
-                    },
-                    "description": "WatchActionsProgress creates a watcher that reports on action log messages."
+                    }
                 }
             },
             "definitions": {
@@ -548,7 +539,7 @@
     },
     {
         "Name": "Admin",
-        "Description": "admin is the only object that unlogged-in clients can access. It holds any\nmethods that are needed to log in.",
+        "Description": "",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
@@ -569,8 +560,7 @@
                         "Result": {
                             "$ref": "#/definitions/LoginResult"
                         }
-                    },
-                    "description": "Login logs in with the provided credentials.  All subsequent requests on the\nconnection will act as the authenticated user."
+                    }
                 },
                 "RedirectInfo": {
                     "type": "object",
@@ -578,8 +568,7 @@
                         "Result": {
                             "$ref": "#/definitions/RedirectInfoResult"
                         }
-                    },
-                    "description": "RedirectInfo returns redirected host information for the model.\nIn Juju it always returns an error because the Juju controller\ndoes not multiplex controllers."
+                    }
                 }
             },
             "definitions": {
@@ -833,7 +822,7 @@
     },
     {
         "Name": "AllModelWatcher",
-        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
+        "Description": "",
         "Version": 4,
         "AvailableTo": [
             "controller-user"
@@ -847,12 +836,10 @@
                         "Result": {
                             "$ref": "#/definitions/AllWatcherNextResults"
                         }
-                    },
-                    "description": "Next will return the current state of everything on the first call\nand subsequent calls will"
+                    }
                 },
                 "Stop": {
-                    "type": "object",
-                    "description": "Stop stops the watcher."
+                    "type": "object"
                 }
             },
             "definitions": {
@@ -893,7 +880,7 @@
     },
     {
         "Name": "AllWatcher",
-        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
+        "Description": "",
         "Version": 3,
         "AvailableTo": [
             "model-user"
@@ -907,12 +894,10 @@
                         "Result": {
                             "$ref": "#/definitions/AllWatcherNextResults"
                         }
-                    },
-                    "description": "Next will return the current state of everything on the first call\nand subsequent calls will"
+                    }
                 },
                 "Stop": {
-                    "type": "object",
-                    "description": "Stop stops the watcher."
+                    "type": "object"
                 }
             },
             "definitions": {
@@ -953,7 +938,7 @@
     },
     {
         "Name": "Annotations",
-        "Description": "API implements the service interface and is the concrete\nimplementation of the api end point.",
+        "Description": "",
         "Version": 2,
         "AvailableTo": [
             "model-user"
@@ -970,8 +955,7 @@
                         "Result": {
                             "$ref": "#/definitions/AnnotationsGetResults"
                         }
-                    },
-                    "description": "Get returns annotations for given entities.\nIf annotations cannot be retrieved for a given entity, an error is returned.\nEach entity is treated independently and, hence, will fail or succeed independently."
+                    }
                 },
                 "Set": {
                     "type": "object",
@@ -982,8 +966,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Set stores annotations for given entities"
+                    }
                 }
             },
             "definitions": {
@@ -1143,7 +1126,7 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv20 provides the Application API facade for version 20.",
+        "Description": "",
         "Version": 20,
         "AvailableTo": [
             "controller-machine-agent",
@@ -1163,8 +1146,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddRelationResults"
                         }
-                    },
-                    "description": "AddRelation adds a relation between the specified endpoints and returns the relation info."
+                    }
                 },
                 "AddUnits": {
                     "type": "object",
@@ -1175,8 +1157,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddApplicationUnitsResults"
                         }
-                    },
-                    "description": "AddUnits adds a given number of units to an application."
+                    }
                 },
                 "ApplicationsInfo": {
                     "type": "object",
@@ -1187,8 +1168,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationInfoResults"
                         }
-                    },
-                    "description": "ApplicationsInfo returns applications information."
+                    }
                 },
                 "CharmConfig": {
                     "type": "object",
@@ -1199,8 +1179,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationGetConfigResults"
                         }
-                    },
-                    "description": "CharmConfig returns charm config for the input list of applications and\nmodel generations."
+                    }
                 },
                 "CharmRelations": {
                     "type": "object",
@@ -1211,8 +1190,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationCharmRelationsResults"
                         }
-                    },
-                    "description": "CharmRelations implements the server side of Application.CharmRelations."
+                    }
                 },
                 "Consume": {
                     "type": "object",
@@ -1223,8 +1201,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Consume adds remote applications to the model without creating any\nrelations."
+                    }
                 },
                 "Deploy": {
                     "type": "object",
@@ -1235,8 +1212,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Deploy fetches the charms from the charm store and deploys them\nusing the specified placement directives."
+                    }
                 },
                 "DeployFromRepository": {
                     "type": "object",
@@ -1247,8 +1223,7 @@
                         "Result": {
                             "$ref": "#/definitions/DeployFromRepositoryResults"
                         }
-                    },
-                    "description": "DeployFromRepository is a one-stop deployment method for repository\ncharms. Only a charm name is required to deploy. If argument validation\nfails, a list of all errors found in validation will be returned. If a\nlocal resource is provided, details required for uploading the validated\nresource will be returned."
+                    }
                 },
                 "DestroyApplication": {
                     "type": "object",
@@ -1259,8 +1234,7 @@
                         "Result": {
                             "$ref": "#/definitions/DestroyApplicationResults"
                         }
-                    },
-                    "description": "DestroyApplication removes a given set of applications."
+                    }
                 },
                 "DestroyConsumedApplications": {
                     "type": "object",
@@ -1271,8 +1245,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "DestroyConsumedApplications removes a given set of consumed (remote) applications."
+                    }
                 },
                 "DestroyRelation": {
                     "type": "object",
@@ -1280,8 +1253,7 @@
                         "Params": {
                             "$ref": "#/definitions/DestroyRelation"
                         }
-                    },
-                    "description": "DestroyRelation removes the relation between the\nspecified endpoints or an id."
+                    }
                 },
                 "DestroyUnit": {
                     "type": "object",
@@ -1292,8 +1264,7 @@
                         "Result": {
                             "$ref": "#/definitions/DestroyUnitResults"
                         }
-                    },
-                    "description": "DestroyUnit removes a given set of application units."
+                    }
                 },
                 "Expose": {
                     "type": "object",
@@ -1301,8 +1272,7 @@
                         "Params": {
                             "$ref": "#/definitions/ApplicationExpose"
                         }
-                    },
-                    "description": "Expose changes the juju-managed firewall to expose any ports that\nwere also explicitly marked by units as open."
+                    }
                 },
                 "Get": {
                     "type": "object",
@@ -1313,8 +1283,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationGetResults"
                         }
-                    },
-                    "description": "Get returns the charm configuration for an application."
+                    }
                 },
                 "GetCharmURLOrigin": {
                     "type": "object",
@@ -1325,8 +1294,7 @@
                         "Result": {
                             "$ref": "#/definitions/CharmURLOriginResult"
                         }
-                    },
-                    "description": "GetCharmURLOrigin returns the charm URL and charm origin the given\napplication is running at present."
+                    }
                 },
                 "GetConfig": {
                     "type": "object",
@@ -1337,8 +1305,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationGetConfigResults"
                         }
-                    },
-                    "description": "GetConfig returns the charm config for each of the input applications."
+                    }
                 },
                 "GetConstraints": {
                     "type": "object",
@@ -1349,8 +1316,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationGetConstraintsResults"
                         }
-                    },
-                    "description": "GetConstraints returns the constraints for a given application."
+                    }
                 },
                 "Leader": {
                     "type": "object",
@@ -1361,8 +1327,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResult"
                         }
-                    },
-                    "description": "Leader returns the unit name of the leader for the given application."
+                    }
                 },
                 "MergeBindings": {
                     "type": "object",
@@ -1373,8 +1338,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "MergeBindings merges operator-defined bindings with the current bindings for\none or more applications."
+                    }
                 },
                 "ResolveUnitErrors": {
                     "type": "object",
@@ -1385,8 +1349,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ResolveUnitErrors marks errors on the specified units as resolved."
+                    }
                 },
                 "ScaleApplications": {
                     "type": "object",
@@ -1397,8 +1360,7 @@
                         "Result": {
                             "$ref": "#/definitions/ScaleApplicationResults"
                         }
-                    },
-                    "description": "ScaleApplications scales the specified application to the requested number of units."
+                    }
                 },
                 "SetCharm": {
                     "type": "object",
@@ -1406,8 +1368,7 @@
                         "Params": {
                             "$ref": "#/definitions/ApplicationSetCharm"
                         }
-                    },
-                    "description": "SetCharm sets the charm for a given for the application."
+                    }
                 },
                 "SetConfigs": {
                     "type": "object",
@@ -1418,8 +1379,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "SetConfigs implements the server side of Application.SetConfig.  Both\napplication and charm config are set. It does not unset values in\nConfig map that are set to an empty string. Unset should be used for that."
+                    }
                 },
                 "SetConstraints": {
                     "type": "object",
@@ -1427,8 +1387,7 @@
                         "Params": {
                             "$ref": "#/definitions/SetConstraints"
                         }
-                    },
-                    "description": "SetConstraints sets the constraints for a given application."
+                    }
                 },
                 "SetMetricCredentials": {
                     "type": "object",
@@ -1439,8 +1398,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "SetMetricCredentials sets credentials on the application.\nTODO (cderici) only used for metered charms in cmd MeteredDeployAPI,\nkept for client compatibility, remove in juju 4.0"
+                    }
                 },
                 "SetRelationsSuspended": {
                     "type": "object",
@@ -1451,8 +1409,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "SetRelationsSuspended sets the suspended status of the specified relations."
+                    }
                 },
                 "Unexpose": {
                     "type": "object",
@@ -1460,8 +1417,7 @@
                         "Params": {
                             "$ref": "#/definitions/ApplicationUnexpose"
                         }
-                    },
-                    "description": "Unexpose changes the juju-managed firewall to unexpose any ports that\nwere also explicitly marked by units as open."
+                    }
                 },
                 "UnitsInfo": {
                     "type": "object",
@@ -1472,8 +1428,7 @@
                         "Result": {
                             "$ref": "#/definitions/UnitInfoResults"
                         }
-                    },
-                    "description": "UnitsInfo returns unit information for the given entities (units or\napplications)."
+                    }
                 },
                 "UnsetApplicationsConfig": {
                     "type": "object",
@@ -1484,8 +1439,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig."
+                    }
                 },
                 "UpdateApplicationBase": {
                     "type": "object",
@@ -1496,8 +1450,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UpdateApplicationBase updates the application base.\nBase for subordinates is updated too."
+                    }
                 }
             },
             "definitions": {
@@ -3487,7 +3440,7 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPIv5 implements the cross model interface and is the concrete\nimplementation of the api end point.",
+        "Description": "",
         "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
@@ -3507,8 +3460,7 @@
                         "Result": {
                             "$ref": "#/definitions/ApplicationOffersResults"
                         }
-                    },
-                    "description": "ApplicationOffers gets details about remote applications that match given URLs."
+                    }
                 },
                 "DestroyOffers": {
                     "type": "object",
@@ -3519,8 +3471,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "DestroyOffers removes the offers specified by the given URLs, forcing if necessary."
+                    }
                 },
                 "FindApplicationOffers": {
                     "type": "object",
@@ -3531,8 +3482,7 @@
                         "Result": {
                             "$ref": "#/definitions/QueryApplicationOffersResultsV5"
                         }
-                    },
-                    "description": "FindApplicationOffers gets details about remote applications that match given filter."
+                    }
                 },
                 "GetConsumeDetails": {
                     "type": "object",
@@ -3543,8 +3493,7 @@
                         "Result": {
                             "$ref": "#/definitions/ConsumeOfferDetailsResults"
                         }
-                    },
-                    "description": "GetConsumeDetails returns the details necessary to pass to another model\nto allow the specified args user to consume the offers represented by the args URLs."
+                    }
                 },
                 "ListApplicationOffers": {
                     "type": "object",
@@ -3555,8 +3504,7 @@
                         "Result": {
                             "$ref": "#/definitions/QueryApplicationOffersResultsV5"
                         }
-                    },
-                    "description": "ListApplicationOffers gets deployed details about application offers that match given filter.\nThe results contain details about the deployed applications such as connection count."
+                    }
                 },
                 "ModifyOfferAccess": {
                     "type": "object",
@@ -3567,8 +3515,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ModifyOfferAccess changes the application offer access granted to users."
+                    }
                 },
                 "Offer": {
                     "type": "object",
@@ -3579,8 +3526,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Offer makes application endpoints available for consumption at a specified URL."
+                    }
                 },
                 "RemoteApplicationInfo": {
                     "type": "object",
@@ -3591,8 +3537,7 @@
                         "Result": {
                             "$ref": "#/definitions/RemoteApplicationInfoResults"
                         }
-                    },
-                    "description": "RemoteApplicationInfo returns information about the requested remote application.\nThis call currently has no client side API, only there for the Dashboard at this stage."
+                    }
                 }
             },
             "definitions": {
@@ -4269,7 +4214,7 @@
     },
     {
         "Name": "Backups",
-        "Description": "API provides backup-specific API methods.",
+        "Description": "",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
@@ -4289,8 +4234,7 @@
                         "Result": {
                             "$ref": "#/definitions/BackupsMetadataResult"
                         }
-                    },
-                    "description": "Create is the API method that requests juju to create a new backup\nof its state."
+                    }
                 }
             },
             "definitions": {
@@ -4430,7 +4374,7 @@
     },
     {
         "Name": "Block",
-        "Description": "API implements Block interface and is the concrete\nimplementation of the api end point.",
+        "Description": "",
         "Version": 2,
         "AvailableTo": [
             "model-user"
@@ -4444,8 +4388,7 @@
                         "Result": {
                             "$ref": "#/definitions/BlockResults"
                         }
-                    },
-                    "description": "List implements Block.List()."
+                    }
                 },
                 "SwitchBlockOff": {
                     "type": "object",
@@ -4456,8 +4399,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "SwitchBlockOff implements Block.SwitchBlockOff()."
+                    }
                 },
                 "SwitchBlockOn": {
                     "type": "object",
@@ -4468,8 +4410,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "SwitchBlockOn implements Block.SwitchBlockOn()."
+                    }
                 }
             },
             "definitions": {
@@ -4577,7 +4518,7 @@
     },
     {
         "Name": "Bundle",
-        "Description": "APIv6 provides the Bundle API facade for version 6. It is otherwise\nidentical to V5 with the exception that the V6 adds the support for\nmulti-part yaml handling to GetChanges and GetChangesMapArgs.",
+        "Description": "",
         "Version": 6,
         "AvailableTo": [
             "controller-user",
@@ -4595,8 +4536,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResult"
                         }
-                    },
-                    "description": "ExportBundle exports the current model configuration as bundle."
+                    }
                 },
                 "GetChanges": {
                     "type": "object",
@@ -4607,8 +4547,7 @@
                         "Result": {
                             "$ref": "#/definitions/BundleChangesResults"
                         }
-                    },
-                    "description": "GetChanges returns the list of changes required to deploy the given bundle\ndata. The changes are sorted by requirements, so that they can be applied in\norder.\nGetChanges has been superseded in favour of GetChangesMapArgs. It's\npreferable to use that new method to add new functionality and move clients\naway from this one."
+                    }
                 },
                 "GetChangesMapArgs": {
                     "type": "object",
@@ -4619,8 +4558,7 @@
                         "Result": {
                             "$ref": "#/definitions/BundleChangesMapArgsResults"
                         }
-                    },
-                    "description": "GetChangesMapArgs returns the list of changes required to deploy the given\nbundle data. The changes are sorted by requirements, so that they can be\napplied in order.\nV4 GetChangesMapArgs is not supported on anything less than v4"
+                    }
                 }
             },
             "definitions": {
@@ -4797,7 +4735,7 @@
     },
     {
         "Name": "Charms",
-        "Description": "APIv7 provides the Charms API facade for version 7.\nv7 guarantees SupportedBases will be provided in ResolveCharms",
+        "Description": "",
         "Version": 7,
         "AvailableTo": [
             "model-user"
@@ -4814,8 +4752,7 @@
                         "Result": {
                             "$ref": "#/definitions/CharmOriginResult"
                         }
-                    },
-                    "description": "AddCharm adds the given charm URL (which must include revision) to the\nenvironment, if it does not exist yet. Local charms are not supported,\nonly charm store and charm hub URLs. See also AddLocalCharm()."
+                    }
                 },
                 "CharmInfo": {
                     "type": "object",
@@ -4826,8 +4763,7 @@
                         "Result": {
                             "$ref": "#/definitions/Charm"
                         }
-                    },
-                    "description": "CharmInfo returns information about the requested charm."
+                    }
                 },
                 "CheckCharmPlacement": {
                     "type": "object",
@@ -4838,8 +4774,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "CheckCharmPlacement checks if a charm is allowed to be placed with in a\ngiven application."
+                    }
                 },
                 "GetDownloadInfos": {
                     "type": "object",
@@ -4850,8 +4785,7 @@
                         "Result": {
                             "$ref": "#/definitions/DownloadInfoResults"
                         }
-                    },
-                    "description": "GetDownloadInfos attempts to get the bundle corresponding to the charm url\nand origin."
+                    }
                 },
                 "IsMetered": {
                     "type": "object",
@@ -4862,8 +4796,7 @@
                         "Result": {
                             "$ref": "#/definitions/IsMeteredResult"
                         }
-                    },
-                    "description": "IsMetered returns whether or not the charm is metered.\nTODO (cderici) only used for metered charms in cmd MeteredDeployAPI,\nkept for client compatibility, remove in juju 4.0"
+                    }
                 },
                 "List": {
                     "type": "object",
@@ -4874,8 +4807,7 @@
                         "Result": {
                             "$ref": "#/definitions/CharmsListResult"
                         }
-                    },
-                    "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will\nbe filtered to return only the charms with supplied names."
+                    }
                 },
                 "ListCharmResources": {
                     "type": "object",
@@ -4886,8 +4818,7 @@
                         "Result": {
                             "$ref": "#/definitions/CharmResourcesResults"
                         }
-                    },
-                    "description": "ListCharmResources returns a series of resources for a given charm."
+                    }
                 },
                 "ResolveCharms": {
                     "type": "object",
@@ -4898,8 +4829,7 @@
                         "Result": {
                             "$ref": "#/definitions/ResolveCharmWithChannelResults"
                         }
-                    },
-                    "description": "ResolveCharms resolves the given charm URLs with an optionally specified\npreferred channel.  Channel provided via CharmOrigin."
+                    }
                 }
             },
             "definitions": {
@@ -5957,7 +5887,7 @@
     },
     {
         "Name": "Client",
-        "Description": "Client serves client-specific API methods.",
+        "Description": "",
         "Version": 8,
         "AvailableTo": [
             "model-user"
@@ -5974,8 +5904,7 @@
                         "Result": {
                             "$ref": "#/definitions/FullStatus"
                         }
-                    },
-                    "description": "FullStatus gives the information needed for juju status over the api"
+                    }
                 },
                 "StatusHistory": {
                     "type": "object",
@@ -5986,8 +5915,7 @@
                         "Result": {
                             "$ref": "#/definitions/StatusHistoryResults"
                         }
-                    },
-                    "description": "StatusHistory returns a slice of past statuses for several entities."
+                    }
                 },
                 "WatchAll": {
                     "type": "object",
@@ -5995,8 +5923,7 @@
                         "Result": {
                             "$ref": "#/definitions/AllWatcherId"
                         }
-                    },
-                    "description": "WatchAll initiates a watcher for entities in the connected model."
+                    }
                 }
             },
             "definitions": {
@@ -7274,7 +7201,7 @@
     },
     {
         "Name": "Cloud",
-        "Description": "CloudAPI implements the cloud interface and is the concrete implementation\nof the api end point.",
+        "Description": "",
         "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
@@ -7291,8 +7218,7 @@
                         "Params": {
                             "$ref": "#/definitions/AddCloudArgs"
                         }
-                    },
-                    "description": "AddCloud adds a new cloud, different from the one managed by the controller."
+                    }
                 },
                 "AddCredentials": {
                     "type": "object",
@@ -7303,8 +7229,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "AddCredentials adds new credentials.\nIn contrast to UpdateCredentials() below, the new credentials can be\nfor a cloud that the controller does not manage (this is required\nfor CAAS models)"
+                    }
                 },
                 "CheckCredentialsModels": {
                     "type": "object",
@@ -7315,8 +7240,7 @@
                         "Result": {
                             "$ref": "#/definitions/UpdateCredentialResults"
                         }
-                    },
-                    "description": "CheckCredentialsModels validates supplied cloud credentials' content against\nmodels that currently use these credentials.\nIf there are any models that are using a credential and these models or their\ncloud instances are not going to be accessible with corresponding credential,\nthere will be detailed validation errors per model.\nThere's no Juju API client which uses this, but JAAS does,"
+                    }
                 },
                 "Cloud": {
                     "type": "object",
@@ -7327,8 +7251,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudResults"
                         }
-                    },
-                    "description": "Cloud returns the cloud definitions for the specified clouds."
+                    }
                 },
                 "CloudInfo": {
                     "type": "object",
@@ -7339,8 +7262,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudInfoResults"
                         }
-                    },
-                    "description": "CloudInfo returns information about the specified clouds."
+                    }
                 },
                 "Clouds": {
                     "type": "object",
@@ -7348,8 +7270,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudsResult"
                         }
-                    },
-                    "description": "Clouds returns the definitions of all clouds supported by the controller\nthat the logged in user can see."
+                    }
                 },
                 "Credential": {
                     "type": "object",
@@ -7360,8 +7281,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudCredentialResults"
                         }
-                    },
-                    "description": "Credential returns the specified cloud credential for each tag, minus secrets."
+                    }
                 },
                 "CredentialContents": {
                     "type": "object",
@@ -7372,8 +7292,7 @@
                         "Result": {
                             "$ref": "#/definitions/CredentialContentResults"
                         }
-                    },
-                    "description": "CredentialContents returns the specified cloud credentials,\nincluding the secrets if requested.\nIf no specific credential name/cloud was passed in, all credentials for this user\nare returned.\nOnly credential owner can see its contents as well as what models use it.\nController admin has no special superpowers here and is treated the same as all other users."
+                    }
                 },
                 "InstanceTypes": {
                     "type": "object",
@@ -7384,8 +7303,7 @@
                         "Result": {
                             "$ref": "#/definitions/InstanceTypesResults"
                         }
-                    },
-                    "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
+                    }
                 },
                 "ListCloudInfo": {
                     "type": "object",
@@ -7396,8 +7314,7 @@
                         "Result": {
                             "$ref": "#/definitions/ListCloudInfoResults"
                         }
-                    },
-                    "description": "ListCloudInfo returns clouds that the specified user has access to.\nController admins (superuser) can list clouds for any user.\nOther users can only ask about their own clouds."
+                    }
                 },
                 "ModifyCloudAccess": {
                     "type": "object",
@@ -7408,8 +7325,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ModifyCloudAccess changes the model access granted to users."
+                    }
                 },
                 "RemoveClouds": {
                     "type": "object",
@@ -7420,8 +7336,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RemoveClouds removes the specified clouds from the controller.\nIf a cloud is in use (has models deployed to it), the removal will fail."
+                    }
                 },
                 "RevokeCredentialsCheckModels": {
                     "type": "object",
@@ -7432,8 +7347,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RevokeCredentialsCheckModels revokes a set of cloud credentials.\nIf the credentials are used by any of the models, the credential deletion will be aborted.\nIf credential-in-use needs to be revoked nonetheless, this method allows the use of force."
+                    }
                 },
                 "UpdateCloud": {
                     "type": "object",
@@ -7444,8 +7358,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UpdateCloud updates an existing cloud that the controller knows about."
+                    }
                 },
                 "UpdateCredentialsCheckModels": {
                     "type": "object",
@@ -7456,8 +7369,7 @@
                         "Result": {
                             "$ref": "#/definitions/UpdateCredentialResults"
                         }
-                    },
-                    "description": "UpdateCredentialsCheckModels updates a set of cloud credentials' content.\nIf there are any models that are using a credential and these models\nare not going to be visible with updated credential content,\nthere will be detailed validation errors per model.  Such model errors are returned\nseparately and do not contribute to the overall method error status.\nController admins can 'force' an update of the credential\nregardless of whether it is deemed valid or not."
+                    }
                 },
                 "UserCredentials": {
                     "type": "object",
@@ -7468,8 +7380,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringsResults"
                         }
-                    },
-                    "description": "UserCredentials returns the cloud credentials for a set of users."
+                    }
                 }
             },
             "definitions": {
@@ -8439,7 +8350,7 @@
     },
     {
         "Name": "Controller",
-        "Description": "ControllerAPI provides the Controller API.",
+        "Description": "",
         "Version": 12,
         "AvailableTo": [
             "controller-machine-agent",
@@ -8456,8 +8367,7 @@
                         "Result": {
                             "$ref": "#/definitions/UserModelList"
                         }
-                    },
-                    "description": "AllModels allows controller administrators to get the list of all the\nmodels in the controller."
+                    }
                 },
                 "CloudSpec": {
                     "type": "object",
@@ -8468,8 +8378,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudSpecResults"
                         }
-                    },
-                    "description": "CloudSpec returns the model's cloud spec."
+                    }
                 },
                 "ConfigSet": {
                     "type": "object",
@@ -8477,8 +8386,7 @@
                         "Params": {
                             "$ref": "#/definitions/ControllerConfigSet"
                         }
-                    },
-                    "description": "ConfigSet changes the value of specified controller configuration\nsettings. Only some settings can be changed after bootstrap.\nSettings that aren't specified in the params are left unchanged."
+                    }
                 },
                 "ControllerAPIInfoForModels": {
                     "type": "object",
@@ -8489,8 +8397,7 @@
                         "Result": {
                             "$ref": "#/definitions/ControllerAPIInfoResults"
                         }
-                    },
-                    "description": "ControllerAPIInfoForModels returns the controller api connection details for the specified models."
+                    }
                 },
                 "ControllerConfig": {
                     "type": "object",
@@ -8498,8 +8405,7 @@
                         "Result": {
                             "$ref": "#/definitions/ControllerConfigResult"
                         }
-                    },
-                    "description": "ControllerConfig returns the controller's configuration."
+                    }
                 },
                 "ControllerVersion": {
                     "type": "object",
@@ -8507,8 +8413,7 @@
                         "Result": {
                             "$ref": "#/definitions/ControllerVersionResults"
                         }
-                    },
-                    "description": "ControllerVersion returns the version information associated with this\ncontroller binary.\n\nNOTE: the implementation intentionally does not check for SuperuserAccess\nas the Version is known even to users with login access."
+                    }
                 },
                 "DashboardConnectionInfo": {
                     "type": "object",
@@ -8516,8 +8421,7 @@
                         "Result": {
                             "$ref": "#/definitions/DashboardConnectionInfo"
                         }
-                    },
-                    "description": "DashboardConnectionInfo returns the connection information for a client to\nconnect to the Juju Dashboard including any proxying information."
+                    }
                 },
                 "DestroyController": {
                     "type": "object",
@@ -8525,8 +8429,7 @@
                         "Params": {
                             "$ref": "#/definitions/DestroyControllerArgs"
                         }
-                    },
-                    "description": "DestroyController destroys the controller.\n\nIf the args specify the destruction of the models, this method will\nattempt to do so. Otherwise, if the controller has any non-empty,\nnon-Dead hosted models, then an error with the code\nparams.CodeHasHostedModels will be transmitted."
+                    }
                 },
                 "GetCloudSpec": {
                     "type": "object",
@@ -8537,8 +8440,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudSpecResult"
                         }
-                    },
-                    "description": "GetCloudSpec constructs the CloudSpec for a validated and authorized model."
+                    }
                 },
                 "GetControllerAccess": {
                     "type": "object",
@@ -8549,8 +8451,7 @@
                         "Result": {
                             "$ref": "#/definitions/UserAccessResults"
                         }
-                    },
-                    "description": "GetControllerAccess returns the level of access the specified users\nhave on the controller."
+                    }
                 },
                 "HostedModelConfigs": {
                     "type": "object",
@@ -8558,8 +8459,7 @@
                         "Result": {
                             "$ref": "#/definitions/HostedModelConfigsResults"
                         }
-                    },
-                    "description": "HostedModelConfigs returns all the information that the client needs in\norder to connect directly with the host model's provider and destroy it\ndirectly."
+                    }
                 },
                 "IdentityProviderURL": {
                     "type": "object",
@@ -8567,8 +8467,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResult"
                         }
-                    },
-                    "description": "IdentityProviderURL returns the URL of the configured external identity\nprovider for this controller or an empty string if no external identity\nprovider has been configured when the controller was bootstrapped.\n\nNOTE: the implementation intentionally does not check for SuperuserAccess\nas the URL is known even to users with login access."
+                    }
                 },
                 "InitiateMigration": {
                     "type": "object",
@@ -8579,8 +8478,7 @@
                         "Result": {
                             "$ref": "#/definitions/InitiateMigrationResults"
                         }
-                    },
-                    "description": "InitiateMigration attempts to begin the migration of one or\nmore models to other controllers."
+                    }
                 },
                 "ListBlockedModels": {
                     "type": "object",
@@ -8588,8 +8486,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelBlockInfoList"
                         }
-                    },
-                    "description": "ListBlockedModels returns a list of all models on the controller\nwhich have a block in place.  The resulting slice is sorted by model\nname, then owner. Callers must be controller administrators to retrieve the\nlist."
+                    }
                 },
                 "ModelStatus": {
                     "type": "object",
@@ -8600,8 +8497,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelStatusResults"
                         }
-                    },
-                    "description": "ModelStatus returns a summary of the model."
+                    }
                 },
                 "ModifyControllerAccess": {
                     "type": "object",
@@ -8612,8 +8508,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ModifyControllerAccess changes the model access granted to users."
+                    }
                 },
                 "MongoVersion": {
                     "type": "object",
@@ -8621,8 +8516,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResult"
                         }
-                    },
-                    "description": "MongoVersion allows the introspection of the mongo version per controller"
+                    }
                 },
                 "RemoveBlocks": {
                     "type": "object",
@@ -8630,8 +8524,7 @@
                         "Params": {
                             "$ref": "#/definitions/RemoveBlocksArgs"
                         }
-                    },
-                    "description": "RemoveBlocks removes all the blocks in the controller."
+                    }
                 },
                 "WatchAllModelSummaries": {
                     "type": "object",
@@ -8639,8 +8532,7 @@
                         "Result": {
                             "$ref": "#/definitions/SummaryWatcherID"
                         }
-                    },
-                    "description": "WatchAllModelSummaries starts watching the summary updates from the cache.\nThis method is superuser access only, and watches all models in the\ncontroller."
+                    }
                 },
                 "WatchAllModels": {
                     "type": "object",
@@ -8648,8 +8540,7 @@
                         "Result": {
                             "$ref": "#/definitions/AllWatcherId"
                         }
-                    },
-                    "description": "WatchAllModels starts watching events for all models in the\ncontroller. The returned AllWatcherId should be used with Next on the\nAllModelWatcher endpoint to receive deltas."
+                    }
                 },
                 "WatchCloudSpecsChanges": {
                     "type": "object",
@@ -8660,8 +8551,7 @@
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
-                    },
-                    "description": "WatchCloudSpecsChanges returns a watcher for cloud spec changes."
+                    }
                 },
                 "WatchModelSummaries": {
                     "type": "object",
@@ -8669,8 +8559,7 @@
                         "Result": {
                             "$ref": "#/definitions/SummaryWatcherID"
                         }
-                    },
-                    "description": "WatchModelSummaries starts watching the summary updates from the cache.\nOnly models that the user has access to are returned."
+                    }
                 }
             },
             "definitions": {
@@ -9650,8 +9539,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "InvalidateModelCredential marks the cloud credential for this model as invalid."
+                    }
                 }
             },
             "definitions": {
@@ -9703,7 +9591,7 @@
     },
     {
         "Name": "HighAvailability",
-        "Description": "HighAvailabilityAPI implements the HighAvailability interface and is the concrete\nimplementation of the api end point.",
+        "Description": "",
         "Version": 2,
         "AvailableTo": [
             "controller-user",
@@ -9721,8 +9609,7 @@
                         "Result": {
                             "$ref": "#/definitions/ControllersChangeResults"
                         }
-                    },
-                    "description": "EnableHA adds controller machines as necessary to ensure the\ncontroller has the number of machines specified."
+                    }
                 }
             },
             "definitions": {
@@ -9912,7 +9799,7 @@
     },
     {
         "Name": "ImageMetadataManager",
-        "Description": "API is the concrete implementation of the api end point\nfor loud image metadata manipulations.",
+        "Description": "",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -9932,8 +9819,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Delete deletes cloud image metadata for given image ids.\nIt supports bulk calls."
+                    }
                 },
                 "List": {
                     "type": "object",
@@ -9944,8 +9830,7 @@
                         "Result": {
                             "$ref": "#/definitions/ListCloudImageMetadataResult"
                         }
-                    },
-                    "description": "List returns all found cloud image metadata that satisfy\ngiven filter.\nReturned list contains metadata ordered by priority."
+                    }
                 },
                 "Save": {
                     "type": "object",
@@ -9956,8 +9841,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Save stores given cloud image metadata.\nIt supports bulk calls."
+                    }
                 }
             },
             "definitions": {
@@ -10143,7 +10027,7 @@
     },
     {
         "Name": "KeyManager",
-        "Description": "KeyManagerAPI provides api endpoints for manipulating ssh keys",
+        "Description": "",
         "Version": 1,
         "AvailableTo": [
             "model-user"
@@ -10160,8 +10044,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "AddKeys adds new authorised ssh keys for the specified user."
+                    }
                 },
                 "DeleteKeys": {
                     "type": "object",
@@ -10172,8 +10055,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "DeleteKeys deletes the authorised ssh keys for the specified user."
+                    }
                 },
                 "ImportKeys": {
                     "type": "object",
@@ -10184,8 +10066,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ImportKeys imports new authorised ssh keys from the specified key ids for the specified user."
+                    }
                 },
                 "ListKeys": {
                     "type": "object",
@@ -10196,8 +10077,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringsResults"
                         }
-                    },
-                    "description": "ListKeys returns the authorised ssh keys for the specified users."
+                    }
                 }
             },
             "definitions": {
@@ -10347,7 +10227,7 @@
     },
     {
         "Name": "MachineManager",
-        "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
+        "Description": "",
         "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
@@ -10367,8 +10247,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddMachinesResults"
                         }
-                    },
-                    "description": "AddMachines adds new machines with the supplied parameters.\nThe args will contain Base info."
+                    }
                 },
                 "DestroyMachineWithParams": {
                     "type": "object",
@@ -10379,8 +10258,7 @@
                         "Result": {
                             "$ref": "#/definitions/DestroyMachineResults"
                         }
-                    },
-                    "description": "DestroyMachineWithParams removes a set of machines from the model."
+                    }
                 },
                 "GetUpgradeSeriesMessages": {
                     "type": "object",
@@ -10391,8 +10269,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringsResults"
                         }
-                    },
-                    "description": "GetUpgradeSeriesMessages returns all new messages associated with upgrade\nseries events. Messages that have already been retrieved once are not\nreturned by this method."
+                    }
                 },
                 "InstanceTypes": {
                     "type": "object",
@@ -10403,8 +10280,7 @@
                         "Result": {
                             "$ref": "#/definitions/InstanceTypesResults"
                         }
-                    },
-                    "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
+                    }
                 },
                 "ProvisioningScript": {
                     "type": "object",
@@ -10415,8 +10291,7 @@
                         "Result": {
                             "$ref": "#/definitions/ProvisioningScriptResult"
                         }
-                    },
-                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
+                    }
                 },
                 "RetryProvisioning": {
                     "type": "object",
@@ -10427,8 +10302,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
+                    }
                 },
                 "UpgradeSeriesComplete": {
                     "type": "object",
@@ -10439,8 +10313,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "UpgradeSeriesComplete marks a machine as having completed a managed series\nupgrade."
+                    }
                 },
                 "UpgradeSeriesPrepare": {
                     "type": "object",
@@ -10451,8 +10324,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "UpgradeSeriesPrepare prepares a machine for a OS series upgrade."
+                    }
                 },
                 "UpgradeSeriesValidate": {
                     "type": "object",
@@ -10463,8 +10335,7 @@
                         "Result": {
                             "$ref": "#/definitions/UpgradeSeriesUnitsResults"
                         }
-                    },
-                    "description": "UpgradeSeriesValidate validates that the incoming arguments correspond to a\nvalid series upgrade for the target machine.\nIf they do, a list of the machine's current units is returned for use in\nsoliciting user confirmation of the command."
+                    }
                 },
                 "WatchUpgradeSeriesNotifications": {
                     "type": "object",
@@ -10475,8 +10346,7 @@
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
-                    },
-                    "description": "WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade\nseries events."
+                    }
                 }
             },
             "definitions": {
@@ -11245,7 +11115,7 @@
     },
     {
         "Name": "MetricsDebug",
-        "Description": "MetricsDebugAPI implements the metricsdebug interface and is the concrete\nimplementation of the api end point.",
+        "Description": "",
         "Version": 2,
         "AvailableTo": [
             "model-user"
@@ -11262,8 +11132,7 @@
                         "Result": {
                             "$ref": "#/definitions/MetricResults"
                         }
-                    },
-                    "description": "GetMetrics returns all metrics stored by the state server."
+                    }
                 },
                 "SetMeterStatus": {
                     "type": "object",
@@ -11274,8 +11143,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "SetMeterStatus sets meter statuses for entities."
+                    }
                 }
             },
             "definitions": {
@@ -11458,7 +11326,7 @@
     },
     {
         "Name": "ModelConfig",
-        "Description": "ModelConfigAPIV3 is currently the latest.",
+        "Description": "",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
@@ -11476,8 +11344,7 @@
                         "Result": {
                             "$ref": "#/definitions/GetConstraintsResults"
                         }
-                    },
-                    "description": "GetModelConstraints returns the constraints for the model."
+                    }
                 },
                 "ModelGet": {
                     "type": "object",
@@ -11485,8 +11352,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelConfigResults"
                         }
-                    },
-                    "description": "ModelGet implements the server-side part of the\nmodel-config CLI command."
+                    }
                 },
                 "ModelSet": {
                     "type": "object",
@@ -11494,8 +11360,7 @@
                         "Params": {
                             "$ref": "#/definitions/ModelSet"
                         }
-                    },
-                    "description": "ModelSet implements the server-side part of the\nset-model-config CLI command."
+                    }
                 },
                 "ModelUnset": {
                     "type": "object",
@@ -11503,8 +11368,7 @@
                         "Params": {
                             "$ref": "#/definitions/ModelUnset"
                         }
-                    },
-                    "description": "ModelUnset implements the server-side part of the\nset-model-config CLI command."
+                    }
                 },
                 "SLALevel": {
                     "type": "object",
@@ -11512,8 +11376,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResult"
                         }
-                    },
-                    "description": "SLALevel returns the current sla level for the model."
+                    }
                 },
                 "Sequences": {
                     "type": "object",
@@ -11521,8 +11384,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelSequencesResult"
                         }
-                    },
-                    "description": "Sequences returns the model's sequence names and next values."
+                    }
                 },
                 "SetModelConstraints": {
                     "type": "object",
@@ -11530,8 +11392,7 @@
                         "Params": {
                             "$ref": "#/definitions/SetConstraints"
                         }
-                    },
-                    "description": "SetModelConstraints sets the constraints for the model."
+                    }
                 },
                 "SetSLALevel": {
                     "type": "object",
@@ -11539,8 +11400,7 @@
                         "Params": {
                             "$ref": "#/definitions/ModelSLA"
                         }
-                    },
-                    "description": "SetSLALevel sets the sla level on the model."
+                    }
                 }
             },
             "definitions": {
@@ -11804,7 +11664,7 @@
     },
     {
         "Name": "ModelGeneration",
-        "Description": "API is the concrete implementation of the API endpoint.",
+        "Description": "",
         "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
@@ -11824,8 +11684,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "AbortBranch aborts the input branch, marking it complete.  However no\nchanges are made applicable to the whole model.  No units may be assigned\nto the branch when aborting."
+                    }
                 },
                 "AddBranch": {
                     "type": "object",
@@ -11836,8 +11695,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
                         }
-                    },
-                    "description": "AddBranch adds a new branch with the input name to the model."
+                    }
                 },
                 "BranchInfo": {
                     "type": "object",
@@ -11848,8 +11706,7 @@
                         "Result": {
                             "$ref": "#/definitions/BranchResults"
                         }
-                    },
-                    "description": "BranchInfo will return details of branch identified by the input argument,\nincluding units on the branch and the configuration disjoint with the\nmaster generation.\nAn error is returned if no in-flight branch matching in input is found."
+                    }
                 },
                 "CommitBranch": {
                     "type": "object",
@@ -11860,8 +11717,7 @@
                         "Result": {
                             "$ref": "#/definitions/IntResult"
                         }
-                    },
-                    "description": "CommitBranch commits the input branch, making its changes applicable to\nthe whole model and marking it complete."
+                    }
                 },
                 "HasActiveBranch": {
                     "type": "object",
@@ -11872,8 +11728,7 @@
                         "Result": {
                             "$ref": "#/definitions/BoolResult"
                         }
-                    },
-                    "description": "HasActiveBranch returns a true result if the input model has an \"in-flight\"\nbranch matching the input name."
+                    }
                 },
                 "ListCommits": {
                     "type": "object",
@@ -11881,8 +11736,7 @@
                         "Result": {
                             "$ref": "#/definitions/BranchResults"
                         }
-                    },
-                    "description": "ListCommits will return the commits, hence only branches with generation_id higher than 0"
+                    }
                 },
                 "ShowCommit": {
                     "type": "object",
@@ -11893,8 +11747,7 @@
                         "Result": {
                             "$ref": "#/definitions/GenerationResult"
                         }
-                    },
-                    "description": "ShowCommit will return details a commit given by its generationId\nAn error is returned if either no branch can be found corresponding to the generation id.\nOr the generation id given is below 1."
+                    }
                 },
                 "TrackBranch": {
                     "type": "object",
@@ -11905,8 +11758,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "TrackBranch marks the input units and/or applications as tracking the input\nbranch, causing them to realise changes made under that branch."
+                    }
                 }
             },
             "definitions": {
@@ -12178,7 +12030,7 @@
     },
     {
         "Name": "ModelManager",
-        "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.\nV10 of the facade does not return default-series or default-base\nin model info",
+        "Description": "",
         "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
@@ -12198,8 +12050,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ChangeModelCredential changes cloud credential reference for models.\nThese new cloud credentials must already exist on the controller."
+                    }
                 },
                 "CreateModel": {
                     "type": "object",
@@ -12210,8 +12061,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelInfo"
                         }
-                    },
-                    "description": "CreateModel creates a new model using the account and\nmodel config specified in the args."
+                    }
                 },
                 "DestroyModels": {
                     "type": "object",
@@ -12222,8 +12072,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "DestroyModels will try to destroy the specified models.\nIf there is a block on destruction, this method will return an error.\nFrom ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters."
+                    }
                 },
                 "DumpModels": {
                     "type": "object",
@@ -12234,8 +12083,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResults"
                         }
-                    },
-                    "description": "DumpModels will export the models into the database agnostic\nrepresentation. The user needs to either be a controller admin, or have\nadmin privileges on the model itself."
+                    }
                 },
                 "DumpModelsDB": {
                     "type": "object",
@@ -12246,8 +12094,7 @@
                         "Result": {
                             "$ref": "#/definitions/MapResults"
                         }
-                    },
-                    "description": "DumpModelsDB will gather all documents from all model collections\nfor the specified model. The map result contains a map of collection\nnames to lists of documents represented as maps."
+                    }
                 },
                 "ListModelSummaries": {
                     "type": "object",
@@ -12258,8 +12105,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelSummaryResults"
                         }
-                    },
-                    "description": "ListModelSummaries returns models that the specified user\nhas access to in the current server.  Controller admins (superuser)\ncan list models for any user.  Other users\ncan only ask about their own models."
+                    }
                 },
                 "ListModels": {
                     "type": "object",
@@ -12270,8 +12116,7 @@
                         "Result": {
                             "$ref": "#/definitions/UserModelList"
                         }
-                    },
-                    "description": "ListModels returns the models that the specified user\nhas access to in the current server.  Controller admins (superuser)\ncan list models for any user.  Other users\ncan only ask about their own models."
+                    }
                 },
                 "ModelDefaultsForClouds": {
                     "type": "object",
@@ -12282,8 +12127,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelDefaultsResults"
                         }
-                    },
-                    "description": "ModelDefaultsForClouds returns the default config values for the specified\nclouds."
+                    }
                 },
                 "ModelInfo": {
                     "type": "object",
@@ -12294,8 +12138,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelInfoResults"
                         }
-                    },
-                    "description": "ModelInfo returns information about the specified models."
+                    }
                 },
                 "ModelStatus": {
                     "type": "object",
@@ -12306,8 +12149,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelStatusResults"
                         }
-                    },
-                    "description": "ModelStatus returns a summary of the model."
+                    }
                 },
                 "ModifyModelAccess": {
                     "type": "object",
@@ -12318,8 +12160,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "ModifyModelAccess changes the model access granted to users."
+                    }
                 },
                 "SetModelDefaults": {
                     "type": "object",
@@ -12330,8 +12171,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "SetModelDefaults writes new values for the specified default model settings."
+                    }
                 },
                 "UnsetModelDefaults": {
                     "type": "object",
@@ -12342,8 +12182,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UnsetModelDefaults removes the specified default model settings."
+                    }
                 }
             },
             "definitions": {
@@ -13534,7 +13373,7 @@
     },
     {
         "Name": "ModelUpgrader",
-        "Description": "ModelUpgraderAPI implements the model upgrader interface and is\nthe concrete implementation of the api end point.",
+        "Description": "",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -13551,8 +13390,7 @@
                         "Params": {
                             "$ref": "#/definitions/ModelParam"
                         }
-                    },
-                    "description": "AbortModelUpgrade aborts and archives the model upgrade\nsynchronisation record, if any."
+                    }
                 },
                 "UpgradeModel": {
                     "type": "object",
@@ -13563,8 +13401,7 @@
                         "Result": {
                             "$ref": "#/definitions/UpgradeModelResult"
                         }
-                    },
-                    "description": "UpgradeModel upgrades a model."
+                    }
                 }
             },
             "definitions": {
@@ -13678,7 +13515,7 @@
     },
     {
         "Name": "Payloads",
-        "Description": "API serves payload-specific API methods.",
+        "Description": "",
         "Version": 1,
         "AvailableTo": [
             "model-user"
@@ -13695,8 +13532,7 @@
                         "Result": {
                             "$ref": "#/definitions/PayloadListResults"
                         }
-                    },
-                    "description": "List builds the list of payloads being tracked for\nthe given unit and IDs. If no IDs are provided then all tracked\npayloads for the unit are returned."
+                    }
                 }
             },
             "definitions": {
@@ -13774,7 +13610,7 @@
     },
     {
         "Name": "Pinger",
-        "Description": "pinger describes a resource that can be pinged and stopped.",
+        "Description": "",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -13797,7 +13633,7 @@
     },
     {
         "Name": "Resources",
-        "Description": "API is the public API facade for resources.",
+        "Description": "",
         "Version": 3,
         "AvailableTo": [
             "model-user"
@@ -13814,8 +13650,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddPendingResourcesResult"
                         }
-                    },
-                    "description": "AddPendingResources adds the provided resources (info) to the Juju\nmodel in a pending state, meaning they are not available until\nresolved. Handles CharmHub and Local charms."
+                    }
                 },
                 "ListResources": {
                     "type": "object",
@@ -13826,8 +13661,7 @@
                         "Result": {
                             "$ref": "#/definitions/ResourcesResults"
                         }
-                    },
-                    "description": "ListResources returns the list of resources for the given application."
+                    }
                 }
             },
             "definitions": {
@@ -14210,7 +14044,7 @@
     },
     {
         "Name": "SSHClient",
-        "Description": "Facade implements the API required by the sshclient worker.",
+        "Description": "",
         "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
@@ -14230,8 +14064,7 @@
                         "Result": {
                             "$ref": "#/definitions/SSHAddressesResults"
                         }
-                    },
-                    "description": "AllAddresses reports all addresses that might have SSH listening for each\nentity in args. The result is sorted with public addresses first.\nMachines and units are supported as entity types."
+                    }
                 },
                 "ModelCredentialForSSH": {
                     "type": "object",
@@ -14239,8 +14072,7 @@
                         "Result": {
                             "$ref": "#/definitions/CloudSpecResult"
                         }
-                    },
-                    "description": "ModelCredentialForSSH returns a cloud spec for ssh purpose.\nThis facade call is only used for k8s model."
+                    }
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -14251,8 +14083,7 @@
                         "Result": {
                             "$ref": "#/definitions/SSHAddressResults"
                         }
-                    },
-                    "description": "PrivateAddress reports the preferred private network address for one or\nmore entities. Machines and units are supported."
+                    }
                 },
                 "Proxy": {
                     "type": "object",
@@ -14260,8 +14091,7 @@
                         "Result": {
                             "$ref": "#/definitions/SSHProxyResult"
                         }
-                    },
-                    "description": "Proxy returns whether SSH connections should be proxied through the\ncontroller hosts for the model associated with the API connection."
+                    }
                 },
                 "PublicAddress": {
                     "type": "object",
@@ -14272,8 +14102,7 @@
                         "Result": {
                             "$ref": "#/definitions/SSHAddressResults"
                         }
-                    },
-                    "description": "PublicAddress reports the preferred public network address for one\nor more entities. Machines and units are supported."
+                    }
                 },
                 "PublicKeys": {
                     "type": "object",
@@ -14284,8 +14113,7 @@
                         "Result": {
                             "$ref": "#/definitions/SSHPublicKeysResults"
                         }
-                    },
-                    "description": "PublicKeys returns the public SSH hosts for one or more\nentities. Machines and units are supported."
+                    }
                 }
             },
             "definitions": {
@@ -14529,7 +14357,7 @@
     },
     {
         "Name": "SecretBackends",
-        "Description": "SecretBackendsAPI is the server implementation for the SecretBackends facade.",
+        "Description": "",
         "Version": 1,
         "AvailableTo": [
             "controller-user"
@@ -14546,8 +14374,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "AddSecretBackends adds new secret backends."
+                    }
                 },
                 "ListSecretBackends": {
                     "type": "object",
@@ -14558,8 +14385,7 @@
                         "Result": {
                             "$ref": "#/definitions/ListSecretBackendsResults"
                         }
-                    },
-                    "description": "ListSecretBackends lists available secret backends."
+                    }
                 },
                 "RemoveSecretBackends": {
                     "type": "object",
@@ -14570,8 +14396,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RemoveSecretBackends removes secret backends."
+                    }
                 },
                 "UpdateSecretBackends": {
                     "type": "object",
@@ -14582,8 +14407,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UpdateSecretBackends updates secret backends."
+                    }
                 }
             },
             "definitions": {
@@ -14869,7 +14693,7 @@
     },
     {
         "Name": "Secrets",
-        "Description": "SecretsAPI is the backend for the Secrets facade.",
+        "Description": "",
         "Version": 2,
         "AvailableTo": [
             "model-user"
@@ -14886,8 +14710,7 @@
                         "Result": {
                             "$ref": "#/definitions/StringResults"
                         }
-                    },
-                    "description": "CreateSecrets creates new secrets."
+                    }
                 },
                 "GrantSecret": {
                     "type": "object",
@@ -14898,8 +14721,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "GrantSecret grants access to a user secret."
+                    }
                 },
                 "ListSecrets": {
                     "type": "object",
@@ -14910,8 +14732,7 @@
                         "Result": {
                             "$ref": "#/definitions/ListSecretResults"
                         }
-                    },
-                    "description": "ListSecrets lists available secrets."
+                    }
                 },
                 "RemoveSecrets": {
                     "type": "object",
@@ -14922,8 +14743,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RemoveSecrets remove user secret."
+                    }
                 },
                 "RevokeSecret": {
                     "type": "object",
@@ -14934,8 +14754,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RevokeSecret revokes access to a user secret."
+                    }
                 },
                 "UpdateSecrets": {
                     "type": "object",
@@ -14946,8 +14765,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UpdateSecrets creates new secrets."
+                    }
                 }
             },
             "definitions": {
@@ -15471,7 +15289,7 @@
     },
     {
         "Name": "Spaces",
-        "Description": "API provides the spaces API facade for version 6.",
+        "Description": "",
         "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
@@ -15491,8 +15309,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "CreateSpaces creates a new Juju network space, associating the\nspecified subnets with it (optional; can be empty)."
+                    }
                 },
                 "ListSpaces": {
                     "type": "object",
@@ -15500,8 +15317,7 @@
                         "Result": {
                             "$ref": "#/definitions/ListSpacesResults"
                         }
-                    },
-                    "description": "ListSpaces lists all the available spaces and their associated subnets."
+                    }
                 },
                 "MoveSubnets": {
                     "type": "object",
@@ -15512,12 +15328,10 @@
                         "Result": {
                             "$ref": "#/definitions/MoveSubnetsResults"
                         }
-                    },
-                    "description": "MoveSubnets ensures that the input subnets are in the input space."
+                    }
                 },
                 "ReloadSpaces": {
-                    "type": "object",
-                    "description": "ReloadSpaces refreshes spaces from substrate"
+                    "type": "object"
                 },
                 "RemoveSpace": {
                     "type": "object",
@@ -15528,8 +15342,7 @@
                         "Result": {
                             "$ref": "#/definitions/RemoveSpaceResults"
                         }
-                    },
-                    "description": "RemoveSpace removes a space.\nReturns SpaceResults if entities/settings are found which makes the deletion not possible."
+                    }
                 },
                 "RenameSpace": {
                     "type": "object",
@@ -15540,8 +15353,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RenameSpace renames a space."
+                    }
                 },
                 "ShowSpace": {
                     "type": "object",
@@ -15552,8 +15364,7 @@
                         "Result": {
                             "$ref": "#/definitions/ShowSpaceResults"
                         }
-                    },
-                    "description": "ShowSpace shows the spaces for a set of given entities."
+                    }
                 }
             },
             "definitions": {
@@ -16004,7 +15815,7 @@
     },
     {
         "Name": "Storage",
-        "Description": "StorageAPI implements the latest version (v6) of the Storage API.",
+        "Description": "",
         "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
@@ -16024,8 +15835,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddStorageResults"
                         }
-                    },
-                    "description": "AddToUnit validates and creates additional storage instances for units.\nA \"CHANGE\" block can block this operation."
+                    }
                 },
                 "Attach": {
                     "type": "object",
@@ -16036,8 +15846,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Attach attaches existing storage instances to units.\nA \"CHANGE\" block can block this operation."
+                    }
                 },
                 "CreatePool": {
                     "type": "object",
@@ -16048,8 +15857,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "CreatePool creates a new pool with specified parameters."
+                    }
                 },
                 "DetachStorage": {
                     "type": "object",
@@ -16060,8 +15868,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "DetachStorage sets the specified storage attachments to Dying, unless they are\nalready Dying or Dead. Any associated, persistent storage will remain\nalive. This call can be forced."
+                    }
                 },
                 "Import": {
                     "type": "object",
@@ -16072,8 +15879,7 @@
                         "Result": {
                             "$ref": "#/definitions/ImportStorageResults"
                         }
-                    },
-                    "description": "Import imports existing storage into the model.\nA \"CHANGE\" block can block this operation."
+                    }
                 },
                 "ListFilesystems": {
                     "type": "object",
@@ -16084,8 +15890,7 @@
                         "Result": {
                             "$ref": "#/definitions/FilesystemDetailsListResults"
                         }
-                    },
-                    "description": "ListFilesystems returns a list of filesystems in the environment matching\nthe provided filter. Each result describes a filesystem in detail, including\nthe filesystem's attachments."
+                    }
                 },
                 "ListPools": {
                     "type": "object",
@@ -16096,8 +15901,7 @@
                         "Result": {
                             "$ref": "#/definitions/StoragePoolsResults"
                         }
-                    },
-                    "description": "ListPools returns a list of pools.\nIf filter is provided, returned list only contains pools that match\nthe filter.\nPools can be filtered on names and provider types.\nIf both names and types are provided as filter,\npools that match either are returned.\nThis method lists union of pools and environment provider types.\nIf no filter is provided, all pools are returned."
+                    }
                 },
                 "ListStorageDetails": {
                     "type": "object",
@@ -16108,8 +15912,7 @@
                         "Result": {
                             "$ref": "#/definitions/StorageDetailsListResults"
                         }
-                    },
-                    "description": "ListStorageDetails returns storage matching a filter."
+                    }
                 },
                 "ListVolumes": {
                     "type": "object",
@@ -16120,8 +15923,7 @@
                         "Result": {
                             "$ref": "#/definitions/VolumeDetailsListResults"
                         }
-                    },
-                    "description": "ListVolumes lists volumes with the given filters. Each filter produces\nan independent list of volumes, or an error if the filter is invalid\nor the volumes could not be listed."
+                    }
                 },
                 "Remove": {
                     "type": "object",
@@ -16132,8 +15934,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "Remove sets the specified storage entities to Dying, unless they are\nalready Dying or Dead, such that the storage will eventually be removed\nfrom the model. If the arguments specify that the storage should be\ndestroyed, then the associated cloud storage will be destroyed first;\notherwise it will only be released from Juju's control."
+                    }
                 },
                 "RemovePool": {
                     "type": "object",
@@ -16144,8 +15945,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RemovePool deletes the named pool"
+                    }
                 },
                 "StorageDetails": {
                     "type": "object",
@@ -16156,8 +15956,7 @@
                         "Result": {
                             "$ref": "#/definitions/StorageDetailsResults"
                         }
-                    },
-                    "description": "StorageDetails retrieves and returns detailed information about desired\nstorage identified by supplied tags. If specified storage cannot be\nretrieved, individual error is returned instead of storage information."
+                    }
                 },
                 "UpdatePool": {
                     "type": "object",
@@ -16168,8 +15967,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "UpdatePool deletes the named pool"
+                    }
                 }
             },
             "definitions": {
@@ -17138,7 +16936,7 @@
     },
     {
         "Name": "Subnets",
-        "Description": "API provides the subnets API facade for version 5.",
+        "Description": "",
         "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
@@ -17155,8 +16953,7 @@
                         "Result": {
                             "$ref": "#/definitions/ZoneResults"
                         }
-                    },
-                    "description": "AllZones returns all availability zones known to Juju. If a\nzone is unusable, unavailable, or deprecated the Available\nfield will be false."
+                    }
                 },
                 "ListSubnets": {
                     "type": "object",
@@ -17167,8 +16964,7 @@
                         "Result": {
                             "$ref": "#/definitions/ListSubnetsResults"
                         }
-                    },
-                    "description": "ListSubnets returns the matching subnets after applying\noptional filters."
+                    }
                 },
                 "SubnetsByCIDR": {
                     "type": "object",
@@ -17179,8 +16975,7 @@
                         "Result": {
                             "$ref": "#/definitions/SubnetsResults"
                         }
-                    },
-                    "description": "SubnetsByCIDR returns the collection of subnets matching each CIDR in the input."
+                    }
                 }
             },
             "definitions": {
@@ -17413,7 +17208,7 @@
     },
     {
         "Name": "UserManager",
-        "Description": "UserManagerAPI implements the user manager interface and is the concrete\nimplementation of the api end point.",
+        "Description": "",
         "Version": 3,
         "AvailableTo": [
             "controller-user"
@@ -17430,8 +17225,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddUserResults"
                         }
-                    },
-                    "description": "AddUser adds a user with a username, and either a password or\na randomly generated secret key which will be returned."
+                    }
                 },
                 "DisableUser": {
                     "type": "object",
@@ -17442,8 +17236,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "DisableUser disables one or more users.  If the user is already disabled,\nthe action is considered a success."
+                    }
                 },
                 "EnableUser": {
                     "type": "object",
@@ -17454,8 +17247,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "EnableUser enables one or more users.  If the user is already enabled,\nthe action is considered a success."
+                    }
                 },
                 "ModelUserInfo": {
                     "type": "object",
@@ -17466,8 +17258,7 @@
                         "Result": {
                             "$ref": "#/definitions/ModelUserInfoResults"
                         }
-                    },
-                    "description": "ModelUserInfo returns information on all users in the model."
+                    }
                 },
                 "RemoveUser": {
                     "type": "object",
@@ -17478,8 +17269,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "RemoveUser permanently removes a user from the current controller for each\nentity provided. While the user is permanently removed we keep it's\ninformation around for auditing purposes.\nTODO(redir): Add information about getting deleted user information when we\nadd that capability."
+                    }
                 },
                 "ResetPassword": {
                     "type": "object",
@@ -17490,8 +17280,7 @@
                         "Result": {
                             "$ref": "#/definitions/AddUserResults"
                         }
-                    },
-                    "description": "ResetPassword resets password for supplied users by\ninvalidating current passwords (if any) and generating\nnew random secret keys which will be returned.\nUsers cannot reset their own password."
+                    }
                 },
                 "SetPassword": {
                     "type": "object",
@@ -17502,8 +17291,7 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    },
-                    "description": "SetPassword changes the stored password for the specified users."
+                    }
                 },
                 "UserInfo": {
                     "type": "object",
@@ -17514,8 +17302,7 @@
                         "Result": {
                             "$ref": "#/definitions/UserInfoResults"
                         }
-                    },
-                    "description": "UserInfo returns information on a user."
+                    }
                 }
             },
             "definitions": {
