@@ -90,7 +90,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 		)
 	})
 
-	harness.Run(c)
+	harness.Run(c, []string(nil))
 }
 
 func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
@@ -294,7 +294,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	harness.Run(c)
+	harness.Run(c, []string{})
 }
 
 func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
@@ -341,7 +341,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 		)
 	})
 
-	harness.Run(c)
+	harness.Run(c, []string{})
 }
 
 func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
@@ -386,7 +386,7 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c)
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
