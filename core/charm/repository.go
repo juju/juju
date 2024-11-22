@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/charmhub"
 )
 
 // Repository describes an API for querying charm/bundle information and
@@ -21,7 +22,7 @@ type Repository interface {
 
 	// DownloadCharm retrieves specified charm from the store and saves its
 	// contents to the specified path.
-	DownloadCharm(ctx context.Context, charmName string, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, error)
+	DownloadCharm(ctx context.Context, charmName string, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, *charmhub.Digest, error)
 
 	// ResolveWithPreferredChannel verified that the charm with the requested
 	// channel exists.  If no channel is specified, the latests, most stable is

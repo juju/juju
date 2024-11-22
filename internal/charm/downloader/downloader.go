@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charmhub"
 )
 
 // CharmArchive provides information about a downloaded charm archive.
@@ -30,7 +30,7 @@ type CharmArchive interface {
 type CharmRepository interface {
 	GetDownloadURL(context.Context, string, corecharm.Origin) (*url.URL, corecharm.Origin, error)
 	ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
-	DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
+	DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error)
 }
 
 // RepositoryGetter returns a suitable CharmRepository for the specified Source.
@@ -172,31 +172,17 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 
 func (d *Downloader) downloadAndHash(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
 	d.logger.Debugf("downloading charm %q from requested origin %v", charmName, requestedOrigin)
-	chArchive, actualOrigin, err := repo.DownloadCharm(ctx, charmName, requestedOrigin, dstPath)
+	chArchive, actualOrigin, digest, err := repo.DownloadCharm(ctx, charmName, requestedOrigin, dstPath)
 	if err != nil {
 		return DownloadedCharm{}, corecharm.Origin{}, errors.Trace(err)
 	}
 	d.logger.Debugf("downloaded charm %q from actual origin %v", charmName, actualOrigin)
-
-	// Calculate SHA256 for the downloaded archive
-	f, err := os.Open(dstPath)
-	if err != nil {
-		return DownloadedCharm{}, corecharm.Origin{}, errors.Annotatef(err, "cannot read downloaded charm")
-	}
-	defer func() { _ = f.Close() }()
-
-	sha, size, err := utils.ReadSHA256(f)
-	if err != nil {
-		return DownloadedCharm{}, corecharm.Origin{}, errors.Annotate(err, "cannot calculate SHA256 hash of charm")
-	}
-
-	d.logger.Tracef("downloadResult(%q) sha: %q, size: %d", f.Name(), sha, size)
 	return DownloadedCharm{
 		Charm:        chArchive,
 		CharmVersion: chArchive.Version(),
-		Size:         size,
+		Size:         digest.Size,
 		LXDProfile:   chArchive.LXDProfile(),
-		SHA256:       sha,
+		SHA256:       digest.Hash,
 	}, actualOrigin, nil
 }
 

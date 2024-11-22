@@ -237,11 +237,12 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, entity.Name)
 
+	var digest *charmhub.Digest
 	if c.noProgress {
-		err = client.Download(ctx, resourceURL, path)
+		digest, err = client.Download(ctx, resourceURL, path, charmhub.WithEnsureDigest(charmhub.SHA256))
 	} else {
 		pb := progress.MakeProgressBar(cmdContext.Stdout)
-		err = client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb))
+		digest, err = client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb), charmhub.WithEnsureDigest(charmhub.SHA256))
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -254,11 +255,11 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return nil
 	}
 
-	// Ensure we calculate the hash of the file.
-	calculatedHash, err := c.calculateHash(path)
+	calculatedHash, err := c.calculateHashFromDigest(path, digest)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if calculatedHash != entitySHA {
 		return errors.Errorf(`Checksum of download failed for %q:
 Expected:   %s
@@ -279,19 +280,23 @@ Calculated: %s`, c.charmOrBundle, entitySHA, calculatedHash)
 				return errors.Trace(err)
 			}
 			rscCtx := context.WithValue(ctx, charmhub.DownloadNameKey, resource.Name)
+
+			var digest *charmhub.Digest
 			if c.noProgress {
-				err = client.Download(rscCtx, rscURL, rscPath)
+				digest, err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithEnsureDigest(charmhub.SHA256))
 			} else {
 				pb := progress.MakeProgressBar(cmdContext.Stdout)
-				err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithProgressBar(pb))
+				digest, err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithProgressBar(pb), charmhub.WithEnsureDigest(charmhub.SHA256))
 			}
 			if err != nil {
 				return errors.Trace(err)
 			}
-			rscHash, err := c.calculateHash(rscPath)
+
+			rscHash, err := c.calculateHashFromDigest(path, digest)
 			if err != nil {
 				return errors.Trace(err)
 			}
+
 			if rscHash != resource.Download.HashSHA256 {
 				return errors.Errorf(`Checksum of download failed for %q resource %s:
 Expected:   %s
@@ -324,6 +329,16 @@ Install the %q %s with:
 	}
 
 	return nil
+}
+
+func (c *downloadCommand) calculateHashFromDigest(path string, digest *charmhub.Digest) (string, error) {
+	if digest == nil {
+		return c.calculateHash(path)
+	}
+	if digest.DigestType != charmhub.SHA256 {
+		return "", errors.Errorf("expected SHA256 digest, got %s", digest.DigestType)
+	}
+	return digest.Hash, nil
 }
 
 func (c *downloadCommand) refresh(

@@ -17,6 +17,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	charm0 "github.com/juju/juju/internal/charm"
 	resource "github.com/juju/juju/internal/charm/resource"
+	charmhub "github.com/juju/juju/internal/charmhub"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -44,13 +45,14 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method.
-func (m *MockRepository) DownloadCharm(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 string) (charm.CharmArchive, charm.Origin, error) {
+func (m *MockRepository) DownloadCharm(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm.CharmArchive)
 	ret1, _ := ret[1].(charm.Origin)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*charmhub.Digest)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // DownloadCharm indicates an expected call of DownloadCharm.
@@ -66,19 +68,19 @@ type MockRepositoryDownloadCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRepositoryDownloadCharmCall) Return(arg0 charm.CharmArchive, arg1 charm.Origin, arg2 error) *MockRepositoryDownloadCharmCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockRepositoryDownloadCharmCall) Return(arg0 charm.CharmArchive, arg1 charm.Origin, arg2 *charmhub.Digest, arg3 error) *MockRepositoryDownloadCharmCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRepositoryDownloadCharmCall) Do(f func(context.Context, string, charm.Origin, string) (charm.CharmArchive, charm.Origin, error)) *MockRepositoryDownloadCharmCall {
+func (c *MockRepositoryDownloadCharmCall) Do(f func(context.Context, string, charm.Origin, string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error)) *MockRepositoryDownloadCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRepositoryDownloadCharmCall) DoAndReturn(f func(context.Context, string, charm.Origin, string) (charm.CharmArchive, charm.Origin, error)) *MockRepositoryDownloadCharmCall {
+func (c *MockRepositoryDownloadCharmCall) DoAndReturn(f func(context.Context, string, charm.Origin, string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error)) *MockRepositoryDownloadCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
