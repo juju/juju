@@ -586,7 +586,7 @@ func coerceDefaultsToSchema(
 
 		// We are building a set of defaults here for each key that exists in
 		// the provider's schema set to [schema.Omit]. The reason for this is
-		// that [schema.FieldMap.Coerce] will try and apply defaults for key's
+		// that [schema.FieldMap.Coerce] will try and apply defaults for keys
 		// that don't exist in the input.
 		//
 		// We don't want this to happen here. The purpose of this function is to
