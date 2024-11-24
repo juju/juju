@@ -9,3 +9,8 @@ bases:
     architectures:
       - amd64
       - arm64
+  - name: ubuntu
+    channel: 24.04/stable
+    architectures:
+      - amd64
+      - arm64
