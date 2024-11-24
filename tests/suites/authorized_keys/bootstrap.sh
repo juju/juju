@@ -11,7 +11,7 @@ run_bootstrap_authorized_keys_loaded() {
 	mkdir -p "${SUB_TEST_DIR}"
 	log_file="${SUB_TEST_DIR}/bootstrap.log"
 
-	# Setup a temporary sudo user ssh directory for Juju to read from
+	# Setup a temporary pseudo user ssh directory for Juju to read from.
 	ssh_dir="${SUB_TEST_DIR}/.ssh"
 	mkdir -p "$ssh_dir"
 
