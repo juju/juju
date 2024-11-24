@@ -683,27 +683,25 @@ AND region_uuid = $cloudRegion.uuid;
 		return errors.Capture(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, selectStmt, cld, region).Get(&region)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"removing cloud %q region %q defaults, cloud region does not exist",
-				cloudUUID, regionName,
-			).Add(clouderrors.NotFound)
+			return errors.New("cloud region does not exist").Add(clouderrors.NotFound)
 		} else if err != nil {
-			return errors.Errorf(
-				"checking cloud %q region %q exists for removing defaults: %w",
-				cloudUUID, regionName, err,
-			)
+			return err
 		}
 
 		err = tx.Query(ctx, deleteStmt, region, toRemove).Run()
 		if err != nil {
-			return errors.Errorf(
-				"removing cloud %q region %q defaults: %w", cloudUUID, regionName, err,
-			)
+			return err
 		}
 
 		return nil
 	})
+
+	if err != nil {
+		return errors.Errorf("removing cloud %q region %q defaults: %w", cloudUUID, regionName, err)
+	}
+
+	return nil
 }
