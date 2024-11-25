@@ -92,8 +92,8 @@ func (c *unregisterCommand) Init(args []string) error {
 
 var unregisterMsg = `
 This command will remove connection information for controller %q.
-Doing so will prevent you from accessing this controller until
-you register it again.
+The controller will not be destroyed but you must register it again
+if you want to access it.
 `[1:]
 
 func (c *unregisterCommand) Run(ctx *cmd.Context) error {

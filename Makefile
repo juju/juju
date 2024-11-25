@@ -551,10 +551,13 @@ rebuild-schema:
 	@echo "Generating facade schema..."
 # GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)"
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
 else
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
 		./apiserver/facades/schema.json
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
+		./apiserver/facades/agent-schema.json
 endif
 
 .PHONY: rebuild-triggers
@@ -749,3 +752,31 @@ static-analysis: dqlite-install-if-missing
 	@cd tests && CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+
+.PHONY: docs
+docs:
+## docs: Displays make commands for docs
+	@echo "\n" \
+        "------------------------------------------------------------- \n" \
+        "* watch, build and serve the documentation:  make docs-run \n" \
+        "* only build:                                make docs-html \n" \
+        "* only serve:                                make docs-serve \n" \
+        "* clean built doc files:                     make docs-clean-doc \n" \
+        "* clean full environment:                    make docs-clean \n" \
+        "* check links:                               make docs-linkcheck \n" \
+        "* check spelling:                            make docs-spelling \n" \
+        "* check spelling (without building again):   make docs-spellcheck \n" \
+        "* check accessibility:                       make docs-pa11y \n" \
+        "* check style guide compliance:              make docs-vale \n" \
+        "* check style guide compliance on target:    make docs-vale TARGET=* \n" \
+        "* check metrics for documentation:           make docs-allmetrics \n" \
+        "------------------------------------------------------------- \n"
+
+.PHONY: docs-help
+docs-help: docs
+
+docs-%:
+## Build the sphinx documentation
+	cd docs && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
+
+
