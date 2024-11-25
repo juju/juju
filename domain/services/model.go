@@ -20,6 +20,7 @@ import (
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
+	"github.com/juju/juju/domain/application/charm/downloader"
 	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
@@ -60,7 +61,6 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm/downloader"
 )
 
 // PublicKeyImporter describes a service that is capable of fetching and
