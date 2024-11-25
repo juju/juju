@@ -196,9 +196,9 @@ type charmName struct {
 	Name string `db:"name"`
 }
 
-// charmReferenceNameRevision is used to pass the reference name and revision to
-// the query.
-type charmReferenceNameRevision struct {
+// charmReferenceNameRevisionSource is used to pass the reference name,
+// revision and source to the query.
+type charmReferenceNameRevisionSource struct {
 	ReferenceName string `db:"reference_name"`
 	Revision      int    `db:"revision"`
 	Source        string `db:"source"`

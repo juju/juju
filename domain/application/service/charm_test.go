@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/domain/application/charm"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -37,7 +38,8 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
-		Name: "foo",
+		Name:   "foo",
+		Source: charm.CharmHubSource,
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
@@ -49,8 +51,9 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 		Name:     "foo",
 		Revision: ptr(42),
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
+
 func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -58,6 +61,17 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 		Name: "Foo",
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
+func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name:     "foo",
+		Revision: ptr(42),
+		Source:   "wrong-source",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {

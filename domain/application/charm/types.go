@@ -6,7 +6,9 @@ package charm
 import (
 	"github.com/juju/version/v2"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetCharmArgs holds the arguments for the GetCharmID method.
@@ -35,14 +37,17 @@ const (
 	CharmHubSource CharmSource = "charmhub"
 )
 
-func FromLegacySchema(s string) CharmSource {
-	switch s {
-	case "local":
-		return LocalSource
-	case "ch":
-		return CharmHubSource
+// ParseCharmSchema creates a CharmSource from a  string.
+// It will map the string "ch" (representing the CharmHub URL scheme) to
+// CharmHubSource and "local" to LocalSource.
+func ParseCharmSchema(source internalcharm.Schema) (CharmSource, error) {
+	switch source {
+	case internalcharm.Local:
+		return LocalSource, nil
+	case internalcharm.CharmHub:
+		return CharmHubSource, nil
 	default:
-		return CharmHubSource
+		return "", errors.Errorf("%w: %v", applicationerrors.CharmSourceNotValid, source)
 	}
 }
 

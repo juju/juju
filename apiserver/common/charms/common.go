@@ -68,10 +68,14 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 
 	// Get the charm ID, the charm ID is the unique UUID for the charm. All
 	// operations on the charm are done using the charm ID.
+	charmSource, err := applicationcharm.ParseCharmSchema(charm.Schema(url.Schema))
+	if err != nil {
+		return params.Charm{}, errors.Trace(err)
+	}
 	id, err := a.service.GetCharmID(ctx, applicationcharm.GetCharmArgs{
 		Name:     url.Name,
 		Revision: ptr(url.Revision),
-		Source:   applicationcharm.FromLegacySchema(url.Schema),
+		Source:   charmSource,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return params.Charm{}, errors.NotFoundf("charm %q", args.URL)

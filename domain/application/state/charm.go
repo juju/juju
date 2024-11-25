@@ -49,23 +49,19 @@ func (s *CharmState) GetCharmID(ctx context.Context, name string, revision int, 
 		return "", internalerrors.Capture(err)
 	}
 
-	var ident charmID
-	charmRef := charmReferenceNameRevision{
+	var ident charmUUID
+	charmRef := charmReferenceNameRevisionSource{
 		ReferenceName: name,
 		Revision:      revision,
 		Source:        string(source),
 	}
 
 	query := `
-SELECT &charmID.*
-FROM charm
-INNER JOIN charm_origin AS co
-ON charm.uuid = co.charm_uuid
-INNER JOIN charm_source AS cs
-ON cs.id = co.source_id
-WHERE co.reference_name = $charmReferenceNameRevision.reference_name
-AND co.revision = $charmReferenceNameRevision.revision
-AND cs.name = $charmReferenceNameRevision.source;
+SELECT &charmUUID.*
+FROM v_charm_origin
+WHERE reference_name = $charmReferenceNameRevisionSource.reference_name
+AND revision = $charmReferenceNameRevisionSource.revision
+AND source = $charmReferenceNameRevisionSource.source;
 `
 	stmt, err := s.Prepare(query, ident, charmRef)
 	if err != nil {
