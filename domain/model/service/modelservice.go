@@ -10,7 +10,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -33,8 +33,8 @@ type ModelState interface {
 	SetStatus(context.Context, model.SetStatusArg) error
 }
 
-// ControllerState represents the state required for reading all model
-// information.
+// ControllerState is the controller state required by this service. This is the
+// controller database, not the model state.
 type ControllerState interface {
 	// GetModel returns the model with the given UUID.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -55,12 +55,12 @@ type ModelService struct {
 func NewModelService(
 	modelID coremodel.UUID,
 	controllerSt ControllerState,
-	st ModelState,
+	modelSt ModelState,
 ) *ModelService {
 	return &ModelService{
 		modelID:      modelID,
 		controllerSt: controllerSt,
-		modelSt:      st,
+		modelSt:      modelSt,
 	}
 }
 
@@ -110,11 +110,22 @@ func (s *ModelService) DeleteModel(
 	return s.modelSt.Delete(ctx, s.modelID)
 }
 
-// Status returns the status of the model.
+// Status returns the current status of the model.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
 func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
 	modelState, err := s.controllerSt.GetModelState(ctx, s.modelID)
 	if err != nil {
 		return model.StatusInfo{}, err
+	}
+
+	if modelState.HasInvalidCloudCredential {
+		return model.StatusInfo{
+			Status:  corestatus.Suspended,
+			Message: "suspended since cloud credential is not valid",
+			Reason:  modelState.InvalidCloudCredentialReason,
+		}, nil
 	}
 	if modelState.Destroying {
 		return model.StatusInfo{
@@ -122,17 +133,16 @@ func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
 			Message: "the model is being destroyed",
 		}, nil
 	}
-	if modelState.InvalidCloudCredentialReason != "" {
+	if modelState.Migrating {
 		return model.StatusInfo{
-			Status:  corestatus.Suspended,
-			Message: "suspended since cloud credential is not valid",
-			Reason:  modelState.InvalidCloudCredentialReason,
+			Status:  corestatus.Busy,
+			Message: "the model is being migrated",
 		}, nil
 	}
 
 	statusInfo, err := s.modelSt.GetStatus(ctx)
 	if err != nil {
-		return model.StatusInfo{}, internalerrors.Capture(err)
+		return model.StatusInfo{}, errors.Capture(err)
 	}
 	return statusInfo, nil
 }
@@ -157,7 +167,7 @@ func validSettableModelStatus(status corestatus.Status) bool {
 // - [modelerrors.InvalidModelStatus]: When the status to be set is not valid.
 func (s *ModelService) SetStatus(ctx context.Context, params model.SetStatusArg) error {
 	if !validSettableModelStatus(params.Status) {
-		return internalerrors.Errorf("model status %q: %w", params.Status, modelerrors.InvalidModelStatus)
+		return errors.Errorf("setting model status, invalid status %q", params.Status).Add(modelerrors.InvalidModelStatus)
 	}
 
 	return s.modelSt.SetStatus(ctx, params)
