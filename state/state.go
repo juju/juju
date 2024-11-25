@@ -678,8 +678,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			return nil, errors.Trace(err)
 		}
 		return model.Operation(tag.Id())
-	case names.CharmTag:
-		return st.Charm(id)
 	case names.VolumeTag:
 		sb, err := NewStorageBackend(st)
 		if err != nil {
