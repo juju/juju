@@ -57,8 +57,8 @@ type State interface {
 	// is returned.
 	UpdateCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs map[string]string) error
 
-	// DeleteCloudDefaults will delete the specified default keys from the cloud
-	// if they exist. If the cloud does not exist an error satisfying
+	// DeleteCloudDefaults will delete the specified default config keys from
+	// the cloud if they exist. If the cloud does not exist an error satisfying
 	// [clouderrors.NotFound] will be returned.
 	DeleteCloudDefaults(ctx context.Context, cloudUID cloud.UUID, attrs []string) error
 
@@ -583,6 +583,15 @@ func coerceDefaultsToSchema(
 	providerFieldMap := schema.FieldMap(nil, nil)
 	if configProvider != nil {
 		providerSchema := configProvider.ConfigSchema()
+
+		// We are building a set of defaults here for each key that exists in
+		// the provider's schema set to [schema.Omit]. The reason for this is
+		// that [schema.FieldMap.Coerce] will try and apply defaults for keys
+		// that don't exist in the input.
+		//
+		// We don't want this to happen here. The purpose of this function is to
+		// fundamentally coerce the type we store the value in at a state level
+		// to that of the schema only if and when the key exists in the input.
 		omitDefaults := make(schema.Defaults, len(providerSchema))
 		for k := range providerSchema {
 			omitDefaults[k] = schema.Omit

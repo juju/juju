@@ -88,14 +88,14 @@ func ModelDefaultsProvider(
 
 // SetCloudDefaults is responsible for setting a previously inserted cloud's
 // default config values that will be used as part of the default values
-// supplied to a models config. If no cloud exists for the specified name an
+// supplied to a model's config. If no cloud exists for the specified name an
 // error satisfying [github.com/juju/juju/domain/cloud/errors.NotFound] will be
 // returned.
 func SetCloudDefaults(
 	cloudName string,
 	defaults map[string]any,
 ) internaldatabase.BootstrapOpt {
-	return func(ctx context.Context, controller, model database.TxnRunner) error {
+	return func(ctx context.Context, controller, _ database.TxnRunner) error {
 		strDefaults, err := modelconfigservice.CoerceConfigForStorage(defaults)
 		if err != nil {
 			return fmt.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)

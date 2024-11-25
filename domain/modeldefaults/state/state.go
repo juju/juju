@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
-	interrors "github.com/juju/juju/internal/errors"
 )
 
 // State represents a type for interacting with the underlying model defaults
@@ -616,19 +615,19 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, selectStmt, cld, region).Get(&region)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return interrors.Errorf(
+			return errors.Errorf(
 				"cloud %q region %q does not exist",
 				cloudUUID, regionName,
 			).Add(clouderrors.NotFound)
 		} else if err != nil {
-			return interrors.Errorf("fetching cloud %q region %q: %w", cloudUUID, regionName, err)
+			return errors.Errorf("fetching cloud %q region %q: %w", cloudUUID, regionName, err)
 		}
 
 		for k, v := range updateAttrs {
 			err := tx.Query(ctx, upsertStmt, cloudRegionDefaultValue{UUID: region.UUID, Key: k, Value: v}).Run()
 			// The cloud UUID has previously been checked. This allows us to avoid having to use RunAtomic.
 			if database.IsErrConstraintForeignKey(err) {
-				return interrors.Errorf("cloud %q not found", cloudUUID).Add(clouderrors.NotFound)
+				return errors.Errorf("cloud %q not found", cloudUUID).Add(clouderrors.NotFound)
 			} else if err != nil {
 				return errors.Capture(err)
 			}
@@ -636,7 +635,7 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 		return nil
 	})
 	if err != nil {
-		return interrors.Errorf(
+		return errors.Errorf(
 			"updating cloud %q region %q default keys: %w",
 			cloudUUID,
 			regionName,
@@ -684,27 +683,25 @@ AND region_uuid = $cloudRegion.uuid;
 		return errors.Capture(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, selectStmt, cld, region).Get(&region)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"removing cloud %q region %q defaults, cloud region does not exist",
-				cloudUUID, regionName,
-			).Add(clouderrors.NotFound)
+			return errors.New("cloud region does not exist").Add(clouderrors.NotFound)
 		} else if err != nil {
-			return errors.Errorf(
-				"checking cloud %q region %q exists for removing defaults: %w",
-				cloudUUID, regionName, err,
-			)
+			return err
 		}
 
 		err = tx.Query(ctx, deleteStmt, region, toRemove).Run()
 		if err != nil {
-			return errors.Errorf(
-				"removing cloud %q region %q defaults: %w", cloudUUID, regionName, err,
-			)
+			return err
 		}
 
 		return nil
 	})
+
+	if err != nil {
+		return errors.Errorf("removing cloud %q region %q defaults: %w", cloudUUID, regionName, err)
+	}
+
+	return nil
 }
