@@ -1817,7 +1817,6 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 
 	s.expectDefaultK8sModelConfig()
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
@@ -1843,6 +1842,26 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 	)
 }
 
+type dummyConstraintsValidator struct {
+	constraints.Validator
+}
+
+func NewDummyConstraintsValidator() constraints.Validator {
+	var unsupportedConstraints = []string{
+		constraints.Cores,
+		constraints.VirtType,
+		constraints.Container,
+		constraints.InstanceType,
+		constraints.Spaces,
+		constraints.AllocatePublicIP,
+		constraints.ImageID,
+	}
+
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return &dummyConstraintsValidator{Validator: validator}
+}
+
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	ctrl := s.setup(c)
@@ -1864,6 +1883,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(4)
 	s.model.EXPECT().UUID().Return("").AnyTimes()
 	s.expectDefaultK8sModelConfig()
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1918,6 +1938,7 @@ func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil)
 
 	curl := "local:foo-0"
 	args := params.ApplicationsDeploy{
@@ -1945,6 +1966,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 	}, &charm.Manifest{}, &charm.Config{})
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1973,6 +1995,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil)
 
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
@@ -2019,6 +2042,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	})
 	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 	s.model.EXPECT().UUID().Return("")
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2041,6 +2065,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 
 	ch := s.expectCharm(ctrl, &charm.Meta{}, &charm.Manifest{Bases: []charm.Base{{}}}, &charm.Config{})
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
@@ -2074,6 +2099,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(nil, errors.NotFoundf("pool"))
 	s.registry.EXPECT().StorageProvider(storage.ProviderType("k8s-operator-storage")).Return(nil, errors.NotFoundf(`provider type "k8s-operator-storage"`))
 	s.model.EXPECT().UUID().Return("")
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2097,6 +2123,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		provider.RootfsProviderType,
@@ -2127,6 +2154,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
@@ -2160,6 +2188,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
+	s.caasBroker.EXPECT().ConstraintsValidator(gomock.Any()).Return(NewDummyConstraintsValidator(), nil).AnyTimes()
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(storage.NewConfig(
 		"k8s-operator-storage",
 		k8sconstants.StorageProviderType,
