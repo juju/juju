@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 )
@@ -61,13 +62,13 @@ type WatcherState interface {
 	// event for the WatchMachineOpenedPorts watcher
 	InitialWatchMachineOpenedPortsStatement() string
 
-	// GetMachineNamesForUnitEndpoints returns map from endpoint uuids to the uuids of
+	// GetMachineNamesForUnits returns map from endpoint uuids to the uuids of
 	// the machines which host that endpoint for each provided endpoint uuid.
-	GetMachineNamesForUnitEndpoints(ctx context.Context, endpointUUIDs []string) ([]coremachine.Name, error)
+	GetMachineNamesForUnits(context.Context, []unit.UUID) ([]coremachine.Name, error)
 
 	// FilterEndpointsForApplication returns the subset of provided endpoint uuids
 	// that are associated with the provided application.
-	FilterEndpointsForApplication(ctx context.Context, eps []string, app coreapplication.ID) (set.Strings, error)
+	FilterUnitUUIDsForApplication(context.Context, []unit.UUID, coreapplication.ID) (set.Strings, error)
 }
 
 // WatchMachineOpenedPorts returns a strings watcher for opened ports. This watcher
@@ -101,11 +102,14 @@ func (s *WatchableService) endpointToMachineMapper(
 	ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
 ) ([]changestream.ChangeEvent, error) {
 
-	endpointUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
-		return e.Changed()
+	unitUUIDs, err := transform.SliceOrErr(events, func(e changestream.ChangeEvent) (unit.UUID, error) {
+		return unit.ParseID(e.Changed())
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	machineNames, err := s.st.GetMachineNamesForUnitEndpoints(ctx, endpointUUIDs)
+	machineNames, err := s.st.GetMachineNamesForUnits(ctx, unitUUIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -129,16 +133,20 @@ func (s *WatchableService) filterForApplication(applicationUUID coreapplication.
 	return func(
 		ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
 	) ([]changestream.ChangeEvent, error) {
-		endpointUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
-			return e.Changed()
+		unitUUIDs, err := transform.SliceOrErr(events, func(e changestream.ChangeEvent) (unit.UUID, error) {
+			return unit.ParseID(e.Changed())
 		})
-		endpointUUIDsForApplication, err := s.st.FilterEndpointsForApplication(ctx, endpointUUIDs, applicationUUID)
+		if err != nil {
+			return nil, err
+		}
+
+		unitUUIDsForApplication, err := s.st.FilterUnitUUIDsForApplication(ctx, unitUUIDs, applicationUUID)
 		if err != nil {
 			return nil, err
 		}
 		results := make([]changestream.ChangeEvent, 0, len(events))
 		for _, event := range events {
-			if endpointUUIDsForApplication.Contains(event.Changed()) {
+			if unitUUIDsForApplication.Contains(event.Changed()) {
 				results = append(results, event)
 			}
 		}

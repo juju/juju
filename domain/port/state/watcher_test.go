@@ -6,16 +6,13 @@ package state
 import (
 	"context"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/logger"
 )
@@ -29,12 +26,6 @@ type watcherSuite struct {
 }
 
 var _ = gc.Suite(&watcherSuite{})
-
-var (
-	ssh   = network.PortRange{Protocol: "tcp", FromPort: 22, ToPort: 22}
-	http  = network.PortRange{Protocol: "tcp", FromPort: 80, ToPort: 80}
-	https = network.PortRange{Protocol: "tcp", FromPort: 443, ToPort: 443}
-)
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
@@ -54,48 +45,6 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.unitUUIDs[2], _ = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 }
 
-func (s *watcherSuite) initialiseOpenPorts(c *gc.C, st *State) ([]string, map[string]string) {
-	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		err := st.UpdateUnitPorts(ctx, s.unitUUIDs[0], network.GroupedPortRanges{
-			"ep0": {ssh},
-		}, network.GroupedPortRanges{})
-		if err != nil {
-			return err
-		}
-		err = st.UpdateUnitPorts(ctx, s.unitUUIDs[1], network.GroupedPortRanges{
-			"ep1": {http},
-		}, network.GroupedPortRanges{})
-		if err != nil {
-			return err
-		}
-		return st.UpdateUnitPorts(ctx, s.unitUUIDs[2], network.GroupedPortRanges{
-			"ep2": {https},
-		}, network.GroupedPortRanges{})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	query, err := sqlair.Prepare(`
-SELECT &endpoint.*
-FROM unit_endpoint
-`, endpoint{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	var endpoints []endpoint
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, query).GetAll(&endpoints)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	endpointToUUIDMap := make(map[string]string)
-	endpointUUIDs := make([]string, len(endpoints))
-	for i, ep := range endpoints {
-		endpointToUUIDMap[ep.Endpoint] = ep.UUID
-		endpointUUIDs[i] = ep.UUID
-	}
-
-	return endpointUUIDs, endpointToUUIDMap
-}
-
 /*
 * The following tests will run with the following context:
 * - 3 units are deployed (with uuids stored in s.unitUUIDs)
@@ -105,23 +54,17 @@ FROM unit_endpoint
 * - on 2 applications (with names stored in appNames; uuids s.appUUIDs)
 *   - unit 0 is deployed to app 0
 *   - units 1 & 2 are deployed to app 1
-*
-* - The following ports are open:
-*   - ssh is open on endpoint 0 on unit 0
-*   - http is open on endpoint 1 on unit 1
-*   - https is open on endpoint 2 on unit 2
  */
 
 func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
-	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	machineUUIDsForEndpoint, err := st.GetMachineNamesForUnitEndpoints(ctx, endpointUUIDs)
+	machineUUIDsForEndpoint, err := st.GetMachineNamesForUnits(ctx, s.unitUUIDs[:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineUUIDsForEndpoint, jc.SameContents, []machine.Name{"0", "1"})
 
-	machineUUIDsForEndpoint, err = st.GetMachineNamesForUnitEndpoints(ctx, []string{endpointToUUIDMap["ep0"]})
+	machineUUIDsForEndpoint, err = st.GetMachineNamesForUnits(ctx, []coreunit.UUID{s.unitUUIDs[0]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(machineUUIDsForEndpoint, jc.DeepEquals, []machine.Name{"0"})
 }
@@ -129,13 +72,12 @@ func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *gc.C) {
 func (s *watcherSuite) TestFilterEndpointForApplication(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
-	endpointUUIDs, endpointToUUIDMap := s.initialiseOpenPorts(c, st)
 
-	filteredEndpointUUIDs, err := st.FilterEndpointsForApplication(ctx, endpointUUIDs, s.appUUIDs[0])
+	filteredUnits, err := st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(filteredEndpointUUIDs, jc.DeepEquals, set.NewStrings(endpointToUUIDMap["ep0"]))
+	c.Check(filteredUnits, jc.DeepEquals, set.NewStrings(s.unitUUIDs[0].String()))
 
-	filteredEndpointUUIDs, err = st.FilterEndpointsForApplication(ctx, endpointUUIDs, s.appUUIDs[1])
+	filteredUnits, err = st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(filteredEndpointUUIDs, jc.DeepEquals, set.NewStrings(endpointToUUIDMap["ep1"], endpointToUUIDMap["ep2"]))
+	c.Check(filteredUnits, jc.DeepEquals, set.NewStrings(s.unitUUIDs[1].String(), s.unitUUIDs[2].String()))
 }

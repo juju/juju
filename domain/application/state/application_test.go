@@ -680,7 +680,6 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		deviceCount                   int
 		addressCount                  int
 		portCount                     int
-		endpointCount                 int
 		agentStatusCount              int
 		agentStatusDataCount          int
 		workloadStatusCount           int
@@ -702,9 +701,6 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE cloud_container_uuid=?", netNodeUUID).Scan(&portCount); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_endpoint WHERE unit_uuid=?", unitUUID).Scan(&endpointCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
@@ -730,7 +726,6 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addressCount, gc.Equals, 0)
 	c.Assert(portCount, gc.Equals, 0)
-	c.Assert(endpointCount, gc.Equals, 0)
 	c.Assert(deviceCount, gc.Equals, 0)
 	c.Assert(containerCount, gc.Equals, 0)
 	c.Assert(agentStatusCount, gc.Equals, 0)
@@ -1945,6 +1940,20 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 			Charm: charm.Charm{
 				Metadata: charm.Metadata{
 					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Key:   "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Key:   "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+					},
 				},
 			},
 			Origin: charm.CharmOrigin{

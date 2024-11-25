@@ -1023,10 +1023,7 @@ func (st *ApplicationState) deletePorts(ctx context.Context, tx *sqlair.TX, unit
 
 	deletePortRange := `
 DELETE FROM port_range
-WHERE unit_endpoint_uuid IN (
-    SELECT uuid FROM unit_endpoint ue
-    WHERE ue.unit_uuid = $minimalUnit.uuid
-)
+WHERE unit_uuid = $minimalUnit.uuid
 `
 	deletePortRangeStmt, err := st.Prepare(deletePortRange, unit)
 	if err != nil {
@@ -1037,15 +1034,6 @@ WHERE unit_endpoint_uuid IN (
 		return errors.Annotate(err, "cannot delete port range records")
 	}
 
-	deleteEndpoint := `DELETE FROM unit_endpoint WHERE unit_uuid = $minimalUnit.uuid`
-	deleteEndpointStmt, err := st.Prepare(deleteEndpoint, unit)
-	if err != nil {
-		return errors.Annotate(err, "cannot delete endpoint records")
-	}
-
-	if err := tx.Query(ctx, deleteEndpointStmt, unit).Run(); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -1063,7 +1051,6 @@ func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *
 		"unit_workload_status",
 		"cloud_container_status_data",
 		"cloud_container_status",
-		"unit_endpoint",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)

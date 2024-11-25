@@ -851,8 +851,8 @@ func (s *statusUnitTestSuite) TestUnitsWithOpenedPortsSent(c *gc.C) {
 
 	portService := s.ControllerDomainServices(c).Port()
 	err = portService.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
-		"":    []network.PortRange{network.MustParsePortRange("1000/tcp")},
-		"foo": []network.PortRange{network.MustParsePortRange("2000/tcp")},
+		"":   []network.PortRange{network.MustParsePortRange("1000/tcp")},
+		"db": []network.PortRange{network.MustParsePortRange("2000/tcp")},
 	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIsNil)
 

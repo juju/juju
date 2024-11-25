@@ -46,41 +46,41 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// FilterEndpointsForApplication mocks base method.
-func (m *MockState) FilterEndpointsForApplication(arg0 context.Context, arg1 []string, arg2 application.ID) (set.Strings, error) {
+// FilterUnitUUIDsForApplication mocks base method.
+func (m *MockState) FilterUnitUUIDsForApplication(arg0 context.Context, arg1 []unit.UUID, arg2 application.ID) (set.Strings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FilterEndpointsForApplication", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "FilterUnitUUIDsForApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(set.Strings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FilterEndpointsForApplication indicates an expected call of FilterEndpointsForApplication.
-func (mr *MockStateMockRecorder) FilterEndpointsForApplication(arg0, arg1, arg2 any) *MockStateFilterEndpointsForApplicationCall {
+// FilterUnitUUIDsForApplication indicates an expected call of FilterUnitUUIDsForApplication.
+func (mr *MockStateMockRecorder) FilterUnitUUIDsForApplication(arg0, arg1, arg2 any) *MockStateFilterUnitUUIDsForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterEndpointsForApplication", reflect.TypeOf((*MockState)(nil).FilterEndpointsForApplication), arg0, arg1, arg2)
-	return &MockStateFilterEndpointsForApplicationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterUnitUUIDsForApplication", reflect.TypeOf((*MockState)(nil).FilterUnitUUIDsForApplication), arg0, arg1, arg2)
+	return &MockStateFilterUnitUUIDsForApplicationCall{Call: call}
 }
 
-// MockStateFilterEndpointsForApplicationCall wrap *gomock.Call
-type MockStateFilterEndpointsForApplicationCall struct {
+// MockStateFilterUnitUUIDsForApplicationCall wrap *gomock.Call
+type MockStateFilterUnitUUIDsForApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateFilterEndpointsForApplicationCall) Return(arg0 set.Strings, arg1 error) *MockStateFilterEndpointsForApplicationCall {
+func (c *MockStateFilterUnitUUIDsForApplicationCall) Return(arg0 set.Strings, arg1 error) *MockStateFilterUnitUUIDsForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateFilterEndpointsForApplicationCall) Do(f func(context.Context, []string, application.ID) (set.Strings, error)) *MockStateFilterEndpointsForApplicationCall {
+func (c *MockStateFilterUnitUUIDsForApplicationCall) Do(f func(context.Context, []unit.UUID, application.ID) (set.Strings, error)) *MockStateFilterUnitUUIDsForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateFilterEndpointsForApplicationCall) DoAndReturn(f func(context.Context, []string, application.ID) (set.Strings, error)) *MockStateFilterEndpointsForApplicationCall {
+func (c *MockStateFilterUnitUUIDsForApplicationCall) DoAndReturn(f func(context.Context, []unit.UUID, application.ID) (set.Strings, error)) *MockStateFilterUnitUUIDsForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -280,41 +280,41 @@ func (c *MockStateGetEndpointsCall) DoAndReturn(f func(domain.AtomicContext, uni
 	return c
 }
 
-// GetMachineNamesForUnitEndpoints mocks base method.
-func (m *MockState) GetMachineNamesForUnitEndpoints(arg0 context.Context, arg1 []string) ([]machine.Name, error) {
+// GetMachineNamesForUnits mocks base method.
+func (m *MockState) GetMachineNamesForUnits(arg0 context.Context, arg1 []unit.UUID) ([]machine.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineNamesForUnitEndpoints", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetMachineNamesForUnits", arg0, arg1)
 	ret0, _ := ret[0].([]machine.Name)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMachineNamesForUnitEndpoints indicates an expected call of GetMachineNamesForUnitEndpoints.
-func (mr *MockStateMockRecorder) GetMachineNamesForUnitEndpoints(arg0, arg1 any) *MockStateGetMachineNamesForUnitEndpointsCall {
+// GetMachineNamesForUnits indicates an expected call of GetMachineNamesForUnits.
+func (mr *MockStateMockRecorder) GetMachineNamesForUnits(arg0, arg1 any) *MockStateGetMachineNamesForUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNamesForUnitEndpoints", reflect.TypeOf((*MockState)(nil).GetMachineNamesForUnitEndpoints), arg0, arg1)
-	return &MockStateGetMachineNamesForUnitEndpointsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNamesForUnits", reflect.TypeOf((*MockState)(nil).GetMachineNamesForUnits), arg0, arg1)
+	return &MockStateGetMachineNamesForUnitsCall{Call: call}
 }
 
-// MockStateGetMachineNamesForUnitEndpointsCall wrap *gomock.Call
-type MockStateGetMachineNamesForUnitEndpointsCall struct {
+// MockStateGetMachineNamesForUnitsCall wrap *gomock.Call
+type MockStateGetMachineNamesForUnitsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineNamesForUnitEndpointsCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachineNamesForUnitEndpointsCall {
+func (c *MockStateGetMachineNamesForUnitsCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachineNamesForUnitsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineNamesForUnitEndpointsCall) Do(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForUnitEndpointsCall {
+func (c *MockStateGetMachineNamesForUnitsCall) Do(f func(context.Context, []unit.UUID) ([]machine.Name, error)) *MockStateGetMachineNamesForUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineNamesForUnitEndpointsCall) DoAndReturn(f func(context.Context, []string) ([]machine.Name, error)) *MockStateGetMachineNamesForUnitEndpointsCall {
+func (c *MockStateGetMachineNamesForUnitsCall) DoAndReturn(f func(context.Context, []unit.UUID) ([]machine.Name, error)) *MockStateGetMachineNamesForUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

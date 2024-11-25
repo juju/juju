@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -27,74 +28,70 @@ func (st *State) InitialWatchMachineOpenedPortsStatement() string {
 	return "SELECT name FROM machine"
 }
 
-// GetMachineNamesForUnitEndpoints returns a slice of machine names that host the provided endpoints.
-func (st *State) GetMachineNamesForUnitEndpoints(ctx context.Context, eps []string) ([]coremachine.Name, error) {
+// GetMachineNamesForUnits returns a slice of machine names that host the provided units.
+func (st *State) GetMachineNamesForUnits(ctx context.Context, units []unit.UUID) ([]coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	endpointUUIDs := endpoints(eps)
+	unitUUIDs := unitUUIDs(units)
 
 	query, err := st.Prepare(`
 SELECT DISTINCT machine.name AS &machineName.name
 FROM machine
 JOIN unit ON machine.net_node_uuid = unit.net_node_uuid
-JOIN unit_endpoint ON unit.uuid = unit_endpoint.unit_uuid
-WHERE unit_endpoint.uuid IN ($endpoints[:])
-`, machineName{}, endpointUUIDs)
+WHERE unit.uuid IN ($unitUUIDs[:])
+`, machineName{}, unitUUIDs)
 	if err != nil {
-		return nil, errors.Errorf("failed to prepare machine for endpoint query: %w", err)
+		return nil, errors.Errorf("failed to prepare machine for unit query: %w", err)
 	}
 
 	machineNames := []machineName{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, endpointUUIDs).GetAll(&machineNames)
+		err := tx.Query(ctx, query, unitUUIDs).GetAll(&machineNames)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
 		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Errorf("failed to get machines for endpoints: %w", err)
+		return nil, errors.Errorf("failed to get machines for units: %w", err)
 	}
 
 	return transform.Slice(machineNames, func(m machineName) coremachine.Name { return m.Name }), nil
 }
 
-// FilterEndpointsForApplication returns the subset of provided endpoint uuids
-// that are associated with the provided application.
-func (st *State) FilterEndpointsForApplication(ctx context.Context, eps []string, app coreapplication.ID) (set.Strings, error) {
+func (st *State) FilterUnitUUIDsForApplication(ctx context.Context, units []unit.UUID, app coreapplication.ID) (set.Strings, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
 	applicationUUID := applicationUUID{UUID: app}
-	endpointUUIDs := endpoints(eps)
+	unitUUIDs := unitUUIDs(units)
 
 	query, err := st.Prepare(`
-SELECT unit_endpoint.uuid AS &endpointUUID.uuid
+SELECT uuid AS &unitUUID.unit_uuid
 FROM unit
-JOIN unit_endpoint ON unit.uuid = unit_endpoint.unit_uuid
-WHERE unit_endpoint.uuid IN ($endpoints[:])
+WHERE unit.uuid IN ($unitUUIDs[:])
 AND unit.application_uuid = $applicationUUID.application_uuid
-`, endpointUUID{}, applicationUUID, endpointUUIDs)
+`, unitUUID{}, applicationUUID, unitUUIDs)
 	if err != nil {
-		return nil, errors.Errorf("failed to prepare application for endpoint query: %w", err)
+		return nil, errors.Errorf("failed to prepare application for unit query: %w", err)
 	}
 
-	filteredEps := []endpointUUID{}
+	filteredUnits := []unitUUID{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, applicationUUID, endpointUUIDs).GetAll(&filteredEps)
+		err := tx.Query(ctx, query, applicationUUID, unitUUIDs).GetAll(&filteredUnits)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
 		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Errorf("failed to get applications for endpoints: %w", err)
+		return nil, errors.Errorf("failed to get applications for units: %w", err)
 	}
 
-	return set.NewStrings(transform.Slice(filteredEps, func(e endpointUUID) string { return e.UUID })...), nil
+	return set.NewStrings(transform.Slice(filteredUnits, func(u unitUUID) string { return u.UUID.String() })...), nil
 }
