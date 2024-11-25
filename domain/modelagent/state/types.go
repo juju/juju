@@ -5,7 +5,7 @@ package state
 
 // dbAgentVersion represents the target agent version from the model table.
 type dbAgentVersion struct {
-	TargetAgentVersion string `db:"target_agent_version"`
+	TargetAgentVersion string `db:"target_version"`
 }
 
 // machineName represents the single column of a machine that is the machines
