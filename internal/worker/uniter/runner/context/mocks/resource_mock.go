@@ -14,7 +14,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	resources "github.com/juju/juju/core/resources"
+	resources "github.com/juju/juju/core/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 

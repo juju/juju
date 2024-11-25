@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -40,7 +40,7 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 // provisioning a caas model operator
 type ModelOperatorProvisioningInfo struct {
 	APIAddresses []string
-	ImageDetails resources.DockerImageDetails
+	ImageDetails resource.DockerImageDetails
 	Version      version.Number
 }
 
@@ -52,19 +52,19 @@ func (c *Client) ModelOperatorProvisioningInfo(ctx context.Context) (ModelOperat
 		return ModelOperatorProvisioningInfo{}, err
 	}
 	d := result.ImageDetails
-	imageRepo := resources.DockerImageDetails{
+	imageRepo := resource.DockerImageDetails{
 		RegistryPath: d.RegistryPath,
-		ImageRepoDetails: resources.ImageRepoDetails{
+		ImageRepoDetails: resource.ImageRepoDetails{
 			Repository:    d.Repository,
 			ServerAddress: d.ServerAddress,
-			BasicAuthConfig: resources.BasicAuthConfig{
+			BasicAuthConfig: resource.BasicAuthConfig{
 				Username: d.Username,
 				Password: d.Password,
-				Auth:     resources.NewToken(d.Auth),
+				Auth:     resource.NewToken(d.Auth),
 			},
-			TokenAuthConfig: resources.TokenAuthConfig{
-				IdentityToken: resources.NewToken(d.IdentityToken),
-				RegistryToken: resources.NewToken(d.RegistryToken),
+			TokenAuthConfig: resource.TokenAuthConfig{
+				IdentityToken: resource.NewToken(d.IdentityToken),
+				RegistryToken: resource.NewToken(d.RegistryToken),
 				Email:         d.Email,
 			},
 		},

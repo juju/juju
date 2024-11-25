@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/resource"
 )
@@ -17,7 +17,7 @@ import (
 func (st *State) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
-) (resources.ID, error) {
+) (coreresource.ID, error) {
 	return "", nil
 }
 
@@ -30,7 +30,7 @@ func (st *State) ListResources(
 }
 
 // GetResource returns the identified resource.
-func (st *State) GetResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error) {
+func (st *State) GetResource(ctx context.Context, resourceID coreresource.ID) (resource.Resource, error) {
 	return resource.Resource{}, nil
 }
 
@@ -53,7 +53,7 @@ func (st *State) SetUnitResource(
 // OpenApplicationResource returns the metadata for a resource.
 func (st *State) OpenApplicationResource(
 	ctx context.Context,
-	resourceID resources.ID,
+	resourceID coreresource.ID,
 ) (resource.Resource, error) {
 	return resource.Resource{}, nil
 }
@@ -63,7 +63,7 @@ func (st *State) OpenApplicationResource(
 // its using.
 func (st *State) OpenUnitResource(
 	ctx context.Context,
-	resourceID resources.ID,
+	resourceID coreresource.ID,
 	unitID coreunit.UUID,
 ) (resource.Resource, error) {
 	return resource.Resource{}, nil

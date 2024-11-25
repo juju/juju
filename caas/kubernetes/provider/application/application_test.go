@@ -36,7 +36,7 @@ import (
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"

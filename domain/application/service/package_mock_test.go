@@ -19,7 +19,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	resources "github.com/juju/juju/core/resources"
+	resources "github.com/juju/juju/core/resource"
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"

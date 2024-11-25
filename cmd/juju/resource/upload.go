@@ -15,7 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 

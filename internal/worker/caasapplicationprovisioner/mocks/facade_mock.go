@@ -16,7 +16,7 @@ import (
 	charms "github.com/juju/juju/api/common/charms"
 	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	life "github.com/juju/juju/core/life"
-	resources "github.com/juju/juju/core/resources"
+	resources "github.com/juju/juju/core/resource"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"

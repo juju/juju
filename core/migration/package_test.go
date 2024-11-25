@@ -29,7 +29,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/life",
 		"core/logger",
 		"core/network",
-		"core/resources",
+		"core/resource",
 		"internal/charm/resource",
 		"internal/logger",
 		"internal/uuid",

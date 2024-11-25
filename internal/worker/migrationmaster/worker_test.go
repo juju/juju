@@ -31,7 +31,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/migration"

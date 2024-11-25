@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 )
 
 // ValidateDockerRegistryPath ensures the registry path is valid (i.e. api.jujucharms.com@sha256:deadbeef)
@@ -43,15 +43,15 @@ func UnmarshalDockerResource(data []byte) (DockerImageDetails, error) {
 
 // ConvertToResourceImageDetails converts the provided DockerImageDetails to a
 // resources.ImageRepoDetails.
-func ConvertToResourceImageDetails(imageRepo ImageRepoDetails) resources.ImageRepoDetails {
-	return resources.ImageRepoDetails{
-		BasicAuthConfig: resources.BasicAuthConfig{
+func ConvertToResourceImageDetails(imageRepo ImageRepoDetails) resource.ImageRepoDetails {
+	return resource.ImageRepoDetails{
+		BasicAuthConfig: resource.BasicAuthConfig{
 			Auth:     convertToResourceToken(imageRepo.BasicAuthConfig.Auth),
 			Username: imageRepo.BasicAuthConfig.Username,
 			Password: imageRepo.BasicAuthConfig.Password,
 		},
 
-		TokenAuthConfig: resources.TokenAuthConfig{
+		TokenAuthConfig: resource.TokenAuthConfig{
 			IdentityToken: convertToResourceToken(imageRepo.TokenAuthConfig.IdentityToken),
 			RegistryToken: convertToResourceToken(imageRepo.TokenAuthConfig.RegistryToken),
 		},
@@ -61,11 +61,11 @@ func ConvertToResourceImageDetails(imageRepo ImageRepoDetails) resources.ImageRe
 	}
 }
 
-func convertToResourceToken(t *Token) *resources.Token {
+func convertToResourceToken(t *Token) *resource.Token {
 	if t == nil {
 		return nil
 	}
-	return &resources.Token{
+	return &resource.Token{
 		Value:     t.Value,
 		ExpiresAt: t.ExpiresAt,
 	}

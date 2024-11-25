@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

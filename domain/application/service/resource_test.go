@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
-	resourcestesting "github.com/juju/juju/core/resources/testing"
+	resourcestesting "github.com/juju/juju/core/resource/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"

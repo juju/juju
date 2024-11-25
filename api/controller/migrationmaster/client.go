@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
@@ -402,7 +402,7 @@ func convertAppResource(in params.SerializedModelResource) (migration.Serialized
 	if err != nil {
 		return empty, errors.Annotate(err, "charmstore revision")
 	}
-	unitRevs := make(map[string]resources.Resource)
+	unitRevs := make(map[string]resource.Resource)
 	for unitName, inUnitRev := range in.UnitRevisions {
 		unitRev, err := convertResourceRevision(in.Application, in.Name, inUnitRev)
 		if err != nil {
@@ -417,8 +417,8 @@ func convertAppResource(in params.SerializedModelResource) (migration.Serialized
 	}, nil
 }
 
-func convertResourceRevision(app, name string, rev params.SerializedModelResourceRevision) (resources.Resource, error) {
-	var empty resources.Resource
+func convertResourceRevision(app, name string, rev params.SerializedModelResourceRevision) (resource.Resource, error) {
+	var empty resource.Resource
 	type_, err := charmresource.ParseType(rev.Type)
 	if err != nil {
 		return empty, errors.Trace(err)
@@ -433,7 +433,7 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 			return empty, errors.Annotate(err, "invalid fingerprint")
 		}
 	}
-	return resources.Resource{
+	return resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        name,

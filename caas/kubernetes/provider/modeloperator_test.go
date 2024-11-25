@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -51,11 +51,11 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 
 	config := caas.ModelOperatorConfig{
 		AgentConf:    []byte("testconf"),
-		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju/juju:123"},
+		ImageDetails: resource.DockerImageDetails{RegistryPath: "juju/juju:123"},
 		Port:         int32(5497),
 	}
 	if isPrivateImageRepo {
-		config.ImageDetails.BasicAuthConfig.Auth = resources.NewToken("xxxxxxxx===")
+		config.ImageDetails.BasicAuthConfig.Auth = resource.NewToken("xxxxxxxx===")
 	}
 	bridge := &modelOperatorBrokerBridge{
 		client: m.client,

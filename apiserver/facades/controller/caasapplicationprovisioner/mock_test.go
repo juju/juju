@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -120,9 +120,9 @@ type mockResources struct {
 	resource *docker.DockerImageDetails
 }
 
-func (m *mockResources) OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error) {
+func (m *mockResources) OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error) {
 	out, err := json.Marshal(m.resource)
-	return resources.Resource{}, io.NopCloser(bytes.NewBuffer(out)), err
+	return resource.Resource{}, io.NopCloser(bytes.NewBuffer(out)), err
 }
 
 type mockStorageRegistry struct {
@@ -626,13 +626,13 @@ type mockResourceOpener struct {
 	resources *mockResources
 }
 
-func (ro *mockResourceOpener) OpenResource(_ context.Context, name string) (resources.Opened, error) {
+func (ro *mockResourceOpener) OpenResource(_ context.Context, name string) (resource.Opened, error) {
 	ro.MethodCall(ro, "OpenResource", name)
 	r, rio, err := ro.resources.OpenResource(ro.appName, name)
 	if err != nil {
-		return resources.Opened{}, err
+		return resource.Opened{}, err
 	}
-	return resources.Opened{Resource: r, ReadCloser: rio}, nil
+	return resource.Opened{Resource: r, ReadCloser: rio}, nil
 }
 
 type mockObjectStore struct {

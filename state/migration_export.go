@@ -22,7 +22,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/featureflag"
@@ -530,7 +530,7 @@ type addApplicationContext struct {
 	units            []*Unit
 	leader           string
 	payloads         map[string][]payloads.FullPayloadInfo
-	resources        resources.ApplicationResources
+	resources        resource.ApplicationResources
 	endpoingBindings map[string]bindingsMap
 
 	// CAAS
@@ -836,7 +836,7 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 	return info.Message, nil
 }
 
-func (e *exporter) setResources(exApp description.Application, resources resources.ApplicationResources) error {
+func (e *exporter) setResources(exApp description.Application, resources resource.ApplicationResources) error {
 	if len(resources.Resources) != len(resources.CharmStoreResources) {
 		return errors.New("number of resources don't match charm store resources")
 	}
@@ -871,7 +871,7 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 	return nil
 }
 
-func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resources.UnitResources) {
+func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
 	for _, res := range findUnitResources(exUnit.Name(), allResources) {
 		exUnit.AddResource(description.UnitResourceArgs{
 			Name: res.Name,
@@ -890,7 +890,7 @@ func (e *exporter) setUnitResources(exUnit description.Unit, allResources []reso
 	}
 }
 
-func findUnitResources(unitName string, allResources []resources.UnitResources) []resources.Resource {
+func findUnitResources(unitName string, allResources []resource.UnitResources) []resource.Resource {
 	for _, unitResources := range allResources {
 		if unitResources.Tag.Id() == unitName {
 			return unitResources.Resources

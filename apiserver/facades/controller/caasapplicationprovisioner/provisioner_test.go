@@ -20,7 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/model"
-	jujuresource "github.com/juju/juju/core/resources"
+	jujuresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"

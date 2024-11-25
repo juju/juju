@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -31,7 +31,7 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
-	res := resources.Resource{
+	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -77,7 +77,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
-	expected := resources.Resource{
+	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -99,7 +99,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitExpected := resources.Resource{
+	unitExpected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "unitspam",
@@ -207,17 +207,17 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceResource := resources.ApplicationResources{
-		Resources: []resources.Resource{
+	serviceResource := resource.ApplicationResources{
+		Resources: []resource.Resource{
 			expected,
 		},
 		CharmStoreResources: []charmresource.Resource{
 			chExpected,
 		},
-		UnitResources: []resources.UnitResources{
+		UnitResources: []resource.UnitResources{
 			{
 				Tag: names.NewUnitTag("foo/0"),
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					unitExpected,
 				},
 				DownloadProgress: map[string]int64{
@@ -234,7 +234,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
-	expected := resources.Resource{
+	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -256,7 +256,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitExpected := resources.Resource{
+	unitExpected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "unitspam",
@@ -416,7 +416,7 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
-	expected := resources.Resource{
+	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "spam",
@@ -517,15 +517,15 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 	chres1.Revision++
 	chres2.Revision++
 
-	svcRes := resources.ApplicationResources{
-		Resources: []resources.Resource{
+	svcRes := resource.ApplicationResources{
+		Resources: []resource.Resource{
 			res1,
 			res2,
 		},
-		UnitResources: []resources.UnitResources{
+		UnitResources: []resource.UnitResources{
 			{
 				Tag: tag0,
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					res1,
 					res2,
 				},

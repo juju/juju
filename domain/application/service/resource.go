@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
@@ -22,13 +22,13 @@ import (
 type ResourceState interface {
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by natural key of application and resource name.
-	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (resources.ID, error)
+	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.ID, error)
 
 	// ListResources returns the list of resources for the given application.
 	ListResources(ctx context.Context, applicationID application.ID) (resource.ApplicationResources, error)
 
 	// GetResource returns the identified resource.
-	GetResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error)
+	GetResource(ctx context.Context, resourceID coreresource.ID) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(ctx context.Context, config resource.SetResourceArgs) (resource.Resource, error)
@@ -37,11 +37,11 @@ type ResourceState interface {
 	SetUnitResource(ctx context.Context, config resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error)
 
 	// OpenApplicationResource returns the metadata for an application's resource.
-	OpenApplicationResource(ctx context.Context, resourceID resources.ID) (resource.Resource, error)
+	OpenApplicationResource(ctx context.Context, resourceID coreresource.ID) (resource.Resource, error)
 
 	// OpenUnitResource returns the metadata for a resource a. A unit resource is
 	// created to track the given unit and which resource its using.
-	OpenUnitResource(ctx context.Context, resourceID resources.ID, unitID coreunit.UUID) (resource.Resource, error)
+	OpenUnitResource(ctx context.Context, resourceID coreresource.ID, unitID coreunit.UUID) (resource.Resource, error)
 
 	// SetRepositoryResources sets the "polled" resources for the
 	// application to the provided values. The current data for this
@@ -70,7 +70,7 @@ type ResourceStoreGetter interface {
 func (s *Service) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
-) (resources.ID, error) {
+) (coreresource.ID, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return "", fmt.Errorf("application id: %w", err)
 	}
@@ -110,7 +110,7 @@ func (s *Service) ListResources(
 //     not exist.
 func (s *Service) GetResource(
 	ctx context.Context,
-	resourceID resources.ID,
+	resourceID coreresource.ID,
 ) (resource.Resource, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
@@ -178,7 +178,7 @@ func (s *Service) SetUnitResource(
 //     not exist.
 func (s *Service) OpenApplicationResource(
 	ctx context.Context,
-	resourceID resources.ID,
+	resourceID coreresource.ID,
 ) (resource.Resource, io.ReadCloser, error) {
 	if err := resourceID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
@@ -201,7 +201,7 @@ func (s *Service) OpenApplicationResource(
 //     not exist.
 func (s *Service) OpenUnitResource(
 	ctx context.Context,
-	resourceID resources.ID,
+	resourceID coreresource.ID,
 	unitID coreunit.UUID,
 ) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {

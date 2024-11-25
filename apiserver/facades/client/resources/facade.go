@@ -17,7 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -28,7 +28,7 @@ import (
 // Backend is the functionality of Juju's state needed for the resources API.
 type Backend interface {
 	// ListResources returns the resources for the given application.
-	ListResources(application string) (resources.ApplicationResources, error)
+	ListResources(application string) (resource.ApplicationResources, error)
 
 	// AddPendingResource adds the resource to the data backend in a
 	// "pending" state. It will stay pending (and unavailable) until

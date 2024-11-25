@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
@@ -234,11 +234,11 @@ func (s *provisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	})
 	imageResources, err := client.ApplicationOCIResources(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imageResources, jc.DeepEquals, map[string]resources.DockerImageDetails{
+	c.Assert(imageResources, jc.DeepEquals, map[string]resource.DockerImageDetails{
 		"cockroachdb-image": {
 			RegistryPath: "cockroachdb/cockroach:v20.1.4",
-			ImageRepoDetails: resources.ImageRepoDetails{
-				BasicAuthConfig: resources.BasicAuthConfig{
+			ImageRepoDetails: resource.ImageRepoDetails{
+				BasicAuthConfig: resource.BasicAuthConfig{
 					Username: "jujuqa",
 					Password: "pwd",
 				},

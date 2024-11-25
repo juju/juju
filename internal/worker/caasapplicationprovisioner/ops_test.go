@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -439,9 +439,9 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 
 	pi := api.ProvisioningInfo{
 		CharmURL: charm.MustParseURL("ch:my-app"),
-		ImageDetails: resources.DockerImageDetails{
+		ImageDetails: resource.DockerImageDetails{
 			RegistryPath: "test-repo/jujud-operator:2.9.99",
-			ImageRepoDetails: resources.ImageRepoDetails{
+			ImageRepoDetails: resource.ImageRepoDetails{
 				Repository:    "test-repo",
 				ServerAddress: "registry.com",
 			},
@@ -491,7 +491,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		Exists:      true,
 		Terminating: true,
 	}
-	oci := map[string]resources.DockerImageDetails{
+	oci := map[string]resource.DockerImageDetails{
 		"mysql-image": {
 			RegistryPath: "mysql/ubuntu:latest-22.04",
 		},
@@ -507,7 +507,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		Containers: map[string]caas.ContainerConfig{
 			"mysql": {
 				Name: "mysql",
-				Image: resources.DockerImageDetails{
+				Image: resource.DockerImageDetails{
 					RegistryPath: "mysql/ubuntu:latest-22.04",
 				},
 				Mounts: []caas.MountConfig{{
@@ -517,7 +517,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			},
 			"rootless": {
 				Name: "rootless",
-				Image: resources.DockerImageDetails{
+				Image: resource.DockerImageDetails{
 					RegistryPath: "rootless:foo-bar",
 				},
 				Uid: intPtr(5000),

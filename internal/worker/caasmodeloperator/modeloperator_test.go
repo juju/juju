@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -99,7 +99,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 			return modeloperatorapi.ModelOperatorProvisioningInfo{
 				APIAddresses: apiAddresses[iteration],
-				ImageDetails: resources.DockerImageDetails{RegistryPath: imagePath[iteration]},
+				ImageDetails: resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
 				Version:      ver[iteration],
 			}, nil
 		},
