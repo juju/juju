@@ -10,6 +10,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -61,12 +62,12 @@ VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
-	st := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger)
-	svc := applicationservice.NewService(st, nil, nil, nil,
+	st := applicationstate.NewState(s.TxnRunnerFactory(), logger)
+	svc := applicationservice.NewService(st, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		&stubResourceStoreGetter{},
+		clock.WallClock,
 		logger,
 	)
 

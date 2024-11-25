@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -20,7 +21,6 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	resourcestore "github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -35,7 +35,12 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator, registry corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
+func RegisterImport(
+	coordinator Coordinator,
+	registry corestorage.ModelStorageRegistryGetter,
+	clock clock.Clock,
+	logger logger.Logger,
+) {
 	coordinator.Add(&importOperation{
 		registry:     registry,
 		logger:       logger,
@@ -46,10 +51,11 @@ func RegisterImport(coordinator Coordinator, registry corestorage.ModelStorageRe
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	logger logger.Logger
+	service ImportService
 
-	service  ImportService
 	registry corestorage.ModelStorageRegistryGetter
+	clock    clock.Clock
+	logger   logger.Logger
 
 	charmOrigins map[string]*corecharm.Origin
 }
@@ -71,15 +77,10 @@ func (i *importOperation) Name() string {
 
 // Setup creates the service that is used to import applications.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
-		state.NewApplicationState(scope.ModelDB(), i.logger),
-		NoopDeleteSecretState{},
-		state.NewCharmState(scope.ModelDB()),
-		state.NewResourceState(scope.ModelDB(), i.logger),
+	i.service = service.NewMigrationService(
+		state.NewState(scope.ModelDB(), i.logger),
 		i.registry,
-		// TODO: Wire through an objectstoreGetter when implementing
-		// model migration for resources if needed.
-		resourcestore.NewResourceStoreFactory(nil),
+		i.clock,
 		i.logger,
 	)
 	return nil

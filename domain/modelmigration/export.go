@@ -28,10 +28,11 @@ import (
 // the export operations. A logger and a clock are needed for two of the
 // export operations.
 type Exporter struct {
-	coordinator       Coordinator
-	objectStoreGetter objectstore.ModelObjectStoreGetter
-	logger            logger.Logger
-	clock             clock.Clock
+	coordinator           Coordinator
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
+	objectStoreGetter     objectstore.ModelObjectStoreGetter
+	clock                 clock.Clock
+	logger                logger.Logger
 }
 
 // NewExporter returns a new Exporter that encapsulates the
@@ -39,15 +40,16 @@ type Exporter struct {
 // needed until the migration to dqlite is complete.
 func NewExporter(
 	coordinator Coordinator,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
-	logger logger.Logger,
 	clock clock.Clock,
+	logger logger.Logger,
 ) *Exporter {
 	return &Exporter{
 		coordinator:       coordinator,
 		objectStoreGetter: objectStoreGetter,
-		logger:            logger,
 		clock:             clock,
+		logger:            logger,
 	}
 }
 
@@ -66,6 +68,6 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	blockdevice.RegisterExport(e.coordinator, e.logger.Child("blockdevice"))
 	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
-	application.RegisterExport(e.coordinator, e.logger.Child("application"))
+	application.RegisterExport(e.coordinator, e.storageRegistryGetter, e.clock, e.logger.Child("application"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
 }

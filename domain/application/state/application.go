@@ -15,7 +15,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -34,25 +33,9 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ApplicationState describes retrieval and persistence methods for storage.
-type ApplicationState struct {
-	*commonStateBase
-	logger logger.Logger
-}
-
-// NewApplicationState returns a new state reference.
-func NewApplicationState(factory database.TxnRunnerFactory, logger logger.Logger) *ApplicationState {
-	return &ApplicationState{
-		commonStateBase: &commonStateBase{
-			StateBase: domain.NewStateBase(factory),
-		},
-		logger: logger,
-	}
-}
-
 // GetModelType returns the model type for the underlying model. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be returned.
-func (st *ApplicationState) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
+func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -81,7 +64,7 @@ func (st *ApplicationState) GetModelType(ctx context.Context) (coremodel.ModelTy
 // [applicationerrors.ApplicationAlreadyExists] if the application already exists.
 // If returns as error satisfying [applicationerrors.CharmNotFound] if the charm
 // for the application is not found.
-func (st *ApplicationState) CreateApplication(ctx domain.AtomicContext, name string, app application.AddApplicationArg) (coreapplication.ID, error) {
+func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app application.AddApplicationArg) (coreapplication.ID, error) {
 	appID, err := coreapplication.NewID()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -239,7 +222,7 @@ func (st *ApplicationState) CreateApplication(ctx domain.AtomicContext, name str
 	return appID, errors.Annotatef(err, "creating application %q", name)
 }
 
-func (st *ApplicationState) checkApplicationExists(ctx context.Context, tx *sqlair.TX, name string) error {
+func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, name string) error {
 	var appID applicationID
 	appName := applicationName{Name: name}
 	query := `
@@ -261,7 +244,7 @@ WHERE name = $applicationName.name
 	return applicationerrors.ApplicationAlreadyExists
 }
 
-func (st *ApplicationState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
+func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
 	var appID applicationID
 	appName := applicationName{Name: name}
 	queryApplication := `
@@ -287,14 +270,14 @@ WHERE name = $applicationName.name
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
-func (st *ApplicationState) DeleteApplication(ctx domain.AtomicContext, name string) error {
+func (st *State) DeleteApplication(ctx domain.AtomicContext, name string) error {
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.deleteApplication(ctx, tx, name)
 	})
 	return errors.Annotatef(err, "deleting application %q", name)
 }
 
-func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX, name string) error {
+func (st *State) deleteApplication(ctx context.Context, tx *sqlair.TX, name string) error {
 	var appID applicationID
 	queryUnits := `SELECT count(*) AS &countResult.count FROM unit WHERE application_uuid = $applicationID.uuid`
 	queryUnitsStmt, err := st.Prepare(queryUnits, countResult{}, appID)
@@ -342,7 +325,7 @@ func (st *ApplicationState) deleteApplication(ctx context.Context, tx *sqlair.TX
 	}
 	return nil
 }
-func (st *ApplicationState) deleteSimpleApplicationReferences(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID) error {
+func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID) error {
 	app := applicationID{ID: appID}
 
 	for _, table := range []string{
@@ -371,7 +354,7 @@ func (st *ApplicationState) deleteSimpleApplicationReferences(ctx context.Contex
 }
 
 // AddUnits adds the specified units to the application.
-func (st *ApplicationState) AddUnits(ctx domain.AtomicContext, appID coreapplication.ID, args ...application.AddUnitArg) error {
+func (st *State) AddUnits(ctx domain.AtomicContext, appID coreapplication.ID, args ...application.AddUnitArg) error {
 	for _, arg := range args {
 		insertARg := application.InsertUnitArg{
 			UnitName: arg.UnitName,
@@ -389,7 +372,7 @@ func (st *ApplicationState) AddUnits(ctx domain.AtomicContext, appID coreapplica
 
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error) {
+func (st *State) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error) {
 	unit := unitDetails{Name: unitName}
 	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
 	if err != nil {
@@ -410,7 +393,7 @@ func (st *ApplicationState) GetUnitUUID(ctx domain.AtomicContext, unitName coreu
 
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
 // satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
-func (st *ApplicationState) GetUnitUUIDs(ctx context.Context, names []coreunit.Name) ([]coreunit.UUID, error) {
+func (st *State) GetUnitUUIDs(ctx context.Context, names []coreunit.Name) ([]coreunit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -454,7 +437,7 @@ WHERE name IN ($unitNames[:])
 
 // GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an error
 // satisfying [applicationerrors.UnitNotFound] if any units are not found.
-func (st *ApplicationState) GetUnitNames(ctx context.Context, uuids []coreunit.UUID) ([]coreunit.Name, error) {
+func (st *State) GetUnitNames(ctx context.Context, uuids []coreunit.UUID) ([]coreunit.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -496,7 +479,7 @@ WHERE uuid IN ($unitUUIDs[:])
 	})
 }
 
-func (st *ApplicationState) getUnit(ctx domain.AtomicContext, unitName coreunit.Name) (*unitDetails, error) {
+func (st *State) getUnit(ctx domain.AtomicContext, unitName coreunit.Name) (*unitDetails, error) {
 	unit := unitDetails{Name: unitName}
 	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitDetails.name`
 	getUnitStmt, err := st.Prepare(getUnit, unit)
@@ -517,7 +500,7 @@ func (st *ApplicationState) getUnit(ctx domain.AtomicContext, unitName coreunit.
 }
 
 // SetUnitPassword updates the password for the specified unit UUID.
-func (st *ApplicationState) SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, password application.PasswordInfo) error {
+func (st *State) SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, password application.PasswordInfo) error {
 	info := unitPassword{
 		UnitUUID:                unitUUID,
 		PasswordHash:            password.PasswordHash,
@@ -542,7 +525,7 @@ WHERE uuid = $unitPassword.uuid
 // InsertUnit insert the specified application unit, returning an error
 // satisfying [applicationerrors.UnitAlreadyExists]
 // if the unit exists.
-func (st *ApplicationState) InsertUnit(
+func (st *State) InsertUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, args application.InsertUnitArg,
 ) error {
 	var err error
@@ -557,7 +540,7 @@ func (st *ApplicationState) InsertUnit(
 	return errors.Annotatef(err, "inserting unit for application %q", appID)
 }
 
-func (st *ApplicationState) insertUnit(
+func (st *State) insertUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, args application.InsertUnitArg,
 ) (string, error) {
 	unitUUID, err := coreunit.NewUUID()
@@ -622,7 +605,7 @@ func (st *ApplicationState) insertUnit(
 // UpdateUnitContainer updates the cloud container for specified unit,
 // returning an error satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
-func (st *ApplicationState) UpdateUnitContainer(
+func (st *State) UpdateUnitContainer(
 	ctx domain.AtomicContext, unitName coreunit.Name, container *application.CloudContainer,
 ) error {
 	toUpdate, err := st.getUnit(ctx, unitName)
@@ -635,7 +618,7 @@ func (st *ApplicationState) UpdateUnitContainer(
 	return errors.Annotatef(err, "updating cloud container unit %q", unitName)
 }
 
-func (st *ApplicationState) upsertUnitCloudContainer(
+func (st *State) upsertUnitCloudContainer(
 	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeID string, cc *application.CloudContainer,
 ) error {
 	existingContainerInfo := cloudContainer{
@@ -701,7 +684,7 @@ ON CONFLICT(net_node_uuid) DO UPDATE
 	return nil
 }
 
-func (st *ApplicationState) upsertCloudContainerAddress(
+func (st *State) upsertCloudContainerAddress(
 	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeID string, address application.ContainerAddress,
 ) error {
 	// First ensure the address link layer device is upserted.
@@ -806,7 +789,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 type ports []string
 
-func (st *ApplicationState) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, cloudContainerID string, portValues []string) error {
+func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, cloudContainerID string, portValues []string) error {
 	ccPort := cloudContainerPort{
 		CloudContainerUUID: cloudContainerID,
 	}
@@ -848,7 +831,7 @@ DO NOTHING
 // other references to it exist, true is returned to
 // indicate the application could be safely deleted.
 // It will fail if the unit is not Dead.
-func (st *ApplicationState) DeleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) (bool, error) {
+func (st *State) DeleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) (bool, error) {
 	unit := minimalUnit{Name: unitName}
 	peerCountQuery := `
 SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
@@ -890,7 +873,7 @@ WHERE u.name = $minimalUnit.name
 	return canRemoveApplication, errors.Annotatef(err, "removing unit %q", unitName)
 }
 
-func (st *ApplicationState) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) error {
+func (st *State) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) error {
 
 	unit := minimalUnit{Name: unitName}
 
@@ -948,7 +931,7 @@ DELETE FROM net_node WHERE uuid = (
 	return nil
 }
 
-func (st *ApplicationState) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
 	cloudContainer := cloudContainer{NetNodeID: netNodeID}
 
 	if err := st.deleteCloudContainerPorts(ctx, tx, netNodeID); err != nil {
@@ -972,7 +955,7 @@ WHERE net_node_uuid = $cloudContainer.net_node_uuid`, cloudContainer)
 	return nil
 }
 
-func (st *ApplicationState) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+func (st *State) deleteCloudContainerAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
 	unit := minimalUnit{
 		NetNodeID: netNodeID,
 	}
@@ -1001,7 +984,7 @@ WHERE net_node_uuid = $minimalUnit.net_node_uuid`, unit)
 	return nil
 }
 
-func (st *ApplicationState) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
 	unit := minimalUnit{
 		NetNodeID: netNodeID,
 	}
@@ -1018,7 +1001,7 @@ WHERE cloud_container_uuid = $minimalUnit.net_node_uuid
 	return nil
 }
 
-func (st *ApplicationState) deletePorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
+func (st *State) deletePorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
 	unit := minimalUnit{UUID: unitUUID}
 
 	deletePortRange := `
@@ -1037,7 +1020,7 @@ WHERE unit_uuid = $minimalUnit.uuid
 	return nil
 }
 
-func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
+func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
 	unit := minimalUnit{UUID: unitUUID}
 
 	for _, table := range []string{
@@ -1066,7 +1049,7 @@ func (st *ApplicationState) deleteSimpleUnitReferences(ctx context.Context, tx *
 }
 
 // GetSecretsForApplication returns the secrets owned by the specified application.
-func (st *ApplicationState) GetSecretsForApplication(
+func (st *State) GetSecretsForApplication(
 	ctx domain.AtomicContext, appName string,
 ) ([]*coresecrets.URI, error) {
 	app := applicationName{Name: appName}
@@ -1101,7 +1084,7 @@ WHERE a.name = $applicationName.name
 }
 
 // GetSecretsForUnit returns the secrets owned by the specified unit.
-func (st *ApplicationState) GetSecretsForUnit(
+func (st *State) GetSecretsForUnit(
 	ctx domain.AtomicContext, unitName coreunit.Name,
 ) ([]*coresecrets.URI, error) {
 	unit := unitNameAndUUID{Name: unitName}
@@ -1134,7 +1117,7 @@ WHERE u.name = $unitNameAndUUID.name
 }
 
 // StorageDefaults returns the default storage sources for a model.
-func (st *ApplicationState) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
+func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
 	rval := domainstorage.StorageDefaults{}
 
 	db, err := st.DB()
@@ -1177,7 +1160,7 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (st *ApplicationState) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
+func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
@@ -1187,7 +1170,7 @@ func (st *ApplicationState) GetStoragePoolByName(ctx context.Context, name strin
 
 // GetApplicationID returns the ID for the named application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error) {
+func (st *State) GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error) {
 	var appID coreapplication.ID
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -1202,7 +1185,7 @@ func (st *ApplicationState) GetApplicationID(ctx domain.AtomicContext, name stri
 
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-func (st *ApplicationState) GetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name) (life.Life, error) {
+func (st *State) GetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name) (life.Life, error) {
 	unit := minimalUnit{Name: unitName}
 	queryUnit := `
 SELECT &minimalUnit.life_id
@@ -1229,7 +1212,7 @@ WHERE name = $minimalUnit.name
 
 // SetUnitLife sets the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-func (st *ApplicationState) SetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name, l life.Life) error {
+func (st *State) SetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name, l life.Life) error {
 	unit := minimalUnit{Name: unitName, LifeID: l}
 	query := `
 SELECT &minimalUnit.uuid
@@ -1268,7 +1251,7 @@ AND life_id < $minimalUnit.life_id
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *ApplicationState) GetApplicationScaleState(ctx domain.AtomicContext, appID coreapplication.ID) (application.ScaleState, error) {
+func (st *State) GetApplicationScaleState(ctx domain.AtomicContext, appID coreapplication.ID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appID}
 	queryScale := `
 SELECT &applicationScale.*
@@ -1295,7 +1278,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 // GetApplicationLife looks up the life of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application is not found.
-func (st *ApplicationState) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
+func (st *State) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
 	app := applicationName{Name: appName}
 	query := `
 SELECT &applicationID.*
@@ -1321,7 +1304,7 @@ WHERE name = $applicationName.name
 }
 
 // SetApplicationLife sets the life of the specified application.
-func (st *ApplicationState) SetApplicationLife(ctx domain.AtomicContext, appID coreapplication.ID, l life.Life) error {
+func (st *State) SetApplicationLife(ctx domain.AtomicContext, appID coreapplication.ID, l life.Life) error {
 	lifeQuery := `
 UPDATE application
 SET life_id = $applicationID.life_id
@@ -1343,7 +1326,7 @@ AND life_id <= $applicationID.life_id
 }
 
 // SetDesiredApplicationScale updates the desired scale of the specified application.
-func (st *ApplicationState) SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error {
+func (st *State) SetDesiredApplicationScale(ctx domain.AtomicContext, appID coreapplication.ID, scale int) error {
 	scaleDetails := applicationScale{
 		ApplicationID: appID,
 		Scale:         scale,
@@ -1365,7 +1348,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 // SetApplicationScalingState sets the scaling details for the given caas application
 // Scale is optional and is only set if not nil.
-func (st *ApplicationState) SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
+func (st *State) SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
 	scaleDetails := applicationScale{
 		ApplicationID: appID,
 		Scaling:       scaling,
@@ -1397,7 +1380,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 // UpsertCloudService updates the cloud service for the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (st *ApplicationState) UpsertCloudService(ctx context.Context, name, providerID string, sAddrs network.SpaceAddresses) error {
+func (st *State) UpsertCloudService(ctx context.Context, name, providerID string, sAddrs network.SpaceAddresses) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -1434,7 +1417,7 @@ type statusKeys []string
 
 // saveStatusData saves the status key value data for the specified unit in the specified table.
 // It's called from each different SaveStatus method which previously has confirmed the unit UUID exists.
-func (st *ApplicationState) saveStatusData(ctx context.Context, tx *sqlair.TX, table string, unitUUID coreunit.UUID, data map[string]string) error {
+func (st *State) saveStatusData(ctx context.Context, tx *sqlair.TX, table string, unitUUID coreunit.UUID, data map[string]string) error {
 	unit := minimalUnit{UUID: unitUUID}
 	var keys statusKeys
 	for k := range data {
@@ -1477,7 +1460,7 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 
 // SetCloudContainerStatus saves the given cloud container status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
+func (st *State) SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  int(status.StatusID),
@@ -1509,7 +1492,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // SetUnitAgentStatus saves the given unit agent status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
+func (st *State) SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  int(status.StatusID),
@@ -1541,7 +1524,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // SetUnitWorkloadStatus saves the given unit workload status, overwriting any current status data.
 // If returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *ApplicationState) SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
+func (st *State) SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  int(status.StatusID),
@@ -1572,7 +1555,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 }
 
 // InitialWatchStatementUnitLife returns the initial namespace query for the application unit life watcher.
-func (st *ApplicationState) InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		app := applicationName{Name: appName}
 		stmt, err := st.Prepare(`
@@ -1606,7 +1589,7 @@ WHERE a.name = $applicationName.name
 
 // GetApplicationUnitLife returns the life values for the specified units of the given application.
 // The supplied ids may belong to a different application; the application name is used to filter.
-func (st *ApplicationState) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[coreunit.UUID]life.Life, error) {
+func (st *State) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[coreunit.UUID]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1652,7 +1635,7 @@ AND a.name = $applicationName.name
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 // and [applicationerrors.CharmNotFound] if the charm is not found.
-func (st *ApplicationState) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
+func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -1721,7 +1704,7 @@ WHERE uuid = $applicationID.uuid
 // [applicationerrors.ApplicationNotFoundError] is returned.
 // If the charm for the application does not exist, an error satisfying
 // [applicationerrors.CharmNotFoundError] is returned.
-func (st *ApplicationState) GetCharmByApplicationID(ctx context.Context, appID coreapplication.ID) (charm.Charm, charm.CharmOrigin, application.Platform, error) {
+func (st *State) GetCharmByApplicationID(ctx context.Context, appID coreapplication.ID) (charm.Charm, charm.CharmOrigin, application.Platform, error) {
 	db, err := st.DB()
 	if err != nil {
 		return charm.Charm{}, charm.CharmOrigin{}, application.Platform{}, errors.Trace(err)
@@ -1796,7 +1779,7 @@ WHERE uuid = $applicationID.uuid
 }
 
 // getPlatform returns the application platform for the given charm ID.
-func (st *ApplicationState) getPlatform(ctx context.Context, tx *sqlair.TX, ident applicationID) (application.Platform, error) {
+func (st *State) getPlatform(ctx context.Context, tx *sqlair.TX, ident applicationID) (application.Platform, error) {
 	query := `
 SELECT &applicationPlatform.*
 FROM application_platform
@@ -1866,7 +1849,7 @@ func decodeArchitecture(arch int) (application.Architecture, error) {
 //
 // Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *ApplicationState) GetApplicationIDByUnitName(
+func (st *State) GetApplicationIDByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.ID, error) {
@@ -1905,7 +1888,7 @@ WHERE name = $unitNameAndUUID.name
 //
 // Returns [applicationerrors.ApplicationNotFound] if the
 // application is not found.
-func (st *ApplicationState) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
+func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
 	db, err := st.DB()
 	if err != nil {
 		return -1, internalerrors.Capture(err)

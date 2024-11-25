@@ -940,7 +940,16 @@ func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.Leg
 		return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, ctx.ModelUUID().String())
 	})
 
-	exporter := domainmodelmigration.NewExporter(coordinator, objectStoreGetter, logger, clock)
+	exporter := domainmodelmigration.NewExporter(
+		coordinator,
+		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
+			storageService := domainServices.Storage()
+			return storageService.GetStorageRegistry(ctx)
+		}),
+		objectStoreGetter,
+		clock,
+		logger,
+	)
 	return migration.NewModelExporter(
 		exporter,
 		backend,

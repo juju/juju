@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -93,7 +93,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createApplication(c *gc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -114,8 +114,8 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 
 	svc := s.setupService(c, factory)
 
-	s.createApplication(c, &svc.Service, "foo")
-	s.createApplication(c, &svc.Service, "bar")
+	s.createApplication(c, svc, "foo")
+	s.createApplication(c, svc, "bar")
 
 	var unitID1, unitID2, unitID3 string
 	setup := func(c *gc.C) {
@@ -156,7 +156,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
+	watcher, err := svc.WatchApplicationUnitLife("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
@@ -313,8 +313,8 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 		u3 := service.AddUnitArg{
 			UnitName: "bar/666",
 		}
-		s.createApplication(c, &svc.Service, "foo", u1, u2)
-		s.createApplication(c, &svc.Service, "bar", u3)
+		s.createApplication(c, svc, "foo", u1, u2)
+		s.createApplication(c, svc, "bar", u3)
 
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
@@ -329,7 +329,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 
 	}
 
-	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
+	watcher, err := svc.WatchApplicationUnitLife("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
@@ -349,8 +349,8 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 
 	svc := s.setupService(c, factory)
 
-	s.createApplication(c, &svc.Service, "foo")
-	s.createApplication(c, &svc.Service, "bar")
+	s.createApplication(c, svc, "foo")
+	s.createApplication(c, svc, "bar")
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationScale(ctx, "foo")
@@ -391,24 +391,19 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
 	return service.NewWatchableService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
 		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
-		state.NewCharmState(func() (database.TxnRunner, error) {
-			return s.ModelTxnRunner(), nil
-		}),
-		state.NewResourceState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		"", nil, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		resource.NewResourceStoreFactory(nil),
+		"",
+		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		nil, nil,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }

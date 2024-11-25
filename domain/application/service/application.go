@@ -6,32 +6,23 @@ package service
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/assumes"
-	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/providertracker"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -41,7 +32,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -219,41 +209,10 @@ type DeleteSecretState interface {
 	DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error
 }
 
-const (
-	// applicationSnippet is a non-compiled regexp that can be composed with
-	// other snippets to form a valid application regexp.
-	applicationSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
-)
-
-var (
-	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
-)
-
-// ApplicationService provides the API for working with applications.
-type ApplicationService struct {
-	st     ApplicationState
-	logger logger.Logger
-	clock  clock.Clock
-
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	secretDeleter         DeleteSecretState
-}
-
-// NewApplicationService returns a new service reference wrapping the input state.
-func NewApplicationService(st ApplicationState, deleteSecretState DeleteSecretState, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) *ApplicationService {
-	return &ApplicationService{
-		st:                    st,
-		logger:                logger,
-		clock:                 clock.WallClock,
-		storageRegistryGetter: storageRegistryGetter,
-		secretDeleter:         deleteSecretState,
-	}
-}
-
 // CreateApplication creates the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
-func (s *ApplicationService) CreateApplication(
+func (s *Service) CreateApplication(
 	ctx context.Context,
 	name string,
 	charm internalcharm.Charm,
@@ -261,7 +220,7 @@ func (s *ApplicationService) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
-	if err := s.validateCreateApplicationParams(name, args.ReferenceName, charm, origin); err != nil {
+	if err := validateCreateApplicationParams(name, args.ReferenceName, charm, origin); err != nil {
 		return "", errors.Annotatef(err, "invalid application args")
 	}
 
@@ -269,7 +228,7 @@ func (s *ApplicationService) CreateApplication(
 	if err != nil {
 		return "", errors.Annotatef(err, "getting model type")
 	}
-	appArg, err := s.makeCreateApplicationArgs(ctx, modelType, charm, origin, args)
+	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application args")
 	}
@@ -304,7 +263,7 @@ func (s *ApplicationService) CreateApplication(
 	return appID, err
 }
 
-func (s *ApplicationService) validateCreateApplicationParams(
+func validateCreateApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
@@ -332,8 +291,10 @@ func (s *ApplicationService) validateCreateApplicationParams(
 	return nil
 }
 
-func (s *ApplicationService) makeCreateApplicationArgs(
+func makeCreateApplicationArgs(
 	ctx context.Context,
+	state State,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelType coremodel.ModelType,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
@@ -347,10 +308,14 @@ func (s *ApplicationService) makeCreateApplicationArgs(
 	for n, sc := range args.Storage {
 		cons[n] = sc
 	}
-	if err := s.addDefaultStorageDirectives(ctx, modelType, cons, charm.Meta()); err != nil {
+
+	meta := charm.Meta()
+
+	var err error
+	if cons, err = addDefaultStorageDirectives(ctx, state, modelType, cons, meta.Storage); err != nil {
 		return application.AddApplicationArg{}, errors.Annotate(err, "adding default storage directives")
 	}
-	if err := s.validateStorageDirectives(ctx, modelType, cons, charm); err != nil {
+	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, cons, meta); err != nil {
 		return application.AddApplicationArg{}, errors.Annotate(err, "invalid storage directives")
 	}
 
@@ -374,7 +339,7 @@ func (s *ApplicationService) makeCreateApplicationArgs(
 	}, nil
 }
 
-func (s *ApplicationService) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelType coremodel.ModelType) {
+func (s *Service) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelType coremodel.ModelType) {
 	now := s.clock.Now()
 	arg.AgentStatus = application.UnitAgentStatusInfo{
 		StatusID: application.UnitAgentStatusAllocating,
@@ -394,93 +359,9 @@ func (s *ApplicationService) addNewUnitStatusToArg(arg *application.UnitStatusAr
 	}
 }
 
-func (s *ApplicationService) makeUnitStatus(in StatusParams) application.StatusInfo {
-	si := application.StatusInfo{
-		Message: in.Message,
-		Since:   s.clock.Now(),
-	}
-	if in.Since != nil {
-		si.Since = *in.Since
-	}
-	if len(in.Data) > 0 {
-		si.Data = make(map[string]string)
-		for k, v := range in.Data {
-			if v == nil {
-				continue
-			}
-			si.Data[k] = fmt.Sprintf("%v", v)
-		}
-	}
-	return si
-}
-
-// ImportApplication imports the specified application and units if required,
-// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
-// if the application already exists.
-func (s *ApplicationService) ImportApplication(
-	ctx context.Context, appName string,
-	charm internalcharm.Charm, origin corecharm.Origin, args AddApplicationArgs,
-	units ...ImportUnitArg,
-) error {
-	if err := s.validateCreateApplicationParams(appName, args.ReferenceName, charm, origin); err != nil {
-		return errors.Annotatef(err, "invalid application args")
-	}
-
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return errors.Annotatef(err, "getting model type")
-	}
-	appArg, err := s.makeCreateApplicationArgs(ctx, modelType, charm, origin, args)
-	if err != nil {
-		return errors.Annotatef(err, "creating application args")
-	}
-	appArg.Scale = len(units)
-
-	unitArgs := make([]application.InsertUnitArg, len(units))
-	for i, u := range units {
-		arg := application.InsertUnitArg{
-			UnitName: u.UnitName,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: application.UnitAgentStatusInfo{
-					StatusID:   application.MarshallUnitAgentStatus(u.AgentStatus.Status),
-					StatusInfo: s.makeUnitStatus(u.AgentStatus),
-				},
-				WorkloadStatus: application.UnitWorkloadStatusInfo{
-					StatusID:   application.MarshallUnitWorkloadStatus(u.WorkloadStatus.Status),
-					StatusInfo: s.makeUnitStatus(u.WorkloadStatus),
-				},
-			},
-		}
-		if u.CloudContainer != nil {
-			arg.CloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)
-		}
-		if u.PasswordHash != nil {
-			arg.Password = &application.PasswordInfo{
-				PasswordHash:  *u.PasswordHash,
-				HashAlgorithm: application.HashAlgorithmSHA256,
-			}
-		}
-		unitArgs[i] = arg
-	}
-
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.CreateApplication(ctx, appName, appArg)
-		if err != nil {
-			return errors.Annotatef(err, "creating application %q", appName)
-		}
-		for _, arg := range unitArgs {
-			if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
-				return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
-			}
-		}
-		return nil
-	})
-	return err
-}
-
 // AddUnits adds the specified units to the application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ...AddUnitArg) error {
+func (s *Service) AddUnits(ctx context.Context, name string, units ...AddUnitArg) error {
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "getting model type")
@@ -508,7 +389,7 @@ func (s *ApplicationService) AddUnits(ctx context.Context, name string, units ..
 // GetApplicationIDByUnitName returns the application ID for the named unit,
 // returning an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
-func (s *ApplicationService) GetApplicationIDByUnitName(
+func (s *Service) GetApplicationIDByUnitName(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (coreapplication.ID, error) {
@@ -521,7 +402,7 @@ func (s *ApplicationService) GetApplicationIDByUnitName(
 
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
 // satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
-func (s *ApplicationService) GetUnitUUIDs(ctx context.Context, unitNames []coreunit.Name) ([]coreunit.UUID, error) {
+func (s *Service) GetUnitUUIDs(ctx context.Context, unitNames []coreunit.Name) ([]coreunit.UUID, error) {
 	uuids, err := s.st.GetUnitUUIDs(ctx, unitNames)
 	if err != nil {
 		return nil, internalerrors.Errorf("failed to get unit UUIDs: %w", err)
@@ -531,7 +412,7 @@ func (s *ApplicationService) GetUnitUUIDs(ctx context.Context, unitNames []coreu
 
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
 	uuids, err := s.GetUnitUUIDs(ctx, []coreunit.Name{unitName})
 	if err != nil {
 		return "", err
@@ -541,7 +422,7 @@ func (s *ApplicationService) GetUnitUUID(ctx context.Context, unitName coreunit.
 
 // GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an
 // error satisfying [applicationerrors.UnitNotFound] if any units are not found.
-func (s *ApplicationService) GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]coreunit.Name, error) {
+func (s *Service) GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]coreunit.Name, error) {
 	names, err := s.st.GetUnitNames(ctx, unitUUIDs)
 	if err != nil {
 		return nil, internalerrors.Errorf("failed to get unit names: %w", err)
@@ -551,7 +432,7 @@ func (s *ApplicationService) GetUnitNames(ctx context.Context, unitUUIDs []coreu
 
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
-func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName coreunit.Name) (corelife.Value, error) {
+func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (corelife.Value, error) {
 	var result corelife.Value
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
@@ -566,7 +447,7 @@ func (s *ApplicationService) GetUnitLife(ctx context.Context, unitName coreunit.
 // This method is called (mostly during cleanup) after a unit
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
-func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
+func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.deleteUnit(ctx, unitName)
 	})
@@ -576,7 +457,7 @@ func (s *ApplicationService) DeleteUnit(ctx context.Context, unitName coreunit.N
 	return nil
 }
 
-func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) error {
+func (s *Service) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) error {
 	// Get unit owned secrets.
 	uris, err := s.st.GetSecretsForUnit(ctx, unitName)
 	if err != nil {
@@ -613,7 +494,7 @@ func (s *ApplicationService) deleteUnit(ctx domain.AtomicContext, unitName coreu
 // DestroyUnit prepares a unit for removal from the model
 // returning an error  satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
-func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
+func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
 	// For now, all we do is advance the unit's life to Dying.
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.st.SetUnitLife(ctx, unitName, life.Dying)
@@ -629,7 +510,7 @@ func (s *ApplicationService) DestroyUnit(ctx context.Context, unitName coreunit.
 // This method is also called during cleanup from various cleanup jobs.
 // If the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
-func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
+func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.ensureUnitDead(ctx, unitName)
 	})
@@ -645,7 +526,7 @@ func (s *ApplicationService) EnsureUnitDead(ctx context.Context, unitName coreun
 	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
 }
 
-func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName coreunit.Name) (err error) {
+func (s *Service) ensureUnitDead(ctx domain.AtomicContext, unitName coreunit.Name) (err error) {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return errors.Trace(err)
@@ -669,7 +550,7 @@ func (s *ApplicationService) ensureUnitDead(ctx domain.AtomicContext, unitName c
 // If the unit is still alive, an error satisfying [applicationerrors.UnitIsAlive]
 // is returned. If the unit is not found, an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
-func (s *ApplicationService) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
+func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitLife, err := s.st.GetUnitLife(ctx, unitName)
 		if err != nil {
@@ -727,7 +608,7 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer CloudContainer
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError]
 // if the application doesn't exist. If the unit life is Dead, an error
 // satisfying [applicationerrors.UnitAlreadyExists] is returned.
-func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName string, args RegisterCAASUnitParams) error {
+func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args RegisterCAASUnitParams) error {
 	if args.PasswordHash == "" {
 		return errors.NotValidf("password hash")
 	}
@@ -791,7 +672,7 @@ func (s *ApplicationService) RegisterCAASUnit(ctx context.Context, appName strin
 	return errors.Annotatef(err, "saving caas unit %q", args.UnitName)
 }
 
-func (s *ApplicationService) insertCAASUnit(
+func (s *Service) insertCAASUnit(
 	ctx domain.AtomicContext, appID coreapplication.ID, orderedID int, arg application.InsertUnitArg,
 ) error {
 	appScale, err := s.st.GetApplicationScaleState(ctx, appID)
@@ -808,7 +689,7 @@ func (s *ApplicationService) insertCAASUnit(
 // UpdateCAASUnit updates the specified CAAS unit, returning an error
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
-func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
+func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
 	var cloudContainer *application.CloudContainer
 	if params.ProviderId != nil {
 		cloudContainerParams := CloudContainerParams{
@@ -899,7 +780,7 @@ func (s *ApplicationService) UpdateCAASUnit(ctx context.Context, unitName coreun
 
 // SetUnitPassword updates the password for the specified unit, returning an error
 // satisfying [applicationerrors.NotNotFound] if the unit doesn't exist.
-func (s *ApplicationService) SetUnitPassword(ctx context.Context, unitName coreunit.Name, password string) error {
+func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, password string) error {
 	return s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
 		if err != nil {
@@ -916,7 +797,7 @@ func (s *ApplicationService) SetUnitPassword(ctx context.Context, unitName coreu
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
-func (s *ApplicationService) DeleteApplication(ctx context.Context, name string) error {
+func (s *Service) DeleteApplication(ctx context.Context, name string) error {
 	var cleanups []func(context.Context)
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
@@ -932,7 +813,7 @@ func (s *ApplicationService) DeleteApplication(ctx context.Context, name string)
 	return nil
 }
 
-func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
+func (s *Service) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
 	// Get app owned secrets.
 	uris, err := s.st.GetSecretsForApplication(ctx, name)
 	if err != nil {
@@ -954,7 +835,7 @@ func (s *ApplicationService) deleteApplication(ctx domain.AtomicContext, name st
 // DestroyApplication prepares an application for removal from the model
 // returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
 // if the application doesn't exist.
-func (s *ApplicationService) DestroyApplication(ctx context.Context, appName string) error {
+func (s *Service) DestroyApplication(ctx context.Context, appName string) error {
 	// For now, all we do is advance the application's life to Dying.
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
@@ -972,7 +853,7 @@ func (s *ApplicationService) DestroyApplication(ctx context.Context, appName str
 // EnsureApplicationDead is called by the cleanup worker if a mongo
 // destroy operation sets the application to dead.
 // TODO(units): remove when everything is in dqlite.
-func (s *ApplicationService) EnsureApplicationDead(ctx context.Context, appName string) error {
+func (s *Service) EnsureApplicationDead(ctx context.Context, appName string) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -988,7 +869,7 @@ func (s *ApplicationService) EnsureApplicationDead(ctx context.Context, appName 
 
 // UpdateApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
-func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
+func (s *Service) UpdateApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
 	//TODO(storage) - update charm and storage directive for app
 	return nil
 }
@@ -998,7 +879,7 @@ func (s *ApplicationService) UpdateApplicationCharm(ctx context.Context, name st
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 // and [applicationerrors.ApplicationNotFound] if the application is not found.
-func (s *ApplicationService) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
+func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
 	if !isValidApplicationName(name) {
 		return "", applicationerrors.ApplicationNameNotValid
 	}
@@ -1022,7 +903,7 @@ func (s *ApplicationService) GetApplicationIDByName(ctx context.Context, name st
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 // and [applicationerrors.CharmNotFound] if the charm is not found.
-func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
+func (s *Service) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	if !isValidApplicationName(name) {
 		return "", applicationerrors.ApplicationNameNotValid
 	}
@@ -1034,7 +915,7 @@ func (s *ApplicationService) GetCharmIDByApplicationName(ctx context.Context, na
 // application.
 //
 // Returns [applicationerrors.ApplicationNotFound] if the application is not found.
-func (s *ApplicationService) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
+func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
 	charmModifiedVersion, err := s.st.GetCharmModifiedVersion(ctx, id)
 	if err != nil {
 		return -1, internalerrors.Errorf("getting the application charm modified version: %w", err)
@@ -1051,7 +932,7 @@ func (s *ApplicationService) GetCharmModifiedVersion(ctx context.Context, id cor
 // [applicationerrors.CharmNotFound is returned. If the application name is not
 // valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
 // returned.
-func (s *ApplicationService) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
+func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
 	internalcharm.Charm,
 	domaincharm.CharmOrigin,
 	application.Platform,
@@ -1102,43 +983,9 @@ func (s *ApplicationService) GetCharmByApplicationID(ctx context.Context, id cor
 	), origin, platform, nil
 }
 
-// addDefaultStorageDirectives fills in default values, replacing any empty/missing values
-// in the specified directives.
-func (s *ApplicationService) addDefaultStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charmMeta *internalcharm.Meta) error {
-	defaults, err := s.st.StorageDefaults(ctx)
-	if err != nil {
-		return errors.Annotate(err, "getting storage defaults")
-	}
-	return domainstorage.StorageDirectivesWithDefaults(charmMeta.Storage, modelType, defaults, allDirectives)
-}
-
-func (s *ApplicationService) validateStorageDirectives(ctx context.Context, modelType coremodel.ModelType, allDirectives map[string]storage.Directive, charm internalcharm.Charm) error {
-	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, s.st)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, charm)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Ensure all stores have directives specified. Defaults should have
-	// been set by this point, if the user didn't specify any.
-	for name, charmStorage := range charm.Meta().Storage {
-		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
-			return fmt.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
-		}
-	}
-	return nil
-}
-
 // UpdateCloudService updates the cloud service for the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (s *ApplicationService) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
+func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
 }
 
@@ -1153,7 +1000,7 @@ type Broker interface {
 // the agent should shutdown.
 // We pass in a CAAS broker to get app details from the k8s cluster - we will probably
 // make it a service attribute once more use cases emerge.
-func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker Broker) (bool, error) {
+func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker Broker) (bool, error) {
 	// TODO(sidecar): handle deployment other than statefulset
 	deploymentType := caas.DeploymentStateful
 	restart := true
@@ -1192,7 +1039,7 @@ func (s *ApplicationService) CAASUnitTerminating(ctx context.Context, appName st
 // GetApplicationLife looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (s *ApplicationService) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
+func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
 	var result corelife.Value
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		_, appLife, err := s.st.GetApplicationLife(ctx, appName)
@@ -1205,7 +1052,7 @@ func (s *ApplicationService) GetApplicationLife(ctx context.Context, appName str
 // SetApplicationScale sets the application's desired scale value, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
 // This is used on CAAS models.
-func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName string, scale int) error {
+func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale int) error {
 	if scale < 0 {
 		return fmt.Errorf("application scale %d not valid%w", scale, errors.Hide(applicationerrors.ScaleChangeInvalid))
 	}
@@ -1229,12 +1076,12 @@ func (s *ApplicationService) SetApplicationScale(ctx context.Context, appName st
 // GetApplicationScale returns the desired scale of an application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // This is used on CAAS models.
-func (s *ApplicationService) GetApplicationScale(ctx context.Context, appName string) (int, error) {
+func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int, error) {
 	_, scale, err := s.getApplicationScaleAndID(ctx, appName)
 	return scale, errors.Trace(err)
 }
 
-func (s *ApplicationService) getApplicationScaleAndID(ctx context.Context, appName string) (coreapplication.ID, int, error) {
+func (s *Service) getApplicationScaleAndID(ctx context.Context, appName string) (coreapplication.ID, int, error) {
 	var (
 		scaleState application.ScaleState
 		appID      coreapplication.ID
@@ -1256,7 +1103,7 @@ func (s *ApplicationService) getApplicationScaleAndID(ctx context.Context, appNa
 // It returns an error satisfying [applicationerrors.ApplicationNotFoundError] if the application
 // doesn't exist.
 // This is used on CAAS models.
-func (s *ApplicationService) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
+func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
 	var newScale int
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
@@ -1284,7 +1131,7 @@ func (s *ApplicationService) ChangeApplicationScale(ctx context.Context, appName
 // SetApplicationScalingState updates the scale state of an application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // This is used on CAAS models.
-func (s *ApplicationService) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
+func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, appLife, err := s.st.GetApplicationLife(ctx, appName)
 		if err != nil {
@@ -1318,7 +1165,7 @@ func (s *ApplicationService) SetApplicationScalingState(ctx context.Context, app
 // GetApplicationScalingState returns the scale state of an application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // This is used on CAAS models.
-func (s *ApplicationService) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
+func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
 	var scaleState application.ScaleState
 	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.GetApplicationID(ctx, appName)
@@ -1332,164 +1179,4 @@ func (s *ApplicationService) GetApplicationScalingState(ctx context.Context, app
 		ScaleTarget: scaleState.ScaleTarget,
 		Scaling:     scaleState.Scaling,
 	}, errors.Trace(err)
-}
-
-// AgentVersionGetter is responsible for retrieving the agent version for a
-// given model.
-type AgentVersionGetter interface {
-	// GetModelTargetAgentVersion returns the agent version for the specified
-	// model.
-	GetModelTargetAgentVersion(context.Context, coremodel.UUID) (version.Number, error)
-}
-
-// Provider defines the interface for interacting with the underlying model
-// provider.
-type Provider interface {
-	environs.SupportedFeatureEnumerator
-}
-
-// ProviderApplicationService defines a service for interacting with the underlying
-// model state.
-type ProviderApplicationService struct {
-	ApplicationService
-
-	modelID            coremodel.UUID
-	agentVersionGetter AgentVersionGetter
-	provider           providertracker.ProviderGetter[Provider]
-}
-
-// NewProviderApplicationService returns a new Service for interacting with a models state.
-func NewProviderApplicationService(
-	st ApplicationState, deleteSecretState DeleteSecretState,
-	modelID coremodel.UUID,
-	agentVersionGetter AgentVersionGetter,
-	provider providertracker.ProviderGetter[Provider],
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	logger logger.Logger,
-) *ProviderApplicationService {
-	service := NewApplicationService(st, deleteSecretState, storageRegistryGetter, logger)
-
-	return &ProviderApplicationService{
-		ApplicationService: *service,
-		modelID:            modelID,
-		agentVersionGetter: agentVersionGetter,
-		provider:           provider,
-	}
-}
-
-// GetSupportedFeatures returns the set of features that the model makes
-// available for charms to use.
-// If the agent version cannot be found, an error satisfying
-// [modelerrors.NotFound] will be returned.
-func (s *ProviderApplicationService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
-	agentVersion, err := s.agentVersionGetter.GetModelTargetAgentVersion(ctx, s.modelID)
-	if err != nil {
-		return assumes.FeatureSet{}, err
-	}
-
-	var fs assumes.FeatureSet
-	fs.Add(assumes.Feature{
-		Name:        "juju",
-		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
-		Version:     &agentVersion,
-	})
-
-	provider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
-		return fs, nil
-	} else if err != nil {
-		return fs, err
-	}
-
-	envFs, err := provider.SupportedFeatures()
-	if err != nil {
-		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
-	}
-
-	fs.Merge(envFs)
-
-	return fs, nil
-}
-
-// WatchableApplicationService provides the API for working with applications and the
-// ability to create watchers.
-type WatchableApplicationService struct {
-	ProviderApplicationService
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableApplicationService returns a new service reference wrapping the input state.
-func NewWatchableApplicationService(
-	st ApplicationState, deleteSecretState DeleteSecretState,
-	watcherFactory WatcherFactory,
-	modelID coremodel.UUID,
-	agentVersionGetter AgentVersionGetter,
-	provider providertracker.ProviderGetter[Provider],
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	logger logger.Logger,
-) *WatchableApplicationService {
-	service := NewProviderApplicationService(st, deleteSecretState, modelID, agentVersionGetter, provider, storageRegistryGetter, logger)
-
-	return &WatchableApplicationService{
-		ProviderApplicationService: *service,
-		watcherFactory:             watcherFactory,
-	}
-}
-
-// WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
-func (s *WatchableApplicationService) WatchApplicationUnitLife(appName string) (watcher.StringsWatcher, error) {
-	lifeGetter := func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
-		unitUUIDs, err := transform.SliceOrErr(ids, coreunit.ParseID)
-		if err != nil {
-			return nil, err
-		}
-		unitLifes, err := s.st.GetApplicationUnitLife(ctx, appName, unitUUIDs...)
-		if err != nil {
-			return nil, err
-		}
-		result := make(map[string]life.Life, len(unitLifes))
-		for unitUUID, life := range unitLifes {
-			result[unitUUID.String()] = life
-		}
-		return result, nil
-	}
-	lifeMapper := domain.LifeStringsWatcherMapperFunc(s.logger, lifeGetter)
-
-	table, query := s.st.InitialWatchStatementUnitLife(appName)
-	return s.watcherFactory.NewNamespaceMapperWatcher(table, changestream.All, query, lifeMapper)
-}
-
-// WatchApplicationScale returns a watcher that observes changes to an application's scale.
-func (s *WatchableApplicationService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
-	appID, currentScale, err := s.getApplicationScaleAndID(ctx, appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	mask := changestream.Create | changestream.Update
-	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		newScale, err := s.GetApplicationScale(ctx, appName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Only dispatch if the scale has changed.
-		if newScale != currentScale {
-			currentScale = newScale
-			return changes, nil
-		}
-		return nil, nil
-	}
-	return s.watcherFactory.NewValueMapperWatcher("application_scale", appID.String(), mask, mapper)
-}
-
-// isValidApplicationName returns whether name is a valid application name.
-func isValidApplicationName(name string) bool {
-	return validApplication.MatchString(name)
-}
-
-// isValidReferenceName returns whether name is a valid reference name.
-// This ensures that the reference name is both a valid application name
-// and a valid charm name.
-func isValidReferenceName(name string) bool {
-	return isValidApplicationName(name) && isValidCharmName(name)
 }

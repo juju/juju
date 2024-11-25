@@ -68,9 +68,7 @@ func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, 
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, pool := range p.DefaultPools() {
-			result = append(result, pool)
-		}
+		result = append(result, p.DefaultPools()...)
 	}
 	return result, nil
 }

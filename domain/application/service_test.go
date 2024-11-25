@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/ipaddress"
@@ -55,20 +55,16 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
 	s.svc = service.NewService(
-		state.NewApplicationState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
 		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 			loggertesting.WrapCheckLog(c),
 		),
-		state.NewCharmState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }),
-		state.NewResourceState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		resource.NewResourceStoreFactory(nil),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 

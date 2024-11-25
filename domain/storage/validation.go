@@ -57,12 +57,11 @@ type storageDirectivesValidator struct {
 func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 	ctx context.Context,
 	allDirectives map[string]storage.Directive,
-	charm Charm,
+	meta *charm.Meta,
 ) error {
-	charmMeta := charm.Meta()
 	// CAAS charms don't support volume/block storage yet.
 	if v.modelType == coremodel.CAAS {
-		for name, charmStorage := range charmMeta.Storage {
+		for name, charmStorage := range meta.Storage {
 			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
 				continue
 			}
@@ -77,24 +76,24 @@ func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 	}
 
 	for name, directive := range allDirectives {
-		charmStorage, ok := charmMeta.Storage[name]
+		charmStorage, ok := meta.Storage[name]
 		if !ok {
-			return errors.Errorf("charm %q has no store called %q", charmMeta.Name, name)
+			return errors.Errorf("charm %q has no store called %q", meta.Name, name)
 		}
 		if charmStorage.Shared {
 			// TODO(axw) implement shared storage support.
 			return errors.Errorf(
 				"charm %q store %q: shared storage support not implemented",
-				charmMeta.Name, name,
+				meta.Name, name,
 			)
 		}
 		if err := v.validateCharmStorageCount(charmStorage, directive.Count); err != nil {
-			return errors.Annotatef(err, "charm %q store %q", charmMeta.Name, name)
+			return errors.Annotatef(err, "charm %q store %q", meta.Name, name)
 		}
 		if charmStorage.MinimumSize > 0 && directive.Size < charmStorage.MinimumSize {
 			return errors.Errorf(
 				"charm %q store %q: minimum storage size is %s, %s specified",
-				charmMeta.Name, name,
+				meta.Name, name,
 				humanize.Bytes(charmStorage.MinimumSize*humanize.MByte),
 				humanize.Bytes(directive.Size*humanize.MByte),
 			)

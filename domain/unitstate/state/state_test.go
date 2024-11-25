@@ -31,7 +31,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	appState := applicationstate.NewApplicationState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	appArg := application.AddApplicationArg{
 		Charm: charm.Charm{

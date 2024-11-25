@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -19,14 +18,10 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type resourceServiceSuite struct {
-	testing.IsolationSuite
-
-	state   *MockResourceState
-	service *ResourceService
+	baseSuite
 }
 
 var _ = gc.Suite(&resourceServiceSuite{})
@@ -296,14 +291,4 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *gc.C) {
 
 	err = s.service.SetRepositoryResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.state = NewMockResourceState(ctrl)
-	getter := NewMockResourceStoreGetter(ctrl)
-	getter.EXPECT().AddStore(gomock.Any(), gomock.Any())
-	s.service = NewResourceService(s.state, getter, loggertesting.WrapCheckLog(c))
-	return ctrl
 }

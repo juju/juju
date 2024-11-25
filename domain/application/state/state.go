@@ -11,25 +11,28 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
-// State represents a type for interacting with the underlying state.
-// Composes both application and charm state, so we can interact with both
-// from the single state, whilst also keeping the concerns separate.
 type State struct {
-	*ApplicationState
-	*CharmState
-}
-
-type commonStateBase struct {
 	*domain.StateBase
+	logger logger.Logger
 }
 
-func (s *commonStateBase) checkCharmExists(ctx context.Context, tx *sqlair.TX, id charmID) error {
+// NewState returns a new state reference.
+func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
+	return &State{
+		StateBase: domain.NewStateBase(factory),
+		logger:    logger,
+	}
+}
+
+func (s *State) checkCharmExists(ctx context.Context, tx *sqlair.TX, id charmID) error {
 	selectQuery := `
 SELECT &charmID.*
 FROM charm
@@ -55,7 +58,7 @@ WHERE uuid = $charmID.uuid;
 	return nil
 }
 
-func (s *commonStateBase) checkCharmReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
+func (s *State) checkCharmReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
 	selectQuery := `
 SELECT &charmID.*
 FROM charm
@@ -89,7 +92,7 @@ AND charm_origin.revision = $charmReferenceNameRevisionSource.revision
 	return id, applicationerrors.CharmAlreadyExists
 }
 
-func (s *commonStateBase) setCharm(ctx context.Context, tx *sqlair.TX, id corecharm.ID, charm charm.Charm, archivePath string) error {
+func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, id corecharm.ID, charm charm.Charm, archivePath string) error {
 	if err := s.setCharmState(ctx, tx, id, archivePath); err != nil {
 		return errors.Trace(err)
 	}
@@ -152,7 +155,7 @@ func (s *commonStateBase) setCharm(ctx context.Context, tx *sqlair.TX, id corech
 	return nil
 }
 
-func (s *commonStateBase) setCharmState(
+func (s *State) setCharmState(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
@@ -176,7 +179,7 @@ func (s *commonStateBase) setCharmState(
 	return nil
 }
 
-func (s *commonStateBase) setCharmMetadata(
+func (s *State) setCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
@@ -201,7 +204,7 @@ func (s *commonStateBase) setCharmMetadata(
 	return nil
 }
 
-func (s *commonStateBase) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
+func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
 	// If there are no tags, we don't need to do anything.
 	if len(tags) == 0 {
 		return nil
@@ -220,7 +223,7 @@ func (s *commonStateBase) setCharmTags(ctx context.Context, tx *sqlair.TX, id co
 	return nil
 }
 
-func (s *commonStateBase) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
+func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
 	// If there are no categories, we don't need to do anything.
 	if len(categories) == 0 {
 		return nil
@@ -239,7 +242,7 @@ func (s *commonStateBase) setCharmCategories(ctx context.Context, tx *sqlair.TX,
 	return nil
 }
 
-func (s *commonStateBase) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
+func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
 	// If there are no terms, we don't need to do anything.
 	if len(terms) == 0 {
 		return nil
@@ -258,7 +261,7 @@ func (s *commonStateBase) setCharmTerms(ctx context.Context, tx *sqlair.TX, id c
 	return nil
 }
 
-func (s *commonStateBase) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
+func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
 	encodedRelations, err := encodeRelations(id, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to encode charm relations: %w", err)
@@ -282,7 +285,7 @@ func (s *commonStateBase) setCharmRelations(ctx context.Context, tx *sqlair.TX, 
 	return nil
 }
 
-func (s *commonStateBase) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
+func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
 	// If there is no extraBindings, we don't need to do anything.
 	if len(extraBindings) == 0 {
 		return nil
@@ -301,7 +304,7 @@ func (s *commonStateBase) setCharmExtraBindings(ctx context.Context, tx *sqlair.
 	return nil
 }
 
-func (s *commonStateBase) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
+func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
 	// If there is no storage, we don't need to do anything.
 	if len(storage) == 0 {
 		return nil
@@ -337,7 +340,7 @@ func (s *commonStateBase) setCharmStorage(ctx context.Context, tx *sqlair.TX, id
 	return nil
 }
 
-func (s *commonStateBase) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
+func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
 	// If there are no devices, we don't need to do anything.
 	if len(devices) == 0 {
 		return nil
@@ -356,7 +359,7 @@ func (s *commonStateBase) setCharmDevices(ctx context.Context, tx *sqlair.TX, id
 	return nil
 }
 
-func (s *commonStateBase) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corecharm.ID, payloads map[string]charm.PayloadClass) error {
+func (s *State) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corecharm.ID, payloads map[string]charm.PayloadClass) error {
 	// If there are no payloads, we don't need to do anything.
 	if len(payloads) == 0 {
 		return nil
@@ -375,7 +378,7 @@ func (s *commonStateBase) setCharmPayloads(ctx context.Context, tx *sqlair.TX, i
 	return nil
 }
 
-func (s *commonStateBase) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
+func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
 	// If there are no resources, we don't need to do anything.
 	if len(resources) == 0 {
 		return nil
@@ -399,7 +402,7 @@ func (s *commonStateBase) setCharmResources(ctx context.Context, tx *sqlair.TX, 
 	return nil
 }
 
-func (s *commonStateBase) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
+func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
 	// If there are no containers, we don't need to do anything.
 	if len(containers) == 0 {
 		return nil
@@ -436,7 +439,7 @@ func (s *commonStateBase) setCharmContainers(ctx context.Context, tx *sqlair.TX,
 	return nil
 }
 
-func (s *commonStateBase) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
+func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
 	// If there are no resources, we don't need to do anything.
 	if len(actions.Actions) == 0 {
 		return nil
@@ -455,7 +458,7 @@ func (s *commonStateBase) setCharmActions(ctx context.Context, tx *sqlair.TX, id
 	return nil
 }
 
-func (s *commonStateBase) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
+func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
 	// If there are no resources, we don't need to do anything.
 	if len(config.Options) == 0 {
 		return nil
@@ -479,7 +482,7 @@ func (s *commonStateBase) setCharmConfig(ctx context.Context, tx *sqlair.TX, id 
 	return nil
 }
 
-func (s *commonStateBase) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
+func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
 	// If there are no resources, we don't need to do anything.
 	if len(manifest.Bases) == 0 {
 		return nil
@@ -504,7 +507,7 @@ func (s *commonStateBase) setCharmManifest(ctx context.Context, tx *sqlair.TX, i
 }
 
 // getCharmOrigin returns the charm origin for the given charm ID.
-func (s *commonStateBase) getCharmOrigin(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmOrigin, error) {
+func (s *State) getCharmOrigin(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmOrigin, error) {
 	originQuery := `
 SELECT &charmOrigin.*
 FROM v_charm_origin
@@ -548,7 +551,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharm returns the charm for the given charm ID.
 // This will delegate to the various get methods to get the charm metadata,
 // config, manifest, actions and LXD profile.
-func (s *commonStateBase) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
+func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
 	var (
 		charm charm.Charm
 		err   error
@@ -580,7 +583,7 @@ func (s *commonStateBase) getCharm(ctx context.Context, tx *sqlair.TX, ident cha
 // It's safe to do this in the transaction loop, the query will cached against
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
-func (s *commonStateBase) getMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Metadata, error) {
+func (s *State) getMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Metadata, error) {
 	// Unlike other domain methods, we're not constructing a row struct here.
 	// Attempting to get the metadata as a series of rows will yield potentially
 	// hundreds of rows, which is not what we want. This is because of all the
@@ -668,7 +671,7 @@ func (s *commonStateBase) getMetadata(ctx context.Context, tx *sqlair.TX, ident 
 // It's safe to do this in the transaction loop, the query will cached against
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
-func (s *commonStateBase) getCharmManifest(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Manifest, error) {
+func (s *State) getCharmManifest(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Manifest, error) {
 	query := `
 SELECT &charmManifest.*
 FROM v_charm_manifest
@@ -698,7 +701,7 @@ ORDER BY array_index ASC, nested_array_index ASC;
 // It's safe to do this in the transaction loop, the query will cached against
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
-func (s *commonStateBase) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, charm.Revision, error) {
+func (s *State) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident charmID) ([]byte, charm.Revision, error) {
 	charmQuery := `
 SELECT &charmID.*
 FROM charm
@@ -751,7 +754,7 @@ WHERE uuid = $charmID.uuid;
 // It's safe to do this in the transaction loop, the query will cached against
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
-func (s *commonStateBase) getCharmConfig(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Config, error) {
+func (s *State) getCharmConfig(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Config, error) {
 	charmQuery := `
 SELECT &charmID.*
 FROM charm
@@ -795,7 +798,7 @@ WHERE charm_uuid = $charmID.uuid;
 // It's safe to do this in the transaction loop, the query will cached against
 // the state base, and if the decode fails, the retry logic won't be triggered,
 // as it doesn't satisfy the retry error types.
-func (s *commonStateBase) getCharmActions(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Actions, error) {
+func (s *State) getCharmActions(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Actions, error) {
 	charmQuery := `
 SELECT &charmID.*
 FROM charm
@@ -836,7 +839,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 // getCharmMetadata returns the metadata for the charm using the charm ID.
 // This is the core metadata for the charm.
-func (s *commonStateBase) getCharmMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charmMetadata, error) {
+func (s *State) getCharmMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charmMetadata, error) {
 	query := `
 SELECT &charmMetadata.*
 FROM v_charm_metadata
@@ -865,7 +868,7 @@ WHERE uuid = $charmID.uuid;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Tags are expected to be unique, no duplicates are expected.
-func (s *commonStateBase) getCharmTags(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTag, error) {
+func (s *State) getCharmTags(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTag, error) {
 	query := `
 SELECT &charmTag.*
 FROM charm_tag
@@ -895,7 +898,7 @@ ORDER BY array_index ASC;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Categories are expected to be unique, no duplicates are expected.
-func (s *commonStateBase) getCharmCategories(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmCategory, error) {
+func (s *State) getCharmCategories(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmCategory, error) {
 	query := `
 SELECT &charmCategory.*
 FROM charm_category
@@ -925,7 +928,7 @@ ORDER BY array_index ASC;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Terms are expected to be unique, no duplicates are expected.
-func (s *commonStateBase) getCharmTerms(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTerm, error) {
+func (s *State) getCharmTerms(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTerm, error) {
 	query := `
 SELECT &charmTerm.*
 FROM charm_term
@@ -953,7 +956,7 @@ ORDER BY array_index ASC;
 // is required to separate the relations into provides, requires and peers.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *commonStateBase) getCharmRelations(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmRelation, error) {
+func (s *State) getCharmRelations(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmRelation, error) {
 	query := `
 SELECT &charmRelation.*
 FROM v_charm_relation
@@ -981,7 +984,7 @@ WHERE charm_uuid = $charmID.uuid;
 // gains support for scalar types, this can be changed.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *commonStateBase) getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmExtraBinding, error) {
+func (s *State) getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmExtraBinding, error) {
 	query := `
 SELECT &charmExtraBinding.*
 FROM charm_extra_binding
@@ -1008,7 +1011,7 @@ WHERE charm_uuid = $charmID.uuid;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Charm properties are expected to be unique, no duplicates are expected.
-func (s *commonStateBase) getCharmStorage(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmStorage, error) {
+func (s *State) getCharmStorage(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmStorage, error) {
 	query := `
 SELECT &charmStorage.*
 FROM v_charm_storage
@@ -1035,7 +1038,7 @@ ORDER BY property_index ASC;
 // getCharmDevices returns the devices for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *commonStateBase) getCharmDevices(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmDevice, error) {
+func (s *State) getCharmDevices(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmDevice, error) {
 	query := `
 SELECT &charmDevice.*
 FROM charm_device
@@ -1061,7 +1064,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmPayloads returns the payloads for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *commonStateBase) getCharmPayloads(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmPayload, error) {
+func (s *State) getCharmPayloads(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmPayload, error) {
 	query := `
 SELECT &charmPayload.*
 FROM charm_payload
@@ -1087,7 +1090,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmResources returns the resources for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *commonStateBase) getCharmResources(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmResource, error) {
+func (s *State) getCharmResources(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmResource, error) {
 	query := `
 SELECT &charmResource.*
 FROM v_charm_resource
@@ -1113,7 +1116,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmContainers returns the containers for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *commonStateBase) getCharmContainers(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmContainer, error) {
+func (s *State) getCharmContainers(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmContainer, error) {
 	query := `
 SELECT &charmContainer.*
 FROM v_charm_container

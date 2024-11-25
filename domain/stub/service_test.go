@@ -28,7 +28,7 @@ type stubSuite struct {
 	testing.ModelSuite
 
 	srv          *StubService
-	appState     *applicationstate.ApplicationState
+	appState     *applicationstate.State
 	machineState *machinestate.State
 }
 
@@ -240,7 +240,7 @@ func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.srv = NewStubService(s.TxnRunnerFactory())
-	s.appState = applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	s.appState = applicationstate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
 	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
 
 	return ctrl
