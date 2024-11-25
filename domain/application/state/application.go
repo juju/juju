@@ -1906,6 +1906,81 @@ WHERE uuid = $applicationID.uuid
 	return ch, chOrigin, appPlatform, nil
 }
 
+// GetCharmNameAndOriginByApplicationID returns the charm name and origin for
+// the specified application ID.
+//
+// The charm might only be partially available, in which case there will be
+// limited information available. It is expected that the charm does exist
+// though.
+//
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFoundError] is returned. If the charm for
+// the application does not exist, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned.
+func (st *ApplicationState) GetCharmNameAndOriginByApplicationID(ctx context.Context, appID coreapplication.ID) (string, charm.CharmOrigin, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", charm.CharmOrigin{}, errors.Trace(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT a.charm_uuid AS &applicationCharmUUIDReferenceName.charm_uuid,
+       co.reference_name AS &applicationCharmUUIDReferenceName.reference_name
+FROM application AS a
+LEFT JOIN charm_origin AS co ON co.charm_uuid = a.charm_uuid
+WHERE a.uuid = $applicationID.uuid;
+`, applicationCharmUUIDReferenceName{}, applicationID{})
+	if err != nil {
+		return "", charm.CharmOrigin{}, internalerrors.Errorf("preparing query for application %q: %w", appID, err)
+	}
+
+	var (
+		chName   string
+		chOrigin charm.CharmOrigin
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appIdent := applicationID{ID: appID}
+
+		var charmIdent applicationCharmUUIDReferenceName
+		if err := tx.Query(ctx, query, appIdent).Get(&charmIdent); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return internalerrors.Errorf("application %s: %w", appID, applicationerrors.ApplicationNotFound)
+			}
+			return internalerrors.Errorf("getting charm for application %q: %w", appID, err)
+		}
+
+		// If the charmUUID is empty, then something went wrong with adding an
+		// application.
+		if charmIdent.CharmUUID == "" {
+			// Do not return a CharmNotFound error here. The application is in
+			// a broken state. There isn't anything we can do to fix it here.
+			// This will require manual intervention.
+			return internalerrors.Errorf("application is missing charm")
+		}
+
+		// The charm name for downloading the charm from charmhub will actually
+		// be the reference name.
+		chName = charmIdent.ReferenceName
+
+		// Now get the charm origin by the UUID, but if it doesn't exist, return
+		// an error.
+		chIdent := charmID{UUID: charmIdent.CharmUUID}
+		chOrigin, err = st.getCharmOrigin(ctx, tx, chIdent)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return internalerrors.Errorf("application %s: %w", appID, applicationerrors.CharmNotFound)
+			}
+			return internalerrors.Errorf("getting charm origin for application %q: %w", appID, err)
+		}
+
+		return nil
+	}); err != nil {
+		return chName, chOrigin, errors.Trace(err)
+	}
+
+	return chName, chOrigin, nil
+}
+
 // getPlatform returns the application platform for the given charm ID.
 func (st *ApplicationState) getPlatform(ctx context.Context, tx *sqlair.TX, ident applicationID) (application.Platform, error) {
 	query := `

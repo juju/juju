@@ -141,9 +141,12 @@ type CharmState interface {
 
 // CharmDownloader defines the interface for downloading charms.
 type CharmDownloader interface {
-	// DownloadAndStore downloads a charm and persists it to the object store.
-	// The resulting UUID can be used as RI against the object store.
-	DownloadAndStore(ctx context.Context, name string, origin corecharm.Origin, force bool) (downloader.DownloadUUID, corecharm.Origin, error)
+	// Download looks up the requested charm and downloads it a temporary file.
+	// The result contains the location of the downloaded charm and the origin
+	// of the charm.
+	// The charm will be verified against the hash in the origin. It is expected
+	// that the origin will always have the correct hash following this call.
+	Download(ctx context.Context, name string, origin corecharm.Origin) (downloader.DownloadResult, error)
 }
 
 // CharmService provides the API for working with charms.

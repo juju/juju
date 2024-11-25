@@ -138,6 +138,11 @@ type applicationCharmUUID struct {
 	CharmUUID string `db:"charm_uuid"`
 }
 
+type applicationCharmUUIDReferenceName struct {
+	CharmUUID     string `db:"charm_uuid"`
+	ReferenceName string `db:"reference_name"`
+}
+
 type cloudContainerDevice struct {
 	UUID              string `db:"uuid"`
 	Name              string `db:"name"`

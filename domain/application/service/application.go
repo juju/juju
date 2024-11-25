@@ -176,8 +176,9 @@ type AtomicApplicationState interface {
 type ApplicationState interface {
 	AtomicApplicationState
 
-	// GetModelType returns the model type for the underlying model. If the model
-	// does not exist then an error satisfying [modelerrors.NotFound] will be returned.
+	// GetModelType returns the model type for the underlying model. If the
+	// model does not exist then an error satisfying [modelerrors.NotFound] will
+	// be returned.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// StorageDefaults returns the default storage sources for a model.
@@ -189,13 +190,13 @@ type ApplicationState interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
 	// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if any of the units don't
-	// exist.
+	// error satisfying [applicationerrors.UnitNotFound] if any of the units
+	// don't exist.
 	GetUnitUUIDs(context.Context, []coreunit.Name) ([]coreunit.UUID, error)
 
-	// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if any units are not
-	// found.
+	// GetUnitNames gets in bulk the names for the specified unit UUIDs,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if any
+	// units are not found.
 	GetUnitNames(context.Context, []coreunit.UUID) ([]coreunit.Name, error)
 
 	// UpsertCloudService updates the cloud service for the specified
@@ -213,10 +214,14 @@ type ApplicationState interface {
 	// platform for the specified application ID.
 	//
 	// If the application does not exist, an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] is returned.
-	// If the charm for the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] is returned. If the charm
+	// for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
 	GetCharmByApplicationID(context.Context, coreapplication.ID) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
+
+	// GetCharmNameAndOriginByApplicationID returns the charm name and origin
+	// for the specified application ID.
+	GetCharmNameAndOriginByApplicationID(context.Context, coreapplication.ID) (string, corecharm.Origin, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
 	// returns an error if the charm can not be found by the name. This can also
@@ -225,8 +230,8 @@ type ApplicationState interface {
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-	// doesn't exist.
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
 	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
@@ -1399,14 +1404,30 @@ func (s *ApplicationService) DownloadApplicationCharm(ctx context.Context, uuid 
 		return internalerrors.Errorf("checking if charm is available: %w", err)
 	}
 
-	objectStoreUUID, err := s.charmDownloader.DownloadAndStore(ctx, uuid)
+	charmName, origin, err := s.st.GetCharmNameAndOriginByApplicationID(ctx, uuid)
+	if err != nil {
+		return internalerrors.Errorf("getting charm name and origin: %w", err)
+	}
+
+	// Download the charm, once it's been downloaded, we can then persist the
+	// charm is the storage.
+	downloadResult, err = s.charmDownloader.Download(ctx, charmName, origin)
 	if err != nil {
 		return internalerrors.Errorf("downloading charm: %w", err)
 	}
 
-	if err := s.st.ResolveDownloadedCharm(ctx, uuid, objectStoreUUID); err != nil {
-		return internalerrors.Errorf("resolving downloaded charm: %w", err)
+	persistedUUID, err := s.charmStorage.Store(ctx, downloadResult.Charm)
+	if err != nil {
+		return internalerrors.Errorf("persisting charm: %w", err)
 	}
+
+	// // Only once we've persisted the charm, do we update the application with
+	// // the new charm.
+	// charm, err := charm.ReadCharmArchive()
+
+	// if err := s.st.ResolveDownloadedCharm(ctx, uuid, persistedUUID); err != nil {
+	// 	return internalerrors.Errorf("resolving downloaded charm: %w", err)
+	// }
 
 	return nil
 }

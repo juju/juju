@@ -1769,6 +1769,100 @@ WHERE uuid = ?
 	c.Check(gotPlatform, gc.DeepEquals, platform)
 }
 
+func (s *applicationStateSuite) TestGetCharmNameAndOriginByApplicationID(c *gc.C) {
+	origin := charm.CharmOrigin{
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu-lite",
+	}
+
+	expectedMetadata := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action1": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+	expectedConfig := charm.Config{
+		Options: map[string]charm.Option{
+			"option1": {
+				Type:        "string",
+				Description: "description",
+				Default:     "default",
+			},
+		},
+	}
+	expectedLXDProfile := []byte("[{}]")
+
+	revision := 42
+	var appID coreapplication.ID
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+			Charm: charm.Charm{
+				Metadata:   expectedMetadata,
+				Manifest:   expectedManifest,
+				Actions:    expectedActions,
+				Config:     expectedConfig,
+				LXDProfile: expectedLXDProfile,
+			},
+			Origin: origin,
+			Channel: &application.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Platform: application.Platform{
+				OSType:       charm.Ubuntu,
+				Architecture: charm.AMD64,
+				Channel:      "22.04",
+			},
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Notice this selects the reference name, not the metadata name.
+
+	ch, origin, err := s.state.GetCharmNameAndOriginByApplicationID(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch, gc.Equals, "ubuntu-lite")
+	c.Check(origin, gc.DeepEquals, charm.CharmOrigin{
+		ReferenceName: "ubuntu-lite",
+		Source:        charm.LocalSource,
+		Revision:      revision,
+		Platform: charm.Platform{
+			OSType:       charm.Ubuntu,
+			Channel:      "22.04",
+			Architecture: charm.AMD64,
+		},
+	})
+}
+
 func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *gc.C) {
 	origin := charm.CharmOrigin{
 		Revision: 42,

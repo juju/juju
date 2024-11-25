@@ -40,15 +40,11 @@ type CharmRepository interface {
 	// download the charm.
 	ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
 
-	// Download downloads a blob with the specified name and origin to the
-	// specified path. The origin is used to determine the source of the blob
-	// and the channel to use when downloading the blob.
-	Download(ctx context.Context, blobName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.Origin, *charmhub.Digest, error)
-
 	// DownloadCharm downloads the charm with the specified name and origin to
 	// the specified path. The origin is used to determine the source of the
-	// charm and the channel to use when downloading the charm. Deprecated: use
-	// Download instead.
+	// charm and the channel to use when downloading the charm.
+	//
+	// Deprecated: use Download instead.
 	DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error)
 }
 
