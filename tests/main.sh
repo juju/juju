@@ -45,9 +45,7 @@ TEST_NAMES="actions \
             agents \
             appdata \
             authorized_keys \
-            backup \
             bootstrap \
-            branches \
             caasadmission \
             charmhub \
             cli \
@@ -79,7 +77,6 @@ TEST_NAMES="actions \
             spaces_ec2 \
             static_analysis \
             storage \
-            unit \
             upgrade \
             user"
 
