@@ -117,7 +117,7 @@ func (s *ModelService) DeleteModel(
 func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
 	modelState, err := s.controllerSt.GetModelState(ctx, s.modelID)
 	if err != nil {
-		return model.StatusInfo{}, err
+		return model.StatusInfo{}, errors.Capture(err)
 	}
 
 	if modelState.HasInvalidCloudCredential {
@@ -170,5 +170,5 @@ func (s *ModelService) SetStatus(ctx context.Context, params model.SetStatusArg)
 		return errors.Errorf("setting model status, invalid status %q", params.Status).Add(modelerrors.InvalidModelStatus)
 	}
 
-	return s.modelSt.SetStatus(ctx, params)
+	return errors.Capture(s.modelSt.SetStatus(ctx, params))
 }

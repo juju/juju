@@ -189,7 +189,7 @@ type StatusInfo struct {
 	// Reason is a human-readable message that describes the reason for the current status of the model.
 	Reason string
 	// Since is the time when the model entered the current status.
-	Since *time.Time
+	Since time.Time
 }
 
 // SetStatusArg is a struct that is used to set the status of a model.
