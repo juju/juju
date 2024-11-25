@@ -13,8 +13,8 @@ import (
 	io "io"
 	reflect "reflect"
 
-	resources "github.com/juju/juju/core/resource"
-	resource "github.com/juju/juju/internal/charm/resource"
+	resource "github.com/juju/juju/core/resource"
+	resource0 "github.com/juju/juju/internal/charm/resource"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -43,10 +43,10 @@ func (m *MockResources) EXPECT() *MockResourcesMockRecorder {
 }
 
 // GetResource mocks base method.
-func (m *MockResources) GetResource(arg0, arg1 string) (resources.Resource, error) {
+func (m *MockResources) GetResource(arg0, arg1 string) (resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResource", arg0, arg1)
-	ret0, _ := ret[0].(resources.Resource)
+	ret0, _ := ret[0].(resource.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -64,28 +64,28 @@ type MockResourcesGetResourceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourcesGetResourceCall) Return(arg0 resources.Resource, arg1 error) *MockResourcesGetResourceCall {
+func (c *MockResourcesGetResourceCall) Return(arg0 resource.Resource, arg1 error) *MockResourcesGetResourceCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourcesGetResourceCall) Do(f func(string, string) (resources.Resource, error)) *MockResourcesGetResourceCall {
+func (c *MockResourcesGetResourceCall) Do(f func(string, string) (resource.Resource, error)) *MockResourcesGetResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourcesGetResourceCall) DoAndReturn(f func(string, string) (resources.Resource, error)) *MockResourcesGetResourceCall {
+func (c *MockResourcesGetResourceCall) DoAndReturn(f func(string, string) (resource.Resource, error)) *MockResourcesGetResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // OpenResource mocks base method.
-func (m *MockResources) OpenResource(arg0, arg1 string) (resources.Resource, io.ReadCloser, error) {
+func (m *MockResources) OpenResource(arg0, arg1 string) (resource.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResource", arg0, arg1)
-	ret0, _ := ret[0].(resources.Resource)
+	ret0, _ := ret[0].(resource.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -104,28 +104,28 @@ type MockResourcesOpenResourceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourcesOpenResourceCall) Return(arg0 resources.Resource, arg1 io.ReadCloser, arg2 error) *MockResourcesOpenResourceCall {
+func (c *MockResourcesOpenResourceCall) Return(arg0 resource.Resource, arg1 io.ReadCloser, arg2 error) *MockResourcesOpenResourceCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourcesOpenResourceCall) Do(f func(string, string) (resources.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceCall {
+func (c *MockResourcesOpenResourceCall) Do(f func(string, string) (resource.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourcesOpenResourceCall) DoAndReturn(f func(string, string) (resources.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceCall {
+func (c *MockResourcesOpenResourceCall) DoAndReturn(f func(string, string) (resource.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // OpenResourceForUniter mocks base method.
-func (m *MockResources) OpenResourceForUniter(arg0, arg1 string) (resources.Resource, io.ReadCloser, error) {
+func (m *MockResources) OpenResourceForUniter(arg0, arg1 string) (resource.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1)
-	ret0, _ := ret[0].(resources.Resource)
+	ret0, _ := ret[0].(resource.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -144,28 +144,28 @@ type MockResourcesOpenResourceForUniterCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourcesOpenResourceForUniterCall) Return(arg0 resources.Resource, arg1 io.ReadCloser, arg2 error) *MockResourcesOpenResourceForUniterCall {
+func (c *MockResourcesOpenResourceForUniterCall) Return(arg0 resource.Resource, arg1 io.ReadCloser, arg2 error) *MockResourcesOpenResourceForUniterCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourcesOpenResourceForUniterCall) Do(f func(string, string) (resources.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceForUniterCall {
+func (c *MockResourcesOpenResourceForUniterCall) Do(f func(string, string) (resource.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceForUniterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourcesOpenResourceForUniterCall) DoAndReturn(f func(string, string) (resources.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceForUniterCall {
+func (c *MockResourcesOpenResourceForUniterCall) DoAndReturn(f func(string, string) (resource.Resource, io.ReadCloser, error)) *MockResourcesOpenResourceForUniterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetResource mocks base method.
-func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resources.Resource, error) {
+func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource0.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(resources.Resource)
+	ret0, _ := ret[0].(resource.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -183,19 +183,19 @@ type MockResourcesSetResourceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourcesSetResourceCall) Return(arg0 resources.Resource, arg1 error) *MockResourcesSetResourceCall {
+func (c *MockResourcesSetResourceCall) Return(arg0 resource.Resource, arg1 error) *MockResourcesSetResourceCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourcesSetResourceCall) Do(f func(string, string, resource.Resource, io.Reader, state.IncrementCharmModifiedVersionType) (resources.Resource, error)) *MockResourcesSetResourceCall {
+func (c *MockResourcesSetResourceCall) Do(f func(string, string, resource0.Resource, io.Reader, state.IncrementCharmModifiedVersionType) (resource.Resource, error)) *MockResourcesSetResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourcesSetResourceCall) DoAndReturn(f func(string, string, resource.Resource, io.Reader, state.IncrementCharmModifiedVersionType) (resources.Resource, error)) *MockResourcesSetResourceCall {
+func (c *MockResourcesSetResourceCall) DoAndReturn(f func(string, string, resource0.Resource, io.Reader, state.IncrementCharmModifiedVersionType) (resource.Resource, error)) *MockResourcesSetResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,8 +14,8 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/juju/core/charm"
-	resources "github.com/juju/juju/core/resource"
-	resource "github.com/juju/juju/internal/charm/resource"
+	resource "github.com/juju/juju/core/resource"
+	resource0 "github.com/juju/juju/internal/charm/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,7 +43,7 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddPendingResource mocks base method.
-func (m *MockBackend) AddPendingResource(arg0, arg1 string, arg2 resource.Resource) (string, error) {
+func (m *MockBackend) AddPendingResource(arg0, arg1 string, arg2 resource0.Resource) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
@@ -70,22 +70,22 @@ func (c *MockBackendAddPendingResourceCall) Return(arg0 string, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendAddPendingResourceCall) Do(f func(string, string, resource.Resource) (string, error)) *MockBackendAddPendingResourceCall {
+func (c *MockBackendAddPendingResourceCall) Do(f func(string, string, resource0.Resource) (string, error)) *MockBackendAddPendingResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddPendingResourceCall) DoAndReturn(f func(string, string, resource.Resource) (string, error)) *MockBackendAddPendingResourceCall {
+func (c *MockBackendAddPendingResourceCall) DoAndReturn(f func(string, string, resource0.Resource) (string, error)) *MockBackendAddPendingResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ListResources mocks base method.
-func (m *MockBackend) ListResources(arg0 string) (resources.ApplicationResources, error) {
+func (m *MockBackend) ListResources(arg0 string) (resource.ApplicationResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListResources", arg0)
-	ret0, _ := ret[0].(resources.ApplicationResources)
+	ret0, _ := ret[0].(resource.ApplicationResources)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,19 +103,19 @@ type MockBackendListResourcesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBackendListResourcesCall) Return(arg0 resources.ApplicationResources, arg1 error) *MockBackendListResourcesCall {
+func (c *MockBackendListResourcesCall) Return(arg0 resource.ApplicationResources, arg1 error) *MockBackendListResourcesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendListResourcesCall) Do(f func(string) (resources.ApplicationResources, error)) *MockBackendListResourcesCall {
+func (c *MockBackendListResourcesCall) Do(f func(string) (resource.ApplicationResources, error)) *MockBackendListResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendListResourcesCall) DoAndReturn(f func(string) (resources.ApplicationResources, error)) *MockBackendListResourcesCall {
+func (c *MockBackendListResourcesCall) DoAndReturn(f func(string) (resource.ApplicationResources, error)) *MockBackendListResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -144,10 +144,10 @@ func (m *MockNewCharmRepository) EXPECT() *MockNewCharmRepositoryMockRecorder {
 }
 
 // ResolveResources mocks base method.
-func (m *MockNewCharmRepository) ResolveResources(arg0 context.Context, arg1 []resource.Resource, arg2 charm.CharmID) ([]resource.Resource, error) {
+func (m *MockNewCharmRepository) ResolveResources(arg0 context.Context, arg1 []resource0.Resource, arg2 charm.CharmID) ([]resource0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]resource.Resource)
+	ret0, _ := ret[0].([]resource0.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -165,19 +165,19 @@ type MockNewCharmRepositoryResolveResourcesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockNewCharmRepositoryResolveResourcesCall) Return(arg0 []resource.Resource, arg1 error) *MockNewCharmRepositoryResolveResourcesCall {
+func (c *MockNewCharmRepositoryResolveResourcesCall) Return(arg0 []resource0.Resource, arg1 error) *MockNewCharmRepositoryResolveResourcesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNewCharmRepositoryResolveResourcesCall) Do(f func(context.Context, []resource.Resource, charm.CharmID) ([]resource.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
+func (c *MockNewCharmRepositoryResolveResourcesCall) Do(f func(context.Context, []resource0.Resource, charm.CharmID) ([]resource0.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNewCharmRepositoryResolveResourcesCall) DoAndReturn(f func(context.Context, []resource.Resource, charm.CharmID) ([]resource.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
+func (c *MockNewCharmRepositoryResolveResourcesCall) DoAndReturn(f func(context.Context, []resource0.Resource, charm.CharmID) ([]resource0.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

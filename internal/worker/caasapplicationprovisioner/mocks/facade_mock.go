@@ -16,7 +16,7 @@ import (
 	charms "github.com/juju/juju/api/common/charms"
 	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	life "github.com/juju/juju/core/life"
-	resources "github.com/juju/juju/core/resource"
+	resource "github.com/juju/juju/core/resource"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
@@ -86,10 +86,10 @@ func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) DoAndReturn(f func(c
 }
 
 // ApplicationOCIResources mocks base method.
-func (m *MockCAASProvisionerFacade) ApplicationOCIResources(arg0 context.Context, arg1 string) (map[string]resources.DockerImageDetails, error) {
+func (m *MockCAASProvisionerFacade) ApplicationOCIResources(arg0 context.Context, arg1 string) (map[string]resource.DockerImageDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationOCIResources", arg0, arg1)
-	ret0, _ := ret[0].(map[string]resources.DockerImageDetails)
+	ret0, _ := ret[0].(map[string]resource.DockerImageDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -107,19 +107,19 @@ type MockCAASProvisionerFacadeApplicationOCIResourcesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) Return(arg0 map[string]resources.DockerImageDetails, arg1 error) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
+func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) Return(arg0 map[string]resource.DockerImageDetails, arg1 error) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) Do(f func(context.Context, string) (map[string]resources.DockerImageDetails, error)) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
+func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) Do(f func(context.Context, string) (map[string]resource.DockerImageDetails, error)) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) DoAndReturn(f func(context.Context, string) (map[string]resources.DockerImageDetails, error)) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
+func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) DoAndReturn(f func(context.Context, string) (map[string]resource.DockerImageDetails, error)) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

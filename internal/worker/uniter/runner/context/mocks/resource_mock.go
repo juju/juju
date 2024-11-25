@@ -14,7 +14,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	resources "github.com/juju/juju/core/resource"
+	resource "github.com/juju/juju/core/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,10 +42,10 @@ func (m *MockOpenedResourceClient) EXPECT() *MockOpenedResourceClientMockRecorde
 }
 
 // GetResource mocks base method.
-func (m *MockOpenedResourceClient) GetResource(arg0 context.Context, arg1 string) (resources.Resource, io.ReadCloser, error) {
+func (m *MockOpenedResourceClient) GetResource(arg0 context.Context, arg1 string) (resource.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResource", arg0, arg1)
-	ret0, _ := ret[0].(resources.Resource)
+	ret0, _ := ret[0].(resource.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -64,19 +64,19 @@ type MockOpenedResourceClientGetResourceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOpenedResourceClientGetResourceCall) Return(arg0 resources.Resource, arg1 io.ReadCloser, arg2 error) *MockOpenedResourceClientGetResourceCall {
+func (c *MockOpenedResourceClientGetResourceCall) Return(arg0 resource.Resource, arg1 io.ReadCloser, arg2 error) *MockOpenedResourceClientGetResourceCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOpenedResourceClientGetResourceCall) Do(f func(context.Context, string) (resources.Resource, io.ReadCloser, error)) *MockOpenedResourceClientGetResourceCall {
+func (c *MockOpenedResourceClientGetResourceCall) Do(f func(context.Context, string) (resource.Resource, io.ReadCloser, error)) *MockOpenedResourceClientGetResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOpenedResourceClientGetResourceCall) DoAndReturn(f func(context.Context, string) (resources.Resource, io.ReadCloser, error)) *MockOpenedResourceClientGetResourceCall {
+func (c *MockOpenedResourceClientGetResourceCall) DoAndReturn(f func(context.Context, string) (resource.Resource, io.ReadCloser, error)) *MockOpenedResourceClientGetResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

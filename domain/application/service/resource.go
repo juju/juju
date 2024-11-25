@@ -173,7 +173,7 @@ func (s *Service) SetUnitResource(
 // OpenApplicationResource returns the details of and a reader for the resource.
 //
 // The following error types can be expected to be returned:
-//   - errors.NotValid is returned if the resource ID is not valid.
+//   - errors.NotValid is returned if the coreresource.ID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
 func (s *Service) OpenApplicationResource(
@@ -193,7 +193,7 @@ func (s *Service) OpenApplicationResource(
 // exhausted. Typically used for File resources.
 //
 // The following error types can be returned:
-//   - errors.NotValid is returned if the resource ID is not valid.
+//   - errors.NotValid is returned if the coreresource.ID is not valid.
 //   - errors.NotValid is returned if the unit UUID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.

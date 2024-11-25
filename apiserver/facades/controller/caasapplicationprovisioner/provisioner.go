@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -65,7 +65,7 @@ type APIGroup struct {
 	lifeCanRead     common.GetAuthFunc
 }
 
-type NewResourceOpenerFunc func(appName string) (resource.Opener, error)
+type NewResourceOpenerFunc func(appName string) (coreresource.Opener, error)
 
 type API struct {
 	auth      facade.Authorizer
@@ -115,7 +115,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		return nil, errors.Trace(err)
 	}
 
-	newResourceOpener := func(appName string) (resource.Opener, error) {
+	newResourceOpener := func(appName string) (coreresource.Opener, error) {
 		args := resource.ResourceOpenerArgs{
 			State:              st,
 			ModelConfigService: modelConfigService,
