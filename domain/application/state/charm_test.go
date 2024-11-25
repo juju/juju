@@ -979,14 +979,13 @@ func (s *charmStateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_resource (
     charm_uuid,
-    key,
     name,
     kind_id,
     path,
     description
 ) VALUES 
-    (?, 'foo', 'bar', 0, '/tmp/file.txt', 'description 1'),
-    (?, 'fred', 'baz', 1, 'hub.docker.io/jujusolutions', 'description 2');`,
+    (?, 'foo', 0, '/tmp/file.txt', 'description 1'),
+    (?, 'bar', 1, 'hub.docker.io/jujusolutions', 'description 2');`,
 			uuid, uuid)
 		if err != nil {
 			return errors.Trace(err)
@@ -1002,13 +1001,13 @@ INSERT INTO charm_resource (
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Resources = map[string]charm.Resource{
 			"foo": {
-				Name:        "bar",
+				Name:        "foo",
 				Type:        charm.ResourceTypeFile,
 				Path:        "/tmp/file.txt",
 				Description: "description 1",
 			},
-			"fred": {
-				Name:        "baz",
+			"bar": {
+				Name:        "bar",
 				Type:        charm.ResourceTypeContainerImage,
 				Path:        "hub.docker.io/jujusolutions",
 				Description: "description 2",
@@ -1768,13 +1767,13 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C)
 		Assumes:        []byte("null"),
 		Resources: map[string]charm.Resource{
 			"foo": {
-				Name:        "bar",
+				Name:        "foo",
 				Type:        charm.ResourceTypeFile,
 				Path:        "/tmp/file.txt",
 				Description: "description 1",
 			},
-			"fred": {
-				Name:        "baz",
+			"bar": {
+				Name:        "bar",
 				Type:        charm.ResourceTypeContainerImage,
 				Path:        "hub.docker.io/jujusolutions",
 				Description: "description 2",
