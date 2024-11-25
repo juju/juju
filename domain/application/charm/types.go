@@ -6,7 +6,9 @@ package charm
 import (
 	"github.com/juju/version/v2"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetCharmArgs holds the arguments for the GetCharmID method.
@@ -20,6 +22,9 @@ type GetCharmArgs struct {
 	// Revision allows the selection of a specific revision of the charm.
 	// Otherwise, the latest revision is returned.
 	Revision *int
+
+	// Source is the source of the charm.
+	Source CharmSource
 }
 
 // CharmSource represents the source of a charm.
@@ -31,6 +36,20 @@ const (
 	// CharmHubSource represents a charmhub charm source.
 	CharmHubSource CharmSource = "charmhub"
 )
+
+// ParseCharmSchema creates a CharmSource from a  string.
+// It will map the string "ch" (representing the CharmHub URL scheme) to
+// CharmHubSource and "local" to LocalSource.
+func ParseCharmSchema(source internalcharm.Schema) (CharmSource, error) {
+	switch source {
+	case internalcharm.Local:
+		return LocalSource, nil
+	case internalcharm.CharmHub:
+		return CharmHubSource, nil
+	default:
+		return "", errors.Errorf("%w: %v", applicationerrors.CharmSourceNotValid, source)
+	}
+}
 
 // SetCharmArgs holds the arguments for the SetCharm method.
 type SetCharmArgs struct {

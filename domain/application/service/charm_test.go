@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/domain/application/charm"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -33,13 +34,24 @@ type charmServiceSuite struct {
 
 var _ = gc.Suite(&charmServiceSuite{})
 
-func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
-		Name: "foo",
+		Name:   "foo",
+		Source: charm.CharmHubSource,
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name:     "foo",
+		Revision: ptr(42),
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
@@ -51,18 +63,30 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *charmServiceSuite) TestGetCharmIDWithRevision(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name:     "foo",
+		Revision: ptr(42),
+		Source:   "wrong-source",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
+}
+
+func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
 	rev := 42
 
-	s.state.EXPECT().GetCharmIDByRevision(gomock.Any(), "foo", rev).Return(id, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", rev, domaincharm.LocalSource).Return(id, nil)
 
 	result, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
 		Name:     "foo",
 		Revision: &rev,
+		Source:   domaincharm.LocalSource,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, id)

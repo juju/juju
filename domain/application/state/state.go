@@ -61,10 +61,10 @@ SELECT &charmID.*
 FROM charm
 LEFT JOIN charm_origin
 WHERE charm.uuid = charm_origin.charm_uuid
-AND charm_origin.reference_name = $charmReferenceNameRevision.reference_name 
-AND charm_origin.revision = $charmReferenceNameRevision.revision
+AND charm_origin.reference_name = $charmReferenceNameRevisionSource.reference_name 
+AND charm_origin.revision = $charmReferenceNameRevisionSource.revision
 	`
-	ref := charmReferenceNameRevision{
+	ref := charmReferenceNameRevisionSource{
 		ReferenceName: referenceName,
 		Revision:      revision,
 	}

@@ -43,10 +43,10 @@ type WatcherFactory interface {
 
 // CharmState describes retrieval and persistence methods for charms.
 type CharmState interface {
-	// GetCharmIDByRevision returns the charm ID by the natural key, for a
-	// specific revision. If the charm does not exist, a
+	// GetCharmID returns the charm ID by the natural key, for a
+	// specific revision and source. If the charm does not exist, a
 	// [applicationerrors.CharmNotFound] error is returned.
-	GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error)
+	GetCharmID(ctx context.Context, name string, revision int, source charm.CharmSource) (corecharm.ID, error)
 
 	// IsControllerCharm returns whether the charm is a controller charm. If the
 	// charm does not exist, a [applicationerrors.CharmNotFound] error is
@@ -163,8 +163,13 @@ func (s *CharmService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) 
 		return "", applicationerrors.CharmNameNotValid
 	}
 
+	// Validate the source, it can only be charmhub or local.
+	if args.Source != charm.CharmHubSource && args.Source != charm.LocalSource {
+		return "", applicationerrors.CharmSourceNotValid
+	}
+
 	if rev := args.Revision; rev != nil && *rev >= 0 {
-		return s.st.GetCharmIDByRevision(ctx, args.Name, *rev)
+		return s.st.GetCharmID(ctx, args.Name, *rev, args.Source)
 	}
 
 	return "", applicationerrors.CharmNotFound
@@ -496,7 +501,7 @@ func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (c
 		return "", nil, applicationerrors.CharmNameNotValid
 	}
 
-	source, err := encodeCharmSource(args.Source)
+	source, err := charm.ParseCharmSchema(args.Source)
 	if err != nil {
 		return "", nil, fmt.Errorf("encode charm source: %w", err)
 	}
@@ -606,17 +611,6 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 		Config:     config,
 		LXDProfile: profile,
 	}, warnings, nil
-}
-
-func encodeCharmSource(source internalcharm.Schema) (charm.CharmSource, error) {
-	switch source {
-	case internalcharm.Local:
-		return charm.LocalSource, nil
-	case internalcharm.CharmHub:
-		return charm.CharmHubSource, nil
-	default:
-		return "", fmt.Errorf("%w: %v", applicationerrors.CharmSourceNotValid, source)
-	}
 }
 
 // isValidCharmName returns whether name is a valid charm name.
