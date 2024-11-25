@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	coreresource "github.com/juju/juju/core/resources"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -181,6 +182,30 @@ func (stubResourceStoreGetter) GetResourceStore(context.Context, charmresource.T
 
 type stubResourceStore struct{}
 
-func (stubResourceStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
-	return nil, 0, nil
+// Get returns an io.ReadCloser for a resource in the resource store.
+func (f stubResourceStore) Get(
+	ctx context.Context,
+	resourceUUID coreresource.ID,
+) (r io.ReadCloser, size int64, err error) {
+	return nil, -1, errors.NotImplemented
+}
+
+// Put stores data from io.Reader in the resource store at the
+// path specified in the resource.
+func (f stubResourceStore) Put(
+	ctx context.Context,
+	resourceUUID coreresource.ID,
+	r io.Reader,
+	size int64,
+	fingerprint charmresource.Fingerprint,
+) (resource.ResourceStorageUUID, error) {
+	return nil, errors.NotImplemented
+}
+
+// Remove removes a resource from storage.
+func (f stubResourceStore) Remove(
+	ctx context.Context,
+	resourceUUID coreresource.ID,
+) error {
+	return errors.NotImplemented
 }

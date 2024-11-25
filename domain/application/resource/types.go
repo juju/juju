@@ -162,3 +162,9 @@ type SetRepositoryResourcesArgs struct {
 	// LastPolled indicates when the resource data was last polled.
 	LastPolled time.Time
 }
+
+// ResourceStorageUUID is a UUID used to reference the resource in storage.
+type ResourceStorageUUID interface {
+	String() string
+	Validate() error
+}
