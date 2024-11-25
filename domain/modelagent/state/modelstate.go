@@ -5,8 +5,11 @@ package state
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
@@ -14,6 +17,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -28,8 +32,8 @@ func NewModelState(factory database.TxnRunnerFactory) *ModelState {
 	}
 }
 
-// CheckMachineExists check to see if the given machine exists in the model. If
-// the machine does not exist an error satisfying
+// CheckMachineExists check to see if the given machine exists in the model.
+// If the machine does not exist an error satisfying
 // [machineerrors.MachineNotFound] is returned.
 func (m *ModelState) CheckMachineExists(
 	ctx context.Context,
@@ -160,4 +164,37 @@ WHERE name = $unitName.name
 	})
 
 	return err
+}
+
+func (st *ModelState) GetTargetAgentVersion(ctx context.Context) (version.Number, error) {
+	db, err := st.DB()
+	if err != nil {
+		return version.Zero, errors.Capture(err)
+	}
+
+	res := dbAgentVersion{}
+
+	stmt, err := st.Prepare("SELECT &dbAgentVersion.target_version FROM agent_version", res)
+	if err != nil {
+		return version.Zero, fmt.Errorf("preparing agent version query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&res)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.AgentVersionNotFound
+		} else if err != nil {
+			return fmt.Errorf("getting agent version: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return version.Zero, errors.Capture(err)
+	}
+
+	vers, err := version.Parse(res.TargetAgentVersion)
+	if err != nil {
+		return version.Zero, fmt.Errorf("parsing agent version: %w", err)
+	}
+	return vers, nil
 }
