@@ -1,6 +1,5 @@
 
 CREATE TABLE agent_version (
-    current_version TEXT NOT NULL,
     target_version TEXT NOT NULL
 );
 

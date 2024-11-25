@@ -68,6 +68,9 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Model
 		"model",
+		"agent_version",
+
+		// Model config
 		"model_config",
 		"model_constraint",
 
@@ -332,6 +335,8 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 	// Expected changelog triggers. Additional triggers are not included and
 	// can be added to the addition list.
 	expected := set.NewStrings(
+		"trg_log_agent_version_update",
+
 		"trg_log_application_delete",
 		"trg_log_application_insert",
 		"trg_log_application_update",

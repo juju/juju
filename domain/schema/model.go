@@ -55,6 +55,7 @@ const (
 	tableApplication
 	tableRemoval
 	tableApplicationConfigHash
+	tableAgentVersion
 )
 
 // ModelDDL is used to create model databases.
@@ -153,6 +154,20 @@ func ModelDDL() *schema.Schema {
 			"sequence number must monotonically increase",
 		),
 	)
+
+	// For agent_version we only care if the single row is updated.
+	// We emit the new target agent version.
+	patches = append(patches, func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+CREATE TRIGGER trg_log_agent_version_update
+AFTER UPDATE ON agent_version FOR EACH ROW
+WHEN 
+	NEW.target_version != OLD.target_version
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %d, NEW.target_version, DATETIME('now'));
+END;`, tableAgentVersion))
+	})
 
 	modelSchema := schema.New()
 	for _, fn := range patches {
