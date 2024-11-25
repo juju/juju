@@ -327,7 +327,7 @@ func decodeResources(resources []charmResource) (map[string]charm.Resource, erro
 			return nil, fmt.Errorf("cannot parse resource type %q: %w", resource.Kind, err)
 		}
 
-		result[resource.Key] = charm.Resource{
+		result[resource.Name] = charm.Resource{
 			Name:        resource.Name,
 			Path:        resource.Path,
 			Description: resource.Description,
@@ -668,7 +668,7 @@ func encodePayloads(id corecharm.ID, payloads map[string]charm.PayloadClass) []s
 
 func encodeResources(id corecharm.ID, resources map[string]charm.Resource) ([]setCharmResource, error) {
 	var result []setCharmResource
-	for key, resource := range resources {
+	for _, resource := range resources {
 		kind, err := encodeResourceType(resource.Type)
 		if err != nil {
 			return nil, fmt.Errorf("cannot encode resource type %q: %w", resource.Type, err)
@@ -676,7 +676,6 @@ func encodeResources(id corecharm.ID, resources map[string]charm.Resource) ([]se
 
 		result = append(result, setCharmResource{
 			CharmUUID:   id.String(),
-			Key:         key,
 			Name:        resource.Name,
 			KindID:      kind,
 			Path:        resource.Path,

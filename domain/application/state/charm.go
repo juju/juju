@@ -656,7 +656,9 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 			return internalerrors.Capture(err)
 		}
 
-		if err := s.setCharmInitialOrigin(ctx, tx, id, charmArgs.ReferenceName, charmArgs.Source, charmArgs.Revision, charmArgs.Version); err != nil {
+		if err := s.setCharmInitialOrigin(
+			ctx, tx, id, charmArgs.ReferenceName, charmArgs.Source, charmArgs.Revision, charmArgs.Version,
+		); err != nil {
 			return internalerrors.Capture(err)
 		}
 
