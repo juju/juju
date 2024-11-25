@@ -52,6 +52,7 @@ const (
         "ec2:DescribeVolumes",
         "ec2:DescribeVpcs",
         "ec2:DetachVolume",
+	"ec2:ModifyNetworkInterfaceAttribute",
         "ec2:RevokeSecurityGroupIngress",
         "ec2:RunInstances",
         "ec2:TerminateInstances"
