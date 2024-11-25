@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"

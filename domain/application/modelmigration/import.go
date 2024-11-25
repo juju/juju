@@ -43,6 +43,7 @@ func RegisterImport(
 ) {
 	coordinator.Add(&importOperation{
 		registry:     registry,
+		clock:        clock,
 		logger:       logger,
 		charmOrigins: make(map[string]*corecharm.Origin),
 	})
