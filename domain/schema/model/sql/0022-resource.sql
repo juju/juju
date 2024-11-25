@@ -29,8 +29,10 @@ INSERT INTO resource_state VALUES
 
 CREATE TABLE resource (
     uuid TEXT NOT NULL PRIMARY KEY,
+    -- This indicates the resource name for the specific
+    -- revision for which this resource is downloaded.
     charm_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
+    charm_resource_name TEXT NOT NULL,
     revision INT,
     origin_type_id INT NOT NULL,
     state_id INT NOT NULL,
@@ -38,12 +40,9 @@ CREATE TABLE resource (
     -- last_polled is when the repository was last polled for new resource
     -- revisions. Only set if resource_state is 1.
     last_polled TIMESTAMP,
-    CONSTRAINT fk_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    CONSTRAINT fk_resource_name
-    FOREIGN KEY (name)
-    REFERENCES charm_resource (name),
+    CONSTRAINT fk_charm_resource
+    FOREIGN KEY (charm_uuid, charm_resource_name)
+    REFERENCES charm_resource (charm_uuid, name),
     CONSTRAINT fk_resource_origin_type_id
     FOREIGN KEY (origin_type_id)
     REFERENCES resource_origin_type (id),
@@ -52,7 +51,10 @@ CREATE TABLE resource (
     REFERENCES resource_state (id)
 );
 
--- Link table for applications and their resources.
+-- Links applications to the resources that they are *using*.
+-- This resource may in turn be linked through to a *different* charm than the
+-- application is using, because the charm_resource_name field indicates the
+-- charm revision that it was acquired for at the time.
 CREATE TABLE application_resource (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
     application_uuid TEXT NOT NULL,
