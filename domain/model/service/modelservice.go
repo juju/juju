@@ -9,7 +9,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -25,12 +24,6 @@ type ModelState interface {
 
 	// Model returns the read only model information set in the database.
 	Model(context.Context) (coremodel.ReadOnlyModel, error)
-
-	// GetStatus returns the status of the model.
-	GetStatus(context.Context) (model.StatusInfo, error)
-
-	// SetStatus sets the status of the model.
-	SetStatus(context.Context, model.SetStatusArg) error
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -140,35 +133,7 @@ func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
 		}, nil
 	}
 
-	statusInfo, err := s.modelSt.GetStatus(ctx)
-	if err != nil {
-		return model.StatusInfo{}, errors.Capture(err)
-	}
-	return statusInfo, nil
-}
-
-// validSettableModelStatus returns true if status has a valid value (that is to say,
-// a value that it's OK to set) for models.
-func validSettableModelStatus(status corestatus.Status) bool {
-	switch status {
-	case
-		corestatus.Available,
-		corestatus.Busy,
-		corestatus.Error:
-		return true
-	default:
-		return false
-	}
-}
-
-// SetStatus sets the status of the model.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.InvalidModelStatus]: When the status to be set is not valid.
-func (s *ModelService) SetStatus(ctx context.Context, params model.SetStatusArg) error {
-	if !validSettableModelStatus(params.Status) {
-		return errors.Errorf("setting model status, invalid status %q", params.Status).Add(modelerrors.InvalidModelStatus)
-	}
-
-	return errors.Capture(s.modelSt.SetStatus(ctx, params))
+	return model.StatusInfo{
+		Status: corestatus.Available,
+	}, nil
 }

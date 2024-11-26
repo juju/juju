@@ -23,8 +23,7 @@ type dummyModelState struct {
 	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
 	setID  coremodel.UUID
 
-	modelState      map[coremodel.UUID]model.ModelState
-	modelStatusInfo map[coremodel.UUID]model.StatusInfo
+	modelState map[coremodel.UUID]model.ModelState
 }
 
 func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
@@ -92,18 +91,6 @@ func (d *dummyModelState) GetModelState(_ context.Context, modelUUID coremodel.U
 	return mState, nil
 }
 
-func (d *dummyModelState) GetStatus(context.Context) (model.StatusInfo, error) {
-	return d.modelStatusInfo[d.setID], nil
-}
-
-func (d *dummyModelState) SetStatus(_ context.Context, arg model.SetStatusArg) error {
-	d.modelStatusInfo[d.setID] = model.StatusInfo{
-		Status:  arg.Status,
-		Message: arg.Message,
-	}
-	return nil
-}
-
 type modelServiceSuite struct {
 	testing.IsolationSuite
 
@@ -115,9 +102,8 @@ var _ = gc.Suite(&modelServiceSuite{})
 
 func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 	s.state = &dummyModelState{
-		models:          map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
-		modelState:      map[coremodel.UUID]model.ModelState{},
-		modelStatusInfo: map[coremodel.UUID]model.StatusInfo{},
+		models:     map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
+		modelState: map[coremodel.UUID]model.ModelState{},
 	}
 
 	s.controllerUUID = uuid.MustNewUUID()
@@ -171,16 +157,6 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 
 	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
-}
-
-func (s *modelServiceSuite) TestValidModelStatus(c *gc.C) {
-	for _, v := range []corestatus.Status{
-		corestatus.Available,
-		corestatus.Busy,
-		corestatus.Error,
-	} {
-		c.Assert(validSettableModelStatus(v), jc.IsTrue, gc.Commentf("status %q is not valid for a model", v))
-	}
 }
 
 func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
@@ -242,9 +218,6 @@ func (s *modelServiceSuite) TestStatus(c *gc.C) {
 
 	s.state.setID = id
 	s.state.modelState[id] = model.ModelState{}
-	s.state.modelStatusInfo[id] = model.StatusInfo{
-		Status: corestatus.Available,
-	}
 
 	status, err := svc.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -259,72 +232,4 @@ func (s *modelServiceSuite) TestStatusFaildModelNotFound(c *gc.C) {
 
 	_, err := svc.Status(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-func (s *modelServiceSuite) TestSetStatus(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.state, s.state)
-
-	for _, v := range []corestatus.Status{
-		corestatus.Available,
-		corestatus.Busy,
-		corestatus.Error,
-	} {
-		s.state.setID = id
-		s.state.modelStatusInfo[id] = model.StatusInfo{
-			Status: corestatus.Available,
-		}
-
-		err := svc.SetStatus(context.Background(), model.SetStatusArg{
-			Status:  v,
-			Message: "a message",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(s.state.modelStatusInfo[id], gc.DeepEquals, model.StatusInfo{
-			Status:  v,
-			Message: "a message",
-		})
-	}
-}
-
-func (s *modelServiceSuite) TestSetStatusInvalidStatus(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.state, s.state)
-
-	for _, v := range []corestatus.Status{
-		corestatus.Active,
-		corestatus.Allocating,
-		corestatus.Applied,
-		corestatus.Attached,
-		corestatus.Attaching,
-		corestatus.Blocked,
-		corestatus.Broken,
-		corestatus.Detached,
-		corestatus.Detaching,
-		corestatus.Destroying,
-		corestatus.Down,
-		corestatus.Empty,
-		corestatus.Executing,
-		corestatus.Failed,
-		corestatus.Idle,
-		corestatus.Joined,
-		corestatus.Joining,
-		corestatus.Lost,
-		corestatus.Maintenance,
-		corestatus.Pending,
-		corestatus.Provisioning,
-		corestatus.ProvisioningError,
-		corestatus.Rebooting,
-		corestatus.Running,
-		corestatus.Suspending,
-		corestatus.Started,
-		corestatus.Stopped,
-		corestatus.Terminated,
-		corestatus.Unknown,
-		corestatus.Waiting,
-		corestatus.Suspended,
-	} {
-		err := svc.SetStatus(context.Background(), model.SetStatusArg{Status: v})
-		c.Check(err, jc.ErrorIs, modelerrors.InvalidModelStatus)
-	}
 }

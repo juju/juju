@@ -240,9 +240,3 @@ func (s *ModelState) GetStatus(context.Context) (model.StatusInfo, error) {
 	// TODO: Implement this method.
 	return model.StatusInfo{}, nil
 }
-
-// SetStatus sets the status of the model.
-func (s *ModelState) SetStatus(context.Context, model.SetStatusArg) error {
-	// TODO: Implement this method.
-	return nil
-}

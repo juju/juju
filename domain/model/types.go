@@ -192,14 +192,6 @@ type StatusInfo struct {
 	Since time.Time
 }
 
-// SetStatusArg is a struct that is used to set the status of a model.
-type SetStatusArg struct {
-	// Status is the new status to set for the model.
-	Status corestatus.Status
-	// Message is a human-readable message that describes the new status of the model.
-	Message string
-}
-
 // ModelState describes the state of a model.
 type ModelState struct {
 	// Destroying is a boolean value that indicates if the model is being destroyed.
