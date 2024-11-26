@@ -241,7 +241,7 @@ func (st *State) SetUnitResource(
 	unitResourceInput := unitResource{
 		ResourceUUID: config.ResourceID.String(),
 		UnitUUID:     config.UnitID.String(),
-		AddedAt:      time.Now(), // todo(gfouillet): add clock
+		AddedAt:      st.clock.Now(),
 	}
 	checkUnitResourceQuery := `
 SELECT &unitResource.* FROM unit_resource 
