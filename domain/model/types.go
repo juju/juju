@@ -105,9 +105,6 @@ type ReadOnlyModelCreationArgs struct {
 	// this value when you are trying to import a model during model migration.
 	UUID coremodel.UUID
 
-	// AgentVersion represents the current target agent version for the model.
-	AgentVersion version.Number
-
 	// ControllerUUID represents the unique id for the controller that the model
 	// is associated with.
 	ControllerUUID uuid.UUID

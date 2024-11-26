@@ -157,19 +157,6 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 		s.logger.Infof("model %s: cloud credential owner name is empty", model.Name)
 	}
 
-	var agentVersion string
-	if m.TargetAgentVersion.Valid {
-		agentVersion = m.TargetAgentVersion.String
-	}
-
-	model.AgentVersion, err = version.Parse(agentVersion)
-	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Errorf(
-			"parsing model %q agent version %q: %w",
-			m.UUID, agentVersion, err,
-		)
-	}
-
 	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, errors.Errorf(

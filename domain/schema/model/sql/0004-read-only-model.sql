@@ -10,7 +10,6 @@ CREATE TABLE model (
     controller_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     type TEXT NOT NULL,
-    target_agent_version TEXT NOT NULL,
     cloud TEXT NOT NULL,
     cloud_type TEXT NOT NULL,
     cloud_region TEXT,

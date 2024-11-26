@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
@@ -283,21 +282,13 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 
 // setAgentVersion sets the agent version for the controller model in dqlite.
 func (s *MachineSuite) setAgentVersion(c *gc.C, vers string) {
-	st := domain.NewStateBase(s.TxnRunnerFactory())
-	db, err := st.DB()
-	c.Assert(err, jc.ErrorIsNil)
+	db := s.ModelTxnRunner(c, s.ControllerModelUUID())
 
-	q := `
-UPDATE model_agent
-SET target_version = $M.target_agent_version
-WHERE model_uuid = $M.model_id
-`
-	args := sqlair.M{
-		"model_id":             s.ControllerModelUUID(),
-		"target_agent_version": vers,
-	}
+	q := "INSERT INTO agent_version (target_version) values ($M.target_version)"
 
-	stmt, err := st.Prepare(q, args)
+	args := sqlair.M{"target_version": vers}
+
+	stmt, err := sqlair.Prepare(q, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {

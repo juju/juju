@@ -168,7 +168,7 @@ func (s *TestingDomainServices) Secret(secretservice.SecretServiceParams) *secre
 }
 
 // Agent returns the modelagent service.
-func (s *TestingDomainServices) Agent() *modelagentservice.ModelService {
+func (s *TestingDomainServices) Agent() *modelagentservice.Service {
 	return nil
 }
 
