@@ -16,6 +16,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
@@ -1846,19 +1847,38 @@ func (s *applicationStateSuite) TestGetCharmNameAndOriginByApplicationID(c *gc.C
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// application platform.
+	var chUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT c.uuid
+FROM application AS a
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid = ?
+`, appID.String()).Scan(&chUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Notice this selects the reference name, not the metadata name.
 
-	ch, origin, err := s.state.GetCharmNameAndOriginByApplicationID(context.Background(), appID)
+	info, err := s.state.GetCharmInfoByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch, gc.Equals, "ubuntu-lite")
-	c.Check(origin, gc.DeepEquals, charm.CharmOrigin{
-		ReferenceName: "ubuntu-lite",
-		Source:        charm.LocalSource,
-		Revision:      revision,
-		Platform: charm.Platform{
-			OSType:       charm.Ubuntu,
-			Channel:      "22.04",
-			Architecture: charm.AMD64,
+	c.Check(info, gc.DeepEquals, charm.CharmInfo{
+		UUID: corecharm.ID(chUUID),
+		Name: "ubuntu-lite",
+		Origin: charm.CharmOrigin{
+			ReferenceName: "ubuntu-lite",
+			Source:        charm.LocalSource,
+			Revision:      revision,
+			Platform: charm.Platform{
+				OSType:       charm.Ubuntu,
+				Channel:      "22.04",
+				Architecture: charm.AMD64,
+			},
 		},
 	})
 }

@@ -91,25 +91,44 @@ func (d *CharmDownloader) getRepo(ctx context.Context, src corecharm.Source) (Ch
 	return repo, nil
 }
 
-func (d *CharmDownloader) download(ctx context.Context, name string, requestedOrigin corecharm.Origin, repo CharmRepository) (*DownloadResult, error) {
+func (d *CharmDownloader) download(ctx context.Context, name string, requestedOrigin corecharm.Origin, repo CharmRepository) (result *DownloadResult, err error) {
 	d.logger.Debugf("downloading charm %q using origin %v", name, requestedOrigin)
 
 	tmpFile, err := os.CreateTemp("", name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer tmpFile.Close()
+
+	defer func() {
+		// Always close the file, we no longer require to have it open for
+		// this purpose. Another process/method can take over the file.
+		tmpFile.Close()
+
+		// If the download was successful, we don't need to remove the file.
+		// It is the responsibility of the caller to remove the file.
+		if err == nil {
+			return
+		}
+
+		// Remove the temporary file if the download failed. If we can't
+		// remove the file, log a warning, so the operator can clean it up
+		// manually.
+		removeErr := os.Remove(tmpFile.Name())
+		if removeErr != nil {
+			d.logger.Warningf("failed to remove temporary file %q: %v", tmpFile.Name(), removeErr)
+		}
+	}()
 
 	actualOrigin, digest, err := repo.Download(ctx, name, requestedOrigin, tmpFile.Name())
 	if err != nil {
-		// Ensure we cleanup if the download fails.
-		_ = tmpFile.Close()
 
 		return nil, errors.Trace(err)
 	}
 
 	// We expect that after downloading the result is verified.
 	if digest.Hash != requestedOrigin.Hash {
+		_ = tmpFile.Close()
+
 		return nil, errors.Errorf("expected hash %q, got %q", requestedOrigin.Hash, digest.Hash)
 	}
 

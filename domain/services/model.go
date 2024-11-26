@@ -181,7 +181,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.storageRegistry,
 		downloader.NewCharmDownloader(repo, log.Child("charmdownloader")),
-		storage.NewCharmStore(s.objectstore, log.Child("charmstorage")),
+		store.NewCharmStore(s.objectstore, log.Child("charmstorage")),
 		reader.NewCharmReader(log.Child("charmreader")),
 		resource.NewResourceStoreFactory(s.objectstore),
 		log.Child("application"),

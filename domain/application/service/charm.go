@@ -13,12 +13,13 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/charm/downloader"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/downloader"
 )
 
 var (
@@ -147,6 +148,14 @@ type CharmDownloader interface {
 	// The charm will be verified against the hash in the origin. It is expected
 	// that the origin will always have the correct hash following this call.
 	Download(ctx context.Context, name string, origin corecharm.Origin) (downloader.DownloadResult, error)
+}
+
+// CharmStore defines the interface for storing charms.
+type CharmStore interface {
+	// Store the charm at the specified path into the object store. It is expected
+	// that the archive already exists at the specified path. If the file isn't
+	// found, a [store.ErrNotFound] is returned.
+	Store(ctx context.Context, charmName, path string, size int64, hash string) (objectstore.UUID, error)
 }
 
 // CharmService provides the API for working with charms.

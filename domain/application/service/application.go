@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"time"
@@ -43,6 +44,7 @@ import (
 	"github.com/juju/juju/domain/linklayerdevice"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -219,9 +221,9 @@ type ApplicationState interface {
 	// [applicationerrors.CharmNotFoundError] is returned.
 	GetCharmByApplicationID(context.Context, coreapplication.ID) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
 
-	// GetCharmNameAndOriginByApplicationID returns the charm name and origin
-	// for the specified application ID.
-	GetCharmNameAndOriginByApplicationID(context.Context, coreapplication.ID) (string, corecharm.Origin, error)
+	// GetCharmInfoByApplicationID returns the charm info, which includes the
+	// charm uuid, name and origin for the specified application ID.
+	GetCharmInfoByApplicationID(context.Context, coreapplication.ID) (domaincharm.CharmInfo, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
 	// returns an error if the charm can not be found by the name. This can also
@@ -264,6 +266,7 @@ type ApplicationService struct {
 	clock  clock.Clock
 
 	charmDownloader       CharmDownloader
+	charmStore            CharmStore
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	secretDeleter         DeleteSecretState
 }
@@ -273,6 +276,7 @@ func NewApplicationService(
 	st ApplicationState,
 	deleteSecretState DeleteSecretState,
 	charmDownloader CharmDownloader,
+	charmStore CharmStore,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	logger logger.Logger,
 ) *ApplicationService {
@@ -281,6 +285,7 @@ func NewApplicationService(
 		logger:                logger,
 		clock:                 clock.WallClock,
 		charmDownloader:       charmDownloader,
+		charmStore:            charmStore,
 		storageRegistryGetter: storageRegistryGetter,
 		secretDeleter:         deleteSecretState,
 	}
@@ -1404,30 +1409,51 @@ func (s *ApplicationService) DownloadApplicationCharm(ctx context.Context, uuid 
 		return internalerrors.Errorf("checking if charm is available: %w", err)
 	}
 
-	charmName, origin, err := s.st.GetCharmNameAndOriginByApplicationID(ctx, uuid)
+	info, err := s.st.GetCharmInfoByApplicationID(ctx, uuid)
 	if err != nil {
 		return internalerrors.Errorf("getting charm name and origin: %w", err)
 	}
 
 	// Download the charm, once it's been downloaded, we can then persist the
-	// charm is the storage.
-	downloadResult, err = s.charmDownloader.Download(ctx, charmName, origin)
+	// charm is the storage. The downloader guarantees that the archive is
+	// cleaned up on error. Once it's successfully downloaded, then the clean
+	// up of the temporary archive is now our responsibility,
+	downloadResult, err := s.charmDownloader.Download(ctx, info.Name, info.Origin)
 	if err != nil {
 		return internalerrors.Errorf("downloading charm: %w", err)
 	}
 
-	persistedUUID, err := s.charmStorage.Store(ctx, downloadResult.Charm)
+	// charmPath is the path to the charm archive that we've downloaded as
+	// a temporary file.
+	blobPath := downloadResult.Path
+
+	defer func() {
+		// If for any reason we can't remove the temporary archive, we log a
+		// warning, so the operator can manually clean up the archive.
+		err := os.Remove(blobPath)
+		if err != nil {
+			s.logger.Warningf("removing temporary downloaded charm archive: %v", err)
+		}
+	}()
+
+	// Persist the charm in the charm store (objectstore) and return back the
+	// object UUID of the location. We can use that UUID to look up the
+	// location of the charm blob in the object store.
+	persistedUUID, err := s.charmStore.Store(ctx, info.Name, blobPath, downloadResult.Size, downloadResult.Origin.Hash)
 	if err != nil {
 		return internalerrors.Errorf("persisting charm: %w", err)
 	}
 
-	// // Only once we've persisted the charm, do we update the application with
-	// // the new charm.
-	// charm, err := charm.ReadCharmArchive()
+	// Only once we've persisted the charm, do we update the application with
+	// the new charm.
+	charm, err := charm.ReadCharmArchive(blobPath)
+	if err != nil {
+		return internalerrors.Errorf("reading charm archive: %w", err)
+	}
 
-	// if err := s.st.ResolveDownloadedCharm(ctx, uuid, persistedUUID); err != nil {
-	// 	return internalerrors.Errorf("resolving downloaded charm: %w", err)
-	// }
+	if err := s.st.ResolveDownloadedCharm(ctx, info.UUID, persistedUUID, charm); err != nil {
+		return internalerrors.Errorf("resolving downloaded charm: %w", err)
+	}
 
 	return nil
 }
