@@ -8,16 +8,22 @@ run_deploy_charm() {
 	ensure "test-deploy-charm" "${file}"
 
 	echo "Deploy some charms"
+	juju deploy discourse-k8s
 	juju deploy postgresql-k8s
-	juju deploy mattermost-k8s
-	juju relate mattermost-k8s postgresql-k8s:db
+	juju deploy redis-k8s --channel edge # stable redis is too old
+	juju deploy nginx-ingress-integrator
+	juju trust nginx-ingress-integrator --scope=cluster
+	juju integrate discourse-k8s postgresql-k8s
+	juju integrate discourse-k8s redis-k8s
+	juju integrate discourse-k8s nginx-ingress-integrator
 
-	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
-	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
+	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s" 2)"
+	wait_for "redis-k8s" "$(active_idle_condition "redis-k8s" 3)"
+	wait_for "discourse-k8s" "$(active_idle_condition "discourse-k8s" 0)"
+	wait_for "nginx-ingress-integrator" "$(active_idle_condition "nginx-ingress-integrator" 1)"
 
-	echo "Verify application is reachable"
-	mattermost_ip="$(juju status --format json | jq -r '.applications["mattermost-k8s"].units["mattermost-k8s/0"].address')"
-	curl "${mattermost_ip}:8065" >/dev/null
+	echo "Verify discourse user can be created"
+	check_contains "$(juju run discourse-k8s/0 create-user admin=true email=user@example.com | yq .user)" "user@example.com"
 
 	destroy_model "test-deploy-charm"
 }

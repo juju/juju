@@ -163,7 +163,6 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	uniter.Register(registry)
 	upgrader.Register(registry)
 	upgradeseries.Register(registry)
-	upgradesteps.Register(registry)
 
 	registerWatchers(registry)
 

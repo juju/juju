@@ -24,6 +24,9 @@ const (
 	// Client facades returns just the client facades along with some required
 	// facades that the client can use.
 	Client FacadeGroup = "client"
+	// Agent facades returns just the agent facades along with some required
+	// facades that the agent can use (such as admin for login).
+	Agent FacadeGroup = "agent"
 	// JIMM facade group defines a very select set of facades that only work
 	// with JIMM. This does not include the JIMM facade as defined in JIMM.
 	JIMM FacadeGroup = "jimm"
@@ -32,7 +35,7 @@ const (
 // ParseFacadeGroup will attempt to parse the facade group
 func ParseFacadeGroup(s string) (FacadeGroup, error) {
 	switch s {
-	case "latest", "all", "client", "jimm":
+	case "latest", "all", "client", "agent", "jimm":
 		return FacadeGroup(s), nil
 	default:
 		return FacadeGroup(""), errors.NotValidf("facade group")
@@ -48,6 +51,8 @@ func Filter(g FacadeGroup, facades []facade.Details, registry Registry) []facade
 		return allFacades(facades)
 	case Client:
 		return clientFacades(facades, registry)
+	case Agent:
+		return agentFacades(facades, registry)
 	case JIMM:
 		return jimmFacades(facades)
 	}
@@ -102,6 +107,39 @@ func clientFacades(facades []facade.Details, registry Registry) []facade.Details
 		}
 		pkg := packageName(objType.GoType())
 		if !strings.HasPrefix(pkg, "github.com/juju/juju/apiserver/facades/client/") {
+			continue
+		}
+		results = append(results, v)
+	}
+	return results
+}
+
+func agentFacades(facades []facade.Details, registry Registry) []facade.Details {
+	required := map[string]struct{}{
+		"Admin":  {},
+		"Pinger": {},
+	}
+
+	results := make([]facade.Details, 0)
+	latest := latestFacades(facades)
+	for _, v := range latest {
+		if _, ok := required[v.Name]; ok {
+			results = append(results, v)
+			continue
+		}
+
+		var objType *rpcreflect.ObjType
+		kind, err := registry.GetType(v.Name, v.Version)
+		if err == nil {
+			objType = rpcreflect.ObjTypeOf(kind)
+		} else {
+			objType = rpcreflect.ObjTypeOf(v.Type)
+			if objType == nil {
+				continue
+			}
+		}
+		pkg := packageName(objType.GoType())
+		if !strings.HasPrefix(pkg, "github.com/juju/juju/apiserver/facades/agent/") {
 			continue
 		}
 		results = append(results, v)

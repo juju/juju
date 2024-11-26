@@ -6,8 +6,6 @@ test_metrics() {
 
 	set_verbosity
 
-	cd .. || exit
-
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
@@ -15,7 +13,7 @@ test_metrics() {
 
 	bootstrap "test-metrics" "${file}"
 
-	run "run_smoke_test"
+	test_smoke_test
 
 	destroy_controller "test-metrics"
 }
