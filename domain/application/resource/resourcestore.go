@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/juju/core/objectstore"
-	coreresource "github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"

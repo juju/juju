@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resource"
 )
 
 // ModelOperatorBroker defines a broker for Executing Kubernetes ensure

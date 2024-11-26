@@ -70,7 +70,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/permission",
 		"core/presence",
 		"core/relation",
-		"core/resources",
+		"core/resource",
 		"core/secrets",
 		"core/status",
 		"core/trace",

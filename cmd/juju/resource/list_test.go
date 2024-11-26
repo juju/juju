@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -71,7 +71,7 @@ func (s *ShowApplicationSuite) TestInfo(c *gc.C) {
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
-	data := []resources.ApplicationResources{{}}
+	data := []resource.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
@@ -84,9 +84,9 @@ func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
 }
 
 func (s *ShowApplicationSuite) TestRun(c *gc.C) {
-	data := []resources.ApplicationResources{
+	data := []resource.ApplicationResources{
 		{
-			Resources: []resources.Resource{
+			Resources: []resource.Resource{
 				{
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
@@ -195,7 +195,7 @@ openjdk   10
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
-	data := []resources.ApplicationResources{{}}
+	data := []resource.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
@@ -210,8 +210,8 @@ func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
 func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
 	unitName := "svc/0"
 
-	data := []resources.ApplicationResources{{
-		Resources: []resources.Resource{
+	data := []resource.ApplicationResources{{
+		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
@@ -237,7 +237,7 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 				Origin:   charmresource.OriginStore,
 			},
 		},
-		UnitResources: []resources.UnitResources{
+		UnitResources: []resource.UnitResources{
 			{
 				Tag: names.NewUnitTag(unitName),
 			},
@@ -258,9 +258,9 @@ openjdk   -
 }
 
 func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
-	data := []resources.ApplicationResources{
+	data := []resource.ApplicationResources{
 		{
-			Resources: []resources.Resource{
+			Resources: []resource.Resource{
 				{
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
@@ -287,9 +287,9 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 					ID:        "two",
 				},
 			},
-			UnitResources: []resources.UnitResources{{
+			UnitResources: []resource.UnitResources{{
 				Tag: names.NewUnitTag("svc/0"),
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -339,8 +339,8 @@ website2  2012-12-12T12:12
 }
 
 func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
-	data := []resources.ApplicationResources{{
-		Resources: []resources.Resource{
+	data := []resource.ApplicationResources{{
+		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
@@ -401,10 +401,10 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 				Origin: charmresource.OriginUpload,
 			},
 		},
-		UnitResources: []resources.UnitResources{
+		UnitResources: []resource.UnitResources{
 			{
 				Tag: names.NewUnitTag("svc/10"),
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -437,7 +437,7 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 			},
 			{
 				Tag: names.NewUnitTag("svc/5"),
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -501,8 +501,8 @@ svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 }
 
 func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
-	data := []resources.ApplicationResources{{
-		Resources: []resources.Resource{
+	data := []resource.ApplicationResources{{
+		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
@@ -539,10 +539,10 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 		},
-		UnitResources: []resources.UnitResources{
+		UnitResources: []resource.UnitResources{
 			{
 				Tag: names.NewUnitTag("svc/10"),
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -574,7 +574,7 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 			},
 			{
 				Tag: names.NewUnitTag("svc/5"),
-				Resources: []resources.Resource{
+				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
@@ -647,10 +647,10 @@ func (s *stubShowApplicationDeps) NewClient(ctx context.Context) (resourcecmd.Li
 
 type stubResourceClient struct {
 	stub            *testing.Stub
-	ReturnResources []resources.ApplicationResources
+	ReturnResources []resource.ApplicationResources
 }
 
-func (s *stubResourceClient) ListResources(ctx context.Context, applications []string) ([]resources.ApplicationResources, error) {
+func (s *stubResourceClient) ListResources(ctx context.Context, applications []string) ([]resource.ApplicationResources, error) {
 	s.stub.AddCall("ListResources", applications)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

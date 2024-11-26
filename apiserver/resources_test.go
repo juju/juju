@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/apiserver"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -235,27 +235,27 @@ func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, cty
 }
 
 type fakeBackend struct {
-	ReturnGetResource           resources.Resource
-	ReturnGetPendingResource    resources.Resource
-	ReturnSetResource           resources.Resource
+	ReturnGetResource           resource.Resource
+	ReturnGetPendingResource    resource.Resource
+	ReturnSetResource           resource.Resource
 	SetResourceErr              error
-	ReturnUpdatePendingResource resources.Resource
+	ReturnUpdatePendingResource resource.Resource
 }
 
 const resourceBody = "body"
 
-func (s *fakeBackend) OpenResource(application, name string) (resources.Resource, io.ReadCloser, error) {
-	res := resources.Resource{}
+func (s *fakeBackend) OpenResource(application, name string) (resource.Resource, io.ReadCloser, error) {
+	res := resource.Resource{}
 	res.Size = int64(len(resourceBody))
 	reader := io.NopCloser(strings.NewReader(resourceBody))
 	return res, reader, nil
 }
 
-func (s *fakeBackend) GetResource(service, name string) (resources.Resource, error) {
+func (s *fakeBackend) GetResource(service, name string) (resource.Resource, error) {
 	return s.ReturnGetResource, nil
 }
 
-func (s *fakeBackend) GetPendingResource(service, name, pendingID string) (resources.Resource, error) {
+func (s *fakeBackend) GetPendingResource(service, name, pendingID string) (resource.Resource, error) {
 	return s.ReturnGetPendingResource, nil
 }
 
@@ -263,18 +263,18 @@ func (s *fakeBackend) SetResource(
 	applicationID, userID string,
 	res charmresource.Resource, r io.Reader,
 	incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType,
-) (resources.Resource, error) {
+) (resource.Resource, error) {
 	if s.SetResourceErr != nil {
-		return resources.Resource{}, s.SetResourceErr
+		return resource.Resource{}, s.SetResourceErr
 	}
 	return s.ReturnSetResource, nil
 }
 
-func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resources.Resource, error) {
+func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
 	return s.ReturnUpdatePendingResource, nil
 }
 
-func newDockerResource(c *gc.C, name, username, data string) resources.Resource {
+func newDockerResource(c *gc.C, name, username, data string) resource.Resource {
 	opened := resourcetesting.NewDockerResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username
@@ -284,7 +284,7 @@ func newDockerResource(c *gc.C, name, username, data string) resources.Resource 
 	return res
 }
 
-func newResource(c *gc.C, name, username, data string) (resources.Resource, params.Resource) {
+func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username

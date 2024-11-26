@@ -24,7 +24,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	corestorage "github.com/juju/juju/core/storage"
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
@@ -260,9 +260,9 @@ type ResourceDownloader interface {
 // ResourceUploader defines the interface for uploading resources into
 // the target controller during a migration.
 type ResourceUploader interface {
-	UploadResource(context.Context, resources.Resource, io.ReadSeeker) error
-	SetPlaceholderResource(context.Context, resources.Resource) error
-	SetUnitResource(context.Context, string, resources.Resource) error
+	UploadResource(context.Context, resource.Resource, io.ReadSeeker) error
+	SetPlaceholderResource(context.Context, resource.Resource) error
+	SetUnitResource(context.Context, string, resource.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -450,7 +450,7 @@ func uploadResources(ctx context.Context, config UploadBinariesConfig, logger co
 	return nil
 }
 
-func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resources.Resource, logger corelogger.Logger) error {
+func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resource.Resource, logger corelogger.Logger) error {
 	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
 	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationID, rev.Name)
 	if err != nil {

@@ -23,8 +23,8 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -282,7 +282,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		{ApplicationRevision: app0Res},
 		{
 			ApplicationRevision: app1Res,
-			UnitRevisions:       map[string]resources.Resource{"app1/99": app1UnitRes},
+			UnitRevisions:       map[string]resource.Resource{"app1/99": app1UnitRes},
 		},
 		{ApplicationRevision: app2Res},
 	}
@@ -453,7 +453,7 @@ func (f *fakeUploader) UploadCharm(_ context.Context, curl string, charmRef stri
 	return outU, nil
 }
 
-func (f *fakeUploader) UploadResource(_ context.Context, res resources.Resource, r io.ReadSeeker) error {
+func (f *fakeUploader) UploadResource(_ context.Context, res resource.Resource, r io.ReadSeeker) error {
 	body, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -462,12 +462,12 @@ func (f *fakeUploader) UploadResource(_ context.Context, res resources.Resource,
 	return nil
 }
 
-func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resources.Resource) error {
+func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resource.Resource) error {
 	f.resources[res.ApplicationID+"/"+res.Name] = "<placeholder>"
 	return nil
 }
 
-func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resources.Resource) error {
+func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resource.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
 }

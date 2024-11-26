@@ -45,7 +45,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/paths",
 		"core/permission",
 		"core/relation",
-		"core/resources",
+		"core/resource",
 		"core/secrets",
 		"core/status",
 		"core/trace",

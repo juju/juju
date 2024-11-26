@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -157,7 +157,7 @@ func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.ReadSee
 }
 
 // UploadResource uploads a resource to the migration endpoint.
-func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resources.Resource, r io.ReadSeeker) error {
+func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resource.Resource, r io.ReadSeeker) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
 	err := c.resourcePost(ctx, modelUUID, args, r)
@@ -165,7 +165,7 @@ func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resou
 }
 
 // SetPlaceholderResource sets the metadata for a placeholder resource.
-func (c *Client) SetPlaceholderResource(ctx context.Context, modelUUID string, res resources.Resource) error {
+func (c *Client) SetPlaceholderResource(ctx context.Context, modelUUID string, res resource.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
 	err := c.resourcePost(ctx, modelUUID, args, nil)
@@ -173,7 +173,7 @@ func (c *Client) SetPlaceholderResource(ctx context.Context, modelUUID string, r
 }
 
 // SetUnitResource sets the metadata for a particular unit resource.
-func (c *Client) SetUnitResource(ctx context.Context, modelUUID, unit string, res resources.Resource) error {
+func (c *Client) SetUnitResource(ctx context.Context, modelUUID, unit string, res resource.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("unit", unit)
 	err := c.resourcePost(ctx, modelUUID, args, nil)
@@ -187,7 +187,7 @@ func (c *Client) resourcePost(ctx context.Context, modelUUID string, args url.Va
 	return errors.Trace(err)
 }
 
-func makeResourceArgs(res resources.Resource) url.Values {
+func makeResourceArgs(res resource.Resource) url.Values {
 	args := url.Values{}
 	args.Add("name", res.Name)
 	args.Add("type", res.Type.String())

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -104,7 +104,7 @@ func (s *AppTabularSuite) formatTabular(c *gc.C, value interface{}) string {
 }
 
 func (s *AppTabularSuite) TestFormatApplicationOkay(c *gc.C) {
-	res := resources.Resource{
+	res := resource.Resource{
 
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -129,7 +129,7 @@ openjdk   store        7
 }
 
 func (s *AppTabularSuite) TestFormatUnitOkay(c *gc.C) {
-	res := resources.Resource{
+	res := resource.Resource{
 
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -154,7 +154,7 @@ openjdk   7
 }
 
 func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
-	res := []resources.Resource{
+	res := []resource.Resource{
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
@@ -241,7 +241,7 @@ func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted, err := resourcecmd.FormatApplicationResources(resources.ApplicationResources{
+	formatted, err := resourcecmd.FormatApplicationResources(resource.ApplicationResources{
 		Resources:           res,
 		CharmStoreResources: charmResources,
 	})

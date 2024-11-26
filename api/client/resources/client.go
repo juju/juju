@@ -15,7 +15,7 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/http"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -52,7 +52,7 @@ func NewClient(apiCaller base.APICallCloser, options ...Option) (*Client, error)
 
 // ListResources calls the ListResources API server method with
 // the given application names.
-func (c Client) ListResources(ctx context.Context, applications []string) ([]resources.ApplicationResources, error) {
+func (c Client) ListResources(ctx context.Context, applications []string) ([]resource.ApplicationResources, error) {
 	args, err := newListResourcesArgs(ctx, applications)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -70,7 +70,7 @@ func (c Client) ListResources(ctx context.Context, applications []string) ([]res
 	}
 
 	var errs []error
-	results := make([]resources.ApplicationResources, len(applications))
+	results := make([]resource.ApplicationResources, len(applications))
 	for i := range applications {
 		apiResult := apiResults.Results[i]
 

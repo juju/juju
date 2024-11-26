@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
-	coreresources "github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
+	coreresources "github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"

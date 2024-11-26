@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -57,9 +57,9 @@ type SerializedModel struct {
 // SerializedModelResource defines the resource revisions for a
 // specific application and its units.
 type SerializedModelResource struct {
-	ApplicationRevision resources.Resource
-	CharmStoreRevision  resources.Resource
-	UnitRevisions       map[string]resources.Resource
+	ApplicationRevision resource.Resource
+	CharmStoreRevision  resource.Resource
+	UnitRevisions       map[string]resource.Resource
 }
 
 // ModelInfo is used to report basic details about a model.

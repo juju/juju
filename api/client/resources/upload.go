@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -46,7 +46,7 @@ func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (Uplo
 		return UploadRequest{}, errors.Errorf("invalid application %q", application)
 	}
 
-	content, err := resources.GenerateContent(r)
+	content, err := resource.GenerateContent(r)
 	if err != nil {
 		return UploadRequest{}, errors.Trace(err)
 	}

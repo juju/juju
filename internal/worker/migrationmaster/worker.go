@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
@@ -409,17 +409,17 @@ func (w *uploadWrapper) UploadCharm(ctx context.Context, curl string, charmRef s
 }
 
 // UploadResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadResource(ctx context.Context, res resources.Resource, content io.ReadSeeker) error {
+func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resource, content io.ReadSeeker) error {
 	return w.client.UploadResource(ctx, w.modelUUID, res, content)
 }
 
 // SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetPlaceholderResource(ctx context.Context, res resources.Resource) error {
+func (w *uploadWrapper) SetPlaceholderResource(ctx context.Context, res resource.Resource) error {
 	return w.client.SetPlaceholderResource(ctx, w.modelUUID, res)
 }
 
 // SetUnitResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetUnitResource(ctx context.Context, unitName string, res resources.Resource) error {
+func (w *uploadWrapper) SetUnitResource(ctx context.Context, unitName string, res resource.Resource) error {
 	return w.client.SetUnitResource(ctx, w.modelUUID, unitName, res)
 }
 

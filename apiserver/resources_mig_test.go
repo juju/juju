@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/mocks"
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -345,8 +345,8 @@ func (s *resourcesUploadSuite) TestSetResource(c *gc.C) {
 
 	stResources := mocks.NewMockResources(ctrl)
 	gomock.InOrder(
-		stResources.EXPECT().SetUnitResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(resources.Resource{}, nil),
-		stResources.EXPECT().SetResource(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(resources.Resource{}, nil),
+		stResources.EXPECT().SetUnitResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(resource.Resource{}, nil),
+		stResources.EXPECT().SetResource(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(resource.Resource{}, nil),
 	)
 	apiserver.SetResource(true, "", "", charmresource.Resource{}, nil, stResources)
 	apiserver.SetResource(false, "", "", charmresource.Resource{}, nil, stResources)

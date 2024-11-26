@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
-	coreresources "github.com/juju/juju/core/resources"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -43,7 +43,7 @@ func (s *ListResourcesSuite) TestListResources(c *gc.C) {
 
 	res, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, []coreresources.ApplicationResources{
+	c.Check(res, jc.DeepEquals, []coreresource.ApplicationResources{
 		{Resources: expected1},
 		{Resources: expected2},
 	})
@@ -78,7 +78,7 @@ func (s *ListResourcesSuite) TestEmptyResources(c *gc.C) {
 
 	res, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, []coreresources.ApplicationResources{{}, {}})
+	c.Check(res, jc.DeepEquals, []coreresource.ApplicationResources{{}, {}})
 }
 
 func (s *ListResourcesSuite) TestServerError(c *gc.C) {

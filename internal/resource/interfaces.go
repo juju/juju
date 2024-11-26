@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/environs/config"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
@@ -25,13 +25,13 @@ type ModelConfigService interface {
 // Resources represents the methods used by the resource opener from state.Resources.
 type Resources interface {
 	// GetResource returns the identified resource.
-	GetResource(applicationID, name string) (resources.Resource, error)
+	GetResource(applicationID, name string) (resource.Resource, error)
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(applicationID, name string) (resources.Resource, io.ReadCloser, error)
+	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
-	OpenResourceForUniter(unitName, resName string) (resources.Resource, io.ReadCloser, error)
+	OpenResourceForUniter(unitName, resName string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resources.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
 }
 
 // ResourceGetter provides the functionality for getting a resource file.

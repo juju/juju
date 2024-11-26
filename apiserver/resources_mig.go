@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -70,8 +70,8 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 
 // processPost handles resources upload POST request after
 // authentication.
-func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State, store objectstore.ObjectStore) (resources.Resource, error) {
-	var empty resources.Resource
+func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State, store objectstore.ObjectStore) (resource.Resource, error) {
+	var empty resource.Resource
 	query := r.URL.Query()
 
 	target, isUnit, err := getUploadTarget(query)
@@ -101,7 +101,7 @@ func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state
 }
 
 func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt state.Resources) (
-	resources.Resource, error,
+	resource.Resource, error,
 ) {
 	if isUnit {
 		return rSt.SetUnitResource(target, user, res)

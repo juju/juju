@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources
+package resource
 
 // TODO(ericsnow) Move this file to the charm repo?
 

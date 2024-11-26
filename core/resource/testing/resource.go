@@ -13,29 +13,29 @@ import (
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 type newCharmResourceFunc func(c *gc.C, name, content string) charmresource.Resource
 
 // NewResource produces full resource info for the given name and
-// content. The origin is set set to "upload". A reader is also returned
+// content. The origin is set to "upload". A reader is also returned
 // which contains the content.
-func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resources.Opened {
+func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
-	return resources.Opened{
+	return resource.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmResource),
 		ReadCloser: newStubReadCloser(stub, content),
 	}
 }
 
 // NewDockerResource produces full resource info for the given name and
-// content. The origin is set set to "upload" (via resource created by  NewCharmDockerResource).
+// content. The origin is set to "upload" (via resource created by  NewCharmDockerResource).
 // A reader is also returned which contains the content.
-func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resources.Opened {
+func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
-	return resources.Opened{
+	return resource.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmDockerResource),
 		ReadCloser: newStubReadCloser(stub, content),
 	}
@@ -87,19 +87,19 @@ func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resourc
 // NewPlaceholderResource returns resource info for a resource that
 // has not been uploaded or pulled from the charm store yet. The origin
 // is set to "upload".
-func NewPlaceholderResource(c *gc.C, name, applicationID string) resources.Resource {
+func NewPlaceholderResource(c *gc.C, name, applicationID string) resource.Resource {
 	res := newResource(c, name, applicationID, "", "", NewCharmResource)
 	res.Fingerprint = charmresource.Fingerprint{}
 	return res
 }
 
-func newResource(c *gc.C, name, applicationID, username, content string, charmResourceFunc newCharmResourceFunc) resources.Resource {
+func newResource(c *gc.C, name, applicationID, username, content string, charmResourceFunc newCharmResourceFunc) resource.Resource {
 	var timestamp time.Time
 	if username != "" {
 		// TODO(perrito666) 2016-05-02 lp:1558657
 		timestamp = time.Now().UTC()
 	}
-	res := resources.Resource{
+	res := resource.Resource{
 		Resource:      charmResourceFunc(c, name, content),
 		ID:            applicationID + "/" + name,
 		PendingID:     "",
@@ -128,8 +128,8 @@ func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
 
 // GenResourceID can be used in testing for generating a charm ID that is
 // checked for subsequent errors using the test suit's go check instance.
-func GenResourceID(c *gc.C) resources.ID {
-	id, err := resources.NewID()
+func GenResourceID(c *gc.C) resource.ID {
+	id, err := resource.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 	return id
 }

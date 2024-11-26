@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -140,7 +140,7 @@ type ServiceParams struct {
 	CharmModifiedVersion int
 
 	// ImageDetails is the docker registry URL and auth details for the juju init container image.
-	ImageDetails resources.DockerImageDetails
+	ImageDetails resource.DockerImageDetails
 }
 
 // DeploymentState is returned by the OperatorExists call.
@@ -369,7 +369,7 @@ type ModelOperatorConfig struct {
 	AgentConf []byte
 
 	// ImageDetails is the docker registry URL and auth details for the juju operator image.
-	ImageDetails resources.DockerImageDetails
+	ImageDetails resource.DockerImageDetails
 
 	// Port is the socket port that the operator model will be listening on
 	Port int32
@@ -378,10 +378,10 @@ type ModelOperatorConfig struct {
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
 	// ImageDetails is the docker registry URL and auth details for the juju operator image.
-	ImageDetails resources.DockerImageDetails
+	ImageDetails resource.DockerImageDetails
 
 	// BaseImageDetails is the docker registry URL and auth details for the charm base image.
-	BaseImageDetails resources.DockerImageDetails
+	BaseImageDetails resource.DockerImageDetails
 
 	// Version is the Juju version of the operator image.
 	Version version.Number

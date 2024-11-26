@@ -22,7 +22,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -108,12 +108,12 @@ func getCurrentResources(
 	ctx context.Context,
 	applicationID string,
 	resourceLister ResourceLister,
-) (map[string]resources.Resource, error) {
+) (map[string]resource.Resource, error) {
 	svcs, err := resourceLister.ListResources(ctx, []string{applicationID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return resources.AsMap(svcs[0].Resources), nil
+	return resource.AsMap(svcs[0].Resources), nil
 }
 
 // getAvailableRepositoryResources gets the current resources for this
@@ -140,7 +140,7 @@ func getAvailableRepositoryResources(ctx context.Context, newCharmID application
 func filterResourcesForUpgrade(
 	source apicharm.OriginSource,
 	meta map[string]charmresource.Meta,
-	current map[string]resources.Resource,
+	current map[string]resource.Resource,
 	available map[string]charmresource.Resource,
 	providedResources map[string]string,
 ) (map[string]charmresource.Meta, error) {
@@ -177,7 +177,7 @@ func filterResourcesForUpgrade(
 func shouldUpgradeResource(
 	resName string,
 	providedResources map[string]string,
-	current map[string]resources.Resource,
+	current map[string]resource.Resource,
 	available map[string]charmresource.Resource,
 ) (bool, error) {
 
@@ -221,7 +221,7 @@ func shouldUpgradeResource(
 func shouldUpgradeResourceLocalCharm(
 	name string,
 	providedResources map[string]string,
-	current map[string]resources.Resource,
+	current map[string]resource.Resource,
 ) (bool, error) {
 	_, curFound := current[name]
 	providedResource, providedResourceFound := providedResources[name]

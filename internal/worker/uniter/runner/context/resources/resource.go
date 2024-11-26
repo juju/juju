@@ -12,7 +12,7 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
 )
@@ -21,13 +21,13 @@ import (
 type OpenedResourceClient interface {
 	// GetResource returns the resource info and content for the given
 	// name (and unit-implied application).
-	GetResource(ctx context.Context, resourceName string) (resources.Resource, io.ReadCloser, error)
+	GetResource(ctx context.Context, resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 
 // OpenedResource wraps the resource info and reader returned
 // from the API.
 type OpenedResource struct {
-	resources.Resource
+	resource.Resource
 	io.ReadCloser
 }
 

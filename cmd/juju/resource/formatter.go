@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -58,7 +58,7 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 }
 
 // FormatAppResource converts the resource info into a FormattedAppResource.
-func FormatAppResource(res resources.Resource) FormattedAppResource {
+func FormatAppResource(res resource.Resource) FormattedAppResource {
 	used := !res.IsPlaceholder()
 	result := FormattedAppResource{
 		ID:               res.ID,
@@ -86,7 +86,7 @@ func FormatAppResource(res resources.Resource) FormattedAppResource {
 	return result
 }
 
-func formatApplicationResources(sr resources.ApplicationResources) (FormattedApplicationInfo, error) {
+func formatApplicationResources(sr resource.ApplicationResources) (FormattedApplicationInfo, error) {
 	var formatted FormattedApplicationInfo
 	updates, err := sr.Updates()
 	if err != nil {
@@ -108,7 +108,7 @@ func formatApplicationResources(sr resources.ApplicationResources) (FormattedApp
 
 // FormatApplicationDetails converts a ApplicationResources value into a formatted value
 // for display on the command line.
-func FormatApplicationDetails(sr resources.ApplicationResources) (FormattedApplicationDetails, error) {
+func FormatApplicationDetails(sr resource.ApplicationResources) (FormattedApplicationDetails, error) {
 	var formatted FormattedApplicationDetails
 	details := detailedResources("", sr)
 	updates, err := sr.Updates()
@@ -126,7 +126,7 @@ func FormatApplicationDetails(sr resources.ApplicationResources) (FormattedAppli
 }
 
 // FormatDetailResource converts the arguments into a FormattedApplicationResource.
-func FormatDetailResource(tag names.UnitTag, svc, unit resources.Resource, progress int64) FormattedDetailResource {
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) FormattedDetailResource {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
@@ -154,7 +154,7 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resources.Resource, progr
 	}
 }
 
-func combinedRevision(r resources.Resource) string {
+func combinedRevision(r resource.Resource) string {
 	switch r.Origin {
 	case charmresource.OriginStore:
 		// Have to check since 0+ is a valid revision number
@@ -169,7 +169,7 @@ func combinedRevision(r resources.Resource) string {
 	return "-"
 }
 
-func combinedOrigin(used bool, r resources.Resource) string {
+func combinedOrigin(used bool, r resource.Resource) string {
 	if r.Origin == charmresource.OriginUpload && used && r.Username != "" {
 		return r.Username
 	}
@@ -186,7 +186,7 @@ func usedYesNo(used bool) string {
 // detailedResources shows the version of each resource on each unit, with the
 // corresponding version of the resource that exists in the controller. if unit
 // is non-empty, only units matching that unitID will be returned.
-func detailedResources(unit string, sr resources.ApplicationResources) []FormattedDetailResource {
+func detailedResources(unit string, sr resource.ApplicationResources) []FormattedDetailResource {
 	var formatted []FormattedDetailResource
 	for _, ur := range sr.UnitResources {
 		if unit == "" || unit == ur.Tag.Id() {
@@ -207,8 +207,8 @@ func detailedResources(unit string, sr resources.ApplicationResources) []Formatt
 	return formatted
 }
 
-func resourceMap(res []resources.Resource) map[string]resources.Resource {
-	m := make(map[string]resources.Resource, len(res))
+func resourceMap(res []resource.Resource) map[string]resource.Resource {
+	m := make(map[string]resource.Resource, len(res))
 	for _, r := range res {
 		m[r.Name] = r
 	}
@@ -236,7 +236,7 @@ func (m charmResourceList) Swap(i, j int) {
 
 // resourceList is a convenience type enabling to sort
 // a collection of resource.Resource by Name.
-type resourceList []resources.Resource
+type resourceList []resource.Resource
 
 // Len implements sort.Interface
 func (m resourceList) Len() int {

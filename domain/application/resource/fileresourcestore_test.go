@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
-	resourcestesting "github.com/juju/juju/core/resources/testing"
+	resourcestesting "github.com/juju/juju/core/resource/testing"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 

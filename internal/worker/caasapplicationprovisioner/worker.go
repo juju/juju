@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -51,7 +51,7 @@ type CAASProvisionerFacade interface {
 	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(ctx context.Context, appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(ctx context.Context, appName string) ([]params.CAASUnit, error)
-	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resources.DockerImageDetails, error)
+	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error)
 	UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
 	ClearApplicationResources(ctx context.Context, appName string) error
