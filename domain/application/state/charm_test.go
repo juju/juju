@@ -90,7 +90,8 @@ func (s *charmStateSuite) TestGetCharmIDLocalCharm(c *gc.C) {
 }
 
 func (s *charmStateSuite) TestSetCharmNotAvailable(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock,
+		loggertesting.WrapCheckLog(c))
 
 	expected := charm.Metadata{
 		Name:           "foo",

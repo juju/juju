@@ -110,13 +110,6 @@ type UnitResources struct {
 
 	// Resources are the resource versions currently in use by this unit.
 	Resources []Resource
-
-	// DownloadProgress indicates the number of bytes of the unit's
-	// resources, identified by name, that have been downloaded so far
-	// by the uniter. This only applies to resources that are currently
-	// being downloaded to the unit. All other resources for the unit
-	// will not be found in the map.
-	DownloadProgress map[string]int64
 }
 
 // GetApplicationResourceIDArgs holds the arguments for the
@@ -138,7 +131,7 @@ type SetResourceArgs struct {
 
 // SetUnitResourceArgs holds the arguments for the SetUnitResource method.
 type SetUnitResourceArgs struct {
-	ResourceID      resources.ID
+	ResourceID      coreresource.UUID
 	RetrievedBy     string
 	RetrievedByType RetrievedByType
 	UnitID          unit.UUID
