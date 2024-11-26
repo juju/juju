@@ -17,11 +17,11 @@ import (
 func (st *State) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
-) (coreresource.ID, error) {
+) (coreresource.UUID, error) {
 	return "", nil
 }
 
-// ListResources returns the list of resources for the given application.
+// ListResources returns the list of resource for the given application.
 func (st *State) ListResources(
 	ctx context.Context,
 	applicationID application.ID,
@@ -30,7 +30,7 @@ func (st *State) ListResources(
 }
 
 // GetResource returns the identified resource.
-func (st *State) GetResource(ctx context.Context, resourceID coreresource.ID) (resource.Resource, error) {
+func (st *State) GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error) {
 	return resource.Resource{}, nil
 }
 
@@ -53,7 +53,7 @@ func (st *State) SetUnitResource(
 // OpenApplicationResource returns the metadata for a resource.
 func (st *State) OpenApplicationResource(
 	ctx context.Context,
-	resourceID coreresource.ID,
+	resourceUUID coreresource.UUID,
 ) (resource.Resource, error) {
 	return resource.Resource{}, nil
 }
@@ -63,7 +63,7 @@ func (st *State) OpenApplicationResource(
 // its using.
 func (st *State) OpenUnitResource(
 	ctx context.Context,
-	resourceID coreresource.ID,
+	resourceUUID coreresource.UUID,
 	unitID coreunit.UUID,
 ) (resource.Resource, error) {
 	return resource.Resource{}, nil

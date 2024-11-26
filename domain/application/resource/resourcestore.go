@@ -21,14 +21,14 @@ type ResourceStore interface {
 	// Get returns an io.ReadCloser for a resource in the resource store.
 	Get(
 		ctx context.Context,
-		resourceUUID coreresource.ID,
+		resourceUUID coreresource.UUID,
 	) (r io.ReadCloser, size int64, err error)
 
 	// Put stores data from io.Reader in the resource store at the
 	// using the resourceUUID as the key.
 	Put(
 		ctx context.Context,
-		resourceUUID coreresource.ID,
+		resourceUUID coreresource.UUID,
 		r io.Reader,
 		size int64,
 		fingerprint resource.Fingerprint,
@@ -37,7 +37,7 @@ type ResourceStore interface {
 	// Remove removes a resource from storage.
 	Remove(
 		ctx context.Context,
-		resourceUUID coreresource.ID,
+		resourceUUID coreresource.UUID,
 	) error
 }
 

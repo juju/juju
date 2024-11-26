@@ -35,7 +35,7 @@ import (
 // A resource may also be added to the model as "pending", meaning it
 // is queued up to be used as a resource for the application. Until it is
 // "activated", a pending resources is virtually invisible. There may
-// be more that one pending resource for a given resource ID.
+// be more that one pending resource for a given resource UUID.
 type Resource struct {
 	resource.Resource
 
@@ -78,7 +78,7 @@ func (res Resource) Validate() error {
 	}
 
 	if res.ApplicationID == "" {
-		return errors.NewNotValid(nil, "missing application ID")
+		return errors.NewNotValid(nil, "missing application UUID")
 	}
 
 	// TODO(ericsnow) Require that Username be set if timestamp is?

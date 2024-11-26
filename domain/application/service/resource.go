@@ -18,17 +18,17 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
-// ResourceState describes retrieval and persistence methods for resources.
+// ResourceState describes retrieval and persistence methods for resource.
 type ResourceState interface {
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by natural key of application and resource name.
-	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.ID, error)
+	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
 	// ListResources returns the list of resources for the given application.
 	ListResources(ctx context.Context, applicationID application.ID) (resource.ApplicationResources, error)
 
 	// GetResource returns the identified resource.
-	GetResource(ctx context.Context, resourceID coreresource.ID) (resource.Resource, error)
+	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(ctx context.Context, config resource.SetResourceArgs) (resource.Resource, error)
@@ -37,13 +37,13 @@ type ResourceState interface {
 	SetUnitResource(ctx context.Context, config resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error)
 
 	// OpenApplicationResource returns the metadata for an application's resource.
-	OpenApplicationResource(ctx context.Context, resourceID coreresource.ID) (resource.Resource, error)
+	OpenApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
 
 	// OpenUnitResource returns the metadata for a resource a. A unit resource is
 	// created to track the given unit and which resource its using.
-	OpenUnitResource(ctx context.Context, resourceID coreresource.ID, unitID coreunit.UUID) (resource.Resource, error)
+	OpenUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitID coreunit.UUID) (resource.Resource, error)
 
-	// SetRepositoryResources sets the "polled" resources for the
+	// SetRepositoryResources sets the "polled" resource for the
 	// application to the provided values. The current data for this
 	// application/resource combination will be overwritten.
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
@@ -70,7 +70,7 @@ type ResourceStoreGetter interface {
 func (s *Service) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
-) (coreresource.ID, error) {
+) (coreresource.UUID, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
 		return "", fmt.Errorf("application id: %w", err)
 	}
@@ -110,12 +110,12 @@ func (s *Service) ListResources(
 //     not exist.
 func (s *Service) GetResource(
 	ctx context.Context,
-	resourceID coreresource.ID,
+	resourceUUID coreresource.UUID,
 ) (resource.Resource, error) {
-	if err := resourceID.Validate(); err != nil {
+	if err := resourceUUID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
 	}
-	return s.st.GetResource(ctx, resourceID)
+	return s.st.GetResource(ctx, resourceUUID)
 }
 
 // SetResource adds the application resource to blob storage and updates the metadata.
@@ -173,17 +173,17 @@ func (s *Service) SetUnitResource(
 // OpenApplicationResource returns the details of and a reader for the resource.
 //
 // The following error types can be expected to be returned:
-//   - errors.NotValid is returned if the coreresource.ID is not valid.
+//   - errors.NotValid is returned if the resource.UUID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
 func (s *Service) OpenApplicationResource(
 	ctx context.Context,
-	resourceID coreresource.ID,
+	resourceUUID coreresource.UUID,
 ) (resource.Resource, io.ReadCloser, error) {
-	if err := resourceID.Validate(); err != nil {
+	if err := resourceUUID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
-	res, err := s.st.OpenApplicationResource(ctx, resourceID)
+	res, err := s.st.OpenApplicationResource(ctx, resourceUUID)
 	return res, &noopReadCloser{}, err
 }
 
@@ -193,7 +193,7 @@ func (s *Service) OpenApplicationResource(
 // exhausted. Typically used for File resources.
 //
 // The following error types can be returned:
-//   - errors.NotValid is returned if the coreresource.ID is not valid.
+//   - errors.NotValid is returned if the resource.UUID is not valid.
 //   - errors.NotValid is returned if the unit UUID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
@@ -201,16 +201,16 @@ func (s *Service) OpenApplicationResource(
 //     not exist.
 func (s *Service) OpenUnitResource(
 	ctx context.Context,
-	resourceID coreresource.ID,
+	resourceUUID coreresource.UUID,
 	unitID coreunit.UUID,
 ) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
 	}
-	if err := resourceID.Validate(); err != nil {
+	if err := resourceUUID.Validate(); err != nil {
 		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
 	}
-	res, err := s.st.OpenUnitResource(ctx, resourceID, unitID)
+	res, err := s.st.OpenUnitResource(ctx, resourceUUID, unitID)
 	return res, &noopReadCloser{}, err
 }
 
