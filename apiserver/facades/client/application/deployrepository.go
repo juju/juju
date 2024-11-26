@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -57,7 +59,6 @@ type DeployFromRepositoryState interface {
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
-	Charm(string) (Charm, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
 
@@ -915,16 +916,29 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		return nil, corecharm.Origin{}, nil, errors.NotSupportedf("manual deploy of the controller charm")
 	}
 
-	// Check if a charm doc already exists for this charm URL. If so, the
+	// Check if a charm already exists for this charm URL. If so, the
 	// charm has already been queued for download so this is a no-op. We
 	// still need to resolve and return back a suitable origin as charmhub
 	// may refer to the same blob using the same revision in different
 	// channels.
-	deployedCharm, err := v.state.Charm(resolvedData.URL.String())
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	charmSource, err := applicationcharm.ParseCharmSchema(charm.Schema(resolvedData.URL.Schema))
+	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
-	} else if err == nil {
+	}
+	deployedCharmId, err := v.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+		Name:     resolvedData.URL.Name,
+		Revision: ptr(resolvedData.URL.Revision),
+		Source:   charmSource,
+	})
+	if err == nil {
+		deployedCharm, _, err := v.applicationService.GetCharm(ctx, deployedCharmId)
+		if err != nil {
+			return nil, corecharm.Origin{}, nil, errors.Trace(err)
+		}
 		return resolvedData.URL, resolvedOrigin, deployedCharm, nil
+	}
+	if !errors.Is(err, applicationerrors.CharmNotFound) {
+		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	// This charm needs to be downloaded, remove the ID and Hash to
