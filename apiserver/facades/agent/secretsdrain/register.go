@@ -44,9 +44,6 @@ func newSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*commo
 		leadershipChecker,
 		ctx.ModelUUID(),
 		domainServices.Secret(secretservice.SecretServiceParams{
-			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
 			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),
 			),

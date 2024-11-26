@@ -54,7 +54,6 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		secretbackendstate.NewState(scope.ControllerDB(), e.logger),
 		e.logger,
 		service.SecretServiceParams{
-			BackendAdminConfigGetter:      service.NotImplementedBackendConfigGetter,
 			BackendUserSecretConfigGetter: service.NotImplementedBackendUserSecretConfigGetter,
 		},
 	)

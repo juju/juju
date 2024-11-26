@@ -27,7 +27,7 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{revisionID1.String(), revisionID2.String()}, nil)
-	s.secretBackendReferenceMutator.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1.String(), revisionID2.String()).Return(nil)
+	s.secretBackendState.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1.String(), revisionID2.String()).Return(nil)
 
 	err = s.service.DeleteObsoleteUserSecretRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

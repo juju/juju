@@ -50,9 +50,6 @@ func newSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsAPI
 
 	secretService := domainServices.Secret(
 		secretservice.SecretServiceParams{
-			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
 			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),
 			),

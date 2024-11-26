@@ -47,7 +47,6 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 		externalControllerService,
 		domainServices.Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),

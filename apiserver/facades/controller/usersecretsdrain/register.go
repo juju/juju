@@ -41,9 +41,6 @@ func newUserSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*S
 
 	secretService := ctx.DomainServices().Secret(
 		secretservice.SecretServiceParams{
-			BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
 			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
 				backendService, ctx.ModelUUID(),
 			),

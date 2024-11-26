@@ -32,9 +32,6 @@ func NewUserSecretsManager(stdCtx stdcontext.Context, ctx facade.ModelContext) (
 		watcherRegistry: ctx.WatcherRegistry(),
 		secretService: domainServices.Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter: secretbackendservice.AdminBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
 				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
 					backendService, ctx.ModelUUID(),
 				),

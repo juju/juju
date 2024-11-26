@@ -885,7 +885,6 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 		watcherCommon: newWatcherCommon(context),
 		secretService: context.DomainServices().Secret(
 			secretservice.SecretServiceParams{
-				BackendAdminConfigGetter:      secretservice.NotImplementedBackendConfigGetter,
 				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
 			},
 		),
