@@ -36,8 +36,4 @@ const (
 	// a user on a particular model cannot be found. This does not mean the user
 	// does not exist.
 	UserNotFoundOnModel = errors.ConstError("user not found on model")
-
-	// InvalidModelStatus describes an error that occurs when a status is being set on a model
-	// that is not in the allowed set of status values.
-	InvalidModelStatus = errors.ConstError("invalid model status")
 )

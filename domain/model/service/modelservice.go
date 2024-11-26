@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
@@ -33,12 +35,14 @@ type ControllerState interface {
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
 
 	// GetModelState returns the model state for the given model.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
 	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
 }
 
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
+	clock        clock.Clock
 	modelID      coremodel.UUID
 	controllerSt ControllerState
 	modelSt      ModelState
@@ -113,27 +117,32 @@ func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
 		return model.StatusInfo{}, errors.Capture(err)
 	}
 
+	now := s.clock.Now()
 	if modelState.HasInvalidCloudCredential {
 		return model.StatusInfo{
 			Status:  corestatus.Suspended,
 			Message: "suspended since cloud credential is not valid",
 			Reason:  modelState.InvalidCloudCredentialReason,
+			Since:   now,
 		}, nil
 	}
 	if modelState.Destroying {
 		return model.StatusInfo{
 			Status:  corestatus.Destroying,
 			Message: "the model is being destroyed",
+			Since:   now,
 		}, nil
 	}
 	if modelState.Migrating {
 		return model.StatusInfo{
 			Status:  corestatus.Busy,
 			Message: "the model is being migrated",
+			Since:   now,
 		}, nil
 	}
 
 	return model.StatusInfo{
 		Status: corestatus.Available,
+		Since:  now,
 	}, nil
 }

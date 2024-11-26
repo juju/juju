@@ -234,9 +234,3 @@ INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)
 	}
 	return nil
 }
-
-// GetStatus returns the status of the model.
-func (s *ModelState) GetStatus(context.Context) (model.StatusInfo, error) {
-	// TODO: Implement this method.
-	return model.StatusInfo{}, nil
-}

@@ -5,7 +5,9 @@ package service
 
 import (
 	"context"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -162,6 +164,7 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.state, s.state)
+	svc.clock = testclock.NewClock(time.Time{})
 
 	s.state.setID = id
 	s.state.modelState[id] = model.ModelState{
@@ -169,61 +172,76 @@ func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
 		InvalidCloudCredentialReason: "invalid credential",
 	}
 
+	now := svc.clock.Now()
 	status, err := svc.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, model.StatusInfo{
-		Status:  corestatus.Suspended,
-		Message: "suspended since cloud credential is not valid",
-		Reason:  "invalid credential",
-	})
+	c.Assert(status.Status, gc.Equals, corestatus.Suspended)
+	c.Assert(status.Message, gc.Equals, "suspended since cloud credential is not valid")
+	c.Assert(status.Reason, gc.Equals, "invalid credential")
+	c.Assert(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.state, s.state)
+	svc := &ModelService{
+		clock:        testclock.NewClock(time.Time{}),
+		modelID:      id,
+		controllerSt: s.state,
+		modelSt:      s.state,
+	}
 
 	s.state.setID = id
 	s.state.modelState[id] = model.ModelState{
 		Destroying: true,
 	}
 
+	now := svc.clock.Now()
 	status, err := svc.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, model.StatusInfo{
-		Status:  corestatus.Destroying,
-		Message: "the model is being destroyed",
-	})
+	c.Assert(status.Status, gc.Equals, corestatus.Destroying)
+	c.Assert(status.Message, gc.Equals, "the model is being destroyed")
+	c.Assert(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.state, s.state)
+	svc := &ModelService{
+		clock:        testclock.NewClock(time.Time{}),
+		modelID:      id,
+		controllerSt: s.state,
+		modelSt:      s.state,
+	}
 
 	s.state.setID = id
 	s.state.modelState[id] = model.ModelState{
 		Migrating: true,
 	}
 
+	now := svc.clock.Now()
 	status, err := svc.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, model.StatusInfo{
-		Status:  corestatus.Busy,
-		Message: "the model is being migrated",
-	})
+	c.Assert(status.Status, gc.Equals, corestatus.Busy)
+	c.Assert(status.Message, gc.Equals, "the model is being migrated")
+	c.Assert(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatus(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.state, s.state)
+	svc := &ModelService{
+		clock:        testclock.NewClock(time.Time{}),
+		modelID:      id,
+		controllerSt: s.state,
+		modelSt:      s.state,
+	}
 
 	s.state.setID = id
 	s.state.modelState[id] = model.ModelState{}
 
+	now := svc.clock.Now()
 	status, err := svc.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, model.StatusInfo{
-		Status: corestatus.Available,
-	})
+	c.Assert(status.Status, gc.Equals, corestatus.Available)
+	c.Assert(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusFaildModelNotFound(c *gc.C) {
