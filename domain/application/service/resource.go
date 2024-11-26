@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -59,32 +58,6 @@ type ResourceStoreGetter interface {
 	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
 }
 
-// ResourceService provides the API for working with resources.
-type ResourceService struct {
-	st                  ResourceState
-	resourceStoreGetter ResourceStoreGetter
-	logger              logger.Logger
-}
-
-// NewResourceService returns a new service reference wrapping the input state.
-func NewResourceService(
-	st ResourceState,
-	resourceStoreGetter ResourceStoreGetter,
-	logger logger.Logger,
-) *ResourceService {
-	// Note:
-	// The store for container image resources is really a DQLite table today.
-	// Using AddStore is a compromise to avoid injecting one service into
-	// another, as would happen if NewResourceStoreFactory had a second
-	// argument to provide a ContainerImageResourceStore.
-	resourceStoreGetter.AddStore(charmresource.TypeContainerImage, newContainerImageResourceStore(st))
-	return &ResourceService{
-		st:                  st,
-		resourceStoreGetter: resourceStoreGetter,
-		logger:              logger.Child("resource"),
-	}
-}
-
 // GetApplicationResourceID returns the ID of the application resource specified by
 // natural key of application and resource name.
 //
@@ -94,7 +67,7 @@ func NewResourceService(
 //   - errors.NotValid is returned if the application ID is not valid.
 //   - application.ResourceNotFound if no resource with name exists for
 //     given application.
-func (s *ResourceService) GetApplicationResourceID(
+func (s *Service) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
 ) (resources.ID, error) {
@@ -118,7 +91,7 @@ func (s *ResourceService) GetApplicationResourceID(
 //     not exist.
 //
 // No error is returned if the provided application has no resources.
-func (s *ResourceService) ListResources(
+func (s *Service) ListResources(
 	ctx context.Context,
 	applicationID application.ID,
 ) (resource.ApplicationResources, error) {
@@ -135,7 +108,7 @@ func (s *ResourceService) ListResources(
 //   - application.ApplicationDyingOrDead for dead or dying applications.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) GetResource(
+func (s *Service) GetResource(
 	ctx context.Context,
 	resourceID resources.ID,
 ) (resource.Resource, error) {
@@ -154,7 +127,7 @@ func (s *ResourceService) GetResource(
 //     SuppliedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetResource(
+func (s *Service) SetResource(
 	ctx context.Context,
 	args resource.SetResourceArgs,
 ) (resource.Resource, error) {
@@ -180,7 +153,7 @@ func (s *ResourceService) SetResource(
 //     SuppliedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetUnitResource(
+func (s *Service) SetUnitResource(
 	ctx context.Context,
 	args resource.SetUnitResourceArgs,
 ) (resource.SetUnitResourceResult, error) {
@@ -203,7 +176,7 @@ func (s *ResourceService) SetUnitResource(
 //   - errors.NotValid is returned if the resource ID is not valid.
 //   - application.ResourceNotFound if the specified resource does
 //     not exist.
-func (s *ResourceService) OpenApplicationResource(
+func (s *Service) OpenApplicationResource(
 	ctx context.Context,
 	resourceID resources.ID,
 ) (resource.Resource, io.ReadCloser, error) {
@@ -226,7 +199,7 @@ func (s *ResourceService) OpenApplicationResource(
 //     not exist.
 //   - application.UnitNotFound if the specified unit does
 //     not exist.
-func (s *ResourceService) OpenUnitResource(
+func (s *Service) OpenUnitResource(
 	ctx context.Context,
 	resourceID resources.ID,
 	unitID coreunit.UUID,
@@ -251,7 +224,7 @@ func (s *ResourceService) OpenUnitResource(
 //   - errors.NotValid is returned if the length of Info is zero.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
-func (s *ResourceService) SetRepositoryResources(
+func (s *Service) SetRepositoryResources(
 	ctx context.Context,
 	args resource.SetRepositoryResourcesArgs,
 ) error {

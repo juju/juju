@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -90,19 +91,20 @@ func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets
 
 func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
 	ctx := context.Background()
-	factory := applicationstate.NewApplicationState(
+	state := applicationstate.NewState(
 		func() (database.TxnRunner, error) {
 			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 		},
 		loggertesting.WrapCheckLog(c),
 	)
 
-	appService := applicationservice.NewApplicationService(
-		factory,
+	appService := applicationservice.NewService(
+		state,
 		noopSecretDeleter{},
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 	u := applicationservice.AddUnitArg{

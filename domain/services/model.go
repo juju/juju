@@ -20,7 +20,6 @@ import (
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
-	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
@@ -170,17 +169,15 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 	log := s.logger.Child("application")
 
 	return applicationservice.NewWatchableService(
-		applicationstate.NewApplicationState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
-		applicationstate.NewCharmState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		applicationstate.NewResourceState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("resource")),
-		s.modelWatcherFactory("application"),
+		s.storageRegistry,
 		s.modelUUID,
+		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
-		s.storageRegistry,
-		resource.NewResourceStoreFactory(s.objectstore),
-		s.logger.Child("application"),
+		s.clock,
+		log,
 	)
 }
 

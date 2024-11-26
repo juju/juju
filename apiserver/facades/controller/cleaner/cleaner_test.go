@@ -5,7 +5,6 @@ package cleaner_test
 
 import (
 	"context"
-	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -18,15 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
-	coreresource "github.com/juju/juju/core/resources"
-	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
-	charmresource "github.com/juju/juju/internal/charm/resource"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,14 +48,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 
 	res := common.NewResources()
 	s.machineService = machineservice.NewWatchableService(nil, nil, nil)
-	s.applicationService = applicationservice.NewWatchableService(
-		nil, nil, nil, nil, nil, "", nil, nil,
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return storage.NotImplementedProviderRegistry{}
-		}),
-		&stubResourceStoreGetter{},
-		loggertesting.WrapCheckLog(c),
-	)
+	s.applicationService = &applicationservice.WatchableService{}
 
 	var err error
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
@@ -170,42 +156,4 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationService) error {
 	st.MethodCall(st, "Cleanup", mr, ar)
 	return st.NextErr()
-}
-
-type stubResourceStoreGetter struct{}
-
-func (stubResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
-
-func (stubResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
-	return &stubResourceStore{}, nil
-}
-
-type stubResourceStore struct{}
-
-// Get returns an io.ReadCloser for a resource in the resource store.
-func (f stubResourceStore) Get(
-	ctx context.Context,
-	resourceUUID coreresource.ID,
-) (r io.ReadCloser, size int64, err error) {
-	return nil, -1, errors.NotImplemented
-}
-
-// Put stores data from io.Reader in the resource store at the
-// path specified in the resource.
-func (f stubResourceStore) Put(
-	ctx context.Context,
-	resourceUUID coreresource.ID,
-	r io.Reader,
-	size int64,
-	fingerprint charmresource.Fingerprint,
-) (resource.ResourceStorageUUID, error) {
-	return nil, errors.NotImplemented
-}
-
-// Remove removes a resource from storage.
-func (f stubResourceStore) Remove(
-	ctx context.Context,
-	resourceUUID coreresource.ID,
-) error {
-	return errors.NotImplemented
 }

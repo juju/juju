@@ -5,6 +5,7 @@ package storage
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/juju/errors"
 
@@ -40,13 +41,14 @@ func StorageDirectivesWithDefaults(
 	modelType coremodel.ModelType,
 	defaults StorageDefaults,
 	allDirectives map[string]storage.Directive,
-) error {
+) (map[string]storage.Directive, error) {
+	result := maps.Clone(allDirectives)
 	for name, storage := range charmStorage {
 		cons, ok := allDirectives[name]
 		if !ok {
 			if storage.Shared {
 				// TODO(axw) get the model's default shared storage pool, and create constraints here.
-				return fmt.Errorf(
+				return nil, fmt.Errorf(
 					"%w for shared charm storage %q",
 					storageerrors.MissingSharedStorageDirectiveError,
 					name,
@@ -55,12 +57,11 @@ func StorageDirectivesWithDefaults(
 		}
 		cons, err := storageDirectivesWithDefaults(storage, modelType, defaults, cons)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		// Replace in case pool or size were updated.
-		allDirectives[name] = cons
+		result[name] = cons
 	}
-	return nil
+	return result, nil
 }
 
 func storageDirectivesWithDefaults(

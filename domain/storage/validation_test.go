@@ -24,14 +24,14 @@ type validationSuite struct {
 	testing.IsolationSuite
 
 	modelType coremodel.ModelType
-	charm     mockCharm
+	meta      *charm.Meta
 }
 
 var _ = gc.Suite(&validationSuite{})
 
 func (s *validationSuite) SetUpTest(_ *gc.C) {
 	s.modelType = coremodel.IAAS
-	s.charm.meta = &charm.Meta{
+	s.meta = &charm.Meta{
 		Name: "storage-block2",
 		Storage: map[string]charm.Storage{
 			"multi1to10": {
@@ -73,14 +73,6 @@ func (mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string
 	return domainstorage.StoragePoolDetails{}, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
-type mockCharm struct {
-	meta *charm.Meta
-}
-
-func (m mockCharm) Meta() *charm.Meta {
-	return m.meta
-}
-
 func (s *validationSuite) validateStorageDirectives(storage map[string]storage.Directive) error {
 	validator, err := domainstorage.NewStorageDirectivesValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
 	if err != nil {
@@ -89,7 +81,7 @@ func (s *validationSuite) validateStorageDirectives(storage map[string]storage.D
 	return validator.ValidateStorageDirectivesAgainstCharm(
 		context.Background(),
 		storage,
-		s.charm,
+		s.meta,
 	)
 }
 
@@ -152,7 +144,7 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaasBlockNotS
 
 func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaas(c *gc.C) {
 	s.modelType = coremodel.CAAS
-	s.charm.meta = &charm.Meta{
+	s.meta = &charm.Meta{
 		Name: "storage-block2",
 		Storage: map[string]charm.Storage{
 			"files": {

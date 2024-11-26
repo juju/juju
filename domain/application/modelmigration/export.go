@@ -8,28 +8,32 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
-	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
-	resourcestore "github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/storage"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, logger logger.Logger) {
+func RegisterExport(
+	coordinator Coordinator,
+	registry corestorage.ModelStorageRegistryGetter,
+	clock clock.Clock,
+	logger logger.Logger,
+) {
 	coordinator.Add(&exportOperation{
-		logger: logger,
+		registry: registry,
+		clock:    clock,
+		logger:   logger,
 	})
 }
 
@@ -48,21 +52,16 @@ type ExportService interface {
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error)
 }
 
-// NoopDeleteSecretState defines a secret state which does nothing.
-// When importing and exporting, we are not deleting any secrets.
-type NoopDeleteSecretState struct{}
-
-func (NoopDeleteSecretState) DeleteSecret(domain.AtomicContext, *coresecrets.URI, []int) error {
-	return nil
-}
-
 // exportOperation describes a way to execute a migration for
 // exporting applications.
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	logger  logger.Logger
 	service ExportService
+
+	registry corestorage.ModelStorageRegistryGetter
+	clock    clock.Clock
+	logger   logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -73,19 +72,10 @@ func (e *exportOperation) Name() string {
 // Setup the export operation.
 // This will create a new service instance.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	// TODO (stickupkid): The storage.ProviderRegistry should be passed in
-	// so that we can create the appropriate storage instances.
-	e.service = service.NewService(
-		state.NewApplicationState(scope.ModelDB(), e.logger),
-		NoopDeleteSecretState{},
-		state.NewCharmState(scope.ModelDB()),
-		state.NewResourceState(scope.ModelDB(), e.logger),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return storage.NotImplementedProviderRegistry{}
-		}),
-		// TODO: Wire through an objectstoreGetter when implementing
-		// model migration for resources if needed.
-		resourcestore.NewResourceStoreFactory(nil),
+	e.service = service.NewMigrationService(
+		state.NewState(scope.ModelDB(), e.logger),
+		e.registry,
+		e.clock,
 		e.logger,
 	)
 	return nil

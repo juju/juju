@@ -32,7 +32,7 @@ func makeStorageDefaults(b, f string) domainstorage.StorageDefaults {
 }
 
 func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *gc.C, pool string, cons, expect map[string]storage.Directive) {
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":    {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: -1},
 			"allecto": {Name: "allecto", Type: charm.StorageBlock, CountMin: 0, CountMax: -1},
@@ -42,7 +42,7 @@ func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *gc.C, p
 		cons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, expect)
+	c.Assert(result, jc.DeepEquals, expect)
 }
 
 func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoConstraintsUsed(c *gc.C) {
@@ -119,7 +119,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(
 		"multi1to10": makeStorageDirective("loop", 1024, 3),
 		"multi2up":   makeStorageDirective("loop", 2048, 2),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"multi1to10": {Name: "multi1to10", Type: charm.StorageBlock, CountMin: 1, CountMax: 10},
 			"multi2up":   {Name: "multi2up", Type: charm.StorageBlock, CountMin: 2, CountMax: -1, MinimumSize: 2 * 1024},
@@ -129,7 +129,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
@@ -138,7 +138,7 @@ func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
 		"data":  makeStorageDirective("loop", 1024, 1),
 		"files": makeStorageDirective("rootfs", 1024, 1),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":  {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: 1},
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
@@ -148,7 +148,7 @@ func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
@@ -156,7 +156,7 @@ func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
 	expectedCons := map[string]storage.Directive{
 		"files": makeStorageDirective("kubernetes", 1024, 1),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
 		},
@@ -165,7 +165,7 @@ func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
@@ -174,7 +174,7 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
 		"data":  makeStorageDirective("loop", 1024, 1),
 		"files": makeStorageDirective("rootfs", 1024, 1),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":  {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: 1},
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
@@ -184,7 +184,7 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C) {
@@ -192,7 +192,7 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C
 	expectedCons := map[string]storage.Directive{
 		"files": makeStorageDirective("kubernetes", 1024, 1),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 1},
 		},
@@ -201,7 +201,7 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
@@ -213,7 +213,7 @@ func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
 		"data":  makeStorageDirective("ebs", 2048, 1),
 		"files": makeStorageDirective("tmpfs", 4096, 2),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":  {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: 2},
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 2},
@@ -223,7 +223,7 @@ func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }
 
 func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *gc.C) {
@@ -233,7 +233,7 @@ func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *gc.C) {
 	expectedCons := map[string]storage.Directive{
 		"files": makeStorageDirective("tmpfs", 4096, 2),
 	}
-	err := domainstorage.StorageDirectivesWithDefaults(
+	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"files": {Name: "files", Type: charm.StorageFilesystem, CountMin: 1, CountMax: 2},
 		},
@@ -242,5 +242,5 @@ func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *gc.C) {
 		storageCons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCons, jc.DeepEquals, expectedCons)
+	c.Assert(result, jc.DeepEquals, expectedCons)
 }

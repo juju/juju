@@ -7,9 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
@@ -19,11 +17,8 @@ import (
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/model"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -33,113 +28,14 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
-	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type applicationServiceSuite struct {
-	testing.IsolationSuite
-
-	state   *MockApplicationState
-	charm   *MockCharm
-	secret  *MockDeleteSecretState
-	clock   *testclock.Clock
-	service *ApplicationService
+	baseSuite
 }
 
 var _ = gc.Suite(&applicationServiceSuite{})
-
-func (s *applicationServiceSuite) TestImportApplication(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := applicationtesting.GenApplicationUUID(c)
-
-	u := application.InsertUnitArg{
-		UnitName:       "ubuntu/666",
-		CloudContainer: nil,
-		Password: ptr(application.PasswordInfo{
-			PasswordHash:  "passwordhash",
-			HashAlgorithm: 0,
-		}),
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: 2,
-				StatusInfo: application.StatusInfo{
-					Message: "agent status",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   s.clock.Now(),
-				},
-			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: 3,
-				StatusInfo: application.StatusInfo{
-					Message: "workload status",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   s.clock.Now(),
-				},
-			},
-		},
-	}
-	ch := domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
-			Name:  "ubuntu",
-			RunAs: "default",
-		},
-	}
-	platform := application.Platform{
-		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
-	}
-	app := application.AddApplicationArg{
-		Charm:    ch,
-		Platform: platform,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "ubuntu",
-			Source:        domaincharm.CharmHubSource,
-			Revision:      42,
-		},
-		Scale: 1,
-	}
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
-	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", app).Return(id, nil)
-	s.state.EXPECT().InsertUnit(domaintesting.IsAtomicContextChecker, id, u)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
-	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Name: "ubuntu",
-	}).AnyTimes()
-
-	err := s.service.ImportApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
-	}, AddApplicationArgs{
-		ReferenceName: "ubuntu",
-	}, ImportUnitArg{
-		UnitName:     "ubuntu/666",
-		PasswordHash: ptr("passwordhash"),
-		AgentStatus: StatusParams{
-			Status:  "idle",
-			Message: "agent status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(s.clock.Now()),
-		},
-		WorkloadStatus: StatusParams{
-			Status:  "waiting",
-			Message: "workload status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(s.clock.Now()),
-		},
-		CloudContainer: nil,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
 
 func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -728,8 +624,6 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
-		Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError).MaxTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "mine",
 		Storage: map[string]charm.Storage{
@@ -739,6 +633,12 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 			},
 		},
 	}).AnyTimes()
+
+	// Depending on the map serialization order, the loop may or may not be the
+	// first element. In that case, we need to handle it with a mock if it is
+	// called. We only ever expect it to be called a maximum of once.
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
+		Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError).MaxTimes(1)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -1114,45 +1014,14 @@ func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *gc.C) {
 	c.Check(obtained, gc.DeepEquals, 42)
 }
 
-func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.state = NewMockApplicationState(ctrl)
-	s.charm = NewMockCharm(ctrl)
-	s.secret = NewMockDeleteSecretState(ctrl)
-	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
-	s.clock = testclock.NewClock(time.Time{})
-	s.service = NewApplicationService(s.state, s.secret, registry, loggertesting.WrapCheckLog(c))
-	s.service.clock = s.clock
-
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
-		return fn(domaintesting.NewAtomicContext(ctx))
-	}).AnyTimes()
-
-	return ctrl
-}
-
 type providerApplicationServiceSuite struct {
-	service *ProviderApplicationService
-
-	modelID model.UUID
-
-	agentVersionGetter *MockAgentVersionGetter
-	provider           *MockProvider
+	baseSuite
 }
 
 var _ = gc.Suite(&providerApplicationServiceSuite{})
 
 func (s *providerApplicationServiceSuite) TestGetSupportedFeatures(c *gc.C) {
-	ctrl := s.setupMocks(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, nil
-	})
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	agentVersion := version.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any(), s.modelID).Return(agentVersion, nil)
@@ -1172,7 +1041,7 @@ func (s *providerApplicationServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 }
 
 func (s *providerApplicationServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
-	ctrl := s.setupMocks(c, func(ctx context.Context) (Provider, error) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, jujuerrors.NotSupported
 	})
 	defer ctrl.Finish()
@@ -1190,21 +1059,4 @@ func (s *providerApplicationServiceSuite) TestGetSupportedFeaturesNotSupported(c
 		Version:     &agentVersion,
 	})
 	c.Check(features, jc.DeepEquals, fs)
-}
-
-func (s *providerApplicationServiceSuite) setupMocks(c *gc.C, fn func(ctx context.Context) (Provider, error)) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.modelID = model.UUID(jujutesting.ModelTag.Id())
-
-	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
-	s.provider = NewMockProvider(ctrl)
-
-	s.service = &ProviderApplicationService{
-		modelID:            s.modelID,
-		agentVersionGetter: s.agentVersionGetter,
-		provider:           fn,
-	}
-
-	return ctrl
 }

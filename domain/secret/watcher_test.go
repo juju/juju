@@ -7,17 +7,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io"
 	"time"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/errors"
-	coreresource "github.com/juju/juju/core/resources"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
@@ -25,7 +23,6 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secret"
@@ -33,7 +30,6 @@ import (
 	"github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -61,12 +57,12 @@ VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
-	st := applicationstate.NewApplicationState(s.TxnRunnerFactory(), logger)
-	svc := applicationservice.NewService(st, nil, nil, nil,
+	st := applicationstate.NewState(s.TxnRunnerFactory(), logger)
+	svc := applicationservice.NewService(st, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
-		&stubResourceStoreGetter{},
+		clock.WallClock,
 		logger,
 	)
 
@@ -852,42 +848,4 @@ func (m *stubCharm) Actions() *charm.Actions {
 
 func (m *stubCharm) Revision() int {
 	return 1
-}
-
-type stubResourceStoreGetter struct{}
-
-func (stubResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
-
-func (stubResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
-	return &stubResourceStore{}, nil
-}
-
-type stubResourceStore struct{}
-
-// Get returns an io.ReadCloser for a resource in the resource store.
-func (f stubResourceStore) Get(
-	ctx context.Context,
-	resourceUUID coreresource.ID,
-) (r io.ReadCloser, size int64, err error) {
-	return nil, -1, errors.NotImplemented
-}
-
-// Put stores data from io.Reader in the resource store at the
-// path specified in the resource.
-func (f stubResourceStore) Put(
-	ctx context.Context,
-	resourceUUID coreresource.ID,
-	r io.Reader,
-	size int64,
-	fingerprint charmresource.Fingerprint,
-) (resource.ResourceStorageUUID, error) {
-	return nil, errors.NotImplemented
-}
-
-// Remove removes a resource from storage.
-func (f stubResourceStore) Remove(
-	ctx context.Context,
-	resourceUUID coreresource.ID,
-) error {
-	return errors.NotImplemented
 }

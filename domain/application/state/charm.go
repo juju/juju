@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -26,24 +25,10 @@ const (
 	sha256HashKind hashKind = 0
 )
 
-// CharmState is used to access the database.
-type CharmState struct {
-	*commonStateBase
-}
-
-// NewCharmState creates a state to access the database.
-func NewCharmState(factory database.TxnRunnerFactory) *CharmState {
-	return &CharmState{
-		commonStateBase: &commonStateBase{
-			StateBase: domain.NewStateBase(factory),
-		},
-	}
-}
-
 // GetCharmID returns the charm ID by the natural key, for a
 // specific revision and source.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmID(ctx context.Context, name string, revision int, source charm.CharmSource) (corecharm.ID, error) {
+func (s *State) GetCharmID(ctx context.Context, name string, revision int, source charm.CharmSource) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -86,7 +71,7 @@ AND source = $charmReferenceNameRevisionSource.source;
 
 // IsControllerCharm returns whether the charm is a controller charm.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
+func (s *State) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, internalerrors.Capture(err)
@@ -124,7 +109,7 @@ WHERE uuid = $charmID.uuid;
 
 // IsSubordinateCharm returns whether the charm is a subordinate charm.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
+func (s *State) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, internalerrors.Capture(err)
@@ -162,7 +147,7 @@ WHERE uuid = $charmID.uuid;
 
 // SupportsContainers returns whether the charm supports containers.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
+func (s *State) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, internalerrors.Capture(err)
@@ -207,7 +192,7 @@ WHERE uuid = $charmID.uuid;
 
 // IsCharmAvailable returns whether the charm is available for use.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
+func (s *State) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, internalerrors.Capture(err)
@@ -244,7 +229,7 @@ WHERE uuid = $charmID.uuid;
 
 // SetCharmAvailable sets the charm as available for use.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
+func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
 		return internalerrors.Capture(err)
@@ -297,7 +282,7 @@ WHERE uuid = $charmID.uuid;
 // ReserveCharmRevision defines a placeholder for a new charm revision.
 // The original charm will need to exist, the returning charm ID will be
 // the new charm ID for the revision.
-func (s *CharmState) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
+func (s *State) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -372,7 +357,7 @@ WHERE uuid = $charmID.uuid;
 // GetCharmArchivePath returns the archive storage path for the charm using
 // the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
+func (s *State) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -409,7 +394,7 @@ WHERE uuid = $charmID.uuid;
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
+func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Metadata{}, internalerrors.Capture(err)
@@ -432,7 +417,7 @@ func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (cha
 // GetCharmMetadataName returns the name from the metadata for the charm using
 // the charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
 // returned.
-func (s *CharmState) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
+func (s *State) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -469,7 +454,7 @@ WHERE uuid = $charmID.uuid;`
 // GetCharmMetadataDescription returns the description for the metadata for the
 // charm using the charm ID. If the charm does not exist, a
 // [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
+func (s *State) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -505,7 +490,7 @@ WHERE uuid = $charmID.uuid;`
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
+func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Manifest{}, internalerrors.Capture(err)
@@ -528,7 +513,7 @@ func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (cha
 // GetCharmLXDProfile returns the LXD profile for the charm using the
 // charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, charm.Revision, error) {
+func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, charm.Revision, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, -1, internalerrors.Capture(err)
@@ -553,7 +538,7 @@ func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([
 
 // GetCharmConfig returns the config for the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
+func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Config{}, internalerrors.Capture(err)
@@ -575,7 +560,7 @@ func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm
 
 // GetCharmActions returns the actions for the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
+func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Actions{}, internalerrors.Capture(err)
@@ -597,7 +582,7 @@ func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (char
 
 // GetCharm returns the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error) {
+func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Charm{}, charm.CharmOrigin{}, internalerrors.Capture(err)
@@ -629,7 +614,7 @@ func (s *CharmState) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm.SetStateArgs) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm.SetStateArgs) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -677,7 +662,7 @@ func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs 
 // ListCharmsWithOrigin returns a list of charms with the specified origin.
 // We require the origin, so we can reconstruct the charm URL for the
 // client response.
-func (s *CharmState) ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWithOrigin, error) {
+func (s *State) ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWithOrigin, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -710,7 +695,7 @@ FROM v_charm_list_name_origin;
 // ListCharmsWithOrigin returns a list of charms with the specified origin.
 // We require the origin, so we can reconstruct the charm URL for the
 // client response.
-func (s *CharmState) ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error) {
+func (s *State) ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -802,7 +787,7 @@ type deleteStatement struct {
 
 // DeleteCharm removes the charm from the state.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *CharmState) DeleteCharm(ctx context.Context, id corecharm.ID) error {
+func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
 		return internalerrors.Capture(err)
@@ -861,7 +846,7 @@ func (s *CharmState) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	return nil
 }
 
-func (s *CharmState) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
+func (s *State) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
 	ident := charmID{UUID: id.String()}
 	args := setCharmHash{
 		CharmUUID:  ident.UUID,
@@ -882,7 +867,7 @@ func (s *CharmState) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecha
 	return nil
 }
 
-func (s *CharmState) setCharmInitialOrigin(
+func (s *State) setCharmInitialOrigin(
 	ctx context.Context, tx *sqlair.TX, id corecharm.ID,
 	referenceName string,
 	source charm.CharmSource, revision int, version string) error {
@@ -914,7 +899,7 @@ func (s *CharmState) setCharmInitialOrigin(
 	return nil
 }
 
-func (s *CharmState) setCharmPlatform(ctx context.Context, tx *sqlair.TX, id corecharm.ID, platform charm.Platform) error {
+func (s *State) setCharmPlatform(ctx context.Context, tx *sqlair.TX, id corecharm.ID, platform charm.Platform) error {
 	ident := charmID{UUID: id.String()}
 
 	ostypeID, err := encodeOSType(platform.OSType)

@@ -43,8 +43,7 @@ import (
 type applicationStateSuite struct {
 	schematesting.ModelSuite
 
-	state      *ApplicationState
-	charmState *CharmState
+	state *State
 }
 
 var _ = gc.Suite(&applicationStateSuite{})
@@ -52,8 +51,7 @@ var _ = gc.Suite(&applicationStateSuite{})
 func (s *applicationStateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewApplicationState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	s.charmState = NewCharmState(s.TxnRunnerFactory())
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 func (s *applicationStateSuite) TestGetModelType(c *gc.C) {
@@ -1589,7 +1587,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 
 	s.createApplication(c, "foo", life.Alive)
 
-	_, err := s.charmState.SetCharm(context.Background(), charm.Charm{
+	_, err := s.state.SetCharm(context.Background(), charm.Charm{
 		Metadata:   expectedMetadata,
 		Manifest:   expectedManifest,
 		Actions:    expectedActions,

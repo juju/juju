@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -16,20 +15,13 @@ import (
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/domain/application/charm"
-	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state/watcher/watchertest"
 )
 
 type charmServiceSuite struct {
-	testing.IsolationSuite
-
-	state *MockCharmState
-	charm *MockCharm
-
-	service *CharmService
+	baseSuite
 }
 
 var _ = gc.Suite(&charmServiceSuite{})
@@ -37,7 +29,7 @@ var _ = gc.Suite(&charmServiceSuite{})
 func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
 	})
@@ -47,7 +39,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(42),
 	})
@@ -57,7 +49,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
 		Name: "Foo",
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
@@ -66,7 +58,7 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(42),
 		Source:   "wrong-source",
@@ -81,12 +73,12 @@ func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 
 	rev := 42
 
-	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", rev, domaincharm.LocalSource).Return(id, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", rev, charm.LocalSource).Return(id, nil)
 
-	result, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+	result, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: &rev,
-		Source:   domaincharm.LocalSource,
+		Source:   charm.LocalSource,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, id)
@@ -189,16 +181,16 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{
+		Metadata: charm.Metadata{
 			Name: "foo",
 
 			// RunAs becomes mandatory when being persisted. Empty string is not
 			// allowed.
 			RunAs: "default",
 		},
-	}, domaincharm.CharmOrigin{
-		Source:   domaincharm.LocalSource,
+	}, charm.CharmOrigin{
+		Source:   charm.LocalSource,
 		Revision: 42,
 	}, nil)
 
@@ -209,8 +201,8 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 
 		// Notice that the RunAs field becomes empty string when being returned.
 	})
-	c.Check(origin, gc.Equals, domaincharm.CharmOrigin{
-		Source:   domaincharm.LocalSource,
+	c.Check(origin, gc.Equals, charm.CharmOrigin{
+		Source:   charm.LocalSource,
 		Revision: 42,
 	})
 }
@@ -220,7 +212,7 @@ func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{}, domaincharm.CharmOrigin{}, applicationerrors.CharmNotFound)
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{}, charm.CharmOrigin{}, applicationerrors.CharmNotFound)
 
 	_, _, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
@@ -240,7 +232,7 @@ func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(domaincharm.Metadata{
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(charm.Metadata{
 		Name: "foo",
 
 		// RunAs becomes mandatory when being persisted. Empty string is not
@@ -262,7 +254,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(domaincharm.Metadata{}, applicationerrors.CharmNotFound)
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(charm.Metadata{}, applicationerrors.CharmNotFound)
 
 	_, err := s.service.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
@@ -488,18 +480,18 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
 
-	s.state.EXPECT().SetCharm(gomock.Any(), domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
+		Metadata: charm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
 		},
-	}, domaincharm.SetStateArgs{
+	}, charm.SetStateArgs{
 		ReferenceName: "baz",
-		Source:        domaincharm.LocalSource,
+		Source:        charm.LocalSource,
 		Revision:      1,
 	}).Return(id, nil)
 
-	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "baz",
@@ -515,7 +507,7 @@ func (s *charmServiceSuite) TestSetCharmNoName(c *gc.C) {
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:    s.charm,
 		Source:   internalcharm.Local,
 		Revision: 1,
@@ -530,7 +522,7 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *gc.C) {
 		Name: "foo",
 	})
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        "charmstore",
 		ReferenceName: "foo",
@@ -560,7 +552,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *gc.C) {
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -583,7 +575,7 @@ func (s *charmServiceSuite) TestSetCharmRelationUnknownRole(c *gc.C) {
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -606,7 +598,7 @@ func (s *charmServiceSuite) TestSetCharmRelationRoleMismatch(c *gc.C) {
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -630,7 +622,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJuju(c *gc.C) {
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -654,7 +646,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJujuBlah(c *gc.C) 
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -678,7 +670,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJuju(c *gc.C) 
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -702,7 +694,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *gc
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -733,13 +725,13 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 	}).Times(2)
 
 	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(),
-		domaincharm.SetStateArgs{
+		charm.SetStateArgs{
 			ReferenceName: "foo",
-			Source:        domaincharm.LocalSource,
+			Source:        charm.LocalSource,
 			Revision:      1,
 		}).Return(id, nil)
 
-	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -765,7 +757,7 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *gc.
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -796,13 +788,13 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 	}).Times(2)
 
 	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(),
-		domaincharm.SetStateArgs{
+		charm.SetStateArgs{
 			ReferenceName: "foo",
-			Source:        domaincharm.LocalSource,
+			Source:        charm.LocalSource,
 			Revision:      1,
 		}).Return(id, nil)
 
-	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -836,13 +828,13 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 	}).Times(2)
 
 	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(),
-		domaincharm.SetStateArgs{
+		charm.SetStateArgs{
 			ReferenceName: "foo",
-			Source:        domaincharm.LocalSource,
+			Source:        charm.LocalSource,
 			Revision:      1,
 		}).Return(id, nil)
 
-	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -868,7 +860,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresInvalid(
 		},
 	}).Times(2)
 
-	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
 		Source:        internalcharm.Local,
 		ReferenceName: "foo",
@@ -891,14 +883,14 @@ func (s *charmServiceSuite) TestDeleteCharm(c *gc.C) {
 func (s *charmServiceSuite) TestListAllCharms(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expected := []domaincharm.CharmWithOrigin{{
+	expected := []charm.CharmWithOrigin{{
 		Name: "foo",
-		CharmOrigin: domaincharm.CharmOrigin{
+		CharmOrigin: charm.CharmOrigin{
 			ReferenceName: "foo",
-			Source:        domaincharm.LocalSource,
+			Source:        charm.LocalSource,
 			Revision:      1,
-			Platform: domaincharm.Platform{
-				Architecture: domaincharm.ARM64,
+			Platform: charm.Platform{
+				Architecture: charm.ARM64,
 			},
 		},
 	}}
@@ -917,14 +909,14 @@ func (s *charmServiceSuite) TestListAllCharmsByNames(c *gc.C) {
 	// This simplifies the API for the caller, but makes the state methods
 	// very easy to implement.
 
-	expected := []domaincharm.CharmWithOrigin{{
+	expected := []charm.CharmWithOrigin{{
 		Name: "foo",
-		CharmOrigin: domaincharm.CharmOrigin{
+		CharmOrigin: charm.CharmOrigin{
 			ReferenceName: "foo",
-			Source:        domaincharm.LocalSource,
+			Source:        charm.LocalSource,
 			Revision:      1,
-			Platform: domaincharm.Platform{
-				Architecture: domaincharm.ARM64,
+			Platform: charm.Platform{
+				Architecture: charm.ARM64,
 			},
 		},
 	}}
@@ -936,24 +928,12 @@ func (s *charmServiceSuite) TestListAllCharmsByNames(c *gc.C) {
 	c.Check(results, gc.DeepEquals, expected)
 }
 
-func (s *charmServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.state = NewMockCharmState(ctrl)
-	s.charm = NewMockCharm(ctrl)
-
-	s.service = NewCharmService(s.state, loggertesting.WrapCheckLog(c))
-
-	return ctrl
-}
-
 type watchableServiceSuite struct {
-	testing.IsolationSuite
+	baseSuite
 
-	state          *MockCharmState
 	watcherFactory *MockWatcherFactory
 
-	service *WatchableCharmService
+	service *WatchableService
 }
 
 var _ = gc.Suite(&watchableServiceSuite{})
@@ -973,12 +953,15 @@ func (s *watchableServiceSuite) TestWatchCharms(c *gc.C) {
 }
 
 func (s *watchableServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
+	ctrl := s.baseSuite.setupMocks(c)
 
-	s.state = NewMockCharmState(ctrl)
+	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
-	s.service = NewWatchableCharmService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	s.service = &WatchableService{
+		ProviderService: s.baseSuite.service,
+		watcherFactory:  s.watcherFactory,
+	}
 
 	return ctrl
 }
