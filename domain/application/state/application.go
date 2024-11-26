@@ -1620,7 +1620,7 @@ WHERE c.available = FALSE
 			return errors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Annotatef(err, "querying all applications with pending charms")
+			return nil, errors.Annotatef(err, "querying requested applications that have pending charms")
 		}
 
 		return transform.Slice(results, func(r applicationID) string {
@@ -1659,7 +1659,7 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "querying all applications with pending charms")
+		return nil, errors.Annotatef(err, "querying requested applications that have pending charms")
 	}
 
 	return transform.Slice(results, func(r applicationID) coreapplication.ID {
