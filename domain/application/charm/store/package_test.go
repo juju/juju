@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package store -destination store_mock_test.go github.com/juju/juju/domain/application/charm/store ObjectStore
+//go:generate go run go.uber.org/mock/mockgen -typed -package store -destination store_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ModelObjectStoreGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

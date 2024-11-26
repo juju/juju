@@ -24,7 +24,8 @@ import (
 type storeSuite struct {
 	testing.IsolationSuite
 
-	objectStore *MockObjectStore
+	objectStore       *MockObjectStore
+	objectStoreGetter *MockModelObjectStoreGetter
 }
 
 var _ = gc.Suite(&storeSuite{})
@@ -51,7 +52,7 @@ func (s *storeSuite) TestStore(c *gc.C) {
 		return uuid, nil
 	})
 
-	storage := NewCharmStore(s.objectStore)
+	storage := NewCharmStore(s.objectStoreGetter)
 	result, err := storage.Store(context.Background(), "foo", path, size, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -77,7 +78,7 @@ func (s *storeSuite) TestStoreFileClosed(c *gc.C) {
 		return uuid, nil
 	})
 
-	storage := NewCharmStore(s.objectStore)
+	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.Store(context.Background(), "foo", path, size, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -92,7 +93,7 @@ func (s *storeSuite) TestStoreFileNotFound(c *gc.C) {
 
 	dir := c.MkDir()
 
-	storage := NewCharmStore(s.objectStore)
+	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.Store(context.Background(), "foo", filepath.Join(dir, "foo"), 12, "hash")
 	c.Assert(err, jc.ErrorIs, ErrNotFound)
 }
@@ -105,7 +106,7 @@ func (s *storeSuite) TestStoreFailed(c *gc.C) {
 
 	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), gomock.Any(), gomock.Any(), size, hash).Return("", errors.Errorf("boom"))
 
-	storage := NewCharmStore(s.objectStore)
+	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.Store(context.Background(), "foo", path, size, hash)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
@@ -114,6 +115,9 @@ func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.objectStore = NewMockObjectStore(ctrl)
+	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
+
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.objectStore, nil).AnyTimes()
 
 	return ctrl
 }

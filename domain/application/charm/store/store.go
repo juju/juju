@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/juju/juju/core/objectstore"
@@ -20,24 +19,17 @@ const (
 	ErrNotFound = errors.ConstError("file not found")
 )
 
-// ObjectStore provides an API for storing objects.
-type ObjectStore interface {
-	// PutAndCheckHash stores data from reader at path, namespaced to the model.
-	// It also ensures the stored data has the correct hash.
-	PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (objectstore.UUID, error)
-}
-
 // CharmStore provides an API for storing charms.
 type CharmStore struct {
-	objectStore ObjectStore
-	encoder     *base32.Encoding
+	objectStoreGetter objectstore.ModelObjectStoreGetter
+	encoder           *base32.Encoding
 }
 
 // NewCharmStore returns a new charm store instance.
-func NewCharmStore(objectStore ObjectStore) *CharmStore {
+func NewCharmStore(objectStoreGetter objectstore.ModelObjectStoreGetter) *CharmStore {
 	return &CharmStore{
-		objectStore: objectStore,
-		encoder:     base32.StdEncoding.WithPadding(base32.NoPadding),
+		objectStoreGetter: objectStoreGetter,
+		encoder:           base32.StdEncoding.WithPadding(base32.NoPadding),
 	}
 }
 
@@ -45,6 +37,11 @@ func NewCharmStore(objectStore ObjectStore) *CharmStore {
 // that the archive already exists at the specified path. If the file isn't
 // found, a [ErrNotFound] is returned.
 func (s *CharmStore) Store(ctx context.Context, name string, path string, size int64, hash string) (objectstore.UUID, error) {
+	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting object store: %w", err)
+	}
+
 	file, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", errors.Errorf("%q: %w", path, ErrNotFound)
@@ -67,5 +64,5 @@ func (s *CharmStore) Store(ctx context.Context, name string, path string, size i
 	uniqueName := fmt.Sprintf("%s-%s", name, s.encoder.EncodeToString(unique[:]))
 
 	// Store the file in the object store.
-	return s.objectStore.PutAndCheckHash(ctx, uniqueName, file, size, hash)
+	return objectStore.PutAndCheckHash(ctx, uniqueName, file, size, hash)
 }
