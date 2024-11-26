@@ -1680,3 +1680,9 @@ AND    ot.type = $dbPermission.object_type
 	}
 	return nil
 }
+
+// GetModelState returns the model state for the given model UUID.
+func (s *State) GetModelState(context.Context, coremodel.UUID) (model.ModelState, error) {
+	// TODO: Implement GetModelState
+	return model.ModelState{}, nil
+}

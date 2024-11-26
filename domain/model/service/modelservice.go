@@ -6,8 +6,12 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	coremodel "github.com/juju/juju/core/model"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -24,37 +28,43 @@ type ModelState interface {
 	Model(context.Context) (coremodel.ReadOnlyModel, error)
 }
 
-// ModelGetterState represents the state required for reading all model
-// information.
-type ModelGetterState interface {
+// ControllerState is the controller state required by this service. This is the
+// controller database, not the model state.
+type ControllerState interface {
+	// GetModel returns the model with the given UUID.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
+
+	// GetModelState returns the model state for the given model.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
 }
 
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
-	modelID       coremodel.UUID
-	modelGetterSt ModelGetterState
-	st            ModelState
+	clock        clock.Clock
+	modelID      coremodel.UUID
+	controllerSt ControllerState
+	modelSt      ModelState
 }
 
 // NewModelService returns a new Service for interacting with a models state.
 func NewModelService(
 	modelID coremodel.UUID,
-	modelGetterSt ModelGetterState,
-	st ModelState,
+	controllerSt ControllerState,
+	modelSt ModelState,
 ) *ModelService {
 	return &ModelService{
-		modelID:       modelID,
-		modelGetterSt: modelGetterSt,
-		st:            st,
+		modelID:      modelID,
+		controllerSt: controllerSt,
+		modelSt:      modelSt,
 	}
 }
 
 // GetModelInfo returns the readonly model information for the model in
 // question.
 func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ReadOnlyModel, error) {
-	return s.st.Model(ctx)
+	return s.modelSt.Model(ctx)
 }
 
 // CreateModel is responsible for creating a new model within the model
@@ -66,7 +76,7 @@ func (s *ModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 ) error {
-	m, err := s.modelGetterSt.GetModel(ctx, s.modelID)
+	m, err := s.controllerSt.GetModel(ctx, s.modelID)
 	if err != nil {
 		return err
 	}
@@ -84,7 +94,7 @@ func (s *ModelService) CreateModel(
 		CredentialName:  m.Credential.Name,
 	}
 
-	return s.st.Create(ctx, args)
+	return s.modelSt.Create(ctx, args)
 }
 
 // DeleteModel is responsible for removing a model from the system.
@@ -94,5 +104,45 @@ func (s *ModelService) CreateModel(
 func (s *ModelService) DeleteModel(
 	ctx context.Context,
 ) error {
-	return s.st.Delete(ctx, s.modelID)
+	return s.modelSt.Delete(ctx, s.modelID)
+}
+
+// Status returns the current status of the model.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
+	modelState, err := s.controllerSt.GetModelState(ctx, s.modelID)
+	if err != nil {
+		return model.StatusInfo{}, errors.Capture(err)
+	}
+
+	now := s.clock.Now()
+	if modelState.HasInvalidCloudCredential {
+		return model.StatusInfo{
+			Status:  corestatus.Suspended,
+			Message: "suspended since cloud credential is not valid",
+			Reason:  modelState.InvalidCloudCredentialReason,
+			Since:   now,
+		}, nil
+	}
+	if modelState.Destroying {
+		return model.StatusInfo{
+			Status:  corestatus.Destroying,
+			Message: "the model is being destroyed",
+			Since:   now,
+		}, nil
+	}
+	if modelState.Migrating {
+		return model.StatusInfo{
+			Status:  corestatus.Busy,
+			Message: "the model is being migrated",
+			Since:   now,
+		}, nil
+	}
+
+	return model.StatusInfo{
+		Status: corestatus.Available,
+		Since:  now,
+	}, nil
 }

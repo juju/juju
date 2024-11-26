@@ -5,12 +5,14 @@ package model
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -176,4 +178,28 @@ func WithDeleteDB() DeleteModelOption {
 	return func(o *DeleteModelOptions) {
 		o.deleteDB = true
 	}
+}
+
+// StatusInfo holds a Status and associated information of a model.
+type StatusInfo struct {
+	// Status is the current status of the model.
+	Status corestatus.Status
+	// Message is a human-readable message that describes the current status of the model.
+	Message string
+	// Reason is a human-readable message that describes the reason for the current status of the model.
+	Reason string
+	// Since is the time when the model entered the current status.
+	Since time.Time
+}
+
+// ModelState describes the state of a model.
+type ModelState struct {
+	// Destroying is a boolean value that indicates if the model is being destroyed.
+	Destroying bool
+	// Migrating is a boolean value that indicates if the model is being migrated.
+	Migrating bool
+	// HasInvalidCloudCredential is a boolean value that indicates if the model's cloud credential is invalid.
+	HasInvalidCloudCredential bool
+	// InvalidCloudCredentialReason is a string that describes the reason for the model's cloud credential being invalid.
+	InvalidCloudCredentialReason string
 }
