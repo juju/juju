@@ -17,7 +17,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
-	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
@@ -50,9 +49,9 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 	err := s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
-			VALUES (?, ?, ?, "test", "iaas", "test-model", "ec2")
-		`, s.modelUUID, coretesting.ControllerTag.Id(), jujuversion.Current.String())
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, s.modelUUID, coretesting.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

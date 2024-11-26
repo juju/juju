@@ -35,7 +35,7 @@ func (st *State) AgentVersion(ctx context.Context) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	q := `SELECT &dbAgentVersion.target_agent_version FROM model`
+	q := `SELECT &dbAgentVersion.target_version FROM agent_version`
 
 	rval := dbAgentVersion{}
 

@@ -192,17 +192,16 @@ func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
 }
 
 type dbReadOnlyModel struct {
-	UUID               string         `db:"uuid"`
-	ControllerUUID     string         `db:"controller_uuid"`
-	Name               string         `db:"name"`
-	Type               string         `db:"type"`
-	TargetAgentVersion sql.NullString `db:"target_agent_version"`
-	Cloud              string         `db:"cloud"`
-	CloudType          string         `db:"cloud_type"`
-	CloudRegion        string         `db:"cloud_region"`
-	CredentialOwner    string         `db:"credential_owner"`
-	CredentialName     string         `db:"credential_name"`
-	IsControllerModel  bool           `db:"is_controller_model"`
+	UUID              string `db:"uuid"`
+	ControllerUUID    string `db:"controller_uuid"`
+	Name              string `db:"name"`
+	Type              string `db:"type"`
+	Cloud             string `db:"cloud"`
+	CloudType         string `db:"cloud_type"`
+	CloudRegion       string `db:"cloud_region"`
+	CredentialOwner   string `db:"credential_owner"`
+	CredentialName    string `db:"credential_name"`
+	IsControllerModel bool   `db:"is_controller_model"`
 }
 
 func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {

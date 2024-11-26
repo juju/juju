@@ -18,7 +18,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
-	jujuversion "github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -48,9 +47,9 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
-VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
-		`, s.ModelUUID(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+VALUES (?, ?, "test", "iaas", "fluffy", "ec2")
+		`, s.ModelUUID(), coretesting.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

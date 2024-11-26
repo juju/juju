@@ -4,8 +4,6 @@
 package model
 
 import (
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -14,9 +12,6 @@ import (
 type ModelInfo struct {
 	// UUID represents the model UUID.
 	UUID UUID
-
-	// AgentVersion reports the current target agent version for the model.
-	AgentVersion version.Number
 
 	// ControllerUUID represents the controller UUID.
 	ControllerUUID uuid.UUID

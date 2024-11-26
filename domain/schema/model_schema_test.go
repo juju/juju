@@ -5,13 +5,11 @@ package schema
 
 import (
 	"github.com/juju/collections/set"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
-
-	charmtesting "github.com/juju/juju/core/charm/testing"
-	jujuversion "github.com/juju/juju/core/version"
 )
 
 type modelSchemaSuite struct {
@@ -489,9 +487,10 @@ func (s *modelSchemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type, cloud_region)
-VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
-		modelUUID, controllerUUID, jujuversion.Current.String())
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, cloud_region)
+VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
+		modelUUID, controllerUUID)
+
 	s.assertExecSQLError(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
 		"model table is immutable, only insertions are allowed", modelUUID)
