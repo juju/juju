@@ -91,12 +91,12 @@ func NewService(
 	}
 }
 
-// AgentVersionGetter is responsible for retrieving the agent version for a
-// given model.
+// AgentVersionGetter is responsible for retrieving the target
+// agent version for the current model.
 type AgentVersionGetter interface {
-	// GetModelTargetAgentVersion returns the agent version for the specified
-	// model.
-	GetModelTargetAgentVersion(context.Context, coremodel.UUID) (version.Number, error)
+	// GetTargetAgentVersion returns the agent version
+	// for the current model.
+	GetTargetAgentVersion(context.Context) (version.Number, error)
 }
 
 // Provider defines the interface for interacting with the underlying model
@@ -148,7 +148,7 @@ func NewProviderService(
 // If the agent version cannot be found, an error satisfying
 // [modelerrors.NotFound] will be returned.
 func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
-	agentVersion, err := s.agentVersionGetter.GetModelTargetAgentVersion(ctx, s.modelID)
+	agentVersion, err := s.agentVersionGetter.GetTargetAgentVersion(ctx)
 	if err != nil {
 		return assumes.FeatureSet{}, err
 	}
