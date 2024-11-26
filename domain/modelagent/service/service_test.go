@@ -5,25 +5,19 @@ package service
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 type suite struct {
-	state      *MockState
-	modelState *MockModelState
+	state *MockState
 }
 
 var _ = gc.Suite(&suite{})
@@ -31,7 +25,6 @@ var _ = gc.Suite(&suite{})
 func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
-	s.modelState = NewMockModelState(ctrl)
 	return ctrl
 }
 
@@ -40,41 +33,26 @@ func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *suite) TestGetModelAgentVersionSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelID := modeltesting.GenModelUUID(c)
 	expectedVersion, err := version.Parse("4.21.65")
 	c.Assert(err, jc.ErrorIsNil)
-	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelID).
-		Return(expectedVersion, nil)
+	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(expectedVersion, nil)
 
-	svc := NewService(s.state)
-	ver, err := svc.GetModelTargetAgentVersion(context.Background(), modelID)
+	svc := NewService(s.state, nil)
+	ver, err := svc.GetModelTargetAgentVersion(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ver, jc.DeepEquals, expectedVersion)
 }
 
-// TestGetModelAgentVersionInvalidModelID tests that if an invalid model ID is
-// passed to Service.GetModelAgentVersion, we return errors.NotValid.
-func (s *suite) TestGetModelAgentVersionInvalidModelID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	svc := NewService(s.state)
-	_, err := svc.GetModelTargetAgentVersion(context.Background(), "invalid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-}
-
-// TestGetModelAgentVersionModelNotFound tests that Service.GetModelAgentVersion
-// returns an appropriate error when the specified model cannot be found.
+// TestGetModelAgentVersionNotFound tests that Service.GetModelAgentVersion
+// returns an appropriate error when the agent version cannot be found.
 func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelID := modeltesting.GenModelUUID(c)
-	modelNotFoundErr := fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
-	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelID).
-		Return(version.Zero, modelNotFoundErr)
+	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(version.Zero, modelerrors.AgentVersionNotFound)
 
-	svc := NewService(s.state)
-	_, err := svc.GetModelTargetAgentVersion(context.Background(), modelID)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+	svc := NewService(s.state, nil)
+	_, err := svc.GetModelTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.AgentVersionNotFound)
 }
 
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
@@ -83,17 +61,12 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := machine.Name("0")
-	modelUUID := modeltesting.GenModelUUID(c)
 	ver := version.MustParse("4.0.0")
 
-	s.modelState.EXPECT().GetModelUUID(gomock.Any()).Return(modelUUID, nil)
-	s.modelState.EXPECT().CheckMachineExists(gomock.Any(), machineName).Return(nil)
-	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelUUID).Return(ver, nil)
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), machineName).Return(nil)
+	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(ver, nil)
 
-	rval, err := NewModelService(s.modelState, s.state, nil).GetMachineTargetAgentVersion(
-		context.Background(),
-		machineName,
-	)
+	rval, err := NewService(s.state, nil).GetMachineTargetAgentVersion(context.Background(), machineName)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(rval, gc.Equals, ver)
 }
@@ -104,11 +77,11 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
 		machineerrors.MachineNotFound,
 	)
 
-	_, err := NewModelService(s.modelState, s.state, nil).GetMachineTargetAgentVersion(
+	_, err := NewService(s.state, nil).GetMachineTargetAgentVersion(
 		context.Background(),
 		machine.Name("0"),
 	)
@@ -120,17 +93,12 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
 func (s *suite) TestGetUnitTargetAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
 	ver := version.MustParse("4.0.0")
 
-	s.modelState.EXPECT().GetModelUUID(gomock.Any()).Return(modelUUID, nil)
-	s.modelState.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(nil)
-	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelUUID).Return(ver, nil)
+	s.state.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(nil)
+	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(ver, nil)
 
-	rval, err := NewModelService(s.modelState, s.state, nil).GetUnitTargetAgentVersion(
-		context.Background(),
-		"foo/0",
-	)
+	rval, err := NewService(s.state, nil).GetUnitTargetAgentVersion(context.Background(), "foo/0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(rval, gc.Equals, ver)
 }
@@ -141,11 +109,11 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *gc.C) {
 func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(
+	s.state.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(
 		applicationerrors.UnitNotFound,
 	)
 
-	_, err := NewModelService(s.modelState, s.state, nil).GetUnitTargetAgentVersion(
+	_, err := NewService(s.state, nil).GetUnitTargetAgentVersion(
 		context.Background(),
 		"foo/0",
 	)
@@ -158,11 +126,11 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(
+	s.state.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(
 		applicationerrors.UnitNotFound,
 	)
 
-	_, err := NewModelService(s.modelState, s.state, nil).WatchUnitTargetAgentVersion(
+	_, err := NewService(s.state, nil).WatchUnitTargetAgentVersion(
 		context.Background(),
 		"foo/0",
 	)
@@ -175,28 +143,10 @@ func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *gc.C) {
 func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
 		machineerrors.MachineNotFound,
 	)
 
-	_, err := NewModelService(s.modelState, s.state, nil).WatchMachineTargetAgentVersion(
-		context.Background(),
-		machine.Name("0"),
-	)
+	_, err := NewService(s.state, nil).WatchMachineTargetAgentVersion(context.Background(), "0")
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// WatchModelTargetAgentVersion tests that ModelService.WatchModelTargetAgentVersion
-// returns an appropriate error when the specified model cannot be found.
-func (s *suite) TestWatchModelTargetAgentVersionNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	modelID := modeltesting.GenModelUUID(c)
-	modelNotFoundErr := fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
-	s.modelState.EXPECT().GetModelUUID(context.Background()).Return(model.UUID(""), modelNotFoundErr)
-
-	_, err := NewModelService(s.modelState, s.state, nil).WatchModelTargetAgentVersion(
-		context.Background(),
-	)
-	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
