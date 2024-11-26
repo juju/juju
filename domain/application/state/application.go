@@ -288,7 +288,7 @@ WHERE application_uuid = $applicationDetails.uuid
 		return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
 	}
 
-	if err := st.deleteCloudService(ctx, tx, netNodeUUID); err != nil {
+	if err := st.deleteCloudService(ctx, tx, appUUID); err != nil {
 		return errors.Annotatef(err, "deleting cloud service for application %q", name)
 	}
 
@@ -313,12 +313,12 @@ WHERE application_uuid = $applicationDetails.uuid
 	return nil
 }
 
-func (st *State) deleteCloudService(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
-	app := applicationDetails{NetNodeUUID: netNodeUUID}
+func (st *State) deleteCloudService(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+	app := applicationDetails{UUID: appUUID}
 
 	deleteCloudServiceStmt, err := st.Prepare(`
 DELETE FROM cloud_service
-WHERE net_node_uuid = $applicationDetails.net_node_uuid
+WHERE application_uuid = $applicationDetails.uuid
 `, app)
 	if err != nil {
 		return errors.Trace(err)
@@ -588,7 +588,7 @@ func (st *State) insertUnit(
 			return errors.Annotatef(err, "creating unit for unit %q", args.UnitName)
 		}
 		if args.CloudContainer != nil {
-			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, nodeUUID.String(), args.CloudContainer); err != nil {
+			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID.String(), args.CloudContainer); err != nil {
 				return errors.Annotatef(err, "creating cloud container for unit %q", args.UnitName)
 			}
 		}
@@ -617,23 +617,23 @@ func (st *State) UpdateUnitContainer(
 		return errors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.NetNodeID, container)
+		return st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, container)
 	})
 	return errors.Annotatef(err, "updating cloud container unit %q", unitName)
 }
 
 func (st *State) upsertUnitCloudContainer(
-	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeUUID string, cc *application.CloudContainer,
+	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, unitUUID coreunit.UUID, netNodeUUID string, cc *application.CloudContainer,
 ) error {
 	containerInfo := cloudContainer{
-		NetNodeUUID: netNodeUUID,
-		ProviderID:  cc.ProviderId,
+		UnitUUID:   unitUUID,
+		ProviderID: cc.ProviderId,
 	}
 
 	queryStmt, err := st.Prepare(`
 SELECT &cloudContainer.*
 FROM cloud_container
-WHERE net_node_uuid = $cloudContainer.net_node_uuid
+WHERE unit_uuid = $cloudContainer.unit_uuid
 `, containerInfo)
 	if err != nil {
 		return errors.Trace(err)
@@ -918,7 +918,7 @@ DELETE FROM net_node WHERE uuid = (
 		return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
 	}
 
-	if err := st.deleteCloudContainer(ctx, tx, unit.NetNodeID); err != nil {
+	if err := st.deleteCloudContainer(ctx, tx, unit.UUID, unit.NetNodeID); err != nil {
 		return errors.Annotatef(err, "deleting cloud container for unit %q", unitName)
 	}
 
@@ -941,10 +941,10 @@ DELETE FROM net_node WHERE uuid = (
 	return nil
 }
 
-func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
-	cloudContainer := cloudContainer{NetNodeUUID: netNodeUUID}
+func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, netNodeUUID string) error {
+	cloudContainer := cloudContainer{UnitUUID: unitUUID}
 
-	if err := st.deleteCloudContainerPorts(ctx, tx, netNodeUUID); err != nil {
+	if err := st.deleteCloudContainerPorts(ctx, tx, unitUUID); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -954,7 +954,7 @@ func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, netNod
 
 	deleteCloudContainerStmt, err := st.Prepare(`
 DELETE FROM cloud_container
-WHERE net_node_uuid = $cloudContainer.net_node_uuid`, cloudContainer)
+WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -994,21 +994,21 @@ WHERE net_node_uuid = $minimalUnit.net_node_uuid`, unit)
 	return nil
 }
 
-func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
+func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
 	cloudContainer := cloudContainer{
-		NetNodeUUID: netNodeUUID,
+		UnitUUID: unitUUID,
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM cloud_container_port
 WHERE cloud_container_uuid = (
     SELECT cloud_container_uuid FROM cloud_container cc
-    WHERE cc.net_node_uuid = $cloudContainer.net_node_uuid
+    WHERE cc.unit_uuid = $cloudContainer.unit_uuid
 )`, cloudContainer)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, cloudContainer).Run(); err != nil {
-		return fmt.Errorf("removing cloud container ports for %q: %w", netNodeUUID, err)
+		return fmt.Errorf("removing cloud container ports for %q: %w", unitUUID, err)
 	}
 	return nil
 }
@@ -1407,7 +1407,7 @@ func (st *State) UpsertCloudService(ctx context.Context, name, providerID string
 
 	queryStmt, err := st.Prepare(`
 SELECT &cloudService.* FROM cloud_service
-WHERE net_node_uuid = $cloudService.net_node_uuid`, serviceInfo)
+WHERE application_uuid = $cloudService.application_uuid`, serviceInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1429,11 +1429,11 @@ WHERE uuid = $cloudService.uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, netNodeUUID, err := st.lookupApplication(ctx, tx, name)
+		appUUID, _, err := st.lookupApplication(ctx, tx, name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		serviceInfo.NetNodeUUID = netNodeUUID
+		serviceInfo.ApplicationUUID = appUUID
 
 		err = tx.Query(ctx, queryStmt, serviceInfo).Get(&serviceInfo)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {

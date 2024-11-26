@@ -121,15 +121,15 @@ type unitStatusData struct {
 }
 
 type cloudContainer struct {
-	UUID        string `db:"uuid"`
-	NetNodeUUID string `db:"net_node_uuid"`
-	ProviderID  string `db:"provider_id"`
+	UUID       string        `db:"uuid"`
+	UnitUUID   coreunit.UUID `db:"unit_uuid"`
+	ProviderID string        `db:"provider_id"`
 }
 
 type cloudService struct {
-	UUID        string `db:"uuid"`
-	NetNodeUUID string `db:"net_node_uuid"`
-	ProviderID  string `db:"provider_id"`
+	UUID            string             `db:"uuid"`
+	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	ProviderID      string             `db:"provider_id"`
 }
 
 type applicationCharmUUID struct {
