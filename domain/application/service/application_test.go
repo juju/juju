@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -41,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
-	internaltesting "github.com/juju/juju/internal/testing"
 )
 
 type applicationServiceSuite struct {
@@ -1252,13 +1250,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 
 type providerServiceSuite struct {
 	baseSuite
-
-	service *ProviderService
-
-	modelID model.UUID
-
-	agentVersionGetter *MockAgentVersionGetter
-	provider           *MockProvider
 }
 
 var _ = gc.Suite(&providerServiceSuite{})
@@ -1302,21 +1293,4 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 		Version:     &agentVersion,
 	})
 	c.Check(features, jc.DeepEquals, fs)
-}
-
-func (s *providerServiceSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context) (Provider, error)) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.modelID = model.UUID(internaltesting.ModelTag.Id())
-
-	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
-	s.provider = NewMockProvider(ctrl)
-
-	s.service = &ProviderService{
-		modelID:            s.modelID,
-		agentVersionGetter: s.agentVersionGetter,
-		provider:           fn,
-	}
-
-	return ctrl
 }

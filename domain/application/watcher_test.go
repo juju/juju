@@ -450,13 +450,13 @@ WHERE uuid=?`, id0.String())
 }
 
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+
 	return service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
-		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
+		state.NewState(modelDB, loggertesting.WrapCheckLog(c)),
+		secretstate.NewState(modelDB, loggertesting.WrapCheckLog(c)),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
