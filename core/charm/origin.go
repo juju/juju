@@ -63,6 +63,11 @@ func (o Origin) Validate() error {
 	return nil
 }
 
+func (o Origin) String() string {
+	return fmt.Sprintf("(source: %q, id: %s, hash: %s, revision: %v, channel: %v, platform: %s)",
+		o.Source, o.ID, o.Hash, o.Revision, o.Channel, o.Platform)
+}
+
 // Platform describes the platform used to install the charm with.
 type Platform struct {
 	Architecture string
