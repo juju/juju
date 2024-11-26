@@ -146,9 +146,15 @@ type dbUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// dbModelUUID represents the model uuid from the model table.
-type dbModelUUID struct {
+// dbModelUUIDRef represents the model uuid from the model table. As referenced
+// by other tables in the DDL. Use this type when you are working model uuid's
+// as foreign keys.
+type dbModelUUIDRef struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+type dbModelUUID struct {
+	UUID string `db:"uuid"`
 }
 
 type dbModelNameAndOwner struct {
