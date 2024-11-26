@@ -526,8 +526,16 @@ func (c *nestedContext) RecallUnit(unitName string) error {
 	// Remove agent directory.
 	tag := names.NewUnitTag(unitName)
 	agentDir := agent.Dir(c.agentConfig.DataDir(), tag)
+	files, err := os.ReadDir(agentDir)
+	if err != nil {
+		return errors.Annotate(err, "it broke trying to read the directory")
+	}
+	fileNames := ""
+	for _, file := range files {
+		fileNames += " " + file.Name()
+	}
 	if err := os.RemoveAll(agentDir); err != nil {
-		return errors.Annotate(err, "unable to remove agent dir")
+		return errors.Annotatef(err, "unable to remove agent dir, (files in dir are: %s)", fileNames)
 	}
 
 	// Ensure that the reboot monitor flag files for the unit are also
