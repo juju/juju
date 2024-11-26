@@ -20,8 +20,13 @@ type Repository interface {
 	// updated with the ID and hash for the download is also returned.
 	GetDownloadURL(context.Context, string, Origin) (*url.URL, Origin, error)
 
+	// Download retrieves specified charm from the store and saves its
+	// contents to the specified path.
+	Download(ctx context.Context, name string, origin Origin, path string) (Origin, *charmhub.Digest, error)
+
 	// DownloadCharm retrieves specified charm from the store and saves its
 	// contents to the specified path.
+	// Deprecated: use Download instead.
 	DownloadCharm(ctx context.Context, charmName string, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, *charmhub.Digest, error)
 
 	// ResolveWithPreferredChannel verified that the charm with the requested
