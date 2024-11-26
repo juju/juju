@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +19,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -29,10 +27,10 @@ import (
 type machinerSuite struct {
 	commonSuite
 
-	resources      *common.Resources
-	machiner       *machine.MachinerAPI
-	networkService *MockNetworkService
-	machineService *MockMachineService
+	machiner        *machine.MachinerAPI
+	networkService  *MockNetworkService
+	machineService  *MockMachineService
+	watcherRegistry *MockWatcherRegistry
 }
 
 var _ = gc.Suite(&machinerSuite{})
@@ -40,6 +38,7 @@ var _ = gc.Suite(&machinerSuite{})
 func (s *machinerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
@@ -56,20 +55,12 @@ func (s *machinerSuite) makeAPI(c *gc.C) {
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.networkService,
 		s.machineService,
-		s.resources,
+		s.watcherRegistry,
+		common.NewResources(),
 		s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machiner = machiner
-}
-
-func (s *machinerSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-
 }
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
@@ -86,7 +77,8 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		nil,
 		s.networkService,
 		s.machineService,
-		s.resources,
+		s.watcherRegistry,
+		common.NewResources(),
 		anAuthorizer,
 	)
 	c.Assert(err, gc.NotNil)
@@ -299,7 +291,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -315,17 +307,6 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := watchertest.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
 }
 
 func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {

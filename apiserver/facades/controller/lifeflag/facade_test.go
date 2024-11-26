@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/core/life"
@@ -19,9 +19,17 @@ import (
 
 type FacadeSuite struct {
 	testing.IsolationSuite
+
+	watcherRegistry *MockWatcherRegistry
 }
 
 var _ = gc.Suite(&FacadeSuite{})
+
+func (s *FacadeSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
+	return ctrl
+}
 
 func (*FacadeSuite) TestFacadeAuthFailure(c *gc.C) {
 	facade, err := lifeflag.NewFacade(nil, nil, auth(false))
@@ -125,9 +133,11 @@ func (*FacadeSuite) TestWatchNotFound(c *gc.C) {
 	c.Check(result.Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (*FacadeSuite) TestWatchBadWatcher(c *gc.C) {
+func (s *FacadeSuite) TestWatchBadWatcher(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	backend := &mockBackend{exist: true}
-	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
+	facade, err := lifeflag.NewFacade(backend, s.watcherRegistry, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), modelEntity())
@@ -138,10 +148,12 @@ func (*FacadeSuite) TestWatchBadWatcher(c *gc.C) {
 	c.Check(result.Error, gc.ErrorMatches, "blammo")
 }
 
-func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
+func (s *FacadeSuite) TestWatchSuccess(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	backend := &mockBackend{exist: true, watch: true}
-	resources := common.NewResources()
-	facade, err := lifeflag.NewFacade(backend, resources, auth(true))
+	facade, err := lifeflag.NewFacade(backend, s.watcherRegistry, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
 	results, err := facade.Watch(context.Background(), modelEntity())

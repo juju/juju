@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -229,82 +228,6 @@ func (s *firewallerBaseSuite) testWatchModelMachines(
 	// in the Watch call)
 	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
-}
-
-const (
-	cannotWatchUnits = false
-)
-
-func (s *firewallerBaseSuite) testWatch(
-	c *gc.C,
-	watcher interface {
-		Watch(context.Context, params.Entities) (params.NotifyWatchResults, error)
-	},
-	allowUnits bool,
-) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.application.Tag().String()},
-		{Tag: s.units[0].Tag().String()},
-	}})
-	result, err := watcher.Watch(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	if allowUnits {
-		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{
-				{Error: apiservertesting.ErrUnauthorized},
-				{NotifyWatcherId: "1"},
-				{NotifyWatcherId: "2"},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-				{Error: apiservertesting.NotFoundError(`application "bar"`)},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-			},
-		})
-	} else {
-		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{
-				{Error: apiservertesting.ErrUnauthorized},
-				{NotifyWatcherId: "1"},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.NotFoundError(`application "bar"`)},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-			},
-		})
-	}
-
-	// Verify the resources were registered and stop when done.
-	if allowUnits {
-		c.Assert(s.resources.Count(), gc.Equals, 2)
-	} else {
-		c.Assert(s.resources.Count(), gc.Equals, 1)
-	}
-	c.Assert(result.Results[1].NotifyWatcherId, gc.Equals, "1")
-	watcher1 := s.resources.Get("1")
-	defer workertest.CleanKill(c, watcher1)
-	var watcher2 worker.Worker
-	if allowUnits {
-		c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
-		watcher2 = s.resources.Get("2")
-		defer workertest.CleanKill(c, watcher2)
-	}
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc1 := watchertest.NewNotifyWatcherC(c, watcher1.(state.NotifyWatcher))
-	wc1.AssertNoChange()
-	if allowUnits {
-		wc2 := watchertest.NewNotifyWatcherC(c, watcher2.(state.NotifyWatcher))
-		wc2.AssertNoChange()
-	}
 }
 
 func (s *firewallerBaseSuite) testWatchUnits(

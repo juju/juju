@@ -17,7 +17,7 @@ type Backend interface {
 	state.EntityFinder
 }
 
-func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -28,7 +28,7 @@ func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Au
 		}, nil
 	}
 	life := common.NewLifeGetter(backend, getCanAccess)
-	watch := common.NewAgentEntityWatcher(backend, resources, getCanAccess)
+	watch := common.NewAgentEntityWatcher(backend, watcherRegistry, getCanAccess)
 	return &Facade{
 		LifeGetter:         life,
 		AgentEntityWatcher: watch,

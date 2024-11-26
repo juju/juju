@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -349,8 +350,9 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatch(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
+	defer s.setUpMocks(c).Finish()
+	// Recreate the uniter API with the mocks initialized.
+	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -363,6 +365,8 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("2", nil)
 	result, err := s.uniter.Watch(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
@@ -377,20 +381,6 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 			// {Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 2)
-	resource1 := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource1)
-	resource2 := s.resources.Get("2")
-	defer workertest.CleanKill(c, resource2)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := watchertest.NewNotifyWatcherC(c, resource1.(state.NotifyWatcher))
-	wc.AssertNoChange()
-	wc = watchertest.NewNotifyWatcherC(c, resource2.(state.NotifyWatcher))
-	wc.AssertNoChange()
 }
 
 func (s *uniterSuite) TestPublicAddress(c *gc.C) {

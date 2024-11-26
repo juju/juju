@@ -80,6 +80,7 @@ func NewMachinerAPIForState(
 	cloudService common.CloudService,
 	networkService NetworkService,
 	machineService MachineService,
+	watcherRegistry facade.WatcherRegistry,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MachinerAPI, error) {
@@ -100,7 +101,7 @@ func NewMachinerAPIForState(
 		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
 		StatusSetter:            common.NewStatusSetter(st, getCanAccess),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
-		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
+		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,
 		networkService:          networkService,

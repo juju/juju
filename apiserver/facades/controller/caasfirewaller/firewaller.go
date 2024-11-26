@@ -147,7 +147,7 @@ func NewFacade(
 		accessUnit:  accessUnit,
 		AgentEntityWatcher: common.NewAgentEntityWatcher(
 			st,
-			resources,
+			watcherRegistry,
 			accessApplication,
 		),
 		resources:          resources,

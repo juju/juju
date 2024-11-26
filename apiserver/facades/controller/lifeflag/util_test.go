@@ -83,6 +83,12 @@ func (mock *mockWatcher) Changes() <-chan struct{} {
 	return mock.changes
 }
 
+func (mock *mockWatcher) Kill() {}
+
+func (mock *mockWatcher) Wait() error {
+	return errors.New("blammo")
+}
+
 func (mock *mockWatcher) Err() error {
 	return errors.New("blammo")
 }
