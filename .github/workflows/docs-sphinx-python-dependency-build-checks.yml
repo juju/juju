@@ -12,7 +12,8 @@
 name: Check and document build requirements for Sphinx venv
 on:
   schedule:
-    - cron: "0 2 * * 0,3" # Runs at 02:00 AM on every Sunday and Wednesday.
+    - cron: "0 2 * * 1,5" # Runs at 02:00 AM on every Monday and Friday.
+  workflow_dispatch:
 
 
 concurrency:
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   build:
     name: build
-    runs-on: ubuntu-latest
+    runs-on: [linux, self-hosted, x64, large, jammy]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
