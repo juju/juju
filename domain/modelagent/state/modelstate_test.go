@@ -28,7 +28,7 @@ var _ = gc.Suite(&modelStateSuite{})
 // TestCheckMachineDoesNotExist is asserting that if no machine exists we get
 // back an error satisfying [machineerrors.MachineNotFound].
 func (s *modelStateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
-	err := NewModelState(s.TxnRunnerFactory()).CheckMachineExists(
+	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
 		context.Background(),
 		machine.Name("0"),
 	)
@@ -38,7 +38,7 @@ func (s *modelStateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
 // TestCheckUnitDoesNotExist is asserting that if no unit exists we get back an
 // error satisfying [applicationerrors.UnitNotFound].
 func (s *modelStateSuite) TestCheckUnitDoesNotExist(c *gc.C) {
-	err := NewModelState(s.TxnRunnerFactory()).CheckUnitExists(
+	err := NewState(s.TxnRunnerFactory()).CheckUnitExists(
 		context.Background(),
 		"foo/0",
 	)
@@ -51,7 +51,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *gc.C) {
 	expectedVersion, err := version.Parse("4.21.54")
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := NewModelState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory())
 	s.setAgentVersion(c, expectedVersion.String())
 
 	obtainedVersion, err := st.GetTargetAgentVersion(context.Background())
@@ -62,7 +62,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *gc.C) {
 // TestGetModelAgentVersionModelNotFound tests that State.GetModelAgentVersion
 // returns modelerrors.NotFound when the model does not exist in the DB.
 func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
-	st := NewModelState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetTargetAgentVersion(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.AgentVersionNotFound)
@@ -73,7 +73,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 func (s *modelStateSuite) TestGetModelAgentVersionCantParseVersion(c *gc.C) {
 	s.setAgentVersion(c, "invalid-version")
 
-	st := NewModelState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetTargetAgentVersion(context.Background())
 	c.Check(err, gc.ErrorMatches, `parsing agent version: invalid version "invalid-version".*`)
 }

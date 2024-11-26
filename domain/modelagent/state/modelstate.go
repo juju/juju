@@ -20,13 +20,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-type ModelState struct {
+type State struct {
 	*domain.StateBase
 }
 
-// NewModelState returns a new [ModelState] object.
-func NewModelState(factory database.TxnRunnerFactory) *ModelState {
-	return &ModelState{
+// NewState returns a new [State] object.
+func NewState(factory database.TxnRunnerFactory) *State {
+	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
@@ -34,7 +34,7 @@ func NewModelState(factory database.TxnRunnerFactory) *ModelState {
 // CheckMachineExists check to see if the given machine exists in the model.
 // If the machine does not exist an error satisfying
 // [machineerrors.MachineNotFound] is returned.
-func (m *ModelState) CheckMachineExists(
+func (m *State) CheckMachineExists(
 	ctx context.Context,
 	name machine.Name,
 ) error {
@@ -80,7 +80,7 @@ WHERE name = $machineName.name
 // CheckUnitExists checks to see if the given unit exists in the model. If
 // the unit does not exist an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
-func (m *ModelState) CheckUnitExists(
+func (m *State) CheckUnitExists(
 	ctx context.Context,
 	name string,
 ) error {
@@ -123,7 +123,7 @@ WHERE name = $unitName.name
 	return err
 }
 
-func (st *ModelState) GetTargetAgentVersion(ctx context.Context) (version.Number, error) {
+func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, error) {
 	db, err := st.DB()
 	if err != nil {
 		return version.Zero, errors.Capture(err)
