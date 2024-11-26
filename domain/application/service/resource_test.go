@@ -69,8 +69,8 @@ func (s *resourceServiceSuite) TestListResources(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	expectedList := resource.ApplicationResources{
 		Resources: []resource.Resource{{
-			SuppliedBy:     "admin",
-			SuppliedByType: resource.Application,
+			RetrievedBy:     "admin",
+			RetrievedByType: resource.Application,
 		}},
 	}
 	s.state.EXPECT().ListResources(gomock.Any(), id).Return(expectedList, nil)
@@ -91,8 +91,8 @@ func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 
 	id := resourcestesting.GenResourceUUID(c)
 	expectedRes := resource.Resource{
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.Application,
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.Application,
 	}
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
 
@@ -134,8 +134,8 @@ func (s *resourceServiceSuite) TestSetResource(c *gc.C) {
 		Increment: false,
 	}
 	expectedRes := resource.Resource{
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.User,
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.User,
 	}
 	s.state.EXPECT().SetResource(gomock.Any(), args).Return(expectedRes, nil)
 
@@ -187,10 +187,10 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 
 	resID := resourcestesting.GenResourceID(c)
 	args := resource.SetUnitResourceArgs{
-		ResourceID:     resID,
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.User,
-		UnitID:         unittesting.GenUnitUUID(c),
+		ResourceID:      resID,
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.User,
+		UnitID:          unittesting.GenUnitUUID(c),
 	}
 	expectedRet := resource.SetUnitResourceResult{
 		UUID: resourcestesting.GenResourceUUID(c),
