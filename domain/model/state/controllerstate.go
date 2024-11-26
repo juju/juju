@@ -258,6 +258,48 @@ AND owner_name = $dbNames.owner_name
 	return model.toCoreModel()
 }
 
+// GetModelState is responsible for returning a set of boolean indicators for
+// key aspects about a model so that a model's status can be derived from this
+// information. If no model exists for the provided uuid then an error
+// satisfying [modelerrors.NotFound] will be returned.
+func (s *State) GetModelState(ctx context.Context, uuid coremodel.UUID) (model.ModelState, error) {
+	db, err := s.DB()
+	if err != nil {
+		return model.ModelState{}, errors.Trace(err)
+	}
+
+	modelUUIDVal := dbModelUUID{UUID: uuid.String()}
+	modelState := dbModelState{}
+
+	stmt, err := s.Prepare(`
+SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
+`, modelUUIDVal, modelState)
+	if err != nil {
+		return model.ModelState{}, internalerrors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, modelUUIDVal).Get(&modelState)
+		if internalerrors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.New("model does not exist").Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return model.ModelState{}, internalerrors.Errorf(
+			"getting model %q state: %w", uuid, err,
+		)
+	}
+
+	return model.ModelState{
+		Destroying:                   modelState.Destroying,
+		Migrating:                    modelState.Migrating,
+		HasInvalidCloudCredential:    modelState.CredentialInvalid,
+		InvalidCloudCredentialReason: modelState.CredentialInvalidReason,
+	}, nil
+}
+
 // GetModelType returns the model type for the provided model uuid. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be
 // returned.

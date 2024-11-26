@@ -416,3 +416,12 @@ type dbModelSecretBackend struct {
 	// SecretBackendUUID is the secret backends unique identifier.
 	SecretBackendUUID string `db:"secret_backend_uuid"`
 }
+
+// dbModelState is used to represent a single row from the
+// v_model_status_state view. This information is used to feed a model's status.
+type dbModelState struct {
+	Destroying              bool   `db:"destroying"`
+	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+	Migrating               bool   `db:"migrating"`
+}
