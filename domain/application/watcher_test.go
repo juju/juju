@@ -455,7 +455,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 	}
 
 	return service.NewWatchableService(
-		state.NewState(modelDB, loggertesting.WrapCheckLog(c)),
+		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		secretstate.NewState(modelDB, loggertesting.WrapCheckLog(c)),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()

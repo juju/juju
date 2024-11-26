@@ -84,12 +84,9 @@ func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets
 
 func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
 	ctx := context.Background()
-	state := applicationstate.NewState(
-		func() (database.TxnRunner, error) {
-			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
-		},
-		loggertesting.WrapCheckLog(c),
-	)
+	state := applicationstate.NewState(func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
+	}, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appService := applicationservice.NewService(
 		state,

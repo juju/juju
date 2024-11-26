@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -43,7 +44,7 @@ const fakeCharmUUID = "fake-charm-uuid"
 func (s *resourceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.constants.fakeApplicationUUID1 = "fake-application-1-uuid"
 	s.constants.fakeApplicationUUID2 = "fake-application-2-uuid"
 	s.constants.fakeUnitUUID1 = "fake-unit-1-uuid"

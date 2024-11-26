@@ -57,7 +57,7 @@ VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
-	st := applicationstate.NewState(s.TxnRunnerFactory(), logger)
+	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
 	svc := applicationservice.NewService(st, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}

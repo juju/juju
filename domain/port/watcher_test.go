@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -85,7 +86,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 		}
 	}
 
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
 	var appUUID coreapplication.ID
 	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		var err error
@@ -106,7 +107,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
 func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit.UUID {
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)
 	err = applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
