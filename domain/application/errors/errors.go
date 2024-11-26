@@ -147,4 +147,8 @@ const (
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.
 	ResourceNameNotValid = errors.ConstError("resource name not valid")
+
+	// AlreadyDownloadingCharm describes an error that occurs when a charm is
+	// already being downloaded.
+	AlreadyDownloadingCharm = errors.ConstError("already downloading charm")
 )

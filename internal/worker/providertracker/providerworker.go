@@ -50,6 +50,9 @@ func (config Config) Validate() error {
 	if config.NewTrackerWorker == nil {
 		return errors.NotValidf("nil NewTrackerWorker")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
