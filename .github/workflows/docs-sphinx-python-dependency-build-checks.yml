@@ -11,9 +11,9 @@
 # succeed.
 name: Check and document build requirements for Sphinx venv
 on:
-  - push
-  - pull_request
-  - workflow_dispatch
+  schedule:
+    - cron: "0 2 * * 0,3" # Runs at 02:00 AM on every Sunday and Wednesday.
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
