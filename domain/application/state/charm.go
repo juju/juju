@@ -400,28 +400,23 @@ func (s *State) GetCharmArchiveMetadata(ctx context.Context, id corecharm.ID) (a
 		return "", "", internalerrors.Capture(err)
 	}
 
-	var archivePathAndHash charmArchivePathAndHash
+	var archivePathAndHashes []charmArchivePathAndHash
 	ident := charmID{UUID: id.String()}
 
-	// NOTE: In theory, we can store multiple hashes of different formats for a
-	// charm. As of writing, we only store the sha256 hash, but in case this changes
-	// filter to specify we return the sha256 hash.
 	query := `
 SELECT &charmArchivePathAndHash.*
 FROM charm
 JOIN charm_hash ON charm.uuid = charm_hash.charm_uuid
-JOIN hash_kind ON charm_hash.hash_kind_id = hash_kind.id
-WHERE charm.uuid = $charmID.uuid
-AND hash_kind.name = "sha256";
+WHERE charm.uuid = $charmID.uuid;
 `
 
-	stmt, err := s.Prepare(query, archivePathAndHash, ident)
+	stmt, err := s.Prepare(query, charmArchivePathAndHash{}, ident)
 	if err != nil {
 		return "", "", internalerrors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, ident).Get(&archivePathAndHash); err != nil {
+		if err := tx.Query(ctx, stmt, ident).GetAll(&archivePathAndHashes); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
@@ -431,8 +426,11 @@ AND hash_kind.name = "sha256";
 	}); err != nil {
 		return "", "", internalerrors.Errorf("getting charm archive metadata: %w", err)
 	}
+	if len(archivePathAndHashes) > 1 {
+		return "", "", internalerrors.Errorf("getting charm archive metadata: %w", applicationerrors.MultipleCharmHashes)
+	}
 
-	return archivePathAndHash.ArchivePath, archivePathAndHash.Hash, nil
+	return archivePathAndHashes[0].ArchivePath, archivePathAndHashes[0].Hash, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.

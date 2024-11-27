@@ -2521,10 +2521,8 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, hash, err := st.GetCharmArchiveMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, "archive")
-	c.Check(hash, gc.DeepEquals, "hash")
+	_, _, err = st.GetCharmArchiveMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.MultipleCharmHashes)
 }
 
 func (s *charmStateSuite) TestGetCharmArchiveMetadataCharmNotFound(c *gc.C) {
