@@ -43,6 +43,7 @@ var baseCommands = map[string]creator{
 	"relation-get":            NewRelationGetCommand,
 	"relation-ids":            NewRelationIdsCommand,
 	"relation-list":           NewRelationListCommand,
+	"relation-model-get":      NewRelationModelGetCommand,
 	"relation-set":            NewRelationSetCommand,
 	"unit-get":                NewUnitGetCommand,
 	"add-metric":              NewAddMetricCommand,
