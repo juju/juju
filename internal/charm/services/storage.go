@@ -72,7 +72,7 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 	}
 
 	// If the blob is already stored, we can skip the upload.
-	if _, err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
+	if _, err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrPathAlreadyExistsDifferentHash) {
 		return "", errors.Annotate(err, "cannot add charm to storage")
 	}
 

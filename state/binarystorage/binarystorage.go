@@ -65,7 +65,7 @@ func New(
 func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the binary file to storage.
 	path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
-	if _, err := s.managedStorage.Put(ctx, path, r, metadata.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
+	if _, err := s.managedStorage.Put(ctx, path, r, metadata.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrPathAlreadyExistsDifferentHash) {
 		return errors.Annotate(err, "cannot store binary file")
 	}
 	defer func() {
