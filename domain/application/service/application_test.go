@@ -1101,7 +1101,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 		}
 	}
 
-	// Ensure order is persvered if the state returns the uuids in an unexpected
+	// Ensure order is preserved if the state returns the uuids in an unexpected
 	// order. This is because we can't guarantee the order if there are holes in
 	// the pending sequence.
 
@@ -1139,7 +1139,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 		}
 	}
 
-	// Ensure order is persvered if the state returns the uuids in an unexpected
+	// Ensure order is preserved if the state returns the uuids in an unexpected
 	// order. This is because we can't guarantee the order if there are holes in
 	// the pending sequence.
 
@@ -1181,7 +1181,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 		}
 	}
 
-	// Ensure order is persvered if the state returns the uuids in an unexpected
+	// Ensure order is preserved if the state returns the uuids in an unexpected
 	// order. This is because we can't guarantee the order if there are holes in
 	// the pending sequence.
 
