@@ -44,6 +44,46 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 	return m.recorder
 }
 
+// Download mocks base method.
+func (m *MockRepository) Download(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 string) (charm.Origin, *charmhub.Digest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(charm.Origin)
+	ret1, _ := ret[1].(*charmhub.Digest)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Download indicates an expected call of Download.
+func (mr *MockRepositoryMockRecorder) Download(arg0, arg1, arg2, arg3 any) *MockRepositoryDownloadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockRepository)(nil).Download), arg0, arg1, arg2, arg3)
+	return &MockRepositoryDownloadCall{Call: call}
+}
+
+// MockRepositoryDownloadCall wrap *gomock.Call
+type MockRepositoryDownloadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRepositoryDownloadCall) Return(arg0 charm.Origin, arg1 *charmhub.Digest, arg2 error) *MockRepositoryDownloadCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRepositoryDownloadCall) Do(f func(context.Context, string, charm.Origin, string) (charm.Origin, *charmhub.Digest, error)) *MockRepositoryDownloadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRepositoryDownloadCall) DoAndReturn(f func(context.Context, string, charm.Origin, string) (charm.Origin, *charmhub.Digest, error)) *MockRepositoryDownloadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DownloadCharm mocks base method.
 func (m *MockRepository) DownloadCharm(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error) {
 	m.ctrl.T.Helper()
