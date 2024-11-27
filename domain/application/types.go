@@ -6,6 +6,7 @@ package application
 import (
 	"time"
 
+	"github.com/juju/juju/core/charm"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/ipaddress"
@@ -175,11 +176,26 @@ type ContainerImageMetadata struct {
 
 	// RegistryPath holds the image name (including host) of the image in the
 	// oci registry.
-	RegistryPath string `bson:"registry-path"`
+	RegistryPath string
 
 	// Username holds the username used to gain access to a non-public image.
-	Username string `bson:"username"`
+	Username string
 
 	// Password holds the password used to gain access to a non-public image.
-	Password string `bson:"password"`
+	Password string
+}
+
+// CharmDownloadInfo contains parameters for downloading a charm.
+type CharmDownloadInfo struct {
+	CharmUUID charm.ID
+	Name      string
+	Origin    charm.Origin
+}
+
+// ResolveCharmDownload contains parameters for resolving a charm download.
+type ResolveCharmDownload struct {
+	CharmUUID charm.ID
+	Path      string
+	Origin    charm.Origin
+	Size      int64
 }

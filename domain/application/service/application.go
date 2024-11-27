@@ -1208,3 +1208,26 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 	}
 	return s.st.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
 }
+
+// ReserveCharmDownload reserves a charm download slot for the specified
+// application. If the charm is already being downloaded, the method will
+// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
+// information is returned which includes the charm name, origin and the
+// digest.
+func (s *Service) ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+	if err := appID.Validate(); err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	return application.CharmDownloadInfo{}, errors.NotImplementedf("ReserveCharmDownload")
+}
+
+// ResolveCharmDownload resolves the charm download slot for the specified
+// application. The method will update the charm with the specified charm
+// information.
+func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.ID, resolve application.ResolveCharmDownload) error {
+	if err := appID.Validate(); err != nil {
+		return internalerrors.Errorf("application ID: %w", err)
+	}
+	return errors.NotImplementedf("ResolveCharmDownload")
+}

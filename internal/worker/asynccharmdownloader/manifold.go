@@ -6,10 +6,12 @@ package asynccharmdownloader
 import (
 	"context"
 
+	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -40,12 +42,22 @@ type NewDownloaderFunc func(charmhub.HTTPClient, ModelConfigService, logger.Logg
 // NewHTTPClientFunc is a function that creates a new HTTP client.
 type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehttp.HTTPClient, error)
 
+// NewAsyncWorkerFunc is a function that creates a new async worker.
+type NewAsyncWorkerFunc func(
+	appID application.ID,
+	applicationService ApplicationService,
+	downloader Downloader,
+	clock clock.Clock,
+	logger logger.Logger,
+) worker.Worker
+
 // ManifoldConfig describes the resources used by the charmdownloader worker.
 type ManifoldConfig struct {
 	DomainServicesName string
 	HTTPClientName     string
 	NewDownloader      NewDownloaderFunc
 	NewHTTPClient      NewHTTPClientFunc
+	NewAsyncWorker     NewAsyncWorkerFunc
 	Logger             logger.Logger
 }
 
@@ -73,6 +85,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewHTTPClient == nil {
 		return jujuerrors.NotValidf("nil NewHTTPClient")
+	}
+	if cfg.NewAsyncWorker == nil {
+		return jujuerrors.NotValidf("nil NewAsyncWorker")
 	}
 	if cfg.Logger == nil {
 		return jujuerrors.NotValidf("nil Logger")
@@ -102,6 +117,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		HTTPClientGetter:   httpClientGetter,
 		NewHTTPClient:      cfg.NewHTTPClient,
 		NewDownloader:      cfg.NewDownloader,
+		NewAsyncWorker:     cfg.NewAsyncWorker,
 		Logger:             cfg.Logger,
 	})
 	if err != nil {

@@ -16,8 +16,14 @@ import (
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
+)
+
+const (
+	// States which report the state of the worker.
+	stateStarted = "started"
 )
 
 // ModelConfigService provides access to the model configuration.
@@ -38,12 +44,12 @@ type ApplicationService interface {
 	// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
 	// information is returned which includes the charm name, origin and the
 	// digest.
-	ReserveCharmDownload(ctx context.Context, appID application.ID) (application.CharmDownloadInfo, error)
+	ReserveCharmDownload(ctx context.Context, appID application.ID) (domainapplication.CharmDownloadInfo, error)
 
 	// ResolveCharmDownload resolves the charm download slot for the specified
 	// application. The method will update the charm with the specified charm
 	// information.
-	ResolveCharmDownload(ctx context.Context, resolve application.ResolveCharmDownload) error
+	ResolveCharmDownload(ctx context.Context, appID application.ID, resolve domainapplication.ResolveCharmDownload) error
 }
 
 // Config defines the operation of a Worker.
@@ -53,6 +59,7 @@ type Config struct {
 	HTTPClientGetter   corehttp.HTTPClientGetter
 	NewHTTPClient      NewHTTPClientFunc
 	NewDownloader      NewDownloaderFunc
+	NewAsyncWorker     NewAsyncWorkerFunc
 	Logger             logger.Logger
 	Clock              clock.Clock
 }
@@ -74,6 +81,9 @@ func (cfg Config) Validate() error {
 	if cfg.NewDownloader == nil {
 		return jujuerrors.NotValidf("nil NewDownloader")
 	}
+	if cfg.NewAsyncWorker == nil {
+		return jujuerrors.NotValidf("nil NewAsyncWorker")
+	}
 	if cfg.Clock == nil {
 		return jujuerrors.NotValidf("nil Clock")
 	}
@@ -83,10 +93,10 @@ func (cfg Config) Validate() error {
 	return nil
 }
 
-// charmDownloaderWorker watches applications that reference charms that have not
+// Worker watches applications that reference charms that have not
 // yet been downloaded and triggers an asynchronous download request for each
 // one.
-type charmDownloaderWorker struct {
+type Worker struct {
 	internalStates chan string
 	catacomb       catacomb.Catacomb
 	runner         *worker.Runner
@@ -94,18 +104,18 @@ type charmDownloaderWorker struct {
 	config Config
 }
 
-// NewWorker returns a new charmDownloaderWorker worker.
-func NewWorker(config Config) (worker.Worker, error) {
+// NewWorker returns a new Worker worker.
+func NewWorker(config Config) (*Worker, error) {
 	return newWorker(config, nil)
 }
 
-// newWorker returns a new charmDownloaderWorker worker.
-func newWorker(config Config, internalState chan string) (*charmDownloaderWorker, error) {
+// newWorker returns a new Worker worker.
+func newWorker(config Config, internalState chan string) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	cd := &charmDownloaderWorker{
+	cd := &Worker{
 		config: config,
 		runner: worker.NewRunner(worker.RunnerParams{
 			IsFatal: func(err error) bool {
@@ -123,6 +133,7 @@ func newWorker(config Config, internalState chan string) (*charmDownloaderWorker
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &cd.catacomb,
 		Work: cd.loop,
+		Init: []worker.Worker{cd.runner},
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -131,16 +142,19 @@ func newWorker(config Config, internalState chan string) (*charmDownloaderWorker
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *charmDownloaderWorker) Kill() {
+func (w *Worker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *charmDownloaderWorker) Wait() error {
+func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *charmDownloaderWorker) loop() error {
+func (w *Worker) loop() error {
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
+
 	logger := w.config.Logger
 
 	ctx, cancel := w.scopedContext()
@@ -201,7 +215,7 @@ func (w *charmDownloaderWorker) loop() error {
 				}
 
 				// Kick off the download worker for the application.
-				if err := w.initTrackerWorker(appID, downloader); err != nil {
+				if err := w.initAsyncWorker(appID, downloader); err != nil {
 					return errors.Capture(err)
 				}
 			}
@@ -209,7 +223,7 @@ func (w *charmDownloaderWorker) loop() error {
 	}
 }
 
-func (w *charmDownloaderWorker) workerFromCache(appID application.ID) (bool, error) {
+func (w *Worker) workerFromCache(appID application.ID) (bool, error) {
 	// If the worker already exists, return the existing worker early.
 	if _, err := w.runner.Worker(appID.String(), w.catacomb.Dying()); err == nil {
 		return true, nil
@@ -231,9 +245,9 @@ func (w *charmDownloaderWorker) workerFromCache(appID application.ID) (bool, err
 	return false, nil
 }
 
-func (w *charmDownloaderWorker) initTrackerWorker(appID application.ID, downloader Downloader) error {
+func (w *Worker) initAsyncWorker(appID application.ID, downloader Downloader) error {
 	err := w.runner.StartWorker(appID.String(), func() (worker.Worker, error) {
-		wrk := newDownloadWorker(
+		wrk := w.config.NewAsyncWorker(
 			appID,
 			w.config.ApplicationService,
 			downloader,
@@ -252,6 +266,14 @@ func (w *charmDownloaderWorker) initTrackerWorker(appID application.ID, download
 	return errors.Capture(err)
 }
 
-func (w *charmDownloaderWorker) scopedContext() (context.Context, context.CancelFunc) {
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func (w *Worker) reportInternalState(state string) {
+	select {
+	case <-w.catacomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }

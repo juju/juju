@@ -27,6 +27,10 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 func validConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DomainServicesName: "api-caller",
+		HTTPClientName:     "http-client",
+		NewDownloader:      NewDownloader,
+		NewHTTPClient:      NewHTTPClient,
+		NewAsyncWorker:     NewAsyncWorker,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
@@ -38,6 +42,26 @@ func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *gc.C) {
 	s.config.DomainServicesName = ""
 	s.checkNotValid(c, "empty DomainServicesName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingHTTPClientName(c *gc.C) {
+	s.config.HTTPClientName = ""
+	s.checkNotValid(c, "empty HTTPClientName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingNewDownloader(c *gc.C) {
+	s.config.NewDownloader = nil
+	s.checkNotValid(c, "nil NewDownloader not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingNewHTTPClient(c *gc.C) {
+	s.config.NewHTTPClient = nil
+	s.checkNotValid(c, "nil NewHTTPClient not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingNewAsyncWorker(c *gc.C) {
+	s.config.NewAsyncWorker = nil
+	s.checkNotValid(c, "nil NewAsyncWorker not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
