@@ -7,11 +7,12 @@ package main
 
 import (
 	"github.com/juju/juju/internal/dlv"
-	"github.com/juju/juju/internal/dlv/config"
 )
 
 func init() {
-	runMain = dlv.NewDlvRunner(config.Default(),
+	runMain = dlv.NewDlvRunner(
+		dlv.Headless(),
+		dlv.WithApiVersion(2),
 		dlv.WithPort(1122),
 		dlv.WaitDebugger())(runMain)
 }
