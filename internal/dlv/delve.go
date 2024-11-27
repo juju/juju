@@ -23,11 +23,9 @@ const (
 //
 // It works in two phases:
 // At first call, it launches the delve command `exec` with the current binary. However, before the
-// call it set a environment variable DELVE_ANYTHING_NO_DEBUG.
-// At the second call, DELVE_ANYTHING_NO_DEBUG is set, so it just return the "normal" main.
+// call it sets an environment variable DELVE_ANYTHING_NO_DEBUG.
+// At the second call, DELVE_ANYTHING_NO_DEBUG is set, so it just returns the "normal" main.
 func NewDlvRunner(opts ...Option) func(main MainWithArgs) MainWithArgs {
-
-	// Apply configuration option.
 	config := Config{}
 	config.apply(opts...)
 
