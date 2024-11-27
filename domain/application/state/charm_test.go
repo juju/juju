@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/application/charm"
@@ -2489,6 +2490,50 @@ func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
+func (s *charmStateSuite) TestGetCharmArchiveMetadata(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+	}, setStateArgs("ubuntu"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, hash, err := st.GetCharmArchiveMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, "archive")
+	c.Check(hash, gc.DeepEquals, "hash")
+}
+
+func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+	}, setStateArgs("ubuntu"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return insertAdditonalHashKindForCharm(ctx, c, tx, id, "sha386", "hash386")
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = st.GetCharmArchiveMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.MultipleCharmHashes)
+}
+
+func (s *charmStateSuite) TestGetCharmArchiveMetadataCharmNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+
+	_, _, err := st.GetCharmArchiveMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
 func (s *charmStateSuite) TestCharmsWithOriginWithNoEntries(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -2663,6 +2708,28 @@ func insertCharmManifest(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) 
 	}
 
 	return charm.Manifest{}, nil
+}
+
+func insertAdditonalHashKindForCharm(ctx context.Context, c *gc.C, tx *sql.Tx, charmId corecharm.ID, kind, hash string) error {
+	var kindId int
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM hash_kind`)
+	c.Assert(err, jc.ErrorIsNil)
+	for rows.Next() {
+		var id int
+		err := rows.Scan(&id)
+		c.Assert(err, jc.ErrorIsNil)
+		kindId = max(kindId, id)
+	}
+	kindId++
+	defer func() { _ = rows.Close() }()
+
+	_, err = tx.ExecContext(ctx, `INSERT INTO hash_kind (id, name) VALUES (?, ?)`, kindId, kind)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = tx.ExecContext(ctx, `INSERT INTO charm_hash (charm_uuid, hash_kind_id, hash) VALUES (?, ?, ?)`, charmId, kindId, hash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return nil
 }
 
 func assertTableEmpty(c *gc.C, runner coredatabase.TxnRunner, table string) {

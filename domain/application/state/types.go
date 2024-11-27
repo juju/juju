@@ -561,6 +561,11 @@ type charmArchivePath struct {
 	ArchivePath string `db:"archive_path"`
 }
 
+type charmArchivePathAndHash struct {
+	ArchivePath string `db:"archive_path"`
+	Hash        string `db:"hash"`
+}
+
 // charmOrigin is used to get the origin of a charm.
 type charmOrigin struct {
 	CharmUUID     string `db:"charm_uuid"`

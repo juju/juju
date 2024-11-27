@@ -97,6 +97,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		nil,
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

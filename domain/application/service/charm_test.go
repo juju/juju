@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"io"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -396,6 +398,24 @@ func (s *charmServiceSuite) TestGetCharmArchivePathInvalidUUID(c *gc.C) {
 
 	_, err := s.service.GetCharmArchivePath(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *charmServiceSuite) TestGetCharmArchive(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+	archive := io.NopCloser(strings.NewReader("archive-content"))
+
+	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("archive-path", "hash", nil)
+	s.charmStore.EXPECT().Get(gomock.Any(), "archive-path").Return(archive, nil)
+
+	reader, hash, err := s.service.GetCharmArchive(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "hash")
+
+	content, err := io.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(content), gc.Equals, "archive-content")
 }
 
 func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {

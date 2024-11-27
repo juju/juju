@@ -20,6 +20,7 @@ import (
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
+	charmstore "github.com/juju/juju/domain/application/charm/store"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
@@ -176,6 +177,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
+		charmstore.NewCharmStore(s.objectstore),
 		s.clock,
 		log,
 	)

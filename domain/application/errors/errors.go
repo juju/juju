@@ -127,6 +127,11 @@ const (
 	// wrong value.
 	CharmRelationRoleNotValid = errors.ConstError("charm relation role not valid")
 
+	// MultipleCharmHashes describes and error that occurs when a charm has multiple
+	// hash values. At the moment, we only support sha256 hash format, so if another
+	// is found, an error is returned.
+	MultipleCharmHashes = errors.ConstError("multiple charm hashes found")
+
 	// ResourceNotFound describes an error that occurs when a resource is
 	// not found.
 	ResourceNotFound = errors.ConstError("resource not found")

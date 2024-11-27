@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/juju/juju/core/objectstore"
@@ -19,7 +20,7 @@ const (
 	ErrNotFound = errors.ConstError("file not found")
 )
 
-// CharmStore provides an API for storing charms.
+// CharmStore provides an API for storing and retrieving charm blobs.
 type CharmStore struct {
 	objectStoreGetter objectstore.ModelObjectStoreGetter
 	encoder           *base32.Encoding
@@ -65,4 +66,20 @@ func (s *CharmStore) Store(ctx context.Context, name string, path string, size i
 
 	// Store the file in the object store.
 	return objectStore.PutAndCheckHash(ctx, uniqueName, file, size, hash)
+}
+
+// Get retrieves a ReadCloser for the charm archive at the give path from
+// the underlying storage.
+// NOTE: It is up to the caller to verify the integrity of the data from the charm
+// hash stored in DQLite.
+func (s *CharmStore) Get(ctx context.Context, archivePath string) (io.ReadCloser, error) {
+	store, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting object store: %w", err)
+	}
+	reader, _, err := store.Get(ctx, archivePath)
+	if err != nil {
+		return nil, errors.Errorf("getting charm: %w", err)
+	}
+	return reader, nil
 }

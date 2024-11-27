@@ -159,6 +159,7 @@ CREATE TABLE hash_kind (
 CREATE UNIQUE INDEX idx_hash_kind_name
 ON hash_kind (name);
 
+-- We only support sha256 hashes for now.
 INSERT INTO hash_kind VALUES
 (0, 'sha256');
 

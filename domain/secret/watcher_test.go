@@ -62,6 +62,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		nil,
 		clock.WallClock,
 		logger,
 	)
