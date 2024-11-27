@@ -26,10 +26,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
-	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 type userAuthenticatorSuite struct {
@@ -39,51 +36,22 @@ type userAuthenticatorSuite struct {
 var _ = gc.Suite(&userAuthenticatorSuite{})
 
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
-	// add machine for testing machine agent authentication
-	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	nonce, err := password.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "", nonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := password.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	machinePassword := password
 
-	// attempt machine login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
-		AuthTag:     machine.Tag(),
-		Credentials: machinePassword,
-		Nonce:       nonce,
+	_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewMachineTag("0"),
+		Credentials: "I am a machine",
+		Nonce:       "Ya nonce!",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
 
 func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// add a unit for testing unit agent authentication
-	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
-	unit, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := password.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	unitPassword := password
-
-	// Attempt unit login
+	// Attempt unit login,
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
-		AuthTag:     unit.UnitTag(),
-		Credentials: unitPassword,
+	_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewUnitTag("vault/0"),
+		Credentials: "I am a unit",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
@@ -105,7 +73,6 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// User login
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
@@ -137,7 +104,6 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
 	err = userService.DisableUserAuthentication(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// User login
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
@@ -352,7 +318,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 	macaroons := []macaroon.Slice{{mac}}
 	bakeryService := mockBakeryService{}
 
-	// User login
+	// User login.
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 		Bakery:      &bakeryService,
@@ -366,27 +332,10 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// add relation
-	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
-	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	mysql := f.MakeApplication(c, nil)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	relation, err := s.ControllerModel(c).State().AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Attempt relation login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
-		AuthTag:     relation.Tag(),
-		Credentials: "dummy-secret",
+	_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewRelationTag("this-app:rel that-app:rel"),
+		Credentials: "I am a relation",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
