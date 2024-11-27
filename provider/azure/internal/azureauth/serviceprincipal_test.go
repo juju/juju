@@ -162,9 +162,10 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 		Result:      cred,
 	}}
 
+	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	authSenders := &azuretesting.Senders{
 		roleDefinitionListSender("Some other role"),
-		roleDefinitionListSender("Juju Application Role Definition"),
+		roleDefinitionListSender("Juju Role Definition - " + subscriptionId),
 		roleAssignmentSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -175,7 +176,6 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	}
 
 	var stderr bytes.Buffer
-	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
@@ -223,8 +223,9 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		Result:      cred,
 	}}
 
+	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender("Juju Application Role Definition"),
+		roleDefinitionListSender("Juju Role Definition - " + subscriptionId),
 		roleAssignmentAlreadyExistsSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -235,7 +236,6 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 	}
 
 	var stderr bytes.Buffer
-	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
@@ -296,8 +296,9 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 		Result:      cred,
 	}}
 
+	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender("Juju Application Role Definition"),
+		roleDefinitionListSender("Juju Role Definition - " + subscriptionId),
 		roleAssignmentSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -308,7 +309,6 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 	}
 
 	var stderr bytes.Buffer
-	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
@@ -358,8 +358,9 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 		Result:      cred,
 	}}
 
+	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender("Juju Application Role Definition"),
+		roleDefinitionListSender("Juju Role Definition - " + subscriptionId),
 		roleAssignmentSender(),
 	}
 	spc := azureauth.ServicePrincipalCreator{
@@ -370,7 +371,6 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 	}
 
 	var stderr bytes.Buffer
-	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
@@ -413,8 +413,9 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		Result:      cred,
 	}}
 
+	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	authSenders := &azuretesting.Senders{
-		roleDefinitionListSender("Juju Application Role Definition"),
+		roleDefinitionListSender("Juju Role Definition - " + subscriptionId),
 		roleAssignmentPrincipalNotExistSender(),
 		roleAssignmentSender(),
 	}
@@ -426,7 +427,6 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 	}
 
 	var stderr bytes.Buffer
-	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
