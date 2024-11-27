@@ -104,13 +104,13 @@ WHERE m.activated = TRUE;
 -- needed to calculate a model's status.
 CREATE VIEW v_model_state AS
 SELECT
-    m.uuid,
-    IIF(l.id = 1, TRUE, FALSE) AS destroying,
-    cc.invalid AS cloud_credential_invalid,
-    cc.invalid_reason AS cloud_credential_invalid_reason,
     -- Wire up the value of migrating when model migration information is
     -- contained in the database.
-    FALSE AS migrating
+    FALSE AS migrating,
+    m.uuid,
+    cc.invalid AS cloud_credential_invalid,
+    cc.invalid_reason AS cloud_credential_invalid_reason,
+    IIF(l.id = 1, TRUE, FALSE) AS destroying
 FROM model AS m
 INNER JOIN life AS l ON m.life_id = l.id
 LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid
