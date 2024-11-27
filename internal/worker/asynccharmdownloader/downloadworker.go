@@ -6,22 +6,17 @@ package asynccharmdownloader
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/application"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -119,9 +114,8 @@ func newWorker(config Config, internalState chan string) (*charmDownloaderWorker
 			ShouldRestart: func(err error) bool {
 				return false
 			},
-			RestartDelay: time.Second * 10,
-			Clock:        config.Clock,
-			Logger:       config.Logger,
+			Clock:  config.Clock,
+			Logger: config.Logger,
 		}),
 		internalStates: internalState,
 	}
@@ -189,7 +183,9 @@ func (w *charmDownloaderWorker) loop() error {
 			downloader := w.config.NewDownloader(httpClient, w.config.ModelConfigService, logger)
 
 			// Start up a series of workers to download the charms for the
-			// applications asynchronously.
+			// applications asynchronously. We do not want to block the any
+			// further changes to the watcher, so fire off the workers as fast
+			// as possible.
 			for _, change := range changes {
 				appID, err := application.ParseID(change)
 				if err != nil {
@@ -197,9 +193,9 @@ func (w *charmDownloaderWorker) loop() error {
 					continue
 				}
 
-				if tracked, err := w.workerFromCache(appID); err != nil {
+				if cached, err := w.workerFromCache(appID); err != nil {
 					return errors.Errorf("getting download worker from the cache %q: %v", appID, err)
-				} else if tracked != nil {
+				} else if cached {
 					// Already tracking this application, skip it.
 					continue
 				}
@@ -213,26 +209,26 @@ func (w *charmDownloaderWorker) loop() error {
 	}
 }
 
-func (w *charmDownloaderWorker) workerFromCache(appID application.ID) (*downloadWorker, error) {
+func (w *charmDownloaderWorker) workerFromCache(appID application.ID) (bool, error) {
 	// If the worker already exists, return the existing worker early.
-	if wrk, err := w.runner.Worker(appID.String(), w.catacomb.Dying()); err == nil {
-		return wrk.(*downloadWorker), nil
+	if _, err := w.runner.Worker(appID.String(), w.catacomb.Dying()); err == nil {
+		return true, nil
 	} else if errors.Is(err, worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
 		select {
 		case <-w.catacomb.Dying():
-			return nil, w.catacomb.ErrDying()
+			return false, w.catacomb.ErrDying()
 		default:
-			return nil, errors.Capture(err)
+			return false, errors.Capture(err)
 		}
 	} else if !errors.Is(err, jujuerrors.NotFound) {
 		// If it's not a NotFound error, return the underlying error. We should
 		// only start a worker if it doesn't exist yet.
-		return nil, errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 	// We didn't find the worker, so return nil, we'll create it in the next
 	// step.
-	return nil, nil
+	return false, nil
 }
 
 func (w *charmDownloaderWorker) initTrackerWorker(appID application.ID, downloader Downloader) error {
@@ -246,6 +242,10 @@ func (w *charmDownloaderWorker) initTrackerWorker(appID application.ID, download
 		)
 		return wrk, nil
 	})
+
+	// This can happen, because the StartWorker runner is asynchronous, so
+	// multiple workers can be started at the same time for the same
+	// application.
 	if errors.Is(err, jujuerrors.AlreadyExists) {
 		return nil
 	}
@@ -254,100 +254,4 @@ func (w *charmDownloaderWorker) initTrackerWorker(appID application.ID, download
 
 func (w *charmDownloaderWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
-}
-
-type downloadWorker struct {
-	tomb tomb.Tomb
-
-	appID              application.ID
-	applicationService ApplicationService
-	downloader         Downloader
-
-	clock  clock.Clock
-	logger logger.Logger
-}
-
-func newDownloadWorker(
-	appID application.ID,
-	applicationService ApplicationService,
-	downloader Downloader,
-	clock clock.Clock,
-	logger logger.Logger,
-) *downloadWorker {
-	w := &downloadWorker{
-		appID:              appID,
-		applicationService: applicationService,
-		downloader:         downloader,
-		clock:              clock,
-		logger:             logger,
-	}
-	w.tomb.Go(w.loop)
-	return w
-}
-
-// Kill is part of the worker.Worker interface.
-func (w *downloadWorker) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait is part of the worker.Worker interface.
-func (w *downloadWorker) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *downloadWorker) loop() error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	w.logger.Infof("downloading charm for application %q", w.appID)
-
-	info, err := w.applicationService.ReserveCharmDownload(ctx, w.appID)
-	if errors.Is(err, applicationerrors.AlreadyDownloadingCharm) {
-		// If the application is already downloading a charm, we can skip this
-		// application.
-		return nil
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Download the charm for the application.
-	var result *charmdownloader.DownloadResult
-	if err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			result, err = w.downloader.Download(ctx, info.Name, info.Origin)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			return nil
-		},
-		Attempts: 3,
-		Delay:    5 * time.Second,
-		Clock:    w.clock,
-		IsFatalError: func(err error) bool {
-			return false
-		},
-		NotifyFunc: func(err error, i int) {
-			w.logger.Warningf("failed to download charm for application %q, attempt %d: %v", w.appID, i, err)
-		},
-		Stop: w.tomb.Dying(),
-	}); err != nil {
-		return errors.Capture(err)
-	}
-
-	// The charm has been downloaded, we can now resolve the download slot.
-	err = w.applicationService.ResolveCharmDownload(ctx, application.ResolveCharmDownload{
-		CharmUUID: info.CharmUUID,
-		Path:      result.Path,
-		Origin:    info.Origin,
-		Size:      result.Size,
-	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
-}
-
-func (w *downloadWorker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.tomb.Context(context.Background()))
 }

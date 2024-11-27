@@ -97,11 +97,12 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	}
 
 	w, err := NewWorker(Config{
-		// ApplicationService: domainServices.Application(),
-		HTTPClientGetter: httpClientGetter,
-		NewHTTPClient:    cfg.NewHTTPClient,
-		NewDownloader:    cfg.NewDownloader,
-		Logger:           cfg.Logger,
+		ApplicationService: domainServices.Application(),
+		ModelConfigService: domainServices.Config(),
+		HTTPClientGetter:   httpClientGetter,
+		NewHTTPClient:      cfg.NewHTTPClient,
+		NewDownloader:      cfg.NewDownloader,
+		Logger:             cfg.Logger,
 	})
 	if err != nil {
 		return nil, errors.Capture(err)

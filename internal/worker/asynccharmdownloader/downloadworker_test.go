@@ -19,13 +19,13 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-type charmDownloaderSuite struct {
+type downloadWorkerSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = gc.Suite(&charmDownloaderSuite{})
+var _ = gc.Suite(&downloadWorkerSuite{})
 
-func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
+func (s *downloadWorkerSuite) TestAsyncDownloadTrigger(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changeCh := make(chan []string)
@@ -69,7 +69,7 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *downloadWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
