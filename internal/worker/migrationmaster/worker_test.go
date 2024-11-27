@@ -189,10 +189,10 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.config = migrationmaster.Config{
 		ModelUUID:       uuid.MustNewUUID().String(),
 		Facade:          s.facade,
+		CharmService:    fakeCharmService,
 		Guard:           newStubGuard(s.stub),
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
-		CharmDownloader: fakeCharmDownloader,
 		ToolsDownloader: fakeToolsDownloader,
 		Clock:           s.clock,
 	}
@@ -261,7 +261,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			importCall,
 			{FuncName: "UploadBinaries", Args: []interface{}{
 				[]string{"charm0", "charm1"},
-				fakeCharmDownloader,
+				fakeCharmService,
 				map[version.Binary]string{
 					version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
 				},
@@ -1524,7 +1524,7 @@ func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migrat
 		stub.AddCall(
 			"UploadBinaries",
 			config.Charms,
-			config.CharmDownloader,
+			config.CharmService,
 			config.Tools,
 			config.ToolsDownloader,
 			config.Resources,
@@ -1540,7 +1540,7 @@ func nullUploadBinaries(context.Context, migration.UploadBinariesConfig, logger.
 	panic("should not get called")
 }
 
-var fakeCharmDownloader = struct{ migration.CharmDownloader }{}
+var fakeCharmService = struct{ migrationmaster.CharmService }{}
 
 var fakeToolsDownloader = struct{ migration.ToolsDownloader }{}
 

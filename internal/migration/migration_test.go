@@ -20,12 +20,15 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	corestorage "github.com/juju/juju/core/storage"
+	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
@@ -241,7 +244,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 
 	check := func(modify func(*T), missing string) {
 		config := T{
-			CharmDownloader:    struct{ migration.CharmDownloader }{},
+			CharmService:       struct{ migration.CharmService }{},
 			CharmUploader:      struct{ migration.CharmUploader }{},
 			ToolsDownloader:    struct{ migration.ToolsDownloader }{},
 			ToolsUploader:      struct{ migration.ToolsUploader }{},
@@ -253,7 +256,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 		c.Check(realConfig.Validate(), gc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
 	}
 
-	check(func(c *T) { c.CharmDownloader = nil }, "CharmDownloader")
+	check(func(c *T) { c.CharmService = nil }, "CharmService")
 	check(func(c *T) { c.CharmUploader = nil }, "CharmUploader")
 	check(func(c *T) { c.ToolsDownloader = nil }, "ToolsDownloader")
 	check(func(c *T) { c.ToolsUploader = nil }, "ToolsUploader")
@@ -262,6 +265,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 }
 
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
+	charmService := &fakeCharmService{}
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
 		tools:     make(map[version.Binary]string),
@@ -294,7 +298,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 			"local:trusty/magic-2",
 			"ch:trusty/postgresql-42",
 		},
-		CharmDownloader:    downloader,
+		CharmService:       charmService,
 		CharmUploader:      uploader,
 		Tools:              toolsMap,
 		ToolsDownloader:    downloader,
@@ -306,19 +310,26 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedCharms := []domaincharm.GetCharmArgs{
+		// Note ordering.
+		{Name: "postgresql", Revision: ptr(42), Source: domaincharm.CharmHubSource},
+		{Name: "magic", Revision: ptr(2), Source: domaincharm.LocalSource},
+		{Name: "magic", Revision: ptr(10), Source: domaincharm.LocalSource},
+	}
+	c.Assert(charmService.charms, jc.DeepEquals, expectedCharms)
+
 	expectedCurls := []string{
 		// Note ordering.
 		"ch:trusty/postgresql-42",
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
 	}
-	c.Assert(downloader.curls, jc.DeepEquals, expectedCurls)
 	c.Assert(uploader.curls, jc.DeepEquals, expectedCurls)
 
 	expectedRefs := []string{
-		"postgresql-a77196f",
-		"magic-d348864",
-		"magic-5f44d22",
+		"postgresql-hash012",
+		"magic-hash012",
+		"magic-hash012",
 	}
 	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
 
@@ -340,6 +351,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 }
 
 func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
+	charmService := &fakeCharmService{}
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
 		reassignCharmURL: true,
@@ -347,7 +359,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 
 	config := migration.UploadBinariesConfig{
 		Charms:             []string{"local:foo/bar-2"},
-		CharmDownloader:    downloader,
+		CharmService:       charmService,
 		CharmUploader:      uploader,
 		ToolsDownloader:    downloader,
 		ToolsUploader:      uploader,
@@ -390,16 +402,35 @@ func (i *fakeImporter) Import(model description.Model, controllerConfig controll
 	return i.m, i.st, nil
 }
 
-type fakeDownloader struct {
-	curls     []string
-	uris      []string
-	resources []string
+type fakeCharmService struct {
+	charms     []domaincharm.GetCharmArgs
+	charmIndex map[corecharm.ID]domaincharm.GetCharmArgs
 }
 
-func (d *fakeDownloader) OpenCharm(_ context.Context, curl string) (io.ReadCloser, error) {
-	d.curls = append(d.curls, curl)
-	// Return the charm URL string as the fake charm content
-	return io.NopCloser(bytes.NewReader([]byte(curl + " content"))), nil
+func (s *fakeCharmService) GetCharmID(_ context.Context, charm domaincharm.GetCharmArgs) (corecharm.ID, error) {
+	id, err := corecharm.NewID()
+	if err != nil {
+		return "", err
+	}
+	s.charms = append(s.charms, charm)
+	if s.charmIndex == nil {
+		s.charmIndex = make(map[corecharm.ID]domaincharm.GetCharmArgs)
+	}
+	s.charmIndex[id] = charm
+	return id, nil
+}
+
+func (s *fakeCharmService) GetCharmArchive(_ context.Context, id corecharm.ID) (io.ReadCloser, string, error) {
+	ch, ok := s.charmIndex[id]
+	if !ok {
+		return nil, "", applicationerrors.CharmNotFound
+	}
+	return io.NopCloser(bytes.NewReader([]byte(ch.Name + " content"))), "hash012", nil
+}
+
+type fakeDownloader struct {
+	uris      []string
+	resources []string
 }
 
 func (d *fakeDownloader) OpenURI(_ context.Context, uri string, query url.Values) (io.ReadCloser, error) {
@@ -426,7 +457,7 @@ type fakeUploader struct {
 	reassignCharmURL bool
 }
 
-func (f *fakeUploader) UploadTools(_ context.Context, r io.ReadSeeker, v version.Binary) (tools.List, error) {
+func (f *fakeUploader) UploadTools(_ context.Context, r io.Reader, v version.Binary) (tools.List, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -435,12 +466,12 @@ func (f *fakeUploader) UploadTools(_ context.Context, r io.ReadSeeker, v version
 	return tools.List{&tools.Tools{Version: v}}, nil
 }
 
-func (f *fakeUploader) UploadCharm(_ context.Context, curl string, charmRef string, r io.ReadSeeker) (string, error) {
+func (f *fakeUploader) UploadCharm(_ context.Context, curl string, charmRef string, r io.Reader) (string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if string(data) != curl+" content" {
+	if string(data) != charm.MustParseURL(curl).Name+" content" {
 		panic(fmt.Sprintf("unexpected charm body for %s: %s", curl, data))
 	}
 	f.curls = append(f.curls, curl)
@@ -453,7 +484,7 @@ func (f *fakeUploader) UploadCharm(_ context.Context, curl string, charmRef stri
 	return outU, nil
 }
 
-func (f *fakeUploader) UploadResource(_ context.Context, res resource.Resource, r io.ReadSeeker) error {
+func (f *fakeUploader) UploadResource(_ context.Context, res resource.Resource, r io.Reader) error {
 	body, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -470,4 +501,8 @@ func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resource.Re
 func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resource.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
+}
+
+func ptr[T any](x T) *T {
+	return &x
 }

@@ -120,7 +120,7 @@ func (c *MockModelUpgraderAPIUpgradeModelCall) DoAndReturn(f func(context.Contex
 }
 
 // UploadTools mocks base method.
-func (m *MockModelUpgraderAPI) UploadTools(arg0 context.Context, arg1 io.ReadSeeker, arg2 version.Binary) (tools.List, error) {
+func (m *MockModelUpgraderAPI) UploadTools(arg0 context.Context, arg1 io.Reader, arg2 version.Binary) (tools.List, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UploadTools", arg0, arg1, arg2)
 	ret0, _ := ret[0].(tools.List)
@@ -147,13 +147,13 @@ func (c *MockModelUpgraderAPIUploadToolsCall) Return(arg0 tools.List, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelUpgraderAPIUploadToolsCall) Do(f func(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)) *MockModelUpgraderAPIUploadToolsCall {
+func (c *MockModelUpgraderAPIUploadToolsCall) Do(f func(context.Context, io.Reader, version.Binary) (tools.List, error)) *MockModelUpgraderAPIUploadToolsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelUpgraderAPIUploadToolsCall) DoAndReturn(f func(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)) *MockModelUpgraderAPIUploadToolsCall {
+func (c *MockModelUpgraderAPIUploadToolsCall) DoAndReturn(f func(context.Context, io.Reader, version.Binary) (tools.List, error)) *MockModelUpgraderAPIUploadToolsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

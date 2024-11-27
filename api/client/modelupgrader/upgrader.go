@@ -81,7 +81,7 @@ func (c *Client) UpgradeModel(
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, r io.Reader, vers version.Binary) (tools.List, error) {
 	req, err := http.NewRequest("POST", fmt.Sprintf("/tools?binaryVersion=%s", vers), r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")

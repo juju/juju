@@ -99,7 +99,7 @@ func (c *syncAgentBinaryCommand) Init(args []string) error {
 // SyncToolAPI provides an interface with a subset of the
 // modelupgrader.Client API. This exists to enable mocking.
 type SyncToolAPI interface {
-	UploadTools(ctx context.Context, r io.ReadSeeker, v version.Binary) (coretools.List, error)
+	UploadTools(ctx context.Context, r io.Reader, v version.Binary) (coretools.List, error)
 	Close() error
 }
 

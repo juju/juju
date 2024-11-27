@@ -29,12 +29,13 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() migrationmaster.ManifoldConfig {
 	return migrationmaster.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-		FortressName:  "fortress",
-		Clock:         struct{ clock.Clock }{},
-		NewFacade:     func(base.APICaller) (migrationmaster.Facade, error) { return nil, nil },
-		NewWorker:     func(migrationmaster.Config) (worker.Worker, error) { return nil, nil },
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		DomainServicesName: "domain-services",
+		FortressName:       "fortress",
+		Clock:              struct{ clock.Clock }{},
+		NewFacade:          func(base.APICaller) (migrationmaster.Facade, error) { return nil, nil },
+		NewWorker:          func(migrationmaster.Config) (worker.Worker, error) { return nil, nil },
 	}
 }
 
@@ -50,6 +51,11 @@ func (s *ManifoldConfigSuite) TestMissingAgentName(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *gc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingFortressName(c *gc.C) {

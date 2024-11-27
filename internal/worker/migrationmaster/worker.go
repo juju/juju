@@ -20,11 +20,13 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
@@ -119,14 +121,27 @@ type Facade interface {
 	StreamModelLog(context.Context, time.Time) (<-chan common.LogMessage, error)
 }
 
+type CharmService interface {
+	// GetCharmID returns a charm ID by name. It returns an error if the charm
+	// can not be found by the name.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(context.Context, charm.GetCharmArgs) (corecharm.ID, error)
+
+	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
+	// charm id, along with the hash of the charm archive. The hash to verify the
+	// integrity of the charm archive.
+	GetCharmArchive(context.Context, corecharm.ID) (io.ReadCloser, string, error)
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID       string
 	Facade          Facade
+	CharmService    CharmService
 	Guard           fortress.Guard
 	APIOpen         func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
-	CharmDownloader migration.CharmDownloader
 	ToolsDownloader migration.ToolsDownloader
 	Clock           clock.Clock
 }
@@ -139,6 +154,9 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
+	if config.CharmService == nil {
+		return errors.NotValidf("nil CharmService")
+	}
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
 	}
@@ -147,9 +165,6 @@ func (config Config) Validate() error {
 	}
 	if config.UploadBinaries == nil {
 		return errors.NotValidf("nil UploadBinaries")
-	}
-	if config.CharmDownloader == nil {
-		return errors.NotValidf("nil CharmDownloader")
 	}
 	if config.ToolsDownloader == nil {
 		return errors.NotValidf("nil ToolsDownloader")
@@ -399,17 +414,17 @@ type uploadWrapper struct {
 }
 
 // UploadTools prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+func (w *uploadWrapper) UploadTools(ctx context.Context, r io.Reader, vers version.Binary) (tools.List, error) {
 	return w.client.UploadTools(ctx, w.modelUUID, r, vers)
 }
 
 // UploadCharm prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadCharm(ctx context.Context, curl string, charmRef string, content io.ReadSeeker) (string, error) {
+func (w *uploadWrapper) UploadCharm(ctx context.Context, curl string, charmRef string, content io.Reader) (string, error) {
 	return w.client.UploadCharm(ctx, w.modelUUID, curl, charmRef, content)
 }
 
 // UploadResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resource, content io.ReadSeeker) error {
+func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resource, content io.Reader) error {
 	return w.client.UploadResource(ctx, w.modelUUID, res, content)
 }
 
@@ -453,9 +468,9 @@ func (w *Worker) transferModel(ctx context.Context, targetInfo coremigration.Tar
 	w.setInfoStatus(ctx, "uploading model binaries into target controller")
 	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(ctx, migration.UploadBinariesConfig{
-		Charms:          serialized.Charms,
-		CharmDownloader: w.config.CharmDownloader,
-		CharmUploader:   wrapper,
+		Charms:        serialized.Charms,
+		CharmService:  w.config.CharmService,
+		CharmUploader: wrapper,
 
 		Tools:           serialized.Tools,
 		ToolsDownloader: w.config.ToolsDownloader,
