@@ -613,6 +613,14 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 	// Expected changelog triggers. Additional triggers are not included and
 	// can be added to the addition list.
 	expected := set.NewStrings(
+		"trg_log_application_delete",
+		"trg_log_application_insert",
+		"trg_log_application_update",
+
+		"trg_log_application_scale_delete",
+		"trg_log_application_scale_insert",
+		"trg_log_application_scale_update",
+
 		"trg_log_block_device_delete",
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
@@ -620,6 +628,22 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_charm_delete",
 		"trg_log_charm_insert",
 		"trg_log_charm_update",
+
+		"trg_log_machine_cloud_instance_delete",
+		"trg_log_machine_cloud_instance_insert",
+		"trg_log_machine_cloud_instance_update",
+
+		"trg_log_machine_delete",
+		"trg_log_machine_insert",
+		"trg_log_machine_update",
+
+		"trg_log_machine_lxd_profile_delete",
+		"trg_log_machine_lxd_profile_insert",
+		"trg_log_machine_lxd_profile_update",
+
+		"trg_log_machine_requires_reboot_delete",
+		"trg_log_machine_requires_reboot_insert",
+		"trg_log_machine_requires_reboot_update",
 
 		"trg_log_model_config_delete",
 		"trg_log_model_config_insert",
@@ -629,6 +653,14 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_object_store_metadata_path_insert",
 		"trg_log_object_store_metadata_path_update",
 
+		"trg_log_port_range_delete",
+		"trg_log_port_range_insert",
+		"trg_log_port_range_update",
+
+		"trg_log_secret_deleted_value_ref_delete",
+		"trg_log_secret_deleted_value_ref_insert",
+		"trg_log_secret_deleted_value_ref_update",
+
 		"trg_log_secret_metadata_delete",
 		"trg_log_secret_metadata_insert",
 		"trg_log_secret_metadata_update",
@@ -636,10 +668,6 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_reference_delete",
 		"trg_log_secret_reference_insert",
 		"trg_log_secret_reference_update",
-
-		"trg_log_secret_deleted_value_ref_delete",
-		"trg_log_secret_deleted_value_ref_insert",
-		"trg_log_secret_deleted_value_ref_update",
 
 		"trg_log_secret_revision_delete",
 		"trg_log_secret_revision_insert",
@@ -685,33 +713,9 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
 
-		"trg_log_machine_insert",
-		"trg_log_machine_update",
-		"trg_log_machine_delete",
-
-		"trg_log_machine_lxd_profile_insert",
-		"trg_log_machine_lxd_profile_update",
-		"trg_log_machine_lxd_profile_delete",
-
-		"trg_log_machine_cloud_instance_insert",
-		"trg_log_machine_cloud_instance_update",
-		"trg_log_machine_cloud_instance_delete",
-
-		"trg_log_machine_requires_reboot_insert",
-		"trg_log_machine_requires_reboot_update",
-		"trg_log_machine_requires_reboot_delete",
-
+		"trg_log_unit_delete",
 		"trg_log_unit_insert",
 		"trg_log_unit_update",
-		"trg_log_unit_delete",
-
-		"trg_log_application_scale_insert",
-		"trg_log_application_scale_update",
-		"trg_log_application_scale_delete",
-
-		"trg_log_port_range_insert",
-		"trg_log_port_range_update",
-		"trg_log_port_range_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but

@@ -88,8 +88,46 @@ func (s *charmStateSuite) TestGetCharmIDLocalCharm(c *gc.C) {
 	c.Check(charmID, gc.Equals, id)
 }
 
+func (s *charmStateSuite) TestSetCharmNotAvailable(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	expected := charm.Metadata{
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	// The archive path is empty, so it's not immediately available.
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	}, charm.SetStateArgs{
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		Version:       "deadbeef",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmID, err := st.GetCharmID(context.Background(), "foo", 42, charm.LocalSource)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(charmID, gc.Equals, id)
+
+	available, err := st.IsCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(available, jc.IsFalse)
+}
+
 func (s *charmStateSuite) TestSetCharmGetCharmID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// The archive path is not empty because setStateArgs sets it to a
+	// value, which means that the charm is available.
 
 	expected := charm.Metadata{
 		Name:           "foo",

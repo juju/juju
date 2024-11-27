@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
@@ -134,4 +135,24 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+type changeEvent struct {
+	typ       changestream.ChangeType
+	namespace string
+	changed   string
+}
+
+var _ changestream.ChangeEvent = (*changeEvent)(nil)
+
+func (c *changeEvent) Type() changestream.ChangeType {
+	return c.typ
+}
+
+func (c *changeEvent) Namespace() string {
+	return c.namespace
+}
+
+func (c *changeEvent) Changed() string {
+	return c.changed
 }
