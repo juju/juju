@@ -325,7 +325,6 @@ func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocke
 	if header == nil {
 		header = http.Header{}
 	}
-	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
