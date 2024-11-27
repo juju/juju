@@ -1236,6 +1236,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		s.watcherFactory,
 		nil,
 		nil,
+		nil,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)

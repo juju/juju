@@ -26,7 +26,7 @@ import (
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service State,DeleteSecretState,ResourceStoreGetter,WatcherFactory,AgentVersionGetter,Provider
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service State,DeleteSecretState,ResourceStoreGetter,WatcherFactory,AgentVersionGetter,Provider,CharmStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
 
 func TestPackage(t *testing.T) {
@@ -41,6 +41,7 @@ type baseSuite struct {
 	state              *MockState
 	charm              *MockCharm
 	secret             *MockDeleteSecretState
+	charmStore         *MockCharmStore
 	agentVersionGetter *MockAgentVersionGetter
 	provider           *MockProvider
 
@@ -67,6 +68,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.secret = NewMockDeleteSecretState(ctrl)
+	s.charmStore = NewMockCharmStore(ctrl)
 
 	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{
@@ -83,6 +85,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 		s.modelID,
 		s.agentVersionGetter,
 		fn,
+		s.charmStore,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -103,6 +106,7 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.secret = NewMockDeleteSecretState(ctrl)
+	s.charmStore = NewMockCharmStore(ctrl)
 
 	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{
@@ -121,6 +125,7 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
 		},
+		s.charmStore,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)

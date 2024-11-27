@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -374,7 +373,7 @@ WHERE uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, archivePath, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
+		return "", internalerrors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -382,14 +381,58 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to get charm archive path: %w", err)
+			return err
 		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("failed to get charm archive path: %w", domain.CoerceError(err))
+		return "", internalerrors.Errorf("getting charm archive path: %w", err)
 	}
 
 	return archivePath.ArchivePath, nil
+}
+
+// GetCharmArchiveMetadata returns the archive storage path and the sha256 hash
+// for the charm using the charm ID.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *State) GetCharmArchiveMetadata(ctx context.Context, id corecharm.ID) (archivePath string, hash string, err error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", "", internalerrors.Capture(err)
+	}
+
+	var archivePathAndHash charmArchivePathAndHash
+	ident := charmID{UUID: id.String()}
+
+	// NOTE: In theory, we can store multiple hashes of different formats for a
+	// charm. As of writing, we only store the sha256 hash, but in case this changes
+	// filter to specify we return the sha256 hash.
+	query := `
+SELECT &charmArchivePathAndHash.*
+FROM charm
+JOIN charm_hash ON charm.uuid = charm_hash.charm_uuid
+JOIN hash_kind ON charm_hash.hash_kind_id = hash_kind.id
+WHERE charm.uuid = $charmID.uuid
+AND hash_kind.name = "sha256";
+`
+
+	stmt, err := s.Prepare(query, archivePathAndHash, ident)
+	if err != nil {
+		return "", "", internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&archivePathAndHash); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.CharmNotFound
+			}
+			return err
+		}
+		return nil
+	}); err != nil {
+		return "", "", internalerrors.Errorf("getting charm archive metadata: %w", err)
+	}
+
+	return archivePathAndHash.ArchivePath, archivePathAndHash.Hash, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.

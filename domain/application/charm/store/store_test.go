@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -108,6 +109,30 @@ func (s *storeSuite) TestStoreFailed(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.Store(context.Background(), "foo", path, size, hash)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *storeSuite) TestGet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	archive := io.NopCloser(strings.NewReader("archive-content"))
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(archive, 0, nil)
+
+	storage := NewCharmStore(s.objectStoreGetter)
+	reader, err := storage.Get(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	content, err := io.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(content), gc.Equals, "archive-content")
+}
+
+func (s *storeSuite) TestGetFailed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, errors.Errorf("boom"))
+
+	storage := NewCharmStore(s.objectStoreGetter)
+	_, err := storage.Get(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 

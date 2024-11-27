@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 var (
@@ -99,7 +101,12 @@ type CharmState interface {
 	// GetCharmArchivePath returns the archive storage path for the charm using
 	// the charm ID. If the charm does not exist, a
 	// [applicationerrors.CharmNotFound] error is returned.
-	GetCharmArchivePath(ctx context.Context, charmID corecharm.ID) (string, error)
+	GetCharmArchivePath(context.Context, corecharm.ID) (string, error)
+
+	// GetCharmArchiveMetadata returns the archive storage path and hash for the
+	// charm using the charm ID.
+	// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+	GetCharmArchiveMetadata(context.Context, corecharm.ID) (archivePath string, hash string, err error)
 
 	// IsCharmAvailable returns whether the charm is available for use. If the
 	// charm does not exist, a [applicationerrors.CharmNotFound] error is
@@ -135,6 +142,14 @@ type CharmState interface {
 	// origin. We require the origin, so we can reconstruct the charm URL for
 	// the client response. If no names are provided, then nothing is returned.
 	ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error)
+}
+
+// CharmStore defines the interface for storing and retrieving charms archive blobs
+// from the underlying storage.
+type CharmStore interface {
+	// GetCharm retrieves a ReadCloser for the charm archive at the give path from
+	// the underlying storage.
+	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
 }
 
 // GetCharmID returns a charm ID by name. It returns an error if the charm
@@ -411,14 +426,38 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 // returned.
 func (s *Service) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
 	if err := id.Validate(); err != nil {
-		return "", fmt.Errorf("charm id: %w", err)
+		return "", internalerrors.Errorf("charm id: %w", err)
 	}
 
 	path, err := s.st.GetCharmArchivePath(ctx, id)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", internalerrors.Errorf("getting charm archive path: %w", err)
 	}
 	return path, nil
+}
+
+// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
+// charm id, along with the hash of the charm archive. Clients can use the hash
+// to verify the integrity of the charm archive.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *Service) GetCharmArchive(ctx context.Context, id corecharm.ID) (io.ReadCloser, string, error) {
+	if err := id.Validate(); err != nil {
+		return nil, "", internalerrors.Errorf("charm id: %w", err)
+	}
+
+	archivePath, hash, err := s.st.GetCharmArchiveMetadata(ctx, id)
+	if err != nil {
+		return nil, "", internalerrors.Errorf("getting charm archive metadata: %w", err)
+	}
+
+	reader, err := s.charmStore.Get(ctx, archivePath)
+	if err != nil {
+		return nil, "", internalerrors.Errorf("getting charm archive: %w", err)
+	}
+
+	return reader, hash, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This
