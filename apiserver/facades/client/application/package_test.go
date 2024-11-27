@@ -137,6 +137,7 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 		UUID: s.modelUUID,
 		Type: modelType,
 	}
+	s.deployApplication = DeployApplication
 
 	var err error
 	s.api, err = NewAPIBase(
