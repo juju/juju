@@ -157,7 +157,7 @@ func (s *Service) SetUnitResource(
 	ctx context.Context,
 	args resource.SetUnitResourceArgs,
 ) (resource.SetUnitResourceResult, error) {
-	if err := args.UnitID.Validate(); err != nil {
+	if err := args.UnitUUID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
 	}
 	if err := args.ResourceID.Validate(); err != nil {

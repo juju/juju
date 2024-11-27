@@ -190,7 +190,7 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 		ResourceID:      resID,
 		RetrievedBy:     "admin",
 		RetrievedByType: resource.User,
-		UnitID:          unittesting.GenUnitUUID(c),
+		UnitUUID:        unittesting.GenUnitUUID(c),
 	}
 	expectedRet := resource.SetUnitResourceResult{
 		UUID: resourcestesting.GenResourceUUID(c),

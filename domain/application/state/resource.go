@@ -240,7 +240,7 @@ func (st *State) SetUnitResource(
 	// Prepare statement to check if the unit/resource is not already there.
 	unitResourceInput := unitResource{
 		ResourceUUID: config.ResourceID.String(),
-		UnitUUID:     config.UnitID.String(),
+		UnitUUID:     config.UnitUUID.String(),
 		AddedAt:      st.clock.Now(),
 	}
 	checkUnitResourceQuery := `
@@ -252,8 +252,8 @@ AND unit_resource.unit_uuid = $unitResource.unit_uuid`
 		return resource.SetUnitResourceResult{}, errors.Capture(err)
 	}
 
-	// Prepare statement to check that unitID is valid UUID.
-	unitUUID := unitNameAndUUID{UnitUUID: config.UnitID}
+	// Prepare statement to check that UnitUUID is valid UUID.
+	unitUUID := unitNameAndUUID{UnitUUID: config.UnitUUID}
 	checkValidUnitQuery := `
 SELECT &unitNameAndUUID.uuid 
 FROM unit 

@@ -134,7 +134,7 @@ type SetUnitResourceArgs struct {
 	ResourceID      coreresource.UUID
 	RetrievedBy     string
 	RetrievedByType RetrievedByType
-	UnitID          unit.UUID
+	UnitUUID        unit.UUID
 }
 
 // SetUnitResourceResult is the result data from setting a unit's resource.
