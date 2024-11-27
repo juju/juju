@@ -118,7 +118,9 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 
 	if params.Credential == nil {
 		cred, err := azidentity.NewDeviceCodeCredential(&azidentity.DeviceCodeCredentialOptions{
-			ClientOptions:              azcore.ClientOptions{},
+			ClientOptions: azcore.ClientOptions{
+				Transport: c.Sender,
+			},
 			AdditionallyAllowedTenants: []string{"*"},
 			DisableInstanceDiscovery:   false,
 			TenantID:                   params.TenantId,
@@ -153,13 +155,16 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 		return "", "", "", errors.Annotate(err, "failed to create auth client")
 	}
 
+	// To avoid name clashes with artefacts created in different
+	// subscriptions on the same tenant, and possible permissions issues,
+	// augment the app and role names with the subscription id.
 	applicationName := params.ApplicationName
 	if applicationName == "" {
-		applicationName = "Juju Application"
+		applicationName = "Juju Application - " + params.SubscriptionId
 	}
 	roleDefinitionName := params.RoleDefinitionName
 	if roleDefinitionName == "" {
-		roleDefinitionName = "Juju Application Role Definition"
+		roleDefinitionName = "Juju Role Definition - " + params.SubscriptionId
 	}
 
 	// Create the enterprise application and role definition, followed
@@ -328,7 +333,7 @@ func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(
 		spID := toValue(servicePrincipal.GetId())
 		addPassword, err := client.ServicePrincipals().ByServicePrincipalId(spID).AddPassword().Post(context.Background(), requestBody, nil)
 		if err != nil {
-			return "", "", errors.Annotate(ReportableError(err), "creating service principal password")
+			return "", "", errors.Trace(ReportableError(err))
 		}
 		return toValue(servicePrincipal.GetId()), toValue(addPassword.GetSecretText()), nil
 	}
