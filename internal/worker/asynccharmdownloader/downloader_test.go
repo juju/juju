@@ -7,6 +7,8 @@ import (
 	"context"
 	time "time"
 
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
 )
 
 type asyncWorkerSuite struct {
