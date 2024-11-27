@@ -228,6 +228,7 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 
 		// Models
 		"v_model",
+		"v_model_state",
 		"v_model_authorized_keys",
 
 		// Secret backends
