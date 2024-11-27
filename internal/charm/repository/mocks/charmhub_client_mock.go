@@ -43,6 +43,50 @@ func (m *MockCharmHubClient) EXPECT() *MockCharmHubClientMockRecorder {
 	return m.recorder
 }
 
+// Download mocks base method.
+func (m *MockCharmHubClient) Download(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charmhub.Digest, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Download", varargs...)
+	ret0, _ := ret[0].(*charmhub.Digest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Download indicates an expected call of Download.
+func (mr *MockCharmHubClientMockRecorder) Download(arg0, arg1, arg2 any, arg3 ...any) *MockCharmHubClientDownloadCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockCharmHubClient)(nil).Download), varargs...)
+	return &MockCharmHubClientDownloadCall{Call: call}
+}
+
+// MockCharmHubClientDownloadCall wrap *gomock.Call
+type MockCharmHubClientDownloadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmHubClientDownloadCall) Return(arg0 *charmhub.Digest, arg1 error) *MockCharmHubClientDownloadCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmHubClientDownloadCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charmhub.Digest, error)) *MockCharmHubClientDownloadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmHubClientDownloadCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charmhub.Digest, error)) *MockCharmHubClientDownloadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DownloadAndRead mocks base method.
 func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error) {
 	m.ctrl.T.Helper()
