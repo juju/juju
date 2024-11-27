@@ -32,6 +32,7 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fsnotify/fsnotify v1.8.0
+	github.com/go-delve/delve v1.23.1
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
 	github.com/go-logr/logr v1.4.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.2
@@ -177,7 +178,6 @@ require (
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.5.1 // indirect
-	github.com/go-delve/delve v1.23.1 // indirect
 	github.com/go-delve/liner v1.2.3-0.20231231155935-4726ab1d7f62 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
