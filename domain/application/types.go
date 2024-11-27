@@ -6,6 +6,7 @@ package application
 import (
 	"time"
 
+	"github.com/juju/juju/core/charm"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/ipaddress"
@@ -166,4 +167,19 @@ type UnitAgentStatusInfo struct {
 type UnitWorkloadStatusInfo struct {
 	StatusID UnitWorkloadStatusType
 	StatusInfo
+}
+
+// CharmDownloadInfo contains parameters for downloading a charm.
+type CharmDownloadInfo struct {
+	CharmUUID charm.ID
+	Name      string
+	Origin    charm.Origin
+}
+
+// ResolveCharmDownload contains parameters for resolving a charm download.
+type ResolveCharmDownload struct {
+	CharmUUID charm.ID
+	Path      string
+	Origin    charm.Origin
+	Size      int64
 }

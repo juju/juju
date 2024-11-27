@@ -6,10 +6,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/retry"
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/errors"
@@ -20,7 +22,7 @@ const (
 	retryDelay    = 20 * time.Second
 )
 
-type downloadWorker struct {
+type asyncWorker struct {
 	tomb tomb.Tomb
 
 	appID              application.ID
@@ -31,14 +33,16 @@ type downloadWorker struct {
 	logger logger.Logger
 }
 
-func newDownloadWorker(
+// NewAsyncWorker creates a new async worker that downloads charms for the
+// specified application.
+func NewAsyncWorker(
 	appID application.ID,
 	applicationService ApplicationService,
 	downloader Downloader,
 	clock clock.Clock,
 	logger logger.Logger,
-) *downloadWorker {
-	w := &downloadWorker{
+) worker.Worker {
+	w := &asyncWorker{
 		appID:              appID,
 		applicationService: applicationService,
 		downloader:         downloader,
@@ -50,16 +54,16 @@ func newDownloadWorker(
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *downloadWorker) Kill() {
+func (w *asyncWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *downloadWorker) Wait() error {
+func (w *asyncWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *downloadWorker) loop() error {
+func (w *asyncWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
@@ -99,13 +103,13 @@ func (w *downloadWorker) loop() error {
 	}
 
 	// The charm has been downloaded, we can now resolve the download slot.
-	err = w.applicationService.ResolveCharmDownload(ctx, application.ResolveCharmDownload{
+	err = w.applicationService.ResolveCharmDownload(ctx, w.appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: info.CharmUUID,
 		Path:      result.Path,
 		Origin:    info.Origin,
 		Size:      result.Size,
 	})
-	if err != nil && errors.Is(err, applicationerrors.CharmAlreadyResolved) {
+	if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyResolved) {
 		return errors.Capture(err)
 	}
 
@@ -113,6 +117,6 @@ func (w *downloadWorker) loop() error {
 	return nil
 }
 
-func (w *downloadWorker) scopedContext() (context.Context, context.CancelFunc) {
+func (w *asyncWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.tomb.Context(context.Background()))
 }
