@@ -19,9 +19,9 @@
 //	go build -gcflags "all=-N -l" -tags debug path/to/my/package
 //
 // It can be done through having two main files in package main, one named `main.go` and one name `main_debug.go`. The
-// former will be compiled only if there is no debug tag, the former only if there is a debug tag. Making mistake with
-// tags would end up with two main function, which will cause a compile error (better for avoiding to ship debug binaries
-// in production.
+// former will be compiled only if there is no debug tag, the latter only if there is a debug tag. Making mistake with
+// tags would end up with two main functions, which will cause a compile error (better for avoiding shipment of debug
+// binaries in production).
 //
 // # Example
 //
