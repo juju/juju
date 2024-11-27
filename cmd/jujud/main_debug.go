@@ -16,8 +16,8 @@ import (
 func main() {
 	args := os.Args
 
-	// enable debug except for command version and bootstrap-state which rely on command output. Debugging server will
-	// mess up with those commands.
+	// enable debug except for command `version` and `bootstrap-state` which rely on command output. Debugging server
+	// will mess up with those commands.
 	if slices.Contains(args, "version") || slices.Contains(args, "bootstrap-state") {
 		os.Exit(Main(args))
 	}
