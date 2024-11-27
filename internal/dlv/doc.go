@@ -37,7 +37,11 @@
 //	 )
 //
 //	func main() {
-//	   os.Exit(dlv.NewDlvRunner(config.Default())(mainArgs)(os.Args))
+//	   os.Exit(dlv.NewDlvRunner(dlv.NewDlvRunner(
+//	   dlv.Headless(),
+//	   dlv.WithApiVersion(2),
+//	   dlv.WithPort(1122),
+//	   dlv.WaitDebugger()))(mainArgs)(os.Args))
 //	}
 //
 // main.go
