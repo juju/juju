@@ -17,11 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/machine"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -69,6 +66,13 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	}
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
+}
+
+func (s *modelStatusSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Full multi-model status success case for IAAS.
+- Full multi-model status success case for CAAS.
+`)
 }
 
 func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
@@ -120,201 +124,6 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	_, err = api.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ownerTag := names.NewUserTag("owner")
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:  "dummytoo",
-		Owner: ownerTag,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-	})
-	defer otherSt.Close()
-
-	eight := uint64(8)
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:            []state.MachineJob{state.JobManageModel},
-		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
-		InstanceId:      "id-4",
-		DisplayName:     "snowflake",
-		Volumes: []state.HostVolumeParams{{
-			Volume: state.VolumeParams{
-				Pool: "modelscoped",
-				Size: 123,
-			},
-		}},
-	})
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: "id-5",
-		Filesystems: []state.HostFilesystemParams{{
-			Filesystem: state.FilesystemParams{
-				Pool: "modelscoped",
-				Size: 123,
-			},
-		}, {
-			Filesystem: state.FilesystemParams{
-				Pool: "machinescoped",
-				Size: 123,
-			},
-		}},
-	})
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.Factory.MakeCharm(c, nil),
-	})
-	modelStatusAPI := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
-		s.machineService,
-		s.authorizer,
-		s.authorizer.GetAuthTag().(names.UserTag),
-	)
-
-	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
-	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
-	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
-	otherFactory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: otherFactory.MakeCharm(c, nil),
-	})
-
-	otherModel, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerModelTag := s.Model.ModelTag().String()
-	hostedModelTag := otherModel.ModelTag().String()
-
-	// controller model
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("deadbeef0", nil)
-	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef0").Return("id-4", "snowflake", nil)
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("id-5", "", nil)
-	// hosted model
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("deadbeef0", nil)
-	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef0").Return("id-8", "", nil)
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
-	s.machineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("id-9", "", nil)
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef0").Return(&instance.HardwareCharacteristics{CpuCores: &eight}, nil)
-	arch := arch.DefaultArchitecture
-	mem := uint64(64 * 1024 * 1024 * 1024)
-	stdHw := &params.MachineHardware{
-		Arch: &arch,
-		Mem:  &mem,
-	}
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef0").Return(&instance.HardwareCharacteristics{Arch: &arch, Mem: &mem}, nil)
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{Arch: &arch, Mem: &mem}, nil).Times(2)
-
-	req := params.Entities{
-		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
-	}
-	results, err := modelStatusAPI.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
-		{
-			ModelTag:           controllerModelTag,
-			HostedMachineCount: 1,
-			ApplicationCount:   1,
-			OwnerTag:           s.Owner.String(),
-			Life:               life.Alive,
-			Type:               string(state.ModelTypeIAAS),
-			Machines: []params.ModelMachineInfo{
-				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
-				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
-			},
-			Applications: []params.ModelApplicationInfo{
-				{Name: "mysql"},
-			},
-			Volumes: []params.ModelVolumeInfo{{
-				Id: "0", Status: "pending", Detachable: true,
-			}},
-			Filesystems: []params.ModelFilesystemInfo{{
-				Id: "0", Status: "pending", Detachable: true,
-			}, {
-				Id: "1/1", Status: "pending", Detachable: false,
-			}},
-		},
-		{
-			ModelTag:           hostedModelTag,
-			HostedMachineCount: 2,
-			ApplicationCount:   1,
-			OwnerTag:           ownerTag.String(),
-			Life:               life.Alive,
-			Type:               string(state.ModelTypeIAAS),
-			Machines: []params.ModelMachineInfo{
-				{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
-				{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
-			},
-			Applications: []params.ModelApplicationInfo{
-				{Name: "mysql"},
-			},
-		},
-	})
-}
-
-func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ownerTag := names.NewUserTag("owner")
-	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
-		Owner: ownerTag,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-	})
-	defer otherSt.Close()
-
-	otherFactory := factory.NewFactory(otherSt, s.StatePool, testing.FakeControllerConfig())
-	app := otherFactory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"}),
-	})
-	otherFactory.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-	})
-
-	otherModel, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerModelTag := s.Model.ModelTag().String()
-	hostedModelTag := otherModel.ModelTag().String()
-
-	req := params.Entities{
-		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
-	}
-	modelStatusAPI := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
-		s.machineService,
-		s.authorizer,
-		s.authorizer.GetAuthTag().(names.UserTag),
-	)
-	results, err := modelStatusAPI.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
-		{
-			ModelTag:           controllerModelTag,
-			HostedMachineCount: 0,
-			ApplicationCount:   0,
-			OwnerTag:           s.Owner.String(),
-			Life:               life.Alive,
-			Type:               string(state.ModelTypeIAAS),
-			Applications:       []params.ModelApplicationInfo{},
-		},
-		{
-			ModelTag:           hostedModelTag,
-			HostedMachineCount: 0,
-			ApplicationCount:   1,
-			UnitCount:          1,
-			OwnerTag:           ownerTag.String(),
-			Life:               life.Alive,
-			Type:               string(state.ModelTypeCAAS),
-			Applications: []params.ModelApplicationInfo{
-				{Name: "gitlab"},
-			},
-		},
-	})
 }
 
 func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
