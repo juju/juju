@@ -21,7 +21,7 @@ type fileResourceStore struct {
 // Get the specified resource from the object store.
 func (f fileResourceStore) Get(
 	ctx context.Context,
-	resourceUUID coreresource.ID,
+	resourceUUID coreresource.UUID,
 ) (io.ReadCloser, int64, error) {
 	if err := resourceUUID.Validate(); err != nil {
 		return nil, 0, errors.Errorf("validating resource UUID: %w", err)
@@ -33,7 +33,7 @@ func (f fileResourceStore) Get(
 // storage path. It returns the UUID of the object store metadata.
 func (f fileResourceStore) Put(
 	ctx context.Context,
-	resourceUUID coreresource.ID,
+	resourceUUID coreresource.UUID,
 	r io.Reader,
 	size int64,
 	fingerprint resource.Fingerprint,
@@ -56,7 +56,7 @@ func (f fileResourceStore) Put(
 // Remove the specified resource from the object store.
 func (f fileResourceStore) Remove(
 	ctx context.Context,
-	resourceUUID coreresource.ID,
+	resourceUUID coreresource.UUID,
 ) error {
 	if err := resourceUUID.Validate(); err != nil {
 		return errors.Errorf("validating resource UUID: %w", err)

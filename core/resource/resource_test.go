@@ -51,7 +51,7 @@ func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
 	res := resource.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
+		PendingID:     "some-unique-UUID",
 		ApplicationID: "a-application",
 		Username:      "a-user",
 		Timestamp:     time.Now(),
@@ -109,7 +109,7 @@ func (ResourceSuite) TestValidateMissingApplicationID(c *gc.C) {
 	err := res.Validate()
 
 	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `.*missing application ID.*`)
+	c.Check(err, gc.ErrorMatches, `.*missing application UUID.*`)
 }
 
 func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {

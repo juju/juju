@@ -29,7 +29,7 @@ var _ = gc.Suite(&resourceServiceSuite{})
 func (s *resourceServiceSuite) TestGetApplicationResourceID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	retID := resourcestesting.GenResourceID(c)
+	retID := resourcestesting.GenResourceUUID(c)
 	args := resource.GetApplicationResourceIDArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		Name:          "test-resource",
@@ -89,7 +89,7 @@ func (s *resourceServiceSuite) TestListResourcesBadID(c *gc.C) {
 func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := resourcestesting.GenResourceID(c)
+	id := resourcestesting.GenResourceUUID(c)
 	expectedRes := resource.Resource{
 		SuppliedBy:     "admin",
 		SuppliedByType: resource.Application,
@@ -205,7 +205,7 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 		},
 	}
 	expectedRet := resource.SetUnitResourceResult{
-		ID: resourcestesting.GenResourceID(c),
+		UUID: resourcestesting.GenResourceUUID(c),
 	}
 	s.state.EXPECT().SetUnitResource(gomock.Any(), args).Return(expectedRet, nil)
 
@@ -216,9 +216,9 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 
 func (s *resourceServiceSuite) TestOpenApplicationResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	id := resourcestesting.GenResourceID(c)
+	id := resourcestesting.GenResourceUUID(c)
 	expectedRes := resource.Resource{
-		ID:            id,
+		UUID:          id,
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 	}
 	s.state.EXPECT().OpenApplicationResource(gomock.Any(), id).Return(expectedRes, nil)
@@ -237,10 +237,10 @@ func (s *resourceServiceSuite) TestOpenApplicationResourceBadID(c *gc.C) {
 
 func (s *resourceServiceSuite) TestOpenUnitResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	resourceID := resourcestesting.GenResourceID(c)
+	resourceID := resourcestesting.GenResourceUUID(c)
 	unitID := unittesting.GenUnitUUID(c)
 	expectedRes := resource.Resource{
-		ID:            resourceID,
+		UUID:          resourceID,
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 	}
 	s.state.EXPECT().OpenUnitResource(gomock.Any(), resourceID, unitID).Return(expectedRes, nil)
@@ -253,7 +253,7 @@ func (s *resourceServiceSuite) TestOpenUnitResource(c *gc.C) {
 
 func (s *resourceServiceSuite) TestOpenUnitResourceBadUnitID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	resourceID := resourcestesting.GenResourceID(c)
+	resourceID := resourcestesting.GenResourceUUID(c)
 
 	_, _, err := s.service.OpenUnitResource(context.Background(), resourceID, "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
