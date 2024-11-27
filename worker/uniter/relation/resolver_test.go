@@ -188,8 +188,8 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}
-	relationResults := params.RelationResults{
-		Results: []params.RelationResult{
+	relationResults := params.RelationResultsV2{
+		Results: []params.RelationResultV2{
 			{
 				Id:   1,
 				Key:  "wordpress:db mysql:db",
@@ -295,8 +295,8 @@ func relationJoinedAPICalls() []apiCall {
 
 func relationJoinedAPICalls2SetState() []apiCall {
 	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
-	relationResults := params.RelationResults{
-		Results: []params.RelationResult{
+	relationResults := params.RelationResultsV2{
+		Results: []params.RelationResultV2{
 			{
 				Id:   1,
 				Key:  "wordpress:db mysql:db",
@@ -794,8 +794,8 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	unitTag := names.NewUnitTag("wordpress/0")
 
 	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
-	relationResults := params.RelationResults{
-		Results: []params.RelationResult{
+	relationResults := params.RelationResultsV2{
+		Results: []params.RelationResultV2{
 			{
 				Id:   1,
 				Key:  "wordpress:juju-info juju-info:juju-info",
@@ -880,12 +880,15 @@ func subSubRelationAPICalls() []apiCall {
 	relationUnits1 := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.juju-info#nrpe.general-info", Unit: "unit-nrpe-0"},
 	}}
-	relationResults1 := params.RelationResults{
-		Results: []params.RelationResult{{
-			Id:               1,
-			Key:              "wordpress:juju-info nrpe:general-info",
-			Life:             life.Alive,
-			OtherApplication: "wordpress",
+	relationResults1 := params.RelationResultsV2{
+		Results: []params.RelationResultV2{{
+			Id:   1,
+			Key:  "wordpress:juju-info nrpe:general-info",
+			Life: life.Alive,
+			OtherApplication: params.RelatedApplicationDetails{
+				ModelUUID:       coretesting.ModelTag.Id(),
+				ApplicationName: "wordpress",
+			},
 			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
 				Relation: params.CharmRelation{
@@ -900,12 +903,15 @@ func subSubRelationAPICalls() []apiCall {
 	relationUnits2 := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-ntp.nrpe-external-master#nrpe.external-master", Unit: "unit-nrpe-0"},
 	}}
-	relationResults2 := params.RelationResults{
-		Results: []params.RelationResult{{
-			Id:               2,
-			Key:              "ntp:nrpe-external-master nrpe:external-master",
-			Life:             life.Alive,
-			OtherApplication: "ntp",
+	relationResults2 := params.RelationResultsV2{
+		Results: []params.RelationResultV2{{
+			Id:   2,
+			Key:  "ntp:nrpe-external-master nrpe:external-master",
+			Life: life.Alive,
+			OtherApplication: params.RelatedApplicationDetails{
+				ModelUUID:       coretesting.ModelTag.Id(),
+				ApplicationName: "ntp",
+			},
 			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
 				Relation: params.CharmRelation{
@@ -1093,12 +1099,15 @@ func principalWithSubordinateAPICalls() []apiCall {
 	relationUnits1 := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.juju-info#nrpe.general-info", Unit: "unit-nrpe-0"},
 	}}
-	relationResults1 := params.RelationResults{
-		Results: []params.RelationResult{{
-			Id:               1,
-			Key:              "wordpress:juju-info nrpe:general-info",
-			Life:             life.Alive,
-			OtherApplication: "wordpress",
+	relationResults1 := params.RelationResultsV2{
+		Results: []params.RelationResultV2{{
+			Id:   1,
+			Key:  "wordpress:juju-info nrpe:general-info",
+			Life: life.Alive,
+			OtherApplication: params.RelatedApplicationDetails{
+				ModelUUID:       coretesting.ModelTag.Id(),
+				ApplicationName: "wordpress",
+			},
 			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
 				Relation: params.CharmRelation{

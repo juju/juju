@@ -283,6 +283,20 @@ func (mr *MockRelationMockRecorder) OtherApplication() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OtherApplication", reflect.TypeOf((*MockRelation)(nil).OtherApplication))
 }
 
+// OtherModelUUID mocks base method.
+func (m *MockRelation) OtherModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OtherModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// OtherModelUUID indicates an expected call of OtherModelUUID.
+func (mr *MockRelationMockRecorder) OtherModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OtherModelUUID", reflect.TypeOf((*MockRelation)(nil).OtherModelUUID))
+}
+
 // Refresh mocks base method.
 func (m *MockRelation) Refresh() error {
 	m.ctrl.T.Helper()

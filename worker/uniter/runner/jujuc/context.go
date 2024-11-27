@@ -418,6 +418,10 @@ type ContextRelation interface {
 	// the relation from the perspective of this unit.
 	RemoteApplicationName() string
 
+	// RemoteModelUUID returns the uuid of the model hosting the
+	// application on the other end of the relation.
+	RemoteModelUUID() string
+
 	// Life returns the relation's current life state.
 	Life() life.Value
 }

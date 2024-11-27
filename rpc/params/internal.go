@@ -398,6 +398,13 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }
 
+// RelatedApplicationDetails holds information about
+// an application related to a unit.
+type RelatedApplicationDetails struct {
+	ModelUUID       string `json:"model-uuid"`
+	ApplicationName string `json:"application"`
+}
+
 // RelationResults holds the result of an API call that returns
 // information about multiple relations.
 type RelationResults struct {
@@ -414,6 +421,24 @@ type RelationResult struct {
 	Key              string     `json:"key"`
 	Endpoint         Endpoint   `json:"endpoint"`
 	OtherApplication string     `json:"other-application,omitempty"`
+}
+
+// RelationResultsV2 holds the result of an API call that returns
+// information about multiple relations.
+type RelationResultsV2 struct {
+	Results []RelationResultV2 `json:"results"`
+}
+
+// RelationResultV2 returns information about a single relation,
+// or an error.
+type RelationResultV2 struct {
+	Error            *Error                    `json:"error,omitempty"`
+	Life             life.Value                `json:"life"`
+	Suspended        bool                      `json:"bool,omitempty"`
+	Id               int                       `json:"id"`
+	Key              string                    `json:"key"`
+	Endpoint         Endpoint                  `json:"endpoint"`
+	OtherApplication RelatedApplicationDetails `json:"other-application,omitempty"`
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
