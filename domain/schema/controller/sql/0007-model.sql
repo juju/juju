@@ -99,3 +99,19 @@ INNER JOIN user AS o ON m.owner_uuid = o.uuid
 INNER JOIN life AS l ON m.life_id = l.id
 INNER JOIN model_agent AS ma ON m.uuid = ma.model_uuid
 WHERE m.activated = TRUE;
+
+-- v_model_state exists to provide a simple view over the states that are
+-- needed to calculate a model's status.
+CREATE VIEW v_model_state AS
+SELECT
+    -- TODO (tlm, JUJU-7230) Wire up the value of migrating when model migration
+    -- information is contained in the database.
+    FALSE AS migrating,
+    m.uuid,
+    cc.invalid AS cloud_credential_invalid,
+    cc.invalid_reason AS cloud_credential_invalid_reason,
+    IIF(l.id = 1, TRUE, FALSE) AS destroying
+FROM model AS m
+INNER JOIN life AS l ON m.life_id = l.id
+LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid
+WHERE m.activated = TRUE;

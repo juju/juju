@@ -180,7 +180,7 @@ func WithDeleteDB() DeleteModelOption {
 	}
 }
 
-// StatusInfo holds a Status and associated information of a model.
+// StatusInfo represents the current status of a model.
 type StatusInfo struct {
 	// Status is the current status of the model.
 	Status corestatus.Status

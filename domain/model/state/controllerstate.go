@@ -258,6 +258,48 @@ AND owner_name = $dbNames.owner_name
 	return model.toCoreModel()
 }
 
+// GetModelState is responsible for returning a set of boolean indicators for
+// key aspects about a model so that a model's status can be derived from this
+// information. If no model exists for the provided UUID then an error
+// satisfying [modelerrors.NotFound] will be returned.
+func (s *State) GetModelState(ctx context.Context, uuid coremodel.UUID) (model.ModelState, error) {
+	db, err := s.DB()
+	if err != nil {
+		return model.ModelState{}, errors.Trace(err)
+	}
+
+	modelUUIDVal := dbModelUUID{UUID: uuid.String()}
+	modelState := dbModelState{}
+
+	stmt, err := s.Prepare(`
+SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
+`, modelUUIDVal, modelState)
+	if err != nil {
+		return model.ModelState{}, internalerrors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, modelUUIDVal).Get(&modelState)
+		if internalerrors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.New("model does not exist").Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return model.ModelState{}, internalerrors.Errorf(
+			"getting model %q state: %w", uuid, err,
+		)
+	}
+
+	return model.ModelState{
+		Destroying:                   modelState.Destroying,
+		Migrating:                    modelState.Migrating,
+		HasInvalidCloudCredential:    modelState.CredentialInvalid,
+		InvalidCloudCredentialReason: modelState.CredentialInvalidReason,
+	}, nil
+}
+
 // GetModelType returns the model type for the provided model uuid. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be
 // returned.
@@ -286,9 +328,9 @@ func (s *State) GetControllerModel(ctx context.Context) (coremodel.Model, error)
 		return coremodel.Model{}, errors.Trace(err)
 	}
 
-	controllerModelUUID := dbModelUUID{}
+	controllerModelUUID := dbModelUUIDRef{}
 	stmt, err := s.Prepare(`
-SELECT &dbModelUUID.model_uuid 
+SELECT &dbModelUUIDRef.model_uuid 
 FROM   controller
 `, controllerModelUUID)
 	if err != nil {
@@ -947,13 +989,13 @@ func (st *State) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([
 	q := `
 SELECT    (u.name, u.display_name, mll.time, p.access_type) AS (&dbModelUserInfo.*)
 FROM      v_user_auth u
-JOIN      v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbModelUUID.model_uuid
+JOIN      v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbModelUUIDRef.model_uuid
 LEFT JOIN model_last_login mll ON mll.user_uuid = u.uuid AND mll.model_uuid = p.grant_on
 WHERE     u.disabled = false
 AND       u.removed = false
 `
 
-	uuid := dbModelUUID{ModelUUID: modelUUID.String()}
+	uuid := dbModelUUIDRef{ModelUUID: modelUUID.String()}
 	stmt, err := st.Prepare(q, dbModelUserInfo{}, uuid)
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing select model user info statement")
@@ -1679,10 +1721,4 @@ AND    ot.type = $dbPermission.object_type
 		return fmt.Errorf("creating model permission metadata, expected 1 row to be inserted, got %d", num)
 	}
 	return nil
-}
-
-// GetModelState returns the model state for the given model UUID.
-func (s *State) GetModelState(context.Context, coremodel.UUID) (model.ModelState, error) {
-	// TODO: Implement GetModelState
-	return model.ModelState{}, nil
 }

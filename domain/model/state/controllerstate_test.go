@@ -1376,6 +1376,79 @@ func (s *stateSuite) TestGetModelUsersModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *stateSuite) TestGetModelStateModelNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	uuid := modeltesting.GenModelUUID(c)
+
+	_, err := st.GetModelState(context.Background(), uuid)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetModelState is asserting the happy path of getting a model's state for
+// status. The model is in a normal state and so we are asserting the response
+// from the point of the model having nothing interesting to report.
+func (s *stateSuite) TestGetModelState(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	mSt, err := st.GetModelState(context.Background(), s.uuid)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mSt, gc.DeepEquals, model.ModelState{
+		Destroying:                   false,
+		Migrating:                    false,
+		HasInvalidCloudCredential:    false,
+		InvalidCloudCredentialReason: "",
+	})
+}
+
+// TestGetModelStateinvalidCredentials is here to assert  that when the model's
+// cloud credential is invalid, the model state is updated to indicate this with
+// the invalid reason.
+func (s *stateSuite) TestGetModelStateInvalidCredentials(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	m, err := st.GetModel(context.Background(), s.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	credentialSt := credentialstate.NewState(s.TxnRunnerFactory())
+	err = credentialSt.InvalidateCloudCredential(
+		context.Background(),
+		m.Credential,
+		"test-invalid",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mSt, err := st.GetModelState(context.Background(), s.uuid)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mSt, gc.DeepEquals, model.ModelState{
+		Destroying:                   false,
+		Migrating:                    false,
+		HasInvalidCloudCredential:    true,
+		InvalidCloudCredentialReason: "test-invalid",
+	})
+}
+
+// TestGetModelStateDestroying is asserting that when the model's life is set to
+// destroying that the model state is updated to reflect this.
+func (s *stateSuite) TestGetModelStateDestroying(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE model SET life_id = 1 WHERE uuid = ?
+	`, s.uuid)
+		return err
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	mSt, err := st.GetModelState(context.Background(), s.uuid)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mSt, gc.DeepEquals, model.ModelState{
+		Destroying:                   true,
+		Migrating:                    false,
+		HasInvalidCloudCredential:    false,
+		InvalidCloudCredentialReason: "",
+	})
+}
+
 // createSuperuser adds a new superuser created by themselves.
 func (m *stateSuite) createSuperuser(c *gc.C, accessState *accessstate.State, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()

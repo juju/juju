@@ -146,9 +146,14 @@ type dbUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// dbModelUUID represents the model uuid from the model table.
-type dbModelUUID struct {
+// dbModelUUIDRef represents the model uuid in tables that have a foreign key on
+// the model uuid.
+type dbModelUUIDRef struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+type dbModelUUID struct {
+	UUID string `db:"uuid"`
 }
 
 type dbModelNameAndOwner struct {
@@ -409,4 +414,13 @@ type dbModelSecretBackend struct {
 	ModelUUID string `db:"model_uuid"`
 	// SecretBackendUUID is the secret backends unique identifier.
 	SecretBackendUUID string `db:"secret_backend_uuid"`
+}
+
+// dbModelState is used to represent a single row from the
+// v_model_status_state view. This information is used to feed a model's status.
+type dbModelState struct {
+	Destroying              bool   `db:"destroying"`
+	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+	Migrating               bool   `db:"migrating"`
 }
