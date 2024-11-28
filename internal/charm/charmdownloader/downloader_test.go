@@ -5,6 +5,7 @@ package charmdownloader
 
 import (
 	"context"
+	"net/url"
 	"os"
 
 	"github.com/juju/testing"
@@ -21,8 +22,8 @@ import (
 type downloaderSuite struct {
 	testing.IsolationSuite
 
-	repositoryGetter *MockRepositoryGetter
-	repository       *MockCharmRepository
+	repository     *MockCharmRepository
+	charmhubClient *MockCharmhubClient
 }
 
 var _ = gc.Suite(&downloaderSuite{})
@@ -41,13 +42,17 @@ func (s *downloaderSuite) TestDownload(c *gc.C) {
 		},
 	}
 
-	s.repository.EXPECT().Download(gomock.Any(), "foo", origin, gomock.Any()).Return(origin, &charmhub.Digest{
+	cURL, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.repository.EXPECT().GetDownloadURL(gomock.Any(), "foo", origin).Return(cURL, origin, nil)
+	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
 		DigestType: charmhub.SHA256,
 		Hash:       "hash",
 		Size:       123,
 	}, nil)
 
-	downloader := NewCharmDownloader(s.repositoryGetter, loggertesting.WrapCheckLog(c))
+	downloader := NewCharmDownloader(s.repository, s.charmhubClient, loggertesting.WrapCheckLog(c))
 	result, err := downloader.Download(context.Background(), "foo", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -59,6 +64,30 @@ func (s *downloaderSuite) TestDownload(c *gc.C) {
 
 	c.Check(result.Origin, gc.DeepEquals, origin)
 	c.Check(result.Size, gc.Equals, int64(123))
+}
+
+func (s *downloaderSuite) TestDownloadGetFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Type:   "charm",
+		Hash:   "hash",
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04/stable",
+		},
+	}
+
+	cURL, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.repository.EXPECT().GetDownloadURL(gomock.Any(), "foo", origin).Return(cURL, origin, errors.Errorf("boom"))
+
+	downloader := NewCharmDownloader(s.repository, s.charmhubClient, loggertesting.WrapCheckLog(c))
+	_, err = downloader.Download(context.Background(), "foo", origin)
+	c.Assert(err, gc.ErrorMatches, `.*boom`)
 }
 
 func (s *downloaderSuite) TestDownloadFailure(c *gc.C) {
@@ -75,31 +104,39 @@ func (s *downloaderSuite) TestDownloadFailure(c *gc.C) {
 		},
 	}
 
+	cURL, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.repository.EXPECT().GetDownloadURL(gomock.Any(), "foo", origin).Return(cURL, origin, nil)
+
 	var tmpPath string
-	s.repository.EXPECT().Download(gomock.Any(), "foo", origin, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ corecharm.Origin, path string) (corecharm.Origin, *charmhub.Digest, error) {
+
+	// Spy on the download call to get the path of the temp file.
+	spy := func(_ context.Context, _ *url.URL, path string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 		tmpPath = path
-		return origin, &charmhub.Digest{
+		return &charmhub.Digest{
 			DigestType: charmhub.SHA256,
 			Hash:       "downloaded-hash",
 			Size:       123,
 		}, errors.Errorf("boom")
-	})
+	}
+	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
 
-	downloader := NewCharmDownloader(s.repositoryGetter, loggertesting.WrapCheckLog(c))
-	_, err := downloader.Download(context.Background(), "foo", origin)
+	downloader := NewCharmDownloader(s.repository, s.charmhubClient, loggertesting.WrapCheckLog(c))
+	_, err = downloader.Download(context.Background(), "foo", origin)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
 	_, err = os.Stat(tmpPath)
 	c.Check(os.IsNotExist(err), jc.IsTrue)
 }
 
-func (s *downloaderSuite) TestDownloadInvalidHash(c *gc.C) {
+func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	origin := corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Type:   "charm",
-		Hash:   "input-hash",
+		Hash:   "hash",
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
@@ -107,19 +144,70 @@ func (s *downloaderSuite) TestDownloadInvalidHash(c *gc.C) {
 		},
 	}
 
+	cURL, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.repository.EXPECT().GetDownloadURL(gomock.Any(), "foo", origin).Return(cURL, origin, nil)
+
 	var tmpPath string
-	s.repository.EXPECT().Download(gomock.Any(), "foo", origin, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ corecharm.Origin, path string) (corecharm.Origin, *charmhub.Digest, error) {
+
+	// Spy on the download call to get the path of the temp file.
+	spy := func(_ context.Context, _ *url.URL, path string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 		tmpPath = path
-		return origin, &charmhub.Digest{
+		return &charmhub.Digest{
 			DigestType: charmhub.SHA256,
 			Hash:       "downloaded-hash",
 			Size:       123,
 		}, nil
-	})
+	}
+	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
 
-	downloader := NewCharmDownloader(s.repositoryGetter, loggertesting.WrapCheckLog(c))
-	_, err := downloader.Download(context.Background(), "foo", origin)
-	c.Assert(err, jc.ErrorIs, ErrInvalidHash)
+	downloader := NewCharmDownloader(s.repository, s.charmhubClient, loggertesting.WrapCheckLog(c))
+	_, err = downloader.Download(context.Background(), "foo", origin)
+	c.Assert(err, jc.ErrorIs, ErrInvalidDigestHash)
+
+	_, err = os.Stat(tmpPath)
+	c.Check(os.IsNotExist(err), jc.IsTrue)
+}
+
+func (s *downloaderSuite) TestDownloadInvalidOriginHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Type:   "charm",
+		Hash:   "hash",
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04/stable",
+		},
+	}
+
+	cURL, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	downloadOrigin := origin
+	downloadOrigin.Hash = "downloaded-hash"
+
+	s.repository.EXPECT().GetDownloadURL(gomock.Any(), "foo", origin).Return(cURL, downloadOrigin, nil)
+
+	var tmpPath string
+
+	// Spy on the download call to get the path of the temp file.
+	spy := func(_ context.Context, _ *url.URL, path string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {
+		tmpPath = path
+		return &charmhub.Digest{
+			DigestType: charmhub.SHA256,
+			Hash:       "hash",
+			Size:       123,
+		}, nil
+	}
+	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
+
+	downloader := NewCharmDownloader(s.repository, s.charmhubClient, loggertesting.WrapCheckLog(c))
+	_, err = downloader.Download(context.Background(), "foo", origin)
+	c.Assert(err, jc.ErrorIs, ErrInvalidOriginHash)
 
 	_, err = os.Stat(tmpPath)
 	c.Check(os.IsNotExist(err), jc.IsTrue)
@@ -128,10 +216,8 @@ func (s *downloaderSuite) TestDownloadInvalidHash(c *gc.C) {
 func (s *downloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.repositoryGetter = NewMockRepositoryGetter(ctrl)
 	s.repository = NewMockCharmRepository(ctrl)
-
-	s.repositoryGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(s.repository, nil)
+	s.charmhubClient = NewMockCharmhubClient(ctrl)
 
 	return ctrl
 }

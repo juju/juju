@@ -21,8 +21,10 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -33,9 +35,18 @@ type workerSuite struct {
 
 	states         chan string
 	newAsyncWorker func() worker.Worker
+	newDownloader  func(string) (Downloader, error)
 }
 
 var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	// Ensure that they're set to nil at the start of each test.
+	s.newAsyncWorker = nil
+	s.newDownloader = nil
+}
 
 func (s *workerSuite) TestWorkerConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -75,24 +86,17 @@ func (s *workerSuite) TestWorkerConfig(c *gc.C) {
 func (s *workerSuite) TestWorkerStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
-
-	done := make(chan struct{})
 	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		close(done)
-		return watchertest.NewMockStringsWatcher(changes), nil
-	})
+		return watchertest.NewMockStringsWatcher(nil), nil
+	}).MaxTimes(1)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(nil), nil
+	}).MaxTimes(1)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
-
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for worker to finish")
-	}
 
 	workertest.CleanKill(c, w)
 }
@@ -102,14 +106,12 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *gc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	changes := make(chan []string)
+	changes := s.expectApplicationWatcher(c)
+	s.expectModelConfigWatcher(c)
+	s.expectModelConfig(c, charmhub.DefaultServerURL)
+	s.expectHTTPClient(c)
 
 	done := make(chan struct{})
-	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(changes), nil
-	})
-	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), http.CharmhubPurpose).Return(s.httpClient, nil)
-
 	s.newAsyncWorker = func() worker.Worker {
 		close(done)
 		return workertest.NewErrorWorker(nil)
@@ -144,12 +146,10 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *gc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	changes := make(chan []string)
-
-	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(changes), nil
-	})
-	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), http.CharmhubPurpose).Return(s.httpClient, nil)
+	changes := s.expectApplicationWatcher(c)
+	s.expectModelConfigWatcher(c)
+	s.expectModelConfig(c, charmhub.DefaultServerURL)
+	s.expectHTTPClient(c)
 
 	done := make(chan struct{})
 
@@ -211,12 +211,10 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	changes := make(chan []string)
-
-	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(changes), nil
-	})
-	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), http.CharmhubPurpose).Return(s.httpClient, nil).Times(2)
+	changes := s.expectApplicationWatcher(c)
+	s.expectModelConfigWatcher(c)
+	s.expectModelConfig(c, charmhub.DefaultServerURL)
+	s.expectHTTPClient(c)
 
 	var called int64
 	s.newAsyncWorker = func() worker.Worker {
@@ -272,12 +270,10 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *gc.C) {
 		apps[i] = applicationtesting.GenApplicationUUID(c)
 	}
 
-	changes := make(chan []string)
-
-	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(changes), nil
-	})
-	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), http.CharmhubPurpose).Return(s.httpClient, nil).Times(2)
+	changes := s.expectApplicationWatcher(c)
+	s.expectModelConfigWatcher(c)
+	s.expectModelConfig(c, charmhub.DefaultServerURL)
+	s.expectHTTPClient(c)
 
 	done := make(chan struct{})
 
@@ -321,6 +317,211 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestWorkerCreatesAsyncWorkerWihDifferentModelConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Using the same App ID should not cause a new worker to be created.
+
+	var apps [3]application.ID
+	for i := range apps {
+		apps[i] = applicationtesting.GenApplicationUUID(c)
+	}
+
+	appChanges := s.expectApplicationWatcher(c)
+	modelChanges := s.expectModelConfigWatcher(c)
+	s.expectHTTPClient(c)
+	s.expectHTTPClient(c)
+
+	// First one is the default.
+	s.expectModelConfig(c, charmhub.DefaultServerURL)
+	s.expectModelConfig(c, "https://example.com")
+
+	firstWitness := make(chan struct{})
+	secondWitness := make(chan struct{})
+
+	var called int64
+	s.newAsyncWorker = func() worker.Worker {
+		v := atomic.AddInt64(&called, 1)
+
+		if v == 2 {
+			close(firstWitness)
+		} else if v == 3 {
+			close(secondWitness)
+		}
+
+		return workertest.NewErrorWorker(nil)
+	}
+
+	downloadURLs := make(chan string)
+	s.newDownloader = func(url string) (Downloader, error) {
+		select {
+		case downloadURLs <- url:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for url")
+		}
+		return s.downloader, nil
+	}
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	var urls []string
+	select {
+	case url := <-downloadURLs:
+		urls = append(urls, url)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for url")
+	}
+
+	go func() {
+		select {
+		case appChanges <- []string{apps[0].String(), apps[1].String()}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for changes to be sent")
+		}
+	}()
+
+	select {
+	case <-firstWitness:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for first witness")
+	}
+
+	go func() {
+		select {
+		case modelChanges <- []string{config.CharmHubURLKey}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for changes to be sent")
+		}
+	}()
+
+	select {
+	case url := <-downloadURLs:
+		urls = append(urls, url)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for url")
+	}
+
+	go func() {
+		select {
+		case appChanges <- []string{apps[2].String()}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for changes to be sent")
+		}
+	}()
+
+	select {
+	case <-secondWitness:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for second witness")
+	}
+
+	c.Assert(atomic.LoadInt64(&called), gc.Equals, int64(3))
+	c.Check(urls, gc.DeepEquals, []string{charmhub.DefaultServerURL, "https://example.com"})
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerCreatesAsyncWorkerWihSameModelConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Using the same App ID should not cause a new worker to be created.
+
+	var apps [3]application.ID
+	for i := range apps {
+		apps[i] = applicationtesting.GenApplicationUUID(c)
+	}
+
+	appChanges := s.expectApplicationWatcher(c)
+	modelChanges := s.expectModelConfigWatcher(c)
+	s.expectHTTPClient(c)
+
+	// First one is the default.
+	s.expectModelConfig(c, charmhub.DefaultServerURL)
+
+	firstWitness := make(chan struct{})
+	secondWitness := make(chan struct{})
+
+	var called int64
+	s.newAsyncWorker = func() worker.Worker {
+		v := atomic.AddInt64(&called, 1)
+
+		if v == 2 {
+			close(firstWitness)
+		} else if v == 3 {
+			close(secondWitness)
+		}
+
+		return workertest.NewErrorWorker(nil)
+	}
+
+	downloadURLs := make(chan string)
+	s.newDownloader = func(url string) (Downloader, error) {
+		select {
+		case downloadURLs <- url:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for url")
+		}
+		return s.downloader, nil
+	}
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	var urls []string
+	select {
+	case url := <-downloadURLs:
+		urls = append(urls, url)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for url")
+	}
+
+	go func() {
+		select {
+		case appChanges <- []string{apps[0].String(), apps[1].String()}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for changes to be sent")
+		}
+	}()
+
+	select {
+	case <-firstWitness:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for first witness")
+	}
+
+	go func() {
+		select {
+		case modelChanges <- []string{"blah"}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for changes to be sent")
+		}
+	}()
+
+	go func() {
+		select {
+		case appChanges <- []string{apps[2].String()}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for changes to be sent")
+		}
+	}()
+
+	select {
+	case <-secondWitness:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for second witness")
+	}
+
+	c.Assert(atomic.LoadInt64(&called), gc.Equals, int64(3))
+	c.Check(urls, gc.DeepEquals, []string{charmhub.DefaultServerURL})
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
@@ -347,8 +548,11 @@ func (s *workerSuite) newConfig(c *gc.C) Config {
 		NewHTTPClient: func(ctx context.Context, hg http.HTTPClientGetter) (http.HTTPClient, error) {
 			return hg.GetHTTPClient(ctx, http.CharmhubPurpose)
 		},
-		NewDownloader: func(charmhub.HTTPClient, ModelConfigService, logger.Logger) Downloader {
-			return s.downloader
+		NewDownloader: func(_ charmhub.HTTPClient, url string, _ logger.Logger) (Downloader, error) {
+			if s.newDownloader == nil {
+				return s.downloader, nil
+			}
+			return s.newDownloader(url)
 		},
 		NewAsyncDownloadWorker: func(appID application.ID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
 			if s.newAsyncWorker == nil {
@@ -368,4 +572,39 @@ func (s *workerSuite) ensureStartup(c *gc.C) {
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
+}
+
+func (s *workerSuite) expectApplicationWatcher(c *gc.C) chan []string {
+	changes := make(chan []string)
+
+	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(changes), nil
+	})
+
+	return changes
+}
+
+func (s *workerSuite) expectModelConfigWatcher(c *gc.C) chan []string {
+	changes := make(chan []string)
+
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(changes), nil
+	})
+
+	return changes
+}
+
+func (s *workerSuite) expectModelConfig(c *gc.C, url string) {
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"agent-version": version.Current.String(),
+		"charmhub-url":  url,
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+}
+
+func (s *workerSuite) expectHTTPClient(c *gc.C) {
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), http.CharmhubPurpose).Return(s.httpClient, nil)
 }

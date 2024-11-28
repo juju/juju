@@ -30,6 +30,9 @@ const (
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
+
+	// Watch returns a watcher that notifies of changes to the model config.
+	Watch() (watcher.StringsWatcher, error)
 }
 
 // ApplicationService describes the API exposed by the charm downloader facade.
@@ -163,22 +166,41 @@ func (w *Worker) loop() error {
 	defer cancel()
 
 	applicationService := w.config.ApplicationService
-	watcher, err := applicationService.WatchApplicationsWithPendingCharms(ctx)
+	appWatcher, err := applicationService.WatchApplicationsWithPendingCharms(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := w.catacomb.Add(watcher); err != nil {
+	if err := w.catacomb.Add(appWatcher); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Watch the model config for new charmhub URL values, so we can swap the
+	// downloader to use the new URL.
+
+	modelConfigService := w.config.ModelConfigService
+	configWatcher, err := modelConfigService.Watch()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := w.catacomb.Add(configWatcher); err != nil {
 		return errors.Capture(err)
 	}
 
 	logger.Debugf("watching applications referencing charms that have not yet been downloaded")
 
+	downloader, err := w.getDownloader(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case changes, ok := <-watcher.Changes():
+
+		case changes, ok := <-appWatcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
 			}
@@ -188,15 +210,6 @@ func (w *Worker) loop() error {
 			}
 
 			logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
-
-			// Get a new downloader, this ensures that we've got a fresh
-			// connection to the charm store.
-			httpClient, err := w.config.NewHTTPClient(ctx, w.config.HTTPClientGetter)
-			if err != nil {
-				return errors.Capture(err)
-			}
-
-			downloader := w.config.NewDownloader(httpClient, w.config.ModelConfigService, logger)
 
 			// Start up a series of workers to download the charms for the
 			// applications asynchronously. We do not want to block the any
@@ -221,8 +234,49 @@ func (w *Worker) loop() error {
 					return errors.Capture(err)
 				}
 			}
+
+		case change, ok := <-configWatcher.Changes():
+			if !ok {
+				return errors.New("model config watcher closed")
+			}
+
+			var refresh bool
+			for _, key := range change {
+				if key == config.CharmHubURLKey {
+					refresh = true
+					break
+				}
+			}
+
+			if !refresh {
+				continue
+			}
+
+			logger.Debugf("refreshing downloader due to model config change")
+
+			downloader, err = w.getDownloader(ctx)
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 	}
+}
+
+func (w *Worker) getDownloader(ctx context.Context) (Downloader, error) {
+	// Get a new downloader, this ensures that we've got a fresh
+	// connection to the charm store.
+	httpClient, err := w.config.NewHTTPClient(ctx, w.config.HTTPClientGetter)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	config, err := w.config.ModelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	charmhubURL, _ := config.CharmHubURL()
+
+	return w.config.NewDownloader(httpClient, charmhubURL, w.config.Logger)
 }
 
 func (w *Worker) workerFromCache(appID application.ID) (bool, error) {

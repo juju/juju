@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
-	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm/charmdownloader"
-	charmservices "github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -37,7 +37,7 @@ type Downloader interface {
 }
 
 // NewDownloaderFunc is a function that creates a new Downloader.
-type NewDownloaderFunc func(charmhub.HTTPClient, ModelConfigService, logger.Logger) Downloader
+type NewDownloaderFunc func(charmhub.HTTPClient, string, corelogger.Logger) (Downloader, error)
 
 // NewHTTPClientFunc is a function that creates a new HTTP client.
 type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehttp.HTTPClient, error)
@@ -48,7 +48,7 @@ type NewAsyncDownloadWorkerFunc func(
 	applicationService ApplicationService,
 	downloader Downloader,
 	clock clock.Clock,
-	logger logger.Logger,
+	logger corelogger.Logger,
 ) worker.Worker
 
 // ManifoldConfig describes the resources used by the charmdownloader worker.
@@ -58,7 +58,7 @@ type ManifoldConfig struct {
 	NewDownloader          NewDownloaderFunc
 	NewHTTPClient          NewHTTPClientFunc
 	NewAsyncDownloadWorker NewAsyncDownloadWorkerFunc
-	Logger                 logger.Logger
+	Logger                 corelogger.Logger
 }
 
 // Manifold returns a Manifold that encapsulates the charmdownloader worker.
@@ -132,22 +132,20 @@ func NewHTTPClient(ctx context.Context, getter corehttp.HTTPClientGetter) (coreh
 }
 
 // NewDownloader creates a new Downloader instance.
-func NewDownloader(httpClient charmhub.HTTPClient, modelConfigService ModelConfigService, logger logger.Logger) Downloader {
-	factory := charmservices.NewCharmRepoFactory(charmservices.CharmRepoFactoryConfig{
-		CharmhubHTTPClient: httpClient,
-		ModelConfigService: modelConfigService,
-		Logger:             logger,
+func NewDownloader(httpClient charmhub.HTTPClient, charmhubURL string, logger corelogger.Logger) (Downloader, error) {
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        charmhubURL,
+		HTTPClient: httpClient,
+		Logger:     logger.Child("charmhub", corelogger.CHARMHUB),
 	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
-	return charmdownloader.NewCharmDownloader(repoFactory{
-		factory: factory,
-	}, logger)
-}
+	factory := repository.NewCharmHubRepository(
+		logger.Child("charmhubrepo", corelogger.CHARMHUB),
+		chClient,
+	)
 
-type repoFactory struct {
-	factory *charmservices.CharmRepoFactory
-}
-
-func (s repoFactory) GetCharmRepository(ctx context.Context, src corecharm.Source) (charmdownloader.CharmRepository, error) {
-	return s.factory.GetCharmRepository(ctx, src)
+	return charmdownloader.NewCharmDownloader(factory, chClient, logger), nil
 }

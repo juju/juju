@@ -46,6 +46,7 @@ var _ = gc.Suite(&charmHubRepositorySuite{})
 
 func (s *charmHubRepositorySuite) TestResolveForDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	s.expectCharmRefreshInstallOneFromChannel(c, uuid.MustNewUUID().String())
 	// The origin.ID should never be saved to the origin during
 	// ResolveWithPreferredChannel.  That is done during the file
@@ -257,7 +258,8 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 
 func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectedRefreshInvalidPlatformError(c)
+
+	s.expectedRefreshInvalidPlatformError()
 	s.expectCharmRefreshInstallOneFromChannelFullBase(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
@@ -307,6 +309,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 }
 func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	s.expectBundleRefresh(c)
 
 	curl := charm.MustParseURL("ch:core-kubernetes")
@@ -342,7 +345,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	hash := uuid.MustNewUUID().String()
 
-	s.expectedRefreshInvalidPlatformError(c)
+	s.expectedRefreshInvalidPlatformError()
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 
 	curl := charm.MustParseURL("ch:wordpress")
@@ -377,7 +380,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectedRefreshRevisionNotFoundError(c)
+	s.expectedRefreshRevisionNotFoundError()
 
 	origin := corecharm.Origin{
 		Source: "charm-hub",
@@ -395,7 +398,7 @@ available releases are:
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectedRefreshRevisionNotFoundError(c)
+	s.expectedRefreshRevisionNotFoundError()
 
 	origin := corecharm.Origin{
 		Source: "charm-hub",
@@ -412,61 +415,6 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64/ubuntu/18.04"
 available releases are:
   channel "latest/stable": available bases are: ubuntu@20.04`)
-}
-
-func (s *charmHubRepositorySuite) TestDownload(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hash := uuid.MustNewUUID().String()
-
-	requestedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		Hash:   hash,
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-		Channel: &charm.Channel{
-			Track: "latest",
-			Risk:  "stable",
-		},
-	}
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		ID:     "charmCHARMcharmCHARMcharmCHARM01",
-		Hash:   hash,
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-		Channel: &charm.Channel{
-			Track: "latest",
-			Risk:  "stable",
-		},
-	}
-
-	resolvedURL, err := url.Parse("ch:amd64/focal/wordpress-42")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.expectCharmRefreshInstallOneFromChannel(c, hash)
-	s.client.EXPECT().Download(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(&charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       hash,
-		Size:       10,
-	}, nil)
-
-	client := s.newClient(c)
-
-	gotOrigin, digest, err := client.Download(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
-	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       hash,
-		Size:       10,
-	})
 }
 
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
@@ -860,7 +808,7 @@ func (s *charmHubRepositorySuite) expectBundleRefresh(c *gc.C) {
 	})
 }
 
-func (s *charmHubRepositorySuite) expectedRefreshInvalidPlatformError(c *gc.C) {
+func (s *charmHubRepositorySuite) expectedRefreshInvalidPlatformError() {
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -882,7 +830,7 @@ func (s *charmHubRepositorySuite) expectedRefreshInvalidPlatformError(c *gc.C) {
 	})
 }
 
-func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError(c *gc.C) {
+func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError() {
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
