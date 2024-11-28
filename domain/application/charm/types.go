@@ -6,6 +6,8 @@ package charm
 import (
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -57,7 +59,7 @@ type SetCharmArgs struct {
 	// Charm is the charm to set.
 	Charm internalcharm.Charm
 	// Source is the source of the charm.
-	Source internalcharm.Schema
+	Source charm.Source
 	// ReferenceName is the given name of the charm that is stored in the
 	// persistent storage. The proxy name should either be the application name
 	// or the charm metadata name.
@@ -78,6 +80,8 @@ type SetCharmArgs struct {
 	ArchivePath string
 	// Version is the optional charm version.
 	Version string
+	// Architecture is the architecture of the charm.
+	Architecture arch.Arch
 }
 
 // Revision is the charm revision.

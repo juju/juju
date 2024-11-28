@@ -195,7 +195,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFoundError] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmByApplicationID(context.Context, coreapplication.ID) (domaincharm.Charm, domaincharm.CharmOrigin, application.Platform, error)
+	GetCharmByApplicationID(context.Context, coreapplication.ID) (domaincharm.Charm, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
 	// returns an error if the charm can not be found by the name. This can also
@@ -340,20 +340,41 @@ func makeCreateApplicationArgs(
 	// when parsing it.
 	ch, _, err := encodeCharm(charm)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encode charm: %w", err)
+		return application.AddApplicationArg{}, fmt.Errorf("encoding charm: %w", err)
 	}
 
-	originArg, channelArg, platformArg, err := encodeCharmOrigin(origin, args.ReferenceName)
+	revision := -1
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
+
+	source, err := encodeCharmSource(origin.Source)
+	if err != nil {
+		return application.AddApplicationArg{}, fmt.Errorf("encoding charm source: %w", err)
+	}
+
+	architecture, err := encodeArchitecture(origin.Platform.Architecture)
+	if err != nil {
+		return application.AddApplicationArg{}, fmt.Errorf("encoding architecture: %w", err)
+	}
+
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = revision
+	ch.Hash = origin.Hash
+	ch.ArchivePath = args.CharmStoragePath
+	ch.Available = args.CharmStoragePath != ""
+	ch.Architecture = architecture
+
+	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
 	if err != nil {
 		return application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
 	}
 
 	return application.AddApplicationArg{
-		Charm:            ch,
-		Platform:         platformArg,
-		Origin:           originArg,
-		Channel:          channelArg,
-		CharmStoragePath: args.CharmStoragePath,
+		Charm:    ch,
+		Platform: platformArg,
+		Channel:  channelArg,
 	}, nil
 }
 
@@ -952,44 +973,50 @@ func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplicatio
 // returned.
 func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
 	internalcharm.Charm,
-	domaincharm.CharmOrigin,
-	application.Platform,
+	domaincharm.CharmLocator,
 	error,
 ) {
 	if err := id.Validate(); err != nil {
-		return nil, domaincharm.CharmOrigin{}, application.Platform{}, internalerrors.Errorf("application ID: %w%w", err, errors.Hide(applicationerrors.ApplicationIDNotValid))
+		return nil, domaincharm.CharmLocator{}, internalerrors.Errorf("application ID: %w%w", err, errors.Hide(applicationerrors.ApplicationIDNotValid))
 	}
 
-	charm, origin, platform, err := s.st.GetCharmByApplicationID(ctx, id)
+	charm, err := s.st.GetCharmByApplicationID(ctx, id)
 	if err != nil {
-		return nil, origin, platform, errors.Trace(err)
+		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(charm.Metadata)
 	if err != nil {
-		return nil, origin, platform, errors.Trace(err)
+		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
 	}
 
 	manifest, err := decodeManifest(charm.Manifest)
 	if err != nil {
-		return nil, origin, platform, errors.Trace(err)
+		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
 	}
 
 	actions, err := decodeActions(charm.Actions)
 	if err != nil {
-		return nil, origin, platform, errors.Trace(err)
+		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
 	}
 
 	config, err := decodeConfig(charm.Config)
 	if err != nil {
-		return nil, origin, platform, errors.Trace(err)
+		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
 	if err != nil {
-		return nil, origin, platform, errors.Trace(err)
+		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+	}
+
+	locator := domaincharm.CharmLocator{
+		Name:         charm.ReferenceName,
+		Revision:     charm.Revision,
+		Source:       charm.Source,
+		Architecture: charm.Architecture,
 	}
 
 	return internalcharm.NewCharmBase(
@@ -998,7 +1025,7 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 		&config,
 		&actions,
 		&lxdProfile,
-	), origin, platform, nil
+	), locator, nil
 }
 
 // UpdateCloudService updates the cloud service for the specified application, returning an error

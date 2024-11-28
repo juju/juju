@@ -229,41 +229,48 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error) {
+func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error) {
 	if err := id.Validate(); err != nil {
-		return nil, charm.CharmOrigin{}, fmt.Errorf("charm id: %w", err)
+		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	resultCharm, err := s.st.GetCharm(ctx, id)
+	ch, err := s.st.GetCharm(ctx, id)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
-	metadata, err := decodeMetadata(resultCharm.Metadata)
+	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	manifest, err := decodeManifest(resultCharm.Manifest)
+	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	actions, err := decodeActions(resultCharm.Actions)
+	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	config, err := decodeConfig(resultCharm.Config)
+	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(resultCharm.LXDProfile)
+	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
+	}
+
+	locator := charm.CharmLocator{
+		Name:         ch.ReferenceName,
+		Revision:     ch.Revision,
+		Source:       ch.Source,
+		Architecture: ch.Architecture,
 	}
 
 	return internalcharm.NewCharmBase(
@@ -272,7 +279,7 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		&config,
 		&actions,
 		&lxdProfile,
-	), resultOrigin, nil
+	), locator, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
@@ -485,30 +492,6 @@ func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error 
 	return errors.Trace(s.st.SetCharmAvailable(ctx, id))
 }
 
-// ReserveCharmRevision defines a placeholder for a new charm revision. The
-// original charm will need to exist, the returning charm ID will be the new
-// charm ID for the revision.
-// This is useful for when a new charm revision becomes available. The essential
-// charm documents might be available, but the blob or associated non-essential
-// documents will not be.
-//
-// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
-// returned.
-func (s *Service) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
-	if err := id.Validate(); err != nil {
-		return "", fmt.Errorf("charm id: %w", err)
-	}
-	if revision < 0 {
-		return "", applicationerrors.CharmRevisionNotValid
-	}
-
-	newID, err := s.st.ReserveCharmRevision(ctx, id, revision)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return newID, nil
-}
-
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
 // If there are any non-blocking issues with the charm metadata, actions,
@@ -521,24 +504,30 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 		return "", nil, applicationerrors.CharmNameNotValid
 	}
 
-	source, err := charm.ParseCharmSchema(args.Source)
+	source, err := encodeCharmSource(args.Source)
 	if err != nil {
-		return "", nil, fmt.Errorf("encode charm source: %w", err)
+		return "", nil, fmt.Errorf("encoding charm source: %w", err)
+	}
+
+	architecture, err := encodeArchitecture(args.Architecture)
+	if err != nil {
+		return "", nil, fmt.Errorf("encoding architecture: %w", err)
 	}
 
 	ch, warnings, err := encodeCharm(args.Charm)
 	if err != nil {
-		return "", warnings, fmt.Errorf("encode charm: %w", err)
+		return "", warnings, fmt.Errorf("encoding charm: %w", err)
 	}
 
-	charmID, err := s.st.SetCharm(ctx, ch, charm.SetStateArgs{
-		Source:        source,
-		ReferenceName: args.ReferenceName,
-		Revision:      args.Revision,
-		Hash:          args.Hash,
-		ArchivePath:   args.ArchivePath,
-		Version:       args.Version,
-	})
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = args.Revision
+	ch.Hash = args.Hash
+	ch.ArchivePath = args.ArchivePath
+	ch.Available = args.ArchivePath != ""
+	ch.Architecture = architecture
+
+	charmID, err := s.st.SetCharm(ctx, ch)
 	if err != nil {
 		return "", warnings, errors.Trace(err)
 	}
@@ -552,15 +541,15 @@ func (s *Service) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	return s.st.DeleteCharm(ctx, id)
 }
 
-// ListCharmsWithOriginByNames returns a list of charms with the specified
-// origin. We require the origin, so we can reconstruct the charm URL for the
-// client response. If no names are provided, then all charms are listed. If no
-// names are matched against the charm names, then an empty list is returned.
-func (s *Service) ListCharmsWithOriginByNames(ctx context.Context, names ...string) ([]charm.CharmWithOrigin, error) {
+// ListCharmLocators returns a list of charm locators. The locator allows you to
+// reconstruct the charm URL. If no names are provided, then all charms are
+// listed. If no names are matched against the charm names, then an empty list
+// is returned.
+func (s *Service) ListCharmLocators(ctx context.Context, names ...string) ([]charm.CharmLocator, error) {
 	if len(names) == 0 {
-		return s.st.ListCharmsWithOrigin(ctx)
+		return s.st.ListCharmLocators(ctx)
 	}
-	return s.st.ListCharmsWithOriginByNames(ctx, names)
+	return s.st.ListCharmLocatorsByNames(ctx, names)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.
@@ -580,29 +569,29 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 
 	metadata, err := encodeMetadata(ch.Meta())
 	if err != nil {
-		return charm.Charm{}, nil, fmt.Errorf("encode metadata: %w", err)
+		return charm.Charm{}, nil, fmt.Errorf("encoding metadata: %w", err)
 	}
 
 	manifest, warnings, err := encodeManifest(ch.Manifest())
 	if err != nil {
-		return charm.Charm{}, warnings, fmt.Errorf("encode manifest: %w", err)
+		return charm.Charm{}, warnings, fmt.Errorf("encoding manifest: %w", err)
 	}
 
 	actions, err := encodeActions(ch.Actions())
 	if err != nil {
-		return charm.Charm{}, warnings, fmt.Errorf("encode actions: %w", err)
+		return charm.Charm{}, warnings, fmt.Errorf("encoding actions: %w", err)
 	}
 
 	config, err := encodeConfig(ch.Config())
 	if err != nil {
-		return charm.Charm{}, warnings, fmt.Errorf("encode config: %w", err)
+		return charm.Charm{}, warnings, fmt.Errorf("encoding config: %w", err)
 	}
 
 	var profile []byte
 	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok && lxdProfile != nil {
 		profile, err = encodeLXDProfile(lxdProfile.LXDProfile())
 		if err != nil {
-			return charm.Charm{}, warnings, fmt.Errorf("encode lxd profile: %w", err)
+			return charm.Charm{}, warnings, fmt.Errorf("encoding lxd profile: %w", err)
 		}
 	}
 

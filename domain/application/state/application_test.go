@@ -73,8 +73,9 @@ func (s *applicationStateSuite) TestGetModelType(c *gc.C) {
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	platform := application.Platform{
-		Channel: "666",
-		OSType:  application.Ubuntu,
+		Channel:      "666",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	channel := &application.Channel{
 		Track:  "track",

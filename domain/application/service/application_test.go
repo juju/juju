@@ -28,6 +28,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -77,21 +78,20 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 			Name:  "ubuntu",
 			RunAs: "default",
 		},
+		ReferenceName: "ubuntu",
+		Source:        domaincharm.CharmHubSource,
+		Revision:      42,
+		Architecture:  architecture.ARM64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
 		Scale:    1,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "ubuntu",
-			Source:        domaincharm.CharmHubSource,
-			Revision:      42,
-		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -275,21 +275,20 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 				},
 			},
 		},
+		ReferenceName: "foo",
+		Source:        domaincharm.LocalSource,
+		Revision:      42,
+		Architecture:  architecture.ARM64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "foo",
-			Source:        domaincharm.LocalSource,
-			Revision:      42,
-		},
-		Scale: 1,
+		Scale:    1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -365,21 +364,20 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 				},
 			},
 		},
+		ReferenceName: "foo",
+		Source:        domaincharm.CharmHubSource,
+		Revision:      42,
+		Architecture:  architecture.ARM64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "foo",
-			Source:        domaincharm.CharmHubSource,
-			Revision:      42,
-		},
-		Scale: 1,
+		Scale:    1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
@@ -458,21 +456,20 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 				},
 			},
 		},
+		ReferenceName: "foo",
+		Source:        domaincharm.CharmHubSource,
+		Revision:      42,
+		Architecture:  architecture.ARM64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "foo",
-			Source:        domaincharm.CharmHubSource,
-			Revision:      42,
-		},
-		Scale: 1,
+		Scale:    1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -548,21 +545,20 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 				},
 			},
 		},
+		ReferenceName: "foo",
+		Source:        domaincharm.CharmHubSource,
+		Revision:      42,
+		Architecture:  architecture.ARM64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "foo",
-			Source:        domaincharm.CharmHubSource,
-			Revision:      42,
-		},
-		Scale: 1,
+		Scale:    1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
@@ -966,28 +962,24 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 			// allowed.
 			RunAs: "default",
 		},
-	}, domaincharm.CharmOrigin{
 		ReferenceName: "bar",
 		Revision:      42,
-	}, application.Platform{
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.AMD64,
+		Source:        domaincharm.LocalSource,
+		Architecture:  architecture.AMD64,
 	}, nil)
 
-	metadata, origin, platform, err := s.service.GetCharmByApplicationID(context.Background(), id)
+	ch, locator, err := s.service.GetCharmByApplicationID(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
+	c.Check(ch.Meta(), gc.DeepEquals, &charm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.
 	})
-	c.Check(origin, gc.DeepEquals, domaincharm.CharmOrigin{
-		ReferenceName: "bar",
-		Revision:      42,
-	})
-	c.Check(platform, gc.DeepEquals, application.Platform{
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.AMD64,
+	c.Check(locator, gc.DeepEquals, domaincharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       domaincharm.LocalSource,
+		Architecture: architecture.AMD64,
 	})
 }
 
