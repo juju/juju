@@ -100,26 +100,31 @@ func setupWatcher[T any](c *gc.C, caller *apimocks.MockAPICaller, facadeName str
 	eventCh := make(chan T)
 
 	stopped := make(chan bool)
-	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Stop", nil, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, _ any) error {
-		select {
-		case stopped <- true:
-		default:
-		}
-		return nil
-	}).Return(nil).AnyTimes()
-
-	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, r any) error {
-		select {
-		case ev, ok := <-eventCh:
-			if !ok {
-				c.FailNow()
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Stop", nil, gomock.Any()).DoAndReturn(
+		func(context.Context, string, int, string, string, any, any) error {
+			select {
+			case stopped <- true:
+			case <-time.After(testing.LongWait):
+				c.Fatalf("timed out waiting for stop call")
 			}
-			*(*r.(*any)).(*any) = ev
 			return nil
-		case <-stopped:
-		}
-		return &params.Error{Code: params.CodeStopped}
-	}).AnyTimes()
+		},
+	).Return(nil).AnyTimes()
+
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, r any) error {
+			select {
+			case ev, ok := <-eventCh:
+				if !ok {
+					c.Fatalf("next channel closed")
+				}
+				*(*r.(*any)).(*any) = ev
+				return nil
+			case <-stopped:
+			}
+			return &params.Error{Code: params.CodeStopped}
+		},
+	).AnyTimes()
 	return "id-666", eventCh
 }
 
