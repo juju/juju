@@ -117,8 +117,8 @@ WHEN
 	(NEW.charmhub_identifier != OLD.charmhub_identifier OR (NEW.charmhub_identifier IS NOT NULL AND OLD.charmhub_identifier IS NULL) OR (NEW.charmhub_identifier IS NULL AND OLD.charmhub_identifier IS NOT NULL)) OR
 	(NEW.version != OLD.version OR (NEW.version IS NOT NULL AND OLD.version IS NULL) OR (NEW.version IS NULL AND OLD.version IS NOT NULL)) OR
 	NEW.source_id != OLD.source_id OR
-	NEW.architecture_id != OLD.architecture_id OR
 	NEW.revision != OLD.revision OR
+	(NEW.architecture_id != OLD.architecture_id OR (NEW.architecture_id IS NOT NULL AND OLD.architecture_id IS NULL) OR (NEW.architecture_id IS NULL AND OLD.architecture_id IS NOT NULL)) OR
 	NEW.reference_name != OLD.reference_name 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)

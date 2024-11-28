@@ -59,9 +59,10 @@ CREATE TABLE charm (
     CONSTRAINT fk_charm_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
-    
+
     -- Ensure we have an architecture if the source is charmhub.
-    CHECK (source_id == 0 OR (source_id == 1 AND architecture_id >= 0))
+    CONSTRAINT chk_charm_architecture
+    CHECK (source_id = 0 OR source_id = 1 AND architecture_id >= 0)
 );
 
 CREATE UNIQUE INDEX idx_charm_reference_name_revision
@@ -576,4 +577,4 @@ SELECT
     c.architecture_id,
     cm.name
 FROM charm AS c
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
+INNER JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;

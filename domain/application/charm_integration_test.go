@@ -116,7 +116,7 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		nil,
+		nil, nil,
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
