@@ -170,7 +170,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 	log := s.logger.Child("application")
 
 	return applicationservice.NewWatchableService(
-		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.storageRegistry,
 		s.modelUUID,

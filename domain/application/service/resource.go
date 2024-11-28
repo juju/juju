@@ -123,8 +123,8 @@ func (s *Service) GetResource(
 // The following error types can be expected to be returned:
 //   - errors.NotValid is returned if the application ID is not valid.
 //   - errors.NotValid is returned if the resource is not valid.
-//   - errors.NotValid is returned if the SuppliedByType is unknown while
-//     SuppliedBy has a value.
+//   - errors.NotValid is returned if the RetrievedByType is unknown while
+//     RetrievedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
 func (s *Service) SetResource(
@@ -136,7 +136,7 @@ func (s *Service) SetResource(
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
 		return resource.Resource{},
-			fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
+			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("resource: %w", err)
@@ -147,25 +147,25 @@ func (s *Service) SetResource(
 // SetUnitResource sets the resource metadata for a specific unit.
 //
 // The following error types can be expected to be returned:
-//   - errors.NotValid is returned if the unit UUID is not valid.
-//   - errors.NotValid is returned if the resource is not valid.
-//   - errors.NotValid is returned if the SuppliedByType is unknown while
-//     SuppliedBy has a value.
-//   - application.ApplicationNotFound if the specified application does
-//     not exist.
+//   - [errors.NotValid] is returned if the unit UUID is not valid.
+//   - [errors.NotValid] is returned if the resource UUID is not valid.
+//   - [errors.NotValid] is returned if the RetrievedByType is unknown while
+//     RetrievedBy has a value.
+//   - [applicationerrors.ResourceNotFound] if the specified resource doesn't exist
+//   - [applicationerrors.UnitNotFound] if the specified unit doesn't exist
 func (s *Service) SetUnitResource(
 	ctx context.Context,
 	args resource.SetUnitResourceArgs,
 ) (resource.SetUnitResourceResult, error) {
-	if err := args.UnitID.Validate(); err != nil {
+	if err := args.UnitUUID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
 	}
-	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
-		return resource.SetUnitResourceResult{},
-			fmt.Errorf("%w SuppliedByType cannot be unknown if SuppliedBy set", errors.NotValid)
+	if err := args.ResourceUUID.Validate(); err != nil {
+		return resource.SetUnitResourceResult{}, fmt.Errorf("resource id: %w", err)
 	}
-	if err := args.Resource.Validate(); err != nil {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("resource: %w", err)
+	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
+		return resource.SetUnitResourceResult{},
+			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
 	}
 	return s.st.SetUnitResource(ctx, args)
 }

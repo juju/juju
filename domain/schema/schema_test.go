@@ -518,6 +518,10 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 
 		// Object store metadata
 		"v_object_store_metadata",
+
+		// resources
+		"v_application_resource",
+		"v_resource",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

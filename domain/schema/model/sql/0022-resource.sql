@@ -151,3 +151,32 @@ CREATE TABLE resource_image_store (
     FOREIGN KEY (store_uuid)
     REFERENCES resource_container_image_metadata_store (uuid)
 );
+
+
+CREATE VIEW v_application_resource AS
+SELECT
+    r.uuid,
+    ar.application_uuid,
+    r.charm_resource_name AS name,
+    r.last_polled
+FROM resource AS r
+INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid;
+
+CREATE VIEW v_resource AS
+SELECT
+    r.uuid,
+    ar.application_uuid,
+    r.charm_resource_name AS name,
+    r.created_at,
+    r.revision,
+    r.origin_type_id,
+    rrb.name AS retrieved_by,
+    rrbt.name AS retrieved_by_type,
+    cr.path,
+    cr.description,
+    cr.kind_id
+FROM resource AS r
+INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+INNER JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
+LEFT JOIN resource_retrieved_by AS rrb ON r.uuid = rrb.resource_uuid
+LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id;

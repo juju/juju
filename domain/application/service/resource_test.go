@@ -69,8 +69,8 @@ func (s *resourceServiceSuite) TestListResources(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	expectedList := resource.ApplicationResources{
 		Resources: []resource.Resource{{
-			SuppliedBy:     "admin",
-			SuppliedByType: resource.Application,
+			RetrievedBy:     "admin",
+			RetrievedByType: resource.Application,
 		}},
 	}
 	s.state.EXPECT().ListResources(gomock.Any(), id).Return(expectedList, nil)
@@ -91,8 +91,8 @@ func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 
 	id := resourcestesting.GenResourceUUID(c)
 	expectedRes := resource.Resource{
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.Application,
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.Application,
 	}
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
 
@@ -134,8 +134,8 @@ func (s *resourceServiceSuite) TestSetResource(c *gc.C) {
 		Increment: false,
 	}
 	expectedRes := resource.Resource{
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.User,
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.User,
 	}
 	s.state.EXPECT().SetResource(gomock.Any(), args).Return(expectedRes, nil)
 
@@ -185,24 +185,12 @@ func (s *resourceServiceSuite) TestSetResourceBadResource(c *gc.C) {
 func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fp, err := charmresource.NewFingerprint(fingerprint)
-	c.Assert(err, jc.ErrorIsNil)
+	resID := resourcestesting.GenResourceUUID(c)
 	args := resource.SetUnitResourceArgs{
-		UnitID:         unittesting.GenUnitUUID(c),
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.User,
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:        "my-resource",
-				Type:        charmresource.TypeFile,
-				Path:        "filename.tgz",
-				Description: "One line that is useful when operators need to push it.",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    1,
-			Fingerprint: fp,
-			Size:        1,
-		},
+		ResourceUUID:    resID,
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.User,
+		UnitUUID:        unittesting.GenUnitUUID(c),
 	}
 	expectedRet := resource.SetUnitResourceResult{
 		UUID: resourcestesting.GenResourceUUID(c),

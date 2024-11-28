@@ -63,7 +63,7 @@ type ApplicationResources struct {
 // populated before an upload (whether local or from the charm store).
 // In that case the following fields are not set:
 //
-//	Timestamp, SuppliedBy, SuppliedByType
+//	Timestamp, RetrievedBy, RetrievedByType
 //
 // For "upload" placeholders, the following additional fields are
 // not set:
@@ -78,29 +78,29 @@ type Resource struct {
 	// ApplicationID identifies the application for the resource.
 	ApplicationID application.ID
 
-	// SuppliedBy is the name of who added the resource to the controller.
+	// RetrievedBy is the name of who added the resource to the controller.
 	// The name is a username if the resource is uploaded from the cli
 	// by a specific user. If the resource is downloaded from a repository,
 	// the ID of the unit which triggered the download is used.
-	SuppliedBy string
+	RetrievedBy string
 
-	// SuppliedByType indicates what type of value the SuppliedBy name is:
+	// RetrievedByType indicates what type of value the RetrievedBy name is:
 	// application, username or unit.
-	SuppliedByType SuppliedByType
+	RetrievedByType RetrievedByType
 
 	// Timestamp indicates when this resource was added to the model in
 	// the case of applications or when this resource was loaded by a unit.
 	Timestamp time.Time
 }
 
-// SuppliedByType indicates what the SuppliedBy name represents.
-type SuppliedByType string
+// RetrievedByType indicates what the RetrievedBy name represents.
+type RetrievedByType string
 
 const (
-	Unknown     SuppliedByType = "unknown"
-	Application SuppliedByType = "application"
-	Unit        SuppliedByType = "unit"
-	User        SuppliedByType = "user"
+	Unknown     RetrievedByType = "unknown"
+	Application RetrievedByType = "application"
+	Unit        RetrievedByType = "unit"
+	User        RetrievedByType = "user"
 )
 
 // UnitResources contains the list of resources used by a unit.
@@ -110,13 +110,6 @@ type UnitResources struct {
 
 	// Resources are the resource versions currently in use by this unit.
 	Resources []Resource
-
-	// DownloadProgress indicates the number of bytes of the unit's
-	// resources, identified by name, that have been downloaded so far
-	// by the uniter. This only applies to resources that are currently
-	// being downloaded to the unit. All other resources for the unit
-	// will not be found in the map.
-	DownloadProgress map[string]int64
 }
 
 // GetApplicationResourceIDArgs holds the arguments for the
@@ -130,7 +123,7 @@ type GetApplicationResourceIDArgs struct {
 type SetResourceArgs struct {
 	ApplicationID  application.ID
 	SuppliedBy     string
-	SuppliedByType SuppliedByType
+	SuppliedByType RetrievedByType
 	Resource       resource.Resource
 	Reader         io.Reader
 	Increment      IncrementCharmModifiedVersionType
@@ -138,10 +131,10 @@ type SetResourceArgs struct {
 
 // SetUnitResourceArgs holds the arguments for the SetUnitResource method.
 type SetUnitResourceArgs struct {
-	UnitID         unit.UUID
-	SuppliedBy     string
-	SuppliedByType SuppliedByType
-	Resource       resource.Resource
+	ResourceUUID    coreresource.UUID
+	RetrievedBy     string
+	RetrievedByType RetrievedByType
+	UnitUUID        unit.UUID
 }
 
 // SetUnitResourceResult is the result data from setting a unit's resource.

@@ -79,7 +79,7 @@ func (i *importOperation) Name() string {
 // Setup creates the service that is used to import applications.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewMigrationService(
-		state.NewState(scope.ModelDB(), i.logger),
+		state.NewState(scope.ModelDB(), i.clock, i.logger),
 		i.registry,
 		i.clock,
 		i.logger,
