@@ -37,6 +37,8 @@ type ApplicationService interface {
 	// WatchApplicationsWithPendingCharms returns a watcher that notifies of
 	// changes to applications that reference charms that have not yet been
 	// downloaded.
+	// Each string will be an individual application ID. It's possible to
+	// have the same application ID multiple times in the list.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// ReserveCharmDownload reserves a charm download slot for the specified
@@ -54,14 +56,14 @@ type ApplicationService interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	ApplicationService ApplicationService
-	ModelConfigService ModelConfigService
-	HTTPClientGetter   corehttp.HTTPClientGetter
-	NewHTTPClient      NewHTTPClientFunc
-	NewDownloader      NewDownloaderFunc
-	NewAsyncWorker     NewAsyncWorkerFunc
-	Logger             logger.Logger
-	Clock              clock.Clock
+	ApplicationService     ApplicationService
+	ModelConfigService     ModelConfigService
+	HTTPClientGetter       corehttp.HTTPClientGetter
+	NewHTTPClient          NewHTTPClientFunc
+	NewDownloader          NewDownloaderFunc
+	NewAsyncDownloadWorker NewAsyncDownloadWorkerFunc
+	Logger                 logger.Logger
+	Clock                  clock.Clock
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -81,8 +83,8 @@ func (cfg Config) Validate() error {
 	if cfg.NewDownloader == nil {
 		return jujuerrors.NotValidf("nil NewDownloader")
 	}
-	if cfg.NewAsyncWorker == nil {
-		return jujuerrors.NotValidf("nil NewAsyncWorker")
+	if cfg.NewAsyncDownloadWorker == nil {
+		return jujuerrors.NotValidf("nil NewAsyncDownloadWorker")
 	}
 	if cfg.Clock == nil {
 		return jujuerrors.NotValidf("nil Clock")
@@ -214,8 +216,8 @@ func (w *Worker) loop() error {
 					continue
 				}
 
-				// Kick off the download worker for the application.
-				if err := w.initAsyncWorker(appID, downloader); err != nil {
+				// Kick off the async download worker for the application.
+				if err := w.initAsyncDownloadWorker(appID, downloader); err != nil {
 					return errors.Capture(err)
 				}
 			}
@@ -245,9 +247,9 @@ func (w *Worker) workerFromCache(appID application.ID) (bool, error) {
 	return false, nil
 }
 
-func (w *Worker) initAsyncWorker(appID application.ID, downloader Downloader) error {
+func (w *Worker) initAsyncDownloadWorker(appID application.ID, downloader Downloader) error {
 	err := w.runner.StartWorker(appID.String(), func() (worker.Worker, error) {
-		wrk := w.config.NewAsyncWorker(
+		wrk := w.config.NewAsyncDownloadWorker(
 			appID,
 			w.config.ApplicationService,
 			downloader,

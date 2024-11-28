@@ -25,7 +25,7 @@ const (
 	retryDelay    = 20 * time.Second
 )
 
-type asyncWorker struct {
+type asyncDownloadWorker struct {
 	tomb tomb.Tomb
 
 	appID              application.ID
@@ -36,16 +36,16 @@ type asyncWorker struct {
 	logger logger.Logger
 }
 
-// NewAsyncWorker creates a new async worker that downloads charms for the
-// specified application.
-func NewAsyncWorker(
+// NewAsyncDownloadWorker creates a new async worker that downloads charms for
+// the specified application.
+func NewAsyncDownloadWorker(
 	appID application.ID,
 	applicationService ApplicationService,
 	downloader Downloader,
 	clock clock.Clock,
 	logger logger.Logger,
 ) worker.Worker {
-	w := &asyncWorker{
+	w := &asyncDownloadWorker{
 		appID:              appID,
 		applicationService: applicationService,
 		downloader:         downloader,
@@ -57,16 +57,16 @@ func NewAsyncWorker(
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *asyncWorker) Kill() {
+func (w *asyncDownloadWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *asyncWorker) Wait() error {
+func (w *asyncDownloadWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *asyncWorker) loop() error {
+func (w *asyncDownloadWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
@@ -94,9 +94,6 @@ func (w *asyncWorker) loop() error {
 		Attempts: retryAttempts,
 		Delay:    retryDelay,
 		Clock:    w.clock,
-		IsFatalError: func(err error) bool {
-			return false
-		},
 		NotifyFunc: func(err error, i int) {
 			w.logger.Warningf("failed to download charm for application %q, attempt %d: %v", w.appID, i, err)
 		},
@@ -120,6 +117,6 @@ func (w *asyncWorker) loop() error {
 	return nil
 }
 
-func (w *asyncWorker) scopedContext() (context.Context, context.CancelFunc) {
+func (w *asyncDownloadWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.tomb.Context(context.Background()))
 }

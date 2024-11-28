@@ -42,8 +42,8 @@ type NewDownloaderFunc func(charmhub.HTTPClient, ModelConfigService, logger.Logg
 // NewHTTPClientFunc is a function that creates a new HTTP client.
 type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehttp.HTTPClient, error)
 
-// NewAsyncWorkerFunc is a function that creates a new async worker.
-type NewAsyncWorkerFunc func(
+// NewAsyncDownloadWorkerFunc is a function that creates a new async worker.
+type NewAsyncDownloadWorkerFunc func(
 	appID application.ID,
 	applicationService ApplicationService,
 	downloader Downloader,
@@ -53,12 +53,12 @@ type NewAsyncWorkerFunc func(
 
 // ManifoldConfig describes the resources used by the charmdownloader worker.
 type ManifoldConfig struct {
-	DomainServicesName string
-	HTTPClientName     string
-	NewDownloader      NewDownloaderFunc
-	NewHTTPClient      NewHTTPClientFunc
-	NewAsyncWorker     NewAsyncWorkerFunc
-	Logger             logger.Logger
+	DomainServicesName     string
+	HTTPClientName         string
+	NewDownloader          NewDownloaderFunc
+	NewHTTPClient          NewHTTPClientFunc
+	NewAsyncDownloadWorker NewAsyncDownloadWorkerFunc
+	Logger                 logger.Logger
 }
 
 // Manifold returns a Manifold that encapsulates the charmdownloader worker.
@@ -86,8 +86,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewHTTPClient == nil {
 		return jujuerrors.NotValidf("nil NewHTTPClient")
 	}
-	if cfg.NewAsyncWorker == nil {
-		return jujuerrors.NotValidf("nil NewAsyncWorker")
+	if cfg.NewAsyncDownloadWorker == nil {
+		return jujuerrors.NotValidf("nil NewAsyncDownloadWorker")
 	}
 	if cfg.Logger == nil {
 		return jujuerrors.NotValidf("nil Logger")
@@ -112,13 +112,13 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	}
 
 	w, err := NewWorker(Config{
-		ApplicationService: domainServices.Application(),
-		ModelConfigService: domainServices.Config(),
-		HTTPClientGetter:   httpClientGetter,
-		NewHTTPClient:      cfg.NewHTTPClient,
-		NewDownloader:      cfg.NewDownloader,
-		NewAsyncWorker:     cfg.NewAsyncWorker,
-		Logger:             cfg.Logger,
+		ApplicationService:     domainServices.Application(),
+		ModelConfigService:     domainServices.Config(),
+		HTTPClientGetter:       httpClientGetter,
+		NewHTTPClient:          cfg.NewHTTPClient,
+		NewDownloader:          cfg.NewDownloader,
+		NewAsyncDownloadWorker: cfg.NewAsyncDownloadWorker,
+		Logger:                 cfg.Logger,
 	})
 	if err != nil {
 		return nil, errors.Capture(err)

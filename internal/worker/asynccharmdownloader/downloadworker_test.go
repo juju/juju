@@ -204,6 +204,64 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Using the same App ID should not cause a new worker to be created.
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	changes := make(chan []string)
+
+	s.applicationService.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(changes), nil
+	})
+	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), http.CharmhubPurpose).Return(s.httpClient, nil).Times(2)
+
+	var called int64
+	s.newAsyncWorker = func() worker.Worker {
+		atomic.AddInt64(&called, 1)
+		return workertest.NewErrorWorker(nil)
+	}
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	sent := make(chan struct{})
+	go func() {
+		defer close(sent)
+
+		select {
+		case changes <- []string{appID.String()}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for worker to finish")
+		}
+
+		select {
+		case changes <- []string{appID.String()}:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for worker to finish")
+		}
+	}()
+
+	// Ensure that we've sent all the changes.
+
+	select {
+	case <-sent:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for messages to be sent")
+	}
+
+	// Wait for a bit to ensure that we're not creating a new worker.
+
+	<-time.After(time.Millisecond * 500)
+	c.Assert(atomic.LoadInt64(&called), gc.Equals, int64(1))
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -292,9 +350,9 @@ func (s *workerSuite) newConfig(c *gc.C) Config {
 		NewDownloader: func(charmhub.HTTPClient, ModelConfigService, logger.Logger) Downloader {
 			return s.downloader
 		},
-		NewAsyncWorker: func(appID application.ID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
+		NewAsyncDownloadWorker: func(appID application.ID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
 			if s.newAsyncWorker == nil {
-				return workertest.NewForeverWorker(nil)
+				return workertest.NewErrorWorker(nil)
 			}
 			return s.newAsyncWorker()
 		},
