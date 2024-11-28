@@ -261,7 +261,7 @@ func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestUpsertCloudService(c *gc.C) {
+func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,8 +275,52 @@ func (s *applicationStateSuite) TestUpsertCloudService(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerID, gc.Equals, "provider-id")
+}
+
+func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
 	c.Assert(err, jc.ErrorIsNil)
+	var providerID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM cloud_service WHERE application_uuid = ?", appID).Scan(&providerID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerID, gc.Equals, "provider-id")
+}
+
+func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	s.createApplication(c, "bar", life.Alive)
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.UpsertCloudService(context.Background(), "foo", "another-provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIsNil)
+	var providerIds []string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM cloud_service WHERE application_uuid = ?", appID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var providerId string
+			if err := rows.Scan(&providerId); err != nil {
+				return err
+			}
+			providerIds = append(providerIds, providerId)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerIds, jc.SameContents, []string{"provider-id", "another-provider-id"})
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *gc.C) {
@@ -370,7 +414,7 @@ func (s *applicationStateSuite) assertContainerPortValues(c *gc.C, unitName stri
 SELECT ccp.port
 FROM cloud_container cc
 JOIN unit u ON cc.unit_uuid = u.uuid
-JOIN cloud_container_port ccp ON ccp.cloud_container_uuid = cc.uuid
+JOIN cloud_container_port ccp ON ccp.unit_uuid = cc.unit_uuid
 WHERE u.name=?`,
 
 			unitName)
@@ -735,7 +779,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM ip_address WHERE device_uuid=?", deviceUUID).Scan(&addressCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE cloud_container_uuid IN (select uuid FROM cloud_container WHERE unit_uuid=?)", unitUUID).Scan(&portCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE unit_uuid=?", unitUUID).Scan(&portCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {

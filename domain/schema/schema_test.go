@@ -896,12 +896,10 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, 'mysql', 0, 0);", charmUUID)
 	s.assertExecSQL(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'mysql');", charmUUID)
 
-	appNetNodeUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, appNetNodeUUID)
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO application (uuid, net_node_uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
-VALUES (?, ?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, appNetNodeUUID, charmUUID)
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
+VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, charmUUID)
 
 	unitNetNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)

@@ -693,16 +693,11 @@ VALUES (?, ?);
 			return errors.Trace(err)
 		}
 
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		applicationUUID := uuid.MustNewUUID().String()
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, net_node_uuid, charm_uuid, name, life_id)
-VALUES (?, ?, ?, ?, ?)
-`, applicationUUID, netNodeUUID, charmUUID, appName, life.Alive)
+INSERT INTO application (uuid, charm_uuid, name, life_id)
+VALUES (?, ?, ?, ?)
+`, applicationUUID, charmUUID, appName, life.Alive)
 		if err != nil {
 			return errors.Trace(err)
 		}
