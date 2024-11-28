@@ -330,7 +330,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	).Return(user.User{UUID: ownerUUID}, nil)
 
 	// Create model in controller database.
-	s.modelService.EXPECT().CreateModel(gomock.Any(), model.ModelCreationArgs{
+	s.modelService.EXPECT().CreateModel(gomock.Any(), model.ControllerDBModelCreationArgs{
 		Name:        modelCreateArgs.Name,
 		Owner:       ownerUUID,
 		Cloud:       expectedCloudName,
@@ -564,7 +564,7 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 //	//s.accessService.EXPECT().GetUserByName(
 //	//	gomock.Any(), ownerName,
 //	//).Return(user.User{UUID: ownerUUID}, nil)
-//	//s.modelService.EXPECT().CreateModel(gomock.Any(), model.ModelCreationArgs{
+//	//s.modelService.EXPECT().CreateModel(gomock.Any(), model.ControllerDBModelCreationArgs{
 //	//	Name:        "existing-ns",
 //	//	Owner:       ownerUUID,
 //	//	Cloud:       "k8s-cloud",
@@ -1097,7 +1097,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	).Return(user.User{UUID: ownerUUID}, nil)
 
 	// Create model in controller database.
-	s.modelService.EXPECT().CreateModel(gomock.Any(), model.ModelCreationArgs{
+	s.modelService.EXPECT().CreateModel(gomock.Any(), model.ControllerDBModelCreationArgs{
 		Name:        modelCreateArgs.Name,
 		Owner:       ownerUUID,
 		Cloud:       "dummy",

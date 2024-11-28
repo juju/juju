@@ -92,9 +92,9 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
-	fn := CreateModel(
+	fn := CreateControllerDBModelRecord(
 		modeltesting.GenModelUUID(c),
-		model.ModelCreationArgs{
+		model.ControllerDBModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        s.cloudName,
 			Credential: credential.Key{
@@ -126,7 +126,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	args := model.ModelCreationArgs{
+	args := model.ControllerDBModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.cloudName,
 		Credential: credential.Key{
@@ -139,11 +139,11 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	}
 
 	// Create a model and then create a read-only model from it.
-	fn := CreateModel(modelUUID, args)
+	fn := CreateControllerDBModelRecord(modelUUID, args)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
+	fn = CreateModelDBModelRecord(modelUUID, controllerUUID)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -166,7 +166,7 @@ func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
 	v := jujuversion.Current
 	v.Build++
 
-	args := model.ModelCreationArgs{
+	args := model.ControllerDBModelCreationArgs{
 		AgentVersion: v,
 		Cloud:        s.cloudName,
 		Credential: credential.Key{
@@ -179,7 +179,7 @@ func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
 	}
 
 	// Create a model and then create a read-only model from it.
-	fn := CreateModel(modeltesting.GenModelUUID(c), args)
+	fn := CreateControllerDBModelRecord(modeltesting.GenModelUUID(c), args)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -218,7 +218,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		context.Background(),
 		modelUUID,
 		modelType,
-		model.ModelCreationArgs{
+		model.ControllerDBModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",

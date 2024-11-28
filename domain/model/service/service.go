@@ -46,7 +46,7 @@ type State interface {
 	ModelTypeState
 
 	// Create creates a new model with all of its associated metadata.
-	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.ModelCreationArgs) error
+	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.ControllerDBModelCreationArgs) error
 
 	// Activate is responsible for setting a model as fully constructed and
 	// indicates the final system state for the model is ready for use.
@@ -205,7 +205,7 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 
 // CreateModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function will return the created model's id.
-// If the ModelCreationArgs does not have a credential name set then no cloud
+// If the ControllerDBModelCreationArgs does not have a credential name set then no cloud
 // credential will be associated with model.
 //
 // If the caller has not prescribed a specific agent version to use for the
@@ -229,19 +229,15 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 // cannot be found.
 func (s *Service) CreateModel(
 	ctx context.Context,
-	args model.ModelCreationArgs,
+	args model.ControllerDBModelCreationArgs,
 ) (coremodel.UUID, func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return "", nil, fmt.Errorf(
-			"cannot validate model creation args: %w", err,
-		)
+		return "", nil, fmt.Errorf("cannot validate model creation args: %w", err)
 	}
 
 	modelID, err := coremodel.NewUUID()
 	if err != nil {
-		return "", nil, fmt.Errorf(
-			"cannot generate id for model %q: %w", args.Name, err,
-		)
+		return "", nil, fmt.Errorf("cannot generate id for model %q: %w", args.Name, err)
 	}
 
 	activator, err := s.createModel(ctx, modelID, args)
@@ -251,7 +247,7 @@ func (s *Service) CreateModel(
 // createModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function takes the model id to be used as part
 // of the creation. This helps serve both new model creation and model
-// importing. If the ModelCreationArgs does not have a credential name set then
+// importing. If the ControllerDBModelCreationArgs does not have a credential name set then
 // no cloud credential will be associated with model.
 //
 // If the caller has not prescribed a specific agent version to use for the
@@ -277,7 +273,7 @@ func (s *Service) CreateModel(
 func (s *Service) createModel(
 	ctx context.Context,
 	id coremodel.UUID,
-	args model.ModelCreationArgs,
+	args model.ControllerDBModelCreationArgs,
 ) (func(context.Context) error, error) {
 	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
 	if err != nil {
@@ -299,20 +295,6 @@ func (s *Service) createModel(
 			args.Name,
 		)
 	}
-
-	agentVersion := args.AgentVersion
-	if args.AgentVersion == version.Zero {
-		agentVersion = agentVersionSelector()
-	}
-
-	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
-		return nil, fmt.Errorf(
-			"creating model %q with agent version %q: %w",
-			args.Name, agentVersion, err,
-		)
-	}
-
-	args.AgentVersion = agentVersion
 
 	activator := ModelActivator(func(ctx context.Context) error {
 		return s.st.Activate(ctx, id)
@@ -359,7 +341,7 @@ func (s *Service) ImportModel(
 		)
 	}
 
-	return s.createModel(ctx, args.ID, args.ModelCreationArgs)
+	return s.createModel(ctx, args.ID, args.ControllerDBModelCreationArgs)
 }
 
 // ControllerModel returns the model used for housing the Juju controller.

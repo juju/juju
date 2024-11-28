@@ -5,11 +5,10 @@ package model
 
 import (
 	"fmt"
+	"github.com/juju/version/v2"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
@@ -17,12 +16,9 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ModelCreationArgs supplies the information required for instantiating a new
-// model.
-type ModelCreationArgs struct {
-	// AgentVersion is the target version for agents running under this model.
-	AgentVersion version.Number
-
+// ControllerDBModelCreationArgs supplies the information required for
+// recording details of a new model in the controller database.
+type ControllerDBModelCreationArgs struct {
 	// Cloud is the name of the cloud to associate with the model.
 	// Must not be empty for a valid struct.
 	Cloud string
@@ -49,10 +45,11 @@ type ModelCreationArgs struct {
 	SecretBackend string
 }
 
-// Validate is responsible for checking all of the fields of ModelCreationArgs
-// are in a set state that is valid for use. If a validation failure happens an
-// error satisfying [errors.NotValid] is returned.
-func (m ModelCreationArgs) Validate() error {
+// Validate is responsible for checking all of the fields of
+// ControllerDBModelCreationArgs are in a set state that is valid for use.
+// If a validation failure happens an error satisfying [errors.NotValid]
+// is returned.
+func (m ControllerDBModelCreationArgs) Validate() error {
 	if m.Cloud == "" {
 		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
 	}
@@ -70,36 +67,9 @@ func (m ModelCreationArgs) Validate() error {
 	return nil
 }
 
-// ModelImportArgs supplies the information needed for importing a model into a
-// Juju controller.
-type ModelImportArgs struct {
-	// ID represents the unique id of the model to import.
-	ID coremodel.UUID
-
-	// ModelCreationArgs supplies the information needed for importing the new
-	// model into Juju.
-	ModelCreationArgs
-}
-
-// Validate is responsible for checking all of the fields of [ModelImportArgs]
-// are in a set state valid for use. If a validation failure happens an error
-// satisfying [errors.NotValid] is returned.
-func (m ModelImportArgs) Validate() error {
-	if err := m.ModelCreationArgs.Validate(); err != nil {
-		return fmt.Errorf("ModelCreationArgs %w", err)
-	}
-
-	if err := m.ID.Validate(); err != nil {
-		return fmt.Errorf("validating model import args id: %w", err)
-	}
-
-	return nil
-}
-
-// ReadOnlyModelCreationArgs is a struct that is used to create a model
-// within the model database. This struct is used to create a model with all of
-// its associated metadata.
-type ReadOnlyModelCreationArgs struct {
+// ReadOnlyModelRecordArgs is a struct that is used to create the single
+// read-only model record in the model database.
+type ReadOnlyModelRecordArgs struct {
 	// UUID represents the unique id for the model when being created. This
 	// value is optional and if omitted will be generated for the caller. Use
 	// this value when you are trying to import a model during model migration.
@@ -128,6 +98,9 @@ type ReadOnlyModelCreationArgs struct {
 	// Optional and can be empty.
 	CloudRegion string
 
+	// TODO (manadart 2024-11-27): Credential concerns are *not* read-only!
+	// A model can be updated to use a new credential.
+
 	// CredentialOwner is the name of the credential owner for this model in
 	// the Juju controller.
 	// Optional and can be empty.
@@ -141,6 +114,44 @@ type ReadOnlyModelCreationArgs struct {
 	// IsControllerModel is a boolean value that indicates if the model is the
 	// controller model.
 	IsControllerModel bool
+}
+
+// ModelDBModelCreationArgs supplies the information required for
+// recording details of a new model in the controller database.
+type ModelDBModelCreationArgs struct {
+	ReadOnlyModelRecordArgs
+
+	// AgentVersion is the target version for agents running in this model.
+	AgentVersion version.Number
+}
+
+// ModelImportArgs supplies the information needed for importing a model into a
+// Juju controller.
+type ModelImportArgs struct {
+	// ID represents the unique id of the model to import.
+	ID coremodel.UUID
+
+	// ControllerDBModelCreationArgs supplies the information needed for importing the new
+	// model into Juju.
+	ControllerDBModelCreationArgs
+
+	// AgentVersion is the target version for agents running in this model.
+	AgentVersion version.Number
+}
+
+// Validate is responsible for checking all of the fields of [ModelImportArgs]
+// are in a set state valid for use. If a validation failure happens an error
+// satisfying [errors.NotValid] is returned.
+func (m ModelImportArgs) Validate() error {
+	if err := m.ControllerDBModelCreationArgs.Validate(); err != nil {
+		return fmt.Errorf("ControllerDBModelCreationArgs %w", err)
+	}
+
+	if err := m.ID.Validate(); err != nil {
+		return fmt.Errorf("validating model import args id: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteModelOptions is a struct that is used to modify the behavior of the

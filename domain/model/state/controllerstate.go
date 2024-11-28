@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -109,7 +108,7 @@ func (s *State) Create(
 	ctx context.Context,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.ControllerDBModelCreationArgs,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -138,7 +137,7 @@ func Create(
 	tx *sqlair.TX,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.ControllerDBModelCreationArgs,
 ) error {
 	// This function is responsible for driving all of the facets of model
 	// creation.
@@ -496,7 +495,7 @@ INSERT INTO model_secret_backend (*) VALUES ($dbModelSecretBackend.*)
 //
 // Should the provided cloud and region not be found an error matching
 // errors.NotFound will be returned.
-// If the ModelCreationArgs contains a non zero value cloud credential this func
+// If the ControllerDBModelCreationArgs contains a non zero value cloud credential this func
 // will also attempt to set the model cloud credential using updateCredential. In
 // this  scenario the errors from updateCredential are also possible.
 // If the model owner does not exist an error satisfying [usererrors.NotFound]
@@ -507,7 +506,7 @@ func createModel(
 	tx *sqlair.TX,
 	modelUUID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.ControllerDBModelCreationArgs,
 ) error {
 	cloudName := dbName{Name: input.Cloud}
 
@@ -712,7 +711,7 @@ func (s *State) Activate(ctx context.Context, uuid coremodel.UUID) error {
 type ActivatorFunc func(context.Context, domain.Preparer, *sqlair.TX, coremodel.UUID) error
 
 // GetActivator constructs a [ActivateFunc] that can safely be used over several
-// transaction retry's.
+// transaction retries.
 func GetActivator() ActivatorFunc {
 	return func(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, uuid coremodel.UUID) error {
 		mUUID := dbUUID{UUID: uuid.String()}

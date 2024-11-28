@@ -19,7 +19,7 @@ import (
 // database state, not the controller state.
 type ModelState interface {
 	// Create creates a new model with all of its associated metadata.
-	Create(context.Context, model.ReadOnlyModelCreationArgs) error
+	Create(context.Context, model.ReadOnlyModelRecordArgs) error
 
 	// Delete deletes a model.
 	Delete(context.Context, coremodel.UUID) error
@@ -81,9 +81,8 @@ func (s *ModelService) CreateModel(
 		return err
 	}
 
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ReadOnlyModelRecordArgs{
 		UUID:            m.UUID,
-		AgentVersion:    m.AgentVersion,
 		ControllerUUID:  controllerUUID,
 		Name:            m.Name,
 		Type:            m.ModelType,

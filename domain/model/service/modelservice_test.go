@@ -22,13 +22,13 @@ import (
 )
 
 type dummyModelState struct {
-	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+	models map[coremodel.UUID]model.ReadOnlyModelRecordArgs
 	setID  coremodel.UUID
 
 	modelState map[coremodel.UUID]model.ModelState
 }
 
-func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
+func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelRecordArgs) error {
 	if d.setID != coremodel.UUID("") {
 		return modelerrors.AlreadyExists
 	}
@@ -104,7 +104,7 @@ var _ = gc.Suite(&modelServiceSuite{})
 
 func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 	s.state = &dummyModelState{
-		models:     map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
+		models:     map[coremodel.UUID]model.ReadOnlyModelRecordArgs{},
 		modelState: map[coremodel.UUID]model.ModelState{},
 	}
 
@@ -115,7 +115,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.state, s.state)
 
-	s.state.models[id] = model.ReadOnlyModelCreationArgs{
+	s.state.models[id] = model.ReadOnlyModelRecordArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
@@ -143,7 +143,7 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.state, s.state)
 
-	s.state.models[id] = model.ReadOnlyModelCreationArgs{
+	s.state.models[id] = model.ReadOnlyModelRecordArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",

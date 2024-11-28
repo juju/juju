@@ -12,9 +12,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -30,13 +28,10 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 	return m(c, n)
 }
 
-// CreateModel is responsible for making a new model with all of its associated
-// metadata during the bootstrap process.
-// If the ModelCreationArgs does not have a credential name set then no cloud
-// credential will be associated with the model.
-//
-// The only supported agent version during bootstrap is that of the current
-// controller. This will be the default if no agent version is supplied.
+// CreateControllerDBModelRecord is responsible for making a new model with all
+// of its associated  metadata during the bootstrap process.
+// If the ControllerDBModelCreationArgs does not have a credential name set then
+// no cloud credential will be associated with the model.
 //
 // The following error types can be expected to be returned:
 // - modelerrors.AlreadyExists: When the model uuid is already in use or a model
@@ -48,14 +43,14 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
 //
-// CreateModel expects the caller to generate their own model id and pass it to
-// this function. In an ideal world we want to have this stopped and make this
-// function generate a new id and return the value. This can only be achieved
-// once we have the Juju client stop generating id's for controller models in
-// the bootstrap process.
-func CreateModel(
+// CreateControllerDBModelRecord expects the caller to generate their own model
+// ID and pass it to this function. In an ideal world we want to have this
+// stopped and make this function generate a new id and return the value.
+// This can only be achieved once we have the Juju client stop generating ID's
+// for controller models in the bootstrap process.
+func CreateControllerDBModelRecord(
 	modelID coremodel.UUID,
-	args model.ModelCreationArgs,
+	args model.ControllerDBModelCreationArgs,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
@@ -67,16 +62,6 @@ func CreateModel(
 				"cannot create model %q when validating id: %w", args.Name, err,
 			)
 		}
-
-		agentVersion := args.AgentVersion
-		if args.AgentVersion == version.Zero {
-			agentVersion = jujuversion.Current
-		}
-
-		if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {
-			return fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
-		}
-		args.AgentVersion = agentVersion
 
 		activator := state.GetActivator()
 		return controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -114,12 +99,12 @@ func CreateModel(
 	}
 }
 
-// CreateReadOnlyModel creates a new model within the model database with all of
-// its associated metadata. The data will be read-only and cannot be modified
-// once created.
-func CreateReadOnlyModel(
+// CreateModelDBModelRecord creates a new model within the model database with
+// all of its associated metadata.
+func CreateModelDBModelRecord(
 	id coremodel.UUID,
 	controllerUUID uuid.UUID,
+	agentVersion version.Number,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {
@@ -136,21 +121,23 @@ func CreateReadOnlyModel(
 			return fmt.Errorf("getting model for id %q: %w", id, err)
 		}
 
-		args := model.ReadOnlyModelCreationArgs{
-			UUID:              m.UUID,
-			AgentVersion:      m.AgentVersion,
-			ControllerUUID:    controllerUUID,
-			Name:              m.Name,
-			Type:              m.ModelType,
-			Cloud:             m.Cloud,
-			CloudRegion:       m.CloudRegion,
-			CredentialOwner:   m.Credential.Owner,
-			CredentialName:    m.Credential.Name,
-			IsControllerModel: true,
+		args := model.ModelDBModelCreationArgs{
+			ReadOnlyModelRecordArgs: model.ReadOnlyModelRecordArgs{
+				UUID:              m.UUID,
+				ControllerUUID:    controllerUUID,
+				Name:              m.Name,
+				Type:              m.ModelType,
+				Cloud:             m.Cloud,
+				CloudRegion:       m.CloudRegion,
+				CredentialOwner:   m.Credential.Owner,
+				CredentialName:    m.Credential.Name,
+				IsControllerModel: true,
+			},
+			AgentVersion: agentVersion,
 		}
 
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.CreateReadOnlyModel(ctx, args, preparer{}, tx)
+			return state.InsertModelInfo(ctx, args, preparer{}, tx)
 		})
 	}
 }

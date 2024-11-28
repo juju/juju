@@ -95,7 +95,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelFn := modelbootstrap.CreateModel(modelUUID, domainmodel.ModelCreationArgs{
+	modelFn := modelbootstrap.CreateControllerDBModelRecord(modelUUID, domainmodel.ControllerDBModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        cloudName,
 		Credential: credential.Key{
@@ -111,7 +111,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateReadOnlyModel(modelUUID, uuid.MustNewUUID())(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	err = modelbootstrap.CreateModelDBModelRecord(modelUUID, uuid.MustNewUUID())(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

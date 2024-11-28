@@ -43,14 +43,14 @@ func NewModelState(
 }
 
 // Create creates a new read-only model.
-func (s *ModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
+func (s *ModelState) Create(ctx context.Context, args model.ModelDBModelCreationArgs) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return CreateReadOnlyModel(ctx, args, s, tx)
+		return InsertModelInfo(ctx, args, s, tx)
 	})
 }
 
@@ -167,10 +167,12 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	return model, nil
 }
 
-// CreateReadOnlyModel is responsible for creating a new model within the model
+// InsertModelInfo is responsible for creating a new model within the model
 // database. If the model already exists then an error satisfying
 // [modelerrors.AlreadyExists] is returned.
-func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, preparer domain.Preparer, tx *sqlair.TX) error {
+func InsertModelInfo(
+	ctx context.Context, args model.ModelDBModelCreationArgs, preparer domain.Preparer, tx *sqlair.TX,
+) error {
 	// This is some defensive programming. The zero value of agent version is
 	// still valid but should really be considered null for the purposes of
 	// allowing the DDL to assert constraints.
@@ -180,53 +182,46 @@ func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationAr
 		agentVersion.Valid = true
 	}
 
-	uuid := dbUUID{UUID: args.UUID.String()}
-	checkExistsStmt, err := preparer.Prepare(`
-SELECT &dbUUID.uuid
-FROM model
-	`, uuid)
+	mID := dbUUID{UUID: args.UUID.String()}
+	checkExistsStmt, err := preparer.Prepare("SELECT &dbUUID.uuid FROM model", mID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkExistsStmt).Get(&uuid)
+	err = tx.Query(ctx, checkExistsStmt).Get(&mID)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf(
-			"checking if model %q already exists: %w",
-			args.UUID, err,
-		)
+		return errors.Errorf("checking if model already exists: %w", err)
 	} else if err == nil {
-		return errors.Errorf(
-			"creating readonly model %q information but model already exists",
-			args.UUID,
-		).Add(modelerrors.AlreadyExists)
+		return errors.Errorf("read-only model record already exists: %w", modelerrors.AlreadyExists)
 	}
 
 	m := dbReadOnlyModel{
-		UUID:               args.UUID.String(),
-		ControllerUUID:     args.ControllerUUID.String(),
-		Name:               args.Name,
-		Type:               args.Type.String(),
-		TargetAgentVersion: agentVersion,
-		Cloud:              args.Cloud,
-		CloudType:          args.CloudType,
-		CloudRegion:        args.CloudRegion,
-		CredentialOwner:    args.CredentialOwner.Name(),
-		CredentialName:     args.CredentialName,
-		IsControllerModel:  args.IsControllerModel,
+		UUID:              args.UUID.String(),
+		ControllerUUID:    args.ControllerUUID.String(),
+		Name:              args.Name,
+		Type:              args.Type.String(),
+		Cloud:             args.Cloud,
+		CloudType:         args.CloudType,
+		CloudRegion:       args.CloudRegion,
+		CredentialOwner:   args.CredentialOwner.Name(),
+		CredentialName:    args.CredentialName,
+		IsControllerModel: args.IsControllerModel,
 	}
 
-	insertStmt, err := preparer.Prepare(`
-INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)
-`, dbReadOnlyModel{})
+	roStmt, err := preparer.Prepare("INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)", m)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, insertStmt, m).Run(); err != nil {
-		return errors.Errorf(
-			"creating readonly model %q information: %w", args.UUID, err,
-		)
+	v := sqlair.M{"target_version": agentVersion}
+	vStmt, err := preparer.Prepare("INSERT INTO agent_version (*) VALUES ($M)", v)
+
+	if err := tx.Query(ctx, roStmt, m).Run(); err != nil {
+		return fmt.Errorf("creating model read-only record for %q: %w", args.UUID, err)
+	}
+
+	if err := tx.Query(ctx, vStmt, v).Run(); err != nil {
+		return fmt.Errorf("creating agent_version record for %q: %w", args.UUID, err)
 	}
 
 	return nil
