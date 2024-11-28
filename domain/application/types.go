@@ -180,6 +180,5 @@ type CharmDownloadInfo struct {
 type ResolveCharmDownload struct {
 	CharmUUID charm.ID
 	Path      string
-	Origin    charm.Origin
 	Size      int64
 }
