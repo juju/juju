@@ -143,7 +143,28 @@ func (s *firewallerSuite) TestWatch(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	s.testWatch(c, s.firewaller, cannotWatchUnits)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.application.Tag().String()},
+		{Tag: s.units[0].Tag().String()},
+	}})
+	result, err := s.firewaller.Watch(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *firewallerSuite) TestWatchUnits(c *gc.C) {

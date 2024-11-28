@@ -114,7 +114,7 @@ func NewStateFirewallerAPI(
 	// Watch() is supported for applications only.
 	entityWatcher := common.NewAgentEntityWatcher(
 		st,
-		resources,
+		watcherRegistry,
 		accessApplication,
 	)
 	// WatchUnits() is supported for machines.

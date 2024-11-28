@@ -111,6 +111,8 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 
 	s.appExposedChanges <- struct{}{}
 
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+
 	results, err := s.facade.Watch(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -126,8 +128,6 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 	})
 
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.appExposedWatcher)
 }
 
 func (s *firewallerSuite) TestIsExposed(c *gc.C) {

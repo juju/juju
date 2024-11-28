@@ -11,31 +11,31 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // AgentEntityWatcher implements a common Watch method for use by
 // various facades.
 type AgentEntityWatcher struct {
-	st          state.EntityFinder
-	resources   facade.Resources
-	getCanWatch GetAuthFunc
+	st              state.EntityFinder
+	watcherRegistry facade.WatcherRegistry
+	getCanWatch     GetAuthFunc
 }
 
 // NewAgentEntityWatcher returns a new AgentEntityWatcher. The
 // GetAuthFunc will be used on each invocation of Watch to determine
 // current permissions.
-func NewAgentEntityWatcher(st state.EntityFinder, resources facade.Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
+func NewAgentEntityWatcher(st state.EntityFinder, watcherRegistry facade.WatcherRegistry, getCanWatch GetAuthFunc) *AgentEntityWatcher {
 	return &AgentEntityWatcher{
-		st:          st,
-		resources:   resources,
-		getCanWatch: getCanWatch,
+		st:              st,
+		watcherRegistry: watcherRegistry,
+		getCanWatch:     getCanWatch,
 	}
 }
 
-func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
+func (a *AgentEntityWatcher) watchEntity(ctx context.Context, tag names.Tag) (string, error) {
 	entity0, err := a.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -45,14 +45,8 @@ func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
 		return "", apiservererrors.NotSupportedError(tag, "watching")
 	}
 	watch := entity.Watch()
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		return a.resources.Register(watch), nil
-	}
-	return "", watcher.EnsureErr(watch)
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, a.watcherRegistry, watch)
+	return id, err
 }
 
 // Watch starts an NotifyWatcher for each given entity.
@@ -76,7 +70,7 @@ func (a *AgentEntityWatcher) Watch(ctx context.Context, args params.Entities) (p
 		err = apiservererrors.ErrPerm
 		watcherId := ""
 		if canWatch(tag) {
-			watcherId, err = a.watchEntity(tag)
+			watcherId, err = a.watchEntity(ctx, tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = apiservererrors.ServerError(err)

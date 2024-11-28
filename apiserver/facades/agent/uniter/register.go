@@ -80,6 +80,7 @@ func newUniterAPIWithServices(
 	st := context.State()
 	aClock := context.StatePool().Clock()
 	resources := context.Resources()
+	watcherRegistry := context.WatcherRegistry()
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -130,7 +131,7 @@ func newUniterAPIWithServices(
 	}
 	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
-		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
+		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, watcherRegistry, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(systemState, resources),
 		ModelConfigWatcher:         common.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
 		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),

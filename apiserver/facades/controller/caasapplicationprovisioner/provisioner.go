@@ -160,7 +160,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 
 	apiGroup := &APIGroup{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.WatcherRegistry(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		lifeCanRead:        lifeCanRead,

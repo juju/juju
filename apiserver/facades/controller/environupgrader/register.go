@@ -32,7 +32,7 @@ func NewStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	registry := environs.GlobalProviderRegistry()
 	watcher := common.NewAgentEntityWatcher(
 		ctx.State(),
-		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
 	)
 	statusSetter := common.NewStatusSetter(

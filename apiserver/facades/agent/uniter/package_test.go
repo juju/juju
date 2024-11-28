@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -38,6 +39,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination secret_mocks_test.go github.com/juju/juju/apiserver/facades/agent/uniter SecretService
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination leadership_mocks_test.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run go.uber.org/mock/mockgen -package uniter_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/uniter ModelConfigService,ModelInfoService,NetworkService,MachineService
+//go:generate go run go.uber.org/mock/mockgen -typed -package uniter_test -destination facade_mock_test.go github.com/juju/juju/apiserver/facade WatcherRegistry
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -51,6 +53,7 @@ type uniterSuiteBase struct {
 
 	authorizer        apiservertesting.FakeAuthorizer
 	resources         *common.Resources
+	watcherRegistry   *MockWatcherRegistry
 	leadershipRevoker *leadershipRevoker
 	uniter            *uniter.UniterAPI
 
@@ -65,6 +68,14 @@ type uniterSuiteBase struct {
 	leadershipChecker *fakeLeadershipChecker
 
 	store objectstore.ObjectStore
+}
+
+func (s *uniterSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
+
+	return ctrl
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
@@ -144,6 +155,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,
+		WatcherRegistry_:   s.watcherRegistry,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		DomainServices_:    s.DefaultModelDomainServices(c),

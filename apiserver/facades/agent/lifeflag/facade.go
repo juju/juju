@@ -19,7 +19,7 @@ type Backend interface {
 }
 
 // NewFacade constructs a new life flag facade.
-func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*Facade, error) {
 	if !authorizer.AuthUnitAgent() && authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -29,7 +29,7 @@ func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Au
 		}, nil
 	}
 	life := common.NewLifeGetter(backend, getCanAccess)
-	watch := common.NewAgentEntityWatcher(backend, resources, getCanAccess)
+	watch := common.NewAgentEntityWatcher(backend, watcherRegistry, getCanAccess)
 	return &Facade{
 		LifeGetter:         life,
 		AgentEntityWatcher: watch,
