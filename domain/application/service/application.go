@@ -353,7 +353,7 @@ func makeCreateApplicationArgs(
 		return application.AddApplicationArg{}, fmt.Errorf("encoding charm source: %w", err)
 	}
 
-	architecture, err := encodeArchitecture(origin.Platform.Architecture)
+	architecture := encodeArchitecture(origin.Platform.Architecture)
 	if err != nil {
 		return application.AddApplicationArg{}, fmt.Errorf("encoding architecture: %w", err)
 	}

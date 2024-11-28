@@ -175,6 +175,11 @@ func (s *State) setCharmState(
 		return fmt.Errorf("failed to encode charm architecture: %w", err)
 	}
 
+	var ptrArchitectureID *int
+	if architectureID >= 0 {
+		ptrArchitectureID = ptr(architectureID)
+	}
+
 	chState := setCharmState{
 		UUID:           id.String(),
 		ReferenceName:  ch.ReferenceName,
@@ -183,7 +188,7 @@ func (s *State) setCharmState(
 		Available:      ch.Available,
 		Version:        ch.Version,
 		SourceID:       sourceID,
-		ArchitectureID: architectureID,
+		ArchitectureID: ptrArchitectureID,
 	}
 
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
@@ -1204,8 +1209,16 @@ func decodeCharmState(state charmState) (charm.Charm, error) {
 
 }
 
-func decodeArchitecture(arch int) (application.Architecture, error) {
-	switch arch {
+func decodeArchitecture(arch *int) (application.Architecture, error) {
+	if arch == nil {
+		return architecture.Unknown, nil
+	}
+
+	switch *arch {
+	case -1:
+		// This is a valid case if we're uploading charms and the value isn't
+		// supplied.
+		return architecture.Unknown, nil
 	case 0:
 		return architecture.AMD64, nil
 	case 1:
@@ -1234,6 +1247,10 @@ func decodeCharmSource(source int) (charm.CharmSource, error) {
 
 func encodeArchitecture(a architecture.Architecture) (int, error) {
 	switch a {
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return -1, nil
 	case architecture.AMD64:
 		return 0, nil
 	case architecture.ARM64:

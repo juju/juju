@@ -38,8 +38,10 @@ CREATE TABLE charm (
     -- is for applications.
 
     source_id INT NOT NULL DEFAULT 1,
-    architecture_id INT NOT NULL,
     revision INT NOT NULL DEFAULT -1,
+
+    -- architecture_id may be null for local charms.
+    architecture_id INT,
 
     -- reference_name is the name of the charm that was originally supplied.
     -- The charm name can be different from the actual charm name in the
@@ -56,7 +58,10 @@ CREATE TABLE charm (
     REFERENCES charm_source (id),
     CONSTRAINT fk_charm_architecture
     FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
+    REFERENCES architecture (id),
+    
+    -- Ensure we have an architecture if the source is charmhub.
+    CHECK (source_id == 0 OR (source_id == 1 AND architecture_id >= 0))
 );
 
 CREATE UNIQUE INDEX idx_charm_reference_name_revision

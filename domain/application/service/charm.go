@@ -509,11 +509,7 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 		return "", nil, fmt.Errorf("encoding charm source: %w", err)
 	}
 
-	architecture, err := encodeArchitecture(args.Architecture)
-	if err != nil {
-		return "", nil, fmt.Errorf("encoding architecture: %w", err)
-	}
-
+	architecture := encodeArchitecture(args.Architecture)
 	ch, warnings, err := encodeCharm(args.Charm)
 	if err != nil {
 		return "", warnings, fmt.Errorf("encoding charm: %w", err)

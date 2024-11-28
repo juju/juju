@@ -676,7 +676,7 @@ func encodePlatform(platform corecharm.Platform) (application.Platform, error) {
 		return application.Platform{}, errors.Trace(err)
 	}
 
-	arch, err := encodeArchitecture(platform.Architecture)
+	arch := encodeArchitecture(platform.Architecture)
 	if err != nil {
 		return application.Platform{}, errors.Trace(err)
 	}
@@ -697,19 +697,19 @@ func encodeOSType(os string) (application.OSType, error) {
 	}
 }
 
-func encodeArchitecture(a string) (application.Architecture, error) {
+func encodeArchitecture(a string) application.Architecture {
 	switch a {
 	case arch.AMD64:
-		return architecture.AMD64, nil
+		return architecture.AMD64
 	case arch.ARM64:
-		return architecture.ARM64, nil
+		return architecture.ARM64
 	case arch.PPC64EL:
-		return architecture.PPC64EL, nil
+		return architecture.PPC64EL
 	case arch.S390X:
-		return architecture.S390X, nil
+		return architecture.S390X
 	case arch.RISCV64:
-		return architecture.RISV64, nil
+		return architecture.RISV64
 	default:
-		return 0, errors.Errorf("unknown architecture %q, expected amd64, arm64, ppc64el, s390x or riscv64", a)
+		return architecture.Unknown
 	}
 }

@@ -7,7 +7,9 @@ package architecture
 type Architecture int
 
 const (
-	AMD64 Architecture = iota
+	Unknown Architecture = iota - 1
+
+	AMD64
 	ARM64
 	PPC64EL
 	S390X

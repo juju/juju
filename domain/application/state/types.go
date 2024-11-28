@@ -236,7 +236,7 @@ type charmState struct {
 	ArchivePath    string `db:"archive_path"`
 	Available      bool   `db:"available"`
 	SourceID       int    `db:"source_id"`
-	ArchitectureID int    `db:"architecture_id"`
+	ArchitectureID *int   `db:"architecture_id"`
 	Version        string `db:"version"`
 }
 
@@ -248,7 +248,7 @@ type setCharmState struct {
 	ArchivePath    string `db:"archive_path"`
 	Available      bool   `db:"available"`
 	SourceID       int    `db:"source_id"`
-	ArchitectureID int    `db:"architecture_id"`
+	ArchitectureID *int   `db:"architecture_id"`
 	Version        string `db:"version"`
 }
 
@@ -591,7 +591,7 @@ type charmLocator struct {
 	ReferenceName  string `db:"reference_name"`
 	Revision       int    `db:"revision"`
 	SourceID       int    `db:"source_id"`
-	ArchitectureID int    `db:"architecture_id"`
+	ArchitectureID *int   `db:"architecture_id"`
 }
 
 // resourceIdentity represents the unique identity of a resource within an
