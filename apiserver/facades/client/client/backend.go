@@ -10,7 +10,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/crossmodel"
@@ -38,7 +37,6 @@ type Backend interface {
 	HAPrimaryMachine() (names.MachineTag, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
-	Model() (Model, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
 	RemoteApplication(string) (*state.RemoteApplication, error)
@@ -49,21 +47,6 @@ type Backend interface {
 // MongoSession provides a way to get the status for the mongo replicaset.
 type MongoSession interface {
 	CurrentStatus() (*replicaset.Status, error)
-}
-
-// Model contains the state.Model methods used in this package.
-type Model interface {
-	Name() string
-	Type() state.ModelType
-	UUID() string
-	Life() state.Life
-	CloudName() string
-	CloudRegion() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	Owner() names.UserTag
-	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
-	LatestToolsVersion() version.Number
-	Status() (status.StatusInfo, error)
 }
 
 // Application represents a state.Application.
@@ -111,14 +94,6 @@ func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, erro
 
 func (s stateShim) ModelTag() names.ModelTag {
 	return names.NewModelTag(s.State.ModelUUID())
-}
-
-func (s stateShim) Model() (Model, error) {
-	m, err := s.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &modelShim{Model: m}, nil
 }
 
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
