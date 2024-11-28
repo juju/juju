@@ -160,7 +160,7 @@ func (s *Service) SetUnitResource(
 	if err := args.UnitUUID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
 	}
-	if err := args.ResourceID.Validate(); err != nil {
+	if err := args.ResourceUUID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("resource id: %w", err)
 	}
 	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {

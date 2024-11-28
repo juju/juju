@@ -239,7 +239,7 @@ func (st *State) SetUnitResource(
 
 	// Prepare statement to check if the unit/resource is not already there.
 	unitResourceInput := unitResource{
-		ResourceUUID: config.ResourceID.String(),
+		ResourceUUID: config.ResourceUUID.String(),
 		UnitUUID:     config.UnitUUID.String(),
 		AddedAt:      st.clock.Now(),
 	}
@@ -264,7 +264,7 @@ WHERE uuid = $unitNameAndUUID.uuid`
 	}
 
 	// Prepare statement to check that resourceID is valid UUID.
-	resourceUUID := resourceIdentity{UUID: config.ResourceID.String()}
+	resourceUUID := resourceIdentity{UUID: config.ResourceUUID.String()}
 	checkValidResourceQuery := `
 SELECT &resourceIdentity.uuid
 FROM resource
@@ -296,7 +296,7 @@ WHERE resource_uuid = $resourceIdentity.uuid`
 		Name              string `db:"name"`
 	}
 	retrievedTypeParam := retrievedByType{Name: string(config.RetrievedByType)}
-	retrievedByParam := retrievedBy{ResourceUUID: config.ResourceID.String(), Name: config.RetrievedBy}
+	retrievedByParam := retrievedBy{ResourceUUID: config.ResourceUUID.String(), Name: config.RetrievedBy}
 	getRetrievedTypeQuery := `
 	SELECT &retrievedByType.* 
 	FROM resource_retrieved_by_type 

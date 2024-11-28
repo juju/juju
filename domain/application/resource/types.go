@@ -131,7 +131,7 @@ type SetResourceArgs struct {
 
 // SetUnitResourceArgs holds the arguments for the SetUnitResource method.
 type SetUnitResourceArgs struct {
-	ResourceID      coreresource.UUID
+	ResourceUUID    coreresource.UUID
 	RetrievedBy     string
 	RetrievedByType RetrievedByType
 	UnitUUID        unit.UUID

@@ -185,9 +185,9 @@ func (s *resourceServiceSuite) TestSetResourceBadResource(c *gc.C) {
 func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	resID := resourcestesting.GenResourceID(c)
+	resID := resourcestesting.GenResourceUUID(c)
 	args := resource.SetUnitResourceArgs{
-		ResourceID:      resID,
+		ResourceUUID:    resID,
 		RetrievedBy:     "admin",
 		RetrievedByType: resource.User,
 		UnitUUID:        unittesting.GenUnitUUID(c),

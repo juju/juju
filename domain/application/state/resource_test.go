@@ -358,7 +358,7 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSupplied(c *gc.C) {
 
 	// Act set supplied by with application type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceID:      coreresources.UUID(resID),
+		ResourceUUID:    coreresources.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "app1",
 		RetrievedByType: "application",
@@ -412,7 +412,7 @@ func (s *resourceSuite) TestSetUnitResourceAlreadyRetrievedByApplication(c *gc.C
 
 	// Act set supplied by with application type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceID:      coreresources.UUID(resID),
+		ResourceUUID:    coreresources.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     s.constants.fakeUnitUUID1,
 		RetrievedByType: "unit",
@@ -463,7 +463,7 @@ func (s *resourceSuite) TestSetUnitResourceAlreadySetted(c *gc.C) {
 
 	// Act set supplied by with user type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceID:      coreresources.UUID(resID),
+		ResourceUUID:    coreresources.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "john",
 		RetrievedByType: "user",
@@ -504,7 +504,7 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSuppliedExistingSupplierWrongTy
 
 	// Act set supplied by with unexpected type
 	_, err = s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceID:      coreresources.UUID(resID),
+		ResourceUUID:    coreresources.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "john",
 		RetrievedByType: "unexpected",
@@ -532,7 +532,7 @@ func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 
 	// Act: set unknown resource
 	_, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceID:      coreresources.UUID(resID),
+		ResourceUUID:    coreresources.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "john",
 		RetrievedByType: "unexpected",
@@ -569,7 +569,7 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 
 	// Act set supplied by with unexpected unit
 	_, err = s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceID:      coreresources.UUID(resID),
+		ResourceUUID:    coreresources.UUID(resID),
 		UnitUUID:        "unexpected-unit-id",
 		RetrievedBy:     "john",
 		RetrievedByType: "user",
