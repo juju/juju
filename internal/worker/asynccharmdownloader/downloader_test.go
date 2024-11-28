@@ -58,7 +58,6 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
-		Origin:    origin,
 		Size:      int64(123),
 	}).DoAndReturn(func(ctx context.Context, i application.ID, rcd domainapplication.ResolveCharmDownload) error {
 		close(done)
@@ -112,7 +111,6 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
-		Origin:    origin,
 		Size:      int64(123),
 	}).DoAndReturn(func(ctx context.Context, i application.ID, rcd domainapplication.ResolveCharmDownload) error {
 		close(done)
@@ -240,7 +238,6 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
-		Origin:    origin,
 		Size:      int64(123),
 	}).DoAndReturn(func(ctx context.Context, i application.ID, rcd domainapplication.ResolveCharmDownload) error {
 		close(done)

@@ -106,7 +106,6 @@ func (w *asyncDownloadWorker) loop() error {
 	err = w.applicationService.ResolveCharmDownload(ctx, w.appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: info.CharmUUID,
 		Path:      result.Path,
-		Origin:    info.Origin,
 		Size:      result.Size,
 	})
 	if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyResolved) {
