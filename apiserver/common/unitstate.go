@@ -17,9 +17,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/unitstate.go github.com/juju/juju/apiserver/common UnitStateBackend,UnitStateUnit
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modeloperation.go github.com/juju/juju/state ModelOperation
-
 // UnitStateBackend describes unit-receiver state methods required
 // for UnitStateAPI.
 type UnitStateBackend interface {
