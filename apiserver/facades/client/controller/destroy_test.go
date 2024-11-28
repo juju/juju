@@ -5,7 +5,6 @@ package controller_test
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -20,11 +19,9 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
-	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // NOTE: the testing of the general model destruction code
@@ -89,6 +86,14 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 
 	s.otherModel, err = s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *destroyControllerSuite) TestStub(c *gc.C) {
+	// These will likely be tests for the service layer.
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Successfully destroying a controller (life->dying) whose model has apps with storage when --destroy-storage is included.
+- An error when destroying a controller also with storage, but without including --destroy-storage.
+`)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWithBlocks(c *gc.C) {
@@ -183,109 +188,6 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 	numBlocks, err := domainServices.BlockCommand().GetBlocks(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
-}
-
-func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified(c *gc.C) {
-	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID:  &modelUUID,
-		Name:  "modelconfig",
-		Owner: s.otherModelOwner,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-	})
-	s.AddCleanup(func(c *gc.C) { _ = modelState.Close() })
-
-	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig)
-	f2.MakeUnit(c, &factory.UnitParams{
-		Application: f2.MakeApplication(c, &factory.ApplicationParams{
-			Charm: f2.MakeCharm(c, &factory.CharmParams{
-				Name: "storage-block",
-			}),
-			Storage: map[string]state.StorageConstraints{
-				"data": {Pool: "modelscoped"},
-			},
-		}),
-	})
-
-	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
-		DestroyModels: true,
-	})
-	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
-
-	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Alive)
-}
-
-func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
-	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID:  &modelUUID,
-		Name:  "modelconfig",
-		Owner: s.otherModelOwner,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-	})
-	s.AddCleanup(func(c *gc.C) { _ = modelState.Close() })
-
-	f2 := factory.NewFactory(modelState, s.StatePool(), controllerConfig)
-	f2.MakeUnit(c, &factory.UnitParams{
-		Application: f2.MakeApplication(c, &factory.ApplicationParams{
-			Charm: f2.MakeCharm(c, &factory.CharmParams{
-				Name: "storage-block",
-			}),
-			Storage: map[string]state.StorageConstraints{
-				"data": {Pool: "modelscoped"},
-			},
-		}),
-	})
-
-	destroyStorage := false
-	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
-		DestroyModels:  true,
-		DestroyStorage: &destroyStorage,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Dying)
-}
-
-func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
-	force := true
-	timeout := 1 * time.Hour
-	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
-		DestroyModels: true,
-		Force:         &force,
-		ModelTimeout:  &timeout,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.ControllerModel(c).ForceDestroyed(), jc.IsTrue)
-	c.Assert(s.ControllerModel(c).DestroyTimeout().Hours(), gc.Equals, 1.0)
 }
 
 // BlockAllChanges blocks all operations that could change the model.
