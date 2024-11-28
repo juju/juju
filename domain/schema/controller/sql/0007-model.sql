@@ -104,8 +104,8 @@ WHERE m.activated = TRUE;
 -- needed to calculate a model's status.
 CREATE VIEW v_model_state AS
 SELECT
-    -- Wire up the value of migrating when model migration information is
-    -- contained in the database.
+    -- TODO (tlm, JUJU-7230) Wire up the value of migrating when model migration
+    -- information is contained in the database.
     FALSE AS migrating,
     m.uuid,
     cc.invalid AS cloud_credential_invalid,

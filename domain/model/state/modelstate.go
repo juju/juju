@@ -149,8 +149,8 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 		model.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
 			return coremodel.ReadOnlyModel{}, errors.Errorf(
-				"getting model read only information and parsing model owner username %q: %w",
-				owner, err,
+				"parsing model %q owner username %q: %w",
+				m.UUID, owner, err,
 			)
 		}
 	} else {
@@ -165,16 +165,16 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 	model.AgentVersion, err = version.Parse(agentVersion)
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, errors.Errorf(
-			"getting model read only information and parsing model agent version %q: %w",
-			agentVersion, err,
+			"parsing model %q agent version %q: %w",
+			m.UUID, agentVersion, err,
 		)
 	}
 
 	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, errors.Errorf(
-			"getting model read only information and parsing controller uuid %q: %w",
-			m.ControllerUUID, err,
+			"parsing controller uuid %q for model %q: %w",
+			m.ControllerUUID, m.UUID, err,
 		)
 	}
 	return model, nil
@@ -205,12 +205,13 @@ FROM model
 	err = tx.Query(ctx, checkExistsStmt).Get(&uuid)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Errorf(
-			"creating readonly model information and checking if model already exists: %w",
-			err,
+			"checking if model %q already exists: %w",
+			args.UUID, err,
 		)
 	} else if err == nil {
-		return errors.New(
-			"creating readonly model information but model already exists",
+		return errors.Errorf(
+			"creating readonly model %q information but model already exists",
+			args.UUID,
 		).Add(modelerrors.AlreadyExists)
 	}
 

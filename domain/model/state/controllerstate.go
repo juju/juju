@@ -260,7 +260,7 @@ AND owner_name = $dbNames.owner_name
 
 // GetModelState is responsible for returning a set of boolean indicators for
 // key aspects about a model so that a model's status can be derived from this
-// information. If no model exists for the provided uuid then an error
+// information. If no model exists for the provided UUID then an error
 // satisfying [modelerrors.NotFound] will be returned.
 func (s *State) GetModelState(ctx context.Context, uuid coremodel.UUID) (model.ModelState, error) {
 	db, err := s.DB()
