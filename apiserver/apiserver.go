@@ -758,22 +758,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
 		controllerModelUUID,
 	)
-	modelCharmsHandler := &charmsHandler{
-		ctxt:              httpCtxt,
-		dataDir:           srv.dataDir,
-		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
-		objectStoreGetter: srv.shared.objectStoreGetter,
-		logger:            logger.Child("charms-handler"),
-	}
-	modelCharmsHTTPHandler := srv.monitoredHandler(&charmsHTTPHandler{
-		getHandler: modelCharmsHandler.ServeGet,
-	}, "charms")
-	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
+	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		ctxt:              httpCtxt,
-		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
-		objectStoreGetter: srv.shared.objectStoreGetter,
+		ctxt:          httpCtxt,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}, "charms")
 
 	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
@@ -848,9 +837,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: systemState.ControllerTag(),
 	}
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		ctxt:              httpCtxt,
-		stateAuthFunc:     httpCtxt.stateForMigrationImporting,
-		objectStoreGetter: srv.shared.objectStoreGetter,
+		ctxt:          httpCtxt,
+		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}, "charms")
 	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
@@ -900,11 +888,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         embeddedCLIHandler,
 		tracked:         true,
 		unauthenticated: true,
-	}, {
-		// GET /charms has no authorizer
-		pattern: modelRoutePrefix + "/charms",
-		methods: []string{"GET"},
-		handler: modelCharmsHTTPHandler,
 	}, {
 		pattern:    modelRoutePrefix + "/tools",
 		handler:    modelToolsUploadHandler,

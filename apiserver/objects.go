@@ -15,28 +15,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/objectstore"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// endpointMethodHandlerFunc desribes the signature for our functions which handle
-// requests made to a specific endpoint, with a specific method
-type endpointMethodHandlerFunc func(http.ResponseWriter, *http.Request) error
-
-// ObjectStoreGetter is an interface for getting an object store.
-type ObjectStoreGetter interface {
-	// GetObjectStore returns the object store for the given namespace.
-	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
-}
-
 type objectsCharmHTTPHandler struct {
-	ctxt              httpContext
-	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
-	objectStoreGetter ObjectStoreGetter
+	ctxt          httpContext
+	stateAuthFunc func(*http.Request) (*state.PooledState, error)
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +78,7 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 
 	// Get the underlying object store for the model UUID, which we can then
 	// retrieve the blob from.
-	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	store, err := h.ctxt.objectStoreForRequest(r.Context())
 	if err != nil {
 		return errors.Annotate(err, "cannot get object store")
 	}
@@ -182,7 +172,7 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, c
 
 	// Attempt to get the object store early, so we're not unnecessarily
 	// creating a parsing/reading if we can't get the object store.
-	objectStore, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	objectStore, err := h.ctxt.objectStoreForRequest(r.Context())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -267,4 +257,67 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 	}
 	name, sha := charmObjectID[:splitIndex], charmObjectID[splitIndex+1:]
 	return name, sha, nil
+}
+
+// sendJSONError sends a JSON-encoded error response.  Note the
+// difference from the error response sent by the sendError function -
+// the error is encoded in the Error field as a string, not an Error
+// object.
+func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
+	if errors.Is(err, errors.NotYetAvailable) {
+		// This error is typically raised when trying to fetch the blob
+		// contents for a charm which is still pending to be downloaded.
+		//
+		// We should log this at debug level to avoid unnecessary noise
+		// in the logs.
+		logger.Debugf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+	} else {
+		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+	}
+
+	perr, status := apiservererrors.ServerErrorAndStatus(err)
+	return errors.Trace(sendStatusAndJSON(w, status, &params.CharmsResponse{
+		Error:     perr.Message,
+		ErrorCode: perr.Code,
+		ErrorInfo: perr.Info,
+	}))
+}
+
+func writeCharmToTempFile(r io.Reader) (string, error) {
+	tempFile, err := os.CreateTemp("", "charm")
+	if err != nil {
+		return "", errors.Annotate(err, "creating temp file")
+	}
+	defer tempFile.Close()
+
+	if _, err := io.Copy(tempFile, r); err != nil {
+		return "", errors.Annotate(err, "processing upload")
+	}
+	return tempFile.Name(), nil
+}
+
+func modelIsImporting(st *state.State) (bool, error) {
+	model, err := st.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return model.MigrationMode() == state.MigrationModeImporting, nil
+}
+
+func emitUnsupportedMethodErr(method string) error {
+	return errors.MethodNotAllowedf("unsupported method: %q", method)
+}
+
+type storageStateShim struct {
+	*state.State
+}
+
+func (s storageStateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
+	ch, err := s.State.UpdateUploadedCharm(info)
+	return ch, err
+}
+
+func (s storageStateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
+	ch, err := s.State.PrepareCharmUpload(curl)
+	return ch, err
 }
