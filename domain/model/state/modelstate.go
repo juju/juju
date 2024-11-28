@@ -82,13 +82,13 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New("model does not exist").Add(modelerrors.NotFound)
 		} else if err != nil && !internaldatabase.IsErrError(err) {
-			return fmt.Errorf("removing model trigger %w", err)
+			return fmt.Errorf("deleting model trigger %w", err)
 		}
 
 		var outcome sqlair.Outcome
 		err = tx.Query(ctx, modelStmt, mUUID).Get(&outcome)
 		if err != nil {
-			return errors.Errorf("removing readonly model information: %w", err)
+			return errors.Errorf("deleting readonly model information: %w", err)
 		}
 
 		if affected, err := outcome.Result().RowsAffected(); err != nil {
@@ -181,7 +181,8 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 }
 
 // CreateReadOnlyModel is responsible for creating a new model within the model
-// database.
+// database. If the model already exists then an error satisfying
+// [modelerrors.AlreadyExists] is returned.
 func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, preparer domain.Preparer, tx *sqlair.TX) error {
 	// This is some defensive programming. The zero value of agent version is
 	// still valid but should really be considered null for the purposes of
