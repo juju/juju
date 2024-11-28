@@ -169,11 +169,11 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 			}
 		}
 		// Collect and sort unit resources.
-		for _, unitRes := range slices.SortedFunc(maps.Values(resByUnit), func(r1, r2 resource.UnitResources) int {
+		units := slices.SortedFunc(maps.Values(resByUnit), func(r1, r2 resource.UnitResources) int {
 			return strings.Compare(r1.ID.String(), r2.ID.String())
-		}) {
-			result.UnitResources = append(result.UnitResources, unitRes)
-		}
+		})
+		result.UnitResources = append(result.UnitResources, units...)
+
 		return nil
 	})
 

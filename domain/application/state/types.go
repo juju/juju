@@ -204,7 +204,7 @@ type charmName struct {
 type charmReferenceNameRevisionSource struct {
 	ReferenceName string `db:"reference_name"`
 	Revision      int    `db:"revision"`
-	Source        string `db:"source"`
+	Source        int    `db:"source_id"`
 }
 
 // charmAvailable is used to get the available status of a charm.
@@ -217,6 +217,12 @@ type charmSubordinate struct {
 	Subordinate bool `db:"subordinate"`
 }
 
+// charmHash is used to get the hash of a charm.
+type charmHash struct {
+	HashKindID int    `db:"hash_kind_id"`
+	Hash       string `db:"hash"`
+}
+
 // setCharmHash is used to set the hash of a charm.
 type setCharmHash struct {
 	CharmUUID  string `db:"charm_uuid"`
@@ -224,21 +230,26 @@ type setCharmHash struct {
 	Hash       string `db:"hash"`
 }
 
-// setCharm is used to set the charm.
-type setCharm struct {
-	UUID        string `db:"uuid"`
-	ArchivePath string `db:"archive_path"`
-	Available   bool   `db:"available"`
+type charmState struct {
+	ReferenceName  string `db:"reference_name"`
+	Revision       int    `db:"revision"`
+	ArchivePath    string `db:"archive_path"`
+	Available      bool   `db:"available"`
+	SourceID       int    `db:"source_id"`
+	ArchitectureID int    `db:"architecture_id"`
+	Version        string `db:"version"`
 }
 
-// setInitialCharmOrigin is used to set the reference_name, source, revision
-// and version of a charm.
-type setInitialCharmOrigin struct {
-	CharmUUID     string `db:"charm_uuid"`
-	ReferenceName string `db:"reference_name"`
-	SourceID      int    `db:"source_id"`
-	Revision      int    `db:"revision"`
-	Version       string `db:"version"`
+// setCharmState is used to set the charm.
+type setCharmState struct {
+	UUID           string `db:"uuid"`
+	ReferenceName  string `db:"reference_name"`
+	Revision       int    `db:"revision"`
+	ArchivePath    string `db:"archive_path"`
+	Available      bool   `db:"available"`
+	SourceID       int    `db:"source_id"`
+	ArchitectureID int    `db:"architecture_id"`
+	Version        string `db:"version"`
 }
 
 // charmMetadata is used to get the metadata of a charm.
@@ -569,49 +580,22 @@ type charmArchivePathAndHash struct {
 	Hash        string `db:"hash"`
 }
 
-// charmOrigin is used to get the origin of a charm.
-type charmOrigin struct {
-	CharmUUID     string `db:"charm_uuid"`
-	ReferenceName string `db:"reference_name"`
-	Source        string `db:"source"`
-	Revision      int    `db:"revision"`
-}
-
-// setCharmOrigin is used to set the origin of a charm.
-type setCharmOrigin struct {
-	CharmUUID     string `db:"charm_uuid"`
-	ReferenceName string `db:"reference_name"`
-	SourceID      int    `db:"source_id"`
-	Revision      int    `db:"revision"`
-}
-
 type countResult struct {
 	Count int `db:"count"`
 }
 
-type charmPlatform struct {
-	CharmUUID      string `db:"charm_uuid"`
-	OSTypeID       int    `db:"os_id"`
-	Channel        string `db:"channel"`
-	ArchitectureID int    `db:"architecture_id"`
-}
-
-type reserveCharm struct {
-	UUID          string `db:"uuid"`
-	Name          string `db:"name"`
-	ReferenceName string `db:"reference_name"`
-}
-
-// charmNameWithOrigin is used to get the name and the origin of a charm.
-type charmNameWithOrigin struct {
+// charmLocator is used to get the locator of a charm. The locator is purely
+// to reconstruct the charm URL.
+type charmLocator struct {
 	Name           string `db:"name"`
 	ReferenceName  string `db:"reference_name"`
-	Source         string `db:"source"`
 	Revision       int    `db:"revision"`
+	SourceID       int    `db:"source_id"`
 	ArchitectureID int    `db:"architecture_id"`
 }
 
-// resourceIdentity represents the unique identity of a resource within an application.
+// resourceIdentity represents the unique identity of a resource within an
+// application.
 type resourceIdentity struct {
 	UUID            string `db:"uuid"`
 	ApplicationUUID string `db:"application_uuid"`

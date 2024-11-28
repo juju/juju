@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -65,10 +67,8 @@ func (s *State) checkCharmReferenceExists(ctx context.Context, tx *sqlair.TX, re
 	selectQuery := `
 SELECT &charmID.*
 FROM charm
-LEFT JOIN charm_origin
-WHERE charm.uuid = charm_origin.charm_uuid
-AND charm_origin.reference_name = $charmReferenceNameRevisionSource.reference_name 
-AND charm_origin.revision = $charmReferenceNameRevisionSource.revision
+WHERE reference_name = $charmReferenceNameRevisionSource.reference_name 
+AND revision = $charmReferenceNameRevisionSource.revision
 	`
 	ref := charmReferenceNameRevisionSource{
 		ReferenceName: referenceName,
@@ -95,64 +95,64 @@ AND charm_origin.revision = $charmReferenceNameRevisionSource.revision
 	return id, applicationerrors.CharmAlreadyExists
 }
 
-func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, id corecharm.ID, charm charm.Charm, archivePath string) error {
-	if err := s.setCharmState(ctx, tx, id, archivePath); err != nil {
+func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, charm charm.Charm) error {
+	if err := s.setCharmState(ctx, tx, uuid, charm); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile); err != nil {
+	if err := s.setCharmMetadata(ctx, tx, uuid, charm.Metadata, charm.LXDProfile); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmTags(ctx, tx, id, charm.Metadata.Tags); err != nil {
+	if err := s.setCharmTags(ctx, tx, uuid, charm.Metadata.Tags); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmCategories(ctx, tx, id, charm.Metadata.Categories); err != nil {
+	if err := s.setCharmCategories(ctx, tx, uuid, charm.Metadata.Categories); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmTerms(ctx, tx, id, charm.Metadata.Terms); err != nil {
+	if err := s.setCharmTerms(ctx, tx, uuid, charm.Metadata.Terms); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmRelations(ctx, tx, id, charm.Metadata); err != nil {
+	if err := s.setCharmRelations(ctx, tx, uuid, charm.Metadata); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmExtraBindings(ctx, tx, id, charm.Metadata.ExtraBindings); err != nil {
+	if err := s.setCharmExtraBindings(ctx, tx, uuid, charm.Metadata.ExtraBindings); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmStorage(ctx, tx, id, charm.Metadata.Storage); err != nil {
+	if err := s.setCharmStorage(ctx, tx, uuid, charm.Metadata.Storage); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmDevices(ctx, tx, id, charm.Metadata.Devices); err != nil {
+	if err := s.setCharmDevices(ctx, tx, uuid, charm.Metadata.Devices); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmPayloads(ctx, tx, id, charm.Metadata.PayloadClasses); err != nil {
+	if err := s.setCharmPayloads(ctx, tx, uuid, charm.Metadata.PayloadClasses); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmResources(ctx, tx, id, charm.Metadata.Resources); err != nil {
+	if err := s.setCharmResources(ctx, tx, uuid, charm.Metadata.Resources); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmContainers(ctx, tx, id, charm.Metadata.Containers); err != nil {
+	if err := s.setCharmContainers(ctx, tx, uuid, charm.Metadata.Containers); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmActions(ctx, tx, id, charm.Actions); err != nil {
+	if err := s.setCharmActions(ctx, tx, uuid, charm.Actions); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmConfig(ctx, tx, id, charm.Config); err != nil {
+	if err := s.setCharmConfig(ctx, tx, uuid, charm.Config); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmManifest(ctx, tx, id, charm.Manifest); err != nil {
+	if err := s.setCharmManifest(ctx, tx, uuid, charm.Manifest); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -163,22 +163,53 @@ func (s *State) setCharmState(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
-	archivePath string,
+	ch charm.Charm,
 ) error {
-	data := setCharm{
-		UUID:        id.String(),
-		ArchivePath: archivePath,
-		Available:   archivePath != "",
+	sourceID, err := encodeCharmSource(ch.Source)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm source: %w", err)
 	}
 
-	query := `INSERT INTO charm (*) VALUES ($setCharm.*);`
-	stmt, err := s.Prepare(query, data)
+	architectureID, err := encodeArchitecture(ch.Architecture)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm architecture: %w", err)
+	}
+
+	chState := setCharmState{
+		UUID:           id.String(),
+		ReferenceName:  ch.ReferenceName,
+		Revision:       ch.Revision,
+		ArchivePath:    ch.ArchivePath,
+		Available:      ch.Available,
+		Version:        ch.Version,
+		SourceID:       sourceID,
+		ArchitectureID: architectureID,
+	}
+
+	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
+	charmStmt, err := s.Prepare(charmQuery, chState)
 	if err != nil {
 		return fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	if err := tx.Query(ctx, stmt, data).Run(); err != nil {
+	hash := setCharmHash{
+		CharmUUID:  id.String(),
+		HashKindID: 0,
+		Hash:       ch.Hash,
+	}
+
+	hashQuery := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
+	hashStmt, err := s.Prepare(hashQuery, hash)
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, charmStmt, chState).Run(); err != nil {
 		return fmt.Errorf("failed to insert charm state: %w", err)
+	}
+
+	if err := tx.Query(ctx, hashStmt, hash).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm hash: %w", err)
 	}
 
 	return nil
@@ -511,56 +542,14 @@ func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corechar
 	return nil
 }
 
-// getCharmOrigin returns the charm origin for the given charm ID.
-func (s *State) getCharmOrigin(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.CharmOrigin, error) {
-	originQuery := `
-SELECT &charmOrigin.*
-FROM v_charm_origin
-WHERE charm_uuid = $charmID.uuid;
-`
-	platformQuery := `
-SELECT &charmPlatform.*
-FROM charm_platform
-WHERE charm_uuid = $charmID.uuid;
-`
-
-	originStmt, err := s.Prepare(originQuery, charmOrigin{}, ident)
-	if err != nil {
-		return charm.CharmOrigin{}, fmt.Errorf("failed to prepare query: %w", err)
-	}
-
-	platformStmt, err := s.Prepare(platformQuery, charmPlatform{}, ident)
-	if err != nil {
-		return charm.CharmOrigin{}, fmt.Errorf("failed to prepare query: %w", err)
-	}
-
-	var origin charmOrigin
-	if err := tx.Query(ctx, originStmt, ident).Get(&origin); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return charm.CharmOrigin{}, applicationerrors.CharmNotFound
-		}
-		return charm.CharmOrigin{}, fmt.Errorf("failed to get charm origin: %w", err)
-	}
-
-	var platform charmPlatform
-	if err := tx.Query(ctx, platformStmt, ident).Get(&platform); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return charm.CharmOrigin{}, applicationerrors.CharmNotFound
-		}
-		return charm.CharmOrigin{}, fmt.Errorf("failed to get charm platform: %w", err)
-	}
-
-	return decodeCharmOrigin(origin, platform)
-}
-
 // getCharm returns the charm for the given charm ID.
 // This will delegate to the various get methods to get the charm metadata,
 // config, manifest, actions and LXD profile.
 func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
-	var (
-		charm charm.Charm
-		err   error
-	)
+	charm, err := s.getCharmState(ctx, tx, ident)
+	if err != nil {
+		return charm, errors.Trace(err)
+	}
 	if charm.Metadata, err = s.getMetadata(ctx, tx, ident); err != nil {
 		return charm, errors.Trace(err)
 	}
@@ -581,6 +570,54 @@ func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (cha
 		return charm, errors.Trace(err)
 	}
 	return charm, nil
+}
+
+func (s *State) getCharmState(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
+	charmQuery := `
+SELECT &charmState.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+`
+
+	charmStmt, err := s.Prepare(charmQuery, charmState{}, ident)
+	if err != nil {
+		return charm.Charm{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	hashQuery := `
+SELECT &charmHash.*
+FROM charm_hash
+WHERE charm_uuid = $charmID.uuid;
+`
+	hashStmt, err := s.Prepare(hashQuery, charmHash{}, ident)
+	if err != nil {
+		return charm.Charm{}, fmt.Errorf("preparing hash query: %w", err)
+	}
+
+	var charmState charmState
+	if err := tx.Query(ctx, charmStmt, ident).Get(&charmState); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Charm{}, applicationerrors.CharmNotFound
+		}
+		return charm.Charm{}, fmt.Errorf("getting charm state: %w", err)
+	}
+
+	var hash charmHash
+	if err := tx.Query(ctx, hashStmt, ident).Get(&hash); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return charm.Charm{}, applicationerrors.CharmNotFound
+		}
+		return charm.Charm{}, fmt.Errorf("getting charm hash: %w", err)
+	}
+
+	result, err := decodeCharmState(charmState)
+	if err != nil {
+		return charm.Charm{}, fmt.Errorf("decoding charm state: %w", err)
+	}
+
+	result.Hash = hash.Hash
+
+	return result, nil
 }
 
 // getMetadata returns the metadata for the charm using the charm ID.
@@ -717,7 +754,6 @@ WHERE uuid = $charmID.uuid;
 SELECT &charmLXDProfile.*
 FROM charm
 JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
-JOIN charm_origin AS co ON charm.uuid = co.charm_uuid
 WHERE uuid = $charmID.uuid;
 	`
 
@@ -1143,4 +1179,83 @@ ORDER BY array_index ASC;
 	}
 
 	return result, nil
+}
+
+func decodeCharmState(state charmState) (charm.Charm, error) {
+	arch, err := decodeArchitecture(state.ArchitectureID)
+	if err != nil {
+		return charm.Charm{}, err
+	}
+
+	source, err := decodeCharmSource(state.SourceID)
+	if err != nil {
+		return charm.Charm{}, err
+	}
+
+	return charm.Charm{
+		ReferenceName: state.ReferenceName,
+		Revision:      state.Revision,
+		ArchivePath:   state.ArchivePath,
+		Available:     state.Available,
+		Version:       state.Version,
+		Architecture:  arch,
+		Source:        source,
+	}, nil
+
+}
+
+func decodeArchitecture(arch int) (application.Architecture, error) {
+	switch arch {
+	case 0:
+		return architecture.AMD64, nil
+	case 1:
+		return architecture.ARM64, nil
+	case 2:
+		return architecture.PPC64EL, nil
+	case 3:
+		return architecture.S390X, nil
+	case 4:
+		return architecture.RISV64, nil
+	default:
+		return -1, fmt.Errorf("unsupported architecture: %d", arch)
+	}
+}
+
+func decodeCharmSource(source int) (charm.CharmSource, error) {
+	switch source {
+	case 1:
+		return charm.CharmHubSource, nil
+	case 0:
+		return charm.LocalSource, nil
+	default:
+		return "", fmt.Errorf("unsupported charm source: %d", source)
+	}
+}
+
+func encodeArchitecture(a architecture.Architecture) (int, error) {
+	switch a {
+	case architecture.AMD64:
+		return 0, nil
+	case architecture.ARM64:
+		return 1, nil
+	case architecture.PPC64EL:
+		return 2, nil
+	case architecture.S390X:
+		return 3, nil
+	case architecture.RISV64:
+		return 4, nil
+	default:
+		return 0, internalerrors.Errorf("unsupported architecture: %d", a)
+	}
+}
+
+func encodeCharmSource(source charm.CharmSource) (int, error) {
+	switch source {
+	case charm.LocalSource:
+		return 0, nil
+	case charm.CharmHubSource:
+		return 1, nil
+	default:
+		return 0, internalerrors.Errorf("unsupported source type: %s", source)
+	}
 }

@@ -117,31 +117,27 @@ type CharmState interface {
 	// not exist, a [applicationerrors.CharmNotFound] error is returned.
 	SetCharmAvailable(ctx context.Context, charmID corecharm.ID) error
 
-	// ReserveCharmRevision defines a placeholder for a new charm revision.
-	// The original charm will need to exist, the returning charm ID will be
-	// the new charm ID for the revision.
-	ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error)
-
 	// GetCharm returns the charm using the charm ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error)
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
-	SetCharm(ctx context.Context, charm charm.Charm, state charm.SetStateArgs) (corecharm.ID, error)
+	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
 
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
 	DeleteCharm(ctx context.Context, id corecharm.ID) error
 
-	// ListCharmsWithOrigin returns a list of charms with the specified
-	// origin. We require the origin, so we can reconstruct the charm URL for
-	// the client response.
-	ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWithOrigin, error)
+	// ListCharmLocatorsByNames returns a list of charm locators.
+	// The locator allows the reconstruction of the charm URL for the client
+	// response.
+	ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, error)
 
-	// ListCharmsWithOriginByNames returns a list of charms with the specified
-	// origin. We require the origin, so we can reconstruct the charm URL for
-	// the client response. If no names are provided, then nothing is returned.
-	ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error)
+	// ListCharmLocatorsByNames returns a list of charm locators for the specified
+	// charm names.
+	// The locator allows the reconstruction of the charm URL for the client
+	// response. If no names are provided, then nothing is returned.
+	ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive blobs
@@ -238,7 +234,7 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		return nil, charm.CharmOrigin{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	resultCharm, resultOrigin, err := s.st.GetCharm(ctx, id)
+	resultCharm, err := s.st.GetCharm(ctx, id)
 	if err != nil {
 		return nil, charm.CharmOrigin{}, errors.Trace(err)
 	}
