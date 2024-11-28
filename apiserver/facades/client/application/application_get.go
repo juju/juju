@@ -126,13 +126,20 @@ func (api *APIBase) getCharmID(ctx context.Context, charmURL string) (corecharm.
 		return "", errors.Annotate(err, "parsing charm URL")
 	}
 
+	charmSource, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	charmID, err := api.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
 		Name:     curl.Name,
 		Revision: ptr(curl.Revision),
+		Source:   charmSource,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return "", errors.NotFoundf("charm %q", charmURL)
 	} else if errors.Is(err, applicationerrors.CharmNameNotValid) {
+		return "", errors.NotValidf("charm %q", charmURL)
+	} else if errors.Is(err, applicationerrors.CharmSourceNotValid) {
 		return "", errors.NotValidf("charm %q", charmURL)
 	} else if err != nil {
 		return "", errors.Annotate(err, "getting charm id")
