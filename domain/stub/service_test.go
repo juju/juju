@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
@@ -40,6 +41,9 @@ var addApplicationArg = application.AddApplicationArg{
 		Metadata: charm.Metadata{
 			Name: "foo",
 		},
+		Source:        charm.LocalSource,
+		Architecture:  architecture.AMD64,
+		ReferenceName: "foo",
 	},
 }
 

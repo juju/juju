@@ -16,6 +16,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machinestate "github.com/juju/juju/domain/machine/state"
@@ -79,6 +80,10 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 					Name:     appName,
 					Requires: relationsMap,
 				},
+				ReferenceName: appName,
+				Architecture:  architecture.AMD64,
+				Revision:      1,
+				Source:        charm.LocalSource,
 			},
 		})
 		return err

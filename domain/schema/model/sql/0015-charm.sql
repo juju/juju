@@ -116,11 +116,10 @@ INSERT INTO charm_source VALUES
 CREATE VIEW v_charm_annotation_index AS
 SELECT
     c.uuid,
-    cm.name,
-    co.revision
+    c.revision,
+    cm.name
 FROM charm AS c
-LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
-LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid;
+LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
 
 CREATE TABLE hash_kind (
     id INT PRIMARY KEY,

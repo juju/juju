@@ -386,9 +386,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"charm_hash",
 		"charm_manifest_base",
 		"charm_metadata",
-		"charm_origin",
 		"charm_payload",
-		"charm_platform",
 		"charm_relation_kind",
 		"charm_relation_role",
 		"charm_relation_scope",
@@ -502,11 +500,9 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_annotation_index",
 		"v_charm_config",
 		"v_charm_container",
-		"v_charm_list_name_origin",
+		"v_charm_locator",
 		"v_charm_manifest",
 		"v_charm_metadata",
-		"v_charm_origin",
-		"v_charm_platform",
 		"v_charm_relation",
 		"v_charm_resource",
 		"v_charm_storage",
@@ -895,9 +891,8 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 1, tableSecretDeletedValueRef, 1)
 
 	charmUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, "INSERT INTO charm (uuid) VALUES (?);", charmUUID)
+	s.assertExecSQL(c, "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, 'mysql', 0, 0);", charmUUID)
 	s.assertExecSQL(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'mysql');", charmUUID)
-	s.assertExecSQL(c, "INSERT INTO charm_origin (charm_uuid, reference_name) VALUES (?, 'mysql');", charmUUID)
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `

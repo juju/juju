@@ -113,7 +113,13 @@ AFTER UPDATE ON charm FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
 	(NEW.archive_path != OLD.archive_path OR (NEW.archive_path IS NOT NULL AND OLD.archive_path IS NULL) OR (NEW.archive_path IS NULL AND OLD.archive_path IS NOT NULL)) OR
-	(NEW.available != OLD.available OR (NEW.available IS NOT NULL AND OLD.available IS NULL) OR (NEW.available IS NULL AND OLD.available IS NOT NULL)) 
+	(NEW.available != OLD.available OR (NEW.available IS NOT NULL AND OLD.available IS NULL) OR (NEW.available IS NULL AND OLD.available IS NOT NULL)) OR
+	(NEW.charmhub_identifier != OLD.charmhub_identifier OR (NEW.charmhub_identifier IS NOT NULL AND OLD.charmhub_identifier IS NULL) OR (NEW.charmhub_identifier IS NULL AND OLD.charmhub_identifier IS NOT NULL)) OR
+	(NEW.version != OLD.version OR (NEW.version IS NOT NULL AND OLD.version IS NULL) OR (NEW.version IS NULL AND OLD.version IS NOT NULL)) OR
+	NEW.source_id != OLD.source_id OR
+	NEW.architecture_id != OLD.architecture_id OR
+	NEW.revision != OLD.revision OR
+	NEW.reference_name != OLD.reference_name 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
