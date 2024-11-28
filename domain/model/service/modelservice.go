@@ -58,6 +58,7 @@ func NewModelService(
 		modelID:      modelID,
 		controllerSt: controllerSt,
 		modelSt:      modelSt,
+		clock:        clock.WallClock,
 	}
 }
 
