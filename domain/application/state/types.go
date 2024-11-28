@@ -25,6 +25,12 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
+// applicationID is used to get the ID (and life) of an application.
+type applicationID struct {
+	ID     coreapplication.ID `db:"uuid"`
+	LifeID life.Life          `db:"life_id"`
+}
+
 type applicationChannel struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	Track         string             `db:"track"`
@@ -45,11 +51,10 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	UUID        coreapplication.ID `db:"uuid"`
-	Name        string             `db:"name"`
-	NetNodeUUID string             `db:"net_node_uuid"`
-	CharmID     string             `db:"charm_uuid"`
-	LifeID      life.Life          `db:"life_id"`
+	UUID    coreapplication.ID `db:"uuid"`
+	Name    string             `db:"name"`
+	CharmID string             `db:"charm_uuid"`
+	LifeID  life.Life          `db:"life_id"`
 }
 
 type applicationScale struct {
@@ -120,7 +125,6 @@ type unitStatusData struct {
 }
 
 type cloudContainer struct {
-	UUID       string        `db:"uuid"`
 	UnitUUID   coreunit.UUID `db:"unit_uuid"`
 	ProviderID string        `db:"provider_id"`
 }
@@ -128,6 +132,7 @@ type cloudContainer struct {
 type cloudService struct {
 	UUID            string             `db:"uuid"`
 	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	NetNodeUUID     string             `db:"net_node_uuid"`
 	ProviderID      string             `db:"provider_id"`
 }
 
@@ -144,8 +149,8 @@ type cloudContainerDevice struct {
 }
 
 type cloudContainerPort struct {
-	CloudContainerUUID string `db:"cloud_container_uuid"`
-	Port               string `db:"port"`
+	UnitUUID coreunit.UUID `db:"unit_uuid"`
+	Port     string        `db:"port"`
 }
 
 type ipAddress struct {

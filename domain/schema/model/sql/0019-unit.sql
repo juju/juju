@@ -122,8 +122,7 @@ CREATE TABLE unit_state_relation (
 
 -- cloud containers belong to a k8s unit.
 CREATE TABLE cloud_container (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    unit_uuid TEXT NOT NULL,
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
     -- provider_id comes from the provider, no FK.
     -- it represents the k8s pod UID.
     provider_id TEXT NOT NULL,
@@ -136,12 +135,12 @@ CREATE UNIQUE INDEX idx_cloud_container_provider
 ON cloud_container (provider_id);
 
 CREATE TABLE cloud_container_port (
-    cloud_container_uuid TEXT NOT NULL,
+    unit_uuid TEXT NOT NULL,
     port TEXT NOT NULL,
     CONSTRAINT fk_cloud_container_port_cloud_container
-    FOREIGN KEY (cloud_container_uuid)
-    REFERENCES cloud_container (uuid),
-    PRIMARY KEY (cloud_container_uuid, port)
+    FOREIGN KEY (unit_uuid)
+    REFERENCES cloud_container (unit_uuid),
+    PRIMARY KEY (unit_uuid, port)
 );
 
 -- Status values for unit agents.

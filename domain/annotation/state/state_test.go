@@ -17,7 +17,6 @@ import (
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -379,14 +378,9 @@ VALUES (?, 'myapp')`, appUUID)
 			return err
 		}
 
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-		if err != nil {
-			return err
-		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, net_node_uuid, charm_uuid, name, life_id)
-VALUES (?, ?, ?, ?, "0")`, appUUID, netNodeUUID, appUUID, name)
+INSERT INTO application (uuid, charm_uuid, name, life_id)
+VALUES (?, ?, ?, "0")`, appUUID, appUUID, name)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
