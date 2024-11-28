@@ -144,9 +144,9 @@ const (
 	// not oci-image or file.
 	UnknownResourceType = errors.ConstError("unknown resource type")
 
-	// UnknownRetrievedByType describes an error where the retrieved by type is
+	// UnknownAddedByByType describes an error where the added by type is
 	// neither user, unit nor application.
-	UnknownRetrievedByType = errors.ConstError("unknown retrieved by type")
+	UnknownAddedByByType = errors.ConstError("unknown added by type")
 
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.

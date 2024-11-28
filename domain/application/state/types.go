@@ -627,8 +627,8 @@ type resourceView struct {
 	CreatedAt       time.Time `db:"created_at"`
 	Revision        int       `db:"revision"`
 	OriginTypeId    int       `db:"origin_type_id"`
-	RetrievedBy     string    `db:"retrieved_by"`
-	RetrievedByType string    `db:"retrieved_by_type"`
+	AddedBy         string    `db:"added_by"`
+	AddedByType     string    `db:"added_by_type"`
 	Path            string    `db:"path"`
 	Description     string    `db:"description"`
 	KindId          int       `db:"kind_id"`
@@ -654,12 +654,12 @@ func (rv resourceView) toCharmResource() charmresource.Resource {
 // toResource converts a resourceView object to a resource.Resource object including metadata and timestamps.
 func (rv resourceView) toResource() resource.Resource {
 	return resource.Resource{
-		Resource:        rv.toCharmResource(),
-		UUID:            coreresource.UUID(rv.UUID),
-		ApplicationID:   coreapplication.ID(rv.ApplicationUUID),
-		RetrievedBy:     rv.RetrievedBy,
-		RetrievedByType: resource.RetrievedByType(rv.RetrievedByType),
-		Timestamp:       rv.CreatedAt,
+		Resource:      rv.toCharmResource(),
+		UUID:          coreresource.UUID(rv.UUID),
+		ApplicationID: coreapplication.ID(rv.ApplicationUUID),
+		AddedBy:       rv.AddedBy,
+		AddedByType:   resource.AddedByType(rv.AddedByType),
+		Timestamp:     rv.CreatedAt,
 	}
 }
 

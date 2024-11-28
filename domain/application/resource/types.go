@@ -63,7 +63,7 @@ type ApplicationResources struct {
 // populated before an upload (whether local or from the charm store).
 // In that case the following fields are not set:
 //
-//	Timestamp, RetrievedBy, RetrievedByType
+//	Timestamp, AddedBy, AddedByType
 //
 // For "upload" placeholders, the following additional fields are
 // not set:
@@ -78,29 +78,29 @@ type Resource struct {
 	// ApplicationID identifies the application for the resource.
 	ApplicationID application.ID
 
-	// RetrievedBy is the name of who added the resource to the controller.
+	// AddedBy is the name of who added the resource to the controller.
 	// The name is a username if the resource is uploaded from the cli
 	// by a specific user. If the resource is downloaded from a repository,
 	// the ID of the unit which triggered the download is used.
-	RetrievedBy string
+	AddedBy string
 
-	// RetrievedByType indicates what type of value the RetrievedBy name is:
+	// AddedByType indicates what type of value the AddedBy name is:
 	// application, username or unit.
-	RetrievedByType RetrievedByType
+	AddedByType AddedByType
 
 	// Timestamp indicates when this resource was added to the model in
 	// the case of applications or when this resource was loaded by a unit.
 	Timestamp time.Time
 }
 
-// RetrievedByType indicates what the RetrievedBy name represents.
-type RetrievedByType string
+// AddedByType indicates what the AddedBy name represents.
+type AddedByType string
 
 const (
-	Unknown     RetrievedByType = "unknown"
-	Application RetrievedByType = "application"
-	Unit        RetrievedByType = "unit"
-	User        RetrievedByType = "user"
+	Unknown     AddedByType = "unknown"
+	Application AddedByType = "application"
+	Unit        AddedByType = "unit"
+	User        AddedByType = "user"
 )
 
 // UnitResources contains the list of resources used by a unit.
@@ -121,20 +121,20 @@ type GetApplicationResourceIDArgs struct {
 
 // SetResourceArgs holds the arguments for the SetResource method.
 type SetResourceArgs struct {
-	ApplicationID  application.ID
-	SuppliedBy     string
-	SuppliedByType RetrievedByType
-	Resource       resource.Resource
-	Reader         io.Reader
-	Increment      IncrementCharmModifiedVersionType
+	ApplicationID application.ID
+	AddedBy       string
+	AddedByType   AddedByType
+	Resource      resource.Resource
+	Reader        io.Reader
+	Increment     IncrementCharmModifiedVersionType
 }
 
 // SetUnitResourceArgs holds the arguments for the SetUnitResource method.
 type SetUnitResourceArgs struct {
-	ResourceUUID    coreresource.UUID
-	RetrievedBy     string
-	RetrievedByType RetrievedByType
-	UnitUUID        unit.UUID
+	ResourceUUID coreresource.UUID
+	AddedBy      string
+	AddedByType  AddedByType
+	UnitUUID     unit.UUID
 }
 
 // SetUnitResourceResult is the result data from setting a unit's resource.

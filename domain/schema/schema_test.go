@@ -414,8 +414,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"resource_file_store",
 		"resource_image_store",
 		"resource_origin_type",
-		"resource_retrieved_by",
-		"resource_retrieved_by_type",
+		"resource_added_by",
+		"resource_added_by_type",
 		"resource_state",
 		"unit_resource",
 

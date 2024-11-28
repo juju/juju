@@ -148,8 +148,8 @@ func (s *Service) GetResource(
 // The following error types can be expected to be returned:
 //   - errors.NotValid is returned if the application ID is not valid.
 //   - errors.NotValid is returned if the resource is not valid.
-//   - errors.NotValid is returned if the RetrievedByType is unknown while
-//     RetrievedBy has a value.
+//   - errors.NotValid is returned if the AddedByType is unknown while
+//     AddedBy has a value.
 //   - application.ApplicationNotFound if the specified application does
 //     not exist.
 func (s *Service) SetResource(
@@ -159,9 +159,9 @@ func (s *Service) SetResource(
 	if err := args.ApplicationID.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("application id: %w", err)
 	}
-	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
+	if args.AddedBy != "" && args.AddedByType == resource.Unknown {
 		return resource.Resource{},
-			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
+			fmt.Errorf("%w AddedByType cannot be unknown if AddedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("resource: %w", err)
@@ -174,8 +174,8 @@ func (s *Service) SetResource(
 // The following error types can be expected to be returned:
 //   - [errors.NotValid] is returned if the unit UUID is not valid.
 //   - [errors.NotValid] is returned if the resource UUID is not valid.
-//   - [errors.NotValid] is returned if the RetrievedByType is unknown while
-//     RetrievedBy has a value.
+//   - [errors.NotValid] is returned if the AddedByType is unknown while
+//     AddedBy has a value.
 //   - [applicationerrors.ResourceNotFound] if the specified resource doesn't exist
 //   - [applicationerrors.UnitNotFound] if the specified unit doesn't exist
 func (s *Service) SetUnitResource(
@@ -188,9 +188,9 @@ func (s *Service) SetUnitResource(
 	if err := args.ResourceUUID.Validate(); err != nil {
 		return resource.SetUnitResourceResult{}, fmt.Errorf("resource id: %w", err)
 	}
-	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
+	if args.AddedBy != "" && args.AddedByType == resource.Unknown {
 		return resource.SetUnitResourceResult{},
-			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
+			fmt.Errorf("%w AddedByType cannot be unknown if AddedBy set", errors.NotValid)
 	}
 	return s.st.SetUnitResource(ctx, args)
 }

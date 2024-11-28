@@ -66,22 +66,22 @@ CREATE TABLE application_resource (
     REFERENCES resource (uuid)
 );
 
-CREATE TABLE resource_retrieved_by_type (
+CREATE TABLE resource_added_by_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_resource_retrieved_by_type
-ON resource_retrieved_by_type (name);
+CREATE UNIQUE INDEX idx_resource_added_by_type
+ON resource_added_by_type (name);
 
-INSERT INTO resource_retrieved_by_type VALUES
+INSERT INTO resource_added_by_type VALUES
 (0, 'user'),
 (1, 'unit'),
 (2, 'application');
 
-CREATE TABLE resource_retrieved_by (
+CREATE TABLE resource_added_by (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
-    retrieved_by_type_id INT NOT NULL,
+    added_by_type_id INT NOT NULL,
     -- Name is the entity who retrieved the resource blob:
     --   The name of the user who uploaded the resource.
     --   Unit or application name of which triggered the download
@@ -90,9 +90,9 @@ CREATE TABLE resource_retrieved_by (
     CONSTRAINT fk_resource
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid),
-    CONSTRAINT fk_resource_retrieved_by_type
-    FOREIGN KEY (retrieved_by_type_id)
-    REFERENCES resource_retrieved_by_type (id)
+    CONSTRAINT fk_resource_added_by_type
+    FOREIGN KEY (added_by_type_id)
+    REFERENCES resource_added_by_type (id)
 );
 
 -- This is an container image resource used by a kubernetes application.
@@ -170,13 +170,13 @@ SELECT
     r.created_at,
     r.revision,
     r.origin_type_id,
-    rrb.name AS retrieved_by,
-    rrbt.name AS retrieved_by_type,
+    rrb.name AS added_by,
+    rabt.name AS added_by_type,
     cr.path,
     cr.description,
     cr.kind_id
 FROM resource AS r
 INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
 INNER JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
-LEFT JOIN resource_retrieved_by AS rrb ON r.uuid = rrb.resource_uuid
-LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id;
+LEFT JOIN resource_added_by AS rrb ON r.uuid = rrb.resource_uuid
+LEFT JOIN resource_added_by_type AS rabt ON rrb.added_by_type_id = rabt.id;

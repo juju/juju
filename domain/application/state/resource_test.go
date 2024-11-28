@@ -162,11 +162,11 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 			//Fingerprint: charmresource.Fingerprint{},
 			//Size:        0,
 		},
-		UUID:            resID,
-		ApplicationID:   application.ID(s.constants.fakeApplicationUUID1),
-		RetrievedBy:     "johnDoe",
-		RetrievedByType: "user",
-		Timestamp:       now,
+		UUID:          resID,
+		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+		AddedBy:       "johnDoe",
+		AddedByType:   "user",
+		Timestamp:     now,
 	}
 	input := resourceData{
 		UUID:            resID.String(),
@@ -178,8 +178,8 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 		Kind:            "file", // 0 in db
 		Path:            expected.Path,
 		Description:     expected.Description,
-		RetrievedByType: string(expected.RetrievedByType),
-		RetrievedByName: expected.RetrievedBy,
+		AddedByType:     string(expected.AddedByType),
+		AddedByName:     expected.AddedBy,
 	}
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := input.insert(context.Background(), tx)
@@ -204,8 +204,8 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 	defaultResource := resourceData{
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		CreatedAt:       now,
-		RetrievedByType: "user",
-		RetrievedByName: "John Doe",
+		AddedByType:     "user",
+		AddedByName:     "John Doe",
 	}
 	notPolled := []resourceData{
 		defaultResource.DeepCopy(),
@@ -358,10 +358,10 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSupplied(c *gc.C) {
 
 	// Act set supplied by with application type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
-		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
-		RetrievedBy:     "app1",
-		RetrievedByType: "application",
+		ResourceUUID: coreresources.UUID(resID),
+		UnitUUID:     unit.UUID(s.constants.fakeUnitUUID1),
+		AddedBy:      "app1",
+		AddedByType:  "application",
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
@@ -380,21 +380,21 @@ WHERE resource_uuid = ? and unit_uuid = ? and added_at = ?`,
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var discard string
 		return tx.QueryRow(`
-SELECT resource_uuid FROM resource_retrieved_by rrb
-JOIN resource_retrieved_by_type rrbt on rrb.retrieved_by_type_id = rrbt.id
+SELECT resource_uuid FROM resource_added_by rrb
+JOIN resource_added_by_type rrbt on rrb.added_by_type_id = rrbt.id
 WHERE rrb.resource_uuid = ? and rrb.name = ? and rrbt.name = ?`,
 			resID, "app1", "application").Scan(&discard) // only fetch a possible error
 	})
 	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) application_resource and resource_supplied_by not updated: %v", errors.ErrorStack(err)))
 }
 
-// TestSetUnitResourceAlreadyRetrievedByApplication verifies that attempting to
-// set a resource as retrieved by a unit correctly handles the case where the
-// resource was previously retrieved by an application. It ensures that no
-// erroneous updates are made to the resource_retrieved_by table and that the
+// TestSetUnitResourceAlreadyAddedByApplication verifies that attempting to
+// set a resource as added by a unit correctly handles the case where the
+// resource was previously added by an application. It ensures that no
+// erroneous updates are made to the resource_added_by table and that the
 // unit_resource table is updated appropriately.
-func (s *resourceSuite) TestSetUnitResourceAlreadyRetrievedByApplication(c *gc.C) {
-	// Arrange: insert a resource and data implying it has been retrieved by an application (not an unit)
+func (s *resourceSuite) TestSetUnitResourceAlreadyAddedByApplication(c *gc.C) {
+	// Arrange: insert a resource and data implying it has been added by an application (not an unit)
 	now := time.Now().Truncate(time.Second).UTC()
 	resID := "resource-id"
 	input := resourceData{
@@ -402,8 +402,8 @@ func (s *resourceSuite) TestSetUnitResourceAlreadyRetrievedByApplication(c *gc.C
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		CreatedAt:       now,
 		Name:            "resource-name",
-		RetrievedByName: s.constants.fakeApplicationUUID1,
-		RetrievedByType: "application",
+		AddedByName:     s.constants.fakeApplicationUUID1,
+		AddedByType:     "application",
 	}
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return errors.Capture(input.insert(context.Background(), tx))
@@ -412,10 +412,10 @@ func (s *resourceSuite) TestSetUnitResourceAlreadyRetrievedByApplication(c *gc.C
 
 	// Act set supplied by with application type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
-		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
-		RetrievedBy:     s.constants.fakeUnitUUID1,
-		RetrievedByType: "unit",
+		ResourceUUID: coreresources.UUID(resID),
+		UnitUUID:     unit.UUID(s.constants.fakeUnitUUID1),
+		AddedBy:      s.constants.fakeUnitUUID1,
+		AddedByType:  "unit",
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
@@ -434,11 +434,11 @@ WHERE resource_uuid = ? and unit_uuid = ? and added_at = ?`,
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var discard string
 		return tx.QueryRow(`
-SELECT resource_uuid FROM resource_retrieved_by
-WHERE resource_uuid = ? AND retrieved_by_type_id = ? AND name = ?`,
+SELECT resource_uuid FROM resource_added_by
+WHERE resource_uuid = ? AND added_by_type_id = ? AND name = ?`,
 			resID, 2 /* application */, s.constants.fakeApplicationUUID1).Scan(&discard) // only fetch a possible error
 	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_retrieved_by has been updated, which is incorrect: %v", errors.ErrorStack(err)))
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_added_by has been updated, which is incorrect: %v", errors.ErrorStack(err)))
 }
 
 // TestSetUnitResourceAlreadySetted checks if set unit resource correctly
@@ -463,10 +463,10 @@ func (s *resourceSuite) TestSetUnitResourceAlreadySetted(c *gc.C) {
 
 	// Act set supplied by with user type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
-		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
-		RetrievedBy:     "john",
-		RetrievedByType: "user",
+		ResourceUUID: coreresources.UUID(resID),
+		UnitUUID:     unit.UUID(s.constants.fakeUnitUUID1),
+		AddedBy:      "john",
+		AddedByType:  "user",
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetUnitResource: %v", errors.ErrorStack(err)))
 
@@ -504,19 +504,19 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSuppliedExistingSupplierWrongTy
 
 	// Act set supplied by with unexpected type
 	_, err = s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
-		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
-		RetrievedBy:     "john",
-		RetrievedByType: "unexpected",
+		ResourceUUID: coreresources.UUID(resID),
+		UnitUUID:     unit.UUID(s.constants.fakeUnitUUID1),
+		AddedBy:      "john",
+		AddedByType:  "unexpected",
 	})
 
 	// Assert: an error is returned, nothing is updated in the db
-	c.Check(err, jc.ErrorIs, apperrors.UnknownRetrievedByType)
+	c.Check(err, jc.ErrorIs, apperrors.UnknownAddedByByType)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var discard string
 		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
 		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		err = tx.QueryRow(`SELECT * FROM resource_retrieved_by`).Scan(&discard)
+		err = tx.QueryRow(`SELECT * FROM resource_added_by`).Scan(&discard)
 		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
 		return nil
 	})
@@ -525,17 +525,17 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSuppliedExistingSupplierWrongTy
 // TestSetUnitResourceNotFound verifies that attempting to set a resource for a
 // unit when the resource does not exist results in a ResourceNotFound error.
 // The test ensures that no updates are made to the unit_resource and
-// resource_retrieved_by tables in the database.
+// resource_added_by tables in the database.
 func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 	// Arrange: No resource
 	resID := "resource-id"
 
 	// Act: set unknown resource
 	_, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
-		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
-		RetrievedBy:     "john",
-		RetrievedByType: "unexpected",
+		ResourceUUID: coreresources.UUID(resID),
+		UnitUUID:     unit.UUID(s.constants.fakeUnitUUID1),
+		AddedBy:      "john",
+		AddedByType:  "unexpected",
 	})
 
 	// Assert: an error is returned, nothing is updated in the db
@@ -544,7 +544,7 @@ func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 		var discard string
 		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
 		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		err = tx.QueryRow(`SELECT * FROM resource_retrieved_by`).Scan(&discard)
+		err = tx.QueryRow(`SELECT * FROM resource_added_by`).Scan(&discard)
 		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
 		return nil
 	})
@@ -569,10 +569,10 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 
 	// Act set supplied by with unexpected unit
 	_, err = s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
-		UnitUUID:        "unexpected-unit-id",
-		RetrievedBy:     "john",
-		RetrievedByType: "user",
+		ResourceUUID: coreresources.UUID(resID),
+		UnitUUID:     "unexpected-unit-id",
+		AddedBy:      "john",
+		AddedByType:  "user",
 	})
 
 	// Assert: an error is returned, nothing is updated in the db
@@ -581,7 +581,7 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 		var discard string
 		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
 		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		err = tx.QueryRow(`SELECT * FROM resource_retrieved_by`).Scan(&discard)
+		err = tx.QueryRow(`SELECT * FROM resource_added_by`).Scan(&discard)
 		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
 		return nil
 	})
@@ -706,8 +706,8 @@ type resourceData struct {
 	State           string // State represents the current state of the resource (should be a valid value resource_state or empty)
 	CreatedAt       time.Time
 	PolledAt        time.Time
-	RetrievedByType string // should be a valid value from resource_supplied_by_type
-	RetrievedByName string
+	AddedByType     string // should be a valid value from resource_supplied_by_type
+	AddedByName     string
 	Kind            string // Type of resource (should be a valid value from charm_resource_kind or empty)
 	Path            string
 	Description     string
@@ -736,12 +736,12 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 // enriched metadata.
 func (d resourceData) toResource() resource.Resource {
 	return resource.Resource{
-		Resource:        d.toCharmResource(),
-		UUID:            coreresources.UUID(d.UUID),
-		ApplicationID:   application.ID(d.ApplicationUUID),
-		RetrievedBy:     d.RetrievedByName,
-		RetrievedByType: resource.RetrievedByType(d.RetrievedByType),
-		Timestamp:       d.CreatedAt,
+		Resource:      d.toCharmResource(),
+		UUID:          coreresources.UUID(d.UUID),
+		ApplicationID: application.ID(d.ApplicationUUID),
+		AddedBy:       d.AddedByName,
+		AddedByType:   resource.AddedByType(d.AddedByType),
+		Timestamp:     d.CreatedAt,
 	}
 }
 
@@ -751,14 +751,14 @@ func (d resourceData) DeepCopy() resourceData {
 	return result
 }
 
-// RetrievedByTypeID maps the RetrievedByType string to an integer ID based on
+// AddedByTypeID maps the AddedByType string to an integer ID based on
 // predefined categories.
-func (d resourceData) RetrievedByTypeID() int {
+func (d resourceData) AddedByTypeID() int {
 	res, _ := map[string]int{
 		"user":        0,
 		"unit":        1,
 		"application": 2,
-	}[d.RetrievedByType]
+	}[d.AddedByType]
 	return res
 }
 
@@ -792,7 +792,7 @@ func (d resourceData) StateID() int {
 
 // insert inserts the resource data into multiple related tables within a transaction.
 // It populates charm_resource, resource, application_resource,
-// resource_retrieved_by (if necessary), and unit_resource (if required).
+// resource_added_by (if necessary), and unit_resource (if required).
 func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 	//  Populate resource table
 	nilZeroTime := func(t time.Time) *time.Time {
@@ -822,10 +822,10 @@ func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 		return errors.Capture(err)
 	}
 
-	// Populate resource_retrieved_by table of necessary
-	if input.RetrievedByName != "" {
-		_, err = tx.Exec(`INSERT INTO resource_retrieved_by (resource_uuid, retrieved_by_type_id, name) VALUES (?, ?, ?)`,
-			input.UUID, input.RetrievedByTypeID(), input.RetrievedByName)
+	// Populate resource_added_by table of necessary
+	if input.AddedByName != "" {
+		_, err = tx.Exec(`INSERT INTO resource_added_by (resource_uuid, added_by_type_id, name) VALUES (?, ?, ?)`,
+			input.UUID, input.AddedByTypeID(), input.AddedByName)
 		if err != nil {
 			return errors.Capture(err)
 		}

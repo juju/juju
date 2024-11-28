@@ -69,8 +69,8 @@ func (s *resourceServiceSuite) TestListResources(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	expectedList := resource.ApplicationResources{
 		Resources: []resource.Resource{{
-			RetrievedBy:     "admin",
-			RetrievedByType: resource.Application,
+			AddedBy:     "admin",
+			AddedByType: resource.Application,
 		}},
 	}
 	s.state.EXPECT().ListResources(gomock.Any(), id).Return(expectedList, nil)
@@ -91,8 +91,8 @@ func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 
 	id := resourcestesting.GenResourceUUID(c)
 	expectedRes := resource.Resource{
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.Application,
+		AddedBy:     "admin",
+		AddedByType: resource.Application,
 	}
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
 
@@ -115,9 +115,9 @@ func (s *resourceServiceSuite) TestSetResource(c *gc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	args := resource.SetResourceArgs{
-		ApplicationID:  applicationtesting.GenApplicationUUID(c),
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.User,
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		AddedBy:       "admin",
+		AddedByType:   resource.User,
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "my-resource",
@@ -134,8 +134,8 @@ func (s *resourceServiceSuite) TestSetResource(c *gc.C) {
 		Increment: false,
 	}
 	expectedRes := resource.Resource{
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.User,
+		AddedBy:     "admin",
+		AddedByType: resource.User,
 	}
 	s.state.EXPECT().SetResource(gomock.Any(), args).Return(expectedRes, nil)
 
@@ -154,12 +154,12 @@ func (s *resourceServiceSuite) TestSetResourceBadID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *resourceServiceSuite) TestSetResourceBadSuppliedBy(c *gc.C) {
+func (s *resourceServiceSuite) TestSetResourceBadAddedBy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := resource.SetResourceArgs{
-		ApplicationID:  applicationtesting.GenApplicationUUID(c),
-		SuppliedByType: resource.Application,
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		AddedByType:   resource.Application,
 	}
 	_, err := s.service.SetResource(context.Background(), args)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
@@ -187,10 +187,10 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 
 	resID := resourcestesting.GenResourceUUID(c)
 	args := resource.SetUnitResourceArgs{
-		ResourceUUID:    resID,
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.User,
-		UnitUUID:        unittesting.GenUnitUUID(c),
+		ResourceUUID: resID,
+		AddedBy:      "admin",
+		AddedByType:  resource.User,
+		UnitUUID:     unittesting.GenUnitUUID(c),
 	}
 	expectedRet := resource.SetUnitResourceResult{
 		UUID: resourcestesting.GenResourceUUID(c),

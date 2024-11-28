@@ -275,40 +275,40 @@ WHERE uuid = $resourceIdentity.uuid`
 	}
 
 	// Prepare statement to verify if the application resource is already
-	// retrieved.
-	checkAlreadyRetrievedQuery := `
+	// added.
+	checkAlreadyAddedQuery := `
 SELECT resource_uuid AS &resourceIdentity.uuid 
-FROM resource_retrieved_by
+FROM resource_added_by
 WHERE resource_uuid = $resourceIdentity.uuid`
-	checkAlreadyRetrievedStmt, err := st.Prepare(checkAlreadyRetrievedQuery, resourceUUID)
+	checkAlreadyAddedStmt, err := st.Prepare(checkAlreadyAddedQuery, resourceUUID)
 	if err != nil {
 		return resource.SetUnitResourceResult{}, errors.Capture(err)
 	}
 
-	// Prepare statements to update retrieved data if not already retrieved.
-	type retrievedByType struct {
+	// Prepare statements to update added data if not already added.
+	type addedByType struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
 	}
-	type retrievedBy struct {
-		ResourceUUID      string `db:"resource_uuid"`
-		RetrievedByTypeID int    `db:"retrieved_by_type_id"`
-		Name              string `db:"name"`
+	type addedBy struct {
+		ResourceUUID  string `db:"resource_uuid"`
+		AddedByTypeID int    `db:"added_by_type_id"`
+		Name          string `db:"name"`
 	}
-	retrievedTypeParam := retrievedByType{Name: string(config.RetrievedByType)}
-	retrievedByParam := retrievedBy{ResourceUUID: config.ResourceUUID.String(), Name: config.RetrievedBy}
-	getRetrievedTypeQuery := `
-	SELECT &retrievedByType.* 
-	FROM resource_retrieved_by_type 
-	WHERE name = $retrievedByType.name`
-	getRetrievedByTypeStmt, err := st.Prepare(getRetrievedTypeQuery, retrievedTypeParam)
+	addedTypeParam := addedByType{Name: string(config.AddedByType)}
+	addedByParam := addedBy{ResourceUUID: config.ResourceUUID.String(), Name: config.AddedBy}
+	getAddedTypeQuery := `
+	SELECT &addedByType.* 
+	FROM resource_added_by_type 
+	WHERE name = $addedByType.name`
+	getAddedByTypeStmt, err := st.Prepare(getAddedTypeQuery, addedTypeParam)
 	if err != nil {
 		return resource.SetUnitResourceResult{}, errors.Capture(err)
 	}
-	insertRetrievedByQuery := `
-INSERT INTO resource_retrieved_by (resource_uuid, retrieved_by_type_id, name)
-VALUES ($retrievedBy.*)`
-	insertRetrievedByStmt, err := st.Prepare(insertRetrievedByQuery, retrievedByParam)
+	insertAddedByQuery := `
+INSERT INTO resource_added_by (resource_uuid, added_by_type_id, name)
+VALUES ($addedBy.*)`
+	insertAddedByStmt, err := st.Prepare(insertAddedByQuery, addedByParam)
 	if err != nil {
 		return resource.SetUnitResourceResult{}, errors.Capture(err)
 	}
@@ -348,25 +348,25 @@ VALUES ($unitResource.*)`
 			return errors.Capture(err)
 		}
 
-		// Verify if the application is already retrieved.
-		err = tx.Query(ctx, checkAlreadyRetrievedStmt, resourceUUID).Get(&resourceUUID)
+		// Verify if the application is already added.
+		err = tx.Query(ctx, checkAlreadyAddedStmt, resourceUUID).Get(&resourceUUID)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 
-		// Update retrieved by if it is not retrieved.
+		// Update added by if it is not added.
 		if errors.Is(err, sqlair.ErrNoRows) {
-			err = tx.Query(ctx, getRetrievedByTypeStmt, retrievedTypeParam).Get(&retrievedTypeParam)
+			err = tx.Query(ctx, getAddedByTypeStmt, addedTypeParam).Get(&addedTypeParam)
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return apperrors.UnknownRetrievedByType
+				return apperrors.UnknownAddedByByType
 			}
 			if err != nil {
 				return errors.Capture(err)
 			}
 
-			// Insert retrieved by.
-			retrievedByParam.RetrievedByTypeID = retrievedTypeParam.ID
-			err = tx.Query(ctx, insertRetrievedByStmt, retrievedByParam).Run()
+			// Insert added by.
+			addedByParam.AddedByTypeID = addedTypeParam.ID
+			err = tx.Query(ctx, insertAddedByStmt, addedByParam).Run()
 			if err != nil {
 				return errors.Capture(err)
 			}
