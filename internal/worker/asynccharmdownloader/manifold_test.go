@@ -26,12 +26,12 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func validConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DomainServicesName: "api-caller",
-		HTTPClientName:     "http-client",
-		NewDownloader:      NewDownloader,
-		NewHTTPClient:      NewHTTPClient,
-		NewAsyncWorker:     NewAsyncWorker,
-		Logger:             loggertesting.WrapCheckLog(c),
+		DomainServicesName:     "api-caller",
+		HTTPClientName:         "http-client",
+		NewDownloader:          NewDownloader,
+		NewHTTPClient:          NewHTTPClient,
+		NewAsyncDownloadWorker: NewAsyncDownloadWorker,
+		Logger:                 loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -59,9 +59,9 @@ func (s *ManifoldConfigSuite) TestMissingNewHTTPClient(c *gc.C) {
 	s.checkNotValid(c, "nil NewHTTPClient not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewAsyncWorker(c *gc.C) {
-	s.config.NewAsyncWorker = nil
-	s.checkNotValid(c, "nil NewAsyncWorker not valid")
+func (s *ManifoldConfigSuite) TestMissingNewAsyncDownloadWorker(c *gc.C) {
+	s.config.NewAsyncDownloadWorker = nil
+	s.checkNotValid(c, "nil NewAsyncDownloadWorker not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {

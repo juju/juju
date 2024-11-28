@@ -260,7 +260,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 }
 
 func (s *asyncWorkerSuite) newWorker(c *gc.C, appID application.ID) worker.Worker {
-	return NewAsyncWorker(
+	return NewAsyncDownloadWorker(
 		appID,
 		s.applicationService,
 		s.downloader,
