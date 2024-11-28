@@ -44,11 +44,11 @@ func (m *MockCharmService) EXPECT() *MockCharmServiceMockRecorder {
 }
 
 // GetCharm mocks base method.
-func (m *MockCharmService) GetCharm(arg0 context.Context, arg1 charm.ID) (charm1.Charm, charm0.CharmOrigin, error) {
+func (m *MockCharmService) GetCharm(arg0 context.Context, arg1 charm.ID) (charm1.Charm, charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharm", arg0, arg1)
 	ret0, _ := ret[0].(charm1.Charm)
-	ret1, _ := ret[1].(charm0.CharmOrigin)
+	ret1, _ := ret[1].(charm0.CharmLocator)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -66,19 +66,19 @@ type MockCharmServiceGetCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmServiceGetCharmCall) Return(arg0 charm1.Charm, arg1 charm0.CharmOrigin, arg2 error) *MockCharmServiceGetCharmCall {
+func (c *MockCharmServiceGetCharmCall) Return(arg0 charm1.Charm, arg1 charm0.CharmLocator, arg2 error) *MockCharmServiceGetCharmCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmServiceGetCharmCall) Do(f func(context.Context, charm.ID) (charm1.Charm, charm0.CharmOrigin, error)) *MockCharmServiceGetCharmCall {
+func (c *MockCharmServiceGetCharmCall) Do(f func(context.Context, charm.ID) (charm1.Charm, charm0.CharmLocator, error)) *MockCharmServiceGetCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmServiceGetCharmCall) DoAndReturn(f func(context.Context, charm.ID) (charm1.Charm, charm0.CharmOrigin, error)) *MockCharmServiceGetCharmCall {
+func (c *MockCharmServiceGetCharmCall) DoAndReturn(f func(context.Context, charm.ID) (charm1.Charm, charm0.CharmLocator, error)) *MockCharmServiceGetCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -185,14 +185,13 @@ func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(co
 }
 
 // GetCharmByApplicationID mocks base method.
-func (m *MockApplicationService) GetCharmByApplicationID(arg0 context.Context, arg1 application.ID) (charm1.Charm, charm0.CharmOrigin, charm0.Platform, error) {
+func (m *MockApplicationService) GetCharmByApplicationID(arg0 context.Context, arg1 application.ID) (charm1.Charm, charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmByApplicationID", arg0, arg1)
 	ret0, _ := ret[0].(charm1.Charm)
-	ret1, _ := ret[1].(charm0.CharmOrigin)
-	ret2, _ := ret[2].(charm0.Platform)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret1, _ := ret[1].(charm0.CharmLocator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetCharmByApplicationID indicates an expected call of GetCharmByApplicationID.
@@ -208,19 +207,19 @@ type MockApplicationServiceGetCharmByApplicationIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmByApplicationIDCall) Return(arg0 charm1.Charm, arg1 charm0.CharmOrigin, arg2 charm0.Platform, arg3 error) *MockApplicationServiceGetCharmByApplicationIDCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+func (c *MockApplicationServiceGetCharmByApplicationIDCall) Return(arg0 charm1.Charm, arg1 charm0.CharmLocator, arg2 error) *MockApplicationServiceGetCharmByApplicationIDCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmByApplicationIDCall) Do(f func(context.Context, application.ID) (charm1.Charm, charm0.CharmOrigin, charm0.Platform, error)) *MockApplicationServiceGetCharmByApplicationIDCall {
+func (c *MockApplicationServiceGetCharmByApplicationIDCall) Do(f func(context.Context, application.ID) (charm1.Charm, charm0.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmByApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) (charm1.Charm, charm0.CharmOrigin, charm0.Platform, error)) *MockApplicationServiceGetCharmByApplicationIDCall {
+func (c *MockApplicationServiceGetCharmByApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) (charm1.Charm, charm0.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

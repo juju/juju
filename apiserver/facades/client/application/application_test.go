@@ -503,7 +503,7 @@ func (s *applicationSuite) expectCharm(c *gc.C, name string) {
 		Source:   applicationcharm.LocalSource,
 	}).Return(id, nil)
 
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmOrigin{
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
 		Revision: 42,
 	}, nil)
 }
@@ -554,7 +554,7 @@ func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
 
 	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), name).Return(id, nil)
 
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmOrigin{
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
 		Revision: 42,
 	}, nil)
 
@@ -573,7 +573,7 @@ func (s applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string) 
 
 	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), name).Return(id, nil)
 
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmOrigin{
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
 		Revision: 42,
 	}, nil)
 
@@ -598,7 +598,7 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params applicationservice.UpdateCharmParams) error {
 		c.Assert(params.Charm, gc.DeepEquals, &domainCharm{
 			charm: s.charm,
-			origin: applicationcharm.CharmOrigin{
+			locator: applicationcharm.CharmLocator{
 				Revision: 42,
 			},
 		})

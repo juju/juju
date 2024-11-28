@@ -29,6 +29,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -102,14 +103,14 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 	// Select all the charms from state. If no names are passed, all the charms
 	// will be returned.
 	names := set.NewStrings(args.Names...).SortedValues()
-	charms, err := a.applicationService.ListCharmsWithOriginByNames(ctx, names...)
+	charms, err := a.applicationService.ListCharmLocators(ctx, names...)
 	if err != nil {
 		return params.CharmsListResult{}, errors.Annotatef(err, "listing charms")
 	}
 
 	var charmURLs []string
 	for _, aCharm := range charms {
-		curl, err := charmURLFromOrigin(aCharm.ReferenceName, aCharm.CharmOrigin)
+		curl, err := charmURLFromLocator(aCharm.Name, aCharm)
 		if err != nil {
 			return params.CharmsListResult{}, errors.Trace(err)
 		}
@@ -299,11 +300,6 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	schema, err := parseCharmSchema(requestedOrigin.Source)
-	if err != nil {
-		return corecharm.Origin{}, errors.Annotatef(err, "parsing schema for charm %q", args.URL)
-	}
-
 	revision, err := makeCharmRevision(metaRes.ResolvedOrigin, args.URL)
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "making revision for charm %q", args.URL)
@@ -311,7 +307,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 
 	if _, _, err := a.applicationService.SetCharm(ctx, applicationcharm.SetCharmArgs{
 		Charm:         corecharm.NewCharmInfoAdaptor(metaRes),
-		Source:        schema,
+		Source:        requestedOrigin.Source,
 		ReferenceName: charmURL.Name,
 		Revision:      revision,
 		Hash:          metaRes.ResolvedOrigin.Hash,
@@ -320,17 +316,6 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	}
 
 	return metaRes.ResolvedOrigin, nil
-}
-
-func parseCharmSchema(source corecharm.Source) (charm.Schema, error) {
-	switch source {
-	case corecharm.CharmHub:
-		return charm.CharmHub, nil
-	case corecharm.Local:
-		return charm.Local, nil
-	default:
-		return "", errors.Errorf("unknown source %q", source)
-	}
 }
 
 func makeCharmRevision(origin corecharm.Origin, url string) (int, error) {
@@ -687,14 +672,14 @@ func (noopRequestRecorder) Record(method string, url *url.URL, res *http.Respons
 // Record an outgoing request which returned back an error.
 func (noopRequestRecorder) RecordError(method string, url *url.URL, err error) {}
 
-// charmURLFromOrigin returns the charm URL for the current model.
-func charmURLFromOrigin(name string, origin applicationcharm.CharmOrigin) (string, error) {
-	schema, err := convertSource(origin.Source)
+// charmURLFromLocator returns the charm URL for the current model.
+func charmURLFromLocator(name string, locator applicationcharm.CharmLocator) (string, error) {
+	schema, err := convertSource(locator.Source)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	architecture, err := convertApplication(origin.Platform.Architecture)
+	architecture, err := convertApplication(locator.Architecture)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -702,7 +687,7 @@ func charmURLFromOrigin(name string, origin applicationcharm.CharmOrigin) (strin
 	url := charm.URL{
 		Schema:       schema,
 		Name:         name,
-		Revision:     origin.Revision,
+		Revision:     locator.Revision,
 		Architecture: architecture,
 	}
 	return url.String(), nil
@@ -721,16 +706,21 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 
 func convertApplication(arch application.Architecture) (string, error) {
 	switch arch {
-	case applicationcharm.AMD64:
+	case architecture.AMD64:
 		return "amd64", nil
-	case applicationcharm.ARM64:
+	case architecture.ARM64:
 		return "arm64", nil
-	case applicationcharm.PPC64EL:
+	case architecture.PPC64EL:
 		return "ppc64el", nil
-	case applicationcharm.S390X:
+	case architecture.S390X:
 		return "s390x", nil
-	case applicationcharm.RISV64:
+	case architecture.RISV64:
 		return "riscv64", nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
 	default:
 		return "", errors.Errorf("unsupported architecture %q", arch)
 	}

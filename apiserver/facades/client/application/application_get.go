@@ -170,15 +170,15 @@ func (api *APIBase) getCharmName(ctx context.Context, charmID corecharm.ID) (str
 }
 
 func (api *APIBase) getCharm(ctx context.Context, charmID corecharm.ID) (Charm, error) {
-	charm, origin, err := api.applicationService.GetCharm(ctx, charmID)
+	charm, locator, err := api.applicationService.GetCharm(ctx, charmID)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm")
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting charm for application")
 	}
 	return &domainCharm{
-		charm:  charm,
-		origin: origin,
+		charm:   charm,
+		locator: locator,
 	}, nil
 }
 
@@ -292,8 +292,8 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 }
 
 type domainCharm struct {
-	charm  charm.Charm
-	origin applicationcharm.CharmOrigin
+	charm   charm.Charm
+	locator applicationcharm.CharmLocator
 }
 
 func (c *domainCharm) Manifest() *charm.Manifest {
@@ -313,7 +313,7 @@ func (c *domainCharm) Actions() *charm.Actions {
 }
 
 func (c *domainCharm) Revision() int {
-	return c.origin.Revision
+	return c.locator.Revision
 }
 
 func (c *domainCharm) IsUploaded() bool {
@@ -324,7 +324,7 @@ func (c *domainCharm) IsUploaded() bool {
 
 func (c *domainCharm) URL() string {
 	schema := "local"
-	if c.origin.Source == applicationcharm.CharmHubSource {
+	if c.locator.Source == applicationcharm.CharmHubSource {
 		schema = "ch"
 	}
 
@@ -335,7 +335,7 @@ func (c *domainCharm) URL() string {
 	curl := &charm.URL{
 		Schema:   schema,
 		Name:     name,
-		Revision: c.origin.Revision,
+		Revision: c.locator.Revision,
 	}
 	return curl.String()
 }

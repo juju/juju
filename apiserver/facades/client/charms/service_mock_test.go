@@ -106,46 +106,46 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// ListCharmsWithOriginByNames mocks base method.
-func (m *MockApplicationService) ListCharmsWithOriginByNames(arg0 context.Context, arg1 ...string) ([]charm0.CharmWithOrigin, error) {
+// ListCharmLocators mocks base method.
+func (m *MockApplicationService) ListCharmLocators(arg0 context.Context, arg1 ...string) ([]charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ListCharmsWithOriginByNames", varargs...)
-	ret0, _ := ret[0].([]charm0.CharmWithOrigin)
+	ret := m.ctrl.Call(m, "ListCharmLocators", varargs...)
+	ret0, _ := ret[0].([]charm0.CharmLocator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListCharmsWithOriginByNames indicates an expected call of ListCharmsWithOriginByNames.
-func (mr *MockApplicationServiceMockRecorder) ListCharmsWithOriginByNames(arg0 any, arg1 ...any) *MockApplicationServiceListCharmsWithOriginByNamesCall {
+// ListCharmLocators indicates an expected call of ListCharmLocators.
+func (mr *MockApplicationServiceMockRecorder) ListCharmLocators(arg0 any, arg1 ...any) *MockApplicationServiceListCharmLocatorsCall {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmsWithOriginByNames", reflect.TypeOf((*MockApplicationService)(nil).ListCharmsWithOriginByNames), varargs...)
-	return &MockApplicationServiceListCharmsWithOriginByNamesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmLocators", reflect.TypeOf((*MockApplicationService)(nil).ListCharmLocators), varargs...)
+	return &MockApplicationServiceListCharmLocatorsCall{Call: call}
 }
 
-// MockApplicationServiceListCharmsWithOriginByNamesCall wrap *gomock.Call
-type MockApplicationServiceListCharmsWithOriginByNamesCall struct {
+// MockApplicationServiceListCharmLocatorsCall wrap *gomock.Call
+type MockApplicationServiceListCharmLocatorsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceListCharmsWithOriginByNamesCall) Return(arg0 []charm0.CharmWithOrigin, arg1 error) *MockApplicationServiceListCharmsWithOriginByNamesCall {
+func (c *MockApplicationServiceListCharmLocatorsCall) Return(arg0 []charm0.CharmLocator, arg1 error) *MockApplicationServiceListCharmLocatorsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceListCharmsWithOriginByNamesCall) Do(f func(context.Context, ...string) ([]charm0.CharmWithOrigin, error)) *MockApplicationServiceListCharmsWithOriginByNamesCall {
+func (c *MockApplicationServiceListCharmLocatorsCall) Do(f func(context.Context, ...string) ([]charm0.CharmLocator, error)) *MockApplicationServiceListCharmLocatorsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceListCharmsWithOriginByNamesCall) DoAndReturn(f func(context.Context, ...string) ([]charm0.CharmWithOrigin, error)) *MockApplicationServiceListCharmsWithOriginByNamesCall {
+func (c *MockApplicationServiceListCharmLocatorsCall) DoAndReturn(f func(context.Context, ...string) ([]charm0.CharmLocator, error)) *MockApplicationServiceListCharmLocatorsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -111,17 +112,13 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
 
-	origin := applicationcharm.CharmOrigin{
-		Source:   applicationcharm.CharmHubSource,
-		Revision: 42,
-		Platform: applicationcharm.Platform{
-			OSType:       applicationcharm.Ubuntu,
-			Architecture: applicationcharm.AMD64,
-			Channel:      "22.04",
-		},
+	locator := applicationcharm.CharmLocator{
+		Source:       applicationcharm.CharmHubSource,
+		Revision:     42,
+		Architecture: architecture.AMD64,
 	}
 
-	result, err := convertCharm("foo", charmBase, origin, origin.Platform)
+	result, err := convertCharm("foo", charmBase, locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.Charm{
 		Revision: 42,

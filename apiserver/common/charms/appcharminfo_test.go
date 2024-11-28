@@ -19,6 +19,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -54,13 +55,12 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *gc.C) {
 	}
 
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
-	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
-	appPlatform := charm.Platform{OSType: charm.Ubuntu, Architecture: charm.AMD64}
+	locator := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1, Architecture: architecture.AMD64}
 
 	id := applicationtesting.GenApplicationUUID(c)
 
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
-	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, charmOrigin, appPlatform, nil)
+	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, locator, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
@@ -88,13 +88,12 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *gc.C) {
 	metadata := &internalcharm.Meta{Name: "foo"}
 
 	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
-	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
-	appPlatform := charm.Platform{OSType: charm.Ubuntu, Architecture: charm.AMD64}
+	locator := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1, Architecture: architecture.AMD64}
 
 	id := applicationtesting.GenApplicationUUID(c)
 
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
-	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, charmOrigin, appPlatform, nil)
+	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, locator, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
