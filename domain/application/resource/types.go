@@ -156,8 +156,8 @@ type SetRepositoryResourcesArgs struct {
 	LastPolled time.Time
 }
 
-// ResourceStorageUUID is a UUID used to reference the resource in storage.
-type ResourceStorageUUID interface {
-	String() string
-	Validate() error
-}
+// ResourceStorageUUID is the UUID of the stored blob in the database, this can
+// be used for adding referential integrity from the resource to the stored
+// blob. This can be an object store metadata UUID or a container image metadata
+// storage key.
+type ResourceStorageUUID string

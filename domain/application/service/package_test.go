@@ -20,6 +20,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -38,12 +39,13 @@ type baseSuite struct {
 
 	modelID model.UUID
 
-	state              *MockState
-	charm              *MockCharm
-	secret             *MockDeleteSecretState
-	charmStore         *MockCharmStore
-	agentVersionGetter *MockAgentVersionGetter
-	provider           *MockProvider
+	state               *MockState
+	charm               *MockCharm
+	secret              *MockDeleteSecretState
+	charmStore          *MockCharmStore
+	agentVersionGetter  *MockAgentVersionGetter
+	provider            *MockProvider
+	resourceStoreGetter *MockResourceStoreGetter
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
@@ -69,6 +71,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 	s.charm = NewMockCharm(ctrl)
 	s.secret = NewMockDeleteSecretState(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
+	s.resourceStoreGetter = NewMockResourceStoreGetter(ctrl)
 
 	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{
@@ -77,11 +80,14 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 		}
 	})
 
+	s.resourceStoreGetter.EXPECT().AddStore(resource.TypeContainerImage, gomock.Any())
+
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
 		s.secret,
 		s.storageRegistryGetter,
+		s.resourceStoreGetter,
 		s.modelID,
 		s.agentVersionGetter,
 		fn,
@@ -107,6 +113,7 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 	s.charm = NewMockCharm(ctrl)
 	s.secret = NewMockDeleteSecretState(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
+	s.resourceStoreGetter = NewMockResourceStoreGetter(ctrl)
 
 	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{
@@ -115,11 +122,14 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 		}
 	})
 
+	s.resourceStoreGetter.EXPECT().AddStore(resource.TypeContainerImage, gomock.Any())
+
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
 		s.secret,
 		s.storageRegistryGetter,
+		s.resourceStoreGetter,
 		s.modelID,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {

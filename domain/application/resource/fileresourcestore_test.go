@@ -75,16 +75,16 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *gc.C) {
 
 	storageUUID, err := store.Put(
 		context.Background(),
-		s.resource.UUID,
+		s.resource.UUID.String(),
 		s.file,
 		s.resource.Size,
 		s.resource.Fingerprint,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageUUID, gc.Equals, expectedStorageUUID)
+	c.Assert(storageUUID, gc.Equals, ResourceStorageUUID(expectedStorageUUID))
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStorePutBadUUID(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, err := store.Put(
@@ -94,7 +94,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadUUID(c *gc.C) {
 		s.resource.Size,
 		s.resource.Fingerprint,
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource UUID.*")
+	c.Assert(err, gc.ErrorMatches, "storage key empty")
 }
 
 func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *gc.C) {
@@ -102,7 +102,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *gc.C) {
 	store := fileResourceStore{s.objectStore}
 	_, err := store.Put(
 		context.Background(),
-		s.resource.UUID,
+		s.resource.UUID.String(),
 		nil,
 		s.resource.Size,
 		s.resource.Fingerprint,
@@ -115,7 +115,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *gc.C)
 	store := fileResourceStore{s.objectStore}
 	_, err := store.Put(
 		context.Background(),
-		s.resource.UUID,
+		s.resource.UUID.String(),
 		s.file,
 		s.resource.Size,
 		charmresource.Fingerprint{},
@@ -128,12 +128,12 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *gc.C) {
 	store := fileResourceStore{s.objectStore}
 	_, err := store.Put(
 		context.Background(),
-		s.resource.UUID,
+		s.resource.UUID.String(),
 		s.file,
 		0,
 		charmresource.Fingerprint{},
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource: size is 0")
+	c.Assert(err, gc.ErrorMatches, "validating resource size: size is 0")
 }
 
 func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
@@ -142,20 +142,20 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
 
 	s.objectStore.EXPECT().Get(context.Background(), s.resource.UUID.String()).Return(s.file, s.resource.Size, nil)
 
-	reader, size, err := store.Get(context.Background(), s.resource.UUID)
+	reader, size, err := store.Get(context.Background(), s.resource.UUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(reader, gc.Equals, s.file)
 	c.Assert(size, gc.Equals, s.resource.Size)
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStoreGetBadUUID(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStoreGetBadStorageKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	_, _, err := store.Get(
 		context.Background(),
 		"",
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource UUID.*")
+	c.Assert(err, gc.ErrorMatches, "storage key empty")
 }
 
 func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) {
@@ -164,16 +164,16 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) {
 
 	s.objectStore.EXPECT().Remove(context.Background(), s.resource.UUID.String()).Return(nil)
 
-	err := store.Remove(context.Background(), s.resource.UUID)
+	err := store.Remove(context.Background(), s.resource.UUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *fileResourceStoreSuite) TestFileResourceStoreRemoveBadUUID(c *gc.C) {
+func (s *fileResourceStoreSuite) TestFileResourceStoreRemoveBadStorageKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 	err := store.Remove(
 		context.Background(),
 		"",
 	)
-	c.Assert(err, gc.ErrorMatches, "validating resource UUID.*")
+	c.Assert(err, gc.ErrorMatches, "storage key empty")
 }

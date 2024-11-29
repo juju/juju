@@ -21,6 +21,7 @@ import (
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
 	charmstore "github.com/juju/juju/domain/application/charm/store"
+	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
@@ -173,6 +174,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.storageRegistry,
+		resource.NewResourceStoreFactory(s.objectstore),
 		s.modelUUID,
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),

@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/juju/juju/core/objectstore"
-	coreresource "github.com/juju/juju/core/resource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -21,14 +20,14 @@ type ResourceStore interface {
 	// Get returns an io.ReadCloser for a resource in the resource store.
 	Get(
 		ctx context.Context,
-		resourceUUID coreresource.UUID,
+		storageKey string,
 	) (r io.ReadCloser, size int64, err error)
 
-	// Put stores data from io.Reader in the resource store at the
-	// using the resourceUUID as the key.
+	// Put stores data from io.Reader in the resource store using the storage
+	// key.
 	Put(
 		ctx context.Context,
-		resourceUUID coreresource.UUID,
+		storageKey string,
 		r io.Reader,
 		size int64,
 		fingerprint resource.Fingerprint,
@@ -37,7 +36,7 @@ type ResourceStore interface {
 	// Remove removes a resource from storage.
 	Remove(
 		ctx context.Context,
-		resourceUUID coreresource.UUID,
+		storageKey string,
 	) error
 }
 

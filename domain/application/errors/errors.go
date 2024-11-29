@@ -136,6 +136,10 @@ const (
 	// not found.
 	ResourceNotFound = errors.ConstError("resource not found")
 
+	// ContainerImageMetadataNotFound describes an error that occurs when
+	// container image metadata is not found.
+	ContainerImageMetadataNotFound = errors.ConstError("container image metadata not found")
+
 	// UnknownResourceType describes an error where the resource type is
 	// not oci-image or file.
 	UnknownResourceType = errors.ConstError("unknown resource type")

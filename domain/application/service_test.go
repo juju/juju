@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/ipaddress"
@@ -63,6 +64,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
+		resource.NewResourceStoreFactory(nil),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
