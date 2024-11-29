@@ -118,11 +118,11 @@ type CharmState interface {
 	SetCharmAvailable(ctx context.Context, charmID corecharm.ID) error
 
 	// GetCharm returns the charm using the charm ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error)
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
-	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
+	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error)
 
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
@@ -234,7 +234,7 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	ch, err := s.st.GetCharm(ctx, id)
+	ch, _, err := s.st.GetCharm(ctx, id)
 	if err != nil {
 		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
@@ -497,11 +497,28 @@ func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error 
 // If there are any non-blocking issues with the charm metadata, actions,
 // config or manifest, a set of warnings will be returned.
 func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
-	meta := args.Charm.Meta()
-	if meta == nil {
+	// We require a valid charm metadata.
+	if meta := args.Charm.Meta(); meta == nil {
 		return "", nil, applicationerrors.CharmMetadataNotValid
-	} else if meta.Name == "" {
+	} else if !isValidCharmName(meta.Name) {
 		return "", nil, applicationerrors.CharmNameNotValid
+	}
+
+	// We require a valid charm manifest.
+	if manifest := args.Charm.Manifest(); manifest == nil {
+		return "", nil, applicationerrors.CharmManifestNotFound
+	} else if len(manifest.Bases) == 0 {
+		return "", nil, applicationerrors.CharmManifestNotValid
+	}
+
+	// If the reference name is provided, it must be valid.
+	if !isValidReferenceName(args.ReferenceName) {
+		return "", nil, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// If the origin is from charmhub, then we require the download info.
+	if args.Source == corecharm.CharmHub && args.DownloadInfo == nil {
+		return "", nil, applicationerrors.CharmDownloadInfoNotFound
 	}
 
 	source, err := encodeCharmSource(args.Source)
@@ -523,7 +540,7 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 	ch.Available = args.ArchivePath != ""
 	ch.Architecture = architecture
 
-	charmID, err := s.st.SetCharm(ctx, ch)
+	charmID, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
 	if err != nil {
 		return "", warnings, errors.Trace(err)
 	}

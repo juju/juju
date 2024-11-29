@@ -82,6 +82,8 @@ type SetCharmArgs struct {
 	Version string
 	// Architecture is the architecture of the charm.
 	Architecture arch.Arch
+	// DownloadInfo holds the information needed to download a charmhub charm.
+	DownloadInfo *DownloadInfo
 }
 
 // Revision is the charm revision.
@@ -149,6 +151,20 @@ type CharmLocator struct {
 
 	// Architecture is the architecture of the charm.
 	Architecture architecture.Architecture
+}
+
+// DownloadInfo holds the information needed to download a charmhub charm.
+type DownloadInfo struct {
+	// CharmhubIdentifier is the instance ID of the charm in relation to
+	// charmhub.
+	CharmhubIdentifier string
+
+	// DownloadURL is the URL to download the charm from.
+	DownloadURL string
+
+	// DownloadSize is the size of the charm in bytes that the download URL
+	// points to.
+	DownloadSize int64
 }
 
 // Metadata represents the metadata of a charm from the perspective of the

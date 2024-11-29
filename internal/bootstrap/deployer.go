@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -392,6 +393,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		ch, origin,
 		applicationservice.AddApplicationArgs{
 			ReferenceName: bootstrap.ControllerApplicationName,
+			DownloadInfo:  &applicationcharm.DownloadInfo{},
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)

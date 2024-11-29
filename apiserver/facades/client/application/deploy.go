@@ -21,6 +21,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -169,6 +170,9 @@ func DeployApplication(
 		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, args.Charm, args.CharmOrigin, applicationservice.AddApplicationArgs{
 			ReferenceName: chURL.Name,
 			Storage:       args.Storage,
+			// TODO (stickupkid): Fill this in correctly when we have the
+			// charmhub information.
+			DownloadInfo: &applicationcharm.DownloadInfo{},
 		}, unitArgs...)
 		if err != nil {
 			return nil, errors.Trace(err)

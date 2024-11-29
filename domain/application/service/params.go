@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
@@ -27,10 +28,15 @@ type AddApplicationArgs struct {
 	// that specific revision. The only way to then locate the charm directly
 	// via the name is use the proxy name.
 	ReferenceName string
+
 	// CharmStoragePath is the path to the charm in the storage.
 	CharmStoragePath string
+
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
+
+	// DownloadInfo contains the download information for the charm.
+	DownloadInfo *domaincharm.DownloadInfo
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.

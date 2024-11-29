@@ -237,7 +237,7 @@ func (s *Service) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
-	if err := validateCreateApplicationParams(name, args.ReferenceName, charm, origin); err != nil {
+	if err := validateCreateApplicationParams(name, args.ReferenceName, charm, origin, args.DownloadInfo); err != nil {
 		return "", errors.Annotatef(err, "invalid application args")
 	}
 
@@ -284,21 +284,34 @@ func validateCreateApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
+	downloadInfo *domaincharm.DownloadInfo,
 ) error {
 	if !isValidApplicationName(name) {
 		return applicationerrors.ApplicationNameNotValid
 	}
 
-	// Validate that we have a valid charm and name.
-	meta := charm.Meta()
-	if meta == nil {
+	// We require a valid charm metadata.
+	if meta := charm.Meta(); meta == nil {
 		return applicationerrors.CharmMetadataNotValid
+	} else if !isValidCharmName(meta.Name) {
+		return applicationerrors.CharmNameNotValid
 	}
 
-	if !isValidCharmName(meta.Name) {
-		return applicationerrors.CharmNameNotValid
-	} else if !isValidReferenceName(referenceName) {
+	// We require a valid charm manifest.
+	if manifest := charm.Manifest(); manifest == nil {
+		return applicationerrors.CharmManifestNotFound
+	} else if len(manifest.Bases) == 0 {
+		return applicationerrors.CharmManifestNotValid
+	}
+
+	// If the reference name is provided, it must be valid.
+	if !isValidReferenceName(referenceName) {
 		return fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// If the origin is from charmhub, then we require the download info.
+	if origin.Source == corecharm.CharmHub && downloadInfo == nil {
+		return applicationerrors.CharmDownloadInfoNotFound
 	}
 
 	// Validate the origin of the charm.
@@ -372,9 +385,10 @@ func makeCreateApplicationArgs(
 	}
 
 	return application.AddApplicationArg{
-		Charm:    ch,
-		Platform: platformArg,
-		Channel:  channelArg,
+		Charm:             ch,
+		CharmDownloadInfo: args.DownloadInfo,
+		Platform:          platformArg,
+		Channel:           channelArg,
 	}, nil
 }
 

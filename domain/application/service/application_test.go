@@ -78,6 +78,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 			Name:  "ubuntu",
 			RunAs: "default",
 		},
+		Manifest:      s.minimalManifest(c),
 		ReferenceName: "ubuntu",
 		Source:        domaincharm.CharmHubSource,
 		Revision:      42,
@@ -89,7 +90,12 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
-		Charm:    ch,
+		Charm: ch,
+		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Platform: platform,
 		Scale:    1,
 	}
@@ -97,12 +103,23 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", app).Return(id, nil)
 	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
-	}).AnyTimes()
+	}).MinTimes(1)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -113,6 +130,11 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -153,6 +175,9 @@ func (s *applicationServiceSuite) TestCreateApplicationWithInvalidReferenceName(
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
 	}).AnyTimes()
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{}},
+	}).AnyTimes()
 
 	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -160,6 +185,11 @@ func (s *applicationServiceSuite) TestCreateApplicationWithInvalidReferenceName(
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "666",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
@@ -189,7 +219,7 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoApplicationOrCharmN
 func (s *applicationServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.charm.EXPECT().Meta().Return(nil).AnyTimes()
+	s.charm.EXPECT().Meta().Return(nil).MinTimes(1)
 
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
@@ -200,13 +230,21 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
 func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).AnyTimes()
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{}},
+	}).MinTimes(1)
 
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
@@ -220,18 +258,28 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", gomock.Any()).Return(id, rErr)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
-	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
 
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	})
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `creating application "foo": boom`)
@@ -275,18 +323,24 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 				},
 			},
 		},
+		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
 		Source:        domaincharm.LocalSource,
 		Revision:      42,
-		Architecture:  architecture.ARM64,
+		Architecture:  architecture.AMD64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
 		OSType:       application.Ubuntu,
-		Architecture: architecture.ARM64,
+		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
-		Charm:    ch,
+		Charm: ch,
+		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Platform: platform,
 		Scale:    1,
 	}
@@ -294,7 +348,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
 	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -309,7 +363,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 				MinimumSize: 10,
 			},
 		},
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
 	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil)
 
@@ -318,10 +378,15 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -364,18 +429,24 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 				},
 			},
 		},
+		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
 		Source:        domaincharm.CharmHubSource,
 		Revision:      42,
-		Architecture:  architecture.ARM64,
+		Architecture:  architecture.AMD64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
 		OSType:       application.Ubuntu,
-		Architecture: architecture.ARM64,
+		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
-		Charm:    ch,
+		Charm: ch,
+		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Platform: platform,
 		Scale:    1,
 	}
@@ -383,7 +454,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
 	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
 	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -398,7 +469,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 				MinimumSize: 10,
 			},
 		},
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
 
@@ -407,10 +484,15 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -456,18 +538,24 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 				},
 			},
 		},
+		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
 		Source:        domaincharm.CharmHubSource,
 		Revision:      42,
-		Architecture:  architecture.ARM64,
+		Architecture:  architecture.AMD64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
 		OSType:       application.Ubuntu,
-		Architecture: architecture.ARM64,
+		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
-		Charm:    ch,
+		Charm: ch,
+		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Platform: platform,
 		Scale:    1,
 	}
@@ -475,7 +563,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
 	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -490,7 +578,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 				MinimumSize: 10,
 			},
 		},
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
 	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil)
 
@@ -499,10 +593,15 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -545,18 +644,24 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 				},
 			},
 		},
+		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
 		Source:        domaincharm.CharmHubSource,
 		Revision:      42,
-		Architecture:  architecture.ARM64,
+		Architecture:  architecture.AMD64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
 		OSType:       application.Ubuntu,
-		Architecture: architecture.ARM64,
+		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
-		Charm:    ch,
+		Charm: ch,
+		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Platform: platform,
 		Scale:    1,
 	}
@@ -564,7 +669,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
 	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "foo", app).Return(id, nil)
 	s.state.EXPECT().AddUnits(domaintesting.IsAtomicContextChecker, id, u)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{})
+
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -579,7 +684,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 				MinimumSize: 10,
 			},
 		},
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
 
@@ -588,10 +699,15 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	}
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
@@ -613,7 +729,12 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 				Shared: true,
 			},
 		},
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -622,6 +743,11 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 	}, a)
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, gc.ErrorMatches, `.*adding default storage directives: no storage directive specified for shared charm storage "data"`)
@@ -640,7 +766,12 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 				Type: charm.StorageBlock,
 			},
 		},
-	}).AnyTimes()
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+		Name:          "ubuntu",
+		Channel:       charm.Channel{Risk: charm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	// Depending on the map serialization order, the loop may or may not be the
 	// first element. In that case, we need to handle it with a mock if it is
@@ -655,6 +786,11 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
+		DownloadInfo: &domaincharm.DownloadInfo{
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
 		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},

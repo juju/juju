@@ -24,10 +24,6 @@ CREATE TABLE charm (
     archive_path TEXT,
     available BOOLEAN DEFAULT FALSE,
 
-    -- charmhub_identifier is the identifier that charmhub uses to identify the
-    -- charm. This is used to refresh the charm from charmhub. The
-    -- reference_name can change but the charmhub_identifier will not.
-    charmhub_identifier TEXT,
     version TEXT,
 
     -- The following fields are purely here to reconstruct the charm URL.
@@ -67,6 +63,21 @@ CREATE TABLE charm (
 
 CREATE UNIQUE INDEX idx_charm_reference_name_revision
 ON charm (reference_name, revision);
+
+CREATE TABLE charm_download_info (
+    charm_uuid TEXT NOT NULL PRIMARY KEY,
+    -- charmhub_identifier is the identifier that charmhub uses to identify the
+    -- charm. This is used to refresh the charm from charmhub. The
+    -- reference_name can change but the charmhub_identifier will not.
+    charmhub_identifier TEXT NOT NULL,
+
+    download_url TEXT NOT NULL,
+    download_size INT NOT NULL,
+
+    CONSTRAINT fk_charm_download_info_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid)
+);
 
 CREATE TABLE charm_metadata (
     charm_uuid TEXT NOT NULL,

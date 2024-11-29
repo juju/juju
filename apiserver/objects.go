@@ -245,6 +245,10 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, c
 		ArchivePath:   storagePath,
 		Version:       version,
 		Architecture:  curl.Architecture,
+		// If this is a charmhub charm, this will be coming from a migration.
+		// We can not re-download this charm from the charm store again, without
+		// another call directly to the charm store.
+		DownloadInfo: &applicationcharm.DownloadInfo{},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}

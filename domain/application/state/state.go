@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internaldatabase "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -48,7 +49,7 @@ WHERE uuid = $charmID.uuid;
 	result := charmID{UUID: id.UUID}
 	selectStmt, err := s.Prepare(selectQuery, result)
 	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
+		return internalerrors.Errorf("preparing query: %w", err)
 	}
 	if err := tx.Query(ctx, selectStmt, result).Get(&result); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -79,7 +80,7 @@ AND revision = $charmReferenceNameRevisionSource.revision
 	var result charmID
 	selectStmt, err := s.Prepare(selectQuery, result, ref)
 	if err != nil {
-		return "", fmt.Errorf("failed to prepare query: %w", err)
+		return "", fmt.Errorf("preparing query: %w", err)
 	}
 	if err := tx.Query(ctx, selectStmt, ref).Get(&result); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -96,65 +97,72 @@ AND revision = $charmReferenceNameRevisionSource.revision
 	return id, applicationerrors.CharmAlreadyExists
 }
 
-func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, charm charm.Charm) error {
-	if err := s.setCharmState(ctx, tx, uuid, charm); err != nil {
+func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, ch charm.Charm, downloadInfo *charm.DownloadInfo) error {
+	if err := s.setCharmState(ctx, tx, uuid, ch); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmMetadata(ctx, tx, uuid, charm.Metadata, charm.LXDProfile); err != nil {
+	if err := s.setCharmMetadata(ctx, tx, uuid, ch.Metadata, ch.LXDProfile); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmTags(ctx, tx, uuid, charm.Metadata.Tags); err != nil {
+	if err := s.setCharmTags(ctx, tx, uuid, ch.Metadata.Tags); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmCategories(ctx, tx, uuid, charm.Metadata.Categories); err != nil {
+	if err := s.setCharmCategories(ctx, tx, uuid, ch.Metadata.Categories); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmTerms(ctx, tx, uuid, charm.Metadata.Terms); err != nil {
+	if err := s.setCharmTerms(ctx, tx, uuid, ch.Metadata.Terms); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmRelations(ctx, tx, uuid, charm.Metadata); err != nil {
+	if err := s.setCharmRelations(ctx, tx, uuid, ch.Metadata); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmExtraBindings(ctx, tx, uuid, charm.Metadata.ExtraBindings); err != nil {
+	if err := s.setCharmExtraBindings(ctx, tx, uuid, ch.Metadata.ExtraBindings); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmStorage(ctx, tx, uuid, charm.Metadata.Storage); err != nil {
+	if err := s.setCharmStorage(ctx, tx, uuid, ch.Metadata.Storage); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmDevices(ctx, tx, uuid, charm.Metadata.Devices); err != nil {
+	if err := s.setCharmDevices(ctx, tx, uuid, ch.Metadata.Devices); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmPayloads(ctx, tx, uuid, charm.Metadata.PayloadClasses); err != nil {
+	if err := s.setCharmPayloads(ctx, tx, uuid, ch.Metadata.PayloadClasses); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmResources(ctx, tx, uuid, charm.Metadata.Resources); err != nil {
+	if err := s.setCharmResources(ctx, tx, uuid, ch.Metadata.Resources); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmContainers(ctx, tx, uuid, charm.Metadata.Containers); err != nil {
+	if err := s.setCharmContainers(ctx, tx, uuid, ch.Metadata.Containers); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmActions(ctx, tx, uuid, charm.Actions); err != nil {
+	if err := s.setCharmActions(ctx, tx, uuid, ch.Actions); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmConfig(ctx, tx, uuid, charm.Config); err != nil {
+	if err := s.setCharmConfig(ctx, tx, uuid, ch.Config); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmManifest(ctx, tx, uuid, charm.Manifest); err != nil {
+	if err := s.setCharmManifest(ctx, tx, uuid, ch.Manifest); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Insert the download info if the charm is from CharmHub.
+	if ch.Source == charm.CharmHubSource {
+		if err := s.setCharmDownloadInfo(ctx, tx, uuid, downloadInfo); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
@@ -198,7 +206,7 @@ func (s *State) setCharmState(
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
 	charmStmt, err := s.Prepare(charmQuery, chState)
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	hash := setCharmHash{
@@ -210,15 +218,40 @@ func (s *State) setCharmState(
 	hashQuery := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
 	hashStmt, err := s.Prepare(hashQuery, hash)
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, charmStmt, chState).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm state: %w", err)
+		return fmt.Errorf("inserting charm state: %w", err)
 	}
 
 	if err := tx.Query(ctx, hashStmt, hash).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm hash: %w", err)
+		return fmt.Errorf("inserting charm hash: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id corecharm.ID, downloadInfo *charm.DownloadInfo) error {
+	if downloadInfo == nil {
+		return nil
+	}
+
+	downloadInfoState := setCharmDownloadInfo{
+		CharmUUID:          id.String(),
+		CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
+		DownloadURL:        downloadInfo.DownloadURL,
+		DownloadSize:       downloadInfo.DownloadSize,
+	}
+
+	query := `INSERT INTO charm_download_info (*) VALUES ($setCharmDownloadInfo.*);`
+	stmt, err := s.Prepare(query, downloadInfoState)
+	if err != nil {
+		return fmt.Errorf("preparing query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, downloadInfoState).Run(); err != nil {
+		return fmt.Errorf("inserting charm download info: %w", err)
 	}
 
 	return nil
@@ -239,11 +272,11 @@ func (s *State) setCharmMetadata(
 	query := `INSERT INTO charm_metadata (*) VALUES ($setCharmMetadata.*);`
 	stmt, err := s.Prepare(query, encodedMetadata)
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodedMetadata).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm metadata: %w", err)
+		return fmt.Errorf("inserting charm metadata: %w", err)
 	}
 
 	return nil
@@ -258,11 +291,11 @@ func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 	query := `INSERT INTO charm_tag (*) VALUES ($setCharmTag.*);`
 	stmt, err := s.Prepare(query, setCharmTag{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodeTags(id, tags)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm tag: %w", err)
+		return fmt.Errorf("inserting charm tag: %w", err)
 	}
 
 	return nil
@@ -277,11 +310,11 @@ func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corech
 	query := `INSERT INTO charm_category (*) VALUES ($setCharmCategory.*);`
 	stmt, err := s.Prepare(query, setCharmCategory{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodeCategories(id, categories)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm categories: %w", err)
+		return fmt.Errorf("inserting charm categories: %w", err)
 	}
 
 	return nil
@@ -296,11 +329,11 @@ func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.I
 	query := `INSERT INTO charm_term (*) VALUES ($setCharmTerm.*);`
 	stmt, err := s.Prepare(query, setCharmTerm{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodeTerms(id, terms)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm terms: %w", err)
+		return fmt.Errorf("inserting charm terms: %w", err)
 	}
 
 	return nil
@@ -320,11 +353,13 @@ func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecha
 	query := `INSERT INTO charm_relation (*) VALUES ($setCharmRelation.*);`
 	stmt, err := s.Prepare(query, setCharmRelation{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
-	if err := tx.Query(ctx, stmt, encodedRelations).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm relations: %w", err)
+	if err := tx.Query(ctx, stmt, encodedRelations).Run(); internaldatabase.IsErrConstraintUnique(err) {
+		return applicationerrors.CharmRelationNameConflict
+	} else if err != nil {
+		return fmt.Errorf("inserting charm relations: %w", err)
 	}
 
 	return nil
@@ -339,11 +374,11 @@ func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id cor
 	query := `INSERT INTO charm_extra_binding (*) VALUES ($setCharmExtraBinding.*);`
 	stmt, err := s.Prepare(query, setCharmExtraBinding{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodeExtraBindings(id, extraBindings)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm extra bindings: %w", err)
+		return fmt.Errorf("inserting charm extra bindings: %w", err)
 	}
 
 	return nil
@@ -363,11 +398,11 @@ func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm
 	storageQuery := `INSERT INTO charm_storage (*) VALUES ($setCharmStorage.*);`
 	storageStmt, err := s.Prepare(storageQuery, setCharmStorage{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, storageStmt, encodedStorage).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm storage: %w", err)
+		return fmt.Errorf("inserting charm storage: %w", err)
 	}
 
 	// Only insert properties if there are any.
@@ -375,11 +410,11 @@ func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm
 		propertiesQuery := `INSERT INTO charm_storage_property (*) VALUES ($setCharmStorageProperty.*);`
 		propertiesStmt, err := s.Prepare(propertiesQuery, setCharmStorageProperty{})
 		if err != nil {
-			return fmt.Errorf("failed to prepare query: %w", err)
+			return fmt.Errorf("preparing query: %w", err)
 		}
 
 		if err := tx.Query(ctx, propertiesStmt, encodedProperties).Run(); err != nil {
-			return fmt.Errorf("failed to insert charm storage properties: %w", err)
+			return fmt.Errorf("inserting charm storage properties: %w", err)
 		}
 	}
 	return nil
@@ -394,11 +429,11 @@ func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm
 	query := `INSERT INTO charm_device (*) VALUES ($setCharmDevice.*);`
 	stmt, err := s.Prepare(query, setCharmDevice{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodeDevices(id, devices)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm devices: %w", err)
+		return fmt.Errorf("inserting charm devices: %w", err)
 	}
 
 	return nil
@@ -413,11 +448,11 @@ func (s *State) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corechar
 	query := `INSERT INTO charm_payload (*) VALUES ($setCharmPayload.*);`
 	stmt, err := s.Prepare(query, setCharmPayload{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodePayloads(id, payloads)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm payloads: %w", err)
+		return fmt.Errorf("inserting charm payloads: %w", err)
 	}
 
 	return nil
@@ -437,11 +472,11 @@ func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecha
 	query := `INSERT INTO charm_resource (*) VALUES ($setCharmResource.*);`
 	stmt, err := s.Prepare(query, setCharmResource{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodedResources).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm resources: %w", err)
+		return fmt.Errorf("inserting charm resources: %w", err)
 	}
 
 	return nil
@@ -461,11 +496,11 @@ func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corech
 	containerQuery := `INSERT INTO charm_container (*) VALUES ($setCharmContainer.*);`
 	containerStmt, err := s.Prepare(containerQuery, setCharmContainer{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, containerStmt, encodedContainers).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm containers: %w", err)
+		return fmt.Errorf("inserting charm containers: %w", err)
 	}
 
 	// Only insert mounts if there are any.
@@ -473,11 +508,11 @@ func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corech
 		mountQuery := `INSERT INTO charm_container_mount (*) VALUES ($setCharmMount.*);`
 		mountStmt, err := s.Prepare(mountQuery, setCharmMount{})
 		if err != nil {
-			return fmt.Errorf("failed to prepare query: %w", err)
+			return fmt.Errorf("preparing query: %w", err)
 		}
 
 		if err := tx.Query(ctx, mountStmt, encodedMounts).Run(); err != nil {
-			return fmt.Errorf("failed to insert charm container mounts: %w", err)
+			return fmt.Errorf("inserting charm container mounts: %w", err)
 		}
 	}
 
@@ -493,11 +528,11 @@ func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm
 	query := `INSERT INTO charm_action (*) VALUES ($setCharmAction.*);`
 	stmt, err := s.Prepare(query, setCharmAction{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodeActions(id, actions)).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm actions: %w", err)
+		return fmt.Errorf("inserting charm actions: %w", err)
 	}
 
 	return nil
@@ -517,20 +552,19 @@ func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.
 	query := `INSERT INTO charm_config (*) VALUES ($setCharmConfig.*);`
 	stmt, err := s.Prepare(query, setCharmConfig{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodedConfig).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm config: %w", err)
+		return fmt.Errorf("inserting charm config: %w", err)
 	}
 
 	return nil
 }
 
 func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
-	// If there are no resources, we don't need to do anything.
 	if len(manifest.Bases) == 0 {
-		return nil
+		return applicationerrors.CharmManifestNotFound
 	}
 
 	encodedManifest, err := encodeManifest(id, manifest)
@@ -541,11 +575,11 @@ func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corechar
 	query := `INSERT INTO charm_manifest_base (*) VALUES ($setCharmManifest.*);`
 	stmt, err := s.Prepare(query, setCharmManifest{})
 	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
+		return fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, encodedManifest).Run(); err != nil {
-		return fmt.Errorf("failed to insert charm manifest: %w", err)
+		return fmt.Errorf("inserting charm manifest: %w", err)
 	}
 
 	return nil
@@ -554,31 +588,43 @@ func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corechar
 // getCharm returns the charm for the given charm ID.
 // This will delegate to the various get methods to get the charm metadata,
 // config, manifest, actions and LXD profile.
-func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
-	charm, err := s.getCharmState(ctx, tx, ident)
+func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, *charm.DownloadInfo, error) {
+	ch, err := s.getCharmState(ctx, tx, ident)
 	if err != nil {
-		return charm, errors.Trace(err)
-	}
-	if charm.Metadata, err = s.getMetadata(ctx, tx, ident); err != nil {
-		return charm, errors.Trace(err)
+		return ch, nil, errors.Trace(err)
 	}
 
-	if charm.Config, err = s.getCharmConfig(ctx, tx, ident); err != nil {
-		return charm, errors.Trace(err)
+	if ch.Metadata, err = s.getMetadata(ctx, tx, ident); err != nil {
+		return ch, nil, errors.Trace(err)
 	}
 
-	if charm.Manifest, err = s.getCharmManifest(ctx, tx, ident); err != nil {
-		return charm, errors.Trace(err)
+	if ch.Config, err = s.getCharmConfig(ctx, tx, ident); err != nil {
+		return ch, nil, errors.Trace(err)
 	}
 
-	if charm.Actions, err = s.getCharmActions(ctx, tx, ident); err != nil {
-		return charm, errors.Trace(err)
+	if ch.Manifest, err = s.getCharmManifest(ctx, tx, ident); err != nil {
+		return ch, nil, errors.Trace(err)
 	}
 
-	if charm.LXDProfile, _, err = s.getCharmLXDProfile(ctx, tx, ident); err != nil {
-		return charm, errors.Trace(err)
+	if ch.Actions, err = s.getCharmActions(ctx, tx, ident); err != nil {
+		return ch, nil, errors.Trace(err)
 	}
-	return charm, nil
+
+	if ch.LXDProfile, _, err = s.getCharmLXDProfile(ctx, tx, ident); err != nil {
+		return ch, nil, errors.Trace(err)
+	}
+
+	// Download information should only be recorded for charmhub charms.
+	// If it's not present, ensure we report it as not found.
+	var downloadInfo *charm.DownloadInfo
+	if info, err := s.getCharmDownloadInfo(ctx, tx, ident); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ch, nil, errors.Trace(err)
+	} else if err == nil {
+		downloadInfo = &info
+	} else if ch.Source == charm.CharmHubSource {
+		return ch, nil, applicationerrors.CharmDownloadInfoNotFound
+	}
+	return ch, downloadInfo, nil
 }
 
 func (s *State) getCharmState(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.Charm, error) {
@@ -590,7 +636,7 @@ WHERE uuid = $charmID.uuid;
 
 	charmStmt, err := s.Prepare(charmQuery, charmState{}, ident)
 	if err != nil {
-		return charm.Charm{}, fmt.Errorf("failed to prepare query: %w", err)
+		return charm.Charm{}, fmt.Errorf("preparing query: %w", err)
 	}
 
 	hashQuery := `
@@ -627,6 +673,32 @@ WHERE charm_uuid = $charmID.uuid;
 	result.Hash = hash.Hash
 
 	return result, nil
+}
+
+func (s *State) getCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, ident charmID) (charm.DownloadInfo, error) {
+	query := `
+SELECT &charmDownloadInfo.*
+FROM charm AS c
+JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+WHERE c.uuid = $charmID.uuid
+AND c.source_id = 1;
+`
+
+	stmt, err := s.Prepare(query, charmDownloadInfo{}, ident)
+	if err != nil {
+		return charm.DownloadInfo{}, fmt.Errorf("preparing query: %w", err)
+	}
+
+	var downloadInfo charmDownloadInfo
+	if err := tx.Query(ctx, stmt, ident).Get(&downloadInfo); err != nil {
+		return charm.DownloadInfo{}, fmt.Errorf("getting charm download info: %w", err)
+	}
+
+	return charm.DownloadInfo{
+		CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
+		DownloadURL:        downloadInfo.DownloadURL,
+		DownloadSize:       downloadInfo.DownloadSize,
+	}, nil
 }
 
 // getMetadata returns the metadata for the charm using the charm ID.
@@ -732,7 +804,7 @@ ORDER BY array_index ASC, nested_array_index ASC;
 
 	stmt, err := s.Prepare(query, charmManifest{}, ident)
 	if err != nil {
-		return charm.Manifest{}, fmt.Errorf("failed to prepare query: %w", err)
+		return charm.Manifest{}, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var manifests []charmManifest
@@ -740,7 +812,7 @@ ORDER BY array_index ASC, nested_array_index ASC;
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Manifest{}, applicationerrors.CharmNotFound
 		}
-		return charm.Manifest{}, fmt.Errorf("failed to get charm manifest: %w", err)
+		return charm.Manifest{}, fmt.Errorf("getting charm manifest: %w", err)
 	}
 
 	return decodeManifest(manifests)
@@ -768,26 +840,26 @@ WHERE uuid = $charmID.uuid;
 
 	charmStmt, err := s.Prepare(charmQuery, ident)
 	if err != nil {
-		return nil, -1, fmt.Errorf("failed to prepare charm query: %w", err)
+		return nil, -1, fmt.Errorf("preparing charm query: %w", err)
 	}
 	var profile charmLXDProfile
 	lxdProfileStmt, err := s.Prepare(lxdProfileQuery, profile, ident)
 	if err != nil {
-		return nil, -1, fmt.Errorf("failed to prepare lxd profile query: %w", err)
+		return nil, -1, fmt.Errorf("preparing lxd profile query: %w", err)
 	}
 
 	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil, -1, applicationerrors.CharmNotFound
 		}
-		return nil, -1, fmt.Errorf("failed to get charm: %w", err)
+		return nil, -1, fmt.Errorf("getting charm: %w", err)
 	}
 
 	if err := tx.Query(ctx, lxdProfileStmt, ident).Get(&profile); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil, -1, applicationerrors.LXDProfileNotFound
 		}
-		return nil, -1, fmt.Errorf("failed to get charm lxd profile: %w", err)
+		return nil, -1, fmt.Errorf("getting charm lxd profile: %w", err)
 	}
 
 	// TODO - figure out why this is happening
@@ -818,18 +890,18 @@ WHERE charm_uuid = $charmID.uuid;
 
 	charmStmt, err := s.Prepare(charmQuery, ident)
 	if err != nil {
-		return charm.Config{}, fmt.Errorf("failed to prepare charm query: %w", err)
+		return charm.Config{}, fmt.Errorf("preparing charm query: %w", err)
 	}
 	configStmt, err := s.Prepare(configQuery, charmConfig{}, ident)
 	if err != nil {
-		return charm.Config{}, fmt.Errorf("failed to prepare config query: %w", err)
+		return charm.Config{}, fmt.Errorf("preparing config query: %w", err)
 	}
 
 	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Config{}, applicationerrors.CharmNotFound
 		}
-		return charm.Config{}, fmt.Errorf("failed to get charm: %w", err)
+		return charm.Config{}, fmt.Errorf("getting charm: %w", err)
 	}
 
 	var configs []charmConfig
@@ -837,7 +909,7 @@ WHERE charm_uuid = $charmID.uuid;
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Config{}, nil
 		}
-		return charm.Config{}, fmt.Errorf("failed to get charm config: %w", err)
+		return charm.Config{}, fmt.Errorf("getting charm config: %w", err)
 	}
 
 	return decodeConfig(configs)
@@ -862,18 +934,18 @@ WHERE charm_uuid = $charmID.uuid;
 
 	charmStmt, err := s.Prepare(charmQuery, ident)
 	if err != nil {
-		return charm.Actions{}, fmt.Errorf("failed to prepare charm query: %w", err)
+		return charm.Actions{}, fmt.Errorf("preparing charm query: %w", err)
 	}
 	actionsStmt, err := s.Prepare(actionQuery, charmAction{}, ident)
 	if err != nil {
-		return charm.Actions{}, fmt.Errorf("failed to prepare action query: %w", err)
+		return charm.Actions{}, fmt.Errorf("preparing action query: %w", err)
 	}
 
 	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Actions{}, applicationerrors.CharmNotFound
 		}
-		return charm.Actions{}, fmt.Errorf("failed to get charm: %w", err)
+		return charm.Actions{}, fmt.Errorf("getting charm: %w", err)
 	}
 
 	var actions []charmAction
@@ -881,7 +953,7 @@ WHERE charm_uuid = $charmID.uuid;
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return charm.Actions{}, nil
 		}
-		return charm.Actions{}, fmt.Errorf("failed to get charm actions: %w", err)
+		return charm.Actions{}, fmt.Errorf("getting charm actions: %w", err)
 	}
 
 	return decodeActions(actions), nil
@@ -898,7 +970,7 @@ WHERE uuid = $charmID.uuid;
 	var metadata charmMetadata
 	stmt, err := s.Prepare(query, metadata, ident)
 	if err != nil {
-		return metadata, fmt.Errorf("failed to prepare query: %w", err)
+		return metadata, fmt.Errorf("preparing query: %w", err)
 	}
 
 	if err := tx.Query(ctx, stmt, ident).Get(&metadata); err != nil {
@@ -927,7 +999,7 @@ ORDER BY array_index ASC;
 `
 	stmt, err := s.Prepare(query, charmTag{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmTag
@@ -957,7 +1029,7 @@ ORDER BY array_index ASC;
 `
 	stmt, err := s.Prepare(query, charmCategory{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmCategory
@@ -987,7 +1059,7 @@ ORDER BY array_index ASC;
 `
 	stmt, err := s.Prepare(query, charmTerm{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmTerm
@@ -1014,7 +1086,7 @@ WHERE charm_uuid = $charmID.uuid;
 	`
 	stmt, err := s.Prepare(query, charmRelation{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmRelation
@@ -1043,7 +1115,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, charmExtraBinding{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmExtraBinding
@@ -1071,7 +1143,7 @@ ORDER BY property_index ASC;
 
 	stmt, err := s.Prepare(query, charmStorage{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmStorage
@@ -1097,7 +1169,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, charmDevice{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmDevice
@@ -1123,7 +1195,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, charmPayload{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmPayload
@@ -1149,7 +1221,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, charmResource{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmResource
@@ -1176,7 +1248,7 @@ ORDER BY array_index ASC;
 
 	stmt, err := s.Prepare(query, charmContainer{}, ident)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare query: %w", err)
+		return nil, fmt.Errorf("preparing query: %w", err)
 	}
 
 	var result []charmContainer

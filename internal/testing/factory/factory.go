@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
@@ -505,6 +506,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		}, applicationservice.AddApplicationArgs{
 			ReferenceName: params.Name,
 			Storage:       directives,
+			DownloadInfo:  &applicationcharm.DownloadInfo{},
 		})
 	}
 	c.Assert(err, jc.ErrorIsNil)

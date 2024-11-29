@@ -171,6 +171,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,
 			Storage:       dt.storage,
+			// TODO (stickupkid): Fill this in correctly when we have the
+			// charmhub information.
+			DownloadInfo: &applicationcharm.DownloadInfo{},
 		}, unitArgs...)
 	}
 

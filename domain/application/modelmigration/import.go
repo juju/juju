@@ -21,6 +21,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -161,6 +162,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		err = i.service.ImportApplication(
 			ctx, app.Name(), charm, *origin, service.AddApplicationArgs{
 				ReferenceName: chURL.Name,
+				// TODO (stickupkid): When we're importing a charm during a
+				// migration, we should fill this in with the correct value.
+				// If not, we should indicate that the charm can not be
+				// downloaded without a new request to the charm store to
+				// fetch the charm.
+				DownloadInfo: &applicationcharm.DownloadInfo{},
 			}, unitArgs...,
 		)
 		if err != nil {

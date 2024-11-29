@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	portstate "github.com/juju/juju/domain/port/state"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -43,7 +42,7 @@ import (
 )
 
 type applicationStateSuite struct {
-	schematesting.ModelSuite
+	baseSuite
 
 	state *State
 }
@@ -87,13 +86,17 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "666",
-				},
+				Metadata:      s.minimalMetadata(c, "666"),
+				Manifest:      s.minimalManifest(c),
 				Source:        charm.CharmHubSource,
 				ReferenceName: "666",
 				Revision:      42,
 				Architecture:  architecture.ARM64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				CharmhubIdentifier: "ident-1",
+				DownloadURL:        "http://example.com/charm",
+				DownloadSize:       666,
 			},
 			Scale:   1,
 			Channel: channel,
@@ -121,9 +124,8 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 			Platform: platform,
 			Channel:  channel,
 			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "foo",
-				},
+				Metadata:     s.minimalMetadata(c, "foo"),
+				Manifest:     s.minimalManifest(c),
 				Source:       charm.LocalSource,
 				Revision:     42,
 				Architecture: architecture.ARM64,
@@ -137,9 +139,8 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 			Platform: platform,
 			Channel:  channel,
 			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "foo",
-				},
+				Metadata:     s.minimalMetadata(c, "foo"),
+				Manifest:     s.minimalManifest(c),
 				Source:       charm.LocalSource,
 				Revision:     42,
 				Architecture: architecture.ARM64,
@@ -167,6 +168,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 				Metadata: charm.Metadata{
 					Name: "666",
 				},
+				Manifest:      s.minimalManifest(c),
 				Source:        charm.LocalSource,
 				ReferenceName: "666",
 				Revision:      42,
@@ -191,9 +193,8 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "666",
-				},
+				Metadata: s.minimalMetadata(c, "666"),
+				Manifest: s.minimalManifest(c),
 				Source:   charm.LocalSource,
 				Revision: 42,
 			},
@@ -217,9 +218,8 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.
 		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "666",
-				},
+				Metadata:    s.minimalMetadata(c, "666"),
+				Manifest:    s.minimalManifest(c),
 				Source:      charm.LocalSource,
 				Revision:    42,
 				ArchivePath: "/some/path",
@@ -1640,7 +1640,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 		ReferenceName: expectedMetadata.Name,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	chID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
@@ -1850,6 +1850,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 		_, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
 			Charm: charm.Charm{
 				Metadata: expectedMetadata,
+				Manifest: s.minimalManifest(c),
 				Source:   charm.LocalSource,
 			},
 		})
@@ -2014,6 +2015,7 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 						},
 					},
 				},
+				Manifest:      s.minimalManifest(c),
 				ReferenceName: name,
 				Source:        charm.CharmHubSource,
 				Revision:      42,

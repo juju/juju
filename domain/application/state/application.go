@@ -153,7 +153,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		}
 
 		if shouldInsertCharm {
-			if err := st.setCharm(ctx, tx, charmID, app.Charm); err != nil {
+			if err := st.setCharm(ctx, tx, charmID, app.Charm, app.CharmDownloadInfo); err != nil {
 				return errors.Annotate(err, "setting charm")
 			}
 		}
@@ -1780,7 +1780,7 @@ WHERE uuid = $applicationID.uuid
 		// Now get the charm by the UUID, but if it doesn't exist, return an
 		// error.
 		chIdent := charmID{UUID: charmIdent.CharmUUID}
-		ch, err = st.getCharm(ctx, tx, chIdent)
+		ch, _, err = st.getCharm(ctx, tx, chIdent)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return internalerrors.Errorf("application %s: %w", appID, applicationerrors.CharmNotFound)

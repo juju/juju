@@ -545,33 +545,37 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 }
 
 // GetCharm returns the charm using the charm ID.
+// DownloadInfo is optional, and is only returned for charms from a charm store.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error) {
+func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Charm{}, internalerrors.Capture(err)
+		return charm.Charm{}, nil, internalerrors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
 
-	var ch charm.Charm
+	var (
+		ch charm.Charm
+		di *charm.DownloadInfo
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		ch, err = s.getCharm(ctx, tx, ident)
+		ch, di, err = s.getCharm(ctx, tx, ident)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
 		return nil
 	}); err != nil {
-		return ch, internalerrors.Errorf("getting charm: %w", err)
+		return ch, nil, internalerrors.Errorf("getting charm: %w", err)
 	}
 
-	return ch, nil
+	return ch, di, nil
 }
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -590,7 +594,7 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, 
 			return internalerrors.Capture(err)
 		}
 
-		if err := s.setCharm(ctx, tx, id, charm); err != nil {
+		if err := s.setCharm(ctx, tx, id, charm, downloadInfo); err != nil {
 			return internalerrors.Capture(err)
 		}
 

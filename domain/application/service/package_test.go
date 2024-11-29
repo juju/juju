@@ -19,6 +19,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/charm"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -146,6 +147,20 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 	}).AnyTimes()
 
 	return ctrl
+}
+
+func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
+	return charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.RiskStable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}
 }
 
 func ptr[T any](v T) *T {
