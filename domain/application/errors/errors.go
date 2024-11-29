@@ -151,4 +151,22 @@ const (
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.
 	ResourceNameNotValid = errors.ConstError("resource name not valid")
+
+	// AlreadyDownloadingCharm describes an error that occurs when a charm is
+	// already being downloaded.
+	AlreadyDownloadingCharm = errors.ConstError("already downloading charm")
+
+	// UnableToResolveCharm describes an error that occurs when a charm cannot
+	// be resolved.
+	UnableToResolveCharm = errors.ConstError("unable to resolve charm")
+
+	// CharmAlreadyResolved describes an error that occurs when a charm is
+	// already resolved. This means the charm for the hash already exists and
+	// can just be used.
+	CharmAlreadyResolved = errors.ConstError("charm already resolved")
+
+	// CharmNotResolved describes an error that occurs when a charm is not
+	// resolved. This means the charm for the hash does not exist and needs to
+	// be downloaded.
+	CharmNotResolved = errors.ConstError("charm not resolved")
 )

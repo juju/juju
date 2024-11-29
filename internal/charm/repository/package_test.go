@@ -14,3 +14,7 @@ import (
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
+
+func ptr[T any](x T) *T {
+	return &x
+}
