@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"maps"
 	"slices"
 	"strings"
@@ -220,9 +221,189 @@ WHERE uuid = $resourceIdentity.uuid`,
 // SetResource adds the resource to blob storage and updates the metadata.
 func (st *State) SetResource(
 	ctx context.Context,
-	config resource.SetResourceArgs,
-) (resource.Resource, error) {
-	return resource.Resource{}, nil
+	res resource.Resource,
+	increment resource.IncrementCharmModifiedVersionType,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	resourceIdentity := resourceIdentity{
+		UUID:            res.UUID.String(),
+		ApplicationUUID: res.ApplicationID.String(),
+		Name:            res.Name,
+	}
+
+	resourceOriginType := resourceOriginType{Name: res.Origin.String()}
+
+	// If the revision is -1, set it to NULL in the database.
+	var revision sql.Null[int64]
+	if res.Revision != -1 {
+		revision.V = int64(res.Revision)
+		revision.Valid = true
+	}
+
+	setRes := setResource{
+		UUID:              res.UUID.String(),
+		CharmResourceName: res.Name,
+		Revision:          revision,
+		CreatedAt:         res.Timestamp,
+		// TODO(aflynn): Set StateID to 0 for now until its purpose is better
+		// understood.
+		StateID: 0,
+	}
+
+	resourceRetrievedByType := resourceRetrievedByType{Name: string(res.RetrievedByType)}
+
+	resourceRetrievedBy := resourceRetrievedBy{
+		ResourceUUID: res.UUID.String(),
+		Name:         res.RetrievedBy,
+	}
+
+	charmUUID := charmUUID{}
+	getCharmUUIDStmt, err := st.Prepare(`
+SELECT &charmUUID.charm_uuid
+FROM   application a 
+JOIN   charm c ON a.charm_uuid = c.uuid
+WHERE  a.uuid = $resourceIdentity.application_uuid
+`, charmUUID, resourceIdentity)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkCharmResourceExistsStmt, err := st.Prepare(`
+SELECT &resourceIdentity.name
+FROM   charm c 
+JOIN   charm_resource cr ON c.uuid = cr.charm_uuid
+WHERE  c.uuid = $charmUUID.charm_uuid
+AND    cr.name = $resourceIdentity.name
+`, charmUUID, resourceIdentity)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	getOriginIDStmt, err := st.Prepare(`
+SELECT &resourceOriginType.id
+FROM   resource_origin_type
+WHERE  name = $resourceOriginType.name
+`, resourceOriginType)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertResourceStmt, err := st.Prepare(`
+INSERT INTO resource (*)
+VALUES               ($setResource.*)
+`, setRes)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	getRetrievedByIDStmt, err := st.Prepare(`
+SELECT &resourceRetrievedByType.id
+FROM resource_added_by_type 
+WHERE name = $resourceRetrievedByType.name
+`, resourceRetrievedByType)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertRetrievedByStmt, err := st.Prepare(`
+INSERT INTO resource_added_by (*)
+VALUES      ($resourceRetrievedBy.*)
+`, resourceRetrievedBy)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertApplicationResourceStmt, err := st.Prepare(`
+INSERT INTO application_resource (resource_uuid, application_uuid)
+VALUES      ($resourceIdentity.uuid, $resourceIdentity.application_uuid)
+`, resourceIdentity)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var incrementCharmModifiedVersionStmt *sqlair.Statement
+	if increment {
+		incrementCharmModifiedVersionStmt, err = st.Prepare(`
+UPDATE application
+SET charm_modified_version = IFNULL(charm_modified_version,0) + 1
+WHERE uuid = $resourceIdentity.application_uuid
+`, resourceIdentity)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get charm UUID by joining on the application table.
+		err = tx.Query(ctx, getCharmUUIDStmt, resourceIdentity).Get(&charmUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting charm UUID for application %q: %w", res.ApplicationID, apperrors.ApplicationNotFound)
+		} else if err != nil {
+			return errors.Errorf("getting charm UUID for application %q: %w", res.ApplicationID, err)
+		}
+		setRes.CharmUUID = charmUUID.UUID
+
+		// Check that the charm has metadata for the resource being added.
+		err = tx.Query(ctx, checkCharmResourceExistsStmt, charmUUID, resourceIdentity).Get(&resourceIdentity)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("checking resource exists on charm: %w", apperrors.CharmResourceNotFound)
+		} else if err != nil {
+			return errors.Errorf("checking resource exists on charm: %w", err)
+		}
+
+		// Get the database ID of the resource origin type.
+		err = tx.Query(ctx, getOriginIDStmt, resourceOriginType).Get(&resourceOriginType)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting id for resource origin type: %w: %q", apperrors.UnknownResourceOriginType, resourceOriginType.Name)
+		} else if err != nil {
+			return errors.Errorf("getting id for resource origin type: %w", err)
+		}
+		setRes.OriginTypeID = resourceOriginType.ID
+
+		// Get the database ID of the resource added by type.
+		err = tx.Query(ctx, getRetrievedByIDStmt, resourceRetrievedByType).Get(&resourceRetrievedByType)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting id for resource added by type: %w: %q", apperrors.UnknownResourceRetrievedByType, resourceRetrievedByType.Name)
+		} else if err != nil {
+			return errors.Errorf("getting id for resource added by type: %w", err)
+		}
+		resourceRetrievedBy.RetrievedByTypeID = resourceRetrievedByType.ID
+
+		// Insert the resource row into the resource table.
+		err = tx.Query(ctx, insertResourceStmt, setRes).Run()
+		if err != nil {
+			return errors.Errorf("inserting resource: %w", err)
+		}
+
+		// Record the identity of the entity that added the resource.
+		err = tx.Query(ctx, insertRetrievedByStmt, resourceRetrievedBy).Run()
+		if err != nil {
+			return errors.Errorf("inserting resource: %w", err)
+		}
+
+		// Link the application to the new resource.
+		err = tx.Query(ctx, insertApplicationResourceStmt, resourceIdentity).Run()
+		if err != nil {
+			return errors.Errorf("inserting application resource: %w", err)
+		}
+
+		// Increment the charm modified version if necessary.
+		if increment {
+			err = tx.Query(ctx, incrementCharmModifiedVersionStmt, resourceIdentity).Run()
+			if err != nil {
+				return errors.Errorf("inserting resource: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetUnitResource sets the resource metadata for a specific unit.

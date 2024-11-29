@@ -14,7 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
-	coreresources "github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/unit"
 	apperrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
@@ -113,7 +114,7 @@ func (s *resourceSuite) TestGetApplicationResourceID(c *gc.C) {
 		Name:          found.Name,
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to get application resource ID: %v", errors.ErrorStack(err)))
-	c.Assert(id, gc.Equals, coreresources.UUID(found.UUID),
+	c.Assert(id, gc.Equals, coreresource.UUID(found.UUID),
 		gc.Commentf("(Act) unexpected application resource ID"))
 }
 
@@ -134,7 +135,7 @@ func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *gc.C) {
 // resource results in a ResourceNotFound error.
 func (s *resourceSuite) TestGetResourceNotFound(c *gc.C) {
 	// Arrange : no resource
-	resID := coreresources.UUID("resource-id")
+	resID := coreresource.UUID("resource-id")
 
 	// Act
 	_, err := s.state.GetResource(context.Background(), resID)
@@ -147,7 +148,7 @@ func (s *resourceSuite) TestGetResourceNotFound(c *gc.C) {
 // database by its ID.
 func (s *resourceSuite) TestGetResource(c *gc.C) {
 	// Arrange : a simple resource
-	resID := coreresources.UUID("resource-id")
+	resID := coreresource.UUID("resource-id")
 	now := time.Now().Truncate(time.Second).UTC()
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
@@ -172,7 +173,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 		UUID:            resID.String(),
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Revision:        expected.Revision,
-		OriginType:      "uploaded", // 0 in db
+		OriginType:      "upload", // 0 in db
 		CreatedAt:       now,
 		Name:            expected.Name,
 		Kind:            "file", // 0 in db
@@ -193,6 +194,217 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 
 	// Assert
 	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
+}
+
+type setTest struct {
+	Summary         string
+	ResourceUUID    coreresource.UUID
+	Name            string
+	Revision        int
+	OriginType      charmresource.Origin     // OriginType is a string representing the source type of the resource (should be a valid value from resource_origin_type or empty).
+	RetrievedByType resource.RetrievedByType // should be a valid value from resource_supplied_by_type
+	RetrievedByName string
+	Increment       resource.IncrementCharmModifiedVersionType
+}
+
+func (s *resourceSuite) TestSetResource(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	increment := resource.IncrementCharmModifiedVersion
+	originalCharmModifiedVersion := s.getCharmModifiedVersion(c)
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		increment,
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+
+	// Check that the resource was added.
+	found := s.getResource(c, res.UUID.String())
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+	c.Check(found.CharmUUID, gc.Equals, fakeCharmUUID)
+	c.Check(found.CharmResourceName, gc.Equals, name)
+	c.Check(found.Revision, gc.NotNil)
+	c.Check(*found.Revision, gc.Equals, res.Revision)
+	c.Check(found.OriginTypeID, gc.Equals, OriginTypeID(res.Origin.String()))
+	c.Check(found.StateID, gc.Equals, 0)
+	c.Check(found.CreatedAt, gc.Equals, res.Timestamp)
+	c.Check(found.LastPolled, gc.IsNil)
+
+	// Check "added by" was added.
+	foundRetrievedByTypeID, foundName := s.getResourceRetrievedBy(c, res.UUID.String())
+	c.Check(foundRetrievedByTypeID, gc.Equals, RetrievedByTypeID(string(res.RetrievedByType)))
+	c.Check(foundName, gc.Equals, res.RetrievedBy)
+
+	// Check resource was added to application resource table.
+	foundApplicationUUID := s.getApplicationResource(c, res.UUID.String())
+	c.Check(foundApplicationUUID, gc.Equals, res.ApplicationID.String())
+
+	// Check charm modified version was incremented.
+	foundCharmModifiedVersion := s.getCharmModifiedVersion(c)
+	c.Check(foundCharmModifiedVersion, gc.Equals, originalCharmModifiedVersion+1)
+}
+
+func (s *resourceSuite) TestSetResourceRetrievedByUnit(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	res.RetrievedBy = "unit-app1-0"
+	res.RetrievedByType = resource.Unit
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.DoNotIncrementCharmModifiedVersion,
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+
+	// Check "added by" was added.
+	foundRetrievedByTypeID, foundName := s.getResourceRetrievedBy(c, res.UUID.String())
+	c.Check(foundRetrievedByTypeID, gc.Equals, RetrievedByTypeID(string(res.RetrievedByType)))
+	c.Check(foundName, gc.Equals, res.RetrievedBy)
+}
+
+func (s *resourceSuite) TestSetResourceNoRevision(c *gc.C) {
+	// Arrange.
+	name := s.insertTestCharmResource(c)
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: name,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: -1,
+		},
+		UUID:            resourcetesting.GenResourceUUID(c),
+		ApplicationID:   application.ID(s.constants.fakeApplicationUUID1),
+		RetrievedBy:     "bill",
+		RetrievedByType: resource.User,
+		Timestamp:       time.Now(),
+	}
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.IncrementCharmModifiedVersion,
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+
+	// Check revision is NULL.
+	found := s.getResource(c, res.UUID.String())
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+	c.Check(found.Revision, gc.IsNil)
+}
+
+func (s *resourceSuite) TestSetResourceCharmModifiedVersionIncremented(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	originalCharmModifiedVersion := s.getCharmModifiedVersion(c)
+
+	// Action:
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.IncrementCharmModifiedVersion,
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+
+	// Check charm modified version was incremented.
+	foundCharmModifiedVersion := s.getCharmModifiedVersion(c)
+	c.Assert(foundCharmModifiedVersion, gc.Equals, originalCharmModifiedVersion+1)
+}
+
+func (s *resourceSuite) TestSetResourceCharmModifiedVersionNotIncremented(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	originalCharmModifiedVersion := s.getCharmModifiedVersion(c)
+
+	// Action:
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.DoNotIncrementCharmModifiedVersion,
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("error: %v", errors.ErrorStack(err)))
+
+	// Check charm modified version was not incremented.
+	foundCharmModifiedVersion := s.getCharmModifiedVersion(c)
+	c.Assert(foundCharmModifiedVersion, gc.Equals, originalCharmModifiedVersion)
+}
+
+func (s *resourceSuite) TestSetResourceApplicationNotFound(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	res.ApplicationID = "bad-uuid"
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.IncrementCharmModifiedVersion,
+	)
+
+	// Assert expected error.
+	c.Assert(err, jc.ErrorIs, apperrors.ApplicationNotFound)
+}
+
+func (s *resourceSuite) TestSetResourceCharmResourceNotFound(c *gc.C) {
+	// Arrange:
+	name := "bad-name"
+	res := s.testResource(c, name)
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.IncrementCharmModifiedVersion,
+	)
+
+	// Assert expected error.
+	c.Assert(err, jc.ErrorIs, apperrors.CharmResourceNotFound)
+}
+
+func (s *resourceSuite) TestSetResourceUnknownOriginType(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	// 0 is the unknown origin.
+	res.Origin = 0
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.IncrementCharmModifiedVersion,
+	)
+
+	// Assert expected error.
+	c.Assert(err, jc.ErrorIs, apperrors.UnknownResourceOriginType)
+}
+
+func (s *resourceSuite) TestSetResourceUnknownResourceRetrievedByType(c *gc.C) {
+	// Arrange:
+	name := s.insertTestCharmResource(c)
+	res := s.testResource(c, name)
+	res.RetrievedByType = resource.Unknown
+
+	// Action: Set the resource.
+	err := s.state.SetResource(
+		context.Background(),
+		res,
+		resource.IncrementCharmModifiedVersion,
+	)
+
+	// Assert expected error.
+	c.Assert(err, jc.ErrorIs, apperrors.UnknownResourceRetrievedByType)
 }
 
 // TestSetRepositoryResource ensures that the SetRepositoryResources function
@@ -358,7 +570,7 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSupplied(c *gc.C) {
 
 	// Act set supplied by with application type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
+		ResourceUUID:    coreresource.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "app1",
 		RetrievedByType: "application",
@@ -412,7 +624,7 @@ func (s *resourceSuite) TestSetUnitResourceAlreadyRetrievedByApplication(c *gc.C
 
 	// Act set supplied by with application type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
+		ResourceUUID:    coreresource.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     s.constants.fakeUnitUUID1,
 		RetrievedByType: "unit",
@@ -463,7 +675,7 @@ func (s *resourceSuite) TestSetUnitResourceAlreadySetted(c *gc.C) {
 
 	// Act set supplied by with user type
 	result, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
+		ResourceUUID:    coreresource.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "john",
 		RetrievedByType: "user",
@@ -504,7 +716,7 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSuppliedExistingSupplierWrongTy
 
 	// Act set supplied by with unexpected type
 	_, err = s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
+		ResourceUUID:    coreresource.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "john",
 		RetrievedByType: "unexpected",
@@ -532,7 +744,7 @@ func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 
 	// Act: set unknown resource
 	_, err := s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
+		ResourceUUID:    coreresource.UUID(resID),
 		UnitUUID:        unit.UUID(s.constants.fakeUnitUUID1),
 		RetrievedBy:     "john",
 		RetrievedByType: "unexpected",
@@ -569,7 +781,7 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 
 	// Act set supplied by with unexpected unit
 	_, err = s.state.SetUnitResource(context.Background(), resource.SetUnitResourceArgs{
-		ResourceUUID:    coreresources.UUID(resID),
+		ResourceUUID:    coreresource.UUID(resID),
 		UnitUUID:        "unexpected-unit-id",
 		RetrievedBy:     "john",
 		RetrievedByType: "user",
@@ -695,6 +907,112 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	})
 }
 
+func (s *resourceSuite) getCharmModifiedVersion(c *gc.C) int {
+	var foundCharmModifiedVersion *int
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT charm_modified_version
+FROM   application
+WHERE  uuid = ?`, s.constants.fakeApplicationUUID1).Scan(
+			&foundCharmModifiedVersion,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the charm modified version is NULL, then return 0.
+	if foundCharmModifiedVersion != nil {
+		return *foundCharmModifiedVersion
+	}
+	return 0
+}
+
+func (s *resourceSuite) getResourceRetrievedBy(c *gc.C, resourceUUID string) (int, string) {
+	var (
+		foundRetrievedByTypeID int
+		foundName              string
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT added_by_type_id, name
+FROM   resource_added_by
+WHERE  resource_uuid = ?`, resourceUUID).Scan(
+			&foundRetrievedByTypeID, &foundName,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return foundRetrievedByTypeID, foundName
+}
+
+func (s *resourceSuite) getApplicationResource(c *gc.C, resourceUUID string) string {
+	var foundApplicationUUID string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT application_uuid
+FROM   application_resource
+WHERE  resource_uuid = ?`, resourceUUID).Scan(&foundApplicationUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return foundApplicationUUID
+}
+
+func (s *resourceSuite) testResource(c *gc.C, name string) resource.Resource {
+	return resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: name,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: 42,
+		},
+		UUID:            resourcetesting.GenResourceUUID(c),
+		ApplicationID:   application.ID(s.constants.fakeApplicationUUID1),
+		RetrievedBy:     "bill",
+		RetrievedByType: resource.User,
+		Timestamp:       time.Now().Truncate(time.Second).UTC(),
+	}
+}
+
+func (s *resourceSuite) insertTestCharmResource(c *gc.C) string {
+	// Put in test charm.
+	name := "resource-name"
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return resourceData{
+			Name:        "resource-name",
+			Path:        "/path/to/resource",
+			Description: "this is a test resource",
+			Kind:        "file",
+		}.insertCharmResource(tx)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("inserting test charm"))
+	return name
+}
+
+type gotResource struct {
+	CharmUUID, CharmResourceName string
+	Revision                     *int
+	OriginTypeID, StateID        int
+	CreatedAt                    time.Time
+	LastPolled                   *time.Time
+}
+
+func (s *resourceSuite) getResource(c *gc.C, resourceUUID string) gotResource {
+	var res gotResource
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT charm_uuid, charm_resource_name, revision, origin_type_id, state_id, created_at, last_polled
+FROM   resource
+WHERE  uuid = ?`, resourceUUID).Scan(
+			&res.CharmUUID, &res.CharmResourceName,
+			&res.Revision,
+			&res.OriginTypeID, &res.StateID,
+			&res.CreatedAt,
+			&res.LastPolled,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return res
+}
+
 // resourceData represents a structure containing meta-information about a resource in the system.
 type resourceData struct {
 	// from resource table
@@ -720,11 +1038,11 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        d.Name,
-			Type:        charmresource.Type(d.TypeID()),
+			Type:        charmresource.Type(TypeID(d.Kind)),
 			Path:        d.Path,
 			Description: d.Description,
 		},
-		Origin:   charmresource.Origin(d.OriginTypeID()),
+		Origin:   charmresource.Origin(OriginTypeID(d.OriginType)),
 		Revision: d.Revision,
 		// todo(gfouillet): deal with fingerprint & size
 		Fingerprint: charmresource.Fingerprint{},
@@ -737,7 +1055,7 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 func (d resourceData) toResource() resource.Resource {
 	return resource.Resource{
 		Resource:        d.toCharmResource(),
-		UUID:            coreresources.UUID(d.UUID),
+		UUID:            coreresource.UUID(d.UUID),
 		ApplicationID:   application.ID(d.ApplicationUUID),
 		RetrievedBy:     d.RetrievedByName,
 		RetrievedByType: resource.RetrievedByType(d.RetrievedByType),
@@ -751,45 +1069,6 @@ func (d resourceData) DeepCopy() resourceData {
 	return result
 }
 
-// RetrievedByTypeID maps the RetrievedByType string to an integer ID based on
-// predefined categories.
-func (d resourceData) RetrievedByTypeID() int {
-	res, _ := map[string]int{
-		"user":        0,
-		"unit":        1,
-		"application": 2,
-	}[d.RetrievedByType]
-	return res
-}
-
-// TypeID returns the integer ID corresponding to the resource kind stored in d.Kind.
-func (d resourceData) TypeID() int {
-	res, _ := map[string]int{
-		"file":      0,
-		"oci-image": 1,
-	}[d.Kind]
-	return res
-}
-
-// OriginTypeID maps the OriginType string to its corresponding integer ID
-// based on predefined categories.
-func (d resourceData) OriginTypeID() int {
-	res, _ := map[string]int{
-		"uploaded": 0,
-		"store":    1,
-	}[d.OriginType]
-	return res
-}
-
-// StateID returns the integer ID corresponding to the state stored in d.State.
-func (d resourceData) StateID() int {
-	res, _ := map[string]int{
-		"available": 0,
-		"potential": 1,
-	}[d.State]
-	return res
-}
-
 // insert inserts the resource data into multiple related tables within a transaction.
 // It populates charm_resource, resource, application_resource,
 // resource_retrieved_by (if necessary), and unit_resource (if required).
@@ -801,16 +1080,16 @@ func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 		}
 		return &t
 	}
+
 	// Populate charm_resource table
-	_, err = tx.Exec(`INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description) VALUES (?, ?, ?, ?, ?)`,
-		fakeCharmUUID, input.Name, input.TypeID(), nilZero(input.Path), nilZero(input.Description))
+	err = input.insertCharmResource(tx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Populate resource table
 	_, err = tx.Exec(`INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, origin_type_id, state_id, created_at, last_polled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		input.UUID, fakeCharmUUID, input.Name, nilZero(input.Revision), input.OriginTypeID(), input.StateID(), input.CreatedAt, nilZeroTime(input.PolledAt))
+		input.UUID, fakeCharmUUID, input.Name, nilZero(input.Revision), OriginTypeID(input.OriginType), StateID(input.State), input.CreatedAt, nilZeroTime(input.PolledAt))
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -825,7 +1104,7 @@ func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 	// Populate resource_retrieved_by table of necessary
 	if input.RetrievedByName != "" {
 		_, err = tx.Exec(`INSERT INTO resource_retrieved_by (resource_uuid, retrieved_by_type_id, name) VALUES (?, ?, ?)`,
-			input.UUID, input.RetrievedByTypeID(), input.RetrievedByName)
+			input.UUID, RetrievedByTypeID(input.RetrievedByType), input.RetrievedByName)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -837,7 +1116,17 @@ func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 		return errors.Capture(err)
 	}
 
-	return
+	return nil
+}
+
+func (input resourceData) insertCharmResource(tx *sql.Tx) error {
+	_, err := tx.Exec(`INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description) VALUES (?, ?, ?, ?, ?)`,
+		fakeCharmUUID, input.Name, TypeID(input.Kind), nilZero(input.Path), nilZero(input.Description))
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // nilZero returns a pointer to the input value unless the value is its type's zero value, in which case it returns nil.
@@ -847,4 +1136,43 @@ func nilZero[T comparable](t T) *T {
 		return nil
 	}
 	return &t
+}
+
+// RetrievedByTypeID maps the RetrievedByType string to an integer ID based on
+// predefined categories.
+func RetrievedByTypeID(RetrievedByType string) int {
+	res, _ := map[string]int{
+		"user":        0,
+		"unit":        1,
+		"application": 2,
+	}[RetrievedByType]
+	return res
+}
+
+// TypeID returns the integer ID corresponding to the resource kind stored in d.Kind.
+func TypeID(Kind string) int {
+	res, _ := map[string]int{
+		"file":      0,
+		"oci-image": 1,
+	}[Kind]
+	return res
+}
+
+// OriginTypeID maps the OriginType string to its corresponding integer ID
+// based on predefined categories.
+func OriginTypeID(OriginType string) int {
+	res, _ := map[string]int{
+		"upload": 0,
+		"store":  1,
+	}[OriginType]
+	return res
+}
+
+// StateID returns the integer ID corresponding to the state stored in d.State.
+func StateID(State string) int {
+	res, _ := map[string]int{
+		"available": 0,
+		"potential": 1,
+	}[State]
+	return res
 }

@@ -31,8 +31,8 @@ type ResourceState interface {
 	// GetResource returns the identified resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
 
-	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(ctx context.Context, config resource.SetResourceArgs) (resource.Resource, error)
+	// SetResource adds the resource metadata and adds it to the application.
+	SetResource(ctx context.Context, resource resource.Resource, increment resource.IncrementCharmModifiedVersionType) error
 
 	// SetUnitResource sets the resource metadata for a specific unit.
 	SetUnitResource(ctx context.Context, config resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error)
@@ -157,16 +157,34 @@ func (s *Service) SetResource(
 	args resource.SetResourceArgs,
 ) (resource.Resource, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("application id: %w", err)
+		return resource.Resource{}, errors.Errorf("application id: %w", err)
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
 		return resource.Resource{},
 			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("resource: %w", err)
+		return resource.Resource{}, errors.Errorf("resource: %w", err)
 	}
-	return s.st.SetResource(ctx, args)
+	resourceUUID, err := coreresource.NewUUID()
+	if err != nil {
+		return resource.Resource{}, errors.Errorf("generating resource UUID: %w")
+	}
+
+	res := resource.Resource{
+		Resource:        args.Resource,
+		UUID:            resourceUUID,
+		ApplicationID:   args.ApplicationID,
+		RetrievedBy:     args.SuppliedBy,
+		RetrievedByType: args.SuppliedByType,
+		Timestamp:       s.clock.Now(),
+	}
+
+	err = s.st.SetResource(ctx, res, args.Increment)
+	if err != nil {
+		return resource.Resource{}, err
+	}
+	return res, err
 }
 
 // SetUnitResource sets the resource metadata for a specific unit.

@@ -140,6 +140,10 @@ const (
 	// container image metadata is not found.
 	ContainerImageMetadataNotFound = errors.ConstError("container image metadata not found")
 
+	// CharmResourceNotFound describes an error that occurs when a resource is
+	// not found in a charm description.
+	CharmResourceNotFound = errors.ConstError("charm resource not found")
+
 	// UnknownResourceType describes an error where the resource type is
 	// not oci-image or file.
 	UnknownResourceType = errors.ConstError("unknown resource type")
@@ -147,6 +151,14 @@ const (
 	// UnknownRetrievedByType describes an error where the retrieved by type is
 	// neither user, unit nor application.
 	UnknownRetrievedByType = errors.ConstError("unknown retrieved by type")
+
+	// UnknownResourceRetrievedByType describes an error where the added by type is
+	// neither user, unit nor application.
+	UnknownResourceRetrievedByType = errors.ConstError("unknown resource retrieved by type")
+
+	// UnknownResourceOriginType describes an error where the origin type is
+	// neither upload nor store.
+	UnknownResourceOriginType = errors.ConstError("unknown resource origin type")
 
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.

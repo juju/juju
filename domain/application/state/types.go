@@ -4,6 +4,7 @@
 package state
 
 import (
+	"database/sql"
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -679,4 +680,37 @@ type containerImageMetadata struct {
 	RegistryPath string `db:"registry_path"`
 	UserName     string `db:"username"`
 	Password     string `db:"password"`
+}
+
+type setResource struct {
+	// UUID is resources unique identifier.
+	UUID string `db:"uuid"`
+	// CharmUUD is the UUID of the charm this resource is defined in.
+	CharmUUID string `db:"charm_uuid"`
+	// CharmResourceName is the name of the resource in the charm definition.
+	CharmResourceName string `db:"charm_resource_name"`
+	// Revision is the resource revision.
+	Revision sql.Null[int64] `db:"revision"`
+	// OriginTypeID is the ID of the origin of the stored resource.
+	OriginTypeID int `db:"origin_type_id"`
+	// Created at is the time the row is inserted into the resource table.
+	CreatedAt time.Time `db:"created_at"`
+	// StateID is the state ID of the resource
+	StateID int `db:"state_id"`
+}
+
+type resourceOriginType struct {
+	Name string `db:"name"`
+	ID   int    `db:"id"`
+}
+
+type resourceRetrievedByType struct {
+	Name string `db:"name"`
+	ID   int    `db:"id"`
+}
+
+type resourceRetrievedBy struct {
+	ResourceUUID      string `db:"resource_uuid"`
+	RetrievedByTypeID int    `db:"retrieved_by_type_id"`
+	Name              string `db:"name"`
 }
