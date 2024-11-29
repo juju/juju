@@ -5,7 +5,6 @@ package testing
 
 import (
 	"context"
-	"database/sql"
 	"io"
 	"net/http"
 
@@ -39,6 +38,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	domainservicefactory "github.com/juju/juju/domain/services"
+	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -88,9 +88,7 @@ type DomainServicesSuite struct {
 	ProviderTracker providertracker.ProviderFactory
 }
 
-type stubDBDeleter struct {
-	DB *sql.DB
-}
+type stubDBDeleter struct{}
 
 func (s stubDBDeleter) DeleteDB(namespace string) error {
 	return nil
@@ -246,30 +244,40 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 	})
 }
 
+type domainServices struct {
+	*domainservices.ControllerServices
+	*domainservices.ModelServices
+}
+
 // DomainServicesGetterWithStorageRegistry provides an implementation of the
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
 func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
 	return func(modelUUID coremodel.UUID) services.DomainServices {
-		return domainservicefactory.NewDomainServices(
-			databasetesting.ConstFactory(s.TxnRunner()),
-			modelUUID,
-			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
-			stubDBDeleter{DB: s.DB()},
-			s.ProviderTracker,
-			modelObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
-				return objectStore, nil
-			}),
-			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
-				return storageRegistry, nil
-			}),
-			sshimporter.NewImporter(&http.Client{}),
-			modelApplicationLeaseManagerGetter(func() lease.Checker {
-				return leaseManager
-			}),
-			clock.WallClock,
-			loggertesting.WrapCheckLog(c),
-		)
+		clock := clock.WallClock
+		logger := loggertesting.WrapCheckLog(c)
+		controllerServices := domainservices.NewControllerServices(databasetesting.ConstFactory(s.TxnRunner()), stubDBDeleter{}, clock, logger)
+		return &domainServices{
+			ControllerServices: controllerServices,
+			ModelServices: domainservices.NewModelServices(
+				modelUUID,
+				databasetesting.ConstFactory(s.TxnRunner()),
+				databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
+				s.ProviderTracker,
+				modelObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+					return objectStore, nil
+				}),
+				modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
+					return storageRegistry, nil
+				}),
+				sshimporter.NewImporter(&http.Client{}),
+				modelApplicationLeaseManagerGetter(func() lease.Checker {
+					return leaseManager
+				}),
+				clock,
+				logger,
+			),
+		}
 	}
 }
 
