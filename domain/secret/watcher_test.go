@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -172,7 +171,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -250,7 +249,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -311,7 +310,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -367,7 +366,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	w, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -397,8 +396,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 		// create revision 2, and obsolete revision 1. An event is fired because the auto prune is turned on for uri2.
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-		w.AssertChange()
+		w.AssertNChanges(2)
 	})
 
 	harness.AddTest(func(c *gc.C) {
@@ -418,7 +416,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	w1, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w1, gc.NotNil)
-	defer workertest.CleanKill(c, w1)
+	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
@@ -449,7 +447,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	w, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -489,7 +487,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	w1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(w1, gc.NotNil)
-	defer workertest.CleanKill(c, w1)
+	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
@@ -514,7 +512,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	w2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(w2, gc.NotNil)
-	defer workertest.CleanKill(c, w2)
+	defer watchertest.CleanKill(c, w2)
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
 	harness2.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -546,7 +544,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 
 	w, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -574,7 +572,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w1)
+	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
@@ -599,7 +597,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	// change.
 	w2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w2)
+	defer watchertest.CleanKill(c, w2)
 
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
 	harness2.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
@@ -630,7 +628,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -674,7 +672,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	w1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
 	c.Assert(err, gc.IsNil)
 	c.Assert(w1, gc.NotNil)
-	defer workertest.CleanKill(c, w1)
+	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
@@ -698,7 +696,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	w2, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
 	c.Assert(err, gc.IsNil)
 	c.Assert(w2, gc.NotNil)
-	defer workertest.CleanKill(c, w2)
+	defer watchertest.CleanKill(c, w2)
 
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
 	harness2.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
@@ -730,7 +728,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -788,7 +786,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w1, gc.NotNil)
-	defer workertest.CleanKill(c, w1)
+	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 
@@ -839,7 +837,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
+	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(func(c *gc.C) {
@@ -901,7 +899,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w1, gc.NotNil)
-	defer workertest.CleanKill(c, w1)
+	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {

@@ -21,7 +21,7 @@ type WatcherAssert[T any] func(c *gc.C, changes []T) bool
 // received at least the given changes.
 func SliceAssert[T any](expect ...T) WatcherAssert[T] {
 	return func(c *gc.C, changes []T) bool {
-		if len(expect) >= len(changes) {
+		if len(changes) >= len(expect) {
 			c.Assert(changes, jc.SameContents, expect)
 			return true
 		}
@@ -38,7 +38,7 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 		for _, change := range changes {
 			received = append(received, change...)
 		}
-		if len(expect) >= len(received) {
+		if len(received) >= len(expect) {
 			c.Assert(received, jc.SameContents, expect)
 			return true
 		}
@@ -55,7 +55,7 @@ func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) Watche
 		for _, change := range changes {
 			received = append(received, change...)
 		}
-		if len(expect) >= len(received) {
+		if len(received) >= len(expect) {
 			mc := jc.NewMultiChecker()
 			mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
 			c.Assert(received, mc, expect)
@@ -110,7 +110,7 @@ func (w WatcherC[T]) AssertNChanges(n int) {
 	for {
 		select {
 		case _, ok := <-w.Watcher.Changes():
-			w.c.Check(ok, jc.IsTrue)
+			w.c.Assert(ok, jc.IsTrue)
 			received++
 
 			if received < n {
