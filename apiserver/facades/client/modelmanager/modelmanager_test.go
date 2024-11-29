@@ -378,12 +378,15 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
+	machineService := mocks.NewMockMachineService(ctrl)
+
 	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+	modelDomainServices.EXPECT().Machine().Return(machineService)
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
@@ -1130,11 +1133,13 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelConfigService := mocks.NewMockModelConfigService(ctrl)
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
+	machineService := mocks.NewMockMachineService(ctrl)
 
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 	modelDomainServices.EXPECT().Config().Return(modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
+	modelDomainServices.EXPECT().Machine().Return(machineService)
 
 	blockCommandService := mocks.NewMockBlockCommandService(ctrl)
 	modelDomainServices.EXPECT().BlockCommand().Return(blockCommandService).AnyTimes()
