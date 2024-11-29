@@ -700,9 +700,11 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 	}
 }
 
-// ProcessCharmSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the secret.
-// If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
-// This method returns the resulting uri, and optionally the label to update for the consumer.
+// ProcessCharmSecretConsumerLabel takes a secret consumer, a uri and label
+// which have been used to consume the secret. If the uri is empty, the label
+// and consumer are used to look up the consumed secret uri.
+// This method returns the resulting uri, and optionally the label to update for
+// the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 ) (_ *secrets.URI, _ *string, err error) {

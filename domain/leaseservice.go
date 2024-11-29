@@ -27,7 +27,9 @@ func NewLeaseService(leaseChecker lease.ModelLeaseManagerGetter) *LeaseService {
 // function returns.
 // The context must be passed to the closure function to ensure that the
 // cancellation is propagated to the closure.
-func (s *LeaseService) WithLease(ctx context.Context, leaseName, holderName string, fn func(context.Context) error) error {
+func (s *LeaseService) WithLease(
+	ctx context.Context, leaseName, holderName string, fn func(context.Context) error,
+) error {
 	// Holding the lease is quite a complex operation, so we need to ensure that
 	// the context is not cancelled before we start the operation.
 	if err := ctx.Err(); err != nil {
