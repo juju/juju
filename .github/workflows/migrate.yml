@@ -62,7 +62,8 @@ jobs:
           /snap/bin/juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
-          /snap/bin/juju deploy ubuntu
+          /snap/bin/juju download ubuntu --filepath /tmp/ubuntu.charm
+          /snap/bin/juju deploy /tmp/ubuntu.charm
 
       - name: Bootstrap a ${{ matrix.channel }} source controller and model
         if: matrix.channel == 'local'
@@ -71,7 +72,8 @@ jobs:
           juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
           juju add-model test-migrate
           juju set-model-constraints arch=$(go env GOARCH)
-          juju deploy ubuntu
+          juju download ubuntu --filepath ./ubuntu.charm
+          juju deploy ./ubuntu.charm
 
       - name: Bootstrap target controller
         run: |

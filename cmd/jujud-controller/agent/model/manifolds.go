@@ -253,12 +253,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// No Logger defined in migrationflag package.
 		}))),
 		migrationMasterName: ifNotUpgrading(ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			FortressName:  migrationFortressName,
-			Clock:         config.Clock,
-			NewFacade:     migrationmaster.NewFacade,
-			NewWorker:     config.NewMigrationMaster,
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			DomainServicesName: domainServicesName,
+			FortressName:       migrationFortressName,
+			Clock:              config.Clock,
+			NewFacade:          migrationmaster.NewFacade,
+			NewWorker:          config.NewMigrationMaster,
 			// No Logger defined in migrationmaster package.
 		}))),
 

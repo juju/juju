@@ -137,7 +137,7 @@ type ModelUpgraderAPI interface {
 		ctx context.Context,
 		modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
 	) (version.Number, error)
-	UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (coretools.List, error)
+	UploadTools(ctx context.Context, r io.Reader, vers version.Binary) (coretools.List, error)
 
 	Close() error
 }

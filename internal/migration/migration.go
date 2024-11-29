@@ -5,8 +5,6 @@ package migration
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/url"
@@ -19,6 +17,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	corestorage "github.com/juju/juju/core/storage"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -227,16 +227,20 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	return dbModel, dbState, nil
 }
 
-// CharmDownloader defines a single method that is used to download a
-// charm from the source controller in a migration.
-type CharmDownloader interface {
-	OpenCharm(context.Context, string) (io.ReadCloser, error)
+type CharmService interface {
+	// GetCharmID returns a charm ID by name. It returns an error if the charm
+	// can not be found by the name.
+	GetCharmID(context.Context, domaincharm.GetCharmArgs) (corecharm.ID, error)
+
+	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
+	// charm id, along with the hash of the charm archive.
+	GetCharmArchive(context.Context, corecharm.ID) (io.ReadCloser, string, error)
 }
 
 // CharmUploader defines a single method that is used to upload a
 // charm to the target controller in a migration.
 type CharmUploader interface {
-	UploadCharm(ctx context.Context, charmURL string, charmRef string, content io.ReadSeeker) (string, error)
+	UploadCharm(ctx context.Context, charmURL string, charmRef string, content io.Reader) (string, error)
 }
 
 // ToolsDownloader defines a single method that is used to download
@@ -248,7 +252,7 @@ type ToolsDownloader interface {
 // ToolsUploader defines a single method that is used to upload tools
 // to the target controller in a migration.
 type ToolsUploader interface {
-	UploadTools(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)
+	UploadTools(context.Context, io.Reader, version.Binary) (tools.List, error)
 }
 
 // ResourceDownloader defines the interface for downloading resources
@@ -260,7 +264,7 @@ type ResourceDownloader interface {
 // ResourceUploader defines the interface for uploading resources into
 // the target controller during a migration.
 type ResourceUploader interface {
-	UploadResource(context.Context, resource.Resource, io.ReadSeeker) error
+	UploadResource(context.Context, resource.Resource, io.Reader) error
 	SetPlaceholderResource(context.Context, resource.Resource) error
 	SetUnitResource(context.Context, string, resource.Resource) error
 }
@@ -269,9 +273,9 @@ type ResourceUploader interface {
 // UploadBinaries function needs to operate. To construct the config
 // with the default helper functions, use `NewUploadBinariesConfig`.
 type UploadBinariesConfig struct {
-	Charms          []string
-	CharmDownloader CharmDownloader
-	CharmUploader   CharmUploader
+	Charms        []string
+	CharmService  CharmService
+	CharmUploader CharmUploader
 
 	Tools           map[version.Binary]string
 	ToolsDownloader ToolsDownloader
@@ -284,8 +288,8 @@ type UploadBinariesConfig struct {
 
 // Validate makes sure that all the config values are non-nil.
 func (c *UploadBinariesConfig) Validate() error {
-	if c.CharmDownloader == nil {
-		return errors.NotValidf("missing CharmDownloader")
+	if c.CharmService == nil {
+		return errors.NotValidf("missing CharmService")
 	}
 	if c.CharmUploader == nil {
 		return errors.NotValidf("missing CharmUploader")
@@ -351,19 +355,6 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	return tempFile, rmTempFile, nil
 }
 
-func hashArchive(archive io.ReadSeeker) (string, error) {
-	hash := sha256.New()
-	_, err := io.Copy(hash, archive)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	_, err = archive.Seek(0, os.SEEK_SET)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
-}
-
 func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	// It is critical that charms are uploaded in ascending charm URL
 	// order so that charm revisions end up the same in the target as
@@ -372,29 +363,30 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 
 	for _, charmURL := range config.Charms {
 		logger.Debugf("sending charm %s to target", charmURL)
-		reader, err := config.CharmDownloader.OpenCharm(ctx, charmURL)
+		curl, err := charm.ParseURL(charmURL)
+		if err != nil {
+			return errors.Annotate(err, "bad charm URL")
+		}
+		charmSource, err := domaincharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		if err != nil {
+			return errors.Annotate(err, "bad charm URL schema")
+		}
+		charmID, err := config.CharmService.GetCharmID(ctx, domaincharm.GetCharmArgs{
+			Name:     curl.Name,
+			Revision: ptr(curl.Revision),
+			Source:   charmSource,
+		})
+		if err != nil {
+			return errors.Annotate(err, "cannot get charm ID")
+		}
+		reader, hash, err := config.CharmService.GetCharmArchive(ctx, charmID)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
 		defer func() { _ = reader.Close() }()
 
-		content, cleanup, err := streamThroughTempFile(reader)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer cleanup()
-
-		curl, err := charm.ParseURL(charmURL)
-		if err != nil {
-			return errors.Annotate(err, "bad charm URL")
-		}
-		hash, err := hashArchive(content)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash)
-
-		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, content); err != nil {
+		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:7])
+		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
 		} else if usedCurl != charmURL {
 			// The target controller shouldn't assign a different charm URL.
@@ -471,4 +463,8 @@ func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev res
 		return errors.Annotate(err, "cannot upload resource")
 	}
 	return nil
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }

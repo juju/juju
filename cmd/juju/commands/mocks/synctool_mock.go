@@ -81,7 +81,7 @@ func (c *MockSyncToolAPICloseCall) DoAndReturn(f func() error) *MockSyncToolAPIC
 }
 
 // UploadTools mocks base method.
-func (m *MockSyncToolAPI) UploadTools(arg0 context.Context, arg1 io.ReadSeeker, arg2 version.Binary) (tools.List, error) {
+func (m *MockSyncToolAPI) UploadTools(arg0 context.Context, arg1 io.Reader, arg2 version.Binary) (tools.List, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UploadTools", arg0, arg1, arg2)
 	ret0, _ := ret[0].(tools.List)
@@ -108,13 +108,13 @@ func (c *MockSyncToolAPIUploadToolsCall) Return(arg0 tools.List, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSyncToolAPIUploadToolsCall) Do(f func(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)) *MockSyncToolAPIUploadToolsCall {
+func (c *MockSyncToolAPIUploadToolsCall) Do(f func(context.Context, io.Reader, version.Binary) (tools.List, error)) *MockSyncToolAPIUploadToolsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSyncToolAPIUploadToolsCall) DoAndReturn(f func(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)) *MockSyncToolAPIUploadToolsCall {
+func (c *MockSyncToolAPIUploadToolsCall) DoAndReturn(f func(context.Context, io.Reader, version.Binary) (tools.List, error)) *MockSyncToolAPIUploadToolsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

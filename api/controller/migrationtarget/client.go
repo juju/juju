@@ -122,7 +122,7 @@ func (c *Client) Activate(ctx context.Context, modelUUID string, sourceInfo core
 
 // UploadCharm sends the content to the API server using an HTTP post in order
 // to add the charm binary to the model specified.
-func (c *Client) UploadCharm(ctx context.Context, modelUUID string, curl string, charmRef string, content io.ReadSeeker) (string, error) {
+func (c *Client) UploadCharm(ctx context.Context, modelUUID string, curl string, charmRef string, content io.Reader) (string, error) {
 	apiURI := url.URL{Path: fmt.Sprintf("/migrate/charms/%s", charmRef)}
 
 	contentType := "application/zip"
@@ -146,7 +146,7 @@ func (c *Client) UploadCharm(ctx context.Context, modelUUID string, curl string,
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS
 // for the specified model.
-func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.Reader, vers version.Binary) (tools.List, error) {
 	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
@@ -157,7 +157,7 @@ func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.ReadSee
 }
 
 // UploadResource uploads a resource to the migration endpoint.
-func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resource.Resource, r io.ReadSeeker) error {
+func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resource.Resource, r io.Reader) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
 	err := c.resourcePost(ctx, modelUUID, args, r)
@@ -180,7 +180,7 @@ func (c *Client) SetUnitResource(ctx context.Context, modelUUID, unit string, re
 	return errors.Trace(err)
 }
 
-func (c *Client) resourcePost(ctx context.Context, modelUUID string, args url.Values, r io.ReadSeeker) error {
+func (c *Client) resourcePost(ctx context.Context, modelUUID string, args url.Values, r io.Reader) error {
 	uri := "/migrate/resources?" + args.Encode()
 	contentType := "application/octet-stream"
 	err := c.httpPost(ctx, modelUUID, r, uri, contentType, nil, nil)
@@ -206,15 +206,15 @@ func makeResourceArgs(res resource.Resource) url.Values {
 	return args
 }
 
-func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {
 	return c.http(ctx, "POST", modelUUID, content, endpoint, contentType, headers, response)
 }
 
-func (c *Client) httpPut(ctx context.Context, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) httpPut(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {
 	return c.http(ctx, "PUT", modelUUID, content, endpoint, contentType, headers, response)
 }
 
-func (c *Client) http(ctx context.Context, method, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) http(ctx context.Context, method, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {
 	req, err := http.NewRequest(method, endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
