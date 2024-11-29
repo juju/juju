@@ -125,6 +125,7 @@ func (p *firewaller) loop() error {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
+
 		case apps, ok := <-w.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
