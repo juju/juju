@@ -54,7 +54,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"http-client":           s.httpClientGetter,
-		"object-store-services": servicefactorytesting.NewTestingDomainServices(),
+		"object-store-services": servicefactorytesting.NewPlaceholderDomainServices(),
 	}
 	return dependencytesting.StubGetter(resources)
 }

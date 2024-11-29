@@ -17,9 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
-	applicationservice "github.com/juju/juju/domain/application/service"
-	machineservice "github.com/juju/juju/domain/machine/service"
-	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -28,11 +25,9 @@ import (
 type CleanerSuite struct {
 	coretesting.BaseSuite
 
-	st                 *mockState
-	machineService     *machineservice.WatchableService
-	applicationService *applicationservice.WatchableService
-	api                *cleaner.CleanerAPI
-	authoriser         apiservertesting.FakeAuthorizer
+	st         *mockState
+	api        *cleaner.CleanerAPI
+	authoriser apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&CleanerSuite{})
@@ -47,20 +42,11 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 
 	res := common.NewResources()
-	s.machineService = machineservice.NewWatchableService(nil, nil, nil)
-	s.applicationService = &applicationservice.WatchableService{}
 
 	var err error
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,
-		DomainServices_: domainservicestesting.NewTestingDomainServices().
-			WithMachineService(func() *machineservice.WatchableService {
-				return s.machineService
-			}).
-			WithApplicationService(func() *applicationservice.WatchableService {
-				return s.applicationService
-			}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api, gc.NotNil)
@@ -97,10 +83,6 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	err := s.api.Cleanup(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
-	s.st.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Cleanup",
-		Args:     []any{s.machineService, s.applicationService},
-	}})
 }
 
 func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestorage "github.com/juju/juju/core/storage"
-	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
@@ -99,9 +98,8 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 
 	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			State_:          s.State,
-			Auth_:           s.authorizer,
-			DomainServices_: domainservicestesting.NewTestingDomainServices(),
+			State_: s.State,
+			Auth_:  s.authorizer,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -19,11 +19,10 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	servicefactorytesting "github.com/juju/juju/domain/services/testing"
+	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
-	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/state"
@@ -34,9 +33,7 @@ var _ = gc.Suite(&suite{})
 type suite struct {
 	authority pki.Authority
 	testing.IsolationSuite
-	workerC                chan *mockWorker
-	providerServicesGetter modelworkermanager.ProviderServicesGetter
-	domainServicesGetter   services.DomainServicesGetter
+	workerC chan *mockWorker
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
@@ -45,8 +42,6 @@ func (s *suite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
 	s.workerC = make(chan *mockWorker, 100)
-	s.providerServicesGetter = providerServicesGetter{}
-	s.domainServicesGetter = servicefactorytesting.NewTestingDomainServices()
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
