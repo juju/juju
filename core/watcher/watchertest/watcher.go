@@ -46,6 +46,25 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 	}
 }
 
+// SecretTriggerSliceAssert returns a WatcherAssert that checks that the watcher has
+// received at least the given []watcher.SecretTriggerChange changes. The changes are
+// concatenated before the assertion, order doesn't matter during assertion.
+func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) WatcherAssert[[]T] {
+	return func(c *gc.C, changes [][]T) bool {
+		var received []T
+		for _, change := range changes {
+			received = append(received, change...)
+		}
+		if len(received) >= len(expect) {
+			mc := jc.NewMultiChecker()
+			mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+			c.Assert(received, mc, expect)
+			return true
+		}
+		return false
+	}
+}
+
 // WatcherC embeds a gocheck.C and adds methods to help
 // verify the behaviour of generic watchers.
 type WatcherC[T any] struct {
