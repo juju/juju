@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,6 +19,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
 	domainmodel "github.com/juju/juju/domain/model"
+	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -69,4 +72,22 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 			Since:  &now,
 		},
 	})
+}
+
+func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		UUID:         s.modelUUID,
+		Name:         "model-name",
+		Type:         model.IAAS,
+		Cloud:        "mycloud",
+		CloudRegion:  "region",
+		AgentVersion: version.MustParse("4.0.0"),
+	}, nil)
+	s.modelInfoService.EXPECT().Status(gomock.Any()).Return(domainmodel.StatusInfo{}, domainmodelerrors.NotFound)
+
+	client := &Client{modelInfoService: s.modelInfoService}
+	_, err := client.modelStatus(context.Background())
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

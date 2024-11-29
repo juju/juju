@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -140,11 +141,6 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 	return agentStatusFromStatusInfo(sInfo, kind), nil
 }
 
-// modelStatusHistory returns status history for the current model.
-func (c *Client) modelStatusHistory(status.StatusHistoryFilter) ([]params.DetailedStatus, error) {
-	return nil, internalerrors.Errorf("model status history not implemented")
-}
-
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
@@ -181,7 +177,7 @@ func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistory
 		kind := status.HistoryKind(request.Kind)
 		switch kind {
 		case status.KindModel:
-			hist, err = c.modelStatusHistory(filter)
+			err = internalerrors.Errorf("model status history not implemented")
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
 			if u, err = names.ParseUnitTag(request.Tag); err == nil {
@@ -587,6 +583,10 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	// }
 
 	aStatus, err := c.modelInfoService.Status(ctx)
+	if internalerrors.Is(err, domainmodelerrors.NotFound) {
+		// This should never happen but just in case.
+		return params.ModelStatusInfo{}, errors.NotFoundf("model status for %q", modelInfo.Name)
+	}
 	if err != nil {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}

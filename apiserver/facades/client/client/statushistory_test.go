@@ -296,14 +296,6 @@ func (m *mockState) Application(name string) (Application, error) {
 	}, nil
 }
 
-type mockModel struct {
-	status statuses
-}
-
-func (m mockModel) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	return m.status.StatusHistory(filter)
-}
-
 type mockApplication struct {
 	status statuses
 	Application

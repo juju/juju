@@ -115,10 +115,6 @@ func (s stateShim) MongoSession() MongoSession {
 	return MongoSessionShim{s.State.MongoSession()}
 }
 
-type modelShim struct {
-	*state.Model
-}
-
 // MongoSessionShim wraps a *mgo.Session to conform to the
 // MongoSession interface.
 type MongoSessionShim struct {
