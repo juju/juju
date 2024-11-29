@@ -19,14 +19,13 @@
 // The layout of a domain package providing a service is as follows:
 //
 //		domain/foo/
-//		 |- entities.go [1]
-//		 |- types.go [2]
-//		 |- params.go [3]
+//		 |- types.go [1]
+//		 |- params.go [2]
 //		 |- service/
 //		   |- service.go
 //		 |- state/
 //		   |- state.gp
-//		   |- types.go [4]
+//		   |- types.go [3]
 //		 |- errors/
 //		   |- errors.go
 //		 |- bootstrap/
@@ -35,13 +34,14 @@
 //		   |- import.go
 //		   |- export.go
 //
-//	 [1] contains structs which model core domain entities.
-//	 [2] contains DTOs used as arguments/results for state calls
-//	 [3] optional - contains structs used as arguments/results for service API calls
-//	 [4] contains package private structs which act as in/out params for sqlair.
+//	 [1] contains DTOs used as arguments/results for state calls
+//	 [2] optional - contains structs used as arguments/results for service API calls
+//	 [3] contains package private structs which act as in/out params for sqlair.
 //
-// At the time of writing, most domain entity structs are defined in juju/core.
-// Over time, these will be moved to a suitable domain package.
+// At the time of writing, many domain entity related structs are defined in
+// juju/core. Where the sole use of these structs is to fulfil operational
+// requirements of the relevant domain package, and there's no use outside
+// the package, they can be moved down from core.
 //
 // To avoid name clashes and promote consistency of implementation, a naming
 // convention is used when defining structs used as method args and results.
@@ -57,21 +57,6 @@
 //	    }
 //	    return s.st.RecordStart(ctx, args)
 //	}
-//
-// # Enumerated types
-//
-// Enumerated types are modelled as integer values in the relational model;
-// the integer value is a foreign key to a lookup table containing the semantic enum
-// values. Each enumerated type has its own top level domain package. The responsibilities
-// of an enumerated type domain package include:
-//   - defining consts for the integer lookup values defined in the DDL.
-//   - providing tests to ensure there's no skew between the db values and golang consts.
-//   - mapping the db values to the equivalent domain consts.
-//
-// Examples:
-//   - [github.com/juju/juju/ipaddress]
-//   - [github.com/juju/juju/life]
-//   - [github.com/juju/juju/linklayerdevice]
 //
 // # Testing
 //
