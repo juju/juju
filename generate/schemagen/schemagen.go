@@ -280,7 +280,7 @@ func (c context) ObjectStore() objectstore.ObjectStore {
 }
 
 func (c context) DomainServices() services.DomainServices {
-	return testing.NewTestingDomainServices()
+	return testing.NewPlaceholderDomainServices()
 }
 
 type authorizer struct {

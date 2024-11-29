@@ -41,188 +41,166 @@ import (
 	"github.com/juju/juju/internal/services"
 )
 
-// TestingDomainServices provides access to the services required by the apiserver.
-type TestingDomainServices struct {
-	machineServiceGetter     func() *machineservice.WatchableService
-	applicationServiceGetter func() *applicationservice.WatchableService
-}
+type placeholderDomainServices struct{}
 
-// NewTestingDomainServices returns a new registry which uses the provided controllerDB
-// function to obtain a controller database.
-func NewTestingDomainServices() *TestingDomainServices {
-	return &TestingDomainServices{}
+// NewPlaceholderDomainServices returns a new registry which can be used as
+// a placeholder for tests which are required to provide a non-nil registry.
+// Asking the registry for services will return nil values so be careful
+// not to expect the registry to be of any use other than as a placeholder.
+func NewPlaceholderDomainServices() *placeholderDomainServices {
+	return &placeholderDomainServices{}
 }
 
 // AgentProvisioner returns the agent provisioner service.
-func (s *TestingDomainServices) AgentProvisioner() *agentprovisionerservice.Service {
+func (s *placeholderDomainServices) AgentProvisioner() *agentprovisionerservice.Service {
 	return nil
 }
 
 // AutocertCache returns the autocert cache service.
-func (s *TestingDomainServices) AutocertCache() *autocertcacheservice.Service {
+func (s *placeholderDomainServices) AutocertCache() *autocertcacheservice.Service {
 	return nil
 }
 
 // Config returns the model config service.
-func (s *TestingDomainServices) Config() *modelconfigservice.WatchableService {
+func (s *placeholderDomainServices) Config() *modelconfigservice.WatchableService {
 	return nil
 }
 
 // Controller returns the controller service.
-func (s *TestingDomainServices) Controller() *controllerservice.Service {
+func (s *placeholderDomainServices) Controller() *controllerservice.Service {
 	return nil
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *TestingDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s *placeholderDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return nil
 }
 
 // ControllerNode returns the controller node service.
-func (s *TestingDomainServices) ControllerNode() *controllernodeservice.Service {
+func (s *placeholderDomainServices) ControllerNode() *controllernodeservice.Service {
 	return nil
 }
 
 // Model returns the model service.
-func (s *TestingDomainServices) Model() *modelservice.Service {
+func (s *placeholderDomainServices) Model() *modelservice.Service {
 	return nil
 }
 
 // ModelDefaults returns the model defaults service.
-func (s *TestingDomainServices) ModelDefaults() *modeldefaultsservice.Service {
+func (s *placeholderDomainServices) ModelDefaults() *modeldefaultsservice.Service {
 	return nil
 }
 
 // KeyManager returns the model key manager service.
-func (s *TestingDomainServices) KeyManager() *keymanagerservice.Service {
+func (s *placeholderDomainServices) KeyManager() *keymanagerservice.Service {
 	return nil
 }
 
 // KeyManagerWithImporter returns the model key manager serivce that is capable
 // of importing keys from an external source.
-func (s *TestingDomainServices) KeyManagerWithImporter() *keymanagerservice.ImporterService {
+func (s *placeholderDomainServices) KeyManagerWithImporter() *keymanagerservice.ImporterService {
 	return nil
 }
 
 // KeyUpdater returns the model key updater service.
-func (s *TestingDomainServices) KeyUpdater() *keyupdaterservice.WatchableService {
+func (s *placeholderDomainServices) KeyUpdater() *keyupdaterservice.WatchableService {
 	return nil
 }
 
 // ExternalController returns the external controller service.
-func (s *TestingDomainServices) ExternalController() *externalcontrollerservice.WatchableService {
+func (s *placeholderDomainServices) ExternalController() *externalcontrollerservice.WatchableService {
 	return nil
 }
 
 // Credential returns the credential service.
-func (s *TestingDomainServices) Credential() *credentialservice.WatchableService {
+func (s *placeholderDomainServices) Credential() *credentialservice.WatchableService {
 	return nil
 }
 
 // Cloud returns the cloud service.
-func (s *TestingDomainServices) Cloud() *cloudservice.WatchableService {
+func (s *placeholderDomainServices) Cloud() *cloudservice.WatchableService {
 	return nil
 }
 
 // Upgrade returns the upgrade service.
-func (s *TestingDomainServices) Upgrade() *upgradeservice.WatchableService {
+func (s *placeholderDomainServices) Upgrade() *upgradeservice.WatchableService {
 	return nil
 }
 
 // Flag returns the flag service.
-func (s *TestingDomainServices) Flag() *flagservice.Service {
+func (s *placeholderDomainServices) Flag() *flagservice.Service {
 	return nil
 }
 
 // Access returns the access service.
-func (s *TestingDomainServices) Access() *accessservice.Service {
+func (s *placeholderDomainServices) Access() *accessservice.Service {
 	return nil
 }
 
 // Machine returns the machine service.
-func (s *TestingDomainServices) Machine() *machineservice.WatchableService {
-	if s.machineServiceGetter == nil {
-		return nil
-	}
-	return s.machineServiceGetter()
+func (s *placeholderDomainServices) Machine() *machineservice.WatchableService {
+	return nil
 }
 
 // Network returns the network service.
-func (s *TestingDomainServices) Network() *networkservice.WatchableService {
+func (s *placeholderDomainServices) Network() *networkservice.WatchableService {
 	return nil
 }
 
 // Annotation returns the annotation service.
-func (s *TestingDomainServices) Annotation() *annotationservice.Service {
+func (s *placeholderDomainServices) Annotation() *annotationservice.Service {
 	return nil
 }
 
 // Storage returns the storage service.
-func (s *TestingDomainServices) Storage() *storageservice.Service {
+func (s *placeholderDomainServices) Storage() *storageservice.Service {
 	return nil
 }
 
 // Secret returns the secret service.
-func (s *TestingDomainServices) Secret(secretservice.SecretServiceParams) *secretservice.WatchableService {
+func (s *placeholderDomainServices) Secret(secretservice.SecretServiceParams) *secretservice.WatchableService {
 	return nil
 }
 
 // Agent returns the modelagent service.
-func (s *TestingDomainServices) Agent() *modelagentservice.ModelService {
+func (s *placeholderDomainServices) Agent() *modelagentservice.ModelService {
 	return nil
 }
 
 // Macaroon returns the macaroon bakery service.
-func (s *TestingDomainServices) Macaroon() *macaroonservice.Service {
+func (s *placeholderDomainServices) Macaroon() *macaroonservice.Service {
 	return nil
 }
 
 // ModelMigration returns the model migration service.
-func (s *TestingDomainServices) ModelMigration() *modelmigrationservice.Service {
+func (s *placeholderDomainServices) ModelMigration() *modelmigrationservice.Service {
 	return nil
 }
 
 // ServicesForModel returns a domain services for the given model uuid.
 // This will late bind the model domain services to the actual domain services.
-func (s *TestingDomainServices) ServicesForModel(modelID model.UUID) services.DomainServices {
-	return s
-}
-
-// WithMachineService returns a domain services which gets its machine service
-// using the supplied getter.
-func (s *TestingDomainServices) WithMachineService(getter func() *machineservice.WatchableService) *TestingDomainServices {
-	s.machineServiceGetter = getter
+func (s *placeholderDomainServices) ServicesForModel(modelID model.UUID) services.DomainServices {
 	return s
 }
 
 // BlockDevice returns the block device service.
-func (s *TestingDomainServices) BlockDevice() *blockdeviceservice.WatchableService {
+func (s *placeholderDomainServices) BlockDevice() *blockdeviceservice.WatchableService {
 	return nil
 }
 
 // SecretBackend returns the secret backend service.
-func (s *TestingDomainServices) SecretBackend() *secretbackendservice.WatchableService {
+func (s *placeholderDomainServices) SecretBackend() *secretbackendservice.WatchableService {
 	return nil
 }
 
 // ModelSecretBackend returns the model secret backend service.
-func (s *TestingDomainServices) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
+func (s *placeholderDomainServices) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
 	return nil
 }
 
 // Application returns the application service.
-func (s *TestingDomainServices) Application() *applicationservice.WatchableService {
-	if s.applicationServiceGetter == nil {
-		return nil
-	}
-	return s.applicationServiceGetter()
-}
-
-// WithApplicationService returns a domain services which gets its application service
-// using the supplied getter.
-func (s *TestingDomainServices) WithApplicationService(getter func() *applicationservice.WatchableService) *TestingDomainServices {
-	s.applicationServiceGetter = getter
-	return s
+func (s *placeholderDomainServices) Application() *applicationservice.WatchableService {
+	return nil
 }
 
 // ModelInfo returns the model service for the model. The model info
@@ -230,31 +208,31 @@ func (s *TestingDomainServices) WithApplicationService(getter func() *applicatio
 // Note: This should be called model, but we have naming conflicts with
 // the model service. As this is only for read-only model information, we
 // can rename it to the more obscure version.
-func (s *TestingDomainServices) ModelInfo() *modelservice.ModelService {
+func (s *placeholderDomainServices) ModelInfo() *modelservice.ModelService {
 	return nil
 }
 
-func (s *TestingDomainServices) Proxy() *proxyservice.Service {
+func (s *placeholderDomainServices) Proxy() *proxyservice.Service {
 	return nil
 }
 
-func (s *TestingDomainServices) UnitState() *unitstateservice.Service {
+func (s *placeholderDomainServices) UnitState() *unitstateservice.Service {
 	return nil
 }
 
 // CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for the current model.
-func (s *TestingDomainServices) CloudImageMetadata() *cloudimagemetadataservice.Service {
+func (s *placeholderDomainServices) CloudImageMetadata() *cloudimagemetadataservice.Service {
 	return nil
 }
 
-func (s *TestingDomainServices) Port() *portservice.WatchableService {
+func (s *placeholderDomainServices) Port() *portservice.WatchableService {
 	return nil
 }
 
-func (s *TestingDomainServices) Stub() *stubservice.StubService {
+func (s *placeholderDomainServices) Stub() *stubservice.StubService {
 	return nil
 }
 
-func (s *TestingDomainServices) BlockCommand() *blockcommandservice.Service {
+func (s *placeholderDomainServices) BlockCommand() *blockcommandservice.Service {
 	return nil
 }
