@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+	"go.uber.org/goleak"
 	gc "gopkg.in/check.v1"
 )
 
@@ -20,6 +21,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/services_mocks.go github.com/juju/juju/internal/services ModelDomainServices
 
 func TestAll(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 
