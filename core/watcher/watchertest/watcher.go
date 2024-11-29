@@ -21,7 +21,7 @@ type WatcherAssert[T any] func(c *gc.C, changes []T) bool
 // received at least the given changes.
 func SliceAssert[T any](expect ...T) WatcherAssert[T] {
 	return func(c *gc.C, changes []T) bool {
-		if len(changes) >= len(expect) {
+		if len(expect) >= len(changes) {
 			c.Assert(changes, jc.SameContents, expect)
 			return true
 		}
@@ -38,7 +38,7 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 		for _, change := range changes {
 			received = append(received, change...)
 		}
-		if len(received) >= len(expect) {
+		if len(expect) >= len(received) {
 			c.Assert(received, jc.SameContents, expect)
 			return true
 		}
@@ -55,7 +55,7 @@ func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) Watche
 		for _, change := range changes {
 			received = append(received, change...)
 		}
-		if len(received) >= len(expect) {
+		if len(expect) >= len(received) {
 			mc := jc.NewMultiChecker()
 			mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
 			c.Assert(received, mc, expect)
@@ -98,6 +98,34 @@ func (w *WatcherC[T]) AssertChange() {
 		w.c.Assert(ok, gc.Equals, true)
 	case <-time.After(testing.LongWait):
 		w.c.Fatalf("watcher did not send change")
+	}
+}
+
+// AssertNChanges fails if it does not receive n changes before a long time has passed.
+func (w WatcherC[T]) AssertNChanges(n int) {
+	if n <= 1 {
+		w.c.Fatalf("n must be greater than 1")
+	}
+	received := 0
+	for {
+		select {
+		case _, ok := <-w.Watcher.Changes():
+			w.c.Check(ok, jc.IsTrue)
+			received++
+
+			if received < n {
+				continue
+			}
+			// Ensure we have no more changes.
+			w.AssertNoChange()
+			return
+		case <-time.After(testing.LongWait):
+			if received == 0 {
+				w.c.Fatalf("watcher did not send any changes")
+			} else {
+				w.c.Fatalf("watcher received %d changes, expected %d", received, n)
+			}
+		}
 	}
 }
 
