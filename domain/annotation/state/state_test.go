@@ -355,32 +355,32 @@ VALUES (?, "node2", ?, "0")`, uuid, id)
 }
 
 // ensureApplication manually inserts a row into the application table.
-func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
+func (s *stateSuite) ensureApplication(c *gc.C, name, appUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid)
-VALUES (?)`, uuid)
+VALUES (?)`, appUUID)
 		if err != nil {
 			return err
 		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, 'myapp')`, uuid)
+VALUES (?, 'myapp')`, appUUID)
 		if err != nil {
 			return err
 		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_origin (charm_uuid, reference_name)
-VALUES (?, 'myapp')`, uuid)
+VALUES (?, 'myapp')`, appUUID)
 		if err != nil {
 			return err
 		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id)
-VALUES (?, ?, ?, "0")`, uuid, uuid, name)
+VALUES (?, ?, ?, "0")`, appUUID, appUUID, name)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
