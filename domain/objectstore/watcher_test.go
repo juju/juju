@@ -48,9 +48,10 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 
 	// Add a new object.
 	metadata := objectstore.Metadata{
-		Path: "foo",
-		Hash: "hash",
-		Size: 666,
+		Path:        "foo",
+		Hash256:     "hash256",
+		Hash512_384: "hash512_384",
+		Size:        666,
 	}
 	_, err = svc.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,9 +85,10 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 
 	// Add a new object.
 	metadata := objectstore.Metadata{
-		Path: "foo",
-		Hash: "hash",
-		Size: 666,
+		Path:        "foo",
+		Hash256:     "hash256",
+		Hash512_384: "hash512_384",
+		Size:        666,
 	}
 	_, err = svc.PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)

@@ -41,3 +41,9 @@ repl-install:
 
 repl:
 	+@./scripts/dqlite/scripts/repl/repl.sh
+
+repl-list-models:
+	+@./scripts/dqlite/scripts/repl/repl-list-models.sh
+
+repl-model:
+	+@./scripts/dqlite/scripts/repl/repl-model.sh

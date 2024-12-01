@@ -7,7 +7,7 @@ DB_NAME=${DB_NAME:-controller}
 
 echo "-------------------------------------------------------------------------"
 echo ""
-echo "DQLITE REPL Mode:"
+echo "DQLITE REPL Mode: ${DB_NAME}"
 echo ""
 echo "-------------------------------------------------------------------------"
 echo ""

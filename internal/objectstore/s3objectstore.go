@@ -418,11 +418,13 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 		return nil, -1, errors.Annotatef(err, "get metadata")
 	}
 
+	hash := selectHash(metadata)
+
 	var reader io.ReadCloser
 	var size int64
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		var err error
-		reader, size, _, err = s.GetObject(ctx, t.rootBucket, t.filePath(metadata.Hash))
+		reader, size, _, err = s.GetObject(ctx, t.rootBucket, t.filePath(hash))
 		return err
 	}); err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, -1, errors.Annotatef(err, "get object")
@@ -434,7 +436,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 		}
 
 		var newErr error
-		reader, size, newErr = t.fileSystemAccessor.GetByHash(ctx, metadata.Hash)
+		reader, size, newErr = t.fileSystemAccessor.GetByHash(ctx, hash)
 		if newErr != nil {
 			// Ignore the new error, because we want to return the original
 			// error.
@@ -463,16 +465,17 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 	// I can only assume 384 was chosen over 256 and others, is because it's
 	// not susceptible to length extension attacks? In any case, we'll
 	// keep using it for now.
-	fileHash := sha512.New384()
+	hash512_384 := sha512.New384()
 
 	// We need two hash sets here, because juju wants to use SHA384, but s3
-	// defaults to SHA256. Luckily, we can piggyback on the writing to a tmp
+	// and http handlers want to use SHA256. We can't change the hash used by
+	// default to SHA256. Luckily, we can piggyback on the writing to a tmp
 	// file and create TeeReader with a MultiWriter.
-	s3Hash := sha256.New()
+	hash256 := sha256.New()
 
 	// We need to write this to a temp file, because if the client retries
 	// then we need seek back to the beginning of the file.
-	fileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(fileHash, s3Hash)), size)
+	fileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(hash512_384, hash256)), size)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -480,21 +483,23 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 	// Ensure that we remove the temporary file if we fail to persist it.
 	defer func() { _ = tmpFileCleanup() }()
 
-	// Encode the hashes as strings, so we can use them for file and s3 lookups.
-	fileEncodedHash := hex.EncodeToString(fileHash.Sum(nil))
-	s3EncodedHash := base64.StdEncoding.EncodeToString(s3Hash.Sum(nil))
+	// Encode the hashes as strings, so we can use them for file, http and s3
+	// lookups.
+	encoded512_384 := hex.EncodeToString(hash512_384.Sum(nil))
+	encoded256 := hex.EncodeToString(hash256.Sum(nil))
+	s3EncodedHash := base64.StdEncoding.EncodeToString(hash256.Sum(nil))
 
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(fileEncodedHash); !ok {
-		return "", errors.Annotatef(objectstore.ErrHashMismatch, "hash mismatch for %q: expected %q, got %q", path, expected, fileEncodedHash)
+	if expected, ok := validator(encoded512_384); !ok {
+		return "", fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded512_384, objectstore.ErrHashMismatch)
 	}
 
-	// Lock the file with the given hash (fileEncodedHash), so that we can't
+	// Lock the file with the given hash (encoded512_384), so that we can't
 	// remove the file while we're writing it.
 	var uuid objectstore.UUID
-	if err := t.withLock(ctx, fileEncodedHash, func(ctx context.Context) error {
+	if err := t.withLock(ctx, encoded512_384, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, fileName, fileEncodedHash, s3EncodedHash, size); err != nil {
+		if err := t.persistTmpFile(ctx, fileName, encoded512_384, s3EncodedHash, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -503,9 +508,10 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		// race where the watch event is emitted before the file is written.
 		var err error
 		if uuid, err = t.metadataService.PutMetadata(ctx, objectstore.Metadata{
-			Path: path,
-			Hash: fileEncodedHash,
-			Size: size,
+			Path:        path,
+			Hash256:     encoded256,
+			Hash512_384: encoded512_384,
+			Size:        size,
 		}); err != nil {
 			return errors.Trace(err)
 		}
@@ -567,7 +573,7 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 		return errors.Annotatef(err, "get metadata")
 	}
 
-	hash := metadata.Hash
+	hash := selectHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return errors.Annotatef(err, "remove metadata")
@@ -643,7 +649,9 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 		for _, m := range metadata {
 			result := make(chan error)
 
-			t.logger.Debugf("draining file %q to s3 object store %q", m.Path, m.Hash)
+			hash := selectHash(m)
+
+			t.logger.Debugf("draining file %q to s3 object store %q", m.Path, hash)
 
 			select {
 			case <-ctx.Done():
@@ -652,7 +660,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 				return tomb.ErrDying
 			case t.drainRequests <- drainRequest{
 				path:     m.Path,
-				hash:     m.Hash,
+				hash:     hash,
 				size:     m.Size,
 				response: result,
 			}:
@@ -664,7 +672,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 			case <-t.tomb.Dying():
 				return tomb.ErrDying
 			case err := <-result:
-				t.reportInternalState(fmt.Sprintf(stateFileDrained, m.Hash))
+				t.reportInternalState(fmt.Sprintf(stateFileDrained, hash))
 				// This will crash the s3ObjectStore worker if this is a fatal
 				// error. We don't want to continue processing if we can't drain
 				// the files to the s3 object store.

@@ -17,4 +17,7 @@ const (
 	// ErrPathAlreadyExistsDifferentHash is returned when a path already exists
 	// with a different hash.
 	ErrPathAlreadyExistsDifferentHash = errors.ConstError("path already exists with different hash")
+
+	// ErrMissingHash is returned when a hash is missing.
+	ErrMissingHash = errors.ConstError("missing hash")
 )

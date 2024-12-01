@@ -274,7 +274,7 @@ func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete 
 	// database.
 	hashes := make(map[string]struct{})
 	for _, m := range metadata {
-		hashes[m.Hash] = struct{}{}
+		hashes[selectHash(m)] = struct{}{}
 	}
 
 	// Remove any objects that we don't know about.
@@ -299,6 +299,10 @@ func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete 
 	}
 
 	return nil
+}
+
+func selectHash(m objectstore.Metadata) string {
+	return m.Hash512_384
 }
 
 type hashValidator func(string) (string, bool)
