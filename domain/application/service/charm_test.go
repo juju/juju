@@ -1044,6 +1044,25 @@ func (s *charmServiceSuite) TestListCharmLocatorsWithoutName(c *gc.C) {
 	c.Check(results, gc.DeepEquals, expected)
 }
 
+func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	expected := &charm.DownloadInfo{
+		DownloadProvenance: charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "http://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	s.state.EXPECT().GetCharmDownloadInfo(gomock.Any(), id).Return(expected, nil)
+
+	result, err := s.service.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, expected)
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 

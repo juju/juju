@@ -167,14 +167,27 @@ func DeployApplication(
 			return nil, errors.Trace(err)
 		}
 
+		var downloadInfo *applicationcharm.DownloadInfo
+		if args.CharmOrigin.Source == corecharm.CharmHub {
+			charmID, err := applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+				Source:   applicationcharm.CharmHubSource,
+				Name:     args.ApplicationName,
+				Revision: args.CharmOrigin.Revision,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, charmID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
 		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, args.Charm, args.CharmOrigin, applicationservice.AddApplicationArgs{
 			ReferenceName: chURL.Name,
 			Storage:       args.Storage,
-			// TODO (stickupkid): Fill this in correctly when we have the
-			// charmhub information.
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				DownloadProvenance: applicationcharm.ProvenanceDownload,
-			},
+			DownloadInfo:  downloadInfo,
 		}, unitArgs...)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -2970,6 +2970,86 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesInvalidEntries(c *gc.C) {
 	c.Check(results, gc.HasLen, 0)
 }
 
+func (s *charmStateSuite) TestGetCharmDownloadInfoWithNoInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForLocal(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		DownloadProvenance: charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "https://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForCharmhub(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		DownloadProvenance: charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "https://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, info)
+}
+
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, archive_path, available, reference_name, revision, version, architecture_id) 

@@ -138,6 +138,10 @@ type CharmState interface {
 	// The locator allows the reconstruction of the charm URL for the client
 	// response. If no names are provided, then nothing is returned.
 	ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error)
+
+	// GetCharmDownloadInfo returns the download info for the charm using the
+	// charm ID.
+	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive blobs
@@ -556,6 +560,9 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 // DeleteCharm removes the charm from the state.
 // Returns an error if the charm does not exist.
 func (s *Service) DeleteCharm(ctx context.Context, id corecharm.ID) error {
+	if err := id.Validate(); err != nil {
+		return fmt.Errorf("charm id: %w", err)
+	}
 	return s.st.DeleteCharm(ctx, id)
 }
 
@@ -568,6 +575,15 @@ func (s *Service) ListCharmLocators(ctx context.Context, names ...string) ([]cha
 		return s.st.ListCharmLocators(ctx)
 	}
 	return s.st.ListCharmLocatorsByNames(ctx, names)
+}
+
+// GetCharmDownloadInfo returns the download info for the charm using the
+// charm ID.
+func (s *Service) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("charm id: %w", err)
+	}
+	return s.st.GetCharmDownloadInfo(ctx, id)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.

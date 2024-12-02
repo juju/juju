@@ -1157,6 +1157,45 @@ func (c *MockApplicationServiceGetCharmConfigCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// GetCharmDownloadInfo mocks base method.
+func (m *MockApplicationService) GetCharmDownloadInfo(arg0 context.Context, arg1 charm.ID) (*charm0.DownloadInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmDownloadInfo", arg0, arg1)
+	ret0, _ := ret[0].(*charm0.DownloadInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmDownloadInfo indicates an expected call of GetCharmDownloadInfo.
+func (mr *MockApplicationServiceMockRecorder) GetCharmDownloadInfo(arg0, arg1 any) *MockApplicationServiceGetCharmDownloadInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmDownloadInfo", reflect.TypeOf((*MockApplicationService)(nil).GetCharmDownloadInfo), arg0, arg1)
+	return &MockApplicationServiceGetCharmDownloadInfoCall{Call: call}
+}
+
+// MockApplicationServiceGetCharmDownloadInfoCall wrap *gomock.Call
+type MockApplicationServiceGetCharmDownloadInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetCharmDownloadInfoCall) Return(arg0 *charm0.DownloadInfo, arg1 error) *MockApplicationServiceGetCharmDownloadInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetCharmDownloadInfoCall) Do(f func(context.Context, charm.ID) (*charm0.DownloadInfo, error)) *MockApplicationServiceGetCharmDownloadInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetCharmDownloadInfoCall) DoAndReturn(f func(context.Context, charm.ID) (*charm0.DownloadInfo, error)) *MockApplicationServiceGetCharmDownloadInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmID mocks base method.
 func (m *MockApplicationService) GetCharmID(arg0 context.Context, arg1 charm0.GetCharmArgs) (charm.ID, error) {
 	m.ctrl.T.Helper()

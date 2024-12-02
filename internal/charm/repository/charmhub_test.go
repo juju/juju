@@ -253,7 +253,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 
 	c.Check(obtainedData.URL, jc.DeepEquals, expected)
 	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
-	c.Check(obtainedData.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+	c.Check(obtainedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
 		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
 		DownloadURL:        "http://example.com/wordpress-42",
 		DownloadSize:       42,
@@ -304,13 +304,13 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 
 	c.Check(obtainedData.URL, jc.DeepEquals, expected)
 	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
-	c.Check(obtainedData.Resources, gc.HasLen, 1)
-	c.Check(obtainedData.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+	c.Check(obtainedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
 		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
 		DownloadURL:        "http://example.com/wordpress-42",
 		DownloadSize:       42,
 	})
 
+	c.Assert(obtainedData.Resources, gc.HasLen, 1)
 	foundResource := obtainedData.Resources["wal-e"]
 	c.Check(foundResource.Name, gc.Equals, "wal-e")
 	c.Check(foundResource.Path, gc.Equals, "wal-e.snap")
@@ -649,6 +649,11 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 				Track: "latest",
 				Risk:  "stable",
 			},
+		},
+		DownloadInfo: corecharm.DownloadInfo{
+			CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
+			DownloadURL:        "http://example.com/wordpress-42",
+			DownloadSize:       42,
 		},
 	})
 }

@@ -83,6 +83,12 @@ type EssentialMetadata struct {
 	Meta     *charm.Meta
 	Manifest *charm.Manifest
 	Config   *charm.Config
+
+	// DownloadInfo is the information needed to download the charm
+	// directly from the charm store.
+	// This should always be present if the charm is being downloaded from
+	// charmhub.
+	DownloadInfo DownloadInfo
 }
 
 // CharmID encapsulates data for identifying a unique charm in a charm repository.
@@ -107,12 +113,6 @@ type ResolvedDataForDeploy struct {
 	// Resources is a map of resource names to their current repository revision
 	// based on the supplied origin
 	Resources map[string]charmresource.Resource
-
-	// DownloadInfo is the information needed to download the charm
-	// directly from the charm store.
-	// This should always be present if the charm is being downloaded from
-	// charmhub.
-	DownloadInfo DownloadInfo
 }
 
 // DownloadInfo contains the information needed to download a charm from the

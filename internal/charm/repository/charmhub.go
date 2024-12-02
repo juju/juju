@@ -92,6 +92,13 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 
 	essMeta.ResolvedOrigin = resolvedOrigin
 
+	// DownloadInfo is required for downloading the charm asynchronously.
+	essMeta.DownloadInfo = corecharm.DownloadInfo{
+		CharmhubIdentifier: resp.Entity.ID,
+		DownloadURL:        resp.Entity.Download.URL,
+		DownloadSize:       int64(resp.Entity.Download.Size),
+	}
+
 	// Resources are best attempt here. If we were able to resolve the charm
 	// via a channel, the resource data will be here. If using a revision,
 	// then not. However, that does not mean that the charm has no resources.
@@ -104,11 +111,6 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 		URL:               resultURL,
 		EssentialMetadata: essMeta,
 		Resources:         resourceResults,
-		DownloadInfo: corecharm.DownloadInfo{
-			CharmhubIdentifier: resp.Entity.ID,
-			DownloadURL:        resp.Entity.Download.URL,
-			DownloadSize:       int64(resp.Entity.Download.Size),
-		},
 	}
 	return thing, nil
 }
@@ -331,15 +333,17 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Contex
 }
 
 func transformRefreshResult(charmName string, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
-	if refreshResult.Entity.MetadataYAML == "" {
+	entity := refreshResult.Entity
+
+	if entity.MetadataYAML == "" {
 		return corecharm.EssentialMetadata{}, errors.NotValidf("charmhub refresh response for %q does not include the contents of metadata.yaml", charmName)
 	}
-	chMeta, err := charm.ReadMeta(strings.NewReader(refreshResult.Entity.MetadataYAML))
+	chMeta, err := charm.ReadMeta(strings.NewReader(entity.MetadataYAML))
 	if err != nil {
 		return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing metadata.yaml for %q", charmName)
 	}
 
-	configYAML := refreshResult.Entity.ConfigYAML
+	configYAML := entity.ConfigYAML
 	var chConfig *charm.Config
 	// NOTE: Charmhub returns a "{}\n" when no config.yaml exists for
 	// the charm, e.g. postgreql. However, this will fail the charm
@@ -355,7 +359,7 @@ func transformRefreshResult(charmName string, refreshResult transport.RefreshRes
 	}
 
 	chManifest := new(charm.Manifest)
-	for _, base := range refreshResult.Entity.Bases {
+	for _, base := range entity.Bases {
 		baseCh, err := charm.ParseChannelNormalize(base.Channel)
 		if err != nil {
 			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing base channel for %q", charmName)
@@ -367,7 +371,17 @@ func transformRefreshResult(charmName string, refreshResult transport.RefreshRes
 			Architectures: []string{base.Architecture},
 		})
 	}
-	return corecharm.EssentialMetadata{Meta: chMeta, Config: chConfig, Manifest: chManifest}, nil
+
+	return corecharm.EssentialMetadata{
+		Meta:     chMeta,
+		Config:   chConfig,
+		Manifest: chManifest,
+		DownloadInfo: corecharm.DownloadInfo{
+			CharmhubIdentifier: entity.ID,
+			DownloadURL:        entity.Download.URL,
+			DownloadSize:       int64(entity.Download.Size),
+		},
+	}, nil
 }
 
 // Download retrieves a blob from the store and saves its contents to the

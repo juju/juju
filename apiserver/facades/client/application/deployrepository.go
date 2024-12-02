@@ -922,13 +922,14 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	if err != nil {
 		return charmResult{}, errors.Trace(err)
 	}
-	resolvedOrigin := resolvedData.EssentialMetadata.ResolvedOrigin
+	essentialMetadata := resolvedData.EssentialMetadata
+	resolvedOrigin := essentialMetadata.ResolvedOrigin
 	v.logger.Tracef("from resolveCharm: %s, %s", resolvedData.URL, pretty.Sprint(resolvedOrigin))
 	if resolvedOrigin.Type != "charm" {
 		return charmResult{}, errors.BadRequestf("%q is not a charm", arg.CharmName)
 	}
 
-	resolvedCharm := corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata)
+	resolvedCharm := corecharm.NewCharmInfoAdaptor(essentialMetadata)
 	if resolvedCharm.Meta().Name == bootstrap.ControllerCharmName {
 		return charmResult{}, errors.NotSupportedf("manual deploy of the controller charm")
 	}
@@ -956,7 +957,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 			CharmURL:     resolvedData.URL,
 			Origin:       resolvedOrigin,
 			Charm:        deployedCharm,
-			DownloadInfo: resolvedData.DownloadInfo,
+			DownloadInfo: essentialMetadata.DownloadInfo,
 		}, nil
 	}
 	if !errors.Is(err, applicationerrors.CharmNotFound) {
@@ -972,7 +973,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		CharmURL:     resolvedData.URL,
 		Origin:       resolvedOrigin,
 		Charm:        resolvedCharm,
-		DownloadInfo: resolvedData.DownloadInfo,
+		DownloadInfo: essentialMetadata.DownloadInfo,
 	}, nil
 }
 

@@ -179,6 +179,10 @@ type ApplicationService interface {
 	// GetCharmMetadataName returns the name for the charm using the
 	// charm ID.
 	GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error)
+
+	// GetCharmDownloadInfo returns the download info for the charm using the
+	// charm ID.
+	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*applicationcharm.DownloadInfo, error)
 }
 
 // ModelConfigService provides access to the model configuration.

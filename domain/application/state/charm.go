@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -674,6 +675,34 @@ WHERE name IN ($nameSelector[:]);
 	}
 
 	return decodeCharmLocators(results)
+}
+
+// GetCharmDownloadInfo returns the download info for the charm using the
+// charm ID.
+func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	var downloadInfo *charm.DownloadInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		info, err := s.getCharmDownloadInfo(ctx, tx, ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		}
+		downloadInfo = &info
+
+		return nil
+	}); err != nil {
+		return nil, internalerrors.Errorf("getting charm download info: %w", err)
+	}
+
+	return downloadInfo, nil
 }
 
 func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
