@@ -517,6 +517,8 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
+	c.Skip("TODO: reimplement once we support model migration in dqlite")
+
 	// Create a host model because controller models can't be migrated.
 	factory, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
