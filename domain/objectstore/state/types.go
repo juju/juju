@@ -10,9 +10,9 @@ type dbMetadata struct {
 	// UUID is the uuid for the metadata.
 	UUID string `db:"uuid"`
 	// SHA256 is the 256 hash of the object.
-	SHA256 string `db:"hash_256"`
-	// SHA384 is the 384 hash of the object.
-	SHA384 string `db:"hash_384"`
+	SHA256 string `db:"sha_256"`
+	// SHA384 is the 512-384 hash of the object.
+	SHA384 string `db:"sha_384"`
 	// Path is the path to the object.
 	Path string `db:"path"`
 	// Size is the size of the object.
