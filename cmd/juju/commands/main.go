@@ -17,8 +17,6 @@ import (
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/cmd/juju/agree/agree"
-	"github.com/juju/juju/cmd/juju/agree/listagreements"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
@@ -560,10 +558,6 @@ func registerCommands(r commandRegistry) {
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())
-
-	// Agreement commands
-	r.Register(agree.NewAgreeCommand())
-	r.Register(listagreements.NewListAgreementsCommand())
 }
 
 type cloudToCommandAdaptor struct{}
