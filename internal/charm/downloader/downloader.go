@@ -106,14 +106,14 @@ func NewDownloader(logger logger.Logger, storage Storage, repoGetter RepositoryG
 // API so it can be persisted.
 //
 // The method ensures that all temporary resources are cleaned up before returning.
-func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
+func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, charm.Charm, error) {
 	var (
 		err           error
 		channelOrigin = requestedOrigin
 	)
 	channelOrigin.Platform, err = d.normalizePlatform(charmURL.Name, requestedOrigin.Platform)
 	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	// Notify the storage layer that we are preparing to upload a charm.
@@ -126,19 +126,19 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 
 			repo, err := d.getRepo(ctx, requestedOrigin.Source)
 			if err != nil {
-				return corecharm.Origin{}, errors.Trace(err)
+				return corecharm.Origin{}, nil, errors.Trace(err)
 			}
 			_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL.Name, requestedOrigin)
-			return resolvedOrigin, errors.Trace(err)
+			return resolvedOrigin, nil, errors.Trace(err)
 		}
 
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	// Download charm blob to a temp file
 	tmpFile, err := os.CreateTemp("", charmURL.Name)
 	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, nil, errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
@@ -149,25 +149,25 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 
 	repo, err := d.getRepo(ctx, requestedOrigin.Source)
 	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	downloadedCharm, actualOrigin, err := d.downloadAndHash(ctx, charmURL.Name, channelOrigin, repo, tmpFile.Name())
 	if err != nil {
-		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL.Name, requestedOrigin)
+		return corecharm.Origin{}, nil, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL.Name, requestedOrigin)
 	}
 
 	// Validate charm
 	if err := downloadedCharm.verify(actualOrigin, force); err != nil {
-		return corecharm.Origin{}, errors.Annotatef(err, "verifying downloaded charm %q from origin %v", charmURL.Name, requestedOrigin)
+		return corecharm.Origin{}, nil, errors.Annotatef(err, "verifying downloaded charm %q from origin %v", charmURL.Name, requestedOrigin)
 	}
 
 	// Store Charm
 	if err := d.storeCharm(ctx, charmURL.String(), downloadedCharm, tmpFile.Name()); err != nil {
-		return corecharm.Origin{}, errors.Annotatef(err, "storing charm %q from origin %v", charmURL, requestedOrigin)
+		return corecharm.Origin{}, nil, errors.Annotatef(err, "storing charm %q from origin %v", charmURL, requestedOrigin)
 	}
 
-	return actualOrigin, nil
+	return actualOrigin, downloadedCharm.Charm, nil
 }
 
 func (d *Downloader) downloadAndHash(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {

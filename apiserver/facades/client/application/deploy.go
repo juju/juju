@@ -125,6 +125,7 @@ func DeployApplication(
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
 		Charm:             args.Charm,
+		CharmURL:          args.Charm.URL(),
 		CharmOrigin:       origin,
 		Storage:           stateStorageDirectives(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),

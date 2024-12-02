@@ -124,7 +124,7 @@ func (s *deployerSuite) TestDeployLocalCharmThatDoesNotExist(c *gc.C) {
 	cfg := s.newConfig(c)
 	deployer := makeBaseDeployer(cfg)
 
-	_, _, err := deployer.DeployLocalCharm(context.Background(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
+	_, _, _, err := deployer.DeployLocalCharm(context.Background(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -142,7 +142,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	url, origin, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	url, origin, ch, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "local:arm64/juju-controller-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
@@ -154,6 +154,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 			Channel:      "22.04/stable",
 		},
 	})
+	c.Assert(ch, gc.NotNil)
 }
 
 func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
@@ -168,7 +169,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	url, origin, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	url, origin, ch, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "ch:arm64/juju-controller-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
@@ -181,6 +182,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
 			Channel:      "22.04",
 		},
 	})
+	c.Assert(ch, gc.NotNil)
 }
 
 func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
@@ -195,7 +197,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	url, origin, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	url, origin, ch, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "ch:arm64/inferi-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
@@ -208,6 +210,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
 			Channel:      "22.04",
 		},
 	})
+	c.Assert(ch, gc.NotNil)
 }
 
 func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
@@ -219,9 +222,8 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 
 	cfg := s.newConfig(c)
 
-	charmName := "obscura"
+	curl := "ch:juju-controller-0"
 
-	s.stateBackend.EXPECT().Charm(charmName).Return(s.charm, nil)
 	s.stateBackend.EXPECT().AddApplication(gomock.Any(), s.objectStore).DoAndReturn(func(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
 		appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
 			coreapplication.TrustConfigOptionName: true,
@@ -233,8 +235,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 		// better to not persist anything at all. In that way we can be sure
 		// that we didn't accidentally persist something that we shouldn't have.
 		c.Check(args, gc.DeepEquals, state.AddApplicationArgs{
-			Name:  bootstrap.ControllerApplicationName,
-			Charm: s.charm,
+			Name:     bootstrap.ControllerApplicationName,
+			Charm:    s.charm,
+			CharmURL: "ch:juju-controller-0",
 			CharmOrigin: &state.CharmOrigin{
 				Source: "charm-hub",
 				Type:   "charm",
@@ -296,7 +299,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 		},
 	}
 	address := "10.0.0.1"
-	unit, err := deployer.AddControllerApplication(context.Background(), charmName, origin, address)
+	unit, err := deployer.AddControllerApplication(context.Background(), curl, origin, s.charm, address)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit, gc.NotNil)
 }
@@ -378,5 +381,5 @@ func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C, name string) {
 	}
 
 	s.charmRepo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), name, origin).Return(curl, origin, nil, nil)
-	s.charmDownloader.EXPECT().DownloadAndStore(gomock.Any(), curl, origin, false).Return(origin, nil)
+	s.charmDownloader.EXPECT().DownloadAndStore(gomock.Any(), curl, origin, false).Return(origin, s.charm, nil)
 }

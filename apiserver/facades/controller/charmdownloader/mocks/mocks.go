@@ -539,12 +539,13 @@ func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 }
 
 // DownloadAndStore mocks base method.
-func (m *MockDownloader) DownloadAndStore(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, error) {
+func (m *MockDownloader) DownloadAndStore(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, charm0.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadAndStore", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm.Origin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(charm0.Charm)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // DownloadAndStore indicates an expected call of DownloadAndStore.
@@ -560,19 +561,19 @@ type MockDownloaderDownloadAndStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDownloaderDownloadAndStoreCall) Return(arg0 charm.Origin, arg1 error) *MockDownloaderDownloadAndStoreCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockDownloaderDownloadAndStoreCall) Return(arg0 charm.Origin, arg1 charm0.Charm, arg2 error) *MockDownloaderDownloadAndStoreCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDownloaderDownloadAndStoreCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadAndStoreCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, charm0.Charm, error)) *MockDownloaderDownloadAndStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDownloaderDownloadAndStoreCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadAndStoreCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, charm0.Charm, error)) *MockDownloaderDownloadAndStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

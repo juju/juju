@@ -40,7 +40,7 @@ type Charm interface {
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
+	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, charm.Charm, error)
 }
 
 // AuthChecker provides an API for checking if the API client is a controller.

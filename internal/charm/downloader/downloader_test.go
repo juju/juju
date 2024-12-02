@@ -160,9 +160,10 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	s.repo.EXPECT().GetDownloadURL(gomock.Any(), curl.Name, requestedOrigin).Return(retURL, knownOrigin, nil)
 
 	dl := s.newDownloader(c)
-	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
+	gotOrigin, ch, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, knownOrigin, gc.Commentf("expected to get back the known origin for the existing charm"))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch, gc.IsNil)
 }
 
 func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
@@ -176,7 +177,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 	)
 
 	dl := s.newDownloader(c)
-	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
+	gotOrigin, _, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, corecharm.Origin{}, gc.Commentf("expected a blank origin when encountering errors"))
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
@@ -251,9 +252,10 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader(c)
-	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
+	gotOrigin, ch, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch, gc.Equals, s.charmArchive)
 }
 
 func (s *downloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
