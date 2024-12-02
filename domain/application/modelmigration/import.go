@@ -162,12 +162,17 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		err = i.service.ImportApplication(
 			ctx, app.Name(), charm, *origin, service.AddApplicationArgs{
 				ReferenceName: chURL.Name,
-				// TODO (stickupkid): When we're importing a charm during a
-				// migration, we should fill this in with the correct value.
-				// If not, we should indicate that the charm can not be
-				// downloaded without a new request to the charm store to
-				// fetch the charm.
-				DownloadInfo: &applicationcharm.DownloadInfo{},
+				// When importing a charm, we don't have all the information
+				// about the charm. We could call charmhub store directly, but
+				// that has the potential to block a migration if the charmhub
+				// store is down. If we require that information, then it's
+				// possible to fill this missing information in the charmhub
+				// store using the charmhub identifier.
+				// If the controllers do not have the same charmhub url, then
+				// all bets are off.
+				DownloadInfo: &applicationcharm.DownloadInfo{
+					DownloadProvenance: applicationcharm.ProvenanceMigration,
+				},
 			}, unitArgs...,
 		)
 		if err != nil {

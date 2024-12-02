@@ -704,6 +704,7 @@ var tablesToDeleteFrom = []string{
 	"charm_container_mount",
 	"charm_container",
 	"charm_device",
+	"charm_download_info",
 	"charm_extra_binding",
 	"charm_hash",
 	"charm_manifest_base",

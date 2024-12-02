@@ -153,8 +153,27 @@ type CharmLocator struct {
 	Architecture architecture.Architecture
 }
 
+// DownloadProvenance represents the provenance of a charm download.
+// Ideally this would be called origin, but that's already used for an origin
+// of a charm.
+type DownloadProvenance string
+
+const (
+	// ProvenanceDownload represents a charm download from the charmhub.
+	ProvenanceDownload DownloadProvenance = "download"
+	// ProvenanceUpload represents a charm download from an upload.
+	ProvenanceUpload DownloadProvenance = "upload"
+	// ProvenanceMigration represents a charm download from a migration.
+	ProvenanceMigration DownloadProvenance = "migration"
+	// ProvenanceBootstrap represents a charm placement during bootstrap.
+	ProvenanceBootstrap DownloadProvenance = "bootstrap"
+)
+
 // DownloadInfo holds the information needed to download a charmhub charm.
 type DownloadInfo struct {
+	// DownloadProvenance is the provenance of the download.
+	DownloadProvenance DownloadProvenance
+
 	// CharmhubIdentifier is the instance ID of the charm in relation to
 	// charmhub.
 	CharmhubIdentifier string
@@ -165,6 +184,25 @@ type DownloadInfo struct {
 	// DownloadSize is the size of the charm in bytes that the download URL
 	// points to.
 	DownloadSize int64
+}
+
+// Validate validates the download information.
+func (d DownloadInfo) Validate() error {
+	if d.DownloadProvenance == "" {
+		return applicationerrors.CharmDownloadProvenanceNotValid
+	}
+
+	// We don't validate the download information if it's not a download.
+	if d.DownloadProvenance != ProvenanceDownload {
+		return nil
+	}
+
+	// Download URL is required for a download.
+	if d.DownloadURL == "" {
+		return applicationerrors.CharmDownloadURLNotValid
+	}
+
+	return nil
 }
 
 // Metadata represents the metadata of a charm from the perspective of the

@@ -310,8 +310,13 @@ func validateCreateApplicationParams(
 	}
 
 	// If the origin is from charmhub, then we require the download info.
-	if origin.Source == corecharm.CharmHub && downloadInfo == nil {
-		return applicationerrors.CharmDownloadInfoNotFound
+	if origin.Source == corecharm.CharmHub {
+		if downloadInfo == nil {
+			return applicationerrors.CharmDownloadInfoNotFound
+		}
+		if err := downloadInfo.Validate(); err != nil {
+			return fmt.Errorf("download info: %w", err)
+		}
 	}
 
 	// Validate the origin of the charm.

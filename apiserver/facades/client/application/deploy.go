@@ -172,7 +172,9 @@ func DeployApplication(
 			Storage:       args.Storage,
 			// TODO (stickupkid): Fill this in correctly when we have the
 			// charmhub information.
-			DownloadInfo: &applicationcharm.DownloadInfo{},
+			DownloadInfo: &applicationcharm.DownloadInfo{
+				DownloadProvenance: applicationcharm.ProvenanceDownload,
+			},
 		}, unitArgs...)
 		if err != nil {
 			return nil, errors.Trace(err)

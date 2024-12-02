@@ -23,6 +23,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
@@ -78,21 +79,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
-	appID, err := s.svc.CreateApplication(context.Background(), name, &stubCharm{}, corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Platform: corecharm.Platform{
-			Channel:      "24.04",
-			OS:           "ubuntu",
-			Architecture: "amd64",
-		},
-	}, service.AddApplicationArgs{
-		ReferenceName: name,
-	}, units...)
-	c.Assert(err, jc.ErrorIsNil)
-	return appID
 }
 
 func (s *serviceSuite) TestGetApplicationLife(c *gc.C) {
@@ -855,4 +841,22 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsFalse)
+}
+func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
+	appID, err := s.svc.CreateApplication(context.Background(), name, &stubCharm{}, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, service.AddApplicationArgs{
+		ReferenceName: name,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			DownloadURL:        "https://example.com",
+		},
+	}, units...)
+	c.Assert(err, jc.ErrorIsNil)
+	return appID
 }

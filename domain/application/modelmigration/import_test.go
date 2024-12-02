@@ -18,6 +18,7 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -133,6 +134,9 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		},
 		service.AddApplicationArgs{
 			ReferenceName: "prometheus",
+			DownloadInfo: &charm.DownloadInfo{
+				DownloadProvenance: charm.ProvenanceMigration,
+			},
 		},
 		[]service.ImportUnitArg{{
 			UnitName:     "prometheus/0",

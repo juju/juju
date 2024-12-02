@@ -1196,6 +1196,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	info := &charm.DownloadInfo{
+		DownloadProvenance: charm.ProvenanceDownload,
 		CharmhubIdentifier: "ident-1",
 		DownloadURL:        "https://example.com/charmhub/ident-1",
 		DownloadSize:       1234,

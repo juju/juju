@@ -92,6 +92,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	app := application.AddApplicationArg{
 		Charm: ch,
 		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -131,6 +132,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -241,6 +243,7 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
 		DownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -276,6 +279,7 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
 		DownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -443,6 +447,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	app := application.AddApplicationArg{
 		Charm: ch,
 		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -489,6 +494,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
 		DownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -552,6 +558,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	app := application.AddApplicationArg{
 		Charm: ch,
 		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -598,6 +605,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
 		DownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -658,6 +666,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	app := application.AddApplicationArg{
 		Charm: ch,
 		CharmDownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -704,6 +713,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
 		DownloadInfo: &domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,

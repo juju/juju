@@ -232,8 +232,10 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, c
 	// This can be done, once all the charm service methods are being used,
 	// instead of the state methods.
 	csSource := corecharm.CharmHub
+	provenance := applicationcharm.ProvenanceMigration
 	if source == charm.Local {
 		csSource = corecharm.Local
+		provenance = applicationcharm.ProvenanceUpload
 	}
 
 	if _, _, err := charmService.SetCharm(r.Context(), applicationcharm.SetCharmArgs{
@@ -248,7 +250,9 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, c
 		// If this is a charmhub charm, this will be coming from a migration.
 		// We can not re-download this charm from the charm store again, without
 		// another call directly to the charm store.
-		DownloadInfo: &applicationcharm.DownloadInfo{},
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			DownloadProvenance: provenance,
+		},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}

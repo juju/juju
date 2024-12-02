@@ -182,4 +182,12 @@ const (
 	// CharmDownloadInfoNotFound describes an error that occurs when the charm
 	// download info is not found.
 	CharmDownloadInfoNotFound = errors.ConstError("charm download info not found")
+
+	// CharmDownloadURLNotValid describes an error that occurs when the charm
+	// download URL is not valid.
+	CharmDownloadURLNotValid = errors.ConstError("charm download URL not valid")
+
+	// CharmDownloadProvenanceNotValid describes an error that occurs when the
+	// charm download provenance is not valid.
+	CharmDownloadProvenanceNotValid = errors.ConstError("charm download provenance not valid")
 )

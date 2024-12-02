@@ -173,6 +173,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			Storage:       dt.storage,
 			// We always have download info for a charm from the charmhub store.
 			DownloadInfo: &applicationcharm.DownloadInfo{
+				DownloadProvenance: applicationcharm.ProvenanceDownload,
 				CharmhubIdentifier: dt.downloadInfo.CharmhubIdentifier,
 				DownloadURL:        dt.downloadInfo.DownloadURL,
 				DownloadSize:       dt.downloadInfo.DownloadSize,

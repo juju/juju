@@ -313,7 +313,9 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 		Hash:          metaRes.ResolvedOrigin.Hash,
 		// TODO (stickupkid): Fill this information in from the essential
 		// metadata.
-		DownloadInfo: &applicationcharm.DownloadInfo{},
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			DownloadProvenance: applicationcharm.ProvenanceDownload,
+		},
 	}); err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
 		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
 	}

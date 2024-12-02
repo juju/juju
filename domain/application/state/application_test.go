@@ -94,6 +94,7 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 				Architecture:  architecture.ARM64,
 			},
 			CharmDownloadInfo: &charm.DownloadInfo{
+				DownloadProvenance: charm.ProvenanceDownload,
 				CharmhubIdentifier: "ident-1",
 				DownloadURL:        "http://example.com/charm",
 				DownloadSize:       666,

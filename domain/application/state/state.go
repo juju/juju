@@ -176,12 +176,12 @@ func (s *State) setCharmState(
 ) error {
 	sourceID, err := encodeCharmSource(ch.Source)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm source: %w", err)
+		return fmt.Errorf("encoding charm source: %w", err)
 	}
 
 	architectureID, err := encodeArchitecture(ch.Architecture)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm architecture: %w", err)
+		return fmt.Errorf("encoding charm architecture: %w", err)
 	}
 
 	nullableArchitectureID := sql.NullInt64{}
@@ -237,11 +237,17 @@ func (s *State) setCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id core
 		return nil
 	}
 
+	provenance, err := encodeProvenance(downloadInfo.DownloadProvenance)
+	if err != nil {
+		return fmt.Errorf("encoding charm provenance: %w", err)
+	}
+
 	downloadInfoState := setCharmDownloadInfo{
-		CharmUUID:          id.String(),
-		CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
-		DownloadURL:        downloadInfo.DownloadURL,
-		DownloadSize:       downloadInfo.DownloadSize,
+		CharmUUID:            id.String(),
+		DownloadProvenanceID: provenance,
+		CharmhubIdentifier:   downloadInfo.CharmhubIdentifier,
+		DownloadURL:          downloadInfo.DownloadURL,
+		DownloadSize:         downloadInfo.DownloadSize,
 	}
 
 	query := `INSERT INTO charm_download_info (*) VALUES ($setCharmDownloadInfo.*);`
@@ -266,7 +272,7 @@ func (s *State) setCharmMetadata(
 ) error {
 	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm metadata: %w", err)
+		return fmt.Errorf("encoding charm metadata: %w", err)
 	}
 
 	query := `INSERT INTO charm_metadata (*) VALUES ($setCharmMetadata.*);`
@@ -342,7 +348,7 @@ func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.I
 func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
 	encodedRelations, err := encodeRelations(id, metadata)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm relations: %w", err)
+		return fmt.Errorf("encoding charm relations: %w", err)
 	}
 
 	// If there are no relations, we don't need to do anything.
@@ -392,7 +398,7 @@ func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm
 
 	encodedStorage, encodedProperties, err := encodeStorage(id, storage)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm storage: %w", err)
+		return fmt.Errorf("encoding charm storage: %w", err)
 	}
 
 	storageQuery := `INSERT INTO charm_storage (*) VALUES ($setCharmStorage.*);`
@@ -466,7 +472,7 @@ func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecha
 
 	encodedResources, err := encodeResources(id, resources)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm resources: %w", err)
+		return fmt.Errorf("encoding charm resources: %w", err)
 	}
 
 	query := `INSERT INTO charm_resource (*) VALUES ($setCharmResource.*);`
@@ -490,7 +496,7 @@ func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corech
 
 	encodedContainers, encodedMounts, err := encodeContainers(id, containers)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm containers: %w", err)
+		return fmt.Errorf("encoding charm containers: %w", err)
 	}
 
 	containerQuery := `INSERT INTO charm_container (*) VALUES ($setCharmContainer.*);`
@@ -546,7 +552,7 @@ func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.
 
 	encodedConfig, err := encodeConfig(id, config)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm config: %w", err)
+		return fmt.Errorf("encoding charm config: %w", err)
 	}
 
 	query := `INSERT INTO charm_config (*) VALUES ($setCharmConfig.*);`
@@ -569,7 +575,7 @@ func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corechar
 
 	encodedManifest, err := encodeManifest(id, manifest)
 	if err != nil {
-		return fmt.Errorf("failed to encode charm manifest: %w", err)
+		return fmt.Errorf("encoding charm manifest: %w", err)
 	}
 
 	query := `INSERT INTO charm_manifest_base (*) VALUES ($setCharmManifest.*);`
@@ -680,6 +686,7 @@ func (s *State) getCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, ident c
 SELECT &charmDownloadInfo.*
 FROM charm AS c
 JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+JOIN charm_provenance AS cp ON cp.id = cdi.provenance_id
 WHERE c.uuid = $charmID.uuid
 AND c.source_id = 1;
 `
@@ -694,7 +701,13 @@ AND c.source_id = 1;
 		return charm.DownloadInfo{}, fmt.Errorf("getting charm download info: %w", err)
 	}
 
+	provenance, err := decodeProvenance(downloadInfo.DownloadProvenance)
+	if err != nil {
+		return charm.DownloadInfo{}, fmt.Errorf("decoding charm provenance: %w", err)
+	}
+
 	return charm.DownloadInfo{
+		DownloadProvenance: provenance,
 		CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
 		DownloadURL:        downloadInfo.DownloadURL,
 		DownloadSize:       downloadInfo.DownloadSize,
@@ -1346,5 +1359,35 @@ func encodeCharmSource(source charm.CharmSource) (int, error) {
 		return 1, nil
 	default:
 		return 0, internalerrors.Errorf("unsupported source type: %s", source)
+	}
+}
+
+func encodeProvenance(provenance charm.DownloadProvenance) (int, error) {
+	switch provenance {
+	case charm.ProvenanceDownload:
+		return 0, nil
+	case charm.ProvenanceMigration:
+		return 1, nil
+	case charm.ProvenanceUpload:
+		return 2, nil
+	case charm.ProvenanceBootstrap:
+		return 3, nil
+	default:
+		return 0, internalerrors.Errorf("unsupported provenance type: %s", provenance)
+	}
+}
+
+func decodeProvenance(provenance string) (charm.DownloadProvenance, error) {
+	switch provenance {
+	case "download":
+		return charm.ProvenanceDownload, nil
+	case "migration":
+		return charm.ProvenanceMigration, nil
+	case "upload":
+		return charm.ProvenanceUpload, nil
+	case "bootstrap":
+		return charm.ProvenanceBootstrap, nil
+	default:
+		return "", fmt.Errorf("unknown provenance: %s", provenance)
 	}
 }

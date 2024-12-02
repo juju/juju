@@ -64,8 +64,32 @@ CREATE TABLE charm (
 CREATE UNIQUE INDEX idx_charm_reference_name_revision
 ON charm (reference_name, revision);
 
+
+CREATE TABLE charm_provenance (
+    id INT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_charm_provenance_name
+ON charm_provenance (name);
+
+-- The provenance of the charm. This is used to determine where the charm
+-- came from, which can then determine if the download information is still
+-- relevant.
+INSERT INTO charm_provenance VALUES
+(0, 'download'),
+(1, 'migration'),
+(2, 'upload'),
+(3, 'bootstrap');
+
 CREATE TABLE charm_download_info (
     charm_uuid TEXT NOT NULL PRIMARY KEY,
+
+    -- The provenance_id is the origin from which the download information
+    -- was obtained. Ideally, we would have used origin, but that's already
+    -- taken and I don't want to confuse the two.
+    provenance_id INT NOT NULL,
+
     -- charmhub_identifier is the identifier that charmhub uses to identify the
     -- charm. This is used to refresh the charm from charmhub. The
     -- reference_name can change but the charmhub_identifier will not.

@@ -517,8 +517,13 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 	}
 
 	// If the origin is from charmhub, then we require the download info.
-	if args.Source == corecharm.CharmHub && args.DownloadInfo == nil {
-		return "", nil, applicationerrors.CharmDownloadInfoNotFound
+	if args.Source == corecharm.CharmHub {
+		if args.DownloadInfo == nil {
+			return "", nil, applicationerrors.CharmDownloadInfoNotFound
+		}
+		if err := args.DownloadInfo.Validate(); err != nil {
+			return "", nil, fmt.Errorf("download info: %w", err)
+		}
 	}
 
 	source, err := encodeCharmSource(args.Source)

@@ -506,7 +506,9 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		}, applicationservice.AddApplicationArgs{
 			ReferenceName: params.Name,
 			Storage:       directives,
-			DownloadInfo:  &applicationcharm.DownloadInfo{},
+			DownloadInfo: &applicationcharm.DownloadInfo{
+				DownloadProvenance: applicationcharm.ProvenanceUpload,
+			},
 		})
 	}
 	c.Assert(err, jc.ErrorIsNil)
