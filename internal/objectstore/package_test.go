@@ -68,21 +68,21 @@ func (s *baseSuite) readFile(c *gc.C, reader io.ReadCloser) string {
 	return string(content)
 }
 
-func (s *baseSuite) calculateHexHash384(c *gc.C, contents string) string {
+func (s *baseSuite) calculateHexSHA384(c *gc.C, contents string) string {
 	hasher := sha512.New384()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (s *baseSuite) calculateHexHash256(c *gc.C, contents string) string {
+func (s *baseSuite) calculateHexSHA256(c *gc.C, contents string) string {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (s *baseSuite) calculateBase64Hash256(c *gc.C, contents string) string {
+func (s *baseSuite) calculateBase64SHA256(c *gc.C, contents string) string {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)

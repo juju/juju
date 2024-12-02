@@ -19,10 +19,10 @@ const (
 
 // Metadata represents the metadata for an object.
 type Metadata struct {
-	// Hash256 is the 256 hash of the object.
-	Hash256 string
-	// Hash384 is the 384 hash of the object.
-	Hash384 string
+	// SHA256 is the 256 hash of the object.
+	SHA256 string
+	// SHA384 is the 384 hash of the object.
+	SHA384 string
 	// Path is the path to the object.
 	Path string
 	// Size is the size of the object.

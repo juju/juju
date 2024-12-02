@@ -66,10 +66,10 @@ func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
-		Hash256: hash256,
-		Hash384: hash384,
-		Path:    "foo",
-		Size:    666,
+		SHA256: hash256,
+		SHA384: hash384,
+		Path:   "foo",
+		Size:   666,
 	}, nil).Times(2)
 	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(hash384)).Return(nil, int64(0), "", errors.NotFoundf("not found")).Times(2)
 
@@ -103,10 +103,10 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 
 	s.expectFailure(fileName, errors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash256: hash256,
-		Hash384: hash384,
-		Path:    fileName,
-		Size:    size,
+		SHA256: hash256,
+		SHA384: hash384,
+		Path:   fileName,
+		Size:   size,
 	}, nil)
 	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(hash384)).Return(reader, size, hash384, nil)
 
@@ -141,10 +141,10 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.
 
 	s.expectFailure(fileName, errors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash256: hash256,
-		Hash384: hash384,
-		Path:    fileName,
-		Size:    size + 1,
+		SHA256: hash256,
+		SHA384: hash384,
+		Path:   fileName,
+		Size:   size + 1,
 	}, nil)
 	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(hash384)).Return(reader, size, hash384, nil)
 
@@ -162,24 +162,24 @@ func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
-	base64Hash256 := s.calculateBase64Hash256(c, content)
-	s.expectClaim(hexHash384, 1)
-	s.expectRelease(hexHash384, 1)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+	base64SHA256 := s.calculateBase64SHA256(c, content)
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil)
 
 	var receivedContent string
-	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash384), gomock.Any(), base64Hash256).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexSHA384), gomock.Any(), base64SHA256).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
 		receivedContent = s.readFile(c, io.NopCloser(body))
 		return nil
 	})
@@ -202,24 +202,24 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
-	base64Hash256 := s.calculateBase64Hash256(c, content)
-	s.expectClaim(hexHash384, 1)
-	s.expectRelease(hexHash384, 1)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+	base64SHA256 := s.calculateBase64SHA256(c, content)
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil)
 
 	var receivedContent string
-	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash384), gomock.Any(), base64Hash256).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexSHA384), gomock.Any(), base64SHA256).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
 		receivedContent = s.readFile(c, io.NopCloser(body))
 		return nil
 	})
@@ -230,7 +230,7 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash384)
+	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid.Validate(), jc.ErrorIsNil)
 
@@ -241,8 +241,8 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	fakeHash := fmt.Sprintf("%s0", hexHash384)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	fakeHash := fmt.Sprintf("%s0", hexSHA384)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 
@@ -260,28 +260,28 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
-	base64Hash256 := s.calculateBase64Hash256(c, content)
-	s.expectClaim(hexHash384, 2)
-	s.expectRelease(hexHash384, 2)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+	base64SHA256 := s.calculateBase64SHA256(c, content)
+	s.expectClaim(hexSHA384, 2)
+	s.expectRelease(hexSHA384, 2)
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil).Times(2)
 
 	var receivedContent string
-	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash384), gomock.Any(), base64Hash256).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexSHA384), gomock.Any(), base64SHA256).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
 		receivedContent = s.readFile(c, io.NopCloser(body))
 		return nil
 	})
-	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash384), gomock.Any(), base64Hash256).Return(errors.AlreadyExistsf("already exists"))
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexSHA384), gomock.Any(), base64SHA256).Return(errors.AlreadyExistsf("already exists"))
 
 	store := s.newS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
@@ -289,11 +289,11 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash384)
+	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid0.Validate(), jc.ErrorIsNil)
 
-	uuid1, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash384)
+	uuid1, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid1.Validate(), jc.ErrorIsNil)
 
@@ -309,22 +309,22 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	// should be left to cleaned up by the object store later on.
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
-	base64Hash256 := s.calculateBase64Hash256(c, content)
-	s.expectClaim(hexHash384, 1)
-	s.expectRelease(hexHash384, 1)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+	base64SHA256 := s.calculateBase64SHA256(c, content)
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, errors.Errorf("boom"))
-	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexHash384), gomock.Any(), base64Hash256).Return(nil)
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hexSHA384), gomock.Any(), base64SHA256).Return(nil)
 
 	store := s.newS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
@@ -332,7 +332,7 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash384)
+	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 }
 
@@ -344,24 +344,24 @@ func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	// is removed.
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
 
-	s.expectClaim(hexHash384, 1)
-	s.expectRelease(hexHash384, 1)
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
 
 	fileName := "foo"
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    fileName,
-		Size:    666,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   fileName,
+		Size:   666,
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
-	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexHash384)).Return(errors.NotFoundf("foo"))
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexSHA384)).Return(errors.NotFoundf("foo"))
 
 	store := s.newS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
@@ -377,22 +377,22 @@ func (s *s3ObjectStoreSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
 
-	s.expectClaim(hexHash384, 1)
-	s.expectRelease(hexHash384, 1)
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
-	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexHash384)).Return(nil)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexSHA384)).Return(nil)
 
 	store := s.newS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
@@ -408,20 +408,20 @@ func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash384 := s.calculateHexHash384(c, content)
-	hexHash256 := s.calculateHexHash256(c, content)
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
 
 	fileName := "foo"
 	size := int64(666)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   fileName,
+		Size:   size,
 	}}, nil)
-	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hexHash384}, nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hexSHA384}, nil)
 
 	store := s.newS3ObjectStore(c).(*s3ObjectStore)
 	defer workertest.DirtyKill(c, store)
@@ -432,12 +432,12 @@ func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
 	metadata, files, err := store.list(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{
-		Hash384: hexHash384,
-		Hash256: hexHash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   fileName,
+		Size:   size,
 	}})
-	c.Check(files, gc.DeepEquals, []string{hexHash384})
+	c.Check(files, gc.DeepEquals, []string{hexSHA384})
 }
 
 func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *gc.C) {
@@ -465,10 +465,10 @@ func (s *s3ObjectStoreSuite) TestDrainFiles(c *gc.C) {
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 
 	s.expectListMetadata([]objectstore.Metadata{{
-		Hash384: "foo",
-		Hash256: "foo",
-		Path:    "foo",
-		Size:    12,
+		SHA384: "foo",
+		SHA256: "foo",
+		Path:   "foo",
+		Size:   12,
 	}})
 	s.expectHashToExistError("foo", errors.NotFound)
 
@@ -491,10 +491,10 @@ func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *gc.C) {
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.expectListMetadata([]objectstore.Metadata{{
-		Hash384: "foo",
-		Hash256: "foo",
-		Path:    "foo",
-		Size:    12,
+		SHA384: "foo",
+		SHA256: "foo",
+		Path:   "foo",
+		Size:   12,
 	}})
 	done := s.expectHashToExistError("foo", errors.Errorf("boom"))
 
@@ -695,7 +695,7 @@ func (s *s3ObjectStoreSuite) TestComputeS3Hash(c *gc.C) {
 	// the reader to the start of the file.
 
 	content := "some content"
-	expectedHash := s.calculateBase64Hash256(c, content)
+	expectedHash := s.calculateBase64SHA256(c, content)
 
 	store := &s3ObjectStore{}
 
@@ -716,7 +716,7 @@ func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *gc.C) {
 	// we require that the reader is rewound to the start of the file.
 
 	content := "some content"
-	expectedHash := s.calculateBase64Hash256(c, content)
+	expectedHash := s.calculateBase64SHA256(c, content)
 
 	store := &s3ObjectStore{}
 
@@ -733,8 +733,8 @@ func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
-	hexHash := s.calculateHexHash384(c, content)
-	base64Hash := s.calculateBase64Hash256(c, content)
+	hexHash := s.calculateHexSHA384(c, content)
+	base64Hash := s.calculateBase64SHA256(c, content)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 

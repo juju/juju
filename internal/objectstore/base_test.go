@@ -261,7 +261,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustMetadata(c *gc.C) {
 
 	list := func(ctx context.Context) ([]objectstore.Metadata, []string, error) {
 		return []objectstore.Metadata{{
-			Hash384: "hash",
+			SHA384: "hash",
 		}}, nil, nil
 	}
 	delete := func(ctx context.Context, hash string) error {
@@ -316,7 +316,7 @@ func (s *baseObjectStoreSuite) TestPruneWithMatches(c *gc.C) {
 
 	list := func(ctx context.Context) ([]objectstore.Metadata, []string, error) {
 		return []objectstore.Metadata{{
-			Hash384: "bar",
+			SHA384: "bar",
 		}}, []string{"bar", "foo"}, nil
 	}
 	delete := func(ctx context.Context, hash string) error {

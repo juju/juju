@@ -50,10 +50,10 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
-		Hash384: "blah",
-		Hash256: "blah",
-		Path:    "foo",
-		Size:    666,
+		SHA384: "blah",
+		SHA256: "blah",
+		Path:   "foo",
+		Size:   666,
 	}, nil).Times(2)
 
 	_, _, err := store.Get(context.Background(), "foo")
@@ -73,10 +73,10 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
 	}, nil)
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
@@ -101,16 +101,16 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
 	}, errors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
 	}, nil)
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
@@ -132,10 +132,10 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    fileName,
-		Size:    size + 1,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size + 1,
 	}, nil).Times(2)
 
 	_, _, err := store.Get(context.Background(), fileName)
@@ -145,8 +145,8 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 1)
 	s.expectRelease(hash384, 1)
@@ -159,10 +159,10 @@ func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil)
 
 	received, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
@@ -174,8 +174,8 @@ func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 2)
 	s.expectRelease(hash384, 2)
@@ -188,10 +188,10 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil).Times(2)
 
 	uuid0, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
@@ -211,8 +211,8 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	// If the file is not referenced by another metadata entry, then the file
 	// should be left to be cleaned by the object store later on.
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 1)
 	s.expectRelease(hash384, 1)
@@ -225,10 +225,10 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, errors.Errorf("boom"))
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
@@ -244,8 +244,8 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	// metadata entry. In this case we need to ensure that the file is not
 	// cleaned up if the metadata service returns an error.
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 2)
 	s.expectRelease(hash384, 2)
@@ -258,20 +258,20 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil)
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, errors.Errorf("boom"))
 
 	_, err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
@@ -283,8 +283,8 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 1)
 	s.expectRelease(hash384, 1)
@@ -297,10 +297,10 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil)
 
 	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
@@ -311,7 +311,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash384 := s.calculateHexHash384(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
 
 	fakeHash := fmt.Sprintf("%s0", hash384)
 
@@ -327,8 +327,8 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 2)
 	s.expectRelease(hash384, 2)
@@ -341,10 +341,10 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return(uuid, nil).Times(2)
 
 	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
@@ -364,8 +364,8 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	// If the file is not referenced by another metadata entry, then the file
 	// should be left to cleaned up by the object store later on.
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 1)
 	s.expectRelease(hash384, 1)
@@ -376,10 +376,10 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return("", errors.Errorf("boom"))
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
@@ -395,8 +395,8 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	// metadata entry. In this case we need to ensure that the file is not
 	// cleaned up if the metadata service returns an error.
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 2)
 	s.expectRelease(hash384, 2)
@@ -407,20 +407,20 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return("", nil)
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return("", errors.Errorf("boom"))
 
 	_, err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
@@ -447,10 +447,10 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash384: "blah",
-		Hash256: "blah",
-		Path:    fileName,
-		Size:    666,
+		SHA384: "blah",
+		SHA256: "blah",
+		Path:   fileName,
+		Size:   666,
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
@@ -462,8 +462,8 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash384 := s.calculateHexHash384(c, "some content")
-	hash256 := s.calculateHexHash256(c, "some content")
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
 
 	s.expectClaim(hash384, 2)
 	s.expectRelease(hash384, 2)
@@ -474,10 +474,10 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}).Return("", nil)
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
@@ -486,10 +486,10 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 	s.expectFileDoesExist(c, path, hash384)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    "foo",
-		Size:    12,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
@@ -515,19 +515,19 @@ func (s *fileObjectStoreSuite) TestList(c *gc.C) {
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
 	}}, nil)
 
 	metadata, files, err := store.list(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{
-		Hash384: hash384,
-		Hash256: hash256,
-		Path:    fileName,
-		Size:    size,
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
 	}})
 	c.Check(files, gc.DeepEquals, []string{hash384})
 }

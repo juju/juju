@@ -106,10 +106,10 @@ func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metada
 	}
 
 	dbMetadata := dbMetadata{
-		UUID:    uuid.String(),
-		Hash256: metadata.Hash256,
-		Hash384: metadata.Hash384,
-		Size:    metadata.Size,
+		UUID:   uuid.String(),
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   metadata.Size,
 	}
 
 	dbMetadataPath := dbMetadataPath{

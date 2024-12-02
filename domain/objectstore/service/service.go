@@ -57,10 +57,10 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Met
 		return objectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
 	}
 	return objectstore.Metadata{
-		Path:    metadata.Path,
-		Hash256: metadata.Hash256,
-		Hash384: metadata.Hash384,
-		Size:    metadata.Size,
+		Path:   metadata.Path,
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   metadata.Size,
 	}, nil
 }
 
@@ -73,10 +73,10 @@ func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, err
 	m := make([]objectstore.Metadata, len(metadata))
 	for i, v := range metadata {
 		m[i] = objectstore.Metadata{
-			Path:    v.Path,
-			Hash256: v.Hash256,
-			Hash384: v.Hash384,
-			Size:    v.Size,
+			Path:   v.Path,
+			SHA256: v.SHA256,
+			SHA384: v.SHA384,
+			Size:   v.Size,
 		}
 	}
 	return m, nil
@@ -88,17 +88,17 @@ func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, err
 // consistent with the object. That's the caller's responsibility.
 func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (objectstore.UUID, error) {
 	// If you have one hash, you must have the other.
-	if h1, h2 := metadata.Hash384, metadata.Hash256; h1 != "" && h2 == "" {
+	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
 		return "", errors.Annotatef(objectstoreerrors.ErrMissingHash, "missing hash256")
 	} else if h1 == "" && h2 != "" {
 		return "", errors.Annotatef(objectstoreerrors.ErrMissingHash, "missing hash384")
 	}
 
 	uuid, err := s.st.PutMetadata(ctx, objectstore.Metadata{
-		Hash256: metadata.Hash256,
-		Hash384: metadata.Hash384,
-		Path:    metadata.Path,
-		Size:    metadata.Size,
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Path:   metadata.Path,
+		Size:   metadata.Size,
 	})
 	if err != nil {
 		return "", errors.Annotatef(err, "adding path %s", metadata.Path)

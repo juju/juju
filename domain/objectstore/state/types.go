@@ -9,10 +9,10 @@ import coreobjectstore "github.com/juju/juju/core/objectstore"
 type dbMetadata struct {
 	// UUID is the uuid for the metadata.
 	UUID string `db:"uuid"`
-	// Hash256 is the 256 hash of the object.
-	Hash256 string `db:"hash_256"`
-	// Hash384 is the 384 hash of the object.
-	Hash384 string `db:"hash_384"`
+	// SHA256 is the 256 hash of the object.
+	SHA256 string `db:"hash_256"`
+	// SHA384 is the 384 hash of the object.
+	SHA384 string `db:"hash_384"`
 	// Path is the path to the object.
 	Path string `db:"path"`
 	// Size is the size of the object.
@@ -32,9 +32,9 @@ type dbMetadataPath struct {
 // object metadata.
 func (m dbMetadata) ToCoreObjectStoreMetadata() coreobjectstore.Metadata {
 	return coreobjectstore.Metadata{
-		Hash256: m.Hash256,
-		Hash384: m.Hash384,
-		Path:    m.Path,
-		Size:    m.Size,
+		SHA256: m.SHA256,
+		SHA384: m.SHA384,
+		Path:   m.Path,
+		Size:   m.Size,
 	}
 }

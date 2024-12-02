@@ -306,7 +306,7 @@ func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete 
 // as the default hash.
 // Do not change this function without understanding the implications.
 func selectFileHash(m objectstore.Metadata) string {
-	return m.Hash384
+	return m.SHA384
 }
 
 type hashValidator func(string) (string, bool)

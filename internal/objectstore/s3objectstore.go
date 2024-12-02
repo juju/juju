@@ -508,10 +508,10 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		// race where the watch event is emitted before the file is written.
 		var err error
 		if uuid, err = t.metadataService.PutMetadata(ctx, objectstore.Metadata{
-			Path:    path,
-			Hash256: encoded256,
-			Hash384: encoded384,
-			Size:    size,
+			Path:   path,
+			SHA256: encoded256,
+			SHA384: encoded384,
+			Size:   size,
 		}); err != nil {
 			return errors.Trace(err)
 		}
