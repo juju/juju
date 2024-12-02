@@ -35,17 +35,17 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	path := uuid.MustNewUUID().String()
 
 	metadata := objectstore.Metadata{
-		Path:        path,
-		Hash256:     uuid.MustNewUUID().String(),
-		Hash512_384: uuid.MustNewUUID().String(),
-		Size:        666,
+		Path:    path,
+		Hash256: uuid.MustNewUUID().String(),
+		Hash384: uuid.MustNewUUID().String(),
+		Size:    666,
 	}
 
 	s.state.EXPECT().GetMetadata(gomock.Any(), path).Return(objectstore.Metadata{
-		Path:        metadata.Path,
-		Size:        metadata.Size,
-		Hash256:     metadata.Hash256,
-		Hash512_384: metadata.Hash512_384,
+		Path:    metadata.Path,
+		Size:    metadata.Size,
+		Hash256: metadata.Hash256,
+		Hash384: metadata.Hash384,
 	}, nil)
 
 	p, err := NewService(s.state).GetMetadata(context.Background(), path)
@@ -59,26 +59,26 @@ func (s *serviceSuite) TestListMetadata(c *gc.C) {
 	path := uuid.MustNewUUID().String()
 
 	metadata := objectstore.Metadata{
-		Path:        path,
-		Hash256:     uuid.MustNewUUID().String(),
-		Hash512_384: uuid.MustNewUUID().String(),
-		Size:        666,
+		Path:    path,
+		Hash256: uuid.MustNewUUID().String(),
+		Hash384: uuid.MustNewUUID().String(),
+		Size:    666,
 	}
 
 	s.state.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
-		Path:        metadata.Path,
-		Hash256:     metadata.Hash256,
-		Hash512_384: metadata.Hash512_384,
-		Size:        metadata.Size,
+		Path:    metadata.Path,
+		Hash256: metadata.Hash256,
+		Hash384: metadata.Hash384,
+		Size:    metadata.Size,
 	}}, nil)
 
 	p, err := NewService(s.state).ListMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, gc.DeepEquals, []objectstore.Metadata{{
-		Path:        metadata.Path,
-		Size:        metadata.Size,
-		Hash256:     metadata.Hash256,
-		Hash512_384: metadata.Hash512_384,
+		Path:    metadata.Path,
+		Size:    metadata.Size,
+		Hash256: metadata.Hash256,
+		Hash384: metadata.Hash384,
 	}})
 }
 
@@ -87,10 +87,10 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 
 	path := uuid.MustNewUUID().String()
 	metadata := objectstore.Metadata{
-		Path:        path,
-		Hash256:     uuid.MustNewUUID().String(),
-		Hash512_384: uuid.MustNewUUID().String(),
-		Size:        666,
+		Path:    path,
+		Hash256: uuid.MustNewUUID().String(),
+		Hash384: uuid.MustNewUUID().String(),
+		Size:    666,
 	}
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
@@ -98,7 +98,7 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 		c.Check(data.Path, gc.Equals, metadata.Path)
 		c.Check(data.Size, gc.Equals, metadata.Size)
 		c.Check(data.Hash256, gc.Equals, metadata.Hash256)
-		c.Check(data.Hash512_384, gc.Equals, metadata.Hash512_384)
+		c.Check(data.Hash384, gc.Equals, metadata.Hash384)
 		return uuid, nil
 	})
 
@@ -107,7 +107,7 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	c.Check(result, gc.Equals, uuid)
 }
 
-func (s *serviceSuite) TestPutMetadataMissingHash512_384(c *gc.C) {
+func (s *serviceSuite) TestPutMetadataMissingHash384(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := uuid.MustNewUUID().String()
@@ -126,9 +126,9 @@ func (s *serviceSuite) TestPutMetadataMissingHash256(c *gc.C) {
 
 	path := uuid.MustNewUUID().String()
 	metadata := objectstore.Metadata{
-		Path:        path,
-		Hash512_384: uuid.MustNewUUID().String(),
-		Size:        666,
+		Path:    path,
+		Hash384: uuid.MustNewUUID().String(),
+		Size:    666,
 	}
 
 	_, err := NewService(s.state).PutMetadata(context.Background(), metadata)

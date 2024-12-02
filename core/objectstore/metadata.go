@@ -21,8 +21,8 @@ const (
 type Metadata struct {
 	// Hash256 is the 256 hash of the object.
 	Hash256 string
-	// Hash512_384 is the 512_384 hash of the object.
-	Hash512_384 string
+	// Hash384 is the 384 hash of the object.
+	Hash384 string
 	// Path is the path to the object.
 	Path string
 	// Size is the size of the object.

@@ -465,7 +465,7 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 	// I can only assume 384 was chosen over 256 and others, is because it's
 	// not susceptible to length extension attacks? In any case, we'll
 	// keep using it for now.
-	hash512_384 := sha512.New384()
+	hash384 := sha512.New384()
 
 	// We need two hash sets here, because juju wants to use SHA384, but s3
 	// and http handlers want to use SHA256. We can't change the hash used by
@@ -475,7 +475,7 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 
 	// We need to write this to a temp file, because if the client retries
 	// then we need seek back to the beginning of the file.
-	fileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(hash512_384, hash256)), size)
+	fileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(hash384, hash256)), size)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -485,21 +485,21 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 
 	// Encode the hashes as strings, so we can use them for file, http and s3
 	// lookups.
-	encoded512_384 := hex.EncodeToString(hash512_384.Sum(nil))
+	encoded384 := hex.EncodeToString(hash384.Sum(nil))
 	encoded256 := hex.EncodeToString(hash256.Sum(nil))
 	s3EncodedHash := base64.StdEncoding.EncodeToString(hash256.Sum(nil))
 
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(encoded512_384); !ok {
-		return "", fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded512_384, objectstore.ErrHashMismatch)
+	if expected, ok := validator(encoded384); !ok {
+		return "", fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded384, objectstore.ErrHashMismatch)
 	}
 
-	// Lock the file with the given hash (encoded512_384), so that we can't
+	// Lock the file with the given hash (encoded384), so that we can't
 	// remove the file while we're writing it.
 	var uuid objectstore.UUID
-	if err := t.withLock(ctx, encoded512_384, func(ctx context.Context) error {
+	if err := t.withLock(ctx, encoded384, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, fileName, encoded512_384, s3EncodedHash, size); err != nil {
+		if err := t.persistTmpFile(ctx, fileName, encoded384, s3EncodedHash, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -508,10 +508,10 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		// race where the watch event is emitted before the file is written.
 		var err error
 		if uuid, err = t.metadataService.PutMetadata(ctx, objectstore.Metadata{
-			Path:        path,
-			Hash256:     encoded256,
-			Hash512_384: encoded512_384,
-			Size:        size,
+			Path:    path,
+			Hash256: encoded256,
+			Hash384: encoded384,
+			Size:    size,
 		}); err != nil {
 			return errors.Trace(err)
 		}

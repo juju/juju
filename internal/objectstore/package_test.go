@@ -68,7 +68,7 @@ func (s *baseSuite) readFile(c *gc.C, reader io.ReadCloser) string {
 	return string(content)
 }
 
-func (s *baseSuite) calculateHexHash512_384(c *gc.C, contents string) string {
+func (s *baseSuite) calculateHexHash384(c *gc.C, contents string) string {
 	hasher := sha512.New384()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,10 +103,10 @@ func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, str
 
 	// Create a hash of the contents when writing the file. The hash will
 	// be used as the file name on disk.
-	hasher512_384 := sha512.New384()
+	hasher384 := sha512.New384()
 	hasher256 := sha256.New()
 
-	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), io.MultiWriter(hasher512_384, hasher256)))
+	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), io.MultiWriter(hasher384, hasher256)))
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := f.Stat()
@@ -116,9 +116,9 @@ func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, str
 		c.Fatalf("file size %d does not match expected size %d", info.Size(), size)
 	}
 
-	hash512_384 := hex.EncodeToString(hasher512_384.Sum(nil))
-	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash512_384))
+	hash384 := hex.EncodeToString(hasher384.Sum(nil))
+	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash384))
 	c.Assert(err, jc.ErrorIsNil)
 
-	return info.Size(), hash512_384, hex.EncodeToString(hasher256.Sum(nil))
+	return info.Size(), hash384, hex.EncodeToString(hasher256.Sum(nil))
 }

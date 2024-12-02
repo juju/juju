@@ -106,10 +106,10 @@ func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metada
 	}
 
 	dbMetadata := dbMetadata{
-		UUID:        uuid.String(),
-		Hash256:     metadata.Hash256,
-		Hash512_384: metadata.Hash512_384,
-		Size:        metadata.Size,
+		UUID:    uuid.String(),
+		Hash256: metadata.Hash256,
+		Hash384: metadata.Hash384,
+		Size:    metadata.Size,
 	}
 
 	dbMetadataPath := dbMetadataPath{
@@ -118,10 +118,10 @@ func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metada
 	}
 
 	metadataStmt, err := s.Prepare(`
-INSERT INTO object_store_metadata (uuid, hash_256, hash_512_384, size)
+INSERT INTO object_store_metadata (uuid, hash_256, hash_384, size)
 VALUES ($dbMetadata.*) 
 ON CONFLICT (hash_256) DO NOTHING
-ON CONFLICT (hash_512_384) DO NOTHING`, dbMetadata)
+ON CONFLICT (hash_384) DO NOTHING`, dbMetadata)
 	if err != nil {
 		return "", errors.Annotate(err, "preparing insert metadata statement")
 	}
@@ -137,7 +137,7 @@ VALUES ($dbMetadataPath.*)`, dbMetadataPath)
 SELECT uuid AS &dbMetadataPath.metadata_uuid
 FROM   object_store_metadata 
 WHERE  (
-	hash_512_384 = $dbMetadata.hash_512_384 OR
+	hash_384 = $dbMetadata.hash_384 OR
 	hash_256 = $dbMetadata.hash_256
 )
 AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)

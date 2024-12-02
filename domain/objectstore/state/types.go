@@ -11,8 +11,8 @@ type dbMetadata struct {
 	UUID string `db:"uuid"`
 	// Hash256 is the 256 hash of the object.
 	Hash256 string `db:"hash_256"`
-	// Hash512_384 is the 512_384 hash of the object.
-	Hash512_384 string `db:"hash_512_384"`
+	// Hash384 is the 384 hash of the object.
+	Hash384 string `db:"hash_384"`
 	// Path is the path to the object.
 	Path string `db:"path"`
 	// Size is the size of the object.
@@ -32,9 +32,9 @@ type dbMetadataPath struct {
 // object metadata.
 func (m dbMetadata) ToCoreObjectStoreMetadata() coreobjectstore.Metadata {
 	return coreobjectstore.Metadata{
-		Hash256:     m.Hash256,
-		Hash512_384: m.Hash512_384,
-		Path:        m.Path,
-		Size:        m.Size,
+		Hash256: m.Hash256,
+		Hash384: m.Hash384,
+		Path:    m.Path,
+		Size:    m.Size,
 	}
 }
