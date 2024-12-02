@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+set -e
+
+if [ "$#" -ne 1 ]; then
+    echo "need one package to refactor"
+fi
+
 set -xe
 
 # Step 1: Run the go patch files over the target directory.
