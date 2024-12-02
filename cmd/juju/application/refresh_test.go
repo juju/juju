@@ -931,7 +931,7 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	// First confirm that normal refresh would be refused
 	_, err = s.runRefresh(c, s.cmd, "multi-base", "--path", repoPath)
 	c.Check(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "base \"ubuntu@22\\.04\" not supported by charm, the charm supported bases are: ubuntu@20\\.04")
+	c.Check(err, gc.ErrorMatches, `.*base "ubuntu@22.04" not supported by charm, the charm supported bases are: ubuntu@20.04`)
 	// jam (2024-11-15): The structure of this test suite is that you can only run
 	//  Refresh one time without reinitializing it. Since we are doing it 2x to test
 	//  that it fails properly before succeeding, we have to reset the internal structure
@@ -961,7 +961,8 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch.Revision(), gc.Equals, 2)
+	// Check charm is at revision 3 because the local charm is uploaded twice more.
+	c.Check(ch.Revision(), gc.Equals, 3)
 	c.Check(force, gc.Equals, false)
 }
 
