@@ -111,7 +111,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"object-store":     s.objectStoreGetter,
 		"bootstrap-gate":   s.bootstrapUnlocker,
 		"http-client":      s.httpClientGetter,
-		"domain-services":  testing.NewTestingDomainServices(),
+		"domain-services":  testing.NewPlaceholderDomainServices(),
 		"storage-registry": s.storageRegistryGetter,
 	}
 	return dependencytesting.StubGetter(resources)
