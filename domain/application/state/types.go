@@ -4,6 +4,7 @@
 package state
 
 import (
+	"database/sql"
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -231,25 +232,25 @@ type setCharmHash struct {
 }
 
 type charmState struct {
-	ReferenceName  string `db:"reference_name"`
-	Revision       int    `db:"revision"`
-	ArchivePath    string `db:"archive_path"`
-	Available      bool   `db:"available"`
-	SourceID       int    `db:"source_id"`
-	ArchitectureID *int   `db:"architecture_id"`
-	Version        string `db:"version"`
+	ReferenceName  string        `db:"reference_name"`
+	Revision       int           `db:"revision"`
+	ArchivePath    string        `db:"archive_path"`
+	Available      bool          `db:"available"`
+	SourceID       int           `db:"source_id"`
+	ArchitectureID sql.NullInt64 `db:"architecture_id"`
+	Version        string        `db:"version"`
 }
 
 // setCharmState is used to set the charm.
 type setCharmState struct {
-	UUID           string `db:"uuid"`
-	ReferenceName  string `db:"reference_name"`
-	Revision       int    `db:"revision"`
-	ArchivePath    string `db:"archive_path"`
-	Available      bool   `db:"available"`
-	SourceID       int    `db:"source_id"`
-	ArchitectureID *int   `db:"architecture_id"`
-	Version        string `db:"version"`
+	UUID           string        `db:"uuid"`
+	ReferenceName  string        `db:"reference_name"`
+	Revision       int           `db:"revision"`
+	ArchivePath    string        `db:"archive_path"`
+	Available      bool          `db:"available"`
+	SourceID       int           `db:"source_id"`
+	ArchitectureID sql.NullInt64 `db:"architecture_id"`
+	Version        string        `db:"version"`
 }
 
 // charmMetadata is used to get the metadata of a charm.
@@ -587,11 +588,11 @@ type countResult struct {
 // charmLocator is used to get the locator of a charm. The locator is purely
 // to reconstruct the charm URL.
 type charmLocator struct {
-	Name           string `db:"name"`
-	ReferenceName  string `db:"reference_name"`
-	Revision       int    `db:"revision"`
-	SourceID       int    `db:"source_id"`
-	ArchitectureID *int   `db:"architecture_id"`
+	Name           string        `db:"name"`
+	ReferenceName  string        `db:"reference_name"`
+	Revision       int           `db:"revision"`
+	SourceID       int           `db:"source_id"`
+	ArchitectureID sql.NullInt64 `db:"architecture_id"`
 }
 
 // resourceIdentity represents the unique identity of a resource within an

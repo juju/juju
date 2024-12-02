@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -175,9 +176,12 @@ func (s *State) setCharmState(
 		return fmt.Errorf("failed to encode charm architecture: %w", err)
 	}
 
-	var ptrArchitectureID *int
+	nullableArchitectureID := sql.NullInt64{}
 	if architectureID >= 0 {
-		ptrArchitectureID = ptr(architectureID)
+		nullableArchitectureID = sql.NullInt64{
+			Int64: int64(architectureID),
+			Valid: true,
+		}
 	}
 
 	chState := setCharmState{
@@ -188,7 +192,7 @@ func (s *State) setCharmState(
 		Available:      ch.Available,
 		Version:        ch.Version,
 		SourceID:       sourceID,
-		ArchitectureID: ptrArchitectureID,
+		ArchitectureID: nullableArchitectureID,
 	}
 
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
@@ -1209,16 +1213,12 @@ func decodeCharmState(state charmState) (charm.Charm, error) {
 
 }
 
-func decodeArchitecture(arch *int) (application.Architecture, error) {
-	if arch == nil {
+func decodeArchitecture(arch sql.NullInt64) (application.Architecture, error) {
+	if !arch.Valid {
 		return architecture.Unknown, nil
 	}
 
-	switch *arch {
-	case -1:
-		// This is a valid case if we're uploading charms and the value isn't
-		// supplied.
-		return architecture.Unknown, nil
+	switch arch.Int64 {
 	case 0:
 		return architecture.AMD64, nil
 	case 1:
@@ -1230,7 +1230,7 @@ func decodeArchitecture(arch *int) (application.Architecture, error) {
 	case 4:
 		return architecture.RISV64, nil
 	default:
-		return -1, fmt.Errorf("unsupported architecture: %d", arch)
+		return -1, fmt.Errorf("unsupported architecture: %d", arch.Int64)
 	}
 }
 
