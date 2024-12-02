@@ -19,9 +19,9 @@ import (
 type leaseServiceSuite struct {
 	testing.IsolationSuite
 
-	modelLeaseManager  *MockModelLeaseManagerGetter
-	leaseCheckerWaiter *MockLeaseCheckerWaiter
-	token              *MockToken
+	modelLeaseManager *MockModelLeaseManagerGetter
+	leaseChecker      *MockChecker
+	token             *MockToken
 }
 
 var _ = gc.Suite(&leaseServiceSuite{})
@@ -33,7 +33,7 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	done := make(chan struct{})
 
 	// Force the lease wait to be triggered.
-	s.leaseCheckerWaiter.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
+	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 		close(start)
 
 		// Don't return until the lease function is done.
@@ -46,7 +46,7 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	})
 
 	// Check we correctly hold the lease.
-	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
+	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := NewLeaseService(s.modelLeaseManager)
@@ -64,7 +64,7 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.leaseCheckerWaiter.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
+	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 		return fmt.Errorf("not holding lease")
 	})
 
@@ -87,7 +87,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 
 	// Cause the start to be triggered right away, but ensure that the
 	// lease has changed.
-	s.leaseCheckerWaiter.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
+	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 		close(start)
 
 		select {
@@ -102,7 +102,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	})
 
 	// Check we correctly hold the lease.
-	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
+	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
 	service := NewLeaseService(s.modelLeaseManager)
@@ -145,7 +145,7 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 
 	// Cause the start to be triggered right away, but ensure that the
 	// lease has changed.
-	s.leaseCheckerWaiter.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
+	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(func(ctx context.Context, leaseName string, start chan<- struct{}) error {
 		close(start)
 
 		select {
@@ -157,7 +157,7 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 	})
 
 	// Fail the lease check.
-	s.leaseCheckerWaiter.EXPECT().Token("leaseName", "holderName").Return(s.token)
+	s.leaseChecker.EXPECT().Token("leaseName", "holderName").Return(s.token)
 	s.token.EXPECT().Check().Return(errors.Errorf("not holding lease"))
 
 	service := NewLeaseService(s.modelLeaseManager)
@@ -177,10 +177,10 @@ func (s *leaseServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelLeaseManager = NewMockModelLeaseManagerGetter(ctrl)
-	s.leaseCheckerWaiter = NewMockLeaseCheckerWaiter(ctrl)
+	s.leaseChecker = NewMockChecker(ctrl)
 	s.token = NewMockToken(ctrl)
 
-	s.modelLeaseManager.EXPECT().GetLeaseManager().Return(s.leaseCheckerWaiter, nil).AnyTimes()
+	s.modelLeaseManager.EXPECT().GetLeaseManager().Return(s.leaseChecker, nil).AnyTimes()
 
 	return ctrl
 }

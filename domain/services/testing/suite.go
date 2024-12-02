@@ -236,7 +236,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests. This includes the dummy storage registry.
-func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.LeaseCheckerWaiter) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
 	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, leaseManager, storage.ChainedProviderRegistry{
 		// Using the dummy storage provider for testing purposes isn't
 		// ideal. We should potentially use a mock storage provider
@@ -249,7 +249,7 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobje
 // DomainServicesGetterWithStorageRegistry provides an implementation of the
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
-func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.LeaseCheckerWaiter, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
 	return func(modelUUID coremodel.UUID) services.DomainServices {
 		return domainservicefactory.NewDomainServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
@@ -264,7 +264,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 				return storageRegistry, nil
 			}),
 			sshimporter.NewImporter(&http.Client{}),
-			modelApplicationLeaseManagerGetter(func() lease.LeaseCheckerWaiter {
+			modelApplicationLeaseManagerGetter(func() lease.Checker {
 				return leaseManager
 			}),
 			clock.WallClock,
@@ -291,8 +291,8 @@ func (s *DomainServicesSuite) NoopObjectStore(c *gc.C) coreobjectstore.ObjectSto
 	return TestingObjectStore{}
 }
 
-// NoopLeaseManager returns a no-op implementation of the LeaseCheckerWaiter.
-func (s *DomainServicesSuite) NoopLeaseManager(c *gc.C) lease.LeaseCheckerWaiter {
+// NoopLeaseManager returns a no-op implementation of lease.Checker.
+func (s *DomainServicesSuite) NoopLeaseManager(c *gc.C) lease.Checker {
 	return TestingLeaseManager{}
 }
 
@@ -345,9 +345,9 @@ func (s modelStorageRegistryGetter) GetStorageRegistry(ctx context.Context) (sto
 	return s(ctx)
 }
 
-type modelApplicationLeaseManagerGetter func() lease.LeaseCheckerWaiter
+type modelApplicationLeaseManagerGetter func() lease.Checker
 
-func (s modelApplicationLeaseManagerGetter) GetLeaseManager() (lease.LeaseCheckerWaiter, error) {
+func (s modelApplicationLeaseManagerGetter) GetLeaseManager() (lease.Checker, error) {
 	return s(), nil
 }
 
@@ -365,7 +365,7 @@ func (TestingObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 	return "", nil
 }
 
-// Put stores data from reader at path, namespaced to the model.
+// PutAndCheckHash stores data from reader at path, namespaced to the model.
 // It also ensures the stored data has the correct hash.
 func (TestingObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (objectstore.UUID, error) {
 	return "", nil
@@ -376,7 +376,7 @@ func (TestingObjectStore) Remove(ctx context.Context, path string) error {
 	return nil
 }
 
-// TestingLeaseManager is a testing implementation of the LeaseCheckerWaiter
+// TestingLeaseManager is a testing implementation of the lease.Checker
 // interface. It returns canned responses for the methods.
 type TestingLeaseManager struct{}
 
