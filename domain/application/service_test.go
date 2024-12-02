@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/ipaddress"
@@ -33,6 +32,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/resource/resourcestore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -65,7 +65,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
-		resource.NewResourceStoreFactory(nil),
+		store.NewResourceStoreFactory(nil),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

@@ -7,15 +7,16 @@
 //
 
 // Package resource is a generated GoMock package.
-package resource
+package store
 
 import (
 	context "context"
 	io "io"
 	reflect "reflect"
 
-	objectstore "github.com/juju/juju/core/objectstore"
 	gomock "go.uber.org/mock/gomock"
+
+	objectstore "github.com/juju/juju/core/objectstore"
 )
 
 // MockObjectStore is a mock of ObjectStore interface.

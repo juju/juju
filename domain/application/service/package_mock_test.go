@@ -21,6 +21,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	resource "github.com/juju/juju/core/resource"
+	store "github.com/juju/juju/core/resource/store"
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -2676,7 +2677,7 @@ func (m *MockResourceStoreGetter) EXPECT() *MockResourceStoreGetterMockRecorder 
 }
 
 // AddStore mocks base method.
-func (m *MockResourceStoreGetter) AddStore(arg0 resource1.Type, arg1 resource0.ResourceStore) {
+func (m *MockResourceStoreGetter) AddStore(arg0 resource1.Type, arg1 store.ResourceStore) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddStore", arg0, arg1)
 }
@@ -2700,22 +2701,22 @@ func (c *MockResourceStoreGetterAddStoreCall) Return() *MockResourceStoreGetterA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStoreGetterAddStoreCall) Do(f func(resource1.Type, resource0.ResourceStore)) *MockResourceStoreGetterAddStoreCall {
+func (c *MockResourceStoreGetterAddStoreCall) Do(f func(resource1.Type, store.ResourceStore)) *MockResourceStoreGetterAddStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStoreGetterAddStoreCall) DoAndReturn(f func(resource1.Type, resource0.ResourceStore)) *MockResourceStoreGetterAddStoreCall {
+func (c *MockResourceStoreGetterAddStoreCall) DoAndReturn(f func(resource1.Type, store.ResourceStore)) *MockResourceStoreGetterAddStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetResourceStore mocks base method.
-func (m *MockResourceStoreGetter) GetResourceStore(arg0 context.Context, arg1 resource1.Type) (resource0.ResourceStore, error) {
+func (m *MockResourceStoreGetter) GetResourceStore(arg0 context.Context, arg1 resource1.Type) (store.ResourceStore, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceStore", arg0, arg1)
-	ret0, _ := ret[0].(resource0.ResourceStore)
+	ret0, _ := ret[0].(store.ResourceStore)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2733,19 +2734,19 @@ type MockResourceStoreGetterGetResourceStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceStoreGetterGetResourceStoreCall) Return(arg0 resource0.ResourceStore, arg1 error) *MockResourceStoreGetterGetResourceStoreCall {
+func (c *MockResourceStoreGetterGetResourceStoreCall) Return(arg0 store.ResourceStore, arg1 error) *MockResourceStoreGetterGetResourceStoreCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStoreGetterGetResourceStoreCall) Do(f func(context.Context, resource1.Type) (resource0.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
+func (c *MockResourceStoreGetterGetResourceStoreCall) Do(f func(context.Context, resource1.Type) (store.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStoreGetterGetResourceStoreCall) DoAndReturn(f func(context.Context, resource1.Type) (resource0.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
+func (c *MockResourceStoreGetterGetResourceStoreCall) DoAndReturn(f func(context.Context, resource1.Type) (store.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

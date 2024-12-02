@@ -14,8 +14,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	resourcestore "github.com/juju/juju/core/resource/store"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
@@ -60,7 +60,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePut(c 
 	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
-	expectedUUID := resource.ResourceStorageUUID("expected-uuid")
+	expectedUUID := resourcestore.UUID("expected-uuid")
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
 		gomock.Any(),
 		storageKey,

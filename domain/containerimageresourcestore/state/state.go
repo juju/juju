@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	"github.com/juju/juju/internal/errors"
@@ -81,7 +81,7 @@ func (s *State) PutContainerImageMetadata(
 	ctx context.Context,
 	storageKey string,
 	registryPath, userName, password string,
-) (resource.ResourceStorageUUID, error) {
+) (store.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -129,7 +129,7 @@ WHERE storage_key = excluded.storage_key
 	if err != nil {
 		return "", err
 	}
-	return resource.ResourceStorageUUID(storageKey), nil
+	return store.UUID(storageKey), nil
 }
 
 // RemoveContainerImageMetadata removes a container image metadata resource from

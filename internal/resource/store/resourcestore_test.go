@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource
+package store
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -71,5 +70,5 @@ func (s *resourceStoreSuite) TestObjectStoreGetterNotFound(c *gc.C) {
 	factory := NewResourceStoreFactory(s.modelObjectStoreGetter)
 
 	_, err := factory.GetResourceStore(context.Background(), charmresource.Type(0))
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnknownResourceType)
+	c.Assert(err, jc.ErrorIs, UnknownResourceType)
 }

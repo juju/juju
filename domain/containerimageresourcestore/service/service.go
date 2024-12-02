@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
@@ -31,7 +31,7 @@ type State interface {
 		ctx context.Context,
 		storageKey string,
 		registryPath, userName, password string,
-	) (resource.ResourceStorageUUID, error)
+	) (store.UUID, error)
 	// GetContainerImageMetadata gets a container image resources metadata from
 	// the container image metadata resource store.
 	GetContainerImageMetadata(
@@ -85,7 +85,7 @@ func (s Service) Put(
 	r io.Reader,
 	size int64,
 	fingerprint charmresource.Fingerprint,
-) (resource.ResourceStorageUUID, error) {
+) (store.UUID, error) {
 	respBuf := new(bytes.Buffer)
 	bytesRead, err := respBuf.ReadFrom(r)
 	if err != nil {

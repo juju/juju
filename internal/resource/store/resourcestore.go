@@ -1,51 +1,24 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource
+package store
 
 import (
 	"context"
-	"io"
 	"sync"
 
 	"github.com/juju/juju/core/objectstore"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
-
-// ResourceStore provides a list of methods necessary for interacting with
-// a store for the resource.
-type ResourceStore interface {
-	// Get returns an io.ReadCloser for a resource in the resource store.
-	Get(
-		ctx context.Context,
-		storageKey string,
-	) (r io.ReadCloser, size int64, err error)
-
-	// Put stores data from io.Reader in the resource store using the storage
-	// key.
-	Put(
-		ctx context.Context,
-		storageKey string,
-		r io.Reader,
-		size int64,
-		fingerprint resource.Fingerprint,
-	) (ResourceStorageUUID, error)
-
-	// Remove removes a resource from storage.
-	Remove(
-		ctx context.Context,
-		storageKey string,
-	) error
-}
 
 // ResourceStoreFactory contains the information to provide the required
 // ResourceStore.
 type ResourceStoreFactory struct {
 	objectStore objectstore.ModelObjectStoreGetter
 	mu          sync.Mutex
-	storeMap    map[resource.Type]ResourceStore
+	storeMap    map[resource.Type]store.ResourceStore
 }
 
 // NewResourceStoreFactory returns a factory which provides the appropriate
@@ -53,13 +26,13 @@ type ResourceStoreFactory struct {
 func NewResourceStoreFactory(objectStore objectstore.ModelObjectStoreGetter) *ResourceStoreFactory {
 	return &ResourceStoreFactory{
 		objectStore: objectStore,
-		storeMap:    make(map[resource.Type]ResourceStore),
+		storeMap:    make(map[resource.Type]store.ResourceStore),
 	}
 }
 
 // GetResourceStore returns the appropriate ResourceStore for the
 // given resource type.
-func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.Type) (ResourceStore, error) {
+func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.Type) (store.ResourceStore, error) {
 	switch t {
 	case resource.TypeFile:
 		store, err := f.objectStore.GetObjectStore(ctx)
@@ -72,7 +45,7 @@ func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.
 		defer f.mu.Unlock()
 		store, ok := f.storeMap[t]
 		if !ok {
-			return nil, applicationerrors.UnknownResourceType
+			return nil, UnknownResourceType
 		}
 		return store, nil
 	}
@@ -87,7 +60,7 @@ func (f *ResourceStoreFactory) GetResourceStore(ctx context.Context, t resource.
 // if the ContainerImageResourceStore was provided as an argument to
 // NewResourceStoreFactory. If we get a new implementation of a container image
 // resource store this should be re-evaluated and hopefully removed.
-func (f *ResourceStoreFactory) AddStore(t resource.Type, store ResourceStore) {
+func (f *ResourceStoreFactory) AddStore(t resource.Type, store store.ResourceStore) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.storeMap[t] = store

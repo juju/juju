@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/resource/resourcestore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -467,7 +467,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
-		resource.NewResourceStoreFactory(nil),
+		store.NewResourceStoreFactory(nil),
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil, nil, nil,

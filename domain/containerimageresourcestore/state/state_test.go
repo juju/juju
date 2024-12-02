@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/resource/store"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	"github.com/juju/juju/domain/containerimageresourcestore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -195,7 +195,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c 
 	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
-func (s *containerImageMetadataSuite) getContainerImageMetadata(c *gc.C, storageKey resource.ResourceStorageUUID) (string, string, string) {
+func (s *containerImageMetadataSuite) getContainerImageMetadata(c *gc.C, storageKey store.UUID) (string, string, string) {
 	var retrievedRegistryPath, retrievedUsername, retrievedPassword string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`

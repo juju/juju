@@ -15,11 +15,11 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	resourcestore "github.com/juju/juju/core/resource/store"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
@@ -180,8 +180,8 @@ func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets
 
 type noopResourceStoreGetter struct{}
 
-func (noopResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
+func (noopResourceStoreGetter) AddStore(t charmresource.Type, store resourcestore.ResourceStore) {}
 
-func (noopResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
+func (noopResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resourcestore.ResourceStore, error) {
 	return nil, nil
 }

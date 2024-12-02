@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
@@ -51,11 +52,11 @@ type ResourceState interface {
 
 type ResourceStoreGetter interface {
 	// AddStore injects a ResourceStore for the given type into the ResourceStoreFactory.
-	AddStore(t charmresource.Type, store resource.ResourceStore)
+	AddStore(t charmresource.Type, store store.ResourceStore)
 
 	// GetResourceStore returns the appropriate ResourceStore for the
 	// given resource type.
-	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
+	GetResourceStore(context.Context, charmresource.Type) (store.ResourceStore, error)
 }
 
 // GetApplicationResourceID returns the ID of the application resource specified by
