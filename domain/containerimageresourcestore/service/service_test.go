@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	resourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/containerimageresourcestore"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
@@ -57,7 +57,7 @@ func (s *containerImageResourceStoreSuite) SetUpTest(c *gc.C) {
 func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	expectedUUID := resource.ResourceStorageUUID("expected-uuid")
@@ -83,7 +83,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePut(c 
 func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmptyReader(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 
@@ -100,7 +100,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmp
 func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	kaboom := errors.Errorf("kaboom")
@@ -125,13 +125,13 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	s.containerImageResourceState.EXPECT().GetContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
-	).Return(application.ContainerImageMetadata{
+	).Return(containerimageresourcestore.ContainerImageMetadata{
 		StorageKey:   storageKey,
 		RegistryPath: s.imageMetadata.RegistryPath,
 		Username:     s.imageMetadata.Username,
@@ -155,14 +155,14 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *gc.C) {
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	kaboom := errors.Errorf("kaboom")
 	s.containerImageResourceState.EXPECT().GetContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
-	).Return(application.ContainerImageMetadata{}, kaboom)
+	).Return(containerimageresourcestore.ContainerImageMetadata{}, kaboom)
 
 	_, _, err := store.Get(
 		context.Background(),
@@ -174,7 +174,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *gc.C
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 	s.containerImageResourceState.EXPECT().RemoveContainerImageMetadata(
@@ -192,7 +192,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *gc.C) 
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	store := newContainerImageResourceStore(s.containerImageResourceState)
+	store := NewService(s.containerImageResourceState)
 
 	kaboom := errors.Errorf("kaboom")
 	storageKey := resourcetesting.GenResourceUUID(c).String()

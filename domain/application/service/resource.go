@@ -13,7 +13,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -57,30 +56,6 @@ type ResourceStoreGetter interface {
 	// GetResourceStore returns the appropriate ResourceStore for the
 	// given resource type.
 	GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error)
-}
-
-// ContainerImageMetadataState provides methods for interacting
-// with the container image resource store.
-type ContainerImageMetadataState interface {
-	// RemoveContainerImageMetadata removes a container image resources metadata
-	// from the container image metadata resource store.
-	RemoveContainerImageMetadata(
-		ctx context.Context,
-		storageKey string,
-	) error
-	// PutContainerImageMetadata puts a container image resources metadata into
-	// the container image metadata resource store.
-	PutContainerImageMetadata(
-		ctx context.Context,
-		storageKey string,
-		registryPath, userName, password string,
-	) (resource.ResourceStorageUUID, error)
-	// GetContainerImageMetadata gets a container image resources metadata from
-	// the container image metadata resource store.
-	GetContainerImageMetadata(
-		ctx context.Context,
-		storageKey string,
-	) (application.ContainerImageMetadata, error)
 }
 
 // GetApplicationResourceID returns the ID of the application resource specified by

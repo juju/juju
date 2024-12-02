@@ -10,22 +10,47 @@ import (
 	"io"
 
 	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/containerimageresourcestore"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 )
 
-func newContainerImageResourceStore(st ContainerImageMetadataState) *containerImageResourceStore {
-	return &containerImageResourceStore{st: st}
+// State provides methods for interacting
+// with the container image resource store.
+type State interface {
+	// RemoveContainerImageMetadata removes a container image resources metadata
+	// from the container image metadata resource store.
+	RemoveContainerImageMetadata(
+		ctx context.Context,
+		storageKey string,
+	) error
+	// PutContainerImageMetadata puts a container image resources metadata into
+	// the container image metadata resource store.
+	PutContainerImageMetadata(
+		ctx context.Context,
+		storageKey string,
+		registryPath, userName, password string,
+	) (resource.ResourceStorageUUID, error)
+	// GetContainerImageMetadata gets a container image resources metadata from
+	// the container image metadata resource store.
+	GetContainerImageMetadata(
+		ctx context.Context,
+		storageKey string,
+	) (containerimageresourcestore.ContainerImageMetadata, error)
 }
 
-// containerImageResourceStore is a ResourceStore for container image resource types.
-type containerImageResourceStore struct {
-	st ContainerImageMetadataState
+func NewService(st State) *Service {
+	return &Service{st: st}
+}
+
+// Service is a ResourceStore for container image resource types.
+type Service struct {
+	st State
 }
 
 // Get returns an io.ReadCloser for a resource in the resource store.
-func (s containerImageResourceStore) Get(
+func (s Service) Get(
 	ctx context.Context,
 	storageKey string,
 ) (r io.ReadCloser, size int64, err error) {
@@ -54,7 +79,7 @@ func (s containerImageResourceStore) Get(
 
 // Put stores data from io.Reader in the resource store at the
 // path specified in the resource.
-func (s containerImageResourceStore) Put(
+func (s Service) Put(
 	ctx context.Context,
 	storageKey string,
 	r io.Reader,
@@ -83,7 +108,7 @@ func (s containerImageResourceStore) Put(
 }
 
 // Remove removes a resource from storage.
-func (s containerImageResourceStore) Remove(
+func (s Service) Remove(
 	ctx context.Context,
 	storageKey string,
 ) error {

@@ -1123,45 +1123,6 @@ func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// GetContainerImageMetadata mocks base method.
-func (m *MockState) GetContainerImageMetadata(arg0 context.Context, arg1 string) (application0.ContainerImageMetadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerImageMetadata", arg0, arg1)
-	ret0, _ := ret[0].(application0.ContainerImageMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerImageMetadata indicates an expected call of GetContainerImageMetadata.
-func (mr *MockStateMockRecorder) GetContainerImageMetadata(arg0, arg1 any) *MockStateGetContainerImageMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerImageMetadata", reflect.TypeOf((*MockState)(nil).GetContainerImageMetadata), arg0, arg1)
-	return &MockStateGetContainerImageMetadataCall{Call: call}
-}
-
-// MockStateGetContainerImageMetadataCall wrap *gomock.Call
-type MockStateGetContainerImageMetadataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetContainerImageMetadataCall) Return(arg0 application0.ContainerImageMetadata, arg1 error) *MockStateGetContainerImageMetadataCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetContainerImageMetadataCall) Do(f func(context.Context, string) (application0.ContainerImageMetadata, error)) *MockStateGetContainerImageMetadataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetContainerImageMetadataCall) DoAndReturn(f func(context.Context, string) (application0.ContainerImageMetadata, error)) *MockStateGetContainerImageMetadataCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetModelType mocks base method.
 func (m *MockState) GetModelType(arg0 context.Context) (model.ModelType, error) {
 	m.ctrl.T.Helper()
@@ -1937,83 +1898,6 @@ func (c *MockStateOpenUnitResourceCall) Do(f func(context.Context, resource.UUID
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateOpenUnitResourceCall) DoAndReturn(f func(context.Context, resource.UUID, unit.UUID) (resource0.Resource, error)) *MockStateOpenUnitResourceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PutContainerImageMetadata mocks base method.
-func (m *MockState) PutContainerImageMetadata(arg0 context.Context, arg1, arg2, arg3, arg4 string) (resource0.ResourceStorageUUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutContainerImageMetadata", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(resource0.ResourceStorageUUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PutContainerImageMetadata indicates an expected call of PutContainerImageMetadata.
-func (mr *MockStateMockRecorder) PutContainerImageMetadata(arg0, arg1, arg2, arg3, arg4 any) *MockStatePutContainerImageMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutContainerImageMetadata", reflect.TypeOf((*MockState)(nil).PutContainerImageMetadata), arg0, arg1, arg2, arg3, arg4)
-	return &MockStatePutContainerImageMetadataCall{Call: call}
-}
-
-// MockStatePutContainerImageMetadataCall wrap *gomock.Call
-type MockStatePutContainerImageMetadataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStatePutContainerImageMetadataCall) Return(arg0 resource0.ResourceStorageUUID, arg1 error) *MockStatePutContainerImageMetadataCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStatePutContainerImageMetadataCall) Do(f func(context.Context, string, string, string, string) (resource0.ResourceStorageUUID, error)) *MockStatePutContainerImageMetadataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatePutContainerImageMetadataCall) DoAndReturn(f func(context.Context, string, string, string, string) (resource0.ResourceStorageUUID, error)) *MockStatePutContainerImageMetadataCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoveContainerImageMetadata mocks base method.
-func (m *MockState) RemoveContainerImageMetadata(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveContainerImageMetadata", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveContainerImageMetadata indicates an expected call of RemoveContainerImageMetadata.
-func (mr *MockStateMockRecorder) RemoveContainerImageMetadata(arg0, arg1 any) *MockStateRemoveContainerImageMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveContainerImageMetadata", reflect.TypeOf((*MockState)(nil).RemoveContainerImageMetadata), arg0, arg1)
-	return &MockStateRemoveContainerImageMetadataCall{Call: call}
-}
-
-// MockStateRemoveContainerImageMetadataCall wrap *gomock.Call
-type MockStateRemoveContainerImageMetadataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateRemoveContainerImageMetadataCall) Return(arg0 error) *MockStateRemoveContainerImageMetadataCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateRemoveContainerImageMetadataCall) Do(f func(context.Context, string) error) *MockStateRemoveContainerImageMetadataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRemoveContainerImageMetadataCall) DoAndReturn(f func(context.Context, string) error) *MockStateRemoveContainerImageMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

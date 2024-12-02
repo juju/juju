@@ -671,14 +671,3 @@ type unitResource struct {
 	UnitUUID     string    `db:"unit_uuid"`
 	AddedAt      time.Time `db:"added_at"`
 }
-
-type containerImageMetadataStorageKey struct {
-	StorageKey string `db:"storage_key"`
-}
-
-type containerImageMetadata struct {
-	StorageKey   string `db:"storage_key"`
-	RegistryPath string `db:"registry_path"`
-	UserName     string `db:"username"`
-	Password     string `db:"password"`
-}

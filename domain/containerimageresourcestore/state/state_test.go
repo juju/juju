@@ -7,14 +7,13 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/domain/application"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/containerimageresourcestore"
+	"github.com/juju/juju/domain/containerimageresourcestore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -26,9 +25,9 @@ type containerImageMetadataSuite struct {
 var _ = gc.Suite(&containerImageMetadataSuite{})
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := application.ContainerImageMetadata{
+	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
 		Password:     "fragglerock",
@@ -50,9 +49,9 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *gc.C) {
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryName(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := application.ContainerImageMetadata{
+	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 	}
 	storageKey, err := st.PutContainerImageMetadata(
@@ -72,9 +71,9 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryN
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceIdentical(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := application.ContainerImageMetadata{
+	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
 		Password:     "fragglerock",
@@ -106,14 +105,14 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceIdentica
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceDifferent(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := application.ContainerImageMetadata{
+	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
 		Password:     "fragglerock",
 	}
-	ociImageMetadata2 := application.ContainerImageMetadata{
+	ociImageMetadata2 := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "second-testing@sha256:beef-deed",
 		Username:     "second-docker-registry",
 		Password:     "second-fragglerock",
@@ -145,9 +144,9 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceDifferen
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	uuid := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := application.ContainerImageMetadata{
+	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		StorageKey:   uuid.String(),
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
@@ -160,16 +159,16 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *gc.C) {
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataGetBadUUID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	storageKey := coreresourcetesting.GenResourceUUID(c).String()
 	_, err := st.GetContainerImageMetadata(context.Background(), storageKey)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ContainerImageMetadataNotFound)
+	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataRemove(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	storageKey := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := application.ContainerImageMetadata{
+	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		StorageKey:   storageKey.String(),
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
@@ -190,10 +189,10 @@ WHERE storage_key = ?`, storageKey.String()).Scan()
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	err := st.RemoveContainerImageMetadata(context.Background(), resourceUUID.String())
-	c.Assert(err, jc.ErrorIs, applicationerrors.ContainerImageMetadataNotFound)
+	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
 func (s *containerImageMetadataSuite) getContainerImageMetadata(c *gc.C, storageKey resource.ResourceStorageUUID) (string, string, string) {
@@ -208,7 +207,7 @@ WHERE storage_key = ?`, storageKey).Scan(&retrievedRegistryPath, &retrievedUsern
 	return retrievedRegistryPath, retrievedUsername, retrievedPassword
 }
 
-func (s *containerImageMetadataSuite) putContainerImageMetadata(c *gc.C, metadata application.ContainerImageMetadata) {
+func (s *containerImageMetadataSuite) putContainerImageMetadata(c *gc.C, metadata containerimageresourcestore.ContainerImageMetadata) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO resource_container_image_metadata_store

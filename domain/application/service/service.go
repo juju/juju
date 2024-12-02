@@ -46,7 +46,6 @@ type State interface {
 	ApplicationState
 	CharmState
 	ResourceState
-	ContainerImageMetadataState
 }
 
 const (
@@ -88,7 +87,7 @@ func NewService(
 	// argument to provide a containerImageResourceStore.
 	resourceStoreGetter.AddStore(
 		charmresource.TypeContainerImage,
-		newContainerImageResourceStore(st),
+		nil,
 	)
 	return &Service{
 		st:                    st,

@@ -8,22 +8,38 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/domain/application"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/containerimageresourcestore"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
+type State struct {
+	*domain.StateBase
+	logger logger.Logger
+}
+
+// NewState returns a new state reference.
+func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
+	return &State{
+		StateBase: domain.NewStateBase(factory),
+		logger:    logger,
+	}
+}
+
 // GetContainerImageMetadata returns the container image metadata with the given
-// UUID. applicationerrors.ContainerImageMetadataNotFound is returned if the UUID is not in
-// the table
+// UUID. containerimageresourcestoreerrors.ContainerImageMetadataNotFound is
+// returned if the UUID is not in the table.
 func (s *State) GetContainerImageMetadata(
 	ctx context.Context,
 	storageKey string,
-) (application.ContainerImageMetadata, error) {
+) (containerimageresourcestore.ContainerImageMetadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return application.ContainerImageMetadata{}, errors.Capture(err)
+		return containerimageresourcestore.ContainerImageMetadata{}, errors.Capture(err)
 	}
 
 	sk := containerImageMetadataStorageKey{StorageKey: storageKey}
@@ -34,7 +50,7 @@ FROM   resource_container_image_metadata_store
 WHERE  storage_key = $containerImageMetadataStorageKey.storage_key
 `, sk, m)
 	if err != nil {
-		return application.ContainerImageMetadata{}, errors.Errorf(
+		return containerimageresourcestore.ContainerImageMetadata{}, errors.Errorf(
 			"preparing select container image resource metadata statement: %w",
 			err,
 		)
@@ -43,15 +59,15 @@ WHERE  storage_key = $containerImageMetadataStorageKey.storage_key
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, sk).Get(&m)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.ContainerImageMetadataNotFound
+			return containerimageresourcestoreerrors.ContainerImageMetadataNotFound
 		}
 		return err
 	})
 	if err != nil {
-		return application.ContainerImageMetadata{}, err
+		return containerimageresourcestore.ContainerImageMetadata{}, err
 	}
 
-	return application.ContainerImageMetadata{
+	return containerimageresourcestore.ContainerImageMetadata{
 		StorageKey:   m.StorageKey,
 		RegistryPath: m.RegistryPath,
 		Username:     m.UserName,
@@ -117,8 +133,8 @@ WHERE storage_key = excluded.storage_key
 }
 
 // RemoveContainerImageMetadata removes a container image metadata resource from
-// storage. applicationerrors.ContainerImageMetadataNotFound is returned if the resource does
-// not exist.
+// storage. containerimageresourcestoreerrors.ContainerImageMetadataNotFound is
+// returned if the resource does not exist.
 func (s *State) RemoveContainerImageMetadata(ctx context.Context, storageKey string) error {
 	db, err := s.DB()
 	if err != nil {
@@ -144,7 +160,7 @@ WHERE       storage_key = $containerImageMetadataStorageKey.storage_key
 		if rows, err := outcome.Result().RowsAffected(); err != nil {
 			return err
 		} else if rows == 0 {
-			return applicationerrors.ContainerImageMetadataNotFound
+			return containerimageresourcestoreerrors.ContainerImageMetadataNotFound
 		}
 		return nil
 	})
