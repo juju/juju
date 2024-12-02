@@ -107,4 +107,24 @@ type ResolvedDataForDeploy struct {
 	// Resources is a map of resource names to their current repository revision
 	// based on the supplied origin
 	Resources map[string]charmresource.Resource
+
+	// DownloadInfo is the information needed to download the charm
+	// directly from the charm store.
+	// This should always be present if the charm is being downloaded from
+	// charmhub.
+	DownloadInfo DownloadInfo
+}
+
+// DownloadInfo contains the information needed to download a charm from the
+// charm store.
+type DownloadInfo struct {
+	// CharmHubIdentifier is the identifier used to download the charm from
+	// the charm store without referring to the name of the charm.
+	CharmhubIdentifier string
+
+	// DownloadURL is the URL to download the charm from the charm store.
+	DownloadURL string
+
+	// DownloadSize is the size of the charm to be downloaded.
+	DownloadSize int64
 }

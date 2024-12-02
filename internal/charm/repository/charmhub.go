@@ -104,6 +104,11 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 		URL:               resultURL,
 		EssentialMetadata: essMeta,
 		Resources:         resourceResults,
+		DownloadInfo: corecharm.DownloadInfo{
+			CharmhubIdentifier: resp.Entity.ID,
+			DownloadURL:        resp.Entity.Download.URL,
+			DownloadSize:       int64(resp.Entity.Download.Size),
+		},
 	}
 	return thing, nil
 }
