@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// AlreadyExists describes an error that occurs when a secret backend already exists.

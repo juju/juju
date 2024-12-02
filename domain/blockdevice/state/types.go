@@ -4,9 +4,8 @@
 package state
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent block device entity schema in the database.

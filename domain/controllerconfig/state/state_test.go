@@ -6,7 +6,6 @@ package state
 import (
 	ctx "context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,6 +13,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 

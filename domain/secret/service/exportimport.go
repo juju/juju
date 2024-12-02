@@ -6,12 +6,11 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
-
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetSecretsForExport returns a result containing all the information needed to
@@ -19,12 +18,12 @@ import (
 func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport, error) {
 	secrets, secretRevisions, err := s.secretState.ListSecrets(ctx, nil, nil, secret.NilLabels)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading secrets for export")
+		return nil, errors.Errorf("loading secrets for export %w", err)
 	}
 
 	remoteSecrets, err := s.secretState.AllRemoteSecrets(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading secrets for export")
+		return nil, errors.Errorf("loading secrets for export %w", err)
 	}
 
 	allSecrets := &SecretExport{
@@ -59,7 +58,7 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 			}
 			data, _, err := s.secretState.GetSecretValue(ctx, md.URI, rev.Revision)
 			if err != nil {
-				return nil, errors.Annotatef(err, "loading secret content for %q", md.URI.ID)
+				return nil, errors.Errorf("loading secret content for %q %w", md.URI.ID, err)
 			}
 			if len(data) == 0 {
 				// Should not happen.
@@ -74,7 +73,7 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 
 	allGrants, err := s.secretState.AllSecretGrants(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading secret grants for export")
+		return nil, errors.Errorf("loading secret grants for export %w", err)
 	}
 	for id, grants := range allGrants {
 		secretAccess := make([]SecretAccess, len(grants))
@@ -97,7 +96,7 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 
 	allConsumers, err := s.secretState.AllSecretConsumers(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading secret consumers for export")
+		return nil, errors.Errorf("loading secret consumers for export %w", err)
 	}
 	for id, consumers := range allConsumers {
 		secretConsumers := make([]ConsumerInfo, len(consumers))
@@ -119,7 +118,7 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 
 	allRemoteConsumers, err := s.secretState.AllSecretRemoteConsumers(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "loading secret remote consumers for export")
+		return nil, errors.Errorf("loading secret remote consumers for export %w", err)
 	}
 	for id, consumers := range allRemoteConsumers {
 		secretConsumers := make([]ConsumerInfo, len(consumers))
@@ -145,12 +144,12 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 // ImportSecrets saves the supplied secret details to the model.
 func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) error {
 	if err := s.importRemoteSecrets(ctx, modelSecrets.RemoteSecrets); err != nil {
-		return errors.Annotate(err, "importing remote secrets")
+		return errors.Errorf("importing remote secrets %w", err)
 	}
 
 	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
-		return errors.Annotate(err, "getting model uuid")
+		return errors.Errorf("getting model uuid %w", err)
 	}
 	modelID := coremodel.UUID(modelUUID)
 
@@ -158,14 +157,14 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 		revisions := modelSecrets.Revisions[md.URI.ID]
 		content := modelSecrets.Content[md.URI.ID]
 		if err := s.importSecretRevisions(ctx, modelID, md, revisions, content); err != nil {
-			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
+			return errors.Errorf("saving secret %q %w", md.URI.ID, err)
 		}
 		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
 			if err := s.secretState.SaveSecretConsumer(ctx, md.URI, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
 				Label:           sc.Label,
 				CurrentRevision: sc.CurrentRevision,
 			}); err != nil {
-				return errors.Annotatef(err, "saving secret consumer %q for %q", sc.Accessor.ID, md.URI.ID)
+				return errors.Errorf("saving secret consumer %q for %q %w", sc.Accessor.ID, md.URI.ID, err)
 			}
 		}
 
@@ -174,7 +173,7 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				Label:           rc.Label,
 				CurrentRevision: rc.CurrentRevision,
 			}); err != nil {
-				return errors.Annotatef(err, "saving secret remote consumer %q for %q", rc.Accessor.ID, md.URI.ID)
+				return errors.Errorf("saving secret remote consumer %q for %q %w", rc.Accessor.ID, md.URI.ID, err)
 			}
 		}
 
@@ -191,8 +190,9 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				Role: access.Role,
 			})
 			if err := s.secretState.GrantAccess(ctx, md.URI, p); err != nil {
-				return errors.Annotatef(err, "saving secret access for %s-%s for secret %q",
-					access.Subject.Kind, access.Subject.ID, md.URI.ID)
+				return errors.Errorf("saving secret access for %s-%s for secret %q %w",
+					access.Subject.Kind, access.Subject.ID, md.URI.ID, err)
+
 			}
 		}
 	}
@@ -227,13 +227,13 @@ func (s *SecretService) importSecretRevisions(
 		}
 		if i == 0 {
 			if err := s.createImportedSecret(ctx, modelID, md, params); err != nil {
-				return errors.Annotatef(err, "cannot import secret %q", md.URI.ID)
+				return errors.Errorf("cannot import secret %q %w", md.URI.ID, err)
 			}
 			continue
 		}
 		revisionID, err := s.uuidGenerator()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		params.RevisionID = ptr(revisionID.String())
 
@@ -241,7 +241,7 @@ func (s *SecretService) importSecretRevisions(
 		if params.ValueRef != nil || len(params.Data) != 0 {
 			rollBack, err = s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		}
 		err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
@@ -251,7 +251,7 @@ func (s *SecretService) importSecretRevisions(
 			if err := rollBack(); err != nil {
 				s.logger.Warningf("failed to roll back secret reference count: %v", err)
 			}
-			return errors.Annotatef(err, "cannot import secret %q revision %d", md.URI.ID, rev.Revision)
+			return errors.Errorf("cannot import secret %q revision %d %w", md.URI.ID, rev.Revision, err)
 		}
 	}
 	return nil
@@ -277,13 +277,13 @@ func (s *SecretService) createImportedSecret(
 
 	revisionID, err := s.uuidGenerator()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	params.RevisionID = ptr(revisionID.String())
 
 	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	defer func() {
 		if errOut != nil {
@@ -308,7 +308,7 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 	}
 	for uri, latest := range remoteSecretLatest {
 		if err := s.secretState.UpdateRemoteSecretRevision(ctx, uri, latest); err != nil {
-			return errors.Annotatef(err, "saving remote secret reference for %q", uri)
+			return errors.Errorf("saving remote secret reference for %q %w", uri, err)
 		}
 	}
 	for _, rs := range remoteSecrets {
@@ -316,8 +316,9 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 			Label:           rs.Label,
 			CurrentRevision: rs.CurrentRevision,
 		}); err != nil {
-			return errors.Annotatef(err, "saving remote consumer %s-%s for secret %q",
-				rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID)
+			return errors.Errorf("saving remote consumer %s-%s for secret %q %w",
+				rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID, err)
+
 		}
 	}
 	return nil

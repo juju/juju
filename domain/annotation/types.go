@@ -3,7 +3,10 @@
 
 package annotation
 
-import "github.com/juju/errors"
+import (
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
+)
 
 // GetCharmArgs holds the arguments for the GetCharm method.
 type GetCharmArgs struct {
@@ -15,13 +18,13 @@ type GetCharmArgs struct {
 // Validate checks if the GetCharmArgs are valid or not.
 func (a GetCharmArgs) Validate() error {
 	if a.Source == "" {
-		return errors.NotValidf("source")
+		return errors.Errorf("source %w", coreerrors.NotValid)
 	}
 	if a.Name == "" {
-		return errors.NotValidf("name")
+		return errors.Errorf("name %w", coreerrors.NotValid)
 	}
 	if a.Revision < 0 {
-		return errors.NotValidf("negative revision")
+		return errors.Errorf("negative revision %w", coreerrors.NotValid)
 	}
 	return nil
 }

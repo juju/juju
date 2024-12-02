@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/internal/errors"
 )
 
 type bootstrapSuite struct {
@@ -142,7 +142,7 @@ image_id
  FROM cloud_image_metadata
  JOIN architecture arch on cloud_image_metadata.architecture_id = arch.id`)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
@@ -158,10 +158,10 @@ image_id
 				&dbMetadata.Arch,
 				&dbMetadata.ImageID,
 			); err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			metadata = append(metadata, dbMetadata)
 		}
-		return errors.Trace(rows.Err())
+		return errors.Capture(rows.Err())
 	})
 }

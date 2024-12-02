@@ -10,12 +10,11 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetCharmID returns the charm ID by the natural key, for a
@@ -24,7 +23,7 @@ import (
 func (s *State) GetCharmID(ctx context.Context, name string, revision int, source charm.CharmSource) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	sourceID, err := encodeCharmSource(source)
@@ -48,7 +47,7 @@ AND source_id = $charmReferenceNameRevisionSource.source_id;
 `
 	stmt, err := s.Prepare(query, ident, charmRef)
 	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
+		return "", errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	var id corecharm.ID
@@ -57,12 +56,12 @@ AND source_id = $charmReferenceNameRevisionSource.source_id;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("getting charm ID: %w", err)
+			return errors.Errorf("getting charm ID: %w", err)
 		}
 		id = corecharm.ID(ident.UUID)
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("getting charm id by revision and source: %w", err)
+		return "", errors.Errorf("getting charm id by revision and source: %w", err)
 	}
 	return id, nil
 }
@@ -72,7 +71,7 @@ AND source_id = $charmReferenceNameRevisionSource.source_id;
 func (s *State) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
-		return false, internalerrors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	var result charmName
@@ -86,7 +85,7 @@ WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
-		return false, internalerrors.Errorf("failed to prepare query: %w", err)
+		return false, errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	var isController bool
@@ -95,12 +94,12 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("getting charm ID: %w", err)
+			return errors.Errorf("getting charm ID: %w", err)
 		}
 		isController = result.Name == "juju-controller"
 		return nil
 	}); err != nil {
-		return false, internalerrors.Errorf("failed to is controller charm: %w", err)
+		return false, errors.Errorf("failed to is controller charm: %w", err)
 	}
 	return isController, nil
 }
@@ -110,7 +109,7 @@ WHERE uuid = $charmID.uuid;
 func (s *State) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
-		return false, internalerrors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	var result charmSubordinate
@@ -124,7 +123,7 @@ WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
-		return false, internalerrors.Errorf("failed to prepare query: %w", err)
+		return false, errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	var isSubordinate bool
@@ -133,12 +132,12 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("getting charm ID: %w", err)
+			return errors.Errorf("getting charm ID: %w", err)
 		}
 		isSubordinate = result.Subordinate
 		return nil
 	}); err != nil {
-		return false, internalerrors.Errorf("failed to is subordinate charm: %w", err)
+		return false, errors.Errorf("failed to is subordinate charm: %w", err)
 	}
 	return isSubordinate, nil
 }
@@ -148,7 +147,7 @@ WHERE uuid = $charmID.uuid;
 func (s *State) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
-		return false, internalerrors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -162,7 +161,7 @@ WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident)
 	if err != nil {
-		return false, internalerrors.Errorf("failed to prepare query: %w", err)
+		return false, errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	var supportsContainers bool
@@ -172,7 +171,7 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("getting charm ID: %w", err)
+			return errors.Errorf("getting charm ID: %w", err)
 		}
 		var num int
 		for _, r := range result {
@@ -183,7 +182,7 @@ WHERE uuid = $charmID.uuid;
 		supportsContainers = num > 0
 		return nil
 	}); err != nil {
-		return false, internalerrors.Errorf("failed to supports containers: %w", err)
+		return false, errors.Errorf("failed to supports containers: %w", err)
 	}
 	return supportsContainers, nil
 }
@@ -193,7 +192,7 @@ WHERE uuid = $charmID.uuid;
 func (s *State) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
-		return false, internalerrors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	var result charmAvailable
@@ -206,7 +205,7 @@ WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
-		return false, internalerrors.Errorf("failed to prepare query: %w", err)
+		return false, errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	var isAvailable bool
@@ -215,12 +214,12 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("getting charm ID: %w", err)
+			return errors.Errorf("getting charm ID: %w", err)
 		}
 		isAvailable = result.Available
 		return nil
 	}); err != nil {
-		return false, internalerrors.Errorf("failed to is charm available: %w", err)
+		return false, errors.Errorf("failed to is charm available: %w", err)
 	}
 	return isAvailable, nil
 }
@@ -230,7 +229,7 @@ WHERE uuid = $charmID.uuid;
 func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -243,7 +242,7 @@ WHERE uuid = $charmID.uuid;
 
 	selectStmt, err := s.Prepare(selectQuery, ident)
 	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
+		return errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	updateQuery := `
@@ -254,7 +253,7 @@ WHERE uuid = $charmID.uuid;
 
 	updateStmt, err := s.Prepare(updateQuery, ident)
 	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
+		return errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -263,15 +262,15 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to set charm available: %w", err)
+			return errors.Errorf("failed to set charm available: %w", err)
 		}
 
 		if err := tx.Query(ctx, updateStmt, ident).Run(); err != nil {
-			return internalerrors.Errorf("failed to set charm available: %w", err)
+			return errors.Errorf("failed to set charm available: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return internalerrors.Errorf("failed to set charm available: %w", err)
+		return errors.Errorf("failed to set charm available: %w", err)
 	}
 
 	return nil
@@ -283,7 +282,7 @@ WHERE uuid = $charmID.uuid;
 func (s *State) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var archivePath charmArchivePath
@@ -297,7 +296,7 @@ WHERE uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, archivePath, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query: %w", err)
+		return "", errors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -309,7 +308,7 @@ WHERE uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("getting charm archive path: %w", err)
+		return "", errors.Errorf("getting charm archive path: %w", err)
 	}
 
 	return archivePath.ArchivePath, nil
@@ -321,7 +320,7 @@ WHERE uuid = $charmID.uuid;
 func (s *State) GetCharmArchiveMetadata(ctx context.Context, id corecharm.ID) (archivePath string, hash string, err error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", "", internalerrors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	var archivePathAndHashes []charmArchivePathAndHash
@@ -336,7 +335,7 @@ WHERE charm.uuid = $charmID.uuid;
 
 	stmt, err := s.Prepare(query, charmArchivePathAndHash{}, ident)
 	if err != nil {
-		return "", "", internalerrors.Errorf("preparing query: %w", err)
+		return "", "", errors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -348,10 +347,10 @@ WHERE charm.uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return "", "", internalerrors.Errorf("getting charm archive metadata: %w", err)
+		return "", "", errors.Errorf("getting charm archive metadata: %w", err)
 	}
 	if len(archivePathAndHashes) > 1 {
-		return "", "", internalerrors.Errorf("getting charm archive metadata: %w", applicationerrors.MultipleCharmHashes)
+		return "", "", errors.Errorf("getting charm archive metadata: %w", applicationerrors.MultipleCharmHashes)
 	}
 
 	return archivePathAndHashes[0].ArchivePath, archivePathAndHashes[0].Hash, nil
@@ -362,7 +361,7 @@ WHERE charm.uuid = $charmID.uuid;
 func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Metadata{}, internalerrors.Capture(err)
+		return charm.Metadata{}, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -371,9 +370,9 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		charmMetadata, err = s.getMetadata(ctx, tx, ident)
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}); err != nil {
-		return charm.Metadata{}, internalerrors.Errorf("getting charm metadata: %w", err)
+		return charm.Metadata{}, errors.Errorf("getting charm metadata: %w", err)
 	}
 
 	return charmMetadata, nil
@@ -385,7 +384,7 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 func (s *State) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -398,7 +397,7 @@ WHERE uuid = $charmID.uuid;`
 	var metadata charmMetadata
 	stmt, err := s.Prepare(query, metadata, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query: %w", err)
+		return "", errors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -406,11 +405,11 @@ WHERE uuid = $charmID.uuid;`
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("selecting charm metadata: %w", err)
+			return errors.Errorf("selecting charm metadata: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("getting charm metadata: %w", err)
+		return "", errors.Errorf("getting charm metadata: %w", err)
 	}
 
 	return metadata.Name, nil
@@ -422,7 +421,7 @@ WHERE uuid = $charmID.uuid;`
 func (s *State) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -435,7 +434,7 @@ WHERE uuid = $charmID.uuid;`
 	var metadata charmMetadata
 	stmt, err := s.Prepare(query, metadata, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query: %w", err)
+		return "", errors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -443,11 +442,11 @@ WHERE uuid = $charmID.uuid;`
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("selecting charm metadata: %w", err)
+			return errors.Errorf("selecting charm metadata: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("getting charm metadata: %w", err)
+		return "", errors.Errorf("getting charm metadata: %w", err)
 	}
 
 	return metadata.Description, nil
@@ -458,7 +457,7 @@ WHERE uuid = $charmID.uuid;`
 func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Manifest{}, internalerrors.Capture(err)
+		return charm.Manifest{}, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -467,9 +466,9 @@ func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Ma
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		manifest, err = s.getCharmManifest(ctx, tx, ident)
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}); err != nil {
-		return charm.Manifest{}, internalerrors.Capture(err)
+		return charm.Manifest{}, errors.Capture(err)
 	}
 
 	return manifest, nil
@@ -481,7 +480,7 @@ func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Ma
 func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, charm.Revision, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, -1, internalerrors.Capture(err)
+		return nil, -1, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -493,9 +492,9 @@ func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		profile, revision, err = s.getCharmLXDProfile(ctx, tx, ident)
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}); err != nil {
-		return nil, -1, internalerrors.Capture(err)
+		return nil, -1, errors.Capture(err)
 	}
 
 	return profile, revision, nil
@@ -506,7 +505,7 @@ func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte
 func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Config{}, internalerrors.Capture(err)
+		return charm.Config{}, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -515,9 +514,9 @@ func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Conf
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		charmConfig, err = s.getCharmConfig(ctx, tx, ident)
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}); err != nil {
-		return charm.Config{}, internalerrors.Capture(err)
+		return charm.Config{}, errors.Capture(err)
 	}
 	return charmConfig, nil
 
@@ -528,7 +527,7 @@ func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Conf
 func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Actions{}, internalerrors.Capture(err)
+		return charm.Actions{}, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -537,9 +536,9 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		actions, err = s.getCharmActions(ctx, tx, ident)
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}); err != nil {
-		return charm.Actions{}, internalerrors.Capture(err)
+		return charm.Actions{}, errors.Capture(err)
 	}
 
 	return actions, nil
@@ -551,7 +550,7 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Charm{}, nil, internalerrors.Capture(err)
+		return charm.Charm{}, nil, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -564,11 +563,11 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 		var err error
 		ch, di, err = s.getCharm(ctx, tx, ident)
 		if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 		return nil
 	}); err != nil {
-		return ch, nil, internalerrors.Errorf("getting charm: %w", err)
+		return ch, nil, errors.Errorf("getting charm: %w", err)
 	}
 
 	return ch, di, nil
@@ -579,12 +578,12 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	id, err := corecharm.NewID()
 	if err != nil {
-		return "", internalerrors.Errorf("setting charm: %w", err)
+		return "", errors.Errorf("setting charm: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -592,16 +591,16 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *c
 		// exists error. Also doing this early, prevents the moving straight
 		// to a write transaction.
 		if _, err := s.checkCharmReferenceExists(ctx, tx, charm.ReferenceName, charm.Revision); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		if err := s.setCharm(ctx, tx, id, charm, downloadInfo); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("setting charm: %w", err)
+		return "", errors.Errorf("setting charm: %w", err)
 	}
 
 	return id, nil
@@ -613,7 +612,7 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *c
 func (s *State) ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	query := `
@@ -622,7 +621,7 @@ FROM v_charm_locator;
 `
 	stmt, err := s.Prepare(query, charmLocator{})
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query: %w", err)
+		return nil, errors.Errorf("preparing query: %w", err)
 	}
 
 	var results []charmLocator
@@ -630,11 +629,11 @@ FROM v_charm_locator;
 		if err := tx.Query(ctx, stmt).GetAll(&results); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return internalerrors.Errorf("getting charm locators: %w", err)
+			return errors.Errorf("getting charm locators: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return nil, internalerrors.Errorf("listing charm locators: %w", err)
+		return nil, errors.Errorf("listing charm locators: %w", err)
 	}
 
 	return decodeCharmLocators(results)
@@ -647,7 +646,7 @@ FROM v_charm_locator;
 func (s *State) ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	type nameSelector []string
@@ -659,7 +658,7 @@ WHERE name IN ($nameSelector[:]);
 `
 	stmt, err := s.Prepare(query, charmLocator{}, nameSelector(names))
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query: %w", err)
+		return nil, errors.Errorf("preparing query: %w", err)
 	}
 
 	var results []charmLocator
@@ -667,11 +666,11 @@ WHERE name IN ($nameSelector[:]);
 		if err := tx.Query(ctx, stmt, nameSelector(names)).GetAll(&results); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return internalerrors.Errorf("getting charm locators by names: %w", err)
+			return errors.Errorf("getting charm locators by names: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return nil, internalerrors.Errorf("listing charm locators by names: %w", err)
+		return nil, errors.Errorf("listing charm locators by names: %w", err)
 	}
 
 	return decodeCharmLocators(results)
@@ -757,17 +756,17 @@ type deleteStatement struct {
 func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	selectQuery, err := s.Prepare(`SELECT charm.uuid AS &charmID.* FROM charm WHERE uuid = $charmID.uuid;`, charmID{})
 	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
+		return errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	deleteQuery, err := s.Prepare(`DELETE FROM charm WHERE uuid = $charmID.uuid;`, charmID{})
 	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
+		return errors.Errorf("failed to prepare query: %w", err)
 	}
 
 	// Prepare the delete statements for each table.
@@ -777,7 +776,7 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 
 		stmt, err := s.Prepare(query, charmUUID{})
 		if err != nil {
-			return internalerrors.Errorf("failed to prepare query: %w", err)
+			return errors.Errorf("failed to prepare query: %w", err)
 		}
 
 		stmts[i] = deleteStatement{
@@ -796,18 +795,18 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 		// Delete the foreign key references first.
 		for _, stmt := range stmts {
 			if err := tx.Query(ctx, stmt.stmt, charmUUID{UUID: id.String()}).Run(); err != nil {
-				return internalerrors.Errorf("failed to delete related data for %q: %w", stmt.tableName, err)
+				return errors.Errorf("failed to delete related data for %q: %w", stmt.tableName, err)
 			}
 		}
 
 		// Then delete the charm itself.
 		if err := tx.Query(ctx, deleteQuery, charmID{UUID: id.String()}).Run(); err != nil {
-			return internalerrors.Errorf("failed to delete charm: %w", err)
+			return errors.Errorf("failed to delete charm: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return internalerrors.Errorf("failed to delete charm: %w", err)
+		return errors.Errorf("failed to delete charm: %w", err)
 	}
 
 	return nil

@@ -5,10 +5,8 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
@@ -16,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/modelconfig/validators"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ModelDefaultsProvider is responsible for providing the default config values
@@ -89,12 +88,12 @@ func NewService(
 func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model config from state: %w", err)
+		return nil, errors.Errorf("getting model config from state: %w", err)
 	}
 
 	agentVersion, err := s.st.AgentVersion(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model agent version for model config: %w", err)
+		return nil, errors.Errorf("getting model agent version for model config: %w", err)
 	}
 
 	altConfig := transform.Map(stConfig, func(k, v string) (string, any) { return k, v })
@@ -118,7 +117,7 @@ func (s *Service) ModelConfigValues(
 
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
-		return config.ConfigValues{}, fmt.Errorf("getting model defaults: %w", err)
+		return config.ConfigValues{}, errors.Errorf("getting model defaults: %w", err)
 	}
 
 	allAttrs := cfg.AllAttrs()
@@ -159,12 +158,12 @@ func (s *Service) buildUpdatedModelConfig(
 
 	newConf, err := current.Remove(removeAttrs)
 	if err != nil {
-		return newConf, current, fmt.Errorf("building new model config with removed attributes: %w", err)
+		return newConf, current, errors.Errorf("building new model config with removed attributes: %w", err)
 	}
 
 	newConf, err = newConf.Apply(updates)
 	if err != nil {
-		return newConf, current, fmt.Errorf("building new model config with removed attributes: %w", err)
+		return newConf, current, errors.Errorf("building new model config with removed attributes: %w", err)
 	}
 
 	return newConf, current, nil
@@ -184,12 +183,12 @@ func (s *Service) reconcileRemovedAttributes(
 	updates := map[string]any{}
 	hasAttrs, err := s.st.ModelConfigHasAttributes(ctx, removeAttrs)
 	if err != nil {
-		return updates, fmt.Errorf("determining model config has attributes: %w", err)
+		return updates, errors.Errorf("determining model config has attributes: %w", err)
 	}
 
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
-		return updates, fmt.Errorf("getting model defaults for config attribute removal: %w", err)
+		return updates, errors.Errorf("getting model defaults for config attribute removal: %w", err)
 	}
 
 	for _, attr := range hasAttrs {
@@ -210,7 +209,7 @@ func (s *Service) SetModelConfig(
 ) error {
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
-		return fmt.Errorf("getting model defaults: %w", err)
+		return errors.Errorf("getting model defaults: %w", err)
 	}
 
 	// We want to make a copy of cfg so that we don't modify the users input.
@@ -228,17 +227,17 @@ func (s *Service) SetModelConfig(
 
 	setCfg, err := config.New(config.NoDefaults, cfgCopy)
 	if err != nil {
-		return fmt.Errorf("constructing new model config with model defaults: %w", err)
+		return errors.Errorf("constructing new model config with model defaults: %w", err)
 	}
 
 	_, err = s.validatorForSetModelConfig().Validate(ctx, setCfg, nil)
 	if err != nil {
-		return fmt.Errorf("validating model config to set for model: %w", err)
+		return errors.Errorf("validating model config to set for model: %w", err)
 	}
 
 	rawCfg, err := CoerceConfigForStorage(setCfg.AllAttrs())
 	if err != nil {
-		return fmt.Errorf("coercing model config for storage: %w", err)
+		return errors.Errorf("coercing model config for storage: %w", err)
 	}
 
 	return s.st.SetModelConfig(ctx, rawCfg)
@@ -272,7 +271,7 @@ func (s *Service) UpdateModelConfig(
 
 	updates, err := s.reconcileRemovedAttributes(ctx, removeAttrs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// It's important here that we apply the user updates over the top of the
@@ -284,22 +283,22 @@ func (s *Service) UpdateModelConfig(
 
 	newCfg, currCfg, err := s.buildUpdatedModelConfig(ctx, updates, removeAttrs)
 	if err != nil {
-		return fmt.Errorf("making updated model configuration: %w", err)
+		return errors.Errorf("making updated model configuration: %w", err)
 	}
 
 	_, err = s.validatorForUpdateModelConfig().Validate(ctx, newCfg, currCfg)
 	if err != nil {
-		return fmt.Errorf("validating updated model configuration: %w", err)
+		return errors.Errorf("validating updated model configuration: %w", err)
 	}
 
 	rawCfg, err := CoerceConfigForStorage(updateAttrs)
 	if err != nil {
-		return fmt.Errorf("coercing new configuration for persistence: %w", err)
+		return errors.Errorf("coercing new configuration for persistence: %w", err)
 	}
 
 	err = s.st.UpdateModelConfig(ctx, rawCfg, removeAttrs)
 	if err != nil {
-		return fmt.Errorf("updating model config: %w", err)
+		return errors.Errorf("updating model config: %w", err)
 	}
 	return nil
 }

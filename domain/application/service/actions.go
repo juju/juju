@@ -5,10 +5,10 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 func decodeActions(actions charm.Actions) (internalcharm.Actions, error) {
@@ -20,7 +20,7 @@ func decodeActions(actions charm.Actions) (internalcharm.Actions, error) {
 	for name, action := range actions.Actions {
 		params, err := decodeActionParams(action.Params)
 		if err != nil {
-			return internalcharm.Actions{}, fmt.Errorf("decode action params: %w", err)
+			return internalcharm.Actions{}, errors.Errorf("decode action params: %w", err)
 		}
 
 		result[name] = internalcharm.ActionSpec{
@@ -42,7 +42,7 @@ func decodeActionParams(params []byte) (map[string]any, error) {
 
 	var result map[string]any
 	if err := json.Unmarshal(params, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errors.Errorf("unmarshal: %w", err)
 	}
 	return result, nil
 }
@@ -56,7 +56,7 @@ func encodeActions(actions *internalcharm.Actions) (charm.Actions, error) {
 	for name, action := range actions.ActionSpecs {
 		params, err := encodeActionParams(action.Params)
 		if err != nil {
-			return charm.Actions{}, fmt.Errorf("encode action params: %w", err)
+			return charm.Actions{}, errors.Errorf("encode action params: %w", err)
 		}
 
 		result[name] = charm.Action{
@@ -78,7 +78,7 @@ func encodeActionParams(params map[string]any) ([]byte, error) {
 
 	result, err := json.Marshal(params)
 	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
+		return nil, errors.Errorf("marshal: %w", err)
 	}
 
 	return result, nil

@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+t // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package service
@@ -9,8 +9,8 @@ import (
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
-	"github.com/juju/juju/domain/cloudimagemetadata/errors"
-	jujuerrors "github.com/juju/juju/internal/errors"
+	cloudimageerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State is an interface of the persistence layer for managing cloud image metadata
@@ -94,13 +94,13 @@ func (s Service) validateAllMetadata(ctx context.Context, metadata []cloudimagem
 	for _, m := range metadata {
 		errs = append(errs, s.validateMetadata(ctx, m))
 	}
-	return jujuerrors.Join(errs...)
+	return errors.Join(errs...)
 }
 
 // validateMetadata validates a single cloud image metadata entry.
 func (s Service) validateMetadata(ctx context.Context, m cloudimagemetadata.Metadata) error {
 	if m.ImageID == "" {
-		return jujuerrors.Errorf("%w: %w", errors.EmptyImageID, errors.NotValid)
+		return errors.Errorf("%w: %w", cloudimageerrors.EmptyImageID, cloudimageerrors.NotValid)
 	}
 
 	var missing []string
@@ -121,12 +121,12 @@ func (s Service) validateMetadata(ctx context.Context, m cloudimagemetadata.Meta
 	}
 
 	if len(missing) > 0 {
-		return errors.NotValidMissingFields(m.ImageID, missing)
+		return cloudimageerrors.NotValidMissingFields(m.ImageID, missing)
 	}
 
 	supportedArchitectures := s.st.SupportedArchitectures(ctx)
 	if !supportedArchitectures.Contains(m.Arch) {
-		return jujuerrors.Errorf("unsupported architecture %s (should be any of %s): %w", m.Arch, supportedArchitectures.Values(), errors.NotValid)
+		return errors.Errorf("unsupported architecture %s (should be any of %s): %w", m.Arch, supportedArchitectures.Values(), cloudimageerrors.NotValid)
 	}
 
 	return nil

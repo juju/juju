@@ -5,12 +5,10 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -33,6 +31,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -68,7 +67,7 @@ func (providerWithConfig) ConfigDefaults() schema.Defaults {
 
 func (p providerWithConfig) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
 	if p.Type() == "something" {
-		return fmt.Errorf("bad config for %q", p.Type())
+		return errors.Errorf("bad config for %q", p.Type())
 	}
 	return nil
 }
@@ -1079,7 +1078,7 @@ func (s *serviceSuite) TestCreateSecretBackendFailed(c *gc.C) {
 		BackendType: "something",
 	})
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(errors.Cause(err), gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
+	c.Check(err, gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
 }
 
 func (s *serviceSuite) TestCreateSecretBackend(c *gc.C) {
@@ -1174,7 +1173,7 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *gc.C) {
 	arg.ID = "backend-uuid"
 	err = svc.UpdateSecretBackend(context.Background(), arg)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
-	c.Check(errors.Cause(err), gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
+	c.Check(err, gc.ErrorMatches, `secret backend not valid: config for provider "something": bad config for "something"`)
 }
 
 func (s *serviceSuite) assertUpdateSecretBackend(c *gc.C, byName, skipPing bool) {

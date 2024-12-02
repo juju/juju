@@ -6,12 +6,12 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	proxyerrors "github.com/juju/juju/domain/proxy/errors"
 )
 
@@ -50,7 +50,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(func(ctx context.Context) (Provider, error) {
-		return s.provider, errors.NotSupported
+		return s.provider, coreerrors.NotSupported
 	})
 	_, err := service.GetConnectionProxyInfo(context.Background())
 	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyInfoNotSupported)
@@ -59,7 +59,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *gc.C) {
 func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.provider.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(s.proxier, errors.NotFound)
+	s.provider.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(s.proxier, coreerrors.NotFound)
 
 	service := NewService(func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
@@ -85,7 +85,7 @@ func (s *serviceSuite) TestGetProxyToApplicationNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(func(ctx context.Context) (Provider, error) {
-		return s.provider, errors.NotSupported
+		return s.provider, coreerrors.NotSupported
 	})
 	_, err := service.GetProxyToApplication(context.Background(), "foo", "8080")
 	c.Assert(err, jc.ErrorIs, proxyerrors.ProxyNotSupported)

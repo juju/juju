@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 // These errors are used for storage pool operations.
 const (

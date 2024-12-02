@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	usertesting "github.com/juju/juju/core/user/testing"
 )
 
@@ -77,7 +77,7 @@ func (s *exportSuite) TestExportNotFound(c *gc.C) {
 	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
 	s.service.EXPECT().CloudCredential(gomock.Any(), key).
 		Times(1).
-		Return(cloud.Credential{}, errors.NotFound)
+		Return(cloud.Credential{}, coreerrors.NotFound)
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)

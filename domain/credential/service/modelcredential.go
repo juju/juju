@@ -6,14 +6,13 @@ package service
 import (
 	"context"
 	stdcontext "context"
-	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/errors"
 )
 
 // MachineService defines the methods that the credential service assumes from
@@ -101,12 +101,12 @@ func (v defaultCredentialValidator) Validate(
 	checkCloudInstances bool,
 ) (machineErrors []error, err error) {
 	if err := key.Validate(); err != nil {
-		return nil, fmt.Errorf("credential %w", err)
+		return nil, errors.Errorf("credential %w", err)
 	}
 
 	openParams, err := v.buildOpenParams(validationContext, key, cred)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	switch validationContext.ModelType {
 	case coremodel.CAAS:
@@ -114,18 +114,18 @@ func (v defaultCredentialValidator) Validate(
 	case coremodel.IAAS:
 		return checkIAASModelCredential(ctx, validationContext.MachineState, validationContext.MachineService, openParams, checkCloudInstances)
 	default:
-		return nil, errors.NotSupportedf("model type %q", validationContext.ModelType)
+		return nil, errors.Errorf("model type %q %w", validationContext.ModelType, coreerrors.NotSupported)
 	}
 }
 
 func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.OpenParams) ([]error, error) {
 	broker, err := newCAASBroker(ctx, brokerParams)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	if err = broker.CheckCloudCredentials(ctx); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return nil, nil
 }
@@ -133,7 +133,7 @@ func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.Open
 func checkIAASModelCredential(ctx stdcontext.Context, machineState MachineState, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
 	env, err := newEnv(ctx, openParams)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	// We only check persisted machines vs known cloud instances.
 	// In the future, this check may be extended to other cloud resources,
@@ -149,7 +149,7 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 	// Get machines from state
 	machines, err := machineState.AllMachines()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	var results []error
@@ -162,13 +162,13 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 			continue
 		}
 		if manual, err := machine.IsManual(); err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		} else if manual {
 			continue
 		}
 		machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		instanceId, err := machineService.InstanceID(ctx, machineUUID)
 		if errors.Is(err, machineerrors.NotProvisioned) {
@@ -176,7 +176,7 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 			// to know about it.
 			continue
 		} else if err != nil {
-			results = append(results, errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
+			results = append(results, errors.Errorf("getting instance id for machine %s %w", machine.Id(), err))
 			continue
 		}
 		machinesByInstance[instanceId] = machine.Id()
@@ -187,7 +187,7 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	instances, err := provider.AllInstances(callCtx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	// From here, there 2 ways of checking whether the credential is valid:
@@ -232,12 +232,12 @@ func (v defaultCredentialValidator) buildOpenParams(
 
 	err := v.validateCloudCredential(ctx.Cloud, credentialKey)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return fail(errors.Capture(err))
 	}
 
 	tempCloudSpec, err := environscloudspec.MakeCloudSpec(ctx.Cloud, ctx.Region, credential)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return fail(errors.Capture(err))
 	}
 
 	return environs.OpenParams{
@@ -255,7 +255,7 @@ func (v defaultCredentialValidator) validateCloudCredential(
 ) error {
 	if !credentialKey.IsZero() {
 		if credentialKey.Cloud != cld.Name {
-			return errors.NotValidf("credential %q", credentialKey)
+			return errors.Errorf("credential %q %w", credentialKey, coreerrors.NotValid)
 		}
 		return nil
 	}
@@ -268,7 +268,7 @@ func (v defaultCredentialValidator) validateCloudCredential(
 		break
 	}
 	if !hasEmptyAuth {
-		return errors.NotValidf("missing CloudCredential")
+		return errors.Errorf("missing CloudCredential %w", coreerrors.NotValid)
 	}
 	return nil
 }

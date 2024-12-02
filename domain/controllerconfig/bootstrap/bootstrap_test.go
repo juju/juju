@@ -6,11 +6,11 @@ package bootstrap
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/testing"
@@ -49,7 +49,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 func (s *bootstrapSuite) TestValidModelUUID(c *gc.C) {
 	cfg := controller.Config{controller.CACertKey: testing.CACert}
 	err := InsertInitialControllerConfig(cfg, coremodel.UUID("bad-uuid"))(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *bootstrapSuite) TestInsertMinimalControllerConfig(c *gc.C) {

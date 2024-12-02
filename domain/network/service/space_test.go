@@ -5,17 +5,17 @@ package service
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -39,7 +39,7 @@ func (s *spaceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		return s.provider, nil
 	}
 	s.notSupportedProviderGetter = func(ctx context.Context) (Provider, error) {
-		return nil, errors.NotSupportedf("provider")
+		return nil, errors.Errorf("provider %w", coreerrors.NotSupported)
 	}
 
 	return ctrl
@@ -138,7 +138,7 @@ func (s *spaceSuite) TestUpdateSpaceNotFound(c *gc.C) {
 
 	spaceID := "unknown-space"
 	s.st.EXPECT().UpdateSpace(gomock.Any(), spaceID, "newname").
-		Return(fmt.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
+		Return(errors.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
 
 	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
 	err := svc.UpdateSpace(context.Background(), spaceID, "newname")
@@ -160,7 +160,7 @@ func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpace(gomock.Any(), "unknown-space").
-		Return(nil, fmt.Errorf("space %q: %w", "unknown-space", networkerrors.SpaceNotFound))
+		Return(nil, errors.Errorf("space %q: %w", "unknown-space", networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(context.Background(), "unknown-space")
 	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
@@ -180,7 +180,7 @@ func (s *spaceSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpaceByName(gomock.Any(), "unknown-space-name").
-		Return(nil, fmt.Errorf("space with name %q: %w", "unknown-space-name", networkerrors.SpaceNotFound))
+		Return(nil, errors.Errorf("space with name %q: %w", "unknown-space-name", networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).SpaceByName(context.Background(), "unknown-space-name")
 	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
@@ -209,7 +209,7 @@ func (s *spaceSuite) TestRemoveSpaceNotFound(c *gc.C) {
 
 	spaceID := "unknown-space"
 	s.st.EXPECT().DeleteSpace(gomock.Any(), spaceID).
-		Return(fmt.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
+		Return(errors.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
 
 	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
 	err := svc.RemoveSpace(context.Background(), spaceID)
@@ -546,7 +546,7 @@ func (s *spaceSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerGetterFails := func(ctx context.Context) (Provider, error) {
-		return nil, errors.NotSupported
+		return nil, coreerrors.NotSupported
 	}
 	err := NewProviderService(s.st, providerGetterFails, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())

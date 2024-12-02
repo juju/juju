@@ -5,12 +5,10 @@ package state
 
 import (
 	"database/sql"
-	"fmt"
 	"sort"
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/logger"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
@@ -50,7 +49,7 @@ type modelIdentifier struct {
 // Validate checks that the model identifier is valid.
 func (m modelIdentifier) Validate() error {
 	if m.ModelID == "" && m.ModelName == "" {
-		return fmt.Errorf("both model ID and name are missing")
+		return errors.Errorf("both model ID and name are missing")
 	}
 	return nil
 }
@@ -84,22 +83,24 @@ type upsertSecretBackendParams struct {
 // Validate checks that the parameters are valid.
 func (p upsertSecretBackendParams) Validate() error {
 	if p.ID == "" {
-		return fmt.Errorf("%w: ID is missing", backenderrors.NotValid)
+		return errors.Errorf("%w: ID is missing", backenderrors.NotValid)
 	}
 	if p.Name == "" {
-		return fmt.Errorf("%w: name is missing", backenderrors.NotValid)
+		return errors.Errorf("%w: name is missing", backenderrors.NotValid)
 	}
 	if p.BackendType == "" {
-		return fmt.Errorf("%w: type is missing", backenderrors.NotValid)
+		return errors.Errorf("%w: type is missing", backenderrors.NotValid)
 	}
 	for k, v := range p.Config {
 		if k == "" {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"%w: empty config key for %q", backenderrors.NotValid, p.Name)
+
 		}
 		if v == "" {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"%w: empty config value for %q", backenderrors.NotValid, p.Name)
+
 		}
 	}
 	return nil
@@ -232,7 +233,7 @@ func (rows secretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, cred
 		}
 		k8sConfig, err := getK8sBackendConfig(clds[row.CloudID], creds[row.CredentialID])
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		result = append(result, &secretbackend.SecretBackend{
 			ID:          row.ID,

@@ -4,9 +4,8 @@
 package state
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent cloud credential entity schema in the database.

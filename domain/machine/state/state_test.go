@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -67,7 +67,7 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT name FROM machine").Scan(&machineName)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -110,7 +110,7 @@ WHERE   parent.parent_uuid = 1
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, parentStmt).Scan(&machineName)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -180,7 +180,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine WHERE name=?", "666").Scan(&machineCount)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -220,11 +220,11 @@ func (s *stateSuite) TestDeleteMachineStatus(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", "123").Scan(&status)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		err = tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status_data WHERE machine_uuid=?", "123").Scan(&statusData)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})

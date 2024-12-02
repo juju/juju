@@ -5,20 +5,20 @@ package service
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 type suite struct {
@@ -59,7 +59,7 @@ func (s *suite) TestGetModelAgentVersionInvalidModelID(c *gc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetModelTargetAgentVersion(context.Background(), "invalid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestGetModelAgentVersionModelNotFound tests that Service.GetModelAgentVersion
@@ -68,7 +68,7 @@ func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelID := modeltesting.GenModelUUID(c)
-	modelNotFoundErr := fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
+	modelNotFoundErr := errors.Errorf("%w for id %q", modelerrors.NotFound, modelID)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any(), modelID).
 		Return(version.Zero, modelNotFoundErr)
 
@@ -192,7 +192,7 @@ func (s *suite) TestWatchModelTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelID := modeltesting.GenModelUUID(c)
-	modelNotFoundErr := fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
+	modelNotFoundErr := errors.Errorf("%w for id %q", modelerrors.NotFound, modelID)
 	s.modelState.EXPECT().GetModelUUID(context.Background()).Return(model.UUID(""), modelNotFoundErr)
 
 	_, err := NewModelService(s.modelState, s.state, nil).WatchModelTargetAgentVersion(

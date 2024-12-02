@@ -6,11 +6,11 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetSecretConsumerAndLatest returns the secret consumer info for the specified unit and secret, along with
@@ -22,7 +22,7 @@ import (
 func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error) {
 	consumerMetadata, latestRevision, err := s.secretState.GetSecretConsumer(ctx, uri, unitName)
 	if err != nil {
-		return nil, latestRevision, errors.Trace(err)
+		return nil, latestRevision, errors.Capture(err)
 	}
 	if consumerMetadata.Label != "" {
 		return consumerMetadata, latestRevision, nil
@@ -35,7 +35,7 @@ func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *sec
 		return consumerMetadata, latestRevision, nil
 	}
 	if err != nil {
-		return nil, 0, errors.Annotatef(err, "cannot get secret metadata for %q", uri)
+		return nil, 0, errors.Errorf("cannot get secret metadata for %q %w", uri, err)
 	}
 	consumerMetadata.Label = md.Label
 	return consumerMetadata, latestRevision, nil
@@ -70,7 +70,7 @@ func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string,
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
 	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
-		return 0, errors.Trace(err)
+		return 0, errors.Capture(err)
 	}
 	refresh = refresh ||
 		err != nil // Not found, so need to create one.
@@ -96,7 +96,7 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 			consumerInfo.Label = *labelToUpdate
 		}
 		if err := s.SaveSecretConsumer(ctx, uri, unitName, consumerInfo); err != nil {
-			return 0, errors.Trace(err)
+			return 0, errors.Capture(err)
 		}
 	}
 	return wantRevision, nil
@@ -121,7 +121,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 		case ModelAccessor:
 			accessor.SubjectTypeID = domainsecret.SubjectModel
 		default:
-			return nil, errors.NotValidf("consumer kind %q", consumer.Kind)
+			return nil, errors.Errorf("consumer kind %q %w", consumer.Kind, coreerrors.NotValid)
 		}
 		accessors[i] = accessor
 	}
@@ -133,7 +133,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh bool) (int, error) {
 	consumerInfo, latestRevision, err := s.secretState.GetSecretRemoteConsumer(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
-		return 0, errors.Trace(err)
+		return 0, errors.Capture(err)
 	}
 	refresh = refresh ||
 		err != nil // Not found, so need to create one.
@@ -144,7 +144,7 @@ func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *s
 		}
 		consumerInfo.CurrentRevision = latestRevision
 		if err := s.secretState.SaveSecretRemoteConsumer(ctx, uri, unitName, consumerInfo); err != nil {
-			return 0, errors.Trace(err)
+			return 0, errors.Capture(err)
 		}
 	}
 	return latestRevision, nil

@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/environs/config"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // SetModelConfig will remove any existing model config for the model and
@@ -31,7 +31,7 @@ func SetModelConfig(
 		}
 		defaults, err := defaultsProvider.ModelDefaults(ctx)
 		if err != nil {
-			return fmt.Errorf("getting model defaults: %w", err)
+			return errors.Errorf("getting model defaults: %w", err)
 		}
 
 		for k, v := range defaults {
@@ -49,7 +49,7 @@ func SetModelConfig(
 		})
 
 		if err != nil {
-			return fmt.Errorf("setting model %q config: %w", modelID, err)
+			return errors.Errorf("setting model %q config: %w", modelID, err)
 		}
 
 		attrs[config.UUIDKey] = m.UUID
@@ -70,23 +70,23 @@ func SetModelConfig(
 
 		cfg, err := config.New(config.NoDefaults, attrs)
 		if err != nil {
-			return fmt.Errorf("constructing new model config with model defaults: %w", err)
+			return errors.Errorf("constructing new model config with model defaults: %w", err)
 		}
 
 		_, err = config.ModelValidator().Validate(ctx, cfg, nil)
 		if err != nil {
-			return fmt.Errorf("validating model config to set for model: %w", err)
+			return errors.Errorf("validating model config to set for model: %w", err)
 		}
 
 		insert, err := service.CoerceConfigForStorage(cfg.AllAttrs())
 		if err != nil {
-			return fmt.Errorf("coercing model config for storage: %w", err)
+			return errors.Errorf("coercing model config for storage: %w", err)
 		}
 
 		insertQuery := `INSERT INTO model_config (*) VALUES ($dbKeyValue.*)`
 		insertStmt, err := sqlair.Prepare(insertQuery, dbKeyValue{})
 		if err != nil {
-			return fmt.Errorf("preparing insert query: %w", err)
+			return errors.Errorf("preparing insert query: %w", err)
 		}
 
 		return model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -95,7 +95,7 @@ func SetModelConfig(
 				insertKV = append(insertKV, dbKeyValue{Key: k, Value: v})
 			}
 			if err := tx.Query(ctx, insertStmt, insertKV).Run(); err != nil {
-				return fmt.Errorf("inserting model config values: %w", err)
+				return errors.Errorf("inserting model config values: %w", err)
 			}
 			return nil
 		})

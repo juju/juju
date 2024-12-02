@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/errors"
-
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
+	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent secretMetadata entity schema in the database.
@@ -241,7 +241,7 @@ func (rows secretInfos) toSecretMetadata(secretOwners []secretOwner) ([]*coresec
 	for i, row := range rows {
 		uri, err := coresecrets.ParseURI(row.ID)
 		if err != nil {
-			return nil, errors.NotValidf("secret URI %q", row.ID)
+			return nil, errors.Errorf("secret URI %q %w", row.ID, coreerrors.NotValid)
 		}
 		result[i] = &coresecrets.SecretMetadata{
 			URI:         uri,
@@ -279,7 +279,7 @@ func (rows secretInfos) toSecretRevisionRef(refs secretValueRefs) ([]*coresecret
 	for i, row := range rows {
 		uri, err := coresecrets.ParseURI(row.ID)
 		if err != nil {
-			return nil, errors.NotValidf("secret URI %q", row.ID)
+			return nil, errors.Errorf("secret URI %q %w", row.ID, coreerrors.NotValid)
 		}
 		result[i] = &coresecrets.SecretRevisionRef{
 			URI:        uri,
@@ -321,7 +321,7 @@ func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) 
 			// Encountered a new record.
 			uri, err := coresecrets.ParseURI(row.ID)
 			if err != nil {
-				return nil, errors.NotValidf("secret URI %q", row.ID)
+				return nil, errors.Errorf("secret URI %q %w", row.ID, coreerrors.NotValid)
 			}
 			md := coresecrets.SecretMetadataForDrain{
 				URI: uri,

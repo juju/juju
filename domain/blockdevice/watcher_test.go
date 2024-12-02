@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -45,11 +45,11 @@ VALUES (?, ?, ?, ?)
 
 	err := db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, queryNetNode, netNodeUUID); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if _, err := tx.ExecContext(ctx, queryMachine, machineUUID, 0, name, netNodeUUID); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})

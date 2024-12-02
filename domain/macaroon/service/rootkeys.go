@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/domain/macaroon"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RootKeyState describes the persistence layer for

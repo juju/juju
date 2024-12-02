@@ -13,8 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
-	"github.com/juju/juju/domain/cloudimagemetadata/errors"
-	jujuerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 type serviceSuite struct {
@@ -125,7 +124,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *gc.C) { // Arr
 func (s *serviceSuite) TestSaveMetadataError(c *gc.C) { // Arrange
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	errExpected := jujuerrors.New("oh no!!")
+	errExpected := errors.New("oh no!!")
 	validMetadata := []cloudimagemetadata.Metadata{{ImageID: "dead-beaf",
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Version: "1.2.3",
@@ -173,7 +172,7 @@ func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *gc.C) {
 func (s *serviceSuite) TestDeleteMetadataError(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	errExpected := jujuerrors.New("oh no!!")
+	errExpected := errors.New("oh no!!")
 	s.state.EXPECT().DeleteMetadataWithImageID(gomock.Any(), "dead-beaf").Return(errExpected)
 
 	// Act
@@ -281,7 +280,7 @@ func (s *serviceSuite) TestFindMetadataError(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	errExpected := jujuerrors.New("oh no!!")
+	errExpected := errors.New("oh no!!")
 	criteria := cloudimagemetadata.MetadataFilter{Region: "whatever"}
 
 	s.state.EXPECT().FindMetadata(gomock.Any(), criteria).Return(nil, errExpected)
@@ -323,7 +322,7 @@ func (s *serviceSuite) TestAllCloudImageMetadataError(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	errExpected := jujuerrors.New("oh no!!")
+	errExpected := errors.New("oh no!!")
 
 	s.state.EXPECT().AllCloudImageMetadata(gomock.Any()).Return(nil, errExpected)
 

@@ -6,14 +6,15 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -230,7 +231,7 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsInvalidFilterProvider(c *g
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service(c).ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.Providers{"invalid"})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `storage provider "invalid" not found`)
 }
 

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/os/ostype"
@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -172,7 +172,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 	})
 
 	provider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		return fs, nil
 	} else if err != nil {
 		return fs, err
@@ -180,7 +180,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 
 	envFs, err := provider.SupportedFeatures()
 	if err != nil {
-		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
+		return fs, errors.Errorf("enumerating features supported by environment: %w", err)
 	}
 
 	fs.Merge(envFs)
@@ -253,14 +253,14 @@ func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.Str
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	appID, currentScale, err := s.getApplicationScaleAndID(ctx, appName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	mask := changestream.Create | changestream.Update
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		newScale, err := s.GetApplicationScale(ctx, appName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		// Only dispatch if the scale has changed.
 		if newScale != currentScale {
@@ -423,39 +423,39 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 // returned.
 func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error) {
 	if err := id.Validate(); err != nil {
-		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
+		return nil, charm.CharmLocator{}, errors.Errorf("charm id: %w", err)
 	}
 
 	ch, _, err := s.st.GetCharm(ctx, id)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	locator := charm.CharmLocator{
@@ -483,16 +483,16 @@ func (s *MigrationService) ImportApplication(
 	units ...ImportUnitArg,
 ) error {
 	if err := validateCreateApplicationParams(appName, args.ReferenceName, charm, origin, args.DownloadInfo); err != nil {
-		return errors.Annotatef(err, "invalid application args")
+		return errors.Errorf("invalid application args: %w", err)
 	}
 
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "getting model type")
+		return errors.Errorf("getting model type %w", err)
 	}
 	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
 	if err != nil {
-		return errors.Annotatef(err, "creating application args")
+		return errors.Errorf("creating application args %w", err)
 	}
 	appArg.Scale = len(units)
 
@@ -526,11 +526,11 @@ func (s *MigrationService) ImportApplication(
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appID, err := s.st.CreateApplication(ctx, appName, appArg)
 		if err != nil {
-			return errors.Annotatef(err, "creating application %q", appName)
+			return errors.Errorf("creating application %q %w", appName, err)
 		}
 		for _, arg := range unitArgs {
 			if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
-				return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
+				return errors.Errorf("inserting unit %q %w", arg.UnitName, err)
 			}
 		}
 		return nil
@@ -569,7 +569,7 @@ func addDefaultStorageDirectives(
 ) (map[string]storage.Directive, error) {
 	defaults, err := state.StorageDefaults(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage defaults")
+		return nil, errors.Errorf("getting storage defaults %w", err)
 	}
 	return domainstorage.StorageDirectivesWithDefaults(storage, modelType, defaults, allDirectives)
 }
@@ -584,22 +584,22 @@ func validateStorageDirectives(
 ) error {
 	registry, err := storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, state)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	// Ensure all stores have directives specified. Defaults should have
 	// been set by this point, if the user didn't specify any.
 	for name, charmStorage := range meta.Storage {
 		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
-			return fmt.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
+			return errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
 		}
 	}
 	return nil

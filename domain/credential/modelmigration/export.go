@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -67,7 +67,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	}
 	name, err := user.NewName(credInfo.Owner())
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	key := credential.Key{
 		Cloud: credInfo.Cloud(),
@@ -76,7 +76,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	}
 	cred, err := e.service.CloudCredential(ctx, key)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	model.SetCloudCredential(description.CloudCredentialArgs{
 		Owner:      names.NewUserTag(key.Owner.Name()),

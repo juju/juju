@@ -6,11 +6,9 @@ package modelmigration
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
@@ -21,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -105,7 +104,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 		curl, err := internalcharm.ParseURL(app.CharmURL())
 		if err != nil {
-			return fmt.Errorf("cannot parse charm URL %q: %v", app.CharmURL(), err)
+			return errors.Errorf("cannot parse charm URL %q: %v", app.CharmURL(), err)
 		}
 
 		charmID, err := e.service.GetCharmID(ctx, charm.GetCharmArgs{
@@ -113,16 +112,16 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			Revision: &curl.Revision,
 		})
 		if err != nil {
-			return fmt.Errorf("cannot get charm ID for %q: %v", app.CharmURL(), err)
+			return errors.Errorf("cannot get charm ID for %q: %v", app.CharmURL(), err)
 		}
 
 		charm, _, err := e.service.GetCharm(ctx, charmID)
 		if err != nil {
-			return fmt.Errorf("cannot get charm %q: %v", charmID, err)
+			return errors.Errorf("cannot get charm %q: %v", charmID, err)
 		}
 
 		if err := e.exportCharm(ctx, app, charm); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil
@@ -133,28 +132,28 @@ func (e *exportOperation) exportCharm(ctx context.Context, app description.Appli
 	if profiler, ok := charm.(internalcharm.LXDProfiler); ok {
 		var err error
 		if lxdProfile, err = e.exportLXDProfile(profiler.LXDProfile()); err != nil {
-			return fmt.Errorf("cannot export LXD profile: %v", err)
+			return errors.Errorf("cannot export LXD profile: %v", err)
 		}
 	}
 
 	metadata, err := e.exportCharmMetadata(charm.Meta(), lxdProfile)
 	if err != nil {
-		return fmt.Errorf("cannot export charm metadata: %v", err)
+		return errors.Errorf("cannot export charm metadata: %v", err)
 	}
 
 	manifest, err := e.exportCharmManifest(charm.Manifest())
 	if err != nil {
-		return fmt.Errorf("cannot export charm manifest: %v", err)
+		return errors.Errorf("cannot export charm manifest: %v", err)
 	}
 
 	config, err := e.exportCharmConfig(charm.Config())
 	if err != nil {
-		return fmt.Errorf("cannot export charm config: %v", err)
+		return errors.Errorf("cannot export charm config: %v", err)
 	}
 
 	actions, err := e.exportCharmActions(charm.Actions())
 	if err != nil {
-		return fmt.Errorf("cannot export charm actions: %v", err)
+		return errors.Errorf("cannot export charm actions: %v", err)
 	}
 
 	app.SetCharmMetadata(metadata)
@@ -177,58 +176,58 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		var err error
 		assumesBytes, err = json.Marshal(expr)
 		if err != nil {
-			return description.CharmMetadataArgs{}, fmt.Errorf("cannot marshal assumes: %v", err)
+			return description.CharmMetadataArgs{}, errors.Errorf("cannot marshal assumes: %v", err)
 		}
 	}
 
 	runAs, err := exportCharmUser(metadata.CharmUser)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	provides, err := exportRelations(metadata.Provides)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	requires, err := exportRelations(metadata.Requires)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	peers, err := exportRelations(metadata.Peers)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	extraBindings := exportExtraBindings(metadata.ExtraBindings)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	storage, err := exportStorage(metadata.Storage)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	devices, err := exportDevices(metadata.Devices)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	payloads, err := exportPayloads(metadata.PayloadClasses)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	containers, err := exportContainers(metadata.Containers)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	resources, err := exportResources(metadata.Resources)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	return description.CharmMetadataArgs{
@@ -265,7 +264,7 @@ func (e *exportOperation) exportLXDProfile(profile *internalcharm.LXDProfile) (s
 	// YAML.
 	data, err := json.Marshal(profile)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	return string(data), nil
@@ -278,7 +277,7 @@ func (e *exportOperation) exportCharmManifest(manifest *internalcharm.Manifest) 
 
 	bases, err := exportManifestBases(manifest.Bases)
 	if err != nil {
-		return description.CharmManifestArgs{}, errors.Trace(err)
+		return description.CharmManifestArgs{}, errors.Capture(err)
 	}
 
 	return description.CharmManifestArgs{
@@ -357,7 +356,7 @@ func exportRelations(relations map[string]internalcharm.Relation) (map[string]de
 	for name, relation := range relations {
 		args, err := exportRelation(relation)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		result[name] = args
 	}
@@ -367,12 +366,12 @@ func exportRelations(relations map[string]internalcharm.Relation) (map[string]de
 func exportRelation(relation internalcharm.Relation) (description.CharmMetadataRelation, error) {
 	role, err := exportCharmRole(relation.Role)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	scope, err := exportCharmScope(relation.Scope)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return relationType{
@@ -443,7 +442,7 @@ func exportStorage(storage map[string]internalcharm.Storage) (map[string]descrip
 	for name, storage := range storage {
 		typ, err := exportStorageType(storage)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 
 		result[name] = storageType{
@@ -539,7 +538,7 @@ func exportResources(resources map[string]resource.Meta) (map[string]description
 	for name, resource := range resources {
 		typ, err := exportResourceType(resource.Type)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 
 		result[name] = resourceType{

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -682,7 +682,7 @@ INSERT INTO charm (uuid, reference_name, architecture_id)
 VALUES (?, ?, 0);
 `, charmUUID, appName)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -690,7 +690,7 @@ INSERT INTO charm_metadata (charm_uuid, name)
 VALUES (?, ?);
 		`, charmUUID, appName)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		applicationUUID := uuid.MustNewUUID().String()
@@ -699,7 +699,7 @@ INSERT INTO application (uuid, charm_uuid, name, life_id)
 VALUES (?, ?, ?, ?)
 `, applicationUUID, charmUUID, appName, life.Alive)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		// Do 2 units.
@@ -707,7 +707,7 @@ VALUES (?, ?, ?, ?)
 			netNodeUUID := uuid.MustNewUUID().String()
 			_, err = tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			unitUUID := uuid.MustNewUUID().String()
 			_, err = tx.ExecContext(ctx, `
@@ -715,7 +715,7 @@ INSERT INTO unit (uuid, life_id, name, net_node_uuid, application_uuid)
 VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
 `, unitUUID, life.Alive, appName+fmt.Sprintf("/%d", i), netNodeUUID, appName)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		}
 		return nil

@@ -5,16 +5,15 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/secrets"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/secret/state"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -92,7 +92,7 @@ func ownerFromTag(owner names.Tag) (secrets.Owner, error) {
 	case names.ModelTagKind:
 		return secrets.Owner{Kind: secrets.ModelOwner, ID: owner.Id()}, nil
 	}
-	return secrets.Owner{}, errors.NotValidf("tag kind %q", owner.Kind())
+	return secrets.Owner{}, errors.Errorf("tag kind %q %w", owner.Kind(), coreerrors.NotValid)
 }
 
 func accessorFromTag(tag names.Tag) (service.SecretAccessor, error) {
@@ -119,7 +119,7 @@ func accessorFromTag(tag names.Tag) (service.SecretAccessor, error) {
 func scopeFromTag(scope string) (service.SecretAccessScope, error) {
 	tag, err := names.ParseTag(scope)
 	if err != nil {
-		return service.SecretAccessScope{}, errors.Trace(err)
+		return service.SecretAccessScope{}, errors.Capture(err)
 	}
 	result := service.SecretAccessScope{
 		ID: tag.Id(),
@@ -145,7 +145,7 @@ func scopeFromTag(scope string) (service.SecretAccessScope, error) {
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	backendIDs, err := i.backendService.ListBackendIDs(ctx)
 	if err != nil {
-		return errors.Annotate(err, "loading secret backend IDs")
+		return errors.Errorf("loading secret backend IDs %w", err)
 	}
 	i.knownSecretBackends = set.NewStrings(backendIDs...)
 
@@ -165,11 +165,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	for j, secret := range modelSecrets {
 		ownerTag, err := secret.Owner()
 		if err != nil {
-			return errors.Annotatef(err, "invalid owner for secret %q", secret.Id())
+			return errors.Errorf("invalid owner for secret %q %w", secret.Id(), err)
 		}
 		owner, err := ownerFromTag(ownerTag)
 		if err != nil {
-			return errors.Annotatef(err, "invalid owner for secret %q", secret.Id())
+			return errors.Errorf("invalid owner for secret %q %w", secret.Id(), err)
 		}
 		allSecrets.Secrets[j] = &secrets.SecretMetadata{
 			URI:                    &secrets.URI{ID: secret.Id()},
@@ -194,26 +194,26 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		secretRevisions, secretContent, err := i.collateRevisionInfo(secret.Revisions())
 		if err != nil {
-			return errors.Annotatef(err, "collating revisions for secret %q", secret.Id())
+			return errors.Errorf("collating revisions for secret %q %w", secret.Id(), err)
 		}
 		allSecrets.Revisions[secret.Id()] = secretRevisions
 		allSecrets.Content[secret.Id()] = secretContent
 
 		secretAccess, err := i.collateAccess(secret.ACL())
 		if err != nil {
-			return errors.Annotatef(err, "collating access for secret %q", secret.Id())
+			return errors.Errorf("collating access for secret %q %w", secret.Id(), err)
 		}
 		allSecrets.Access[secret.Id()] = secretAccess
 
 		secretConsumers, err := i.collateConsumers(secret.Consumers(), secret.LatestRevision())
 		if err != nil {
-			return errors.Annotatef(err, "collating consumers for secret %q", secret.Id())
+			return errors.Errorf("collating consumers for secret %q %w", secret.Id(), err)
 		}
 		allSecrets.Consumers[secret.Id()] = secretConsumers
 
 		remoteConsumers, err := i.collateRemoteConsumers(secret.RemoteConsumers())
 		if err != nil {
-			return errors.Annotatef(err, "collating remote consumers for secret %q", secret.Id())
+			return errors.Errorf("collating remote consumers for secret %q %w", secret.Id(), err)
 		}
 		allSecrets.RemoteConsumers[secret.Id()] = remoteConsumers
 	}
@@ -221,11 +221,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	for j, secret := range modelRemoteSecrets {
 		consumer, err := secret.Consumer()
 		if err != nil {
-			return errors.Annotate(err, "invalid remote secret consumer")
+			return errors.Errorf("invalid remote secret consumer %w", err)
 		}
 		accessor, err := accessorFromTag(consumer)
 		if err != nil {
-			return errors.Annotate(err, "invalid remote secret consumer")
+			return errors.Errorf("invalid remote secret consumer %w", err)
 		}
 		allSecrets.RemoteSecrets[j] = service.RemoteSecret{
 			URI:             &secrets.URI{ID: secret.ID(), SourceUUID: secret.SourceUUID()},
@@ -237,7 +237,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	err = i.service.ImportSecrets(ctx, &allSecrets)
-	return errors.Annotate(err, "cannot import secrets")
+	return errors.Errorf("cannot import secrets %w", err)
 }
 
 func (i *importOperation) collateRevisionInfo(revisions []description.SecretRevision) ([]*secrets.SecretRevisionMetadata, map[int]secrets.SecretData, error) {
@@ -254,7 +254,7 @@ func (i *importOperation) collateRevisionInfo(revisions []description.SecretRevi
 			switch v := reflect.ValueOf(rev.ValueRef()); v.Kind() {
 			case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
 				if v.IsNil() {
-					return nil, nil, fmt.Errorf("missing content for secret revision %d", rev.Number())
+					return nil, nil, errors.Errorf("missing content for secret revision %d", rev.Number())
 				}
 			}
 			valueRef = &secrets.ValueRef{
@@ -263,10 +263,10 @@ func (i *importOperation) collateRevisionInfo(revisions []description.SecretRevi
 			}
 			if !secrets.IsInternalSecretBackendID(valueRef.BackendID) && !i.seenBackendIds.Contains(valueRef.BackendID) {
 				if !i.knownSecretBackends.Contains(valueRef.BackendID) {
-					return nil, nil, fmt.Errorf(
-						"target controller does not have all required secret backends set up, missing %q%w",
-						valueRef.BackendID,
-						errors.Hide(secreterrors.MissingSecretBackendID))
+					return nil, nil, errors.Errorf(
+						"target controller does not have all required secret backends set up, missing %q",
+						valueRef.BackendID).Add(secreterrors.MissingSecretBackendID)
+
 				}
 			}
 			i.seenBackendIds.Add(valueRef.BackendID)
@@ -289,11 +289,11 @@ func (i *importOperation) collateConsumers(consumers []description.SecretConsume
 	for i, info := range consumers {
 		consumer, err := info.Consumer()
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid consumer")
+			return nil, errors.Errorf("invalid consumer %w", err)
 		}
 		accessor, err := accessorFromTag(consumer)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid consumer")
+			return nil, errors.Errorf("invalid consumer %w", err)
 		}
 		currentRev := info.CurrentRevision()
 		// Older models may have set the consumed rev info to 0 (assuming the latest revision always).
@@ -317,11 +317,11 @@ func (i *importOperation) collateRemoteConsumers(remoteConsumers []description.S
 	for i, info := range remoteConsumers {
 		consumer, err := info.Consumer()
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid remote consumer")
+			return nil, errors.Errorf("invalid remote consumer %w", err)
 		}
 		accessor, err := accessorFromTag(consumer)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid remote consumer")
+			return nil, errors.Errorf("invalid remote consumer %w", err)
 		}
 		result[i] = service.ConsumerInfo{
 			Accessor: accessor,
@@ -346,15 +346,15 @@ func (i *importOperation) collateAccess(secretAccess map[string]description.Secr
 		access := secretAccess[consumer]
 		consumerTag, err := names.ParseTag(consumer)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid consumer")
+			return nil, errors.Errorf("invalid consumer %w", err)
 		}
 		accessor, err := accessorFromTag(consumerTag)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid consumer")
+			return nil, errors.Errorf("invalid consumer %w", err)
 		}
 		scope, err := scopeFromTag(access.Scope())
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid access scope")
+			return nil, errors.Errorf("invalid access scope %w", err)
 		}
 
 		result = append(result, service.SecretAccess{

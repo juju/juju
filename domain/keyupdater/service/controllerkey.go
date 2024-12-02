@@ -5,9 +5,9 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/ssh"
 )
 
@@ -38,15 +38,15 @@ func (s *ControllerKeyService) ControllerAuthorisedKeys(
 ) ([]string, error) {
 	ctrlConfig, err := s.st.GetControllerConfigKeys(ctx, []string{controller.SystemSSHKeys})
 	if err != nil {
-		return nil, fmt.Errorf("cannot get juju controller public ssh keys: %w", err)
+		return nil, errors.Errorf("cannot get juju controller public ssh keys: %w", err)
 	}
 
 	keys, err := ssh.SplitAuthorizedKeys(ctrlConfig[controller.SystemSSHKeys])
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"cannot split authorized keys from controller config system ssh keys: %w",
-			err,
-		)
+			err)
+
 	}
 
 	return keys, nil

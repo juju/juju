@@ -6,9 +6,9 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -46,7 +46,7 @@ func (s *Service) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]
 	// As it is, there are no upstream usages for more than one key,
 	// so we just lock in that behaviour.
 	if len(keys) > 1 {
-		return nil, errors.NotSupportedf("filtering with more than one lease key")
+		return nil, errors.Errorf("filtering with more than one lease key %w", coreerrors.NotSupported)
 	}
 
 	return s.st.Leases(ctx, keys...)
@@ -57,11 +57,11 @@ func (s *Service) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]
 // The lease must not already be held, otherwise an error is returned.
 func (s *Service) ClaimLease(ctx context.Context, key lease.Key, req lease.Request) error {
 	if err := req.Validate(); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return s.st.ClaimLease(ctx, uuid, key, req)
 }
@@ -71,7 +71,7 @@ func (s *Service) ClaimLease(ctx context.Context, key lease.Key, req lease.Reque
 // If the input holder does not currently hold the lease, an error is returned.
 func (s *Service) ExtendLease(ctx context.Context, key lease.Key, req lease.Request) error {
 	if err := req.Validate(); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return s.st.ExtendLease(ctx, key, req)

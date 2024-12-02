@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForMachineRequiresReboot generates the triggers for the
 // machine_requires_reboot table.
 func ChangeLogTriggersForMachineRequiresReboot(columnName string, namespaceID int) func() schema.Patch {
@@ -44,4 +43,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-
