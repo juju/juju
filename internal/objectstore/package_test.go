@@ -68,21 +68,28 @@ func (s *baseSuite) readFile(c *gc.C, reader io.ReadCloser) string {
 	return string(content)
 }
 
-func (s *baseSuite) calculateHexHash(c *gc.C, contents string) string {
+func (s *baseSuite) calculateHexSHA384(c *gc.C, contents string) string {
 	hasher := sha512.New384()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (s *baseSuite) calculateBase64Hash(c *gc.C, contents string) string {
+func (s *baseSuite) calculateHexSHA256(c *gc.C, contents string) string {
+	hasher := sha256.New()
+	_, err := io.Copy(hasher, strings.NewReader(contents))
+	c.Assert(err, jc.ErrorIsNil)
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func (s *baseSuite) calculateBase64SHA256(c *gc.C, contents string) string {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
 	return base64.StdEncoding.EncodeToString(hasher.Sum(nil))
 }
 
-func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
+func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, string, string) {
 	// Ensure the directory exists.
 	err := os.MkdirAll(path, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,8 +103,10 @@ func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, str
 
 	// Create a hash of the contents when writing the file. The hash will
 	// be used as the file name on disk.
-	hasher := sha512.New384()
-	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), hasher))
+	hasher384 := sha512.New384()
+	hasher256 := sha256.New()
+
+	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), io.MultiWriter(hasher384, hasher256)))
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := f.Stat()
@@ -107,9 +116,9 @@ func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, str
 		c.Fatalf("file size %d does not match expected size %d", info.Size(), size)
 	}
 
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash))
+	hash384 := hex.EncodeToString(hasher384.Sum(nil))
+	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash384))
 	c.Assert(err, jc.ErrorIsNil)
 
-	return info.Size(), hash
+	return info.Size(), hash384, hex.EncodeToString(hasher256.Sum(nil))
 }

@@ -26,7 +26,7 @@ func NewObjectStoreServices(
 	logger logger.Logger,
 ) *ObjectStoreServices {
 	return &ObjectStoreServices{
-		modelServiceFactoryBase{
+		modelServiceFactoryBase: modelServiceFactoryBase{
 			serviceFactoryBase: serviceFactoryBase{
 				controllerDB: controllerDB,
 				logger:       logger,

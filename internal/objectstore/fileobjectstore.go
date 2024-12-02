@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -294,16 +295,18 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, fmt.Errorf("get metadata: %w", err)
 	}
 
-	file, err := t.fs.Open(metadata.Hash)
+	hash := selectFileHash(metadata)
+
+	file, err := t.fs.Open(hash)
 	if err != nil {
-		return nil, -1, fmt.Errorf("opening file %q encoded as %q: %w", path, metadata.Hash, err)
+		return nil, -1, fmt.Errorf("opening file %q encoded as %q: %w", path, hash, err)
 	}
 
 	// Verify that the size of the file matches the expected size.
 	// This is a sanity check, that the underlying file hasn't changed.
 	stat, err := file.Stat()
 	if err != nil {
-		return nil, -1, fmt.Errorf("retrieving size: file %q encoded as %q: %w", path, metadata.Hash, err)
+		return nil, -1, fmt.Errorf("retrieving size: file %q encoded as %q: %w", path, hash, err)
 	}
 
 	size := stat.Size()
@@ -323,9 +326,17 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	// I can only assume 384 was chosen over 256 and others, is because it's
 	// not susceptible to length extension attacks? In any case, we'll
 	// keep using it for now.
-	hasher := sha512.New384()
+	hash384 := sha512.New384()
 
-	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, hasher), size)
+	// We need two hash sets here, because juju wants to use SHA384, but s3
+	// and http handlers want to use SHA256. We can't change the hash used by
+	// default to SHA256. Luckily, we can piggyback on the writing to a tmp
+	// file and create TeeReader with a MultiWriter.
+	hash256 := sha256.New()
+
+	// We need to write this to a temp file, because if the client retries
+	// then we need seek back to the beginning of the file.
+	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(hash384, hash256)), size)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -333,22 +344,21 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	// Ensure that we remove the temporary file if we fail to persist it.
 	defer func() { _ = tmpFileCleanup() }()
 
-	// Encode the hash as a hex string. This is what the rest of the juju
-	// codebase expects. Although we should probably use base64.StdEncoding
-	// instead.
-	hash := hex.EncodeToString(hasher.Sum(nil))
+	// Encode the hashes as strings, so we can use them for file and http lookups.
+	encoded384 := hex.EncodeToString(hash384.Sum(nil))
+	encoded256 := hex.EncodeToString(hash256.Sum(nil))
 
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(hash); !ok {
-		return "", fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
+	if expected, ok := validator(encoded384); !ok {
+		return "", fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded384, objectstore.ErrHashMismatch)
 	}
 
 	// Lock the file with the given hash, so that we can't remove the file
 	// while we're writing it.
 	var uuid objectstore.UUID
-	if err := t.withLock(ctx, hash, func(ctx context.Context) error {
+	if err := t.withLock(ctx, encoded384, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, tmpFileName, hash, size); err != nil {
+		if err := t.persistTmpFile(ctx, tmpFileName, encoded384, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -357,9 +367,10 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 		// race where the watch event is emitted before the file is written.
 		var err error
 		if uuid, err = t.metadataService.PutMetadata(ctx, objectstore.Metadata{
-			Path: path,
-			Hash: hash,
-			Size: size,
+			Path:   path,
+			SHA256: encoded256,
+			SHA384: encoded384,
+			Size:   size,
 		}); err != nil {
 			return errors.Trace(err)
 		}
@@ -403,7 +414,7 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		return fmt.Errorf("get metadata: %w", err)
 	}
 
-	hash := metadata.Hash
+	hash := selectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return fmt.Errorf("remove metadata: %w", err)

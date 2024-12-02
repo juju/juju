@@ -158,7 +158,6 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",
-		"object_store_metadata_hash_type",
 
 		// SSH Keys
 		"ssh_fingerprint_hash_algorithm",
@@ -300,7 +299,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",
-		"object_store_metadata_hash_type",
 
 		// Node
 		"net_node",

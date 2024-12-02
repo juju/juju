@@ -40,7 +40,7 @@ func (s *State) GetMetadata(ctx context.Context, path string) (coreobjectstore.M
 	metadata := dbMetadata{Path: path}
 
 	stmt, err := s.Prepare(`
-SELECT (p.path, m.uuid, m.size, m.hash) AS (&dbMetadata.*)
+SELECT &dbMetadata.*
 FROM object_store_metadata_path p
 LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid
 WHERE path = $dbMetadata.path`, metadata)
@@ -72,7 +72,7 @@ func (s *State) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, e
 	}
 
 	stmt, err := s.Prepare(`
-SELECT (p.path, m.uuid, m.size, m.hash) AS (&dbMetadata.*)
+SELECT &dbMetadata.*
 FROM object_store_metadata_path p
 LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
 	if err != nil {
@@ -106,10 +106,10 @@ func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metada
 	}
 
 	dbMetadata := dbMetadata{
-		UUID:       uuid.String(),
-		Hash:       metadata.Hash,
-		HashTypeID: 1,
-		Size:       metadata.Size,
+		UUID:   uuid.String(),
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   metadata.Size,
 	}
 
 	dbMetadataPath := dbMetadataPath{
@@ -118,8 +118,10 @@ func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metada
 	}
 
 	metadataStmt, err := s.Prepare(`
-INSERT INTO object_store_metadata (uuid, hash_type_id, hash, size)
-VALUES ($dbMetadata.*) ON CONFLICT (hash) DO NOTHING`, dbMetadata)
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES ($dbMetadata.*) 
+ON CONFLICT (sha_256) DO NOTHING
+ON CONFLICT (sha_384) DO NOTHING`, dbMetadata)
 	if err != nil {
 		return "", errors.Annotate(err, "preparing insert metadata statement")
 	}
@@ -134,7 +136,10 @@ VALUES ($dbMetadataPath.*)`, dbMetadataPath)
 	metadataLookupStmt, err := s.Prepare(`
 SELECT uuid AS &dbMetadataPath.metadata_uuid
 FROM   object_store_metadata 
-WHERE  hash = $dbMetadata.hash 
+WHERE  (
+	sha_384 = $dbMetadata.sha_384 OR
+	sha_256 = $dbMetadata.sha_256
+)
 AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 	if err != nil {
 		return "", errors.Annotate(err, "preparing select metadata statement")

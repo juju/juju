@@ -33,9 +33,10 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
@@ -50,9 +51,10 @@ func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
@@ -67,9 +69,10 @@ func (s *stateSuite) TestPutMetadata(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
 	}
 
 	uuid, err := st.PutMetadata(context.Background(), metadata)
@@ -81,8 +84,8 @@ func (s *stateSuite) TestPutMetadata(c *gc.C) {
 	var received coreobjectstore.Metadata
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
-SELECT path, size, hash FROM v_object_store_metadata WHERE uuid = ?`, uuid)
-		return row.Scan(&received.Path, &received.Size, &received.Hash)
+SELECT path, size, sha_256, sha_384 FROM v_object_store_metadata WHERE uuid = ?`, uuid)
+		return row.Scan(&received.Path, &received.Size, &received.SHA256, &received.SHA384)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, gc.DeepEquals, metadata)
@@ -92,9 +95,10 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
@@ -105,18 +109,66 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 }
 
-func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {
+func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
 	}
 	metadata2 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-2",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadata(context.Background(), metadata1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.PutMetadata(context.Background(), metadata2)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "foo",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "bar",
+		Path:   "blah-foo-2",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadata(context.Background(), metadata1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.PutMetadata(context.Background(), metadata2)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "foo",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
+	}
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "bar",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
@@ -134,14 +186,16 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
 	// There is a broken hash function somewhere.
 
 	metadata1 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
 	}
 	metadata2 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-2",
-		Size: 42,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   42,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
@@ -159,9 +213,10 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
 
 	for i := 0; i < 10; i++ {
 		metadatas[i] = coreobjectstore.Metadata{
-			Hash: fmt.Sprintf("hash-%d", i),
-			Path: fmt.Sprintf("blah-foo-%d", i),
-			Size: 666,
+			SHA256: fmt.Sprintf("hash-256-%d", i),
+			SHA384: fmt.Sprintf("hash-384-%d", i),
+			Path:   fmt.Sprintf("blah-foo-%d", i),
+			Size:   666,
 		}
 
 		_, err := st.PutMetadata(context.Background(), metadatas[i])
@@ -186,14 +241,16 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
 	}
 	metadata2 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-2",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
@@ -214,14 +271,16 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
 	}
 	metadata2 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-2",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-2",
+		Size:   666,
 	}
 
 	// Add both metadata.
@@ -244,9 +303,10 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 
 	// Add a new metadata with the same hash and size.
 	metadata3 := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-3",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-3",
+		Size:   666,
 	}
 	_, err = st.PutMetadata(context.Background(), metadata3)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,9 +323,10 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
@@ -286,9 +347,10 @@ func (s *stateSuite) TestListMetadata(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo-1",
+		Size:   666,
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
