@@ -274,7 +274,7 @@ func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete 
 	// database.
 	hashes := make(map[string]struct{})
 	for _, m := range metadata {
-		hashes[selectHash(m)] = struct{}{}
+		hashes[selectFileHash(m)] = struct{}{}
 	}
 
 	// Remove any objects that we don't know about.
@@ -301,7 +301,11 @@ func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete 
 	return nil
 }
 
-func selectHash(m objectstore.Metadata) string {
+// selectFileHash returns the hash that is used to identify the file.
+// The file hash is actually the hash of the file itself and is used by Juju
+// as the default hash.
+// Do not change this function without understanding the implications.
+func selectFileHash(m objectstore.Metadata) string {
 	return m.Hash512_384
 }
 

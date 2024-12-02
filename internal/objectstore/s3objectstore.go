@@ -418,7 +418,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 		return nil, -1, errors.Annotatef(err, "get metadata")
 	}
 
-	hash := selectHash(metadata)
+	hash := selectFileHash(metadata)
 
 	var reader io.ReadCloser
 	var size int64
@@ -573,7 +573,7 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 		return errors.Annotatef(err, "get metadata")
 	}
 
-	hash := selectHash(metadata)
+	hash := selectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return errors.Annotatef(err, "remove metadata")
@@ -649,7 +649,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 		for _, m := range metadata {
 			result := make(chan error)
 
-			hash := selectHash(m)
+			hash := selectFileHash(m)
 
 			t.logger.Debugf("draining file %q to s3 object store %q", m.Path, hash)
 

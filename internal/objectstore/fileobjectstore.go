@@ -295,7 +295,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, fmt.Errorf("get metadata: %w", err)
 	}
 
-	hash := selectHash(metadata)
+	hash := selectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
 	if err != nil {
@@ -414,7 +414,7 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		return fmt.Errorf("get metadata: %w", err)
 	}
 
-	hash := selectHash(metadata)
+	hash := selectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return fmt.Errorf("remove metadata: %w", err)
