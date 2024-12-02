@@ -241,7 +241,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return s.createSecret(ctx, params.Version, uri, secrets.Owner{Kind: secrets.ModelOwner}, p)
 	}); err != nil {
-		return jujuerrors.Annotatef(err, "cannot create user secret %q", uri.ID)
+		return jujuerrors.Annotatef(err, "creating user secret %q", uri.ID)
 	}
 	return nil
 }
@@ -330,9 +330,10 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) (errOut error) {
-	if err := s.canManage(ctx, uri, params.Accessor, nil); err != nil {
-		return jujuerrors.Trace(err)
+func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) error {
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, nil)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	p := domainsecret.UpsertSecretParams{
@@ -341,79 +342,85 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		AutoPrune:   params.AutoPrune,
 		Checksum:    params.Checksum,
 	}
-	// Take a copy as we may set it to nil below
-	// if the content is saved to a backend.
-	if len(params.Data) > 0 {
-		p.Data = make(map[string]string)
-		for k, v := range params.Data {
-			p.Data[k] = v
+
+	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
+		// Take a copy as we may set it to nil below
+		// if the content is saved to a backend.
+		if len(params.Data) > 0 {
+			p.Data = make(map[string]string)
+			for k, v := range params.Data {
+				p.Data[k] = v
+			}
+
+			backend, backendID, err := s.getBackendForUserSecrets(innerCtx, params.Accessor)
+			if err != nil {
+				return errors.Capture(err)
+			}
+
+			latestRevision, err := s.secretState.GetLatestRevision(innerCtx, uri)
+			if err != nil {
+				// Check if the uri exists or not.
+				return errors.Capture(err)
+			}
+			revId, err := backend.SaveContent(innerCtx, uri, latestRevision+1, secrets.NewSecretValue(params.Data))
+			if err != nil && !errors.Is(err, jujuerrors.NotSupported) {
+				return errors.Errorf("saving secret content to backend: %w", err)
+			}
+			if err == nil {
+				defer func() {
+					if errOut != nil {
+						// If we failed to update the secret, we should delete the
+						// secret value from the backend for the new revision.
+						if err2 := backend.DeleteContent(innerCtx, revId); err2 != nil &&
+							!errors.Is(err2, jujuerrors.NotSupported) &&
+							!errors.Is(err2, secreterrors.SecretRevisionNotFound) {
+							s.logger.Warningf("failed to delete secret %q: %v", revId, err2)
+						}
+					}
+				}()
+				p.Data = nil
+				p.ValueRef = &secrets.ValueRef{
+					BackendID:  backendID,
+					RevisionID: revId,
+				}
+			}
 		}
 
-		backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor)
-		if err != nil {
-			return jujuerrors.Trace(err)
-		}
+		if p.ValueRef != nil || len(p.Data) != 0 {
+			revisionID, err := s.uuidGenerator()
+			if err != nil {
+				return errors.Capture(err)
+			}
+			p.RevisionID = ptr(revisionID.String())
 
-		latestRevision, err := s.secretState.GetLatestRevision(ctx, uri)
-		if err != nil {
-			// Check if the uri exists or not.
-			return jujuerrors.Trace(err)
-		}
-		revId, err := backend.SaveContent(ctx, uri, latestRevision+1, secrets.NewSecretValue(params.Data))
-		if err != nil && !errors.Is(err, jujuerrors.NotSupported) {
-			return jujuerrors.Annotatef(err, "saving secret content to backend")
-		}
-		if err == nil {
+			modelID, err := s.secretState.GetModelUUID(innerCtx)
+			if err != nil {
+				return errors.Errorf("getting model uuid: %w", err)
+			}
+			rollBack, err := s.secretBackendState.AddSecretBackendReference(
+				innerCtx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
+			if err != nil {
+				return errors.Capture(err)
+			}
 			defer func() {
 				if errOut != nil {
-					// If we failed to update the secret, we should delete the
-					// secret value from the backend for the new revision.
-					if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
-						!errors.Is(err2, jujuerrors.NotSupported) &&
-						!errors.Is(err2, secreterrors.SecretRevisionNotFound) {
-						s.logger.Warningf("failed to delete secret %q: %v", revId, err2)
+					if err := rollBack(); err != nil {
+						s.logger.Warningf("failed to roll back secret reference count: %v", err)
 					}
 				}
 			}()
-			p.Data = nil
-			p.ValueRef = &secrets.ValueRef{
-				BackendID:  backendID,
-				RevisionID: revId,
-			}
 		}
-	}
 
-	if p.ValueRef != nil || len(p.Data) != 0 {
-		revisionID, err := s.uuidGenerator()
+		// TODO (manadart 2024-11-29): This context naming is nasty,
+		// but will be removed with RunAtomic.
+		err := s.secretState.RunAtomic(innerCtx, func(innerInnerCtx domain.AtomicContext) error {
+			return s.updateSecret(innerInnerCtx, uri, p)
+		})
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Errorf("updating user secret %q: %w", uri.ID, err)
 		}
-		p.RevisionID = ptr(revisionID.String())
-
-		modelID, err := s.secretState.GetModelUUID(ctx)
-		if err != nil {
-			return jujuerrors.Annotate(err, "getting model uuid")
-		}
-		rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
-		if err != nil {
-			return jujuerrors.Trace(err)
-		}
-		defer func() {
-			if errOut != nil {
-				if err := rollBack(); err != nil {
-					s.logger.Warningf("failed to roll back secret reference count: %v", err)
-				}
-			}
-		}()
-	}
-
-	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.updateSecret(ctx, uri, p)
+		return nil
 	})
-	if err != nil {
-		return jujuerrors.Annotatef(err, "cannot update user secret %q", uri.ID)
-	}
-	return nil
 }
 
 // UpdateCharmSecret updates a charm secret with the specified parameters, returning an error
@@ -421,13 +428,14 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) (errOut error) {
+func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) error {
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return jujuerrors.New("must specify either content or a value reference but not both")
 	}
 
-	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-		return jujuerrors.Trace(err)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	p := domainsecret.UpsertSecretParams{
@@ -442,7 +450,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	if params.RotatePolicy.WillRotate() {
 		policy, err := s.secretState.GetRotatePolicy(ctx, uri)
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		if !policy.WillRotate() {
 			p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
@@ -455,36 +463,42 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		}
 	}
 
-	if p.ValueRef != nil || len(p.Data) != 0 {
-		revisionID, err := s.uuidGenerator()
-		if err != nil {
-			return jujuerrors.Trace(err)
-		}
-		p.RevisionID = ptr(revisionID.String())
-
-		modelID, err := s.secretState.GetModelUUID(ctx)
-		if err != nil {
-			return jujuerrors.Annotate(err, "getting model uuid")
-		}
-		rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
-		if err != nil {
-			return jujuerrors.Trace(err)
-		}
-		defer func() {
-			if errOut != nil {
-				if err := rollBack(); err != nil {
-					s.logger.Warningf("failed to roll back secret reference count: %v", err)
-				}
+	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
+		if p.ValueRef != nil || len(p.Data) != 0 {
+			revisionID, err := s.uuidGenerator()
+			if err != nil {
+				return jujuerrors.Trace(err)
 			}
-		}()
-	}
-	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.updateSecret(ctx, uri, p)
+			p.RevisionID = ptr(revisionID.String())
+
+			modelID, err := s.secretState.GetModelUUID(innerCtx)
+			if err != nil {
+				return jujuerrors.Annotate(err, "getting model uuid")
+			}
+			rollBack, err := s.secretBackendState.AddSecretBackendReference(
+				innerCtx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
+			if err != nil {
+				return jujuerrors.Trace(err)
+			}
+			defer func() {
+				if errOut != nil {
+					if err := rollBack(); err != nil {
+						s.logger.Warningf("failed to roll back secret reference count: %v", err)
+					}
+				}
+			}()
+		}
+
+		// TODO (manadart 2024-11-29): This context naming is nasty,
+		// but will be removed with RunAtomic.
+		err := s.secretState.RunAtomic(innerCtx, func(innerInnerCtx domain.AtomicContext) error {
+			return s.updateSecret(innerInnerCtx, uri, p)
+		})
+		if err != nil {
+			return jujuerrors.Annotatef(err, "cannot update charm secret %q", uri.ID)
+		}
+		return nil
 	})
-	if err != nil {
-		return jujuerrors.Annotatef(err, "cannot update charm secret %q", uri.ID)
-	}
-	return nil
 }
 
 func (s *SecretService) createSecret(
@@ -700,9 +714,11 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 	}
 }
 
-// ProcessCharmSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the secret.
-// If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
-// This method returns the resulting uri, and optionally the label to update for the consumer.
+// ProcessCharmSecretConsumerLabel takes a secret consumer, a uri and label
+// which have been used to consume the secret. If the uri is empty, the label
+// and consumer are used to look up the consumed secret uri.
+// This method returns the resulting uri, and optionally the label to update for
+// the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
 ) (_ *secrets.URI, _ *string, err error) {
@@ -829,51 +845,61 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
 // It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) (errOut error) {
-	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-		return jujuerrors.Trace(err)
+func (s *SecretService) ChangeSecretBackend(
+	ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams,
+) error {
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	if err != nil {
+		return errors.Capture(err)
 	}
+
 	revisionIDStr, err := s.secretState.GetSecretRevisionID(ctx, uri, revision)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	revisionID, err := uuid.UUIDFromString(revisionIDStr)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	modelID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return jujuerrors.Annotate(err, "getting model uuid")
 	}
-	rollBack, err := s.secretBackendState.UpdateSecretBackendReference(ctx, params.ValueRef, coremodel.UUID(modelID), revisionID.String())
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-	defer func() {
-		if errOut != nil {
-			if err := rollBack(); err != nil {
-				s.logger.Warningf("failed to roll back secret reference count: %v", err)
-			}
-		}
-	}()
 
-	err = s.secretState.ChangeSecretBackend(ctx, revisionID, params.ValueRef, params.Data)
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-	return nil
+	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
+		rollBack, err := s.secretBackendState.UpdateSecretBackendReference(
+			innerCtx, params.ValueRef, coremodel.UUID(modelID), revisionID.String())
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		defer func() {
+			if errOut != nil {
+				if err := rollBack(); err != nil {
+					s.logger.Warningf("failed to roll back secret reference count: %v", err)
+				}
+			}
+		}()
+
+		err = s.secretState.ChangeSecretBackend(innerCtx, revisionID, params.ValueRef, params.Data)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
 }
 
 // SecretRotated rotates the secret with the specified URI.
 func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) error {
-	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
-		return jujuerrors.Trace(err)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	info, err := s.secretState.GetRotationExpiryInfo(ctx, uri)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	if !info.RotatePolicy.WillRotate() {
 		s.logger.Debugf("secret %q was rotated but now is set to not rotate")
@@ -884,8 +910,10 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		now := s.clock.Now()
 		lastRotateTime = &now
 	}
+
 	nextRotateTime := *info.RotatePolicy.NextRotateTime(*lastRotateTime)
 	s.logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, params.OriginalRevision, info.LatestRevision)
+
 	// If the secret will expire before it is due to be next rotated, rotate sooner to allow
 	// the charm a chance to update it before it expires.
 	willExpire := info.LatestExpireTime != nil && info.LatestExpireTime.Before(nextRotateTime)
@@ -893,9 +921,13 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 	if willExpire {
 		s.logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, info.LatestRevision)
 	}
+
 	if willExpire && forcedRotateTime.Before(*info.LatestExpireTime) || !params.Skip && info.LatestRevision == params.OriginalRevision {
 		nextRotateTime = forcedRotateTime
 	}
 	s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
-	return s.secretState.SecretRotated(ctx, uri, nextRotateTime)
+
+	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
+		return s.secretState.SecretRotated(innerCtx, uri, nextRotateTime)
+	})
 }
