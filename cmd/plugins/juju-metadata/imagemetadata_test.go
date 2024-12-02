@@ -184,6 +184,23 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithoutUsingBase(c *gc.C) {
+	ctx, err := runImageMetadata(c, s.store,
+		"-d", s.dir, "-c", "ec2-controller", "-i", "1234", "--virt-type=pv", "--storage=root", "--base=ubuntu@20.04",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	expected := expectedMetadata{
+		version:  "20.04",
+		arch:     "amd64",
+		region:   "us-east-1",
+		endpoint: "https://ec2.us-east-1.amazonaws.com",
+		virtType: "pv",
+		storage:  "root",
+	}
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
+}
+
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",

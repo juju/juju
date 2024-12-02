@@ -416,6 +416,7 @@ func (inst *Instance) ec2instance() types.Instance {
 		RootDeviceType:      inst.rootDeviceType,
 		RootDeviceName:      aws.String(inst.rootDeviceName),
 		MetadataOptions:     inst.metadataOptions,
+		NetworkInterfaces:   instanceNetworkInterfaces(inst.ifaces),
 	}
 
 	// Set the ipv6 address on the instance to the first one we find.
@@ -427,6 +428,19 @@ func (inst *Instance) ec2instance() types.Instance {
 	}
 
 	return i
+}
+
+func instanceNetworkInterfaces(nics []types.NetworkInterface) []types.InstanceNetworkInterface {
+	ifaces := make([]types.InstanceNetworkInterface, len(nics))
+	for i, nic := range nics {
+		ifaces[i] = types.InstanceNetworkInterface{
+			Association: &types.InstanceNetworkInterfaceAssociation{
+				PublicIp: nic.PrivateIpAddresses[0].Association.PublicIp,
+			},
+			NetworkInterfaceId: nic.NetworkInterfaceId,
+		}
+	}
+	return ifaces
 }
 
 func (inst *Instance) matchAttr(attr, value string) (ok bool, err error) {

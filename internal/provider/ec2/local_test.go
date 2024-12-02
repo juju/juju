@@ -1601,6 +1601,26 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
+func (t *localServerSuite) TestStartInstanceNoPublicIP(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    constraints.MustParse("allocate-public-ip=false"),
+		StatusCallback: fakeCallback,
+	}
+	inst, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nics, err := t.srv.ec2srv.DescribeNetworkInterfaces(context.Background(), &awsec2.DescribeNetworkInterfacesInput{
+		Filters: []types.Filter{makeFilter("attachment.instance-id", string(inst.Instance.Id()))},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(nics.NetworkInterfaces), gc.Equals, 1)
+	c.Assert(nics.NetworkInterfaces[0].Association, gc.NotNil)
+	c.Assert(nics.NetworkInterfaces[0].Association.PublicIp, gc.IsNil)
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
 }

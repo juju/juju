@@ -130,6 +130,9 @@ type refreshCommand struct {
 	NewRefresherFactory   func(refresher.RefresherDependencies) refresher.RefresherFactory
 
 	ApplicationName string
+
+	// Base represents the base (eg ubuntu@22.04) of the new charm to use
+	Base string
 	// Force should be ubiquitous and we should eventually deprecate both
 	// ForceUnits and ForceBase; instead just using "force"
 	Force      bool
@@ -181,12 +184,12 @@ updated copy of the charm.
 
 Deploying from a path is intended to suit the workflow of a charm author working
 on a single client machine; use of this deployment method from multiple clients
-is not supported and may lead to confusing behaviour. Each local packaged charm 
-gets uploaded with the revision specified in the charm, if possible, otherwise 
+is not supported and may lead to confusing behaviour. Each local packaged charm
+gets uploaded with the revision specified in the charm, if possible, otherwise
 it gets a unique revision (highest in state + 1).
 
 When deploying from a path, the --path option is used to specify the location
-of the packaged charm. Note that the charm must match what was originally used 
+of the packaged charm. Note that the charm must match what was originally used
 to deploy the charm as a superficial check that the updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the --resource option.
@@ -290,8 +293,10 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm from Charmhub")
 	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
+	f.BoolVar(&c.ForceBase, "force-base", false, "Refresh even if the base of the deployed application is not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
-	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm package located at path")
+	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
+	f.StringVar(&c.Base, "base", "", "Select a different base than what is currently running.")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{mapping: &c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{stores: &c.Storage, bundleStores: nil}, "storage", "Charm storage directives")
@@ -397,6 +402,17 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("%q deploy incomplete, please try refresh again in a little bit.", c.ApplicationName)
 	}
 
+	newOrigin := oldOrigin
+	if c.Base != "" {
+		if newBase, err := corebase.ParseBaseFromString(c.Base); err != nil {
+			return errors.Trace(err)
+		} else {
+			newOrigin.Base.OS = newBase.OS
+			newOrigin.Base.Channel = newBase.Channel
+
+		}
+	}
+
 	// Set a default URL schema for charm URLs that don't provide one.
 	var defaultCharmSchema = charm.CharmHub
 
@@ -453,7 +469,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
-		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
+		CharmOrigin:     newOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
 		Force:           c.Force,

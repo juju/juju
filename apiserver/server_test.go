@@ -201,7 +201,6 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocketFromURL function.
 	url := fmt.Sprintf("wss://%s%s", addr, path)
 	header := make(http.Header)
-	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
