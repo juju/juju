@@ -605,6 +605,14 @@ func (fc *fakeConn) ClosePorts(fwname string, rules firewall.IngressRules) error
 	return fc.err()
 }
 
+func (fc *fakeConn) RemoveFirewall(fwname string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:     "RemoveFirewall",
+		FirewallName: fwname,
+	})
+	return fc.err()
+}
+
 func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "AvailabilityZones",
