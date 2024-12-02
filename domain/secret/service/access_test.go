@@ -14,7 +14,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
-func (s *serviceSuite) TestCanManageOwnerUnit(c *gc.C) {
+func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -27,14 +27,14 @@ func (s *serviceSuite) TestCanManageOwnerUnit(c *gc.C) {
 
 	token := NewMockToken(ctrl)
 
-	err := s.service.canManage(context.Background(), uri, SecretAccessor{
+	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	}, token)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
+func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -52,14 +52,14 @@ func (s *serviceSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 	token := NewMockToken(ctrl)
 	token.EXPECT().Check().Return(nil)
 
-	err := s.service.canManage(context.Background(), uri, SecretAccessor{
+	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	}, token)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCanManageUserSecrets(c *gc.C) {
+func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -72,7 +72,7 @@ func (s *serviceSuite) TestCanManageUserSecrets(c *gc.C) {
 
 	token := NewMockToken(ctrl)
 
-	err := s.service.canManage(context.Background(), uri, SecretAccessor{
+	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
 	}, token)

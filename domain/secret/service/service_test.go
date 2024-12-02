@@ -164,9 +164,11 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 	}
 
 	s.secretsBackendProvider.EXPECT().Type().Return("active-type").AnyTimes()
-	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		return s.secretsBackend, nil
-	})
+	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			return s.secretsBackend, nil
+		},
+	)
 
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
 	uri := coresecrets.NewURI()
@@ -215,7 +217,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		if labelExists {
 			c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 		} else {
-			c.Assert(err, gc.ErrorMatches, "cannot create user secret .*some error")
+			c.Assert(err, gc.ErrorMatches, "creating user secret .*some error")
 		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
@@ -312,7 +314,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		if labelExists {
 			c.Assert(err, jc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 		} else {
-			c.Assert(err, gc.ErrorMatches, "cannot update user secret .*some error")
+			c.Assert(err, gc.ErrorMatches, "updating user secret .*some error")
 		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
