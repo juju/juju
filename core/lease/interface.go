@@ -71,8 +71,9 @@ type Pinner interface {
 	Pinned() (map[string][]string, error)
 }
 
-// Checker exposes facts about lease ownership.
+// Checker exposes facts about lease ownership and expiry.
 type Checker interface {
+	Waiter
 
 	// Token returns a Token that can be interrogated at any time to discover
 	// whether the supplied lease is currently held by the supplied holder.
