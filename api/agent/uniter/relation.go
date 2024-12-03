@@ -19,12 +19,13 @@ import (
 // Relation represents a relation between one or two application
 // endpoints.
 type Relation struct {
-	st        *State
-	tag       names.RelationTag
-	id        int
-	life      life.Value
-	suspended bool
-	otherApp  string
+	st             *State
+	tag            names.RelationTag
+	id             int
+	life           life.Value
+	suspended      bool
+	otherApp       string
+	otherModelUUID string
 }
 
 // Tag returns the relation tag.
@@ -65,6 +66,12 @@ func (r *Relation) UpdateSuspended(suspended bool) {
 // end of the relation (from this unit's perspective).
 func (r *Relation) OtherApplication() string {
 	return r.otherApp
+}
+
+// OtherModelUUID returns the UUID of the model hosting the
+// application on the other end of the relation.
+func (r *Relation) OtherModelUUID() string {
+	return r.otherModelUUID
 }
 
 // Refresh refreshes the contents of the relation from the underlying
