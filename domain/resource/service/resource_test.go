@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -15,13 +16,19 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	resourcestesting "github.com/juju/juju/core/resource/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type resourceServiceSuite struct {
-	baseSuite
+	jujutesting.IsolationSuite
+
+	state               *MockState
+	resourceStoreGetter *MockResourceStoreGetter
+
+	service *Service
 }
 
 var _ = gc.Suite(&resourceServiceSuite{})
@@ -60,7 +67,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *gc.C) {
 		Name:          "",
 	}
 	_, err := s.service.GetApplicationResourceID(context.Background(), args)
-	c.Assert(err, jc.ErrorIs, applicationerrors.ResourceNameNotValid)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
 func (s *resourceServiceSuite) TestListResources(c *gc.C) {
@@ -236,7 +243,6 @@ func (s *resourceServiceSuite) TestOpenUnitResource(c *gc.C) {
 	obtainedRes, _, err := s.service.OpenUnitResource(context.Background(), resourceID, unitID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedRes, gc.DeepEquals, obtainedRes)
-
 }
 
 func (s *resourceServiceSuite) TestOpenUnitResourceBadUnitID(c *gc.C) {
@@ -256,6 +262,7 @@ func (s *resourceServiceSuite) TestOpenUnitResourceBadResourceID(c *gc.C) {
 
 func (s *resourceServiceSuite) TestSetRepositoryResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	args := resource.SetRepositoryResourcesArgs{
@@ -279,4 +286,16 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *gc.C) {
 
 	err = s.service.SetRepositoryResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+	s.resourceStoreGetter = NewMockResourceStoreGetter(ctrl)
+	s.resourceStoreGetter.EXPECT().AddStore(charmresource.TypeContainerImage, gomock.Any())
+
+	s.service = NewService(s.state, s.resourceStoreGetter, loggertesting.WrapCheckLog(c))
+
+	return ctrl
 }

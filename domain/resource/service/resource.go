@@ -8,19 +8,18 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/errors"
-
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // ResourceState describes retrieval and persistence methods for resource.
-type ResourceState interface {
+type State interface {
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
@@ -59,14 +58,43 @@ type ResourceStoreGetter interface {
 	GetResourceStore(context.Context, charmresource.Type) (store.ResourceStore, error)
 }
 
+// Service provides the API for working with resources.
+type Service struct {
+	st     State
+	logger logger.Logger
+
+	resourceStoreGetter ResourceStoreGetter
+}
+
+// NewService returns a new service reference wrapping the input state.
+func NewService(
+	st State,
+	resourceStoreGetter ResourceStoreGetter,
+	logger logger.Logger,
+) *Service {
+	// Note:
+	// The store for container image resources is really a DQLite table today.
+	// Using AddStore is a compromise to avoid injecting one service into
+	// another, as would happen if NewResourceStoreFactory had a second
+	// argument to provide a containerImageResourceStore.
+	resourceStoreGetter.AddStore(
+		charmresource.TypeContainerImage,
+		nil,
+	)
+	return &Service{
+		st:     st,
+		logger: logger,
+	}
+}
+
 // GetApplicationResourceID returns the ID of the application resource specified by
 // natural key of application and resource name.
 //
 // The following error types can be expected to be returned:
-//   - application.ResourceNameNotValid if no resource name is provided in
+//   - resourceerrors.ResourceNameNotValid if no resource name is provided in
 //     the args.
 //   - errors.NotValid is returned if the application ID is not valid.
-//   - application.ResourceNotFound if no resource with name exists for
+//   - resourceerrors.ResourceNotFound if no resource with name exists for
 //     given application.
 func (s *Service) GetApplicationResourceID(
 	ctx context.Context,
@@ -76,7 +104,7 @@ func (s *Service) GetApplicationResourceID(
 		return "", fmt.Errorf("application id: %w", err)
 	}
 	if args.Name == "" {
-		return "", applicationerrors.ResourceNameNotValid
+		return "", resourceerrors.ResourceNameNotValid
 	}
 	return s.st.GetApplicationResourceID(ctx, args)
 }
@@ -126,7 +154,7 @@ func (s *Service) GetResource(
 //   - errors.NotValid is returned if the resource is not valid.
 //   - errors.NotValid is returned if the RetrievedByType is unknown while
 //     RetrievedBy has a value.
-//   - application.ApplicationNotFound if the specified application does
+//   - resourceerrors.ApplicationNotFound if the specified application does
 //     not exist.
 func (s *Service) SetResource(
 	ctx context.Context,
@@ -137,7 +165,7 @@ func (s *Service) SetResource(
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
 		return resource.Resource{},
-			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
+			fmt.Errorf("RetrievedByType cannot be unknown if RetrievedBy set: %w", resourceerrors.ArgumentNotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
 		return resource.Resource{}, fmt.Errorf("resource: %w", err)
@@ -150,10 +178,10 @@ func (s *Service) SetResource(
 // The following error types can be expected to be returned:
 //   - [errors.NotValid] is returned if the unit UUID is not valid.
 //   - [errors.NotValid] is returned if the resource UUID is not valid.
-//   - [errors.NotValid] is returned if the RetrievedByType is unknown while
+//   - [resourceerrors.ArgumentNotValid] is returned if the RetrievedByType is unknown while
 //     RetrievedBy has a value.
-//   - [applicationerrors.ResourceNotFound] if the specified resource doesn't exist
-//   - [applicationerrors.UnitNotFound] if the specified unit doesn't exist
+//   - [resourceerrors.ResourceNotFound] if the specified resource doesn't exist
+//   - [resourceerrors.UnitNotFound] if the specified unit doesn't exist
 func (s *Service) SetUnitResource(
 	ctx context.Context,
 	args resource.SetUnitResourceArgs,
@@ -166,7 +194,7 @@ func (s *Service) SetUnitResource(
 	}
 	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
 		return resource.SetUnitResourceResult{},
-			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
+			fmt.Errorf("RetrievedByType cannot be unknown if RetrievedBy set: %w", resourceerrors.ArgumentNotValid)
 	}
 	return s.st.SetUnitResource(ctx, args)
 }
@@ -175,7 +203,7 @@ func (s *Service) SetUnitResource(
 //
 // The following error types can be expected to be returned:
 //   - errors.NotValid is returned if the resource.UUID is not valid.
-//   - application.ResourceNotFound if the specified resource does
+//   - resourceerrors.ResourceNotFound if the specified resource does
 //     not exist.
 func (s *Service) OpenApplicationResource(
 	ctx context.Context,
@@ -196,9 +224,9 @@ func (s *Service) OpenApplicationResource(
 // The following error types can be returned:
 //   - errors.NotValid is returned if the resource.UUID is not valid.
 //   - errors.NotValid is returned if the unit UUID is not valid.
-//   - application.ResourceNotFound if the specified resource does
+//   - resourceerrors.ResourceNotFound if the specified resource does
 //     not exist.
-//   - application.UnitNotFound if the specified unit does
+//   - resourceerrors.UnitNotFound if the specified unit does
 //     not exist.
 func (s *Service) OpenUnitResource(
 	ctx context.Context,
@@ -221,9 +249,9 @@ func (s *Service) OpenUnitResource(
 //
 // The following error types can be expected to be returned:
 //   - errors.NotValid is returned if the Application ID is not valid.
-//   - errors.NotValid is returned if LastPolled is zero.
-//   - errors.NotValid is returned if the length of Info is zero.
-//   - application.ApplicationNotFound if the specified application does
+//   - resourceerrors.ArgumentNotValid is returned if LastPolled is zero.
+//   - resourceerrors.ArgumentNotValid is returned if the length of Info is zero.
+//   - resourceerrors.ApplicationNotFound if the specified application does
 //     not exist.
 func (s *Service) SetRepositoryResources(
 	ctx context.Context,
@@ -233,7 +261,7 @@ func (s *Service) SetRepositoryResources(
 		return fmt.Errorf("application id: %w", err)
 	}
 	if len(args.Info) == 0 {
-		return fmt.Errorf("empty Info %w", errors.NotValid)
+		return fmt.Errorf("empty Info: %w", resourceerrors.ArgumentNotValid)
 	}
 	for _, info := range args.Info {
 		if err := info.Validate(); err != nil {
@@ -241,7 +269,7 @@ func (s *Service) SetRepositoryResources(
 		}
 	}
 	if args.LastPolled.IsZero() {
-		return fmt.Errorf("zero LastPolled %w", errors.NotValid)
+		return fmt.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
 }

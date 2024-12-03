@@ -15,7 +15,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	resourcestore "github.com/juju/juju/core/resource/store"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
@@ -28,7 +27,6 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -131,7 +129,6 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 			return storage.NotImplementedProviderRegistry{}
 		}),
 		nil,
-		noopResourceStoreGetter{},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -176,12 +173,4 @@ type noopSecretDeleter struct{}
 
 func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error {
 	return nil
-}
-
-type noopResourceStoreGetter struct{}
-
-func (noopResourceStoreGetter) AddStore(t charmresource.Type, store resourcestore.ResourceStore) {}
-
-func (noopResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resourcestore.ResourceStore, error) {
-	return nil, nil
 }

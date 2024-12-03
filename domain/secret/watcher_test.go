@@ -858,7 +858,6 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 			return storage.NotImplementedProviderRegistry{}
 		}),
 		nil,
-		noopResourceStoreGetter{},
 		clock.WallClock,
 		logger,
 	)

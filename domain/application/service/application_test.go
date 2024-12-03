@@ -36,7 +36,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -1364,9 +1363,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		}
 	})
 
-	resourceStoreGetter := NewMockResourceStoreGetter(ctrl)
-	resourceStoreGetter.EXPECT().AddStore(charmresource.TypeContainerImage, gomock.Any())
-
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	s.clock = testclock.NewClock(time.Time{})
@@ -1374,7 +1370,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		s.state,
 		s.secret,
 		registry,
-		resourceStoreGetter,
 		modelUUID,
 		s.watcherFactory,
 		nil,

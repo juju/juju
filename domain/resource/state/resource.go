@@ -11,16 +11,35 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	apperrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
+
+type State struct {
+	*domain.StateBase
+	clock  clock.Clock
+	logger logger.Logger
+}
+
+// NewState returns a new state reference.
+func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
+	return &State{
+		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
+		logger:    logger,
+	}
+}
 
 // GetApplicationResourceID returns the ID of the application resource
 // specified by natural key of application and resource name.
@@ -55,7 +74,7 @@ AND application_uuid = $resourceIdentity.application_uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, resource).Get(&resource)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return apperrors.ResourceNotFound
+			return resourceerrors.ResourceNotFound
 		}
 		return errors.Capture(err)
 	})
@@ -182,7 +201,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 }
 
 // GetResource returns the identified resource.
-// Returns a [apperrors.ResourceNotFound] if no such resource exists.
+// Returns a [resourceerrors.ResourceNotFound] if no such resource exists.
 func (st *State) GetResource(ctx context.Context,
 	resourceUUID coreresource.UUID) (resource.Resource, error) {
 	db, err := st.DB()
@@ -206,7 +225,7 @@ WHERE uuid = $resourceIdentity.uuid`,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, resourceParam).Get(&resourceOutput)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return apperrors.ResourceNotFound
+			return resourceerrors.ResourceNotFound
 		}
 		return errors.Capture(err)
 	})
@@ -226,8 +245,8 @@ func (st *State) SetResource(
 }
 
 // SetUnitResource sets the resource metadata for a specific unit.
-// Returns [apperrors.UnitNotFound] if the unit id doesn't belong to an existing unit.
-// Returns [apperrors.ResourceNotFound] if the resource id doesn't belong to an existing resource.
+// Returns [resourceerrors.UnitNotFound] if the unit id doesn't belong to an existing unit.
+// Returns [resourceerrors.ResourceNotFound] if the resource id doesn't belong to an existing resource.
 func (st *State) SetUnitResource(
 	ctx context.Context,
 	config resource.SetUnitResourceArgs,
@@ -335,14 +354,14 @@ VALUES ($unitResource.*)`
 		// Check resource and unit exists.
 		err = tx.Query(ctx, checkValidResourceStmt, resourceUUID).Get(&resourceUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("resource %s: %w", resourceUUID.UUID, apperrors.ResourceNotFound)
+			return errors.Errorf("resource %s: %w", resourceUUID.UUID, resourceerrors.ResourceNotFound)
 		}
 		if err != nil {
 			return errors.Capture(err)
 		}
 		err = tx.Query(ctx, checkValidUnitStmt, unitUUID).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("resource %s: %w", unitUUID.UnitUUID, apperrors.UnitNotFound)
+			return errors.Errorf("resource %s: %w", unitUUID.UnitUUID, resourceerrors.UnitNotFound)
 		}
 		if err != nil {
 			return errors.Capture(err)
@@ -358,7 +377,7 @@ VALUES ($unitResource.*)`
 		if errors.Is(err, sqlair.ErrNoRows) {
 			err = tx.Query(ctx, getRetrievedByTypeStmt, retrievedTypeParam).Get(&retrievedTypeParam)
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return apperrors.UnknownRetrievedByType
+				return resourceerrors.UnknownRetrievedByType
 			}
 			if err != nil {
 				return errors.Capture(err)
@@ -405,7 +424,7 @@ func (st *State) OpenUnitResource(
 // SetRepositoryResources sets the "polled" resources for the
 // application to the provided values. The current data for this
 // application/resource combination will be overwritten.
-// Returns [apperrors.ApplicationNotFound] if the application id doesn't belong to a valid application.
+// Returns [resourceerrors.ApplicationNotFound] if the application id doesn't belong to a valid application.
 func (st *State) SetRepositoryResources(
 	ctx context.Context,
 	config resource.SetRepositoryResourcesArgs,
@@ -416,15 +435,15 @@ func (st *State) SetRepositoryResources(
 	}
 
 	// Prepare statement to check that the application exists.
-	appDetails := applicationDetails{
+	appNameAndID := applicationNameAndID{
 		ApplicationID: config.ApplicationID,
 	}
 	getAppNameQuery := `
-SELECT name as &applicationDetails.name 
+SELECT name as &applicationNameAndID.name 
 FROM application 
-WHERE uuid = $applicationDetails.uuid
+WHERE uuid = $applicationNameAndID.uuid
 `
-	getAppNameStmt, err := st.Prepare(getAppNameQuery, appDetails)
+	getAppNameStmt, err := st.Prepare(getAppNameQuery, appNameAndID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -465,9 +484,9 @@ WHERE uuid = $lastPolledResource.uuid
 	var resIdentities []resourceIdentity
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check application exists.
-		err := tx.Query(ctx, getAppNameStmt, appDetails).Get(&appDetails)
+		err := tx.Query(ctx, getAppNameStmt, appNameAndID).Get(&appNameAndID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return apperrors.ApplicationNotFound
+			return resourceerrors.ApplicationNotFound
 		}
 		if err != nil {
 			return errors.Capture(err)
@@ -485,7 +504,7 @@ WHERE uuid = $lastPolledResource.uuid
 				foundResources.Add(res.Name)
 			}
 			st.logger.Errorf("Resource not found for application %s (%s), missing: %s",
-				appDetails.Name, config.ApplicationID, set.NewStrings(names...).Difference(foundResources).Values())
+				appNameAndID.Name, config.ApplicationID, set.NewStrings(names...).Difference(foundResources).Values())
 		}
 
 		// Update last polled resources.

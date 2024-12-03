@@ -50,6 +50,8 @@ import (
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
+	resourceservice "github.com/juju/juju/domain/resource/service"
+	resourcestate "github.com/juju/juju/domain/resource/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -174,7 +176,6 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.storageRegistry,
-		store.NewResourceStoreFactory(s.objectstore),
 		s.modelUUID,
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -338,6 +339,20 @@ func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 	return blockcommandservice.NewService(
 		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("blockcommand"),
+	)
+}
+
+// Resource returns the service for persisting and retrieving application
+// resources for the current model.
+func (s *ModelServices) Resource() *resourceservice.Service {
+	return resourceservice.NewService(
+		resourcestate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+			s.clock,
+			s.logger.Child("resource.state"),
+		),
+		store.NewResourceStoreFactory(s.objectstore),
+		s.logger.Child("resource.service"),
 	)
 }
 

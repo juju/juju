@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/application"
 	coreresources "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
-	apperrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/resource"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -127,7 +127,7 @@ func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *gc.C) {
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Name:          "resource-name-not-found",
 	})
-	c.Assert(err, jc.ErrorIs, apperrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceNotFound verifies that attempting to retrieve a non-existent
@@ -140,7 +140,7 @@ func (s *resourceSuite) TestGetResourceNotFound(c *gc.C) {
 	_, err := s.state.GetResource(context.Background(), resID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, apperrors.ResourceNotFound, gc.Commentf("(Assert) unexpected error"))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Assert) unexpected error"))
 }
 
 // TestGetResource verifies the successful retrieval of a resource from the
@@ -331,7 +331,7 @@ func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *gc.C) {
 	})
 
 	// Assert: check expected error
-	c.Assert(err, jc.ErrorIs, apperrors.ApplicationNotFound, gc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, gc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
 }
 
 // TestSetUnitResourceNotYetSupplied verifies that a unit resource is correctly
@@ -511,7 +511,7 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSuppliedExistingSupplierWrongTy
 	})
 
 	// Assert: an error is returned, nothing is updated in the db
-	c.Check(err, jc.ErrorIs, apperrors.UnknownRetrievedByType)
+	c.Check(err, jc.ErrorIs, resourceerrors.UnknownRetrievedByType)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var discard string
 		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
@@ -539,7 +539,7 @@ func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 	})
 
 	// Assert: an error is returned, nothing is updated in the db
-	c.Check(err, jc.ErrorIs, apperrors.ResourceNotFound)
+	c.Check(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var discard string
 		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
@@ -576,7 +576,7 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 	})
 
 	// Assert: an error is returned, nothing is updated in the db
-	c.Check(err, jc.ErrorIs, apperrors.UnitNotFound)
+	c.Check(err, jc.ErrorIs, resourceerrors.UnitNotFound)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var discard string
 		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)

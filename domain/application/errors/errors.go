@@ -141,22 +141,6 @@ const (
 	// so if another is found, an error is returned.
 	MultipleCharmHashes = errors.ConstError("multiple charm hashes found")
 
-	// ResourceNotFound describes an error that occurs when a resource is
-	// not found.
-	ResourceNotFound = errors.ConstError("resource not found")
-
-	// UnknownResourceType describes an error where the resource type is
-	// not oci-image or file.
-	UnknownResourceType = errors.ConstError("unknown resource type")
-
-	// UnknownRetrievedByType describes an error where the retrieved by type is
-	// neither user, unit nor application.
-	UnknownRetrievedByType = errors.ConstError("unknown retrieved by type")
-
-	// ResourceNameNotValid describes an error where the resource name is not
-	// valid, usually because it's empty.
-	ResourceNameNotValid = errors.ConstError("resource name not valid")
-
 	// AlreadyDownloadingCharm describes an error that occurs when a charm is
 	// already being downloaded.
 	AlreadyDownloadingCharm = errors.ConstError("already downloading charm")
