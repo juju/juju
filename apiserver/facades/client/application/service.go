@@ -168,7 +168,7 @@ type ApplicationService interface {
 	// methods. That's because this method is very expensive to call. This is
 	// implemented for the cases where all the charm data is needed; model
 	// migration, charm export, etc.
-	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, applicationcharm.CharmOrigin, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 
 	// GetCharmMetadata returns the metadata for the charm using the charm ID.
 	GetCharmMetadata(ctx context.Context, id corecharm.ID) (internalcharm.Meta, error)

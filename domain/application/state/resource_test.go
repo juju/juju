@@ -55,7 +55,7 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 		var err error
 		fakeNetNodeUUID := "fake-net-node-uuid"
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm (uuid) VALUES (?)`, fakeCharmUUID)
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'app', 0)`, fakeCharmUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -754,7 +754,7 @@ func (d resourceData) DeepCopy() resourceData {
 // RetrievedByTypeID maps the RetrievedByType string to an integer ID based on
 // predefined categories.
 func (d resourceData) RetrievedByTypeID() int {
-	res, _ := map[string]int{
+	res := map[string]int{
 		"user":        0,
 		"unit":        1,
 		"application": 2,
@@ -764,7 +764,7 @@ func (d resourceData) RetrievedByTypeID() int {
 
 // TypeID returns the integer ID corresponding to the resource kind stored in d.Kind.
 func (d resourceData) TypeID() int {
-	res, _ := map[string]int{
+	res := map[string]int{
 		"file":      0,
 		"oci-image": 1,
 	}[d.Kind]
@@ -774,7 +774,7 @@ func (d resourceData) TypeID() int {
 // OriginTypeID maps the OriginType string to its corresponding integer ID
 // based on predefined categories.
 func (d resourceData) OriginTypeID() int {
-	res, _ := map[string]int{
+	res := map[string]int{
 		"uploaded": 0,
 		"store":    1,
 	}[d.OriginType]
@@ -783,7 +783,7 @@ func (d resourceData) OriginTypeID() int {
 
 // StateID returns the integer ID corresponding to the state stored in d.State.
 func (d resourceData) StateID() int {
-	res, _ := map[string]int{
+	res := map[string]int{
 		"available": 0,
 		"potential": 1,
 	}[d.State]

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -52,16 +53,11 @@ var _ = gc.Suite(&charmsMockSuite{})
 func (s *charmsMockSuite) TestListCharmsNoNames(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.applicationService.EXPECT().ListCharmsWithOriginByNames(gomock.Any(), []string{}).Return([]domaincharm.CharmWithOrigin{{
-		Name: "dummy",
-		CharmOrigin: domaincharm.CharmOrigin{
-			Source:        domaincharm.CharmHubSource,
-			ReferenceName: "dummy",
-			Revision:      1,
-			Platform: domaincharm.Platform{
-				Architecture: domaincharm.AMD64,
-			},
-		},
+	s.applicationService.EXPECT().ListCharmLocators(gomock.Any(), []string{}).Return([]domaincharm.CharmLocator{{
+		Name:         "dummy",
+		Source:       domaincharm.CharmHubSource,
+		Revision:     1,
+		Architecture: architecture.AMD64,
 	}}, nil)
 
 	api := s.api(c)
@@ -79,16 +75,11 @@ func (s *charmsMockSuite) TestListCharmsWithNames(c *gc.C) {
 	// We only return one of the names, because we couldn't find foo. This
 	// shouldn't stop us from returning the other charm url.
 
-	s.applicationService.EXPECT().ListCharmsWithOriginByNames(gomock.Any(), []string{"dummy", "foo"}).Return([]domaincharm.CharmWithOrigin{{
-		Name: "dummy",
-		CharmOrigin: domaincharm.CharmOrigin{
-			Source:        domaincharm.CharmHubSource,
-			ReferenceName: "dummy",
-			Revision:      1,
-			Platform: domaincharm.Platform{
-				Architecture: domaincharm.AMD64,
-			},
-		},
+	s.applicationService.EXPECT().ListCharmLocators(gomock.Any(), []string{"dummy", "foo"}).Return([]domaincharm.CharmLocator{{
+		Name:         "dummy",
+		Source:       domaincharm.CharmHubSource,
+		Revision:     1,
+		Architecture: architecture.AMD64,
 	}}, nil)
 
 	api := s.api(c)

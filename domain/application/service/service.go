@@ -15,19 +15,21 @@ import (
 	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -35,6 +37,7 @@ import (
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -278,7 +281,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 		table,
 		changestream.Create,
 		query,
-		func(ctx context.Context, _ coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)
 		},
 	)
@@ -418,41 +421,48 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error) {
+func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error) {
 	if err := id.Validate(); err != nil {
-		return nil, charm.CharmOrigin{}, fmt.Errorf("charm id: %w", err)
+		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	resultCharm, resultOrigin, err := s.st.GetCharm(ctx, id)
+	ch, err := s.st.GetCharm(ctx, id)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
-	metadata, err := decodeMetadata(resultCharm.Metadata)
+	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	manifest, err := decodeManifest(resultCharm.Manifest)
+	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	actions, err := decodeActions(resultCharm.Actions)
+	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	config, err := decodeConfig(resultCharm.Config)
+	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(resultCharm.LXDProfile)
+	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, charm.CharmOrigin{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
+	}
+
+	locator := charm.CharmLocator{
+		Name:         ch.ReferenceName,
+		Revision:     ch.Revision,
+		Source:       ch.Source,
+		Architecture: ch.Architecture,
 	}
 
 	return internalcharm.NewCharmBase(
@@ -461,7 +471,7 @@ func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (inter
 		&config,
 		&actions,
 		&lxdProfile,
-	), resultOrigin, nil
+	), locator, nil
 }
 
 // ImportApplication imports the specified application and units if required,
@@ -593,4 +603,113 @@ func validateStorageDirectives(
 		}
 	}
 	return nil
+}
+
+func encodeChannelAndPlatform(origin corecharm.Origin) (*application.Channel, application.Platform, error) {
+	channel, err := encodeChannel(origin.Channel)
+	if err != nil {
+		return nil, application.Platform{}, errors.Trace(err)
+	}
+
+	platform, err := encodePlatform(origin.Platform)
+	if err != nil {
+		return nil, application.Platform{}, errors.Trace(err)
+	}
+
+	return channel, platform, nil
+
+}
+
+func encodeCharmSource(source corecharm.Source) (charm.CharmSource, error) {
+	switch source {
+	case corecharm.Local:
+		return charm.LocalSource, nil
+	case corecharm.CharmHub:
+		return charm.CharmHubSource, nil
+	default:
+		return "", internalerrors.Errorf("unknown source %q, expected local or charmhub: %w", source, applicationerrors.CharmSourceNotValid)
+	}
+}
+
+func encodeChannel(ch *internalcharm.Channel) (*application.Channel, error) {
+	// Empty channels (not nil), with empty strings for track, risk and branch,
+	// will be normalized to "stable", so aren't officially empty.
+	// We need to handle that case correctly.
+	if ch == nil {
+		return nil, nil
+	}
+
+	// Always ensure to normalize the channel before encoding it, so that
+	// all channels saved to the database are in a consistent format.
+	normalize := ch.Normalize()
+
+	risk, err := encodeChannelRisk(normalize.Risk)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &application.Channel{
+		Track:  normalize.Track,
+		Risk:   risk,
+		Branch: normalize.Branch,
+	}, nil
+}
+
+func encodeChannelRisk(risk internalcharm.Risk) (application.ChannelRisk, error) {
+	switch risk {
+	case internalcharm.Stable:
+		return application.RiskStable, nil
+	case internalcharm.Candidate:
+		return application.RiskCandidate, nil
+	case internalcharm.Beta:
+		return application.RiskBeta, nil
+	case internalcharm.Edge:
+		return application.RiskEdge, nil
+	default:
+		return "", errors.Errorf("unknown risk %q, expected stable, candidate, beta or edge", risk)
+	}
+}
+
+func encodePlatform(platform corecharm.Platform) (application.Platform, error) {
+	ostype, err := encodeOSType(platform.OS)
+	if err != nil {
+		return application.Platform{}, errors.Trace(err)
+	}
+
+	arch := encodeArchitecture(platform.Architecture)
+	if err != nil {
+		return application.Platform{}, errors.Trace(err)
+	}
+
+	return application.Platform{
+		Channel:      platform.Channel,
+		OSType:       ostype,
+		Architecture: arch,
+	}, nil
+}
+
+func encodeOSType(os string) (application.OSType, error) {
+	switch ostype.OSTypeForName(os) {
+	case ostype.Ubuntu:
+		return application.Ubuntu, nil
+	default:
+		return 0, errors.Errorf("unknown os type %q, expected ubuntu", os)
+	}
+}
+
+func encodeArchitecture(a string) application.Architecture {
+	switch a {
+	case arch.AMD64:
+		return architecture.AMD64
+	case arch.ARM64:
+		return architecture.ARM64
+	case arch.PPC64EL:
+		return architecture.PPC64EL
+	case arch.S390X:
+		return architecture.S390X
+	case arch.RISCV64:
+		return architecture.RISV64
+	default:
+		return architecture.Unknown
+	}
 }

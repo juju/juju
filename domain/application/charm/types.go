@@ -6,6 +6,9 @@ package charm
 import (
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -56,7 +59,7 @@ type SetCharmArgs struct {
 	// Charm is the charm to set.
 	Charm internalcharm.Charm
 	// Source is the source of the charm.
-	Source internalcharm.Schema
+	Source charm.Source
 	// ReferenceName is the given name of the charm that is stored in the
 	// persistent storage. The proxy name should either be the application name
 	// or the charm metadata name.
@@ -77,6 +80,8 @@ type SetCharmArgs struct {
 	ArchivePath string
 	// Version is the optional charm version.
 	Version string
+	// Architecture is the architecture of the charm.
+	Architecture arch.Arch
 }
 
 // Revision is the charm revision.
@@ -84,8 +89,22 @@ type SetCharmArgs struct {
 // the context of return arguments.
 type Revision = int
 
-// SetStateArgs holds the arguments for the SetState method.
-type SetStateArgs struct {
+// Charm represents a charm from the perspective of the service. This is the
+// golden source of charm information. If the charm changes at the wire format
+// level, we should be able to map it to this struct.
+type Charm struct {
+	// Metadata holds the metadata of the charm.
+	Metadata Metadata
+	// Manifest holds the manifest of the charm. It defines the bases that
+	// the charm supports.
+	Manifest Manifest
+	// Actions holds the actions of the charm.
+	Actions Actions
+	// Config holds the configuration options of the charm.
+	Config Config
+	// LXDProfile holds the LXD profile of the charm. It allows the charm to
+	// specify the LXD profile that should be used when deploying the charm.
+	LXDProfile []byte
 	// Source is the source of the charm.
 	Source CharmSource
 	// ReferenceName is the given name of the charm that is stored in the
@@ -108,83 +127,28 @@ type SetStateArgs struct {
 	ArchivePath string
 	// Version is the optional charm version.
 	Version string
-	// Platform is the platform of the charm.
-	Platform Platform
+	// Architecture is the architecture of the charm. The only reason this
+	// is here is to allow us to reconstruct the charm URL purely from the
+	// charm.
+	Architecture architecture.Architecture
+	// Available indicates whether the charm is available and ready to use.
+	Available bool
 }
 
-// Charm represents a charm from the perspective of the service. This is the
-// golden source of charm information. If the charm changes at the wire format
-// level, we should be able to map it to this struct.
-type Charm struct {
-	// Metadata holds the metadata of the charm.
-	Metadata Metadata
-	// Manifest holds the manifest of the charm. It defines the bases that
-	// the charm supports.
-	Manifest Manifest
-	// Actions holds the actions of the charm.
-	Actions Actions
-	// Config holds the configuration options of the charm.
-	Config Config
-	// LXDProfile holds the LXD profile of the charm. It allows the charm to
-	// specify the LXD profile that should be used when deploying the charm.
-	LXDProfile []byte
-}
-
-// CharmOrigin holds additional origin about a charm, that is not part of
-// the charm metadata or manifest. The origin holds information for a charm
-// regarding where it came from.
-type CharmOrigin struct {
-	// ReferenceName is the given name of the charm that is stored in the
-	// persistent storage. The proxy name should either be the application name
-	// or the charm metadata name.
-	//
-	// The name of a charm can differ from the charm name stored in the metadata
-	// in the cases where the application name is selected by the user. In order
-	// to select that charm again via the name, we need to use the proxy name to
-	// locate it. You can't go via the application and select it via the
-	// application name, as no application might be referencing it at that
-	// specific revision. The only way to then locate the charm directly via the
-	// name is use the proxy name.
-	ReferenceName string
-	// Source is the source of the charm. This is either local or charmhub.
-	Source CharmSource
-	// Revision is the revision of the charm.
-	Revision int
-	// Platform is the platform of the charm.
-	Platform Platform
-}
-
-// CharmWithOrigin represents a charm with its origin.
-type CharmWithOrigin struct {
-	CharmOrigin
-
+// CharmLocator represents the parts of a charm that are needed to locate it
+// in the same way as a charm URL.
+type CharmLocator struct {
 	// Name is the name of the charm.
 	Name string
-}
 
-// OSType represents the type of an application's OS.
-type OSType int
+	// Revision is the revision of the charm.
+	Revision int
 
-const (
-	Ubuntu OSType = iota
-)
+	// Source is the source of the charm.
+	Source CharmSource
 
-// Architecture represents an application's architecture.
-type Architecture int
-
-const (
-	AMD64 Architecture = iota
-	ARM64
-	PPC64EL
-	S390X
-	RISV64
-)
-
-// Platform contains parameters for an application's platform.
-type Platform struct {
-	Channel      string
-	OSType       OSType
-	Architecture Architecture
+	// Architecture is the architecture of the charm.
+	Architecture architecture.Architecture
 }
 
 // Metadata represents the metadata of a charm from the perspective of the

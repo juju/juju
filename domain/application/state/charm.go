@@ -8,20 +8,13 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
-)
-
-// hashKind is the type of hash to store.
-type hashKind = int
-
-const (
-	// sha256HashKind is the ID for the SHA256 hash kind.
-	sha256HashKind hashKind = 0
 )
 
 // GetCharmID returns the charm ID by the natural key, for a
@@ -33,19 +26,24 @@ func (s *State) GetCharmID(ctx context.Context, name string, revision int, sourc
 		return "", internalerrors.Capture(err)
 	}
 
-	var ident charmUUID
+	sourceID, err := encodeCharmSource(source)
+	if err != nil {
+		return "", internalerrors.Errorf("failed to encode charm source: %w", err)
+	}
+
+	var ident charmID
 	charmRef := charmReferenceNameRevisionSource{
 		ReferenceName: name,
 		Revision:      revision,
-		Source:        string(source),
+		Source:        sourceID,
 	}
 
 	query := `
-SELECT &charmUUID.*
-FROM v_charm_origin
+SELECT &charmID.*
+FROM charm
 WHERE reference_name = $charmReferenceNameRevisionSource.reference_name
 AND revision = $charmReferenceNameRevisionSource.revision
-AND source = $charmReferenceNameRevisionSource.source;
+AND source_id = $charmReferenceNameRevisionSource.source_id;
 `
 	stmt, err := s.Prepare(query, ident, charmRef)
 	if err != nil {
@@ -58,12 +56,12 @@ AND source = $charmReferenceNameRevisionSource.source;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to get charm ID: %w", err)
+			return internalerrors.Errorf("getting charm ID: %w", err)
 		}
 		id = corecharm.ID(ident.UUID)
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("failed to get charm id by revision and source: %w", err)
+		return "", internalerrors.Errorf("getting charm id by revision and source: %w", err)
 	}
 	return id, nil
 }
@@ -96,7 +94,7 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to get charm ID: %w", err)
+			return internalerrors.Errorf("getting charm ID: %w", err)
 		}
 		isController = result.Name == "juju-controller"
 		return nil
@@ -134,7 +132,7 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to get charm ID: %w", err)
+			return internalerrors.Errorf("getting charm ID: %w", err)
 		}
 		isSubordinate = result.Subordinate
 		return nil
@@ -173,7 +171,7 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to get charm ID: %w", err)
+			return internalerrors.Errorf("getting charm ID: %w", err)
 		}
 		var num int
 		for _, r := range result {
@@ -216,7 +214,7 @@ WHERE uuid = $charmID.uuid;
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
-			return internalerrors.Errorf("failed to get charm ID: %w", err)
+			return internalerrors.Errorf("getting charm ID: %w", err)
 		}
 		isAvailable = result.Available
 		return nil
@@ -276,81 +274,6 @@ WHERE uuid = $charmID.uuid;
 	}
 
 	return nil
-}
-
-// ReserveCharmRevision defines a placeholder for a new charm revision.
-// The original charm will need to exist, the returning charm ID will be
-// the new charm ID for the revision.
-func (s *State) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
-	db, err := s.DB()
-	if err != nil {
-		return "", internalerrors.Capture(err)
-	}
-
-	var reserveCharmResult reserveCharm
-	ident := charmID{UUID: id.String()}
-
-	selectQuery := `
-SELECT &reserveCharm.*
-FROM charm
-JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
-JOIN charm_origin AS co ON charm.uuid = co.charm_uuid
-WHERE uuid = $charmID.uuid;
-`
-	selectStmt, err := s.Prepare(selectQuery, ident, reserveCharmResult)
-	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	insertCharmQuery := `INSERT INTO charm (*) VALUES ($charmID.*);`
-	insertCharmStmt, err := s.Prepare(insertCharmQuery, ident)
-	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	insertCharmMetadataQuery := `INSERT INTO charm_metadata (*) VALUES ($setCharmMetadata.*);`
-	insertCharmMetadataStmt, err := s.Prepare(insertCharmMetadataQuery, setCharmMetadata{})
-	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	insertCharmOriginQuery := `INSERT INTO charm_origin (*) VALUES ($setCharmOrigin.*);`
-	insertCharmOriginStmt, err := s.Prepare(insertCharmOriginQuery, setCharmOrigin{})
-	if err != nil {
-		return "", internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	newID, err := corecharm.NewID()
-	if err != nil {
-		return "", internalerrors.Errorf("failed to reserve charm revision: %w", err)
-	}
-
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, selectStmt, ident).Get(&reserveCharmResult); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-			return internalerrors.Errorf("failed to reserve charm revision: %w", err)
-		}
-
-		if err := tx.Query(ctx, insertCharmStmt, charmID{UUID: newID.String()}).Run(); err != nil {
-			return internalerrors.Errorf("failed to reserve charm revision: inserting charm: %w", err)
-		}
-
-		if err := tx.Query(ctx, insertCharmMetadataStmt, setCharmMetadata{CharmUUID: newID.String(), Name: reserveCharmResult.Name}).Run(); err != nil {
-			return internalerrors.Errorf("failed to reserve charm revision: inserting charm_metadata: %w", err)
-		}
-
-		if err := tx.Query(ctx, insertCharmOriginStmt, setCharmOrigin{CharmUUID: newID.String(), ReferenceName: reserveCharmResult.Name}).Run(); err != nil {
-			return internalerrors.Errorf("failed to reserve charm revision: inserting charm_origin: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return "", internalerrors.Errorf("failed to reserve charm revision: %w", err)
-	}
-
-	return newID, nil
 }
 
 // GetCharmArchivePath returns the archive storage path for the charm using
@@ -449,7 +372,7 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 		charmMetadata, err = s.getMetadata(ctx, tx, ident)
 		return internalerrors.Capture(err)
 	}); err != nil {
-		return charm.Metadata{}, internalerrors.Errorf("failed to get charm metadata: %w", err)
+		return charm.Metadata{}, internalerrors.Errorf("getting charm metadata: %w", err)
 	}
 
 	return charmMetadata, nil
@@ -623,39 +546,32 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 
 // GetCharm returns the charm using the charm ID.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, charm.CharmOrigin, error) {
+func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Charm{}, charm.CharmOrigin{}, internalerrors.Capture(err)
+		return charm.Charm{}, internalerrors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
 
-	var (
-		ch     charm.Charm
-		origin charm.CharmOrigin
-	)
+	var ch charm.Charm
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		ch, err = s.getCharm(ctx, tx, ident)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
-		origin, err = s.getCharmOrigin(ctx, tx, ident)
-		if err != nil {
-			return internalerrors.Capture(err)
-		}
 		return nil
 	}); err != nil {
-		return ch, origin, internalerrors.Errorf("failed to get charm: %w", err)
+		return ch, internalerrors.Errorf("getting charm: %w", err)
 	}
 
-	return ch, origin, nil
+	return ch, nil
 }
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm.SetStateArgs) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -670,25 +586,11 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm
 		// Check the charm doesn't already exist, if it does, return an already
 		// exists error. Also doing this early, prevents the moving straight
 		// to a write transaction.
-		if _, err := s.checkCharmReferenceExists(ctx, tx, charmArgs.ReferenceName, charmArgs.Revision); err != nil {
+		if _, err := s.checkCharmReferenceExists(ctx, tx, charm.ReferenceName, charm.Revision); err != nil {
 			return internalerrors.Capture(err)
 		}
 
-		if err := s.setCharm(ctx, tx, id, charm, charmArgs.ArchivePath); err != nil {
-			return internalerrors.Capture(err)
-		}
-
-		if err := s.setCharmHash(ctx, tx, id, charmArgs.Hash); err != nil {
-			return internalerrors.Capture(err)
-		}
-
-		if err := s.setCharmInitialOrigin(
-			ctx, tx, id, charmArgs.ReferenceName, charmArgs.Source, charmArgs.Revision, charmArgs.Version,
-		); err != nil {
-			return internalerrors.Capture(err)
-		}
-
-		if err := s.setCharmPlatform(ctx, tx, id, charmArgs.Platform); err != nil {
+		if err := s.setCharm(ctx, tx, id, charm); err != nil {
 			return internalerrors.Capture(err)
 		}
 
@@ -700,43 +602,44 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm
 	return id, nil
 }
 
-// ListCharmsWithOrigin returns a list of charms with the specified origin.
-// We require the origin, so we can reconstruct the charm URL for the
-// client response.
-func (s *State) ListCharmsWithOrigin(ctx context.Context) ([]charm.CharmWithOrigin, error) {
+// ListCharmLocatorsByNames returns a list of charm locators.
+// The locator allows the reconstruction of the charm URL for the client
+// response.
+func (s *State) ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
 	query := `
-SELECT &charmNameWithOrigin.*
-FROM v_charm_list_name_origin;
+SELECT &charmLocator.*
+FROM v_charm_locator;
 `
-	stmt, err := s.Prepare(query, charmNameWithOrigin{})
+	stmt, err := s.Prepare(query, charmLocator{})
 	if err != nil {
 		return nil, internalerrors.Errorf("preparing query: %w", err)
 	}
 
-	var results []charmNameWithOrigin
+	var results []charmLocator
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt).GetAll(&results); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return internalerrors.Errorf("getting charms with origin: %w", err)
+			return internalerrors.Errorf("getting charm locators: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return nil, internalerrors.Errorf("listing charms with origin: %w", err)
+		return nil, internalerrors.Errorf("listing charm locators: %w", err)
 	}
 
-	return decodeListCharmsWithOrigin(results)
+	return decodeCharmLocators(results)
 }
 
-// ListCharmsWithOrigin returns a list of charms with the specified origin.
-// We require the origin, so we can reconstruct the charm URL for the
-// client response.
-func (s *State) ListCharmsWithOriginByNames(ctx context.Context, names []string) ([]charm.CharmWithOrigin, error) {
+// ListCharmLocatorsByNames returns a list of charm locators for the specified
+// charm names.
+// The locator allows the reconstruction of the charm URL for the client
+// response. If no names are provided, then nothing is returned.
+func (s *State) ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -745,58 +648,49 @@ func (s *State) ListCharmsWithOriginByNames(ctx context.Context, names []string)
 	type nameSelector []string
 
 	query := `
-SELECT &charmNameWithOrigin.*
-FROM v_charm_list_name_origin
+SELECT &charmLocator.*
+FROM v_charm_locator
 WHERE name IN ($nameSelector[:]);
 `
-	stmt, err := s.Prepare(query, charmNameWithOrigin{}, nameSelector(names))
+	stmt, err := s.Prepare(query, charmLocator{}, nameSelector(names))
 	if err != nil {
 		return nil, internalerrors.Errorf("preparing query: %w", err)
 	}
 
-	var results []charmNameWithOrigin
+	var results []charmLocator
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, nameSelector(names)).GetAll(&results); errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return internalerrors.Errorf("getting charms with origin: %w", err)
+			return internalerrors.Errorf("getting charm locators by names: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return nil, internalerrors.Errorf("listing charms with origin: %w", err)
+		return nil, internalerrors.Errorf("listing charm locators by names: %w", err)
 	}
 
-	return decodeListCharmsWithOrigin(results)
+	return decodeCharmLocators(results)
 }
 
-func decodeListCharmsWithOrigin(results []charmNameWithOrigin) ([]charm.CharmWithOrigin, error) {
-	charmsWithOrigin := make([]charm.CharmWithOrigin, len(results))
-	for i, c := range results {
-
-		source, err := decodeOriginSource(c.Source)
+func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
+	return transform.SliceOrErr(results, func(c charmLocator) (charm.CharmLocator, error) {
+		source, err := decodeCharmSource(c.SourceID)
 		if err != nil {
-			return nil, internalerrors.Errorf("decoding charm origin source: %w", err)
+			return charm.CharmLocator{}, err
 		}
 
 		architecture, err := decodeArchitecture(c.ArchitectureID)
 		if err != nil {
-			return nil, internalerrors.Errorf("decoding architecture: %w", err)
+			return charm.CharmLocator{}, err
 		}
 
-		charmsWithOrigin[i] = charm.CharmWithOrigin{
-			Name: c.Name,
-			CharmOrigin: charm.CharmOrigin{
-				ReferenceName: c.ReferenceName,
-				Source:        source,
-				Revision:      c.Revision,
-				Platform: charm.Platform{
-					Architecture: architecture,
-				},
-			},
-		}
-	}
-
-	return charmsWithOrigin, nil
+		return charm.CharmLocator{
+			Name:         c.Name,
+			Revision:     c.Revision,
+			Source:       source,
+			Architecture: architecture,
+		}, nil
+	})
 }
 
 var tablesToDeleteFrom = []string{
@@ -809,9 +703,7 @@ var tablesToDeleteFrom = []string{
 	"charm_extra_binding",
 	"charm_hash",
 	"charm_manifest_base",
-	"charm_origin",
 	"charm_payload",
-	"charm_platform",
 	"charm_relation",
 	"charm_resource",
 	"charm_metadata",
@@ -885,188 +777,4 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	}
 
 	return nil
-}
-
-func (s *State) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
-	ident := charmID{UUID: id.String()}
-	args := setCharmHash{
-		CharmUUID:  ident.UUID,
-		HashKindID: sha256HashKind,
-		Hash:       hash,
-	}
-
-	query := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
-	stmt, err := s.Prepare(query, args)
-	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	if err := tx.Query(ctx, stmt, args).Run(); err != nil {
-		return internalerrors.Errorf("failed to insert charm hash: %w", err)
-	}
-
-	return nil
-}
-
-func (s *State) setCharmInitialOrigin(
-	ctx context.Context, tx *sqlair.TX, id corecharm.ID,
-	referenceName string,
-	source charm.CharmSource, revision int, version string) error {
-	ident := charmID{UUID: id.String()}
-
-	encodedOriginSource, err := encodeOriginSource(source)
-	if err != nil {
-		return internalerrors.Errorf("failed to encode charm origin source: %w", err)
-	}
-
-	args := setInitialCharmOrigin{
-		CharmUUID:     ident.UUID,
-		ReferenceName: referenceName,
-		SourceID:      encodedOriginSource,
-		Revision:      revision,
-		Version:       version,
-	}
-
-	query := `INSERT INTO charm_origin (*) VALUES ($setInitialCharmOrigin.*);`
-	stmt, err := s.Prepare(query, args)
-	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	if err := tx.Query(ctx, stmt, args).Run(); err != nil {
-		return internalerrors.Errorf("failed to insert charm origin: %w", err)
-	}
-
-	return nil
-}
-
-func (s *State) setCharmPlatform(ctx context.Context, tx *sqlair.TX, id corecharm.ID, platform charm.Platform) error {
-	ident := charmID{UUID: id.String()}
-
-	ostypeID, err := encodeOSType(platform.OSType)
-	if err != nil {
-		return internalerrors.Errorf("failed to encode os type: %w", err)
-	}
-
-	architectureID, err := encodeArchitecture(platform.Architecture)
-	if err != nil {
-		return internalerrors.Errorf("failed to encode architecture: %w", err)
-	}
-
-	args := charmPlatform{
-		CharmUUID:      ident.UUID,
-		OSTypeID:       ostypeID,
-		ArchitectureID: architectureID,
-		Channel:        platform.Channel,
-	}
-
-	query := `INSERT INTO charm_platform (*) VALUES ($charmPlatform.*);`
-	stmt, err := s.Prepare(query, args)
-	if err != nil {
-		return internalerrors.Errorf("failed to prepare query: %w", err)
-	}
-
-	if err := tx.Query(ctx, stmt, args).Run(); err != nil {
-		return internalerrors.Errorf("failed to insert charm platform: %w", err)
-	}
-
-	return nil
-}
-
-func encodeOSType(os charm.OSType) (int, error) {
-	switch os {
-	case charm.Ubuntu:
-		return 0, nil
-	default:
-		return 0, internalerrors.Errorf("unsupported os type: %q", os)
-	}
-}
-
-func encodeArchitecture(a charm.Architecture) (int, error) {
-	switch a {
-	case charm.AMD64:
-		return 0, nil
-	case charm.ARM64:
-		return 1, nil
-	case charm.PPC64EL:
-		return 2, nil
-	case charm.S390X:
-		return 3, nil
-	case charm.RISV64:
-		return 4, nil
-	default:
-		return 0, internalerrors.Errorf("unsupported architecture: %q", a)
-	}
-}
-
-func encodeOriginSource(source charm.CharmSource) (int, error) {
-	switch source {
-	case charm.LocalSource:
-		return 0, nil
-	case charm.CharmHubSource:
-		return 1, nil
-	default:
-		return 0, internalerrors.Errorf("unsupported source type: %q", source)
-	}
-}
-
-func decodeCharmOrigin(origin charmOrigin, platform charmPlatform) (charm.CharmOrigin, error) {
-	source, err := decodeOriginSource(origin.Source)
-	if err != nil {
-		return charm.CharmOrigin{}, internalerrors.Errorf("failed to decode charm origin source: %w", err)
-	}
-
-	p, err := decodeCharmPlatform(platform)
-	if err != nil {
-		return charm.CharmOrigin{}, internalerrors.Errorf("failed to decode platform: %w", err)
-	}
-
-	return charm.CharmOrigin{
-		ReferenceName: origin.ReferenceName,
-		Source:        source,
-		Revision:      origin.Revision,
-		Platform:      p,
-	}, nil
-}
-
-func decodeOriginSource(source string) (charm.CharmSource, error) {
-	switch source {
-	case "local":
-		return charm.LocalSource, nil
-	case "charmhub":
-		return charm.CharmHubSource, nil
-	default:
-		return "", internalerrors.Errorf("unsupported source type: %s", source)
-	}
-}
-
-func encodeCharmOriginSource(source charm.CharmSource) int {
-	// This should have been validated multiple times at the service layer, so
-	// we don't need to revalidate it here.
-
-	// The default will be charmhub for now, as we need to pick something.
-	switch source {
-	case charm.LocalSource:
-		return 0
-	default:
-		return 1
-	}
-}
-
-func decodeCharmPlatform(platform charmPlatform) (charm.Platform, error) {
-	osType, err := decodeOSType(platform.OSTypeID)
-	if err != nil {
-		return charm.Platform{}, internalerrors.Errorf("failed to decode os type: %w", err)
-	}
-
-	arch, err := decodeArchitecture(platform.ArchitectureID)
-	if err != nil {
-		return charm.Platform{}, internalerrors.Errorf("failed to decode architecture: %w", err)
-	}
-
-	return charm.Platform{
-		Channel:      platform.Channel,
-		OSType:       osType,
-		Architecture: arch,
-	}, nil
 }

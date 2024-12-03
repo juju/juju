@@ -678,23 +678,15 @@ func (s *stateSuite) setupUnits(c *gc.C, appName string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		charmUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid)
-VALUES (?);
-`, charmUUID)
+INSERT INTO charm (uuid, reference_name, architecture_id)
+VALUES (?, ?, 0);
+`, charmUUID, appName)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, ?);
-		`, charmUUID, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_origin (charm_uuid, reference_name)
 VALUES (?, ?);
 		`, charmUUID, appName)
 		if err != nil {

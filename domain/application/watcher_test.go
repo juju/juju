@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
@@ -69,9 +70,10 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		id, _, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
 			Charm:         &stubCharm{},
-			Source:        internalcharm.CharmHub,
+			Source:        corecharm.CharmHub,
 			ReferenceName: "test",
 			Revision:      1,
+			Architecture:  arch.AMD64,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {

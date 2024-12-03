@@ -13,6 +13,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -64,21 +65,20 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			Name:  "ubuntu",
 			RunAs: "default",
 		},
+		ReferenceName: "ubuntu",
+		Source:        domaincharm.CharmHubSource,
+		Revision:      42,
+		Architecture:  architecture.ARM64,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
-		OSType:       domaincharm.Ubuntu,
-		Architecture: domaincharm.ARM64,
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
 	}
 	app := application.AddApplicationArg{
 		Charm:    ch,
 		Platform: platform,
-		Origin: domaincharm.CharmOrigin{
-			ReferenceName: "ubuntu",
-			Source:        domaincharm.CharmHubSource,
-			Revision:      42,
-		},
-		Scale: 1,
+		Scale:    1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)

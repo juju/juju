@@ -358,21 +358,14 @@ VALUES (?, "node2", ?, "0")`, uuid, id)
 func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid)
-VALUES (?)`, uuid)
+INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
+VALUES (?, 0, ?, 1, 0)`, uuid, name)
 		if err != nil {
 			return err
 		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, 'myapp')`, uuid)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_origin (charm_uuid, reference_name)
 VALUES (?, 'myapp')`, uuid)
 		if err != nil {
 			return err
@@ -413,8 +406,8 @@ func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid)
-VALUES (?)`, uuid)
+INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
+VALUES (?, ?, ?, ?, 0)`, uuid, source, parts.Name, parts.Revision)
 		if err != nil {
 			return err
 		}
@@ -427,12 +420,6 @@ VALUES (?, ?)
 			return err
 		}
 
-		if _, err := tx.ExecContext(ctx, `
-INSERT INTO charm_origin (charm_uuid, source_id, reference_name, revision) 
-VALUES (?, ?, ?, ?)
-`, uuid, source, parts.Name, parts.Revision); err != nil {
-			return err
-		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)

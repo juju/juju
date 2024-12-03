@@ -22,8 +22,51 @@ CREATE TABLE charm (
     -- Archive path is the path to the charm archive on disk. This is used to
     -- determine the source of the charm.
     archive_path TEXT,
-    available BOOLEAN DEFAULT FALSE
+    available BOOLEAN DEFAULT FALSE,
+
+    -- charmhub_identifier is the identifier that charmhub uses to identify the
+    -- charm. This is used to refresh the charm from charmhub. The
+    -- reference_name can change but the charmhub_identifier will not.
+    charmhub_identifier TEXT,
+    version TEXT,
+
+    -- The following fields are purely here to reconstruct the charm URL.
+    -- Once we have the ability to only talk about charms in terms of a UUID,
+    -- these fields can be removed.
+    -- These values are not intended to be used for any other purpose, they
+    -- should not be used as a way to "derive" the charm origin. That concept
+    -- is for applications.
+
+    source_id INT NOT NULL DEFAULT 1,
+    revision INT NOT NULL DEFAULT -1,
+
+    -- architecture_id may be null for local charms.
+    architecture_id INT,
+
+    -- reference_name is the name of the charm that was originally supplied.
+    -- The charm name can be different from the actual charm name in the
+    -- metadata. If it's downloaded from charmhub the reference_name will be
+    -- the name of the charm in the charmhub store. This is the transient
+    -- name of the charm.
+    --
+    -- This can happen if the charm was uploaded to charmhub with a different
+    -- name than the charm name in the metadata.yaml file.
+    reference_name TEXT NOT NULL,
+
+    CONSTRAINT fk_charm_source_source
+    FOREIGN KEY (source_id)
+    REFERENCES charm_source (id),
+    CONSTRAINT fk_charm_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id),
+
+    -- Ensure we have an architecture if the source is charmhub.
+    CONSTRAINT chk_charm_architecture
+    CHECK (source_id = 0 OR source_id = 1 AND architecture_id >= 0)
 );
+
+CREATE UNIQUE INDEX idx_charm_reference_name_revision
+ON charm (reference_name, revision);
 
 CREATE TABLE charm_metadata (
     charm_uuid TEXT NOT NULL,
@@ -76,80 +119,13 @@ INSERT INTO charm_source VALUES
 (0, 'local'),
 (1, 'charmhub');
 
-CREATE TABLE charm_origin (
-    charm_uuid TEXT NOT NULL,
-    -- reference_name is the name of the charm that was originally supplied.
-    -- The charm name can be different from the actual charm name in the
-    -- metadata. If it's downloaded from charmhub the reference_name will be
-    -- the name of the charm in the charmhub store. This is the transient
-    -- name of the charm.
-    --
-    -- This can happen if the charm was uploaded to charmhub with a different
-    -- name than the charm name in the metadata.yaml file.
-    reference_name TEXT NOT NULL,
-    source_id INT NOT NULL DEFAULT 1,
-    -- charmhub_identifier is the identifier that charmhub uses to identify the
-    -- charm. This is used to refresh the charm from charmhub. The
-    -- reference_name can change but the charmhub_identifier will not.
-    charmhub_identifier TEXT,
-    revision INT NOT NULL DEFAULT -1,
-    version TEXT,
-    CONSTRAINT fk_charm_source_source
-    FOREIGN KEY (source_id)
-    REFERENCES charm_source (id),
-    CONSTRAINT fk_charm_origin_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid)
-);
-
-CREATE UNIQUE INDEX idx_charm_origin_reference_name_revision
-ON charm_origin (reference_name, revision);
-
-CREATE VIEW v_charm_origin AS
-SELECT
-    co.charm_uuid,
-    co.reference_name,
-    cs.name AS source,
-    co.charmhub_identifier,
-    co.revision,
-    co.version
-FROM charm_origin AS co
-LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
-
 CREATE VIEW v_charm_annotation_index AS
 SELECT
     c.uuid,
-    cm.name,
-    co.revision
+    c.revision,
+    cm.name
 FROM charm AS c
-LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
-LEFT JOIN charm_origin AS co ON c.uuid = co.charm_uuid;
-
-CREATE TABLE charm_platform (
-    charm_uuid TEXT NOT NULL,
-    os_id TEXT NOT NULL,
-    channel TEXT,
-    architecture_id INT NOT NULL,
-    CONSTRAINT fk_charm_platform_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    CONSTRAINT fk_charm_platform_os
-    FOREIGN KEY (os_id)
-    REFERENCES os (id),
-    CONSTRAINT fk_charm_platform_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
-);
-
-CREATE VIEW v_charm_platform AS
-SELECT
-    cp.charm_uuid,
-    os.name AS os,
-    cp.channel,
-    architecture.name AS architecture
-FROM charm_platform AS cp
-LEFT JOIN os ON cp.os_id = os.id
-LEFT JOIN architecture ON cp.architecture_id = architecture.id;
+LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
 
 CREATE TABLE hash_kind (
     id INT PRIMARY KEY,
@@ -593,13 +569,12 @@ SELECT
 FROM charm_config AS cc
 LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;
 
-CREATE VIEW v_charm_list_name_origin AS
+CREATE VIEW v_charm_locator AS
 SELECT
-    cm.name,
-    co.reference_name,
-    co.source,
-    co.revision,
-    cp.architecture_id
-FROM v_charm_metadata AS cm
-INNER JOIN v_charm_origin AS co ON cm.uuid = co.charm_uuid
-INNER JOIN charm_platform AS cp ON cm.uuid = cp.charm_uuid;
+    c.reference_name,
+    c.revision,
+    c.source_id,
+    c.architecture_id,
+    cm.name
+FROM charm AS c
+INNER JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;

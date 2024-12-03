@@ -14,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -25,7 +26,7 @@ import (
 // information.
 type CharmService interface {
 	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmOrigin, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // CharmInfoAPI implements the charms interface and is the concrete
@@ -83,12 +84,12 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	aCharm, aOrigin, err := a.service.GetCharm(ctx, id)
+	ch, locator, err := a.service.GetCharm(ctx, id)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	return convertCharm(aCharm.Meta().Name, aCharm, aOrigin, aOrigin.Platform)
+	return convertCharm(ch.Meta().Name, ch, locator)
 }
 
 // ApplicationService is the interface that the ApplicationCharmInfoAPI
@@ -99,7 +100,7 @@ type ApplicationService interface {
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 	// GetCharmByApplicationID returns the charm for the specified application
 	// ID.
-	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, applicationcharm.CharmOrigin, application.Platform, error)
+	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
@@ -139,7 +140,7 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	ch, origin, platform, err := a.service.GetCharmByApplicationID(ctx, appID)
+	ch, locator, err := a.service.GetCharmByApplicationID(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.Charm{}, errors.NotFoundf("application %q", appName)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
@@ -148,7 +149,7 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	return convertCharm(appName, ch, origin, platform)
+	return convertCharm(appName, ch, locator)
 }
 
 func convertSource(source applicationcharm.CharmSource) (string, error) {
@@ -164,32 +165,33 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 
 func convertApplication(arch application.Architecture) (string, error) {
 	switch arch {
-	case applicationcharm.AMD64:
+	case architecture.AMD64:
 		return "amd64", nil
-	case applicationcharm.ARM64:
+	case architecture.ARM64:
 		return "arm64", nil
-	case applicationcharm.PPC64EL:
+	case architecture.PPC64EL:
 		return "ppc64el", nil
-	case applicationcharm.S390X:
+	case architecture.S390X:
 		return "s390x", nil
-	case applicationcharm.RISV64:
+	case architecture.RISV64:
 		return "riscv64", nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
 	default:
 		return "", errors.Errorf("unsupported architecture %q", arch)
 	}
 }
 
-func convertCharm(
-	name string, ch charm.Charm,
-	origin applicationcharm.CharmOrigin,
-	platform applicationcharm.Platform,
-) (params.Charm, error) {
-	schema, err := convertSource(origin.Source)
+func convertCharm(name string, ch charm.Charm, locator applicationcharm.CharmLocator) (params.Charm, error) {
+	schema, err := convertSource(locator.Source)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	architecture, err := convertApplication(platform.Architecture)
+	architecture, err := convertApplication(locator.Architecture)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
@@ -197,12 +199,12 @@ func convertCharm(
 	url := charm.URL{
 		Schema:       schema,
 		Name:         name,
-		Revision:     origin.Revision,
+		Revision:     locator.Revision,
 		Architecture: architecture,
 	}
 
 	result := params.Charm{
-		Revision: origin.Revision,
+		Revision: locator.Revision,
 		URL:      url.String(),
 		Config:   params.ToCharmOptionMap(ch.Config()),
 		Meta:     convertCharmMeta(ch.Meta()),

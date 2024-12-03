@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/schema/testing"
@@ -39,6 +40,9 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 			Metadata: charm.Metadata{
 				Name: "app",
 			},
+			ReferenceName: "app",
+			Source:        charm.LocalSource,
+			Architecture:  architecture.AMD64,
 		},
 	}
 

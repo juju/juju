@@ -231,14 +231,20 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, c
 	// the object store.
 	// This can be done, once all the charm service methods are being used,
 	// instead of the state methods.
+	csSource := corecharm.CharmHub
+	if source == charm.Local {
+		csSource = corecharm.Local
+	}
+
 	if _, _, err := charmService.SetCharm(r.Context(), applicationcharm.SetCharmArgs{
 		Charm:         ch,
-		Source:        source,
+		Source:        csSource,
 		ReferenceName: curl.Name,
 		Revision:      curl.Revision,
 		Hash:          sha,
 		ArchivePath:   storagePath,
 		Version:       version,
+		Architecture:  curl.Architecture,
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}

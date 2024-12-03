@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/charm"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -15,12 +16,10 @@ import (
 
 // AddApplicationArg contains parameters for saving an application to state.
 type AddApplicationArg struct {
-	Charm            domaincharm.Charm
-	Origin           domaincharm.CharmOrigin
-	Scale            int
-	Platform         Platform
-	Channel          *Channel
-	CharmStoragePath string
+	Charm    domaincharm.Charm
+	Scale    int
+	Platform Platform
+	Channel  *Channel
 }
 
 // Channel represents the channel of a application charm.
@@ -43,14 +42,22 @@ const (
 	RiskEdge      ChannelRisk = "edge"
 )
 
-// Platform represents the platform of a application charm.
-type Platform = domaincharm.Platform
+// OSType represents the type of an application's OS.
+type OSType int
 
-// OSType represents the operating system type of a application charm.
-type OSType = domaincharm.OSType
+const (
+	Ubuntu OSType = iota
+)
+
+// Platform contains parameters for an application's platform.
+type Platform struct {
+	Channel      string
+	OSType       OSType
+	Architecture Architecture
+}
 
 // Architecture represents the architecture of a application charm.
-type Architecture = domaincharm.Architecture
+type Architecture = architecture.Architecture
 
 // ScaleState describes the scale status of a k8s application.
 type ScaleState struct {

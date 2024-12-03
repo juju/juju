@@ -58,7 +58,7 @@ func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
 	}
 
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
-	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
+	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
 	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, nil)
 
 	// Make the CharmInfo call
@@ -88,7 +88,7 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *gc.C) {
 	metadata := &internalcharm.Meta{Name: "foo"}
 
 	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
-	charmOrigin := charm.CharmOrigin{Source: charm.CharmHubSource, Revision: 1}
+	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
 	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, nil)
 
 	// Make the CharmInfo call

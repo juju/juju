@@ -49,7 +49,7 @@ type ExportService interface {
 	// GetCharm returns the charm metadata for the given charm ID.
 	// It returns an error.CharmNotFound if the charm can not be found by the
 	// ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmOrigin, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error)
 }
 
 // exportOperation describes a way to execute a migration for
