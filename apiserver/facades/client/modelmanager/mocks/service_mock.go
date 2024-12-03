@@ -1464,6 +1464,44 @@ func (c *MockModelDomainServicesConfigCall) DoAndReturn(f func() modelmanager.Mo
 	return c
 }
 
+// Machine mocks base method.
+func (m *MockModelDomainServices) Machine() modelmanager.MachineService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Machine")
+	ret0, _ := ret[0].(modelmanager.MachineService)
+	return ret0
+}
+
+// Machine indicates an expected call of Machine.
+func (mr *MockModelDomainServicesMockRecorder) Machine() *MockModelDomainServicesMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockModelDomainServices)(nil).Machine))
+	return &MockModelDomainServicesMachineCall{Call: call}
+}
+
+// MockModelDomainServicesMachineCall wrap *gomock.Call
+type MockModelDomainServicesMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesMachineCall) Return(arg0 modelmanager.MachineService) *MockModelDomainServicesMachineCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesMachineCall) Do(f func() modelmanager.MachineService) *MockModelDomainServicesMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesMachineCall) DoAndReturn(f func() modelmanager.MachineService) *MockModelDomainServicesMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ModelInfo mocks base method.
 func (m *MockModelDomainServices) ModelInfo() modelmanager.ModelInfoService {
 	m.ctrl.T.Helper()

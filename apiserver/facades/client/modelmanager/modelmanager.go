@@ -1192,7 +1192,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 	if canSeeMachinesAndSecrets {
-		if info.Machines, err = common.ModelMachineInfo(ctx, st, m.machineService); shouldErr(err) {
+		if info.Machines, err = common.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
 	}

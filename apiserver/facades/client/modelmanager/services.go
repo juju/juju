@@ -51,6 +51,9 @@ type ModelDomainServices interface {
 	// Network returns the space service.
 	Network() NetworkService
 	BlockCommand() BlockCommandService
+
+	// Machine returns the machine service.
+	Machine() MachineService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -318,6 +321,10 @@ func (s domainServices) ModelInfo() ModelInfoService { return s.domainServices.M
 
 func (s domainServices) Network() NetworkService {
 	return s.domainServices.Network()
+}
+
+func (s domainServices) Machine() MachineService {
+	return s.domainServices.Machine()
 }
 
 func (s domainServices) BlockCommand() BlockCommandService {
