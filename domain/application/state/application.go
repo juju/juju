@@ -1932,6 +1932,7 @@ WHERE application_uuid = $applicationID.uuid
 	return application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
 		Name:      info.Name,
+		Hash:      info.Hash,
 		DownloadInfo: charm.DownloadInfo{
 			DownloadProvenance: provenance,
 			DownloadURL:        info.DownloadURL,

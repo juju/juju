@@ -113,12 +113,14 @@ SELECT
     cp.name AS provenance,
     cdi.charmhub_identifier,
     cdi.download_url,
-    cdi.download_size
+    cdi.download_size,
+    ch.hash
 FROM application AS a
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
 LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
 LEFT JOIN charm_provenance AS cp ON cdi.provenance_id = cp.id
-LEFT JOIN charm_source AS cs ON c.source_id = cs.id;
+LEFT JOIN charm_source AS cs ON c.source_id = cs.id
+LEFT JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
 CREATE TABLE charm_metadata (
     charm_uuid TEXT NOT NULL,

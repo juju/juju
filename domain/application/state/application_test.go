@@ -1993,6 +1993,7 @@ func (s *applicationStateSuite) TestReserveCharmDownload(c *gc.C) {
 	c.Check(info, jc.DeepEquals, application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
 		Name:      "foo",
+		Hash:      "hash",
 		DownloadInfo: charm.DownloadInfo{
 			DownloadProvenance: charm.ProvenanceDownload,
 			CharmhubIdentifier: "ident",
@@ -2097,6 +2098,7 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 				ReferenceName: name,
 				Source:        charm.CharmHubSource,
 				Revision:      42,
+				Hash:          "hash",
 			},
 			CharmDownloadInfo: &charm.DownloadInfo{
 				DownloadProvenance: charm.ProvenanceDownload,

@@ -181,6 +181,7 @@ type UnitWorkloadStatusInfo struct {
 type CharmDownloadInfo struct {
 	CharmUUID    charm.ID
 	Name         string
+	Hash         string
 	DownloadInfo domaincharm.DownloadInfo
 }
 

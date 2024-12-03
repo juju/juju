@@ -1172,6 +1172,7 @@ func (s *applicationServiceSuite) TestReserveCharmDownload(c *gc.C) {
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
 		Name:      "foo",
+		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
 			DownloadProvenance: domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
