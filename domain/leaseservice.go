@@ -22,13 +22,14 @@ func NewLeaseService(leaseChecker lease.ModelLeaseManagerGetter) *LeaseService {
 	}
 }
 
-// WithLease executes the closure function if the holder to the lease is
-// held. As soon as that isn't the case, the context is cancelled and the
-// function returns.
+// WithLeader executes the closure function if the input unit is leader of the
+// input application.
+// As soon as that isn't the case, the context is cancelled and the function
+// returns.
 // The context must be passed to the closure function to ensure that the
 // cancellation is propagated to the closure.
-func (s *LeaseService) WithLease(
-	ctx context.Context, leaseName, holderName string, fn func(context.Context) error,
+func (s *LeaseService) WithLeader(
+	ctx context.Context, appName, unitName string, fn func(context.Context) error,
 ) error {
 	// Holding the lease is quite a complex operation, so we need to ensure that
 	// the context is not cancelled before we start the operation.
@@ -67,7 +68,7 @@ func (s *LeaseService) WithLease(
 	go func() {
 		// This guards against the case that the lease has changed state
 		// before we run the function.
-		err := leaseChecker.WaitUntilExpired(waitCtx, leaseName, start)
+		err := leaseChecker.WaitUntilExpired(waitCtx, appName, start)
 
 		// Ensure that the lease context is cancelled when the wait has
 		// completed. We do this as quick as possible to ensure that the
@@ -104,7 +105,7 @@ func (s *LeaseService) WithLease(
 	// Ensure that the lease is held by the holder before proceeding.
 	// We're guaranteed that the lease is held by the holder, otherwise the
 	// context will have been cancelled.
-	token := leaseChecker.Token(leaseName, holderName)
+	token := leaseChecker.Token(appName, unitName)
 	if err := token.Check(); err != nil {
 		return internalerrors.Errorf("checking lease token: %w", err)
 	}
