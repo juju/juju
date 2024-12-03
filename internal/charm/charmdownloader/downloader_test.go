@@ -21,7 +21,7 @@ import (
 type downloaderSuite struct {
 	testing.IsolationSuite
 
-	charmhubClient *MockCharmhubClient
+	downloadClient *MockDownloadClient
 }
 
 var _ = gc.Suite(&downloaderSuite{})
@@ -32,13 +32,13 @@ func (s *downloaderSuite) TestDownload(c *gc.C) {
 	cURL, err := url.Parse("https://example.com/foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
+	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
 		DigestType: charmhub.SHA256,
 		Hash:       "hash",
 		Size:       123,
 	}, nil)
 
-	downloader := NewCharmDownloader(s.charmhubClient, loggertesting.WrapCheckLog(c))
+	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
 	result, err := downloader.Download(context.Background(), cURL, "hash")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -67,9 +67,9 @@ func (s *downloaderSuite) TestDownloadFailure(c *gc.C) {
 			Size:       123,
 		}, errors.Errorf("boom")
 	}
-	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
+	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
 
-	downloader := NewCharmDownloader(s.charmhubClient, loggertesting.WrapCheckLog(c))
+	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
 	_, err = downloader.Download(context.Background(), cURL, "hash")
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
@@ -94,9 +94,9 @@ func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *gc.C) {
 			Size:       123,
 		}, nil
 	}
-	s.charmhubClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
+	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
 
-	downloader := NewCharmDownloader(s.charmhubClient, loggertesting.WrapCheckLog(c))
+	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
 	_, err = downloader.Download(context.Background(), cURL, "hash")
 	c.Assert(err, jc.ErrorIs, ErrInvalidDigestHash)
 
@@ -107,7 +107,7 @@ func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *gc.C) {
 func (s *downloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.charmhubClient = NewMockCharmhubClient(ctrl)
+	s.downloadClient = NewMockDownloadClient(ctrl)
 
 	return ctrl
 }

@@ -56,7 +56,7 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(digest, gc.DeepEquals, &Digest{
@@ -97,7 +97,7 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *gc.C) {
 
 	ctx := context.WithValue(context.Background(), DownloadNameKey, "dummy")
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(ctx, serverURL, tmpFile.Name(), WithProgressBar(pgBar))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(digest, gc.DeepEquals, &Digest{
@@ -129,7 +129,7 @@ func (s *DownloadSuite) TestDownloadWithSHA256Digest(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name(), WithEnsureDigest(SHA256))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -165,7 +165,7 @@ func (s *DownloadSuite) TestDownloadWithSHA384Digest(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name(), WithEnsureDigest(SHA384))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -203,7 +203,7 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	_, digest, err := client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name(), WithEnsureDigest(SHA256))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -238,7 +238,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	_, _, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
@@ -265,7 +265,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, s.logger)
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	_, _, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }

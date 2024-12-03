@@ -84,7 +84,7 @@ type Client struct {
 	url             string
 	infoClient      *infoClient
 	findClient      *findClient
-	downloadClient  *downloadClient
+	downloadClient  *DownloadClient
 	refreshClient   *refreshClient
 	resourcesClient *resourcesClient
 }
@@ -140,15 +140,16 @@ func NewClient(config Config) (*Client, error) {
 	restClient := newHTTPRESTClient(apiRequestLogger)
 
 	return &Client{
-		url:           base.String(),
-		infoClient:    newInfoClient(infoPath, restClient, logger),
-		findClient:    newFindClient(findPath, restClient, logger),
-		refreshClient: newRefreshClient(refreshPath, restClient, logger),
+		url:             base.String(),
+		infoClient:      newInfoClient(infoPath, restClient, logger),
+		findClient:      newFindClient(findPath, restClient, logger),
+		refreshClient:   newRefreshClient(refreshPath, restClient, logger),
+		resourcesClient: newResourcesClient(resourcesPath, restClient, logger),
+
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient:  newDownloadClient(httpClient, fs, logger),
-		resourcesClient: newResourcesClient(resourcesPath, restClient, logger),
+		downloadClient: NewDownloadClient(httpClient, fs, logger),
 	}, nil
 }
 

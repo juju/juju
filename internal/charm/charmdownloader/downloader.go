@@ -23,8 +23,8 @@ const (
 	ErrInvalidOriginHash = errors.ConstError("invalid origin hash")
 )
 
-// CharmhubClient describes the API exposed by the charmhub client.
-type CharmhubClient interface {
+// DownloadClient describes the API exposed by the charmhub client.
+type DownloadClient interface {
 	// Download retrieves the specified charm from the store and saves its
 	// contents to the specified path. Read the path to get the contents of the
 	// charm.
@@ -40,12 +40,12 @@ type DownloadResult struct {
 // CharmDownloader implements store-agnostic download and persistence of charm
 // blobs.
 type CharmDownloader struct {
-	client CharmhubClient
+	client DownloadClient
 	logger logger.Logger
 }
 
 // NewCharmDownloader returns a new charm downloader instance.
-func NewCharmDownloader(client CharmhubClient, logger logger.Logger) *CharmDownloader {
+func NewCharmDownloader(client DownloadClient, logger logger.Logger) *CharmDownloader {
 	return &CharmDownloader{
 		client: client,
 		logger: logger,

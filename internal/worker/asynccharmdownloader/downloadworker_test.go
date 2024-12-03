@@ -48,10 +48,6 @@ func (s *workerSuite) TestWorkerConfig(c *gc.C) {
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.ModelConfigService = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.newConfig(c)
 	cfg.HTTPClientGetter = nil
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -342,12 +338,11 @@ func (s *workerSuite) newWorker(c *gc.C) *Worker {
 func (s *workerSuite) newConfig(c *gc.C) Config {
 	return Config{
 		ApplicationService: s.applicationService,
-		ModelConfigService: s.modelConfigService,
 		HTTPClientGetter:   s.httpClientGetter,
 		NewHTTPClient: func(ctx context.Context, hg http.HTTPClientGetter) (http.HTTPClient, error) {
 			return hg.GetHTTPClient(ctx, http.CharmhubPurpose)
 		},
-		NewDownloader: func(charmhub.HTTPClient, ModelConfigService, logger.Logger) Downloader {
+		NewDownloader: func(charmhub.HTTPClient, logger.Logger) Downloader {
 			return s.downloader
 		},
 		NewAsyncDownloadWorker: func(appID application.ID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {

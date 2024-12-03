@@ -37,6 +37,11 @@ func (fileSystem) Create(name string) (*os.File, error) {
 	return os.Create(name)
 }
 
+// DefaultFileSystem returns the default file system.
+func DefaultFileSystem() FileSystem {
+	return fileSystem{}
+}
+
 // DownloadOption to be passed to Info to customize the resulting request.
 type DownloadOption func(*downloadOptions)
 
@@ -99,16 +104,16 @@ func newDownloadOptions() *downloadOptions {
 	}
 }
 
-// downloadClient represents a client for downloading charm resources directly.
-type downloadClient struct {
+// DownloadClient represents a client for downloading charm resources directly.
+type DownloadClient struct {
 	httpClient HTTPClient
 	fileSystem FileSystem
 	logger     corelogger.Logger
 }
 
-// newDownloadClient creates a downloadClient for requesting
-func newDownloadClient(httpClient HTTPClient, fileSystem FileSystem, logger corelogger.Logger) *downloadClient {
-	return &downloadClient{
+// newDownloadClient creates a DownloadClient for requesting
+func NewDownloadClient(httpClient HTTPClient, fileSystem FileSystem, logger corelogger.Logger) *DownloadClient {
+	return &DownloadClient{
 		httpClient: httpClient,
 		fileSystem: fileSystem,
 		logger:     logger,
@@ -143,7 +148,7 @@ type ProgressBar interface {
 // TODO (stickupkid): We should either create and remove, or take a file and
 // let the callee remove. The fact that the operations are asymmetrical can lead
 // to unexpected expectations; namely leaking of files.
-func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (digest *Digest, err error) {
+func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (digest *Digest, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
 		trace.StringAttr("charmhub.request", "download"),
 		trace.StringAttr("charmhub.url", resourceURL.String()),
@@ -160,7 +165,7 @@ func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 }
 
 // DownloadAndRead returns a charm archive retrieved from the given URL.
-func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, *Digest, error) {
+func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, *Digest, error) {
 	digest, err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -175,7 +180,7 @@ func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.U
 }
 
 // DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
-func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, *Digest, error) {
+func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, *Digest, error) {
 	digest, err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -190,7 +195,7 @@ func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL 
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.
-func (c *downloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
+func (c *DownloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
 	resp, err := c.downloadFromURL(ctx, resourceURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -198,7 +203,7 @@ func (c *downloadClient) DownloadResource(ctx context.Context, resourceURL *url.
 	return resp.Body, nil
 }
 
-func (c *downloadClient) download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
+func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
 	opts := newDownloadOptions()
 	for _, option := range options {
 		option(opts)
@@ -257,7 +262,7 @@ func (c *downloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 	}, nil
 }
 
-func (c *downloadClient) getHasher(digestType DigestType) hash.Hash {
+func (c *DownloadClient) getHasher(digestType DigestType) hash.Hash {
 	switch digestType {
 	case SHA256:
 		return sha256.New()
@@ -268,7 +273,7 @@ func (c *downloadClient) getHasher(digestType DigestType) hash.Hash {
 	}
 }
 
-func (c *downloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {
+func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", resourceURL.String(), nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot make new request")
