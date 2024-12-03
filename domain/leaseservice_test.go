@@ -26,7 +26,7 @@ type leaseServiceSuite struct {
 
 var _ = gc.Suite(&leaseServiceSuite{})
 
-func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Done is triggered when the lease function is done.
@@ -54,7 +54,7 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	service := NewLeaseService(s.modelLeaseManager)
 
 	var called bool
-	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
 		defer close(done)
 		called = true
 		return ctx.Err()
@@ -63,7 +63,7 @@ func (s *leaseServiceSuite) TestWithLease(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
@@ -75,7 +75,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 	service := NewLeaseService(s.modelLeaseManager)
 
 	var called bool
-	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
 		called = true
 		return ctx.Err()
 	})
@@ -83,7 +83,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitReturnsError(c *gc.C) {
 	c.Check(called, jc.IsFalse)
 }
 
-func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -121,7 +121,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	// The lease function should be a long running function.
 
 	var called bool
-	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
 		called = true
 
 		// Notify to everyone that we're running.
@@ -143,7 +143,7 @@ func (s *leaseServiceSuite) TestWithLeaseWaitHasLeaseChange(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
-func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -173,7 +173,7 @@ func (s *leaseServiceSuite) TestWithLeaseFailsOnWaitCheck(c *gc.C) {
 	// The lease function should be a long running function.
 
 	var called bool
-	err := service.WithLease(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
 		called = true
 		return nil
 	})
