@@ -56,11 +56,11 @@ func (s *storeSuite) TestStore(c *gc.C) {
 	})
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	result, err := storage.Store(context.Background(), "foo", path, size, hash)
+	storagePath, result, err := storage.Store(context.Background(), path, size, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, gc.DeepEquals, uuid)
-	c.Check(uniqueName, gc.Matches, "foo-.*")
+	c.Check(uniqueName, gc.Equals, storagePath)
 
 	// Make sure the contents are the same and it's not been tampered with.
 	c.Check(contents, gc.Equals, "hello world")
@@ -82,7 +82,7 @@ func (s *storeSuite) TestStoreFileClosed(c *gc.C) {
 	})
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	_, err := storage.Store(context.Background(), "foo", path, size, hash)
+	_, _, err := storage.Store(context.Background(), path, size, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempt to read the contents of the read after it's been closed.
@@ -97,7 +97,7 @@ func (s *storeSuite) TestStoreFileNotFound(c *gc.C) {
 	dir := c.MkDir()
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	_, err := storage.Store(context.Background(), "foo", filepath.Join(dir, "foo"), 12, "hash")
+	_, _, err := storage.Store(context.Background(), filepath.Join(dir, "foo"), 12, "hash")
 	c.Assert(err, jc.ErrorIs, ErrNotFound)
 }
 
@@ -110,7 +110,7 @@ func (s *storeSuite) TestStoreFailed(c *gc.C) {
 	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), gomock.Any(), gomock.Any(), size, hash).Return("", errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	_, err := storage.Store(context.Background(), "foo", path, size, hash)
+	_, _, err := storage.Store(context.Background(), path, size, hash)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 
@@ -123,6 +123,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 	storage := NewCharmStore(s.objectStoreGetter)
 	reader, err := storage.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
+
 	content, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(content), gc.Equals, "archive-content")
@@ -134,6 +135,7 @@ func (s *storeSuite) TestGetFailed(c *gc.C) {
 	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter)
+
 	_, err := storage.Get(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }

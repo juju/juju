@@ -6,6 +6,7 @@ package asynccharmdownloader
 import (
 	"context"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/juju/clock"
@@ -108,6 +109,13 @@ func (w *asyncDownloadWorker) loop() error {
 	}); err != nil {
 		return errors.Capture(err)
 	}
+
+	// Ensure the charm is removed after the worker has finished.
+	defer func() {
+		if err := os.Remove(result.Path); err != nil && !os.IsNotExist(err) {
+			w.logger.Warningf("failed to remove temporary file %q: %v", result.Path, err)
+		}
+	}()
 
 	// The charm has been downloaded, we can now resolve the download slot.
 	err = w.applicationService.ResolveCharmDownload(ctx, w.appID, domainapplication.ResolveCharmDownload{

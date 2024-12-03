@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
@@ -141,13 +142,20 @@ type CharmState interface {
 	// GetCharmDownloadInfo returns the download info for the charm using the
 	// charm ID.
 	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error)
+
+	// GetCharmHash returns the hash for the charm using the charm ID.
+	GetCharmHash(ctx context.Context, id corecharm.ID) (string, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive
 // blobs from the underlying storage.
 type CharmStore interface {
-	// GetCharm retrieves a ReadCloser for the charm archive at the give path
-	// from the underlying storage.
+	// Store the charm at the specified path into the object store. It is
+	// expected that the archive already exists at the specified path. If the
+	// file isn't found, a [ErrNotFound] is returned.
+	Store(ctx context.Context, path string, size int64, hash string) (objectstore.UUID, error)
+	// GetCharm retrieves a ReadCloser for the charm archive at the give path from
+	// the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
 
 	// GetBySHA256Prefix retrieves a ReadCloser for a charm archive who's SHA256

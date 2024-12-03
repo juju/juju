@@ -20,6 +20,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -764,6 +765,45 @@ func (c *MockStateGetCharmDownloadInfoCall) Do(f func(context.Context, charm.ID)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetCharmDownloadInfoCall) DoAndReturn(f func(context.Context, charm.ID) (*charm0.DownloadInfo, error)) *MockStateGetCharmDownloadInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmHash mocks base method.
+func (m *MockState) GetCharmHash(arg0 context.Context, arg1 charm.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmHash", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmHash indicates an expected call of GetCharmHash.
+func (mr *MockStateMockRecorder) GetCharmHash(arg0, arg1 any) *MockStateGetCharmHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmHash", reflect.TypeOf((*MockState)(nil).GetCharmHash), arg0, arg1)
+	return &MockStateGetCharmHashCall{Call: call}
+}
+
+// MockStateGetCharmHashCall wrap *gomock.Call
+type MockStateGetCharmHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCharmHashCall) Return(arg0 string, arg1 error) *MockStateGetCharmHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCharmHashCall) Do(f func(context.Context, charm.ID) (string, error)) *MockStateGetCharmHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCharmHashCall) DoAndReturn(f func(context.Context, charm.ID) (string, error)) *MockStateGetCharmHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1739,6 +1779,44 @@ func (c *MockStateReserveCharmDownloadCall) Do(f func(context.Context, applicati
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateReserveCharmDownloadCall) DoAndReturn(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockStateReserveCharmDownloadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ResolveCharmDownload mocks base method.
+func (m *MockState) ResolveCharmDownload(arg0 context.Context, arg1 charm.ID, arg2 charm0.Charm, arg3 objectstore.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveCharmDownload", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ResolveCharmDownload indicates an expected call of ResolveCharmDownload.
+func (mr *MockStateMockRecorder) ResolveCharmDownload(arg0, arg1, arg2, arg3 any) *MockStateResolveCharmDownloadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharmDownload", reflect.TypeOf((*MockState)(nil).ResolveCharmDownload), arg0, arg1, arg2, arg3)
+	return &MockStateResolveCharmDownloadCall{Call: call}
+}
+
+// MockStateResolveCharmDownloadCall wrap *gomock.Call
+type MockStateResolveCharmDownloadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateResolveCharmDownloadCall) Return(arg0 error) *MockStateResolveCharmDownloadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateResolveCharmDownloadCall) Do(f func(context.Context, charm.ID, charm0.Charm, objectstore.UUID) error) *MockStateResolveCharmDownloadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateResolveCharmDownloadCall) DoAndReturn(f func(context.Context, charm.ID, charm0.Charm, objectstore.UUID) error) *MockStateResolveCharmDownloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2738,6 +2816,45 @@ func (c *MockCharmStoreGetBySHA256PrefixCall) Do(f func(context.Context, string)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, error)) *MockCharmStoreGetBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Store mocks base method.
+func (m *MockCharmStore) Store(arg0 context.Context, arg1 string, arg2 int64, arg3 string) (objectstore.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Store", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(objectstore.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Store indicates an expected call of Store.
+func (mr *MockCharmStoreMockRecorder) Store(arg0, arg1, arg2, arg3 any) *MockCharmStoreStoreCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockCharmStore)(nil).Store), arg0, arg1, arg2, arg3)
+	return &MockCharmStoreStoreCall{Call: call}
+}
+
+// MockCharmStoreStoreCall wrap *gomock.Call
+type MockCharmStoreStoreCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStoreStoreCall) Return(arg0 objectstore.UUID, arg1 error) *MockCharmStoreStoreCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStoreStoreCall) Do(f func(context.Context, string, int64, string) (objectstore.UUID, error)) *MockCharmStoreStoreCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, int64, string) (objectstore.UUID, error)) *MockCharmStoreStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

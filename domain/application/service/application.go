@@ -19,6 +19,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
@@ -224,6 +225,10 @@ type ApplicationState interface {
 	// [applicationerrors.AlreadyDownloadingCharm] if the application is already
 	// downloading a charm.
 	ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error)
+
+	// ResolveCharmDownload resolves the charm download for the specified
+	// application, updating the charm with the specified charm information.
+	ResolveCharmDownload(ctx context.Context, charmID corecharm.ID, charm domaincharm.Charm, objectStoreUUID objectstore.UUID) error
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -1264,7 +1269,7 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 
 // ReserveCharmDownload reserves a charm download slot for the specified
 // application. If the charm is already being downloaded, the method will
-// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
+// return [applicationerrors.CharmAlreadyAvailable]. The charm download
 // information is returned which includes the charm name, origin and the
 // digest.
 func (s *Service) ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
@@ -1278,9 +1283,56 @@ func (s *Service) ReserveCharmDownload(ctx context.Context, appID coreapplicatio
 // ResolveCharmDownload resolves the charm download slot for the specified
 // application. The method will update the charm with the specified charm
 // information.
+// This returns [applicationerrors.CharmNotResolved] if the charm UUID isn't
+// the same as the one that was reserved.
 func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.ID, resolve application.ResolveCharmDownload) error {
 	if err := appID.Validate(); err != nil {
 		return internalerrors.Errorf("application ID: %w", err)
 	}
-	return errors.NotImplementedf("ResolveCharmDownload")
+
+	// Although, we're resolving the charm download, we're calling the
+	// reserve method to ensure that the charm download slot is still valid.
+	// This has the added benefit of returning the charm hash, so that we can
+	// verify the charm download. We don't want it to be passed in the resolve
+	// charm download, in case the caller has the wrong hash.
+	info, err := s.ReserveCharmDownload(ctx, appID)
+	// There is nothing to do if the charm is already downloaded or resolved.
+	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) ||
+		errors.Is(err, applicationerrors.CharmAlreadyResolved) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If the charm UUID doesn't match, what was downloaded then we need to
+	// return an error.
+	if info.CharmUUID != resolve.CharmUUID {
+		return applicationerrors.CharmNotResolved
+	}
+
+	// Make sure it's actually a valid charm.
+	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
+	if err != nil {
+		return errors.Annotatef(err, "reading charm archive %q", resolve.Path)
+	}
+
+	// Encode the charm before we even attempt to store it. The charm storage
+	// backend could be the other side of the globe.
+	domainCharm, warnings, err := encodeCharm(charm)
+	if err != nil {
+		return errors.Annotatef(err, "encoding charm %q", resolve.Path)
+	} else if len(warnings) > 0 {
+		s.logger.Debugf("encoding charm %q: %v", resolve.Path, warnings)
+	}
+
+	// Use the hash from the reservation, incase the caller has the wrong hash.
+	// The resulting objectStoreUUID will enable RI between the charm and the
+	// object store.
+	objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, info.Hash)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Resolve the charm download, which will set itself to available.
+	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, domainCharm, objectStoreUUID)
 }

@@ -1916,7 +1916,7 @@ WHERE application_uuid = $applicationID.uuid
 	if source, err := decodeCharmSource(info.SourceID); err != nil {
 		return application.CharmDownloadInfo{}, internalerrors.Errorf("decoding charm source for %q: %w", appID, err)
 	} else if source != charm.CharmHubSource {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmDownloadProvenanceNotValid)
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmProvenanceNotValid)
 	}
 
 	charmUUID, err := corecharm.ParseID(info.CharmUUID)
@@ -1934,7 +1934,7 @@ WHERE application_uuid = $applicationID.uuid
 		Name:      info.Name,
 		Hash:      info.Hash,
 		DownloadInfo: charm.DownloadInfo{
-			DownloadProvenance: provenance,
+			Provenance:         provenance,
 			DownloadURL:        info.DownloadURL,
 			CharmhubIdentifier: info.CharmhubIdentifier,
 			DownloadSize:       info.DownloadSize,

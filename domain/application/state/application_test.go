@@ -1995,7 +1995,7 @@ func (s *applicationStateSuite) TestReserveCharmDownload(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: charm.DownloadInfo{
-			DownloadProvenance: charm.ProvenanceDownload,
+			Provenance:         charm.ProvenanceDownload,
 			CharmhubIdentifier: "ident",
 			DownloadURL:        "https://example.com",
 			DownloadSize:       42,
@@ -2056,7 +2056,7 @@ func (s *applicationStateSuite) TestReserveCharmDownloadLocalCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.ReserveCharmDownload(context.Background(), appID)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmDownloadProvenanceNotValid)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmProvenanceNotValid)
 }
 
 func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
@@ -2101,7 +2101,7 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 				Hash:          "hash",
 			},
 			CharmDownloadInfo: &charm.DownloadInfo{
-				DownloadProvenance: charm.ProvenanceDownload,
+				Provenance:         charm.ProvenanceDownload,
 				CharmhubIdentifier: "ident",
 				DownloadURL:        "https://example.com",
 				DownloadSize:       42,
