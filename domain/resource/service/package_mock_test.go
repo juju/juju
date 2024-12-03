@@ -379,42 +379,6 @@ func (m *MockResourceStoreGetter) EXPECT() *MockResourceStoreGetterMockRecorder 
 	return m.recorder
 }
 
-// AddStore mocks base method.
-func (m *MockResourceStoreGetter) AddStore(arg0 resource1.Type, arg1 store.ResourceStore) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddStore", arg0, arg1)
-}
-
-// AddStore indicates an expected call of AddStore.
-func (mr *MockResourceStoreGetterMockRecorder) AddStore(arg0, arg1 any) *MockResourceStoreGetterAddStoreCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStore", reflect.TypeOf((*MockResourceStoreGetter)(nil).AddStore), arg0, arg1)
-	return &MockResourceStoreGetterAddStoreCall{Call: call}
-}
-
-// MockResourceStoreGetterAddStoreCall wrap *gomock.Call
-type MockResourceStoreGetterAddStoreCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockResourceStoreGetterAddStoreCall) Return() *MockResourceStoreGetterAddStoreCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockResourceStoreGetterAddStoreCall) Do(f func(resource1.Type, store.ResourceStore)) *MockResourceStoreGetterAddStoreCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStoreGetterAddStoreCall) DoAndReturn(f func(resource1.Type, store.ResourceStore)) *MockResourceStoreGetterAddStoreCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetResourceStore mocks base method.
 func (m *MockResourceStoreGetter) GetResourceStore(arg0 context.Context, arg1 resource1.Type) (store.ResourceStore, error) {
 	m.ctrl.T.Helper()

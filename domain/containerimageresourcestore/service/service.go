@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/domain/containerimageresourcestore"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 )
@@ -83,8 +82,8 @@ func (s Service) Put(
 	ctx context.Context,
 	storageKey string,
 	r io.Reader,
-	size int64,
-	fingerprint charmresource.Fingerprint,
+	_ int64,
+	_ store.Fingerprint,
 ) (store.UUID, error) {
 	respBuf := new(bytes.Buffer)
 	bytesRead, err := respBuf.ReadFrom(r)

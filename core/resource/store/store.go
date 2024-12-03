@@ -52,3 +52,6 @@ func NewFingerprint(f hash.Fingerprint) Fingerprint {
 // blob. This can be an object store metadata UUID or a container image metadata
 // storage key.
 type UUID string
+
+// ResourceStoreGetter is a function which returns a ResourceStore.
+type ResourceStoreGetter func() ResourceStore

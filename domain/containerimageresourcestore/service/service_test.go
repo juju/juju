@@ -17,7 +17,6 @@ import (
 	resourcestore "github.com/juju/juju/core/resource/store"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/domain/containerimageresourcestore"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 )
@@ -74,7 +73,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePut(c 
 		storageKey,
 		s.file,
 		0,
-		charmresource.Fingerprint{},
+		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageUUID, gc.Equals, expectedUUID)
@@ -92,7 +91,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmp
 		storageKey,
 		bytes.NewReader([]byte{}),
 		0,
-		charmresource.Fingerprint{},
+		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, gc.ErrorMatches, ".* zero bytes read")
 }
@@ -117,7 +116,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 		storageKey,
 		s.file,
 		0,
-		charmresource.Fingerprint{},
+		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, jc.ErrorIs, kaboom)
 }

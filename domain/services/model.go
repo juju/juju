@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	coreresourcestore "github.com/juju/juju/core/resource/store"
 	corestorage "github.com/juju/juju/core/storage"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
@@ -29,6 +30,8 @@ import (
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
+	containerimageresourcestoreservice "github.com/juju/juju/domain/containerimageresourcestore/service"
+	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -345,13 +348,24 @@ func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 // Resource returns the service for persisting and retrieving application
 // resources for the current model.
 func (s *ModelServices) Resource() *resourceservice.Service {
+	containerImageResourceStoreGetter := func() coreresourcestore.ResourceStore {
+		return containerimageresourcestoreservice.NewService(
+			containerimageresourcestorestate.NewState(
+				changestream.NewTxnRunnerFactory(s.modelDB),
+				s.logger.Child("containerimageresourcestore.state"),
+			))
+	}
+	resourceStoreFactory := store.NewResourceStoreFactory(
+		s.objectstore,
+		containerImageResourceStoreGetter,
+	)
 	return resourceservice.NewService(
 		resourcestate.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.clock,
 			s.logger.Child("resource.state"),
 		),
-		store.NewResourceStoreFactory(s.objectstore),
+		resourceStoreFactory,
 		s.logger.Child("resource.service"),
 	)
 }

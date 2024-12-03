@@ -293,7 +293,6 @@ func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.resourceStoreGetter = NewMockResourceStoreGetter(ctrl)
-	s.resourceStoreGetter.EXPECT().AddStore(charmresource.TypeContainerImage, gomock.Any())
 
 	s.service = NewService(s.state, s.resourceStoreGetter, loggertesting.WrapCheckLog(c))
 
