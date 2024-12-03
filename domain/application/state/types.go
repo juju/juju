@@ -637,3 +637,14 @@ type applicationCharmDownloadInfo struct {
 	DownloadSize       int64  `db:"download_size"`
 	SourceID           int    `db:"source_id"`
 }
+
+type applicationCharmDownloadInfo struct {
+	CharmUUID          string `db:"charm_uuid"`
+	Name               string `db:"name"`
+	Available          bool   `db:"available"`
+	DownloadProvenance string `db:"provenance"`
+	CharmhubIdentifier string `db:"charmhub_identifier"`
+	DownloadURL        string `db:"download_url"`
+	DownloadSize       int64  `db:"download_size"`
+	SourceID           int    `db:"source_id"`
+}
