@@ -41,8 +41,7 @@ func (s *State) GetMetadata(ctx context.Context, path string) (coreobjectstore.M
 
 	stmt, err := s.Prepare(`
 SELECT &dbMetadata.*
-FROM object_store_metadata_path p
-LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid
+FROM v_object_store_metadata
 WHERE path = $dbMetadata.path`, metadata)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
@@ -61,7 +60,7 @@ WHERE path = $dbMetadata.path`, metadata)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
 	}
-	return metadata.ToCoreObjectStoreMetadata(), nil
+	return decodeDbMetadata(metadata), nil
 }
 
 // ListMetadata returns the persistence metadata.
@@ -73,8 +72,7 @@ func (s *State) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, e
 
 	stmt, err := s.Prepare(`
 SELECT &dbMetadata.*
-FROM object_store_metadata_path p
-LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
+FROM v_object_store_metadata`, dbMetadata{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select metadata statement")
 	}
@@ -90,7 +88,7 @@ LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return transform.Slice(metadata, (dbMetadata).ToCoreObjectStoreMetadata), nil
+	return transform.Slice(metadata, decodeDbMetadata), nil
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.

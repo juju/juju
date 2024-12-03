@@ -30,7 +30,7 @@ type dbMetadataPath struct {
 
 // ToCoreObjectStoreMetadata transforms de-serialised data from the database to
 // object metadata.
-func (m dbMetadata) ToCoreObjectStoreMetadata() coreobjectstore.Metadata {
+func decodeDbMetadata(m dbMetadata) coreobjectstore.Metadata {
 	return coreobjectstore.Metadata{
 		SHA256: m.SHA256,
 		SHA384: m.SHA384,
