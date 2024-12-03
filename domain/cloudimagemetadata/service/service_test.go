@@ -63,8 +63,8 @@ func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *gc.C) {
 	err := NewService(s.state).SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{{ImageID: ""}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err, jc.ErrorIs, errors.EmptyImageID)
+	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, cloudimageerrors.EmptyImageID)
 	c.Assert(err, gc.ErrorMatches, "image id is empty: invalid metadata")
 }
 
@@ -78,7 +78,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidFields(c *gc.C) {
 	err := NewService(s.state).SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{{ImageID: "dead-beaf" /* some field are required */}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
 	c.Assert(err, gc.ErrorMatches, "missing version, stream, source, arch, region: invalid metadata for image dead-beaf")
 }
 
@@ -115,7 +115,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *gc.C) { // Arr
 	)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotValid)
 	c.Assert(err, gc.ErrorMatches, "unsupported architecture risc \\(should be any of \\[(amd64 arm64|arm64 amd64)\\]\\): invalid metadata")
 }
 
@@ -165,7 +165,7 @@ func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *gc.C) {
 	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.EmptyImageID)
+	c.Assert(err, jc.ErrorIs, cloudimageerrors.EmptyImageID)
 }
 
 // TestDeleteMetadataError verifies that the DeleteMetadataWithImageID method returns the underlying error when deletion fails.
@@ -265,13 +265,13 @@ func (s *serviceSuite) TestFindMetadataNotFound(c *gc.C) {
 
 	criteria := cloudimagemetadata.MetadataFilter{Region: "whatever"}
 
-	s.state.EXPECT().FindMetadata(gomock.Any(), criteria).Return(nil, errors.NotFound)
+	s.state.EXPECT().FindMetadata(gomock.Any(), criteria).Return(nil, cloudimageerrors.NotFound)
 
 	// Act
 	_, err := NewService(s.state).FindMetadata(context.Background(), criteria)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, cloudimageerrors.NotFound)
 }
 
 // TestFindMetadataError tests the behavior of the service's FindMetadata method when an error is returned by the state.

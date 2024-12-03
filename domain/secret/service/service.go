@@ -498,10 +498,6 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Errorf("cannot update charm secret %q %w", uri.ID, err)
-	}
-	return nil
 }
 
 func (s *SecretService) createSecret(
