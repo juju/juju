@@ -92,6 +92,14 @@ func ReadinessProvider(probe Prober) ProbeProvider {
 	})
 }
 
+// StartupProvider is a utility function for returning a ProbeProvider for the
+// provided startup probe.
+func StartupProvider(probe Prober) ProbeProvider {
+	return Provider(SupportedProbes{
+		ProbeStartup: probe,
+	})
+}
+
 // Probe implements Prober interface
 func (p ProberFn) Probe() (bool, error) {
 	return p()
