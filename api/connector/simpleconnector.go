@@ -99,5 +99,5 @@ func (c *SimpleConnector) Connect(dialOptions ...api.DialOption) (api.Connection
 	for _, f := range dialOptions {
 		f(&opts)
 	}
-	return api.Open(&c.info, c.defaultDialOpts)
+	return apiOpen(&c.info, opts)
 }
