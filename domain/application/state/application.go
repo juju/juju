@@ -1728,7 +1728,7 @@ WHERE uuid = $applicationID.uuid
 		return "", errors.Trace(err)
 	}
 
-	return corecharm.ID(result.UUID), nil
+	return corecharm.ParseID(result.UUID)
 }
 
 // GetCharmByApplicationID returns the charm for the specified application
@@ -1871,4 +1871,72 @@ WHERE uuid = $applicationID.uuid
 		return -1, internalerrors.Errorf("querying charm modified version: %w", err)
 	}
 	return version.CharmModifiedVersion, err
+}
+
+// ReserveCharmDownload reserves the charm download for the specified
+// application, returning an error satisfying
+// [applicationerrors.CharmAlreadyAvailable] if the application is already
+// downloading a charm, or [applicationerrors.ApplicationNotFound] if the
+// application is not found.
+func (st *State) ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Capture(err)
+	}
+
+	appIdent := applicationID{ID: appID}
+
+	query, err := st.Prepare(`
+SELECT &applicationCharmDownloadInfo.*
+FROM v_application_charm_download_info
+WHERE application_uuid = $applicationID.uuid
+`, applicationCharmDownloadInfo{}, appIdent)
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("preparing query for application %q: %w", appID, err)
+	}
+
+	var info applicationCharmDownloadInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, appIdent).Get(&info)
+		if internalerrors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return err
+		}
+		if info.Available {
+			return applicationerrors.CharmAlreadyAvailable
+		}
+		return nil
+	})
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("reserving charm download for application %q: %w", appID, err)
+	}
+
+	// We can only reserve charms from CharmHub charms.
+	if source, err := decodeCharmSource(info.SourceID); err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("decoding charm source for %q: %w", appID, err)
+	} else if source != charm.CharmHubSource {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmDownloadProvenanceNotValid)
+	}
+
+	charmUUID, err := corecharm.ParseID(info.CharmUUID)
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("encoding charm uuid for %q: %w", appID, err)
+	}
+
+	provenance, err := decodeProvenance(info.DownloadProvenance)
+	if err != nil {
+		return application.CharmDownloadInfo{}, fmt.Errorf("decoding charm provenance: %w", err)
+	}
+
+	return application.CharmDownloadInfo{
+		CharmUUID: charmUUID,
+		Name:      info.Name,
+		DownloadInfo: charm.DownloadInfo{
+			DownloadProvenance: provenance,
+			DownloadURL:        info.DownloadURL,
+			CharmhubIdentifier: info.CharmhubIdentifier,
+			DownloadSize:       info.DownloadSize,
+		},
+	}, nil
 }

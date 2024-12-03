@@ -85,7 +85,7 @@ func (w *asyncDownloadWorker) loop() error {
 	var result *charmdownloader.DownloadResult
 	if err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			result, err = w.downloader.Download(ctx, info.Name, info.Origin)
+			result, err = w.downloader.Download(ctx, info.Name, info.DownloadInfo.DownloadURL)
 			if err != nil {
 				return errors.Capture(err)
 			}

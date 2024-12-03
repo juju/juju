@@ -103,6 +103,23 @@ CREATE TABLE charm_download_info (
     REFERENCES charm (uuid)
 );
 
+CREATE VIEW v_application_charm_download_info AS
+SELECT
+    a.uuid AS application_uuid,
+    c.uuid AS charm_uuid,
+    c.reference_name AS name,
+    c.available,
+    cs.id AS source_id,
+    cp.name AS provenance,
+    cdi.charmhub_identifier,
+    cdi.download_url,
+    cdi.download_size
+FROM application AS a
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+LEFT JOIN charm_provenance AS cp ON cdi.provenance_id = cp.id
+LEFT JOIN charm_source AS cs ON c.source_id = cs.id;
+
 CREATE TABLE charm_metadata (
     charm_uuid TEXT NOT NULL,
     -- name represents the original name of the charm. This is what is stored

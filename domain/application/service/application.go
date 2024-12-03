@@ -155,8 +155,9 @@ type AtomicApplicationState interface {
 type ApplicationState interface {
 	AtomicApplicationState
 
-	// GetModelType returns the model type for the underlying model. If the model
-	// does not exist then an error satisfying [modelerrors.NotFound] will be returned.
+	// GetModelType returns the model type for the underlying model. If the
+	// model does not exist then an error satisfying [modelerrors.NotFound] will
+	// be returned.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// StorageDefaults returns the default storage sources for a model.
@@ -168,13 +169,13 @@ type ApplicationState interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
 	// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if any of the units don't
-	// exist.
+	// error satisfying [applicationerrors.UnitNotFound] if any of the units
+	// don't exist.
 	GetUnitUUIDs(context.Context, []coreunit.Name) ([]coreunit.UUID, error)
 
-	// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if any units are not
-	// found.
+	// GetUnitNames gets in bulk the names for the specified unit UUIDs,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if any
+	// units are not found.
 	GetUnitNames(context.Context, []coreunit.UUID) ([]coreunit.Name, error)
 
 	// UpsertCloudService updates the cloud service for the specified
@@ -204,8 +205,8 @@ type ApplicationState interface {
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-	// doesn't exist.
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
 	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
@@ -217,6 +218,12 @@ type ApplicationState interface {
 	// with pending charms for the specified UUIDs. If the application has a
 	// different status, it's ignored.
 	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error)
+
+	// ReserveCharmDownload reserves the charm download for the specified
+	// application, returning an error satisfying
+	// [applicationerrors.AlreadyDownloadingCharm] if the application is already
+	// downloading a charm.
+	ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error)
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -1265,7 +1272,7 @@ func (s *Service) ReserveCharmDownload(ctx context.Context, appID coreapplicatio
 		return application.CharmDownloadInfo{}, internalerrors.Errorf("application ID: %w", err)
 	}
 
-	return application.CharmDownloadInfo{}, errors.NotImplementedf("ReserveCharmDownload")
+	return s.st.ReserveCharmDownload(ctx, appID)
 }
 
 // ResolveCharmDownload resolves the charm download slot for the specified

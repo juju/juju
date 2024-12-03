@@ -1704,6 +1704,45 @@ func (c *MockStateListCharmLocatorsByNamesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// ReserveCharmDownload mocks base method.
+func (m *MockState) ReserveCharmDownload(arg0 context.Context, arg1 application.ID) (application0.CharmDownloadInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReserveCharmDownload", arg0, arg1)
+	ret0, _ := ret[0].(application0.CharmDownloadInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReserveCharmDownload indicates an expected call of ReserveCharmDownload.
+func (mr *MockStateMockRecorder) ReserveCharmDownload(arg0, arg1 any) *MockStateReserveCharmDownloadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReserveCharmDownload", reflect.TypeOf((*MockState)(nil).ReserveCharmDownload), arg0, arg1)
+	return &MockStateReserveCharmDownloadCall{Call: call}
+}
+
+// MockStateReserveCharmDownloadCall wrap *gomock.Call
+type MockStateReserveCharmDownloadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateReserveCharmDownloadCall) Return(arg0 application0.CharmDownloadInfo, arg1 error) *MockStateReserveCharmDownloadCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateReserveCharmDownloadCall) Do(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockStateReserveCharmDownloadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateReserveCharmDownloadCall) DoAndReturn(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockStateReserveCharmDownloadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RunAtomic mocks base method.
 func (m *MockState) RunAtomic(arg0 context.Context, arg1 func(domain.AtomicContext) error) error {
 	m.ctrl.T.Helper()

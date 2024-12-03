@@ -1981,6 +1981,83 @@ WHERE a.uuid=?`, id1.String())
 	c.Check(expected, gc.HasLen, 0)
 }
 
+func (s *applicationStateSuite) TestReserveCharmDownload(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := s.state.ReserveCharmDownload(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(info, jc.DeepEquals, application.CharmDownloadInfo{
+		CharmUUID: charmUUID,
+		Name:      "foo",
+		DownloadInfo: charm.DownloadInfo{
+			DownloadProvenance: charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestReserveCharmDownloadNoApplication(c *gc.C) {
+	id := applicationtesting.GenApplicationUUID(c)
+
+	_, err := s.state.ReserveCharmDownload(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestReserveCharmDownloadAlreadyDone(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetCharmAvailable(context.Background(), charmUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.ReserveCharmDownload(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
+}
+
+func (s *applicationStateSuite) TestReserveCharmDownloadLocalCharm(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "22.04/stable",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Risk: application.RiskStable,
+	}
+	var appID coreapplication.ID
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "foo",
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: "foo",
+				Source:        charm.LocalSource,
+				Revision:      42,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.ReserveCharmDownload(context.Background(), appID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmDownloadProvenanceNotValid)
+}
+
 func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	platform := application.Platform{
 		Channel:      "22.04/stable",
@@ -2020,6 +2097,12 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 				ReferenceName: name,
 				Source:        charm.CharmHubSource,
 				Revision:      42,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				DownloadProvenance: charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
 			},
 			Scale: len(units),
 		})

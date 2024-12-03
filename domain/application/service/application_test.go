@@ -1163,6 +1163,30 @@ func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *gc.C) {
 	c.Check(obtained, gc.DeepEquals, 42)
 }
 
+func (s *applicationServiceSuite) TestReserveCharmDownload(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	info := application.CharmDownloadInfo{
+		CharmUUID: charmUUID,
+		Name:      "foo",
+		DownloadInfo: domaincharm.DownloadInfo{
+			DownloadProvenance: domaincharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+	}
+
+	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, nil)
+
+	obtained, err := s.service.ReserveCharmDownload(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, gc.DeepEquals, info)
+}
+
 type applicationWatcherServiceSuite struct {
 	testing.IsolationSuite
 

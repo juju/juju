@@ -179,9 +179,9 @@ type UnitWorkloadStatusInfo struct {
 
 // CharmDownloadInfo contains parameters for downloading a charm.
 type CharmDownloadInfo struct {
-	CharmUUID charm.ID
-	Name      string
-	Origin    charm.Origin
+	CharmUUID    charm.ID
+	Name         string
+	DownloadInfo domaincharm.DownloadInfo
 }
 
 // ResolveCharmDownload contains parameters for resolving a charm download.
