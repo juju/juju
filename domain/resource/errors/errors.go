@@ -29,4 +29,8 @@ const (
 	// UnitNotFound describes an error that occurs when the unit being operated on
 	// does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
+
+	// ResourceStateNotValid describes an error where the resource state is not
+	// valid.
+	ResourceStateNotValid = errors.ConstError("resource state not valid")
 )
