@@ -1214,7 +1214,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *gc.C) {
 		},
 		Manifest: charm.Manifest{
 			Bases: []charm.Base{
-				charm.Base{
+				{
 					Name: "ubuntu",
 					Channel: charm.Channel{
 						Risk: charm.RiskCandidate,
@@ -1252,7 +1252,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhubWithoutDownloadInfo
 		},
 		Manifest: charm.Manifest{
 			Bases: []charm.Base{
-				charm.Base{
+				{
 					Name: "ubuntu",
 					Channel: charm.Channel{
 						Risk: charm.RiskCandidate,
@@ -1295,7 +1295,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocal(c *gc.C) {
 		},
 		Manifest: charm.Manifest{
 			Bases: []charm.Base{
-				charm.Base{
+				{
 					Name: "ubuntu",
 					Channel: charm.Channel{
 						Risk: charm.RiskCandidate,
@@ -1333,7 +1333,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocalWithoutInfo(c *gc.C) {
 		},
 		Manifest: charm.Manifest{
 			Bases: []charm.Base{
-				charm.Base{
+				{
 					Name: "ubuntu",
 					Channel: charm.Channel{
 						Risk: charm.RiskCandidate,
