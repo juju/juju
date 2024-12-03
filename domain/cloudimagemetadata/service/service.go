@@ -1,4 +1,4 @@
-t // Copyright 2024 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package service
@@ -63,7 +63,7 @@ func (s Service) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata
 // It returns a [errors.EmptyImageID] if the provided imageID is empty.
 func (s Service) DeleteMetadataWithImageID(ctx context.Context, imageID string) error {
 	if imageID == "" {
-		return errors.EmptyImageID
+		return cloudimageerrors.EmptyImageID
 	}
 
 	return s.st.DeleteMetadataWithImageID(ctx, imageID)

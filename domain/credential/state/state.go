@@ -213,7 +213,7 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 
 	err = tx.Query(ctx, insertStmt, dbCredential).Run()
 	if database.IsErrConstraintCheck(err) {
-		return errors.Errorf("credential name cannot be empty", errors.Hide(coreerrors.NotValid), errors.Hide(err))
+		return errors.New("credential name cannot be empty").Add(coreerrors.NotValid)
 	} else if err != nil {
 		return errors.Capture(err)
 	}

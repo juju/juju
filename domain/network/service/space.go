@@ -41,7 +41,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // AddSpace creates and returns a new space.
 func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
 	if !names.IsValidSpace(string(space.Name)) {
-		return "", errors.Errorf("space name %q%w %w", space.Name, errors.Hide(networkerrors.SpaceNameNotValid), coreerrors.NotValid)
+		return "", errors.Errorf("space name %q not valid", space.Name).Add(networkerrors.SpaceNameNotValid)
 	}
 
 	spaceID := space.ID

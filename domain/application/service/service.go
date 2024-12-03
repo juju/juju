@@ -608,12 +608,12 @@ func validateStorageDirectives(
 func encodeChannelAndPlatform(origin corecharm.Origin) (*application.Channel, application.Platform, error) {
 	channel, err := encodeChannel(origin.Channel)
 	if err != nil {
-		return nil, application.Platform{}, errors.Trace(err)
+		return nil, application.Platform{}, errors.Capture(err)
 	}
 
 	platform, err := encodePlatform(origin.Platform)
 	if err != nil {
-		return nil, application.Platform{}, errors.Trace(err)
+		return nil, application.Platform{}, errors.Capture(err)
 	}
 
 	return channel, platform, nil
@@ -627,7 +627,7 @@ func encodeCharmSource(source corecharm.Source) (charm.CharmSource, error) {
 	case corecharm.CharmHub:
 		return charm.CharmHubSource, nil
 	default:
-		return "", internalerrors.Errorf("unknown source %q, expected local or charmhub: %w", source, applicationerrors.CharmSourceNotValid)
+		return "", errors.Errorf("unknown source %q, expected local or charmhub: %w", source, applicationerrors.CharmSourceNotValid)
 	}
 }
 
@@ -645,7 +645,7 @@ func encodeChannel(ch *internalcharm.Channel) (*application.Channel, error) {
 
 	risk, err := encodeChannelRisk(normalize.Risk)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &application.Channel{
@@ -673,12 +673,12 @@ func encodeChannelRisk(risk internalcharm.Risk) (application.ChannelRisk, error)
 func encodePlatform(platform corecharm.Platform) (application.Platform, error) {
 	ostype, err := encodeOSType(platform.OS)
 	if err != nil {
-		return application.Platform{}, errors.Trace(err)
+		return application.Platform{}, errors.Capture(err)
 	}
 
 	arch := encodeArchitecture(platform.Architecture)
 	if err != nil {
-		return application.Platform{}, errors.Trace(err)
+		return application.Platform{}, errors.Capture(err)
 	}
 
 	return application.Platform{

@@ -67,7 +67,7 @@ WHERE path = $dbMetadata.path`, metadata)
 func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Trace(err)
+		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
 
 	sha256Prefix := sha256Prefix{SHA256Prefix: sha256}
@@ -78,7 +78,7 @@ SELECT &dbMetadata.*
 FROM v_object_store_metadata
 WHERE sha_256 LIKE $sha256Prefix.sha_256_prefix || '%'`, metadata, sha256Prefix)
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+		return coreobjectstore.Metadata{}, errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -87,12 +87,12 @@ WHERE sha_256 LIKE $sha256Prefix.sha_256_prefix || '%'`, metadata, sha256Prefix)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrNotFound
 			}
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata with sha256 %s", sha256)
+		return coreobjectstore.Metadata{}, errors.Errorf("retrieving metadata with sha256 %s: %w", sha256, err)
 	}
 
 	return decodeDbMetadata(metadata), nil

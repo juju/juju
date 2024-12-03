@@ -1345,7 +1345,7 @@ func encodeArchitecture(a architecture.Architecture) (int, error) {
 	case architecture.RISV64:
 		return 4, nil
 	default:
-		return 0, internalerrors.Errorf("unsupported architecture: %d", a)
+		return 0, errors.Errorf("unsupported architecture: %d", a)
 	}
 }
 
@@ -1356,7 +1356,7 @@ func encodeCharmSource(source charm.CharmSource) (int, error) {
 	case charm.CharmHubSource:
 		return 1, nil
 	default:
-		return 0, internalerrors.Errorf("unsupported source type: %s", source)
+		return 0, errors.Errorf("unsupported source type: %s", source)
 	}
 }
 
@@ -1371,7 +1371,7 @@ func encodeProvenance(provenance charm.Provenance) (int, error) {
 	case charm.ProvenanceBootstrap:
 		return 3, nil
 	default:
-		return 0, internalerrors.Errorf("unsupported provenance type: %s", provenance)
+		return 0, errors.Errorf("unsupported provenance type: %s", provenance)
 	}
 }
 

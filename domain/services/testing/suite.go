@@ -364,7 +364,7 @@ func (TestingObjectStore) Get(ctx context.Context, name string) (io.ReadCloser, 
 // GetBySHA256Prefix returns an io.ReadCloser for data at path, namespaced to the
 // model.
 func (TestingObjectStore) GetBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	return nil, 0, errors.NotFoundf(sha256)
+	return nil, 0, errors.Errorf("%q does not exist", sha256).Add(coreerrors.NotFound)
 }
 
 // Put stores data from reader at path, namespaced to the model.

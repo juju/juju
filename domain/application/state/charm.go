@@ -28,7 +28,7 @@ func (s *State) GetCharmID(ctx context.Context, name string, revision int, sourc
 
 	sourceID, err := encodeCharmSource(source)
 	if err != nil {
-		return "", internalerrors.Errorf("failed to encode charm source: %w", err)
+		return "", errors.Errorf("failed to encode charm source: %w", err)
 	}
 
 	var ident charmID
@@ -681,7 +681,7 @@ WHERE name IN ($nameSelector[:]);
 func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
@@ -692,13 +692,13 @@ func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*cha
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 		downloadInfo = &info
 
 		return nil
 	}); err != nil {
-		return nil, internalerrors.Errorf("getting charm download info: %w", err)
+		return nil, errors.Errorf("getting charm download info: %w", err)
 	}
 
 	return downloadInfo, nil
