@@ -642,6 +642,7 @@ type applicationCharmDownloadInfo struct {
 	CharmUUID          string `db:"charm_uuid"`
 	Name               string `db:"name"`
 	Available          bool   `db:"available"`
+	Hash               string `db:"hash"`
 	DownloadProvenance string `db:"provenance"`
 	CharmhubIdentifier string `db:"charmhub_identifier"`
 	DownloadURL        string `db:"download_url"`
