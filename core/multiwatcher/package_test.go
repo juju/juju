@@ -34,5 +34,6 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/network",
 		"core/permission",
 		"core/status",
+		"utils/stringcompare",
 	})
 }

@@ -293,7 +293,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		Charm:       s.testCharm,
 		Constraints: cons,
 	})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
+	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: kvm"))
 }
 
 func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {

@@ -1882,11 +1882,11 @@ func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64\\]",
+		"invalid constraint value: arch=s390x\nvalid values are: amd64",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 Standard_A1 Standard_D1 Standard_D2\\]",
+		"invalid constraint value: instance-type=t1.micro\nvalid values are: A1 D1 D2 Standard_A1 Standard_D1 Standard_D2",
 	)
 }
 
