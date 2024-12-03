@@ -426,16 +426,6 @@ func (s *connSuite) TestConnectionClosePortsRemoveCIDR(c *gc.C) {
 	})
 }
 
-func (s *connSuite) TestRemoveFirewall(c *gc.C) {
-	err := s.Conn.RemoveFirewall("glass-onion")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "RemoveFirewall")
-	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[0].Name, gc.Equals, "glass-onion")
-}
-
 func (s *connSuite) TestConnectionCloseMoMatches(c *gc.C) {
 	s.FakeConn.Firewalls = []*compute.Firewall{{
 		Name:         "spam",

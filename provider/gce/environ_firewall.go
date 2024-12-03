@@ -40,8 +40,3 @@ func (env *environ) IngressRules(ctx context.ProviderCallContext) (firewall.Ingr
 	rules, err := env.gce.IngressRules(env.globalFirewallName())
 	return rules, google.HandleCredentialError(errors.Trace(err), ctx)
 }
-
-func (env *environ) cleanupFirewall(ctx context.ProviderCallContext) error {
-	err := env.gce.RemoveFirewall(env.globalFirewallName())
-	return google.HandleCredentialError(errors.Trace(err), ctx)
-}
