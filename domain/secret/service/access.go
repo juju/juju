@@ -205,11 +205,9 @@ func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI
 // If the caveat can never be satisfied, an error is returned - the input
 // accessor can never manage the input secret.
 func (s *SecretService) getManagementCaveat(
-	ctx context.Context,
-	uri *secrets.URI, assessor SecretAccessor,
-	leaderToken leadership.Token,
+	ctx context.Context, uri *secrets.URI, accessor SecretAccessor, leaderToken leadership.Token,
 ) (func(context.Context, func(context.Context) error) error, error) {
-	hasRole, err := s.getSecretAccess(ctx, uri, assessor)
+	hasRole, err := s.getSecretAccess(ctx, uri, accessor)
 	if err != nil {
 		// Typically not found error.
 		return nil, errors.Trace(err)
@@ -220,7 +218,7 @@ func (s *SecretService) getManagementCaveat(
 		}, nil
 	}
 	// Units can manage app owned secrets if they are the leader.
-	if assessor.Kind == UnitAccessor {
+	if accessor.Kind == UnitAccessor {
 		if leaderToken == nil {
 			return nil, secreterrors.PermissionDenied
 		}
@@ -228,7 +226,7 @@ func (s *SecretService) getManagementCaveat(
 		// TODO (manadart 2024-11-29): This section will be updated to
 		// return a WithLease wrapper in a patch to follow.
 		if err := leaderToken.Check(); err == nil {
-			appName, _ := names.UnitApplication(assessor.ID)
+			appName, _ := names.UnitApplication(accessor.ID)
 			hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
 				Kind: ApplicationAccessor,
 				ID:   appName,
@@ -237,6 +235,7 @@ func (s *SecretService) getManagementCaveat(
 				// Typically not found error.
 				return nil, errors.Trace(err)
 			}
+
 			if hasRole.Allowed(secrets.RoleManage) {
 				return func(ctx context.Context, fn func(context.Context) error) error {
 					return fn(ctx)
@@ -245,7 +244,7 @@ func (s *SecretService) getManagementCaveat(
 		}
 	}
 	return nil, fmt.Errorf(
-		"%q is not allowed to manage this secret %w", assessor.ID, errors.Hide(secreterrors.PermissionDenied))
+		"%q is not allowed to manage this secret %w", accessor.ID, errors.Hide(secreterrors.PermissionDenied))
 }
 
 // canRead checks that the accessor can read the secret.
