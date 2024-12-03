@@ -95,6 +95,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 
 		state.AddApplicationArgs{
 			Name: "magic", Charm: charm,
+			CharmURL:    charm.URL(),
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 		},
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),
@@ -159,6 +160,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 
 		state.AddApplicationArgs{
 			Name: "magic", Charm: charm,
+			CharmURL:    charm.URL(),
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 		},
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID()),

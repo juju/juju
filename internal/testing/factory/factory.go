@@ -100,6 +100,7 @@ type MachineParams struct {
 type ApplicationParams struct {
 	Name                    string
 	Charm                   *state.Charm
+	CharmURL                string
 	CharmOrigin             *state.CharmOrigin
 	Status                  *status.StatusInfo
 	ApplicationConfig       map[string]interface{}
@@ -424,6 +425,9 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Channel:      "12.10",
 			}}
 	}
+	if params.CharmURL == "" {
+		params.CharmURL = params.Charm.URL()
+	}
 
 	objectStore := NewObjectStore(c,
 		factory.st.ModelUUID(),
@@ -448,6 +452,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		state.AddApplicationArgs{
 			Name:              params.Name,
 			Charm:             params.Charm,
+			CharmURL:          params.CharmURL,
 			CharmOrigin:       params.CharmOrigin,
 			CharmConfig:       params.CharmConfig,
 			ApplicationConfig: appConfig,

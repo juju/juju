@@ -41,13 +41,13 @@ import (
 type ControllerCharmDeployer interface {
 	// DeployLocalCharm deploys the controller charm from the local charm
 	// store.
-	DeployLocalCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, error)
+	DeployLocalCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, charm.Charm, error)
 
 	// DeployCharmhubCharm deploys the controller charm from charm hub.
-	DeployCharmhubCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, error)
+	DeployCharmhubCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, charm.Charm, error)
 
 	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, string, corecharm.Origin, string) (Unit, error)
+	AddControllerApplication(context.Context, string, corecharm.Origin, charm.Charm, string) (Unit, error)
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -105,7 +105,7 @@ type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, 
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
+	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, charm.Charm, error)
 }
 
 // CharmDownloaderFunc is the function that is used to create a charm
@@ -145,7 +145,6 @@ type Unit interface {
 // state.
 type StateBackend interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	Charm(string) (Charm, error)
 	Unit(string) (Unit, error)
 }
 
@@ -253,19 +252,19 @@ func (b *baseDeployer) ControllerCharmArch() string {
 
 // DeployLocalCharm deploys the controller charm from the local charm
 // store.
-func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, error) {
+func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, charm.Charm, error) {
 	controllerCharmPath := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
 	_, err := os.Stat(controllerCharmPath)
 	if os.IsNotExist(err) {
-		return "", nil, errors.NotFoundf(controllerCharmPath)
+		return "", nil, nil, errors.NotFoundf(controllerCharmPath)
 	}
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, nil, errors.Trace(err)
 	}
 
-	curl, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
+	curl, ch, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
 	if err != nil {
-		return "", nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
+		return "", nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
 	b.logger.Debugf("Successfully deployed local Juju controller charm")
 	origin := corecharm.Origin{
@@ -277,18 +276,18 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 			Channel:      base.Channel.String(),
 		},
 	}
-	return curl.String(), &origin, nil
+	return curl.String(), &origin, ch, nil
 }
 
 // DeployCharmhubCharm deploys the controller charm from charm hub.
-func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, error) {
+func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, charm.Charm, error) {
 	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
 		Logger:             b.logger,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 		ModelConfigService: b.modelConfigService,
 	})
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, nil, errors.Trace(err)
 	}
 
 	var curl *charm.URL
@@ -296,9 +295,6 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		curl = charm.MustParseURL(controllerCharmURL)
 	} else {
 		curl = charm.MustParseURL(b.controllerCharmName)
-	}
-	if err != nil {
-		return "", nil, errors.Trace(err)
 	}
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
@@ -323,7 +319,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	// The controller charm doesn't have any base specific code.
 	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(ctx, curl.Name, origin)
 	if err != nil {
-		return "", nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
+		return "", nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}
 
 	charmDownloader, err := b.newCharmDownloader(services.CharmDownloaderConfig{
@@ -334,24 +330,20 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		ModelConfigService: b.modelConfigService,
 	})
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, nil, errors.Trace(err)
 	}
-	resOrigin, err := charmDownloader.DownloadAndStore(ctx, curl, origin, false)
+	resOrigin, ch, err := charmDownloader.DownloadAndStore(ctx, curl, origin, false)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, nil, errors.Trace(err)
 	}
 
 	b.logger.Debugf("Successfully deployed charmhub Juju controller charm")
 
-	return curl.String(), &resOrigin, nil
+	return curl.String(), &resOrigin, ch, nil
 }
 
 // AddControllerApplication adds the controller application.
-func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string, origin corecharm.Origin, controllerAddress string) (Unit, error) {
-	ch, err := b.stateBackend.Charm(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string, origin corecharm.Origin, ch charm.Charm, controllerAddress string) (Unit, error) {
 	cfg := charm.Settings{
 		"is-juju": true,
 	}
@@ -381,6 +373,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
 		Charm:             ch,
+		CharmURL:          curl,
 		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		Constraints:       b.constraints,
@@ -409,15 +402,15 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, charmFileName string) (*charm.URL, charm.Charm, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
-		return nil, errors.Errorf("invalid charm archive: %v", err)
+		return nil, nil, errors.Errorf("invalid charm archive: %v", err)
 	}
 
 	name := archive.Meta().Name
 	if name != bootstrap.ControllerCharmName {
-		return nil, errors.Errorf("unexpected controller charm name %q", name)
+		return nil, nil, errors.Errorf("unexpected controller charm name %q", name)
 	}
 
 	// Reserve a charm URL for it in state.
@@ -428,16 +421,16 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 	}
 	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
 	_, _, _, _, err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl.String(), archive.Revision())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return curl, nil
+	return curl, archive, nil
 }
 
 // ConfigSchema is used to force the trust config option to be true for all

@@ -146,6 +146,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
 		Charm:             ch,
+		CharmURL:          ch.URL(),
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,

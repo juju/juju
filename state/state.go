@@ -895,7 +895,6 @@ func (st *State) CloudService(id string) (*CloudService, error) {
 type CharmRef interface {
 	Meta() *charm.Meta
 	Manifest() *charm.Manifest
-	URL() string
 }
 
 // CharmRefFull is actually almost a full charm with addition information. This
@@ -908,12 +907,14 @@ type CharmRefFull interface {
 	Actions() *charm.Actions
 	Config() *charm.Config
 	Revision() int
+	URL() string
 }
 
 // AddApplicationArgs defines the arguments for AddApplication method.
 type AddApplicationArgs struct {
 	Name              string
 	Charm             CharmRef
+	CharmURL          string
 	CharmOrigin       *CharmOrigin
 	Storage           map[string]StorageConstraints
 	Devices           map[string]DeviceConstraints
@@ -939,9 +940,6 @@ func (st *State) AddApplication(
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")
-	}
-	if args.Charm == nil {
-		return nil, errors.Errorf("charm is nil")
 	}
 	if args.CharmOrigin == nil {
 		return nil, errors.Errorf("charm origin is nil")
@@ -1080,7 +1078,7 @@ func (st *State) AddApplication(
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
-	cURL := args.Charm.URL()
+	cURL := args.CharmURL
 	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,

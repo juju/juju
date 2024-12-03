@@ -382,7 +382,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	s.setupAPI(c)
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 2)
-	s.expectCharmMeta("foo", 6)
+	s.expectCharmMeta("foo", 7)
 	s.expectReadSequence("foo", 1)
 	s.expectAddApplication()
 	s.expectCreateApplication("foo")
