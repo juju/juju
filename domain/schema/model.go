@@ -52,6 +52,7 @@ const (
 	tablePortRange
 	tableSecretDeletedValueRef
 	tableApplication
+	tableAgentVersion
 )
 
 // ModelDDL is used to create model databases.
@@ -124,6 +125,20 @@ func ModelDDL() *schema.Schema {
 			"OLD.subject_type_id <> NEW.subject_type_id OR OLD.scope_uuid <> NEW.scope_uuid OR OLD.scope_type_id <> NEW.scope_type_id",
 			"secret permission subjects and scopes are immutable"),
 	)
+
+	// For agent_version we only care if the single row is updated.
+	// We emit the new target agent version.
+	patches = append(patches, func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+CREATE TRIGGER trg_log_agent_version_update
+AFTER UPDATE ON agent_version FOR EACH ROW
+WHEN 
+	NEW.target_version != OLD.target_version
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %d, NEW.target_version, DATETIME('now'));
+END;`, tableAgentVersion))
+	})
 
 	modelSchema := schema.New()
 	for _, fn := range patches {

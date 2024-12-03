@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -109,7 +108,7 @@ func (s *State) Create(
 	ctx context.Context,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.ControllerDBModelCreationArgs,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -138,7 +137,7 @@ func Create(
 	tx *sqlair.TX,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.ControllerDBModelCreationArgs,
 ) error {
 	// This function is responsible for driving all of the facets of model
 	// creation.
@@ -157,15 +156,6 @@ func Create(
 		return fmt.Errorf(
 			"adding admin permissions to model %q with id %q for owner %q: %w",
 			input.Name, modelID, input.Owner, err,
-		)
-	}
-
-	// Creates a record for the newly created model and register the target
-	// agent version.
-	if err := createModelAgent(ctx, preparer, tx, modelID, input.AgentVersion); err != nil {
-		return fmt.Errorf(
-			"creating model %q with id %q agent: %w",
-			input.Name, modelID, err,
 		)
 	}
 
@@ -420,56 +410,6 @@ WHERE uuid = $dbModel.uuid
 	return coreModel, nil
 }
 
-// createModelAgent is responsible for creating a new model's agent record for
-// the given model id. If a model agent record already exists for the given
-// model uuid then an error satisfying [modelerrors.AlreadyExists] is returned.
-// If no model exists for the provided UUID then a [modelerrors.NotFound] is
-// returned.
-func createModelAgent(
-	ctx context.Context,
-	preparer domain.Preparer,
-	tx *sqlair.TX,
-	modelUUID coremodel.UUID,
-	agentVersion version.Number,
-) error {
-	modelAgent := dbModelAgent{
-		UUID:            modelUUID.String(),
-		PreviousVersion: agentVersion.String(),
-		TargetVersion:   agentVersion.String(),
-	}
-	stmt, err := preparer.Prepare(`
-INSERT INTO model_agent (*) VALUES ($dbModelAgent.*)
-`, modelAgent)
-	if err != nil {
-		return errors.Annotatef(err, "preparing insert model agent statement")
-	}
-
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, stmt, modelAgent).Get(&outcome)
-	if jujudb.IsErrConstraintPrimaryKey(err) {
-		return fmt.Errorf(
-			"%w for uuid %q while setting model agent version",
-			modelerrors.AlreadyExists, modelUUID,
-		)
-	} else if jujudb.IsErrConstraintForeignKey(err) {
-		return fmt.Errorf(
-			"%w for uuid %q while setting model agent version",
-			modelerrors.NotFound,
-			modelUUID,
-		)
-	} else if err != nil {
-		return fmt.Errorf("creating model %q agent information: %w", modelUUID, err)
-	}
-
-	if num, err := outcome.Result().RowsAffected(); err != nil {
-		return errors.Trace(err)
-	} else if num != 1 {
-		return fmt.Errorf("creating model agent record, expected 1 row to be inserted got %d", num)
-	}
-
-	return nil
-}
-
 // setModelSecretBackend sets the secret backend for a given model id. If the
 // secret backend does not exist a [secretbackenderrors.NotFound] error will be
 // returned. Should the model already have a secret backend set an error
@@ -555,7 +495,7 @@ INSERT INTO model_secret_backend (*) VALUES ($dbModelSecretBackend.*)
 //
 // Should the provided cloud and region not be found an error matching
 // errors.NotFound will be returned.
-// If the ModelCreationArgs contains a non zero value cloud credential this func
+// If the ControllerDBModelCreationArgs contains a non zero value cloud credential this func
 // will also attempt to set the model cloud credential using updateCredential. In
 // this  scenario the errors from updateCredential are also possible.
 // If the model owner does not exist an error satisfying [usererrors.NotFound]
@@ -566,7 +506,7 @@ func createModel(
 	tx *sqlair.TX,
 	modelUUID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.ControllerDBModelCreationArgs,
 ) error {
 	cloudName := dbName{Name: input.Cloud}
 
@@ -771,7 +711,7 @@ func (s *State) Activate(ctx context.Context, uuid coremodel.UUID) error {
 type ActivatorFunc func(context.Context, domain.Preparer, *sqlair.TX, coremodel.UUID) error
 
 // GetActivator constructs a [ActivateFunc] that can safely be used over several
-// transaction retry's.
+// transaction retries.
 func GetActivator() ActivatorFunc {
 	return func(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, uuid coremodel.UUID) error {
 		mUUID := dbUUID{UUID: uuid.String()}
@@ -950,7 +890,7 @@ OR uuid IN (SELECT grant_on
 		return nil, errors.Annotatef(err, "preparing select model statement")
 	}
 
-	rval := []coremodel.Model{}
+	var rval []coremodel.Model
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result []dbModel
 		if err := tx.Query(ctx, modelStmt, uUUID).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
@@ -960,12 +900,12 @@ OR uuid IN (SELECT grant_on
 		}
 
 		for _, r := range result {
-			model, err := r.toCoreModel()
+			mod, err := r.toCoreModel()
 			if err != nil {
 				return errors.Trace(err)
 			}
 
-			rval = append(rval, model)
+			rval = append(rval, mod)
 		}
 
 		return nil
@@ -1046,7 +986,7 @@ func (s *State) ListModelSummariesForUser(ctx context.Context, userName user.Nam
 SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
           m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, mll.time, m.target_agent_version) AS (&dbModelSummary.*)
+          m.life, mll.time) AS (&dbModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
 JOIN      v_model m ON m.uuid = p.grant_on
@@ -1119,7 +1059,7 @@ func (s *State) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSum
 SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
           m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, m.target_agent_version) AS (&dbModelSummary.*)
+          m.life) AS (&dbModelSummary.*)
 FROM      v_model m 
 `, dbModelSummary{})
 	if err != nil {

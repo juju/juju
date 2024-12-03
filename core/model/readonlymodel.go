@@ -4,21 +4,16 @@
 package model
 
 import (
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // ReadOnlyModel represents the state of a read-only model found in the
 // model database, not the controller database.
-// All the fields are are denormalized from the model database.
+// All the fields are denormalized from the controller database.
 type ReadOnlyModel struct {
 	// UUID represents the model UUID.
 	UUID UUID
-
-	// AgentVersion reports the current target agent version for the model.
-	AgentVersion version.Number
 
 	// ControllerUUID represents the controller UUID.
 	ControllerUUID uuid.UUID

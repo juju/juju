@@ -15,7 +15,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -51,9 +50,9 @@ func (s *stateSuite) setupModel(c *gc.C) string {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
-VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+VALUES (?, ?, "test", "iaas", "fluffy", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

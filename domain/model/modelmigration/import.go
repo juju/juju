@@ -183,7 +183,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	args := domainmodel.ModelImportArgs{
-		ModelCreationArgs: domainmodel.ModelCreationArgs{
+		ControllerDBModelCreationArgs: domainmodel.ControllerDBModelCreationArgs{
 			AgentVersion: agentVersion,
 			Cloud:        model.Cloud(),
 			CloudRegion:  model.CloudRegion(),

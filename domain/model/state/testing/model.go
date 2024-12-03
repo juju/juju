@@ -152,7 +152,7 @@ func CreateTestModel(
 		context.Background(),
 		modelUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.ControllerDBModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        name,
 			CloudRegion:  regionName,

@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/database/schema"
 	coresecrets "github.com/juju/juju/core/secrets"
-	jujuversion "github.com/juju/juju/core/version"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
@@ -144,7 +143,6 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 
 		// Model migration
 		"model_migration",
-		"model_agent",
 		"model_migration_status",
 		"model_migration_user",
 		"model_migration_minion_sync",
@@ -292,6 +290,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Model
 		"model",
+		"agent_version",
 
 		// Model config
 		"model_config",
@@ -585,10 +584,6 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_user_authentication_insert",
 		"trg_log_user_authentication_update",
 		"trg_log_user_authentication_delete",
-
-		"trg_log_model_agent_insert",
-		"trg_log_model_agent_update",
-		"trg_log_model_agent_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
@@ -612,6 +607,8 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 	// Expected changelog triggers. Additional triggers are not included and
 	// can be added to the addition list.
 	expected := set.NewStrings(
+		"trg_log_agent_version_update",
+		
 		"trg_log_application_delete",
 		"trg_log_application_insert",
 		"trg_log_application_update",
@@ -938,9 +935,9 @@ func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type, cloud_region)
-VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
-		modelUUID, controllerUUID, jujuversion.Current.String())
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, cloud_region)
+VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
+		modelUUID, controllerUUID)
 	s.assertExecSQLError(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
 		"model table is immutable", modelUUID)

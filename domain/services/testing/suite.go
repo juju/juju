@@ -184,7 +184,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerArgs := modeldomain.ModelCreationArgs{
+	controllerArgs := modeldomain.ControllerDBModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
 		CloudRegion:  "dummy-region",
@@ -193,13 +193,13 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		Owner:        s.AdminUserUUID,
 	}
 
-	fn := modelbootstrap.CreateModel(s.ControllerModelUUID, controllerArgs)
+	fn := modelbootstrap.CreateControllerDBModelRecord(s.ControllerModelUUID, controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateReadOnlyModel(s.ControllerModelUUID, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
+	err = modelbootstrap.CreateModelDBModelRecord(s.ControllerModelUUID, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
@@ -210,7 +210,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelArgs := modeldomain.ModelCreationArgs{
+	modelArgs := modeldomain.ControllerDBModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
 		Credential:   s.CredentialKey,
@@ -218,11 +218,11 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		Owner:        s.AdminUserUUID,
 	}
 
-	fn = modelbootstrap.CreateModel(s.DefaultModelUUID, modelArgs)
+	fn = modelbootstrap.CreateControllerDBModelRecord(s.DefaultModelUUID, modelArgs)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateReadOnlyModel(s.DefaultModelUUID, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
+	err = modelbootstrap.CreateModelDBModelRecord(s.DefaultModelUUID, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(

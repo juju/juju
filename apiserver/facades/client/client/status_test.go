@@ -529,7 +529,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	// Double-write model information to dqlite.
 	// Add the model to the model database.
 	err = s.ModelTxnRunner(c, model2.UUID()).Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return modelstate.CreateReadOnlyModel(ctx, domainmodel.ReadOnlyModelCreationArgs{
+		return modelstate.InsertModelInfo(ctx, domainmodel.ReadOnlyModelRecordArgs{
 			UUID:         coremodel.UUID(model2.UUID()),
 			Name:         model2.Name(),
 			Cloud:        "dummy",
