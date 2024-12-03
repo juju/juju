@@ -40,6 +40,13 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 			Metadata: charm.Metadata{
 				Name: "app",
 			},
+			Manifest: charm.Manifest{
+				Bases: []charm.Base{{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Risk: charm.RiskStable},
+					Architectures: []string{"amd64"},
+				}},
+			},
 			ReferenceName: "app",
 			Source:        charm.LocalSource,
 			Architecture:  architecture.AMD64,

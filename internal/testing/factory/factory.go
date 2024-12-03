@@ -611,6 +611,9 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 			chOrigin.AsCoreCharmOrigin(), applicationservice.AddApplicationArgs{
 				ReferenceName: params.Application.Name(),
 				Storage:       directives,
+				DownloadInfo: &applicationcharm.DownloadInfo{
+					DownloadProvenance: applicationcharm.ProvenanceUpload,
+				},
 			})
 		if !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 			c.Assert(err, jc.ErrorIsNil)

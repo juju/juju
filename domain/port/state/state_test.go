@@ -80,6 +80,13 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 					Name:     appName,
 					Requires: relationsMap,
 				},
+				Manifest: charm.Manifest{
+					Bases: []charm.Base{{
+						Name:          "ubuntu",
+						Channel:       charm.Channel{Risk: charm.RiskStable},
+						Architectures: []string{"amd64"},
+					}},
+				},
 				ReferenceName: appName,
 				Architecture:  architecture.AMD64,
 				Revision:      1,

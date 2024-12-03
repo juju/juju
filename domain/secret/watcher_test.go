@@ -23,6 +23,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secret"
@@ -53,91 +54,6 @@ VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
-	logger := loggertesting.WrapCheckLog(c)
-	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
-	svc := applicationservice.NewService(st, nil,
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return storage.NotImplementedProviderRegistry{}
-		}),
-		nil,
-		noopResourceStoreGetter{},
-		clock.WallClock,
-		logger,
-	)
-
-	unitName, err := unit.NewNameFromParts(appName, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = svc.CreateApplication(context.Background(),
-		appName,
-		&stubCharm{},
-		corecharm.Origin{
-			Source: corecharm.CharmHub,
-			Platform: corecharm.Platform{
-				Channel:      "24.04",
-				OS:           "ubuntu",
-				Architecture: "amd64",
-			},
-		},
-		applicationservice.AddApplicationArgs{
-			ReferenceName: appName,
-		},
-		applicationservice.AddUnitArg{UnitName: unitName},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func revID(uri *coresecrets.URI, rev int) string {
-	return fmt.Sprintf("%s/%d", uri.ID, rev)
-}
-
-func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
-	sp := secret.UpsertSecretParams{
-		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
-		RevisionID: ptr(uuid.MustNewUUID().String()),
-	}
-	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return st.UpdateSecret(ctx, uri, sp)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService, *state.State) {
-	logger := loggertesting.WrapCheckLog(c)
-	st := state.NewState(s.TxnRunnerFactory(), logger)
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
-		logger,
-	)
-	return service.NewWatchableService(st, nil, logger, factory, service.SecretServiceParams{}), st
-}
-
-func createUserSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, secret secret.UpsertSecretParams) error {
-	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.CreateUserSecret(ctx, version, uri, secret)
-	})
-}
-
-func createCharmApplicationSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, appName string, secret secret.UpsertSecretParams) error {
-	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appUUID, err := st.GetApplicationUUID(ctx, appName)
-		if err != nil {
-			return err
-		}
-		return st.CreateCharmApplicationSecret(ctx, version, uri, appUUID, secret)
-	})
-}
-
-func createCharmUnitSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, unitName string, secret secret.UpsertSecretParams) error {
-	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		unitUUID, err := st.GetUnitUUID(ctx, unitName)
-		if err != nil {
-			return err
-		}
-		return st.CreateCharmUnitSecret(ctx, version, uri, unitUUID, secret)
-	})
 }
 
 func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
@@ -826,6 +742,97 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
+func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
+	logger := loggertesting.WrapCheckLog(c)
+	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
+	svc := applicationservice.NewService(st, nil,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return storage.NotImplementedProviderRegistry{}
+		}),
+		nil,
+		noopResourceStoreGetter{},
+		clock.WallClock,
+		logger,
+	)
+
+	unitName, err := unit.NewNameFromParts(appName, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = svc.CreateApplication(context.Background(),
+		appName,
+		&stubCharm{},
+		corecharm.Origin{
+			Source: corecharm.CharmHub,
+			Platform: corecharm.Platform{
+				Channel:      "24.04",
+				OS:           "ubuntu",
+				Architecture: "amd64",
+			},
+		},
+		applicationservice.AddApplicationArgs{
+			ReferenceName: appName,
+			DownloadInfo: &applicationcharm.DownloadInfo{
+				DownloadProvenance: applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "wordpress-1",
+				DownloadURL:        "https://example.com/wordpress-1",
+				DownloadSize:       1000,
+			},
+		},
+		applicationservice.AddUnitArg{UnitName: unitName},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService, *state.State) {
+	logger := loggertesting.WrapCheckLog(c)
+	st := state.NewState(s.TxnRunnerFactory(), logger)
+	factory := domain.NewWatcherFactory(
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
+		logger,
+	)
+	return service.NewWatchableService(st, nil, logger, factory, service.SecretServiceParams{}), st
+}
+
+func revID(uri *coresecrets.URI, rev int) string {
+	return fmt.Sprintf("%s/%d", uri.ID, rev)
+}
+
+func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
+	sp := secret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		return st.UpdateSecret(ctx, uri, sp)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func createUserSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, secret secret.UpsertSecretParams) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.CreateUserSecret(ctx, version, uri, secret)
+	})
+}
+
+func createCharmApplicationSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, appName string, secret secret.UpsertSecretParams) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		appUUID, err := st.GetApplicationUUID(ctx, appName)
+		if err != nil {
+			return err
+		}
+		return st.CreateCharmApplicationSecret(ctx, version, uri, appUUID, secret)
+	})
+}
+
+func createCharmUnitSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, unitName string, secret secret.UpsertSecretParams) error {
+	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		unitUUID, err := st.GetUnitUUID(ctx, unitName)
+		if err != nil {
+			return err
+		}
+		return st.CreateCharmUnitSecret(ctx, version, uri, unitUUID, secret)
+	})
+}
+
 type stubCharm struct{}
 
 var _ charm.Charm = (*stubCharm)(nil)
@@ -837,7 +844,13 @@ func (m *stubCharm) Meta() *charm.Meta {
 }
 
 func (m *stubCharm) Manifest() *charm.Manifest {
-	return &charm.Manifest{}
+	return &charm.Manifest{
+		Bases: []charm.Base{{
+			Name:          "ubuntu",
+			Channel:       charm.Channel{Risk: charm.Stable},
+			Architectures: []string{"amd64"},
+		}},
+	}
 }
 
 func (m *stubCharm) Config() *charm.Config {

@@ -41,6 +41,13 @@ var addApplicationArg = application.AddApplicationArg{
 		Metadata: charm.Metadata{
 			Name: "foo",
 		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{{
+				Name:          "ubuntu",
+				Channel:       charm.Channel{Risk: charm.RiskStable},
+				Architectures: []string{"amd64"},
+			}},
+		},
 		Source:        charm.LocalSource,
 		Architecture:  architecture.AMD64,
 		ReferenceName: "foo",
