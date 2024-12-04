@@ -36,7 +36,7 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	// When deploying a local charm, it is expected that the charm is located
 	// in a certain location. If the charm is not located there, we'll get an
 	// error indicating that the charm is not found.
-	curl, origin, ch, err := deployer.DeployLocalCharm(ctx, arch, base)
+	deployInfo, err := deployer.DeployLocalCharm(ctx, arch, base)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotatef(err, "deploying local controller charm")
 	}
@@ -44,17 +44,14 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	// If the errors is not found locally, we'll try to download it from
 	// charm hub.
 	if errors.Is(err, errors.NotFound) {
-		curl, origin, ch, err = deployer.DeployCharmhubCharm(ctx, arch, base)
+		deployInfo, err = deployer.DeployCharmhubCharm(ctx, arch, base)
 		if err != nil {
 			return errors.Annotatef(err, "deploying charmhub controller charm")
 		}
 	}
-	if origin == nil {
-		return errors.NotValidf("origin")
-	}
 
 	// Once the charm is added, set up the controller application.
-	controllerUnit, err := deployer.AddControllerApplication(ctx, curl, *origin, ch, controllerAddress)
+	controllerUnit, err := deployer.AddControllerApplication(ctx, deployInfo, controllerAddress)
 	if err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 		return errors.Annotatef(err, "adding controller application")
 	}
