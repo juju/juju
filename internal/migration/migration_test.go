@@ -62,14 +62,6 @@ func (s *ExportSuite) TestExportValidates(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	scope := modelmigration.NewScope(nil, nil, nil)
-	exporter := migration.NewModelExporter(
-		s.operationsExporter,
-		nil,
-		scope,
-		s.storageRegistryGetter,
-		s.coordinator,
-		nil, nil,
-	)
 
 	// The order of the expectations is important here. We expect that the
 	// validation is the last thing that happens.
@@ -77,6 +69,15 @@ func (s *ExportSuite) TestExportValidates(c *gc.C) {
 		s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter),
 		s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil),
 		s.model.EXPECT().Validate().Return(nil),
+	)
+
+	exporter := migration.NewModelExporter(
+		s.operationsExporter,
+		nil,
+		scope,
+		s.storageRegistryGetter,
+		s.coordinator,
+		nil, nil,
 	)
 
 	_, err := exporter.Export(context.Background(), s.model)
@@ -87,6 +88,11 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	scope := modelmigration.NewScope(nil, nil, nil)
+
+	s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter)
+	s.model.EXPECT().Validate().Return(errors.New("boom"))
+	s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil)
+
 	exporter := migration.NewModelExporter(
 		s.operationsExporter,
 		nil,
@@ -95,10 +101,6 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 		s.coordinator,
 		nil, nil,
 	)
-
-	s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter)
-	s.model.EXPECT().Validate().Return(errors.New("boom"))
-	s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil)
 
 	_, err := exporter.Export(context.Background(), s.model)
 	c.Assert(err, gc.ErrorMatches, "boom")
