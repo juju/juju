@@ -359,7 +359,6 @@ func (c *conn) connectStream(path string, attrs url.Values, extraHeaders http.He
 		return nil, errors.Trace(err)
 	}
 	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
-	requestHeader.Set("Origin", "http://localhost/")
 	for header, values := range extraHeaders {
 		for _, value := range values {
 			requestHeader.Add(header, value)

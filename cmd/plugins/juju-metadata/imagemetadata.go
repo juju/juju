@@ -164,11 +164,15 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context, base corebase.Bas
 					c.Endpoint = cloudSpec.Endpoint
 				}
 			}
-			cfg := environ.Config()
 
-			// If we have a base, overwrite that from the environment.
-			if b := config.PreferredBase(cfg); !b.Empty() {
-				base = b
+			// If we don't have a base set, then look up the one from the
+			// environment configuration.
+			if c.Base == "" {
+				cfg := environ.Config()
+
+				if b := config.PreferredBase(cfg); !b.Empty() {
+					base = b
+				}
 			}
 		} else {
 			logger.Warningf("bootstrap parameters could not be opened: %v", err)

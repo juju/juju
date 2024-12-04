@@ -722,6 +722,9 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
 	}
 
+	// TODO (jam) 2024-11-15: this test is kept for backward compatibility,
+	//  in 3.x the --force-series argument exists, though it is being
+	//  replaced by --force-base
 	_, err = s.runRefresh(c, "multi-series", "--path", s.archivePath(c, repoPath), "--force-series")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -733,6 +736,60 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 			URL: "local:multi-series-1",
 			Origin: commoncharm.Origin{
 				Base:         s.charmAPIClient.charmOrigin.Base,
+				Source:       "local",
+				Architecture: arch.DefaultArchitecture,
+				Revision:     &rev,
+			},
+		},
+		ForceBase:        true,
+		ConfigSettings:   map[string]string{},
+		EndpointBindings: map[string]string{},
+	})
+}
+
+func (s *RefreshSuite) TestForcedBaseUpgrade(c *gc.C) {
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:multi-base"), charm.MustParseURL("ch:multi-base"))
+
+	// Overwrite the manifest.yaml to change the supported series.
+	repoPath := testcharms.RepoWithSeries("jammy").ClonedDirPath(c.MkDir(), "multi-base")
+	manifestPath := filepath.Join(repoPath, "manifest.yaml")
+	file, err := os.OpenFile(manifestPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open manifest.yaml for overwriting"))
+	}
+	defer func() { _ = file.Close() }()
+
+	// We deployed a version of the charm that supported jammy (22.04), but
+	// now we declare that this charm only supports focal, but with a
+	// --force-base we are allowed to target it anyway.
+	manifest := strings.Join(
+		[]string{
+			`bases:`,
+			`- architectures:`,
+			`  - amd64`,
+			// Now only supports focal
+			`  channel: '20.04'`,
+			`  name: ubuntu`,
+		},
+		"\n",
+	)
+	if _, err := file.WriteString(manifest); err != nil {
+		c.Fatal(errors.Annotate(err, "cannot write to manifest.yaml"))
+	}
+
+	_, err = s.runRefresh(c, "multi-base", "--base", "ubuntu@20.04",
+		"--path", s.archivePath(c, repoPath), "--force-base")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	rev := 1
+	origin := commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@20.04")}
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
+		ApplicationName: "multi-base",
+		CharmID: application.CharmID{
+			URL: "local:multi-base-1",
+			Origin: commoncharm.Origin{
+				Base:         origin.Base,
 				Source:       "local",
 				Architecture: arch.DefaultArchitecture,
 				Revision:     &rev,
