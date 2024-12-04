@@ -142,9 +142,6 @@ type CharmState interface {
 	// GetCharmDownloadInfo returns the download info for the charm using the
 	// charm ID.
 	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error)
-
-	// GetCharmHash returns the hash for the charm using the charm ID.
-	GetCharmHash(ctx context.Context, id corecharm.ID) (string, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive

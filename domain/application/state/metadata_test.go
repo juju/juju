@@ -472,7 +472,7 @@ func (s *metadataSuite) TestEncodeMetadata(c *gc.C) {
 		RunAs:          "root",
 		Subordinate:    true,
 		Assumes:        []byte("null"),
-	}, []byte("{}"))
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.DeepEquals, setCharmMetadata{
 		CharmUUID:      id.String(),
@@ -483,7 +483,6 @@ func (s *metadataSuite) TestEncodeMetadata(c *gc.C) {
 		RunAsID:        1,
 		Subordinate:    true,
 		Assumes:        []byte("null"),
-		LXDProfile:     []byte("{}"),
 	})
 
 }

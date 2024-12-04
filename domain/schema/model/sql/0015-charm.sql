@@ -22,9 +22,12 @@ CREATE TABLE charm (
     -- Archive path is the path to the charm archive on disk. This is used to
     -- determine the source of the charm.
     archive_path TEXT,
+    object_store_uuid TEXT,
+
     available BOOLEAN DEFAULT FALSE,
 
     version TEXT,
+    lxd_profile TEXT,
 
     -- The following fields are purely here to reconstruct the charm URL.
     -- Once we have the ability to only talk about charms in terms of a UUID,
@@ -55,6 +58,9 @@ CREATE TABLE charm (
     CONSTRAINT fk_charm_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
+    CONSTRAINT fk_charm_object_store_metadata 
+    FOREIGN KEY (object_store_uuid)
+    REFERENCES object_store_metadata (uuid),
 
     -- Ensure we have an architecture if the source is charmhub.
     CONSTRAINT chk_charm_architecture
@@ -137,7 +143,6 @@ CREATE TABLE charm_metadata (
     -- As the expression tree is generic, you can't use RI or index into the
     -- blob without constraining the expression to a specific set of rules.
     assumes TEXT,
-    lxd_profile TEXT,
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
     REFERENCES charm_run_as_kind (id),

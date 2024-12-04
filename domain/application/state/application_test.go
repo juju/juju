@@ -19,6 +19,8 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -2023,6 +2025,78 @@ func (s *applicationStateSuite) TestReserveCharmDownloadAlreadyDone(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
 }
 
+func (s *applicationStateSuite) TestResolveCharmDownload(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
+
+	info, err := s.state.ReserveCharmDownload(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"action": {
+				Description:    "description",
+				Parallel:       true,
+				ExecutionGroup: "group",
+				Params:         []byte(`{}`),
+			},
+		},
+	}
+
+	err = s.state.ResolveCharmDownload(context.Background(), info.CharmUUID, application.ResolvedCharmDownload{
+		Actions:         actions,
+		LXDProfile:      []byte("profile"),
+		ObjectStoreUUID: objectStoreUUID,
+		ArchivePath:     "archive",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the charm is now available.
+	available, err := s.state.IsCharmAvailable(context.Background(), info.CharmUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(available, gc.Equals, true)
+
+	ch, err := s.state.GetCharmByApplicationID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ch.Actions, gc.DeepEquals, actions)
+	c.Check(ch.LXDProfile, gc.DeepEquals, []byte("profile"))
+	c.Check(ch.ArchivePath, gc.DeepEquals, "archive")
+}
+
+func (s *applicationStateSuite) TestResolveCharmDownloadAlreadyResolved(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive)
+
+	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetCharmAvailable(context.Background(), charmUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.ResolveCharmDownload(context.Background(), charmUUID, application.ResolvedCharmDownload{
+		LXDProfile:      []byte("profile"),
+		ObjectStoreUUID: objectStoreUUID,
+		ArchivePath:     "archive",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyResolved)
+}
+
+func (s *applicationStateSuite) TestResolveCharmDownloadNotFound(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive)
+
+	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
+
+	err := s.state.ResolveCharmDownload(context.Background(), "foo", application.ResolvedCharmDownload{
+		LXDProfile:      []byte("profile"),
+		ObjectStoreUUID: objectStoreUUID,
+		ArchivePath:     "archive",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
 func (s *applicationStateSuite) TestReserveCharmDownloadLocalCharm(c *gc.C) {
 	platform := application.Platform{
 		Channel:      "22.04/stable",
@@ -2127,6 +2201,25 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 	c.Assert(err, jc.ErrorIsNil)
 
 	return appID
+}
+
+func (s *applicationStateSuite) createObjectStoreBlob(c *gc.C, path string) objectstore.UUID {
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)
+`, uuid.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
+`, path, uuid.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return uuid
 }
 
 func (s *applicationStateSuite) assertApplication(

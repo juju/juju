@@ -102,7 +102,7 @@ func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmMetadata(ctx, tx, uuid, ch.Metadata, ch.LXDProfile); err != nil {
+	if err := s.setCharmMetadata(ctx, tx, uuid, ch.Metadata); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -201,6 +201,7 @@ func (s *State) setCharmState(
 		Version:        ch.Version,
 		SourceID:       sourceID,
 		ArchitectureID: nullableArchitectureID,
+		LXDProfile:     ch.LXDProfile,
 	}
 
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
@@ -268,9 +269,8 @@ func (s *State) setCharmMetadata(
 	tx *sqlair.TX,
 	id corecharm.ID,
 	metadata charm.Metadata,
-	lxdProfile []byte,
 ) error {
-	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile)
+	encodedMetadata, err := encodeMetadata(id, metadata)
 	if err != nil {
 		return fmt.Errorf("encoding charm metadata: %w", err)
 	}

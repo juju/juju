@@ -19,7 +19,6 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
@@ -228,7 +227,7 @@ type ApplicationState interface {
 
 	// ResolveCharmDownload resolves the charm download for the specified
 	// application, updating the charm with the specified charm information.
-	ResolveCharmDownload(ctx context.Context, charmID corecharm.ID, charm domaincharm.Charm, objectStoreUUID objectstore.UUID) error
+	ResolveCharmDownload(ctx context.Context, charmID corecharm.ID, info application.ResolvedCharmDownload) error
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -1333,6 +1332,16 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		return errors.Trace(err)
 	}
 
+	// We must ensure that the objectstore UUID is valid.
+	if err := objectStoreUUID.Validate(); err != nil {
+		return internalerrors.Errorf("invalid object store UUID: %w", err)
+	}
+
 	// Resolve the charm download, which will set itself to available.
-	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, domainCharm, objectStoreUUID)
+	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, application.ResolvedCharmDownload{
+		Actions:         domainCharm.Actions,
+		LXDProfile:      domainCharm.LXDProfile,
+		ObjectStoreUUID: objectStoreUUID,
+		ArchivePath:     resolve.Path,
+	})
 }
