@@ -82,6 +82,8 @@ type SetCharmArgs struct {
 	Version string
 	// Architecture is the architecture of the charm.
 	Architecture arch.Arch
+	// DownloadInfo holds the information needed to download a charmhub charm.
+	DownloadInfo *DownloadInfo
 }
 
 // Revision is the charm revision.
@@ -149,6 +151,57 @@ type CharmLocator struct {
 
 	// Architecture is the architecture of the charm.
 	Architecture architecture.Architecture
+}
+
+// Provenance represents the provenance of a charm download. Ideally this would
+// be called origin, but that's already used for an origin of a charm.
+type Provenance string
+
+const (
+	// ProvenanceDownload represents a charm download from the charmhub.
+	ProvenanceDownload Provenance = "download"
+	// ProvenanceUpload represents a charm download from an upload.
+	ProvenanceUpload Provenance = "upload"
+	// ProvenanceMigration represents a charm download from a migration.
+	ProvenanceMigration Provenance = "migration"
+	// ProvenanceBootstrap represents a charm placement during bootstrap.
+	ProvenanceBootstrap Provenance = "bootstrap"
+)
+
+// DownloadInfo holds the information needed to download a charmhub charm.
+type DownloadInfo struct {
+	// Provenance is the provenance of the download.
+	Provenance Provenance
+
+	// CharmhubIdentifier is the instance ID of the charm in relation to
+	// charmhub.
+	CharmhubIdentifier string
+
+	// DownloadURL is the URL to download the charm from.
+	DownloadURL string
+
+	// DownloadSize is the size of the charm in bytes that the download URL
+	// points to.
+	DownloadSize int64
+}
+
+// Validate validates the download information.
+func (d DownloadInfo) Validate() error {
+	if d.Provenance == "" {
+		return applicationerrors.CharmProvenanceNotValid
+	}
+
+	// We don't validate the download information if it's not a download.
+	if d.Provenance != ProvenanceDownload {
+		return nil
+	}
+
+	// Download URL is required for a download.
+	if d.DownloadURL == "" {
+		return applicationerrors.CharmDownloadURLNotValid
+	}
+
+	return nil
 }
 
 // Metadata represents the metadata of a charm from the perspective of the

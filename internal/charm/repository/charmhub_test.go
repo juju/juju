@@ -251,8 +251,13 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(obtainedData.URL, jc.DeepEquals, expected)
-	c.Assert(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
+	c.Check(obtainedData.URL, jc.DeepEquals, expected)
+	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
+	c.Check(obtainedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
+		DownloadURL:        "http://example.com/wordpress-42",
+		DownloadSize:       42,
+	})
 }
 
 func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C) {
@@ -297,13 +302,19 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(obtainedData.URL, jc.DeepEquals, expected)
-	c.Assert(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
+	c.Check(obtainedData.URL, jc.DeepEquals, expected)
+	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
+	c.Check(obtainedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
+		DownloadURL:        "http://example.com/wordpress-42",
+		DownloadSize:       42,
+	})
+
 	c.Assert(obtainedData.Resources, gc.HasLen, 1)
 	foundResource := obtainedData.Resources["wal-e"]
-	c.Assert(foundResource.Name, gc.Equals, "wal-e")
-	c.Assert(foundResource.Path, gc.Equals, "wal-e.snap")
-	c.Assert(foundResource.Revision, gc.Equals, 5)
+	c.Check(foundResource.Name, gc.Equals, "wal-e")
+	c.Check(foundResource.Path, gc.Equals, "wal-e.snap")
+	c.Check(foundResource.Revision, gc.Equals, 5)
 }
 func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -447,7 +458,7 @@ func (s *charmHubRepositorySuite) TestDownload(c *gc.C) {
 		},
 	}
 
-	resolvedURL, err := url.Parse("ch:amd64/focal/wordpress-42")
+	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
@@ -501,7 +512,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 		},
 	}
 
-	resolvedURL, err := url.Parse("ch:amd64/focal/wordpress-42")
+	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
 	c.Assert(err, jc.ErrorIsNil)
 	resolvedArchive := new(charm.CharmArchive)
 
@@ -557,7 +568,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 		},
 	}
 
-	resolvedURL, err := url.Parse("ch:amd64/focal/wordpress-42")
+	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
@@ -638,6 +649,11 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 				Track: "latest",
 				Risk:  "stable",
 			},
+		},
+		DownloadInfo: corecharm.DownloadInfo{
+			CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
+			DownloadURL:        "http://example.com/wordpress-42",
+			DownloadSize:       42,
 		},
 	})
 }
@@ -813,7 +829,7 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.Refre
 					HashSHA256: hash,
 					HashSHA384: "SHA384 hash",
 					Size:       42,
-					URL:        "ch:amd64/focal/wordpress-42",
+					URL:        "http://example.com/wordpress-42",
 				},
 				//
 				Bases: []transport.Base{
@@ -936,7 +952,7 @@ func (s *charmHubRepositorySuite) expectCharmRefreshFullWithResources(c *gc.C, c
 					HashSHA256: "SHA256 hash",
 					HashSHA384: "SHA384 hash",
 					Size:       42,
-					URL:        "ch:amd64/focal/wordpress-42",
+					URL:        "http://example.com/wordpress-42",
 				},
 				//
 				Bases: []transport.Base{

@@ -40,6 +40,7 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotatef(err, "deploying local controller charm")
 	}
+
 	// If the errors is not found locally, we'll try to download it from
 	// charm hub.
 	if errors.Is(err, errors.NotFound) {

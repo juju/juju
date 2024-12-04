@@ -74,6 +74,10 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 			ReferenceName: "test",
 			Revision:      1,
 			Architecture:  arch.AMD64,
+			DownloadInfo: &charm.DownloadInfo{
+				Provenance:  charm.ProvenanceDownload,
+				DownloadURL: "http://example.com",
+			},
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -476,9 +480,9 @@ func (s *watcherSuite) createApplication(c *gc.C, svc *service.WatchableService,
 	return s.createApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *service.WatchableService, name string, charm internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
-	appID, err := svc.CreateApplication(ctx, name, charm, corecharm.Origin{
+	appID, err := svc.CreateApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
@@ -488,6 +492,10 @@ func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *se
 	}, service.AddApplicationArgs{
 		ReferenceName:    name,
 		CharmStoragePath: storagePath,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -73,6 +74,9 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	_, err := s.applicationService.CreateApplication(
 		context.Background(), "gitlab", &stubCharm{}, origin, service.AddApplicationArgs{
 			ReferenceName: "gitlab",
+			DownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance: applicationcharm.ProvenanceUpload,
+			},
 		}, service.AddUnitArg{
 			UnitName: unitName,
 		})

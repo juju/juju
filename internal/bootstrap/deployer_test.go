@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -282,6 +283,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 		},
 		applicationservice.AddApplicationArgs{
 			ReferenceName: bootstrap.ControllerApplicationName,
+			DownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance: applicationcharm.ProvenanceBootstrap,
+			},
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)

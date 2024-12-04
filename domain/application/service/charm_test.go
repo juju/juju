@@ -196,7 +196,7 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 		},
 		Source:   charm.LocalSource,
 		Revision: 42,
-	}, nil)
+	}, nil, nil)
 
 	metadata, locator, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,7 +216,7 @@ func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{}, applicationerrors.CharmNotFound)
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{}, nil, applicationerrors.CharmNotFound)
 
 	_, _, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
@@ -454,23 +454,31 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name: "foo",
 	}).Times(2)
-	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
-	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
-	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
+	var downloadInfo *charm.DownloadInfo
 
 	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
 		Metadata: charm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
 		},
+		Manifest:      s.minimalManifest(c),
 		ReferenceName: "baz",
 		Source:        charm.LocalSource,
 		Revision:      1,
 		Architecture:  architecture.AMD64,
-	}).Return(id, nil)
+	}, downloadInfo).Return(id, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -478,6 +486,81 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 		ReferenceName: "baz",
 		Revision:      1,
 		Architecture:  arch.AMD64,
+		DownloadInfo:  downloadInfo,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(warnings, gc.HasLen, 0)
+	c.Check(got, gc.DeepEquals, id)
+}
+
+func (s *charmServiceSuite) TestSetCharmCharmhubWithNoDownloadInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+	}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
+	var downloadInfo *charm.DownloadInfo
+
+	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        corecharm.CharmHub,
+		ReferenceName: "baz",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+		DownloadInfo:  downloadInfo,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmDownloadInfoNotFound)
+}
+
+func (s *charmServiceSuite) TestSetCharmCharmhub(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+
+	downloadInfo := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "http://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+		},
+		Manifest:      s.minimalManifest(c),
+		ReferenceName: "baz",
+		Source:        charm.CharmHubSource,
+		Revision:      1,
+		Architecture:  architecture.AMD64,
+	}, downloadInfo).Return(id, nil)
+
+	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
+		Charm:         s.charm,
+		Source:        corecharm.CharmHub,
+		ReferenceName: "baz",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+		DownloadInfo:  downloadInfo,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(warnings, gc.HasLen, 0)
@@ -504,6 +587,11 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *gc.C) {
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name: "foo",
 	})
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -535,6 +623,11 @@ func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *gc.C) {
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -559,6 +652,11 @@ func (s *charmServiceSuite) TestSetCharmRelationUnknownRole(c *gc.C) {
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -583,6 +681,11 @@ func (s *charmServiceSuite) TestSetCharmRelationRoleMismatch(c *gc.C) {
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -608,6 +711,11 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJuju(c *gc.C) {
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -633,6 +741,11 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJujuBlah(c *gc.C) 
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -658,6 +771,11 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJuju(c *gc.C) 
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -683,6 +801,11 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *gc
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -699,7 +822,6 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 
 	id := charmtesting.GenCharmID(c)
 
-	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
 
@@ -714,8 +836,13 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any()).Return(id, nil)
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -743,6 +870,11 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *gc.
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -759,7 +891,6 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 
 	id := charmtesting.GenCharmID(c)
 
-	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
 
@@ -774,8 +905,13 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any()).Return(id, nil)
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -794,7 +930,6 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 
 	id := charmtesting.GenCharmID(c)
 
-	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
 
@@ -810,8 +945,13 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any()).Return(id, nil)
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -839,6 +979,11 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresInvalid(
 			},
 		},
 	}).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+		Architectures: []string{"arm64"},
+	}}}).MinTimes(1)
 
 	_, _, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -897,6 +1042,25 @@ func (s *charmServiceSuite) TestListCharmLocatorsWithoutName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 1)
 	c.Check(results, gc.DeepEquals, expected)
+}
+
+func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	expected := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "http://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	s.state.EXPECT().GetCharmDownloadInfo(gomock.Any(), id).Return(expected, nil)
+
+	result, err := s.service.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, expected)
 }
 
 type watchableServiceSuite struct {

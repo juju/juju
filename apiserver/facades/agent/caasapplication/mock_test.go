@@ -246,7 +246,13 @@ func (s *stubCharm) Meta() *charm.Meta {
 }
 
 func (s *stubCharm) Manifest() *charm.Manifest {
-	return &charm.Manifest{}
+	return &charm.Manifest{
+		Bases: []charm.Base{{
+			Name:          "ubuntu",
+			Channel:       charm.Channel{Risk: charm.Stable},
+			Architectures: []string{"amd64"},
+		}},
+	}
 }
 
 func (s *stubCharm) Config() *charm.Config {

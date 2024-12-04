@@ -47,7 +47,9 @@ var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
+
 	err := s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
@@ -58,7 +60,51 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
+	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
+
+	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
+		LeaderToken: successfulToken{},
+		Accessor: service.SecretAccessor{
+			Kind: service.UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Revisions: []int{1},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.svc.GetSecret(context.Background(), uri)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ref := &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
+	uri := s.createSecret(c, nil, ref)
+
+	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
+		LeaderToken: successfulToken{},
+		Accessor: service.SecretAccessor{
+			Kind: service.UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		Revisions: []int{1},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.svc.GetSecret(context.Background(), uri)
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.secretBackendState = secret.NewMockSecretBackendState(ctrl)
 
@@ -70,26 +116,6 @@ func (s *serviceSuite) setup(c *gc.C) *gomock.Controller {
 	)
 
 	return ctrl
-}
-
-type successfulToken struct{}
-
-func (t successfulToken) Check() error {
-	return nil
-}
-
-type noopSecretDeleter struct{}
-
-func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error {
-	return nil
-}
-
-type noopResourceStoreGetter struct{}
-
-func (noopResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
-
-func (noopResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
-	return nil, nil
 }
 
 func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
@@ -140,46 +166,22 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 	return uri
 }
 
-func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
-	defer s.setup(c).Finish()
+type successfulToken struct{}
 
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
-	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
-
-	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
-		LeaderToken: successfulToken{},
-		Accessor: service.SecretAccessor{
-			Kind: service.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Revisions: []int{1},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.svc.GetSecret(context.Background(), uri)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+func (t successfulToken) Check() error {
+	return nil
 }
 
-func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
-	defer s.setup(c).Finish()
+type noopSecretDeleter struct{}
 
-	ref := &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "rev-id",
-	}
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
-	uri := s.createSecret(c, nil, ref)
+func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error {
+	return nil
+}
 
-	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
-		LeaderToken: successfulToken{},
-		Accessor: service.SecretAccessor{
-			Kind: service.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Revisions: []int{1},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+type noopResourceStoreGetter struct{}
 
-	_, err = s.svc.GetSecret(context.Background(), uri)
-	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+func (noopResourceStoreGetter) AddStore(t charmresource.Type, store resource.ResourceStore) {}
+
+func (noopResourceStoreGetter) GetResourceStore(context.Context, charmresource.Type) (resource.ResourceStore, error) {
+	return nil, nil
 }

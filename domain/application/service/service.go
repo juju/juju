@@ -426,7 +426,7 @@ func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (inter
 		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	ch, err := s.st.GetCharm(ctx, id)
+	ch, _, err := s.st.GetCharm(ctx, id)
 	if err != nil {
 		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
@@ -482,7 +482,7 @@ func (s *MigrationService) ImportApplication(
 	charm internalcharm.Charm, origin corecharm.Origin, args AddApplicationArgs,
 	units ...ImportUnitArg,
 ) error {
-	if err := validateCreateApplicationParams(appName, args.ReferenceName, charm, origin); err != nil {
+	if err := validateCreateApplicationParams(appName, args.ReferenceName, charm, origin, args.DownloadInfo); err != nil {
 		return errors.Annotatef(err, "invalid application args")
 	}
 

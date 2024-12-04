@@ -290,32 +290,38 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	if len(essentialMeta) != 1 {
 		return corecharm.Origin{}, errors.Errorf("expected 1 metadata result, got %d", len(essentialMeta))
 	}
-	metaRes := essentialMeta[0]
+	essentialMetadata := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm: corecharm.NewCharmInfoAdaptor(metaRes),
+		Charm: corecharm.NewCharmInfoAdaptor(essentialMetadata),
 		ID:    args.URL,
 	})
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	revision, err := makeCharmRevision(metaRes.ResolvedOrigin, args.URL)
+	revision, err := makeCharmRevision(essentialMetadata.ResolvedOrigin, args.URL)
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "making revision for charm %q", args.URL)
 	}
 
 	if _, _, err := a.applicationService.SetCharm(ctx, applicationcharm.SetCharmArgs{
-		Charm:         corecharm.NewCharmInfoAdaptor(metaRes),
+		Charm:         corecharm.NewCharmInfoAdaptor(essentialMetadata),
 		Source:        requestedOrigin.Source,
 		ReferenceName: charmURL.Name,
 		Revision:      revision,
-		Hash:          metaRes.ResolvedOrigin.Hash,
+		Hash:          essentialMetadata.ResolvedOrigin.Hash,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: essentialMetadata.DownloadInfo.CharmhubIdentifier,
+			DownloadURL:        essentialMetadata.DownloadInfo.DownloadURL,
+			DownloadSize:       essentialMetadata.DownloadInfo.DownloadSize,
+		},
 	}); err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
 		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
 	}
 
-	return metaRes.ResolvedOrigin, nil
+	return essentialMetadata.ResolvedOrigin, nil
 }
 
 func makeCharmRevision(origin corecharm.Origin, url string) (int, error) {

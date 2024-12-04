@@ -16,18 +16,20 @@ const (
 	// application being created already exists.
 	ApplicationAlreadyExists = errors.ConstError("application already exists")
 
-	// ApplicationNotAlive describes an error that occurs when trying to update an application that is not alive.
+	// ApplicationNotAlive describes an error that occurs when trying to update
+	// an application that is not alive.
 	ApplicationNotAlive = errors.ConstError("application is not alive")
 
 	// ApplicationHasUnits describes an error that occurs when the application
 	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")
 
-	// ScalingStateInconsistent is returned by SetScalingState when the scaling state
-	// is inconsistent with the application scale.
+	// ScalingStateInconsistent is returned by SetScalingState when the scaling
+	// state is inconsistent with the application scale.
 	ScalingStateInconsistent = errors.ConstError("scaling state is inconsistent")
 
-	// ScaleChangeInvalid is returned when an attempt is made to set an invalid application scale value.
+	// ScaleChangeInvalid is returned when an attempt is made to set an invalid
+	// application scale value.
 	ScaleChangeInvalid = errors.ConstError("scale change invalid")
 
 	// MissingStorageDirective describes an error that occurs when expected
@@ -42,37 +44,39 @@ const (
 	// not valid.
 	ApplicationIDNotValid = errors.ConstError("application ID not valid")
 
-	// UnitNotFound describes an error that occurs when the unit being operated on
-	// does not exist.
+	// UnitNotFound describes an error that occurs when the unit being operated
+	// on does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
 
 	// UnitAlreadyExists describes an error that occurs when the
 	// unit being created already exists.
 	UnitAlreadyExists = errors.ConstError("unit already exists")
 
-	// UnitNotAssigned describes an error that occurs when the unit being operated on
-	// is not assigned.
+	// UnitNotAssigned describes an error that occurs when the unit being
+	// operated on is not assigned.
 	UnitNotAssigned = errors.ConstError("unit not assigned")
 
-	// UnitHasSubordinates describes an error that occurs when trying to set a unit's life
-	// to Dead but it still has subordinates.
+	// UnitHasSubordinates describes an error that occurs when trying to set a
+	// unit's life to Dead but it still has subordinates.
 	UnitHasSubordinates = errors.ConstError("unit has subordinates")
 
-	// UnitHasStorageAttachments describes an error that occurs when trying to set a unit's life
-	// to Dead but it still has storage attachments.
+	// UnitHasStorageAttachments describes an error that occurs when trying to
+	// set a unit's life to Dead but it still has storage attachments.
 	UnitHasStorageAttachments = errors.ConstError("unit has storage attachments")
 
-	// UnitIsAlive describes an error that occurs when trying to remove a unit that is still alive.
+	// UnitIsAlive describes an error that occurs when trying to remove a unit
+	// that is still alive.
 	UnitIsAlive = errors.ConstError("unit is alive")
 
-	// InvalidApplicationState describes an error where the application state is invalid.
-	// There are missing required fields.
+	// InvalidApplicationState describes an error where the application state is
+	// invalid. There are missing required fields.
 	InvalidApplicationState = errors.ConstError("invalid application state")
 
 	// CharmNotValid describes an error that occurs when the charm is not valid.
 	CharmNotValid = errors.ConstError("charm not valid")
 
-	// CharmOriginNotValid describes an error that occurs when the charm origin is not valid.
+	// CharmOriginNotValid describes an error that occurs when the charm origin
+	// is not valid.
 	CharmOriginNotValid = errors.ConstError("charm origin not valid")
 
 	// CharmNameNotValid describes an error that occurs when attempting to get
@@ -83,7 +87,8 @@ const (
 	// a charm using an invalid charm source.
 	CharmSourceNotValid = errors.ConstError("charm source not valid")
 
-	// CharmNotFound describes an error that occurs when a charm cannot be found.
+	// CharmNotFound describes an error that occurs when a charm cannot be
+	// found.
 	CharmNotFound = errors.ConstError("charm not found")
 
 	// LXDProfileNotFound describes an error that occurs when an LXD profile
@@ -94,16 +99,20 @@ const (
 	// exists for the given natural key.
 	CharmAlreadyExists = errors.ConstError("charm already exists")
 
-	// CharmRevisionNotValid describes an error that occurs when attempting to get
-	// a charm using an invalid revision.
+	// CharmRevisionNotValid describes an error that occurs when attempting to
+	// get a charm using an invalid revision.
 	CharmRevisionNotValid = errors.ConstError("charm revision not valid")
 
-	// CharmMetadataNotValid describes an error that occurs when the charm metadata
-	// is not valid.
+	// CharmMetadataNotValid describes an error that occurs when the charm
+	// metadata is not valid.
 	CharmMetadataNotValid = errors.ConstError("charm metadata not valid")
 
-	// CharmManifestNotValid describes an error that occurs when the charm manifest
-	// is not valid.
+	// CharmManifestNotFound describes an error that occurs when the charm
+	// manifest is not found.
+	CharmManifestNotFound = errors.ConstError("charm manifest not found")
+
+	// CharmManifestNotValid describes an error that occurs when the charm
+	// manifest is not valid.
 	CharmManifestNotValid = errors.ConstError("charm manifest not valid")
 
 	// CharmBaseNameNotValid describes an error that occurs when the charm base
@@ -118,8 +127,8 @@ const (
 	// has multiple relations with the same name
 	CharmRelationNameConflict = errors.ConstError("charm relation name conflict")
 
-	// CharmRelationReservedNameMisuse describes an error that occurs when the charm
-	// relation name is a reserved name which it is not allowed to use.
+	// CharmRelationReservedNameMisuse describes an error that occurs when the
+	// charm relation name is a reserved name which it is not allowed to use.
 	CharmRelationReservedNameMisuse = errors.ConstError("charm relation reserved name misuse")
 
 	// CharmRelationRoleNotValid describes an error that occurs when the charm
@@ -127,9 +136,9 @@ const (
 	// wrong value.
 	CharmRelationRoleNotValid = errors.ConstError("charm relation role not valid")
 
-	// MultipleCharmHashes describes and error that occurs when a charm has multiple
-	// hash values. At the moment, we only support sha256 hash format, so if another
-	// is found, an error is returned.
+	// MultipleCharmHashes describes and error that occurs when a charm has
+	// multiple hash values. At the moment, we only support sha256 hash format,
+	// so if another is found, an error is returned.
 	MultipleCharmHashes = errors.ConstError("multiple charm hashes found")
 
 	// ResourceNotFound describes an error that occurs when a resource is
@@ -169,4 +178,16 @@ const (
 	// resolved. This means the charm for the hash does not exist and needs to
 	// be downloaded.
 	CharmNotResolved = errors.ConstError("charm not resolved")
+
+	// CharmDownloadInfoNotFound describes an error that occurs when the charm
+	// download info is not found.
+	CharmDownloadInfoNotFound = errors.ConstError("charm download info not found")
+
+	// CharmDownloadURLNotValid describes an error that occurs when the charm
+	// download URL is not valid.
+	CharmDownloadURLNotValid = errors.ConstError("charm download URL not valid")
+
+	// CharmProvenanceNotValid describes an error that occurs when the
+	// charm download provenance is not valid.
+	CharmProvenanceNotValid = errors.ConstError("charm provenance not valid")
 )

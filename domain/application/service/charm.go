@@ -118,41 +118,43 @@ type CharmState interface {
 	SetCharmAvailable(ctx context.Context, charmID corecharm.ID) error
 
 	// GetCharm returns the charm using the charm ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error)
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
-	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
+	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error)
 
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
 	DeleteCharm(ctx context.Context, id corecharm.ID) error
 
-	// ListCharmLocatorsByNames returns a list of charm locators.
-	// The locator allows the reconstruction of the charm URL for the client
-	// response.
+	// ListCharmLocators returns a list of charm locators. The locator allows
+	// the reconstruction of the charm URL for the client response.
 	ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, error)
 
-	// ListCharmLocatorsByNames returns a list of charm locators for the specified
-	// charm names.
-	// The locator allows the reconstruction of the charm URL for the client
-	// response. If no names are provided, then nothing is returned.
+	// ListCharmLocatorsByNames returns a list of charm locators for the
+	// specified charm names. The locator allows the reconstruction of the charm
+	// URL for the client response. If no names are provided, then nothing is
+	// returned.
 	ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error)
+
+	// GetCharmDownloadInfo returns the download info for the charm using the
+	// charm ID.
+	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error)
 }
 
-// CharmStore defines the interface for storing and retrieving charms archive blobs
-// from the underlying storage.
+// CharmStore defines the interface for storing and retrieving charms archive
+// blobs from the underlying storage.
 type CharmStore interface {
-	// GetCharm retrieves a ReadCloser for the charm archive at the give path from
-	// the underlying storage.
+	// GetCharm retrieves a ReadCloser for the charm archive at the give path
+	// from the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
 }
 
-// GetCharmID returns a charm ID by name. It returns an error if the charm
-// can not be found by the name.
-// This can also be used as a cheap way to see if a charm exists without
-// needing to load the charm metadata.
-// Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
+// GetCharmID returns a charm ID by name. It returns an error if the charm can
+// not be found by the name. This can also be used as a cheap way to see if a
+// charm exists without needing to load the charm metadata. Returns
+// [applicationerrors.CharmNameNotValid] if the name is not valid, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
@@ -186,9 +188,8 @@ func (s *Service) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool,
 }
 
 // SupportsContainers returns whether the charm supports containers. This
-// currently means that the charm is a kubernetes charm.
-// This will return true if the charm is a controller charm, and false
-// otherwise.
+// currently means that the charm is a kubernetes charm. This will return true
+// if the charm is a controller charm, and false otherwise.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
@@ -220,12 +221,12 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool
 	return b, nil
 }
 
-// GetCharm returns the charm using the charm ID.
-// Calling this method will return all the data associated with the charm.
-// It is not expected to call this method for all calls, instead use the move
-// focused and specific methods. That's because this method is very expensive
-// to call. This is implemented for the cases where all the charm data is
-// needed; model migration, charm export, etc.
+// GetCharm returns the charm using the charm ID. Calling this method will
+// return all the data associated with the charm. It is not expected to call
+// this method for all calls, instead use the move focused and specific methods.
+// That's because this method is very expensive to call. This is implemented for
+// the cases where all the charm data is needed; model migration, charm export,
+// etc.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
@@ -234,7 +235,7 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	ch, err := s.st.GetCharm(ctx, id)
+	ch, _, err := s.st.GetCharm(ctx, id)
 	if err != nil {
 		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
@@ -497,11 +498,33 @@ func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error 
 // If there are any non-blocking issues with the charm metadata, actions,
 // config or manifest, a set of warnings will be returned.
 func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
-	meta := args.Charm.Meta()
-	if meta == nil {
+	// We require a valid charm metadata.
+	if meta := args.Charm.Meta(); meta == nil {
 		return "", nil, applicationerrors.CharmMetadataNotValid
-	} else if meta.Name == "" {
+	} else if !isValidCharmName(meta.Name) {
 		return "", nil, applicationerrors.CharmNameNotValid
+	}
+
+	// We require a valid charm manifest.
+	if manifest := args.Charm.Manifest(); manifest == nil {
+		return "", nil, applicationerrors.CharmManifestNotFound
+	} else if len(manifest.Bases) == 0 {
+		return "", nil, applicationerrors.CharmManifestNotValid
+	}
+
+	// If the reference name is provided, it must be valid.
+	if !isValidReferenceName(args.ReferenceName) {
+		return "", nil, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// If the origin is from charmhub, then we require the download info.
+	if args.Source == corecharm.CharmHub {
+		if args.DownloadInfo == nil {
+			return "", nil, applicationerrors.CharmDownloadInfoNotFound
+		}
+		if err := args.DownloadInfo.Validate(); err != nil {
+			return "", nil, fmt.Errorf("download info: %w", err)
+		}
 	}
 
 	source, err := encodeCharmSource(args.Source)
@@ -523,7 +546,7 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 	ch.Available = args.ArchivePath != ""
 	ch.Architecture = architecture
 
-	charmID, err := s.st.SetCharm(ctx, ch)
+	charmID, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
 	if err != nil {
 		return "", warnings, errors.Trace(err)
 	}
@@ -534,6 +557,9 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 // DeleteCharm removes the charm from the state.
 // Returns an error if the charm does not exist.
 func (s *Service) DeleteCharm(ctx context.Context, id corecharm.ID) error {
+	if err := id.Validate(); err != nil {
+		return fmt.Errorf("charm id: %w", err)
+	}
 	return s.st.DeleteCharm(ctx, id)
 }
 
@@ -546,6 +572,15 @@ func (s *Service) ListCharmLocators(ctx context.Context, names ...string) ([]cha
 		return s.st.ListCharmLocators(ctx)
 	}
 	return s.st.ListCharmLocatorsByNames(ctx, names)
+}
+
+// GetCharmDownloadInfo returns the download info for the charm using the
+// charm ID.
+func (s *Service) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("charm id: %w", err)
+	}
+	return s.st.GetCharmDownloadInfo(ctx, id)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.

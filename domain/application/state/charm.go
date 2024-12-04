@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -545,33 +546,37 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 }
 
 // GetCharm returns the charm using the charm ID.
+// DownloadInfo is optional, and is only returned for charms from a charm store.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, error) {
+func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error) {
 	db, err := s.DB()
 	if err != nil {
-		return charm.Charm{}, internalerrors.Capture(err)
+		return charm.Charm{}, nil, internalerrors.Capture(err)
 	}
 
 	ident := charmID{UUID: id.String()}
 
-	var ch charm.Charm
+	var (
+		ch charm.Charm
+		di *charm.DownloadInfo
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		ch, err = s.getCharm(ctx, tx, ident)
+		ch, di, err = s.getCharm(ctx, tx, ident)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
 		return nil
 	}); err != nil {
-		return ch, internalerrors.Errorf("getting charm: %w", err)
+		return ch, nil, internalerrors.Errorf("getting charm: %w", err)
 	}
 
-	return ch, nil
+	return ch, di, nil
 }
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", internalerrors.Capture(err)
@@ -590,7 +595,7 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, 
 			return internalerrors.Capture(err)
 		}
 
-		if err := s.setCharm(ctx, tx, id, charm); err != nil {
+		if err := s.setCharm(ctx, tx, id, charm, downloadInfo); err != nil {
 			return internalerrors.Capture(err)
 		}
 
@@ -672,6 +677,34 @@ WHERE name IN ($nameSelector[:]);
 	return decodeCharmLocators(results)
 }
 
+// GetCharmDownloadInfo returns the download info for the charm using the
+// charm ID.
+func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	var downloadInfo *charm.DownloadInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		info, err := s.getCharmDownloadInfo(ctx, tx, ident)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		}
+		downloadInfo = &info
+
+		return nil
+	}); err != nil {
+		return nil, internalerrors.Errorf("getting charm download info: %w", err)
+	}
+
+	return downloadInfo, nil
+}
+
 func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
 	return transform.SliceOrErr(results, func(c charmLocator) (charm.CharmLocator, error) {
 		source, err := decodeCharmSource(c.SourceID)
@@ -700,6 +733,7 @@ var tablesToDeleteFrom = []string{
 	"charm_container_mount",
 	"charm_container",
 	"charm_device",
+	"charm_download_info",
 	"charm_extra_binding",
 	"charm_hash",
 	"charm_manifest_base",

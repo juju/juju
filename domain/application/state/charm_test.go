@@ -20,13 +20,12 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type charmStateSuite struct {
-	schematesting.ModelSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&charmStateSuite{})
@@ -108,12 +107,13 @@ func (s *charmStateSuite) TestSetCharmNotAvailable(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "foo",
 		Hash:          "hash",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID, err := st.GetCharmID(context.Background(), "foo", 42, charm.LocalSource)
@@ -143,13 +143,14 @@ func (s *charmStateSuite) TestSetCharmGetCharmID(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "foo",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID, err := st.GetCharmID(context.Background(), "foo", 42, charm.LocalSource)
@@ -1191,6 +1192,170 @@ func (s *charmStateSuite) TestDeleteCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
+func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "ident-1",
+		DownloadURL:        "https://example.com/charmhub/ident-1",
+		DownloadSize:       1234,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:           "ubuntu",
+			Summary:        "summary",
+			Description:    "description",
+			Subordinate:    true,
+			RunAs:          charm.RunAsRoot,
+			MinJujuVersion: version.MustParse("4.0.0"),
+			Assumes:        []byte("null"),
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskCandidate,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, downloadInfo, err := st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(downloadInfo, gc.DeepEquals, info)
+}
+
+func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhubWithoutDownloadInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:           "ubuntu",
+			Summary:        "summary",
+			Description:    "description",
+			Subordinate:    true,
+			RunAs:          charm.RunAsRoot,
+			MinJujuVersion: version.MustParse("4.0.0"),
+			Assumes:        []byte("null"),
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskCandidate,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmDownloadInfoNotFound)
+}
+
+func (s *charmStateSuite) TestSetCharmDownloadInfoForLocal(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		CharmhubIdentifier: "ident-1",
+		DownloadURL:        "https://example.com/charmhub/ident-1",
+		DownloadSize:       1234,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:           "ubuntu",
+			Summary:        "summary",
+			Description:    "description",
+			Subordinate:    true,
+			RunAs:          charm.RunAsRoot,
+			MinJujuVersion: version.MustParse("4.0.0"),
+			Assumes:        []byte("null"),
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskCandidate,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, downloadInfo, err := st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(downloadInfo, gc.IsNil)
+}
+
+func (s *charmStateSuite) TestSetCharmDownloadInfoForLocalWithoutInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:           "ubuntu",
+			Summary:        "summary",
+			Description:    "description",
+			Subordinate:    true,
+			RunAs:          charm.RunAsRoot,
+			MinJujuVersion: version.MustParse("4.0.0"),
+			Assumes:        []byte("null"),
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskCandidate,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, downloadInfo, err := st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(downloadInfo, gc.IsNil)
+}
+
 func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -1206,13 +1371,14 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1221,13 +1387,14 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 
 	_, err = st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyExists)
 }
 
@@ -1288,10 +1455,10 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotCharm, err := st.GetCharm(context.Background(), id)
+	gotCharm, _, err := st.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
@@ -1368,13 +1535,13 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmWithDifferentReferenceName(c *
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	id, err := st.GetCharmID(context.Background(), "baz", 42, charm.LocalSource)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotCharm, err := st.GetCharm(context.Background(), id)
+	gotCharm, _, err := st.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
 		Metadata:      expectedMetadata,
@@ -1406,13 +1573,14 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C
 
 	id1, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      1,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id1)
@@ -1421,13 +1589,14 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C
 
 	id2, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      2,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err = st.GetCharmMetadata(context.Background(), id2)
@@ -1450,13 +1619,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1487,13 +1657,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1523,13 +1694,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1588,13 +1760,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1631,13 +1804,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *g
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1690,13 +1864,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1751,13 +1926,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1803,13 +1979,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1848,13 +2025,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1897,13 +2075,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C)
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -1942,13 +2121,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMo
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -2007,13 +2187,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMoun
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
@@ -2147,7 +2328,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmManifest(context.Background(), id)
@@ -2346,6 +2527,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
+		Manifest:      s.minimalManifest(c),
 		Config:        expected,
 		Source:        charm.LocalSource,
 		Revision:      42,
@@ -2353,7 +2535,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmConfig(context.Background(), id)
@@ -2470,6 +2652,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
+		Manifest:      s.minimalManifest(c),
 		Actions:       expected,
 		Source:        charm.LocalSource,
 		Revision:      42,
@@ -2477,7 +2660,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmActions(context.Background(), id)
@@ -2528,13 +2711,14 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, err := st.GetCharmArchivePath(context.Background(), id)
@@ -2564,15 +2748,16 @@ func (s *charmStateSuite) TestSetCharmWithDuplicatedEndpointNames(c *gc.C) {
 				},
 			},
 		},
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 
-	c.Assert(err, gc.ErrorMatches, `.*failed to insert charm relations.*`)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationNameConflict)
 }
 
 func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
@@ -2591,13 +2776,14 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadata(c *gc.C) {
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, hash, err := st.GetCharmArchiveMetadata(context.Background(), id)
@@ -2614,17 +2800,18 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c 
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return insertAdditonalHashKindForCharm(ctx, c, tx, id, "sha386", "hash386")
+		return insertAdditionalHashKindForCharm(ctx, c, tx, id, "sha386", "hash386")
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2656,13 +2843,14 @@ func (s *charmStateSuite) TestListCharmLocators(c *gc.C) {
 		Metadata: charm.Metadata{
 			Name: "ubuntu",
 		},
+		Manifest:      s.minimalManifest(c),
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
 		Hash:          "hash",
 		ArchivePath:   "archive",
 		Version:       "deadbeef",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := st.ListCharmLocators(context.Background())
@@ -2686,13 +2874,14 @@ func (s *charmStateSuite) TestListCharmLocatorsMultipleEntries(c *gc.C) {
 			Metadata: charm.Metadata{
 				Name: name,
 			},
+			Manifest:      s.minimalManifest(c),
 			Source:        charm.LocalSource,
 			Revision:      42,
 			ReferenceName: name,
 			Hash:          "hash",
 			ArchivePath:   "archive",
 			Version:       "deadbeef",
-		})
+		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		expected = append(expected, charm.CharmLocator{
@@ -2727,13 +2916,14 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesMultipleEntries(c *gc.C) {
 			Metadata: charm.Metadata{
 				Name: name,
 			},
+			Manifest:      s.minimalManifest(c),
 			Source:        charm.LocalSource,
 			Revision:      42,
 			ReferenceName: name,
 			Hash:          "hash",
 			ArchivePath:   "archive",
 			Version:       "deadbeef",
-		})
+		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// We only want to check the first and last entries.
@@ -2764,19 +2954,100 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesInvalidEntries(c *gc.C) {
 			Metadata: charm.Metadata{
 				Name: name,
 			},
+			Manifest:      s.minimalManifest(c),
 			Source:        charm.LocalSource,
 			Revision:      42,
 			ReferenceName: name,
 			Hash:          "hash",
 			ArchivePath:   "archive",
 			Version:       "deadbeef",
-		})
+		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	results, err := st.ListCharmLocatorsByNames(context.Background(), []string{"ubuntu-99"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 0)
+}
+
+func (s *charmStateSuite) TestGetCharmDownloadInfoWithNoInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForLocal(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "https://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForCharmhub(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "https://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetCharmDownloadInfo(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, info)
 }
 
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
@@ -2822,7 +3093,7 @@ func insertCharmManifest(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) 
 	return charm.Manifest{}, nil
 }
 
-func insertAdditonalHashKindForCharm(ctx context.Context, c *gc.C, tx *sql.Tx, charmId corecharm.ID, kind, hash string) error {
+func insertAdditionalHashKindForCharm(ctx context.Context, c *gc.C, tx *sql.Tx, charmId corecharm.ID, kind, hash string) error {
 	var kindId int
 	rows, err := tx.QueryContext(ctx, `SELECT id FROM hash_kind`)
 	c.Assert(err, jc.ErrorIsNil)
