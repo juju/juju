@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/base64"
 	"encoding/hex"
 	"hash"
 	"io"
@@ -243,7 +244,7 @@ func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 		progressBar = opts.progressBar
 	}
 
-	hasher := c.getHasher(opts.digestType)
+	hasher, encoder := c.getHasher(opts.digestType)
 
 	writer := io.MultiWriter(f, hasher, progressBar)
 	size, err := io.Copy(writer, r.Body)
@@ -253,7 +254,7 @@ func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 		return nil, errors.Errorf("downloaded size %d does not match expected size %d", size, r.ContentLength)
 	}
 
-	digest := hex.EncodeToString(hasher.Sum(nil))
+	digest := encoder(hasher)
 
 	return &Digest{
 		DigestType: opts.digestType,
@@ -262,14 +263,20 @@ func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 	}, nil
 }
 
-func (c *DownloadClient) getHasher(digestType DigestType) hash.Hash {
+func (c *DownloadClient) getHasher(digestType DigestType) (hash.Hash, func(hash.Hash) string) {
 	switch digestType {
 	case SHA256:
-		return sha256.New()
+		return sha256.New(), func(h hash.Hash) string {
+			return base64.StdEncoding.EncodeToString(h.Sum(nil))
+		}
 	case SHA384:
-		return sha512.New384()
+		return sha512.New384(), func(h hash.Hash) string {
+			return hex.EncodeToString(h.Sum(nil))
+		}
 	default:
-		return noopHasher{}
+		return noopHasher{}, func(h hash.Hash) string {
+			return ""
+		}
 	}
 }
 
