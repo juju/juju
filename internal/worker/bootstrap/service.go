@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/config"
@@ -26,12 +27,23 @@ import (
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
+	// CreateApplication creates a new application with the given name and
+	// charm.
 	CreateApplication(
-		ctx context.Context, name string, charm charm.Charm, origin corecharm.Origin,
-		params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg,
+		context.Context, string, charm.Charm, corecharm.Origin,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
 	) (coreapplication.ID, error)
 
+	// ResolveControllerCharmDownload resolves the controller charm download slot.
+	ResolveControllerCharmDownload(
+		ctx context.Context,
+		resolve application.ResolveControllerCharmDownload,
+	) (application.ResolvedControllerCharmDownload, error)
+
+	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
+
+	// SetUnitPassword sets the password for the given unit.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, passwordHash string) error
 }
 

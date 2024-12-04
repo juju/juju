@@ -29,7 +29,7 @@ type CharmArchive interface {
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
 	GetDownloadURL(context.Context, string, corecharm.Origin) (*url.URL, corecharm.Origin, error)
-	ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
+	ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (corecharm.ResolvedData, error)
 	DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error)
 }
 
@@ -182,7 +182,7 @@ func (d *Downloader) downloadAndHash(ctx context.Context, charmName string, requ
 		CharmVersion: chArchive.Version(),
 		Size:         digest.Size,
 		LXDProfile:   chArchive.LXDProfile(),
-		SHA256:       digest.Hash,
+		SHA256:       digest.SHA256,
 	}, actualOrigin, nil
 }
 

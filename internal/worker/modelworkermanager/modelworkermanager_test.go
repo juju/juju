@@ -206,6 +206,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 		LogSink:                dummyModelLogger{},
 		ProviderServicesGetter: s.providerServicesGetter,
 		DomainServicesGetter:   s.domainServicesGetter,
+		HTTPClientGetter:       stubHTTPclientGetter{},
 		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
 			return coretesting.FakeControllerConfig(), nil
 		},

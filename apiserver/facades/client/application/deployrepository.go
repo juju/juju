@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -356,8 +355,6 @@ type deployFromRepositoryValidator struct {
 	machineService     MachineService
 	state              DeployFromRepositoryState
 
-	mu          sync.Mutex
-	repoFactory corecharm.RepositoryFactory
 	// For testing using mocks.
 	newRepoFactory     func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
 	charmhubHTTPClient facade.HTTPClient
@@ -964,11 +961,6 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		return charmResult{}, errors.Trace(err)
 	}
 
-	// This charm needs to be downloaded, remove the ID and Hash to
-	// allow it to happen.
-	resolvedOrigin.ID = ""
-	resolvedOrigin.Hash = ""
-
 	return charmResult{
 		CharmURL:     resolvedData.URL,
 		Origin:       resolvedOrigin,
@@ -996,15 +988,6 @@ func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust b
 }
 
 func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context, src corecharm.Source) (corecharm.Repository, error) {
-	// The following is only required for testing, as we generate api new http
-	// client here for production.
-	v.mu.Lock()
-	if v.repoFactory != nil {
-		defer v.mu.Unlock()
-		return v.repoFactory.GetCharmRepository(ctx, src)
-	}
-	v.mu.Unlock()
-
 	repoFactory := v.newRepoFactory(services.CharmRepoFactoryConfig{
 		Logger:             v.logger,
 		CharmhubHTTPClient: v.charmhubHTTPClient,
