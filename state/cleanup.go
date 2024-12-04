@@ -41,7 +41,6 @@ const (
 	cleanupRelationSettings              cleanupKind = "settings"
 	cleanupForceDestroyedRelation        cleanupKind = "forceDestroyRelation"
 	cleanupUnitsForDyingApplication      cleanupKind = "units"
-	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupForceDestroyedUnit            cleanupKind = "forceDestroyUnit"
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
@@ -220,8 +219,6 @@ func (st *State) Cleanup(
 			err = st.cleanupRelationSettings(doc.Prefix)
 		case cleanupForceDestroyedRelation:
 			err = st.cleanupForceDestroyedRelation(doc.Prefix)
-		case cleanupCharm:
-			err = st.cleanupCharm(ctx, store, doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(ctx, store, applicationService, doc.Prefix, args)
 		case cleanupForceApplication:
@@ -870,38 +867,6 @@ func (st *State) cleanupUnitsForDyingApplication(
 		if err != nil {
 			return errors.Trace(err)
 		}
-	}
-	return nil
-}
-
-// cleanupCharm is speculative: it can abort without error for many
-// reasons, because it's triggered somewhat over-enthusiastically for
-// simplicity's sake.
-func (st *State) cleanupCharm(ctx context.Context, store objectstore.WriteObjectStore, charmURL string) error {
-	ch, err := st.Charm(charmURL)
-	if errors.Is(err, errors.NotFound) {
-		// Charm already removed.
-		logger.Tracef("cleanup charm(%s) no-op, charm already gone", charmURL)
-		return nil
-	} else if err != nil {
-		return errors.Annotate(err, "reading charm")
-	}
-
-	logger.Tracef("cleanup charm(%s): Destroy", charmURL)
-	err = ch.Destroy()
-	switch errors.Cause(err) {
-	case nil:
-	case errCharmInUse:
-		// No cleanup necessary at this time.
-		logger.Tracef("cleanup charm(%s): charm still in use", charmURL)
-		return nil
-	default:
-		return errors.Annotate(err, "destroying charm")
-	}
-
-	logger.Tracef("cleanup charm(%s): Remove", charmURL)
-	if err := ch.Remove(ctx, store); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }

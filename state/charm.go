@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -19,7 +18,6 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/objectstore"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
@@ -560,57 +558,6 @@ func (c *Charm) Refresh() error {
 		return errors.Trace(err)
 	}
 	c.doc = ch.doc
-	return nil
-}
-
-// Destroy sets the charm to Dying and prevents it from being used by
-// applications or units. It only works on local charms, and only when
-// the charm is not referenced by any application.
-func (c *Charm) Destroy() error {
-	buildTxn := func(_ int) ([]txn.Op, error) {
-		ops, err := charmDestroyOps(c.st, c.URL())
-		if IsNotAlive(err) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
-	}
-	if err := c.st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-	c.doc.Life = Dying
-	return nil
-}
-
-// Remove will delete the charm's stored archive and render the charm
-// inaccessible to future clients. It will fail unless the charm is
-// already Dying (indicating that someone has called Destroy).
-func (c *Charm) Remove(ctx context.Context, store objectstore.WriteObjectStore) error {
-	if c.doc.Life == Alive {
-		return errors.New("still alive")
-	}
-
-	err := store.Remove(ctx, c.doc.StoragePath)
-	if errors.Is(err, errors.NotFound) {
-		// Not a problem, but we might still need to run the
-		// transaction further down to complete the process.
-	} else if err != nil {
-		return errors.Annotate(err, "deleting archive")
-	}
-
-	// We know the charm is already dying, dead or removed at this
-	// point (life can *never* go backwards) so an unasserted remove
-	// is safe.
-	removeOps := []txn.Op{{
-		C:      charmsC,
-		Id:     c.doc.DocID,
-		Remove: true,
-	}}
-	if err := c.st.db().RunTransaction(removeOps); err != nil {
-		return errors.Trace(err)
-	}
-	c.doc.Life = Dead
 	return nil
 }
 
