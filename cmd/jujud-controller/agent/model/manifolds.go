@@ -567,12 +567,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		)),
 
 		providerUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-			APICallerName: apiCallerName,
-			GateName:      providerUpgradeGateName,
-			ModelTag:      modelTag,
-			NewFacade:     caasenvironupgrader.NewFacade,
-			NewWorker:     caasenvironupgrader.NewWorker,
-			// No Logger defined in caasenvironupgrader package.
+			GateName:  providerUpgradeGateName,
+			NewWorker: caasenvironupgrader.NewWorker,
 		}))),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,
