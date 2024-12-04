@@ -19,6 +19,11 @@ type dbMetadata struct {
 	Size int64 `db:"size"`
 }
 
+type sha256Prefix struct {
+	// SHA256Prefix is the prefix 256 hash of the object.
+	SHA256Prefix string `db:"sha_256_prefix"`
+}
+
 // dbMetadataPath represents the database serialisable metadata path for an
 // object.
 type dbMetadataPath struct {

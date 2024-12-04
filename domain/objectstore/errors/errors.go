@@ -3,7 +3,7 @@
 
 package errors
 
-import "github.com/juju/errors"
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// ErrNotFound is returned when a path is not found.
@@ -20,4 +20,12 @@ const (
 
 	// ErrMissingHash is returned when a hash is missing.
 	ErrMissingHash = errors.ConstError("missing hash")
+
+	// ErrHashPrefixTooShort is returned when the hash prefix is too short. To help
+	// ensure uniqueness, we enforce a minimum length of 7 characters for hash prefixes.
+	ErrHashPrefixTooShort = errors.ConstError("minimum hash prefix length is 7")
+
+	// ErrInvalidHashPrefix is returned when the hash prefix is invalid for a reason
+	// other than being too short.
+	ErrInvalidHashPrefix = errors.ConstError("hash prefix invalid")
 )
