@@ -45,7 +45,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       123,
@@ -95,7 +95,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       123,
@@ -152,7 +152,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       123,
@@ -202,7 +202,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       123,
@@ -239,7 +239,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       123,

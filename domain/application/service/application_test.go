@@ -1176,7 +1176,7 @@ func (s *applicationServiceSuite) TestReserveCharmDownload(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
-			DownloadProvenance: domaincharm.ProvenanceDownload,
+			Provenance:         domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1212,7 +1212,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
-			DownloadProvenance: domaincharm.ProvenanceDownload,
+			Provenance:         domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1246,7 +1246,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *gc
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
-			DownloadProvenance: domaincharm.ProvenanceDownload,
+			Provenance:         domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1274,7 +1274,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *gc.
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
-			DownloadProvenance: domaincharm.ProvenanceDownload,
+			Provenance:         domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1305,7 +1305,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *g
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
-			DownloadProvenance: domaincharm.ProvenanceDownload,
+			Provenance:         domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1338,7 +1338,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 		Name:      "foo",
 		Hash:      "hash",
 		DownloadInfo: domaincharm.DownloadInfo{
-			DownloadProvenance: domaincharm.ProvenanceDownload,
+			Provenance:         domaincharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
