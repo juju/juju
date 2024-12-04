@@ -4,6 +4,7 @@
 package asynccharmdownloader
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -32,6 +33,7 @@ func validConfig(c *gc.C) ManifoldConfig {
 		NewHTTPClient:          NewHTTPClient,
 		NewAsyncDownloadWorker: NewAsyncDownloadWorker,
 		Logger:                 loggertesting.WrapCheckLog(c),
+		Clock:                  clock.WallClock,
 	}
 }
 
@@ -67,6 +69,11 @@ func (s *ManifoldConfigSuite) TestMissingNewAsyncDownloadWorker(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	s.checkNotValid(c, "nil Clock not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

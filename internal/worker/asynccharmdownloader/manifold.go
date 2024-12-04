@@ -58,6 +58,7 @@ type ManifoldConfig struct {
 	NewHTTPClient          NewHTTPClientFunc
 	NewAsyncDownloadWorker NewAsyncDownloadWorkerFunc
 	Logger                 logger.Logger
+	Clock                  clock.Clock
 }
 
 // Manifold returns a Manifold that encapsulates the charmdownloader worker.
@@ -91,6 +92,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return jujuerrors.NotValidf("nil Logger")
 	}
+	if cfg.Clock == nil {
+		return jujuerrors.NotValidf("nil Clock")
+	}
 	return nil
 }
 
@@ -117,6 +121,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		NewDownloader:          cfg.NewDownloader,
 		NewAsyncDownloadWorker: cfg.NewAsyncDownloadWorker,
 		Logger:                 cfg.Logger,
+		Clock:                  cfg.Clock,
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
