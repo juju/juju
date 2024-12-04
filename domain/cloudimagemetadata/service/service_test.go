@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	cloudimageerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
