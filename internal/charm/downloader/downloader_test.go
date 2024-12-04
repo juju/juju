@@ -290,7 +290,7 @@ func (r repoAdaptor) DownloadCharm(ctx context.Context, charmName string, reques
 	return r.repo.DownloadCharm(ctx, charmName, requestedOrigin, archivePath)
 }
 
-func (r repoAdaptor) ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+func (r repoAdaptor) ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (corecharm.ResolvedData, error) {
 	return r.repo.ResolveWithPreferredChannel(ctx, charmName, requestedOrigin)
 }
 

@@ -34,7 +34,7 @@ type Repository interface {
 	// used. It returns a charm URL which includes the most current revision,
 	// if none was provided, a charm origin, and a slice of series supported by
 	// this charm.
-	ResolveWithPreferredChannel(context.Context, string, Origin) (*charm.URL, Origin, []Platform, error)
+	ResolveWithPreferredChannel(context.Context, string, Origin) (ResolvedData, error)
 
 	// GetEssentialMetadata resolves each provided MetadataRequest and
 	// returns back a slice with the results. The results include the
@@ -102,6 +102,22 @@ type CharmID struct {
 	// Metadata is optional extra information about a particular model's
 	// "in-theatre" use of the charm.
 	Metadata map[string]string
+}
+
+// ResolvedData is the response data from ResolveWithPreferredChannel.
+type ResolvedData struct {
+	// URL is the url of the charm.
+	URL *charm.URL
+
+	// EssentialMetadata is the essential metadata required for deploying
+	// the charm.
+	EssentialMetadata EssentialMetadata
+
+	// Origin holds the original source of a charm, including its channel.
+	Origin Origin
+
+	// Platform is the list of platforms supported by the charm.
+	Platform []Platform
 }
 
 // ResolvedDataForDeploy is the response data from ResolveForDeploy

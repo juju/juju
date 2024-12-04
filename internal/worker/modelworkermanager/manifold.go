@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	jworker "github.com/juju/juju/internal/worker"
@@ -43,8 +43,10 @@ type ManifoldConfig struct {
 	// getter dependency. This exposes a provider domain services for each
 	// model upon request.
 	ProviderServiceFactoriesName string
-	// LogSinkName is the name of the corelogger.ModelLogger dependency.
+	// LogSinkName is the name of the logger.ModelLogger dependency.
 	LogSinkName string
+	// HTTPClientName is the name of the http.Client dependency.
+	HTTPClientName string
 
 	// GetProviderServicesGetter is used to get the provider service
 	// factory getter from the dependency engine. This makes testing a lot
@@ -86,6 +88,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.LogSinkName == "" {
 		return errors.NotValidf("empty LogSinkName")
 	}
+	if config.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
@@ -117,6 +122,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LogSinkName,
 			config.DomainServicesName,
 			config.ProviderServiceFactoriesName,
+			config.HTTPClientName,
 		},
 		Start: config.start,
 	}
@@ -137,13 +143,18 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var logSink corelogger.ModelLogger
+	var logSink logger.ModelLogger
 	if err := getter.Get(config.LogSinkName, &logSink); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var domainServicesGetter services.DomainServicesGetter
 	if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var httpClientGetter http.HTTPClientGetter
+	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -177,6 +188,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ErrorDelay:             jworker.RestartDelay,
 		DomainServicesGetter:   domainServicesGetter,
 		ProviderServicesGetter: providerServicesGetter,
+		HTTPClientGetter:       httpClientGetter,
 		GetControllerConfig:    config.GetControllerConfig,
 	})
 	if err != nil {

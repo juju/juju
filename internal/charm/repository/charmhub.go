@@ -58,15 +58,43 @@ func NewCharmHubRepository(logger logger.Logger, chClient CharmHubClient) *Charm
 // ResolveWithPreferredChannel defines a way using the given charm name and
 // charm origin (platform and channel) to locate a matching charm against the
 // Charmhub API.
-func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, charmName string, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, charmName string, argOrigin corecharm.Origin) (corecharm.ResolvedData, error) {
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %+v", charmName, argOrigin)
 
 	requestedOrigin, err := c.validateOrigin(argOrigin)
 	if err != nil {
-		return nil, corecharm.Origin{}, nil, err
+		return corecharm.ResolvedData{}, err
 	}
-	resCurl, outputOrigin, resolvedBases, _, err := c.resolveWithPreferredChannel(ctx, charmName, requestedOrigin)
-	return resCurl, outputOrigin, resolvedBases, err
+	resultURL, resolvedOrigin, resolvedBases, resp, err := c.resolveWithPreferredChannel(ctx, charmName, requestedOrigin)
+	if err != nil {
+		return corecharm.ResolvedData{}, errors.Trace(err)
+	}
+
+	essMeta, err := transformRefreshResult(resultURL.Name, resp)
+	if err != nil {
+		return corecharm.ResolvedData{}, errors.Trace(err)
+	}
+
+	// Get ID and Hash for the origin. Needed in the case where this
+	// charm has been downloaded before.
+	resolvedOrigin.ID = resp.Entity.ID
+	resolvedOrigin.Hash = resp.Entity.Download.HashSHA256
+
+	essMeta.ResolvedOrigin = resolvedOrigin
+
+	// DownloadInfo is required for downloading the charm asynchronously.
+	essMeta.DownloadInfo = corecharm.DownloadInfo{
+		CharmhubIdentifier: resp.Entity.ID,
+		DownloadURL:        resp.Entity.Download.URL,
+		DownloadSize:       int64(resp.Entity.Download.Size),
+	}
+
+	return corecharm.ResolvedData{
+		URL:               resultURL,
+		EssentialMetadata: essMeta,
+		Origin:            resolvedOrigin,
+		Platform:          resolvedBases,
+	}, nil
 }
 
 // ResolveForDeploy combines ResolveWithPreferredChannel, GetEssentialMetadata
@@ -107,12 +135,11 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
 
-	thing := corecharm.ResolvedDataForDeploy{
+	return corecharm.ResolvedDataForDeploy{
 		URL:               resultURL,
 		EssentialMetadata: essMeta,
 		Resources:         resourceResults,
-	}
-	return thing, nil
+	}, nil
 }
 
 // There are a few things to note in the attempt to resolve the charm and it's
@@ -399,14 +426,14 @@ func (c *CharmHubRepository) Download(ctx context.Context, name string, requeste
 	}
 
 	// Force the sha256 digest to be calculated on download.
-	digest, err := c.client.Download(ctx, resURL, path, charmhub.WithEnsureDigest(charmhub.SHA256))
+	digest, err := c.client.Download(ctx, resURL, path)
 	if err != nil {
 		return corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	// Verify the hash if the requested origin has supplied one.
-	if digest.Hash != requestedOrigin.Hash {
-		return corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.Hash, requestedOrigin.Hash)
+	if digest.SHA256 != requestedOrigin.Hash {
+		return corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.SHA256, requestedOrigin.Hash)
 	}
 
 	return actualOrigin, digest, nil
@@ -427,14 +454,14 @@ func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmName string
 	}
 
 	// Force the sha256 digest to be calculated on download.
-	charmArchive, digest, err := c.client.DownloadAndRead(ctx, resURL, archivePath, charmhub.WithEnsureDigest(charmhub.SHA256))
+	charmArchive, digest, err := c.client.DownloadAndRead(ctx, resURL, archivePath)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 
 	// Verify the hash if the requested origin has supplied one.
-	if digest != nil && requestedOrigin.Hash != "" && digest.Hash != requestedOrigin.Hash {
-		return nil, corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.Hash, requestedOrigin.Hash)
+	if digest != nil && requestedOrigin.Hash != "" && digest.SHA256 != requestedOrigin.Hash {
+		return nil, corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.SHA256, requestedOrigin.Hash)
 	}
 
 	return charmArchive, actualOrigin, digest, nil
@@ -476,7 +503,7 @@ func (c *CharmHubRepository) GetDownloadURL(ctx context.Context, charmName strin
 func (c *CharmHubRepository) ListResources(ctx context.Context, charmName string, origin corecharm.Origin) ([]charmresource.Resource, error) {
 	c.logger.Tracef("ListResources %q", charmName)
 
-	resCurl, resOrigin, _, err := c.ResolveWithPreferredChannel(ctx, charmName, origin)
+	resolved, err := c.ResolveWithPreferredChannel(ctx, charmName, origin)
 	if isErrSelection(err) {
 		var channel string
 		if origin.Channel != nil {
@@ -492,8 +519,9 @@ func (c *CharmHubRepository) ListResources(ctx context.Context, charmName string
 	// be in multiple channels.  refreshOne gives priority to a revision if
 	// specified.  ListResources is used by the "charm-resources" cli cmd,
 	// therefore specific charm revisions are less important.
+	resOrigin := resolved.Origin
 	resOrigin.Revision = nil
-	resp, err := c.refreshOne(ctx, resCurl.Name, resOrigin)
+	resp, err := c.refreshOne(ctx, resolved.URL.Name, resOrigin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -832,10 +860,12 @@ func (c *CharmHubRepository) GetEssentialMetadata(ctx context.Context, reqs ...c
 	for reqIdx, req := range reqs {
 		// TODO(achilleasa): We should add support for resolving origin
 		// batches and move this outside the loop.
-		_, resolvedOrigin, _, err := c.ResolveWithPreferredChannel(ctx, req.CharmName, req.Origin)
+		resolved, err := c.ResolveWithPreferredChannel(ctx, req.CharmName, req.Origin)
 		if err != nil {
 			return nil, errors.Annotatef(err, "resolving origin for %q", req.CharmName)
 		}
+
+		resolvedOrigin := resolved.Origin
 
 		refreshCfg, err := refreshConfig(req.CharmName, resolvedOrigin)
 		if err != nil {

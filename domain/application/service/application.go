@@ -1348,3 +1348,32 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		ArchivePath:     archivePath,
 	})
 }
+
+// ResolveControllerCharmDownload resolves the controller charm download slot.
+func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve application.ResolveControllerCharmDownload) (application.ResolvedControllerCharmDownload, error) {
+	// Make sure it's actually a valid charm.
+	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
+	if err != nil {
+		return application.ResolvedControllerCharmDownload{}, errors.Annotatef(err, "reading charm archive %q", resolve.Path)
+	}
+
+	// Use the hash from the reservation, incase the caller has the wrong hash.
+	// The resulting objectStoreUUID will enable RI between the charm and the
+	// object store.
+	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
+	if err != nil {
+		return application.ResolvedControllerCharmDownload{}, errors.Trace(err)
+	}
+
+	// We must ensure that the objectstore UUID is valid.
+	if err := objectStoreUUID.Validate(); err != nil {
+		return application.ResolvedControllerCharmDownload{}, internalerrors.Errorf("invalid object store UUID: %w", err)
+	}
+
+	// Resolve the charm download, which will set itself to available.
+	return application.ResolvedControllerCharmDownload{
+		Charm:           charm,
+		ArchivePath:     archivePath,
+		ObjectStoreUUID: objectStoreUUID,
+	}, nil
+}

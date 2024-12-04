@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -60,9 +61,9 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(digest, gc.DeepEquals, &Digest{
-		DigestType: NONE,
-		Hash:       "",
-		Size:       int64(len(archiveBytes)),
+		SHA256: "",
+		SHA384: "",
+		Size:   int64(len(archiveBytes)),
 	})
 }
 
@@ -101,9 +102,9 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *gc.C) {
 	digest, err := client.Download(ctx, serverURL, tmpFile.Name(), WithProgressBar(pgBar))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(digest, gc.DeepEquals, &Digest{
-		DigestType: NONE,
-		Hash:       "",
-		Size:       11,
+		SHA256: "",
+		SHA384: "",
+		Size:   11,
 	})
 }
 
@@ -130,52 +131,16 @@ func (s *DownloadSuite) TestDownloadWithSHA256Digest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name(), WithEnsureDigest(SHA256))
+	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedDigest, err := readSHA256(strings.NewReader("hello world"))
-	c.Assert(err, jc.ErrorIsNil)
+	expectedSHA256 := readSHA256(c, strings.NewReader("hello world"))
+	expectedSHA384 := readSHA384(c, strings.NewReader("hello world"))
 
 	c.Check(digest, gc.DeepEquals, &Digest{
-		DigestType: SHA256,
-		Hash:       expectedDigest,
-		Size:       11,
-	})
-}
-
-func (s *DownloadSuite) TestDownloadWithSHA384Digest(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	tmpFile, close := s.expectTmpFile(c)
-	defer close()
-
-	fileSystem := NewMockFileSystem(ctrl)
-	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
-
-	httpClient := NewMockHTTPClient(ctrl)
-	httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode:    200,
-			Body:          io.NopCloser(strings.NewReader("hello world")),
-			ContentLength: 11,
-		}, nil
-	})
-
-	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
-
-	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name(), WithEnsureDigest(SHA384))
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedDigest, err := readSHA384(strings.NewReader("hello world"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(digest, gc.DeepEquals, &Digest{
-		DigestType: SHA384,
-		Hash:       expectedDigest,
-		Size:       11,
+		SHA256: expectedSHA256,
+		SHA384: expectedSHA384,
+		Size:   11,
 	})
 }
 
@@ -204,16 +169,16 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	_, digest, err := client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name(), WithEnsureDigest(SHA256))
+	_, digest, err := client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedDigest, err := readSHA256(bytes.NewBuffer(archiveBytes))
-	c.Assert(err, jc.ErrorIsNil)
+	expectedSHA256 := readSHA256(c, bytes.NewBuffer(archiveBytes))
+	expectedSHA384 := readSHA384(c, bytes.NewBuffer(archiveBytes))
 
 	c.Check(digest, gc.DeepEquals, &Digest{
-		DigestType: SHA256,
-		Hash:       expectedDigest,
-		Size:       int64(len(archiveBytes)),
+		SHA256: expectedSHA256,
+		SHA384: expectedSHA384,
+		Size:   int64(len(archiveBytes)),
 	})
 }
 
@@ -292,22 +257,18 @@ func (s *DownloadSuite) expectTmpFile(c *gc.C) (*os.File, func()) {
 	}
 }
 
-func readSHA256(reader io.Reader) (string, error) {
+func readSHA256(c *gc.C, reader io.Reader) string {
 	hash := sha256.New()
 	_, err := io.Copy(hash, reader)
-	if err != nil {
-		return "", err
-	}
-	digest := hex.EncodeToString(hash.Sum(nil))
-	return digest, nil
+	c.Assert(err, jc.ErrorIsNil)
+
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func readSHA384(reader io.Reader) (string, error) {
+func readSHA384(c *gc.C, reader io.Reader) string {
 	hash := sha512.New384()
 	_, err := io.Copy(hash, reader)
-	if err != nil {
-		return "", err
-	}
-	digest := hex.EncodeToString(hash.Sum(nil))
-	return digest, nil
+	c.Assert(err, jc.ErrorIsNil)
+
+	return hex.EncodeToString(hash.Sum(nil))
 }

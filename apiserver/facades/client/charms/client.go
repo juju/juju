@@ -383,11 +383,14 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 		return result
 	}
 
-	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(ctx, curl.Name, requestedOrigin)
+	resolved, err := repo.ResolveWithPreferredChannel(ctx, curl.Name, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
+
+	resultURL, origin, resolvedBases := resolved.URL, resolved.Origin, resolved.Platform
+
 	result.URL = resultURL.String()
 
 	apiOrigin, err := convertOrigin(origin)

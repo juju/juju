@@ -239,10 +239,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	var digest *charmhub.Digest
 	if c.noProgress {
-		digest, err = client.Download(ctx, resourceURL, path, charmhub.WithEnsureDigest(charmhub.SHA256))
+		digest, err = client.Download(ctx, resourceURL, path)
 	} else {
 		pb := progress.MakeProgressBar(cmdContext.Stdout)
-		digest, err = client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb), charmhub.WithEnsureDigest(charmhub.SHA256))
+		digest, err = client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb))
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -283,10 +283,10 @@ Calculated: %s`, c.charmOrBundle, entitySHA, calculatedHash)
 
 			var digest *charmhub.Digest
 			if c.noProgress {
-				digest, err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithEnsureDigest(charmhub.SHA256))
+				digest, err = client.Download(rscCtx, rscURL, rscPath)
 			} else {
 				pb := progress.MakeProgressBar(cmdContext.Stdout)
-				digest, err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithProgressBar(pb), charmhub.WithEnsureDigest(charmhub.SHA256))
+				digest, err = client.Download(rscCtx, rscURL, rscPath, charmhub.WithProgressBar(pb))
 			}
 			if err != nil {
 				return errors.Trace(err)
@@ -335,10 +335,7 @@ func (c *downloadCommand) calculateHashFromDigest(path string, digest *charmhub.
 	if digest == nil {
 		return c.calculateHash(path)
 	}
-	if digest.DigestType != charmhub.SHA256 {
-		return "", errors.Errorf("expected SHA256 digest, got %s", digest.DigestType)
-	}
-	return digest.Hash, nil
+	return digest.SHA256, nil
 }
 
 func (c *downloadCommand) refresh(
