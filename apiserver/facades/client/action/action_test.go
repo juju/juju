@@ -17,8 +17,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/actions"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -42,6 +45,7 @@ type baseSuite struct {
 	mysqlUnit     *state.Unit
 
 	blockCommandService *action.MockBlockCommandService
+	applicationService  *action.MockApplicationService
 }
 
 type actionSuite struct {
@@ -223,6 +227,48 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 
+	charmID := charmtesting.GenCharmID(c)
+
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "dummy").Return(charmID, nil)
+	s.applicationService.EXPECT().GetCharmActions(gomock.Any(), charmID).Return(internalcharm.Actions{
+		ActionSpecs: map[string]internalcharm.ActionSpec{
+			"snapshot": {
+				Description: "Take a snapshot of the database.",
+				Params: map[string]interface{}{
+					"type":                 "object",
+					"title":                "snapshot",
+					"description":          "Take a snapshot of the database.",
+					"additionalProperties": true,
+					"properties": map[string]interface{}{
+						"outfile": map[string]interface{}{
+							"description": "The file to write out to.",
+							"type":        "string",
+							"default":     "foo.bz2",
+						},
+					},
+				},
+			},
+		},
+	}, nil)
+
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "wordpress").Return(charmID, nil)
+	s.applicationService.EXPECT().GetCharmActions(gomock.Any(), charmID).Return(internalcharm.Actions{
+		ActionSpecs: map[string]internalcharm.ActionSpec{
+			"fakeaction": {
+				Description: "No description",
+				Params: map[string]interface{}{
+					"type":                 "object",
+					"title":                "fakeaction",
+					"description":          "No description",
+					"additionalProperties": true,
+					"properties":           map[string]interface{}{},
+				},
+			},
+		},
+	}, nil)
+
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "nonsense").Return(charmID, applicationerrors.ApplicationNotFound)
+
 	actionSchemas := map[string]map[string]interface{}{
 		"snapshot": {
 			"type":                 "object",
@@ -367,6 +413,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.blockCommandService = action.NewMockBlockCommandService(ctrl)
+	s.applicationService = action.NewMockApplicationService(ctrl)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
@@ -375,7 +422,14 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	var err error
-	s.action, err = action.NewActionAPI(s.ControllerModel(c).State(), s.resources, s.authorizer, action.FakeLeadership{}, s.blockCommandService)
+	s.action, err = action.NewActionAPI(
+		s.ControllerModel(c).State(),
+		s.resources,
+		s.authorizer,
+		action.FakeLeadership{},
+		s.applicationService,
+		s.blockCommandService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())

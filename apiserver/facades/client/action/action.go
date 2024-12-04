@@ -12,21 +12,44 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
+// ApplicationService is an interface that provides access to application
+// entities.
+type ApplicationService interface {
+	// GetCharmIDByApplicationName returns a charm ID by application name. It
+	// returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load
+	// the charm metadata.
+	//
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not
+	// valid, and [applicationerrors.CharmNotFound] if the charm is not found.
+	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+
+	// GetCharmActions returns the actions for the charm using the charm ID.
+	//
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
+	GetCharmActions(ctx context.Context, id corecharm.ID) (internalcharm.Actions, error)
+}
+
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
-	state      State
-	model      Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
-	leadership leadership.Reader
+	state              State
+	model              Model
+	resources          facade.Resources
+	authorizer         facade.Authorizer
+	check              *common.BlockChecker
+	leadership         leadership.Reader
+	applicationService ApplicationService
 
 	tagToActionReceiverFn TagToActionReceiverFunc
 }
@@ -43,6 +66,7 @@ func newActionAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	getLeadershipReader func() (leadership.Reader, error),
+	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
@@ -67,6 +91,7 @@ func newActionAPI(
 		check:                 common.NewBlockChecker(blockCommandService),
 		leadership:            leaders,
 		tagToActionReceiverFn: common.TagToActionReceiverFn,
+		applicationService:    applicationService,
 	}, nil
 }
 
@@ -185,26 +210,33 @@ func (a *ActionAPI) ApplicationsCharmsActions(ctx context.Context, args params.E
 			continue
 		}
 		currentResult.ApplicationTag = svcTag.String()
-		svc, err := a.state.Application(svcTag.Id())
-		if err != nil {
+
+		charmID, err := a.applicationService.GetCharmIDByApplicationName(ctx, svcTag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			currentResult.Error = apiservererrors.ServerError(errors.NotFoundf("application %q", svcTag.Id()))
+			continue
+		} else if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		ch, _, err := svc.Charm()
-		if err != nil {
+
+		actions, err := a.applicationService.GetCharmActions(ctx, charmID)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			currentResult.Error = apiservererrors.ServerError(errors.NotFoundf("charm %q", charmID))
+			continue
+		} else if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if actions := ch.Actions(); actions != nil {
-			charmActions := make(map[string]params.ActionSpec)
-			for key, value := range actions.ActionSpecs {
-				charmActions[key] = params.ActionSpec{
-					Description: value.Description,
-					Params:      value.Params,
-				}
+
+		charmActions := make(map[string]params.ActionSpec)
+		for key, value := range actions.ActionSpecs {
+			charmActions[key] = params.ActionSpec{
+				Description: value.Description,
+				Params:      value.Params,
 			}
-			currentResult.Actions = charmActions
 		}
+		currentResult.Actions = charmActions
 	}
 	return result, nil
 }
