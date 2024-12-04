@@ -75,7 +75,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		context.Background(), "gitlab", &stubCharm{}, origin, service.AddApplicationArgs{
 			ReferenceName: "gitlab",
 			DownloadInfo: &applicationcharm.DownloadInfo{
-				DownloadProvenance: applicationcharm.ProvenanceUpload,
+				Provenance: applicationcharm.ProvenanceUpload,
 			},
 		}, service.AddUnitArg{
 			UnitName: unitName,

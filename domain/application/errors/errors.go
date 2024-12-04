@@ -187,7 +187,7 @@ const (
 	// download URL is not valid.
 	CharmDownloadURLNotValid = errors.ConstError("charm download URL not valid")
 
-	// CharmDownloadProvenanceNotValid describes an error that occurs when the
+	// CharmProvenanceNotValid describes an error that occurs when the
 	// charm download provenance is not valid.
-	CharmDownloadProvenanceNotValid = errors.ConstError("charm download provenance not valid")
+	CharmProvenanceNotValid = errors.ConstError("charm provenance not valid")
 )

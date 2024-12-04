@@ -536,7 +536,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *gc.C) {
 	}}}).MinTimes(1)
 
 	downloadInfo := &charm.DownloadInfo{
-		DownloadProvenance: charm.ProvenanceDownload,
+		Provenance:         charm.ProvenanceDownload,
 		CharmhubIdentifier: "foo",
 		DownloadURL:        "http://example.com/foo",
 		DownloadSize:       42,
@@ -1050,7 +1050,7 @@ func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	expected := &charm.DownloadInfo{
-		DownloadProvenance: charm.ProvenanceDownload,
+		Provenance:         charm.ProvenanceDownload,
 		CharmhubIdentifier: "foo",
 		DownloadURL:        "http://example.com/foo",
 		DownloadSize:       42,

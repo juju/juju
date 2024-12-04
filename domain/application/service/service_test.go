@@ -77,7 +77,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		Architecture: architecture.ARM64,
 	}
 	downloadInfo := &domaincharm.DownloadInfo{
-		DownloadProvenance: domaincharm.ProvenanceDownload,
+		Provenance:         domaincharm.ProvenanceDownload,
 		DownloadURL:        "http://example.com",
 		DownloadSize:       24,
 		CharmhubIdentifier: "foobar",

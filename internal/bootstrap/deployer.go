@@ -396,7 +396,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				// We do have all the information we need to download the charm,
 				// we should fill this in with the correct information.
-				DownloadProvenance: applicationcharm.ProvenanceBootstrap,
+				Provenance: applicationcharm.ProvenanceBootstrap,
 			},
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},

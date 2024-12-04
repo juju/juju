@@ -135,7 +135,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		service.AddApplicationArgs{
 			ReferenceName: "prometheus",
 			DownloadInfo: &charm.DownloadInfo{
-				DownloadProvenance: charm.ProvenanceMigration,
+				Provenance: charm.ProvenanceMigration,
 			},
 		},
 		[]service.ImportUnitArg{{

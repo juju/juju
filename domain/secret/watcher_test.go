@@ -771,7 +771,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		applicationservice.AddApplicationArgs{
 			ReferenceName: appName,
 			DownloadInfo: &applicationcharm.DownloadInfo{
-				DownloadProvenance: applicationcharm.ProvenanceDownload,
+				Provenance:         applicationcharm.ProvenanceDownload,
 				CharmhubIdentifier: "wordpress-1",
 				DownloadURL:        "https://example.com/wordpress-1",
 				DownloadSize:       1000,

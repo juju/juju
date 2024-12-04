@@ -128,15 +128,14 @@ type CharmState interface {
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
 	DeleteCharm(ctx context.Context, id corecharm.ID) error
 
-	// ListCharmLocatorsByNames returns a list of charm locators.
-	// The locator allows the reconstruction of the charm URL for the client
-	// response.
+	// ListCharmLocators returns a list of charm locators. The locator allows
+	// the reconstruction of the charm URL for the client response.
 	ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, error)
 
-	// ListCharmLocatorsByNames returns a list of charm locators for the specified
-	// charm names.
-	// The locator allows the reconstruction of the charm URL for the client
-	// response. If no names are provided, then nothing is returned.
+	// ListCharmLocatorsByNames returns a list of charm locators for the
+	// specified charm names. The locator allows the reconstruction of the charm
+	// URL for the client response. If no names are provided, then nothing is
+	// returned.
 	ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error)
 
 	// GetCharmDownloadInfo returns the download info for the charm using the
@@ -144,19 +143,18 @@ type CharmState interface {
 	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error)
 }
 
-// CharmStore defines the interface for storing and retrieving charms archive blobs
-// from the underlying storage.
+// CharmStore defines the interface for storing and retrieving charms archive
+// blobs from the underlying storage.
 type CharmStore interface {
-	// GetCharm retrieves a ReadCloser for the charm archive at the give path from
-	// the underlying storage.
+	// GetCharm retrieves a ReadCloser for the charm archive at the give path
+	// from the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
 }
 
-// GetCharmID returns a charm ID by name. It returns an error if the charm
-// can not be found by the name.
-// This can also be used as a cheap way to see if a charm exists without
-// needing to load the charm metadata.
-// Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
+// GetCharmID returns a charm ID by name. It returns an error if the charm can
+// not be found by the name. This can also be used as a cheap way to see if a
+// charm exists without needing to load the charm metadata. Returns
+// [applicationerrors.CharmNameNotValid] if the name is not valid, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
@@ -190,9 +188,8 @@ func (s *Service) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool,
 }
 
 // SupportsContainers returns whether the charm supports containers. This
-// currently means that the charm is a kubernetes charm.
-// This will return true if the charm is a controller charm, and false
-// otherwise.
+// currently means that the charm is a kubernetes charm. This will return true
+// if the charm is a controller charm, and false otherwise.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
@@ -224,12 +221,12 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool
 	return b, nil
 }
 
-// GetCharm returns the charm using the charm ID.
-// Calling this method will return all the data associated with the charm.
-// It is not expected to call this method for all calls, instead use the move
-// focused and specific methods. That's because this method is very expensive
-// to call. This is implemented for the cases where all the charm data is
-// needed; model migration, charm export, etc.
+// GetCharm returns the charm using the charm ID. Calling this method will
+// return all the data associated with the charm. It is not expected to call
+// this method for all calls, instead use the move focused and specific methods.
+// That's because this method is very expensive to call. This is implemented for
+// the cases where all the charm data is needed; model migration, charm export,
+// etc.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.

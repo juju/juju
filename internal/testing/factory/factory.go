@@ -507,7 +507,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			ReferenceName: params.Name,
 			Storage:       directives,
 			DownloadInfo: &applicationcharm.DownloadInfo{
-				DownloadProvenance: applicationcharm.ProvenanceUpload,
+				Provenance: applicationcharm.ProvenanceUpload,
 			},
 		})
 	}
@@ -612,7 +612,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 				ReferenceName: params.Application.Name(),
 				Storage:       directives,
 				DownloadInfo: &applicationcharm.DownloadInfo{
-					DownloadProvenance: applicationcharm.ProvenanceUpload,
+					Provenance: applicationcharm.ProvenanceUpload,
 				},
 			})
 		if !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {

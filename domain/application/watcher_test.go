@@ -75,8 +75,8 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 			Revision:      1,
 			Architecture:  arch.AMD64,
 			DownloadInfo: &charm.DownloadInfo{
-				DownloadProvenance: charm.ProvenanceDownload,
-				DownloadURL:        "http://example.com",
+				Provenance:  charm.ProvenanceDownload,
+				DownloadURL: "http://example.com",
 			},
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -493,8 +493,8 @@ func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *se
 		ReferenceName:    name,
 		CharmStoragePath: storagePath,
 		DownloadInfo: &charm.DownloadInfo{
-			DownloadProvenance: charm.ProvenanceDownload,
-			DownloadURL:        "http://example.com",
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
 		},
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)

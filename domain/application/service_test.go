@@ -853,8 +853,8 @@ func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.
 	}, service.AddApplicationArgs{
 		ReferenceName: name,
 		DownloadInfo: &applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
-			DownloadURL:        "https://example.com",
+			Provenance:  applicationcharm.ProvenanceDownload,
+			DownloadURL: "https://example.com",
 		},
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)

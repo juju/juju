@@ -237,17 +237,17 @@ func (s *State) setCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id core
 		return nil
 	}
 
-	provenance, err := encodeProvenance(downloadInfo.DownloadProvenance)
+	provenance, err := encodeProvenance(downloadInfo.Provenance)
 	if err != nil {
 		return fmt.Errorf("encoding charm provenance: %w", err)
 	}
 
 	downloadInfoState := setCharmDownloadInfo{
-		CharmUUID:            id.String(),
-		DownloadProvenanceID: provenance,
-		CharmhubIdentifier:   downloadInfo.CharmhubIdentifier,
-		DownloadURL:          downloadInfo.DownloadURL,
-		DownloadSize:         downloadInfo.DownloadSize,
+		CharmUUID:          id.String(),
+		ProvenanceID:       provenance,
+		CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
+		DownloadURL:        downloadInfo.DownloadURL,
+		DownloadSize:       downloadInfo.DownloadSize,
 	}
 
 	query := `INSERT INTO charm_download_info (*) VALUES ($setCharmDownloadInfo.*);`
@@ -701,13 +701,13 @@ AND c.source_id = 1;
 		return charm.DownloadInfo{}, fmt.Errorf("getting charm download info: %w", err)
 	}
 
-	provenance, err := decodeProvenance(downloadInfo.DownloadProvenance)
+	provenance, err := decodeProvenance(downloadInfo.Provenance)
 	if err != nil {
 		return charm.DownloadInfo{}, fmt.Errorf("decoding charm provenance: %w", err)
 	}
 
 	return charm.DownloadInfo{
-		DownloadProvenance: provenance,
+		Provenance:         provenance,
 		CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
 		DownloadURL:        downloadInfo.DownloadURL,
 		DownloadSize:       downloadInfo.DownloadSize,
@@ -1362,7 +1362,7 @@ func encodeCharmSource(source charm.CharmSource) (int, error) {
 	}
 }
 
-func encodeProvenance(provenance charm.DownloadProvenance) (int, error) {
+func encodeProvenance(provenance charm.Provenance) (int, error) {
 	switch provenance {
 	case charm.ProvenanceDownload:
 		return 0, nil
@@ -1377,7 +1377,7 @@ func encodeProvenance(provenance charm.DownloadProvenance) (int, error) {
 	}
 }
 
-func decodeProvenance(provenance string) (charm.DownloadProvenance, error) {
+func decodeProvenance(provenance string) (charm.Provenance, error) {
 	switch provenance {
 	case "download":
 		return charm.ProvenanceDownload, nil

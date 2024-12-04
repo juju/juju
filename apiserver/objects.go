@@ -251,7 +251,7 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, c
 		// We can not re-download this charm from the charm store again, without
 		// another call directly to the charm store.
 		DownloadInfo: &applicationcharm.DownloadInfo{
-			DownloadProvenance: provenance,
+			Provenance: provenance,
 		},
 	}); err != nil {
 		return nil, errors.Trace(err)

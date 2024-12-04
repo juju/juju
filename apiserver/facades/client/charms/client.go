@@ -312,7 +312,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 		Revision:      revision,
 		Hash:          essentialMetadata.ResolvedOrigin.Hash,
 		DownloadInfo: &applicationcharm.DownloadInfo{
-			DownloadProvenance: applicationcharm.ProvenanceDownload,
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: essentialMetadata.DownloadInfo.CharmhubIdentifier,
 			DownloadURL:        essentialMetadata.DownloadInfo.DownloadURL,
 			DownloadSize:       essentialMetadata.DownloadInfo.DownloadSize,

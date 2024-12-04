@@ -255,7 +255,7 @@ type setCharmState struct {
 
 // charmDownloadInfo is used to get the download info of a charm.
 type charmDownloadInfo struct {
-	DownloadProvenance string `db:"name"`
+	Provenance         string `db:"name"`
 	CharmhubIdentifier string `db:"charmhub_identifier"`
 	DownloadURL        string `db:"download_url"`
 	DownloadSize       int64  `db:"download_size"`
@@ -263,11 +263,11 @@ type charmDownloadInfo struct {
 
 // setCharmDownloadInfo is used to set the download info of a charm.
 type setCharmDownloadInfo struct {
-	CharmUUID            string `db:"charm_uuid"`
-	DownloadProvenanceID int    `db:"provenance_id"`
-	CharmhubIdentifier   string `db:"charmhub_identifier"`
-	DownloadURL          string `db:"download_url"`
-	DownloadSize         int64  `db:"download_size"`
+	CharmUUID          string `db:"charm_uuid"`
+	ProvenanceID       int    `db:"provenance_id"`
+	CharmhubIdentifier string `db:"charmhub_identifier"`
+	DownloadURL        string `db:"download_url"`
+	DownloadSize       int64  `db:"download_size"`
 }
 
 // charmMetadata is used to get the metadata of a charm.

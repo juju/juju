@@ -171,7 +171,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				// If the controllers do not have the same charmhub url, then
 				// all bets are off.
 				DownloadInfo: &applicationcharm.DownloadInfo{
-					DownloadProvenance: applicationcharm.ProvenanceMigration,
+					Provenance: applicationcharm.ProvenanceMigration,
 				},
 			}, unitArgs...,
 		)
