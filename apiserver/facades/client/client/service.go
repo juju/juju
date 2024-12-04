@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
 )
 
@@ -33,6 +34,10 @@ type NetworkService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns information about the current model.
 	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+	// Status returns the current status of the model.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	Status(context.Context) (domainmodel.StatusInfo, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

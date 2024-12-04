@@ -31,8 +31,10 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -139,20 +141,6 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 	return agentStatusFromStatusInfo(sInfo, kind), nil
 }
 
-// modelStatusHistory returns status history for the current model.
-func (c *Client) modelStatusHistory(filter status.StatusHistoryFilter) ([]params.DetailedStatus, error) {
-	m, err := c.stateAccessor.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get model")
-	}
-
-	sInfo, err := m.StatusHistory(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return agentStatusFromStatusInfo(sInfo, status.KindModel), nil
-}
-
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
@@ -189,7 +177,7 @@ func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistory
 		kind := status.HistoryKind(request.Kind)
 		switch kind {
 		case status.KindModel:
-			hist, err = c.modelStatusHistory(filter)
+			err = internalerrors.Errorf("model status history not implemented")
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
 			if u, err = names.ParseUnitTag(request.Tag); err == nil {
@@ -583,17 +571,22 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	currentVersion := modelInfo.AgentVersion
 	info.Version = currentVersion.String()
 
-	m, err := c.stateAccessor.Model()
-	if err != nil {
-		return info, errors.Annotate(err, "cannot get model")
-	}
+	// // TODO: replace here once we implement the latest agent version in Dqlite.
+	// m, err := c.stateAccessor.Model()
+	// if err != nil {
+	// 	return info, errors.Annotate(err, "cannot get model")
+	// }
 
-	latestVersion := m.LatestToolsVersion()
-	if currentVersion.Compare(latestVersion) < 0 {
-		info.AvailableVersion = latestVersion.String()
-	}
+	// latestVersion := m.LatestToolsVersion()
+	// if currentVersion.Compare(latestVersion) < 0 {
+	// 	info.AvailableVersion = latestVersion.String()
+	// }
 
-	aStatus, err := m.Status()
+	aStatus, err := c.modelInfoService.Status(ctx)
+	if internalerrors.Is(err, domainmodelerrors.NotFound) {
+		// This should never happen but just in case.
+		return params.ModelStatusInfo{}, errors.NotFoundf("model status for %q", modelInfo.Name)
+	}
 	if err != nil {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}
@@ -601,8 +594,7 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	info.ModelStatus = params.DetailedStatus{
 		Status: aStatus.Status.String(),
 		Info:   aStatus.Message,
-		Since:  aStatus.Since,
-		Data:   aStatus.Data,
+		Since:  &aStatus.Since,
 	}
 
 	return info, nil

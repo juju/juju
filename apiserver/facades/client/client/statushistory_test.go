@@ -234,6 +234,8 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 }
 
 func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
+	c.Skip("TODO: Dqlite model status is not implemented")
+
 	s.st.modelHistory = statusInfoWithDates([]status.StatusInfo{
 		{
 			Status:  status.Active,
@@ -261,10 +263,6 @@ type mockState struct {
 	unitHistory  []status.StatusInfo
 	agentHistory []status.StatusInfo
 	modelHistory []status.StatusInfo
-}
-
-func (m *mockState) Model() (Model, error) {
-	return &mockModel{status: m.modelHistory}, nil
 }
 
 func (m *mockState) ModelUUID() string {
@@ -296,15 +294,6 @@ func (m *mockState) Application(name string) (Application, error) {
 	return &mockApplication{
 		status: m.appHistory,
 	}, nil
-}
-
-type mockModel struct {
-	status statuses
-	Model
-}
-
-func (m mockModel) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	return m.status.StatusHistory(filter)
 }
 
 type mockApplication struct {
