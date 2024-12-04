@@ -46,6 +46,25 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 	}
 }
 
+// SecretTriggerSliceAssert returns a WatcherAssert that checks that the watcher has
+// received at least the given []watcher.SecretTriggerChange changes. The changes are
+// concatenated before the assertion, order doesn't matter during assertion.
+func SecretTriggerSliceAssert[T watcher.SecretTriggerChange](expect ...T) WatcherAssert[[]T] {
+	return func(c *gc.C, changes [][]T) bool {
+		var received []T
+		for _, change := range changes {
+			received = append(received, change...)
+		}
+		if len(received) >= len(expect) {
+			mc := jc.NewMultiChecker()
+			mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+			c.Assert(received, mc, expect)
+			return true
+		}
+		return false
+	}
+}
+
 // WatcherC embeds a gocheck.C and adds methods to help
 // verify the behaviour of generic watchers.
 type WatcherC[T any] struct {
@@ -79,6 +98,34 @@ func (w *WatcherC[T]) AssertChange() {
 		w.c.Assert(ok, gc.Equals, true)
 	case <-time.After(testing.LongWait):
 		w.c.Fatalf("watcher did not send change")
+	}
+}
+
+// AssertNChanges fails if it does not receive n changes before a long time has passed.
+func (w WatcherC[T]) AssertNChanges(n int) {
+	if n <= 1 {
+		w.c.Fatalf("n must be greater than 1")
+	}
+	received := 0
+	for {
+		select {
+		case _, ok := <-w.Watcher.Changes():
+			w.c.Assert(ok, jc.IsTrue)
+			received++
+
+			if received < n {
+				continue
+			}
+			// Ensure we have no more changes.
+			w.AssertNoChange()
+			return
+		case <-time.After(testing.LongWait):
+			if received == 0 {
+				w.c.Fatalf("watcher did not send any changes")
+			} else {
+				w.c.Fatalf("watcher received %d changes, expected %d", received, n)
+			}
+		}
 	}
 }
 
