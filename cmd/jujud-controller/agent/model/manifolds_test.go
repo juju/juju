@@ -36,7 +36,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), jc.SameContents, []string{
-		"action-pruner",
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -65,7 +64,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"remote-relations",
 		"secrets-pruner",
 		"state-cleaner",
-		"status-history-pruner",
 		"storage-provisioner",
 		"undertaker",
 		"unit-assigner",
@@ -86,7 +84,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), jc.SameContents, []string{
-		"action-pruner",
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -114,7 +111,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"remote-relations",
 		"secrets-pruner",
 		"state-cleaner",
-		"status-history-pruner",
 		"undertaker",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
@@ -211,17 +207,6 @@ func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
 }
 
 var expectedCAASModelManifoldsWithDependencies = map[string][]string{
-	"action-pruner": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-		"provider-upgrade-gate",
-		"provider-upgraded-flag",
-		"domain-services",
-	},
 
 	"secrets-pruner": {
 		"agent",
@@ -431,18 +416,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgraded-flag",
 	},
 
-	"status-history-pruner": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-		"provider-upgrade-gate",
-		"provider-upgraded-flag",
-		"domain-services",
-	},
-
 	"undertaker": {
 		"agent",
 		"api-caller",
@@ -454,18 +427,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
-
-	"action-pruner": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-		"provider-upgrade-gate",
-		"provider-upgraded-flag",
-		"domain-services",
-	},
 
 	"secrets-pruner": {
 		"agent",
@@ -691,18 +652,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
 		"not-dead-flag"},
-
-	"status-history-pruner": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-		"provider-upgrade-gate",
-		"provider-upgraded-flag",
-		"domain-services",
-	},
 
 	"storage-provisioner": {
 		"agent",

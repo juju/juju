@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/actionpruner"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
@@ -53,12 +52,10 @@ import (
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/providertracker"
-	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/remoterelations"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/singular"
-	"github.com/juju/juju/internal/worker/statushistorypruner"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/unitassigner"
@@ -243,7 +240,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
 		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold(
-		// No Logger defined in fortress package.
+			// No Logger defined in fortress package.
 		))),
 		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -307,24 +304,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.cleaner"),
-		})),
-		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
-			APICallerName:      apiCallerName,
-			DomainServicesName: domainServicesName,
-			Clock:              config.Clock,
-			NewWorker:          statushistorypruner.New,
-			NewClient:          statushistorypruner.NewClient,
-			PruneInterval:      config.StatusHistoryPrunerInterval,
-			Logger:             config.LoggingContext.GetLogger("juju.worker.pruner.statushistory"),
-		})),
-		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
-			APICallerName:      apiCallerName,
-			DomainServicesName: domainServicesName,
-			Clock:              config.Clock,
-			NewWorker:          actionpruner.New,
-			NewClient:          actionpruner.NewClient,
-			PruneInterval:      config.ActionPrunerInterval,
-			Logger:             config.LoggingContext.GetLogger("juju.worker.pruner.action"),
 		})),
 		// The provider upgrader runs on all controller agents, and
 		// unlocks the gate when the provider is up-to-date. The
@@ -702,8 +681,6 @@ const (
 	instancePollerName           = "instance-poller"
 	charmRevisionUpdaterName     = "charm-revision-updater"
 	stateCleanerName             = "state-cleaner"
-	statusHistoryPrunerName      = "status-history-pruner"
-	actionPrunerName             = "action-pruner"
 	machineUndertakerName        = "machine-undertaker"
 	remoteRelationsName          = "remote-relations"
 	loggingConfigUpdaterName     = "logging-config-updater"
