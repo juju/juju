@@ -240,7 +240,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
 		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold(
-			// No Logger defined in fortress package.
+		// No Logger defined in fortress package.
 		))),
 		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,

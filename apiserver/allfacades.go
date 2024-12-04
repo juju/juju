@@ -92,7 +92,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
-	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
@@ -248,7 +247,6 @@ func AllFacades() *facade.Registry {
 	usersecretsdrain.Register(registry)
 	sshclient.Register(registry)
 	spaces.Register(registry)
-	statushistory.Register(registry)
 	storage.Register(registry)
 	storageprovisioner.Register(registry)
 	subnets.Register(registry)
