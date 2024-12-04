@@ -66,7 +66,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
-	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
@@ -168,7 +167,6 @@ func AllFacades() *facade.Registry {
 	registry := new(facade.Registry)
 
 	action.Register(registry)
-	actionpruner.Register(registry)
 	agent.Register(registry)
 	agenttools.Register(registry)
 	annotations.Register(registry)
