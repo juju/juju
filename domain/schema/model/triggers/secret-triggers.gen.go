@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+
 // ChangeLogTriggersForSecretDeletedValueRef generates the triggers for the
 // secret_deleted_value_ref table.
 func ChangeLogTriggersForSecretDeletedValueRef(columnName string, namespaceID int) func() schema.Patch {
@@ -269,3 +270,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+

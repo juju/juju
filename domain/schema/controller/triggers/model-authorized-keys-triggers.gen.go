@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+
 // ChangeLogTriggersForModelAuthorizedKeys generates the triggers for the
 // model_authorized_keys table.
 func ChangeLogTriggersForModelAuthorizedKeys(columnName string, namespaceID int) func() schema.Patch {
@@ -43,3 +44,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
