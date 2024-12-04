@@ -197,8 +197,8 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 2, and obsolete revision 1.
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		createNewRevision(c, st, uri3)
@@ -214,8 +214,8 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 		)
 	})
 
+	//  We create a new revision 3, then the old revision 2 of each secret should become obsolete.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 3, and obsolete revision 2.
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		createNewRevision(c, st, uri3)
@@ -267,8 +267,9 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
+	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 2, and obsolete revision 1.
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -279,8 +280,9 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 		)
 	})
 
+	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
+	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 3, and obsolete revision 2.
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -328,8 +330,9 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
+	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 2, and obsolete revision 1.
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -340,8 +343,9 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 		)
 	})
 
+	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
+	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 3, and obsolete revision 2.
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -385,15 +389,17 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2, then the old revision 1 of uri1 should become obsolete.
+	// There is no event has been fired because the auto prune is not turned on for uri1.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 2, no event is fired because the auto prune is not turned on for uri1.
 		createNewRevision(c, st, uri1)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2, then the old revision 1 of uri2 should become obsolete.
+	// An event is fired because the auto prune is turned on for uri2.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 2, and obsolete revision 1. An event is fired because the auto prune is turned on for uri2.
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNChanges(2)
@@ -471,6 +477,8 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
+	// A consumed secret change event of uri1 should be fired.
 	harness.AddTest(func(c *gc.C) {
 		// create revision 2.
 		createNewRevision(c, st, uri1)
@@ -556,6 +564,8 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We update the remote secret revision to 2.
+	// A remote consumed secret change event of uri1 should be fired.
 	harness.AddTest(func(c *gc.C) {
 		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
 		c.Assert(err, jc.ErrorIsNil)
@@ -653,8 +663,9 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		w.AssertNoChange()
 	})
 
+	// We create a new revision 2 and update the remote secret revision to 2.
+	// A remote consumed secret change event of uri1 should be fired.
 	harness.AddTest(func(c *gc.C) {
-		// create revision 2.
 		createNewRevision(c, st, uri1)
 		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
 		c.Assert(err, jc.ErrorIsNil)
