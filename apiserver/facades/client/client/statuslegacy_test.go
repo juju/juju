@@ -952,8 +952,9 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 
 	st := s.ControllerModel(c).State()
 	_, err := st.AddApplication(state.AddApplicationArgs{
-		Name:  applicationName,
-		Charm: ch,
+		Name:     applicationName,
+		Charm:    ch,
+		CharmURL: ch.URL(),
 		CharmOrigin: &state.CharmOrigin{
 			ID:     "mycharmhubid",
 			Hash:   "mycharmhash",
