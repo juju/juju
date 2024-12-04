@@ -56,5 +56,9 @@ VALUES ($SecretBackend.*)`, state.SecretBackend{})
 		BackendTypeID:       backendType,
 		TokenRotateInterval: internaldatabase.NullDuration{},
 	}).Run()
-	return errors.Errorf("cannot create secret backend %q %w", backendName, err)
+
+	if err != nil {
+		return errors.Errorf("cannot create secret backend %q %w", backendName, err)
+	}
+	return nil
 }
