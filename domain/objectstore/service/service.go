@@ -5,27 +5,38 @@ package service
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/juju/errors"
+	"regexp"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	"github.com/juju/juju/internal/errors"
 )
+
+const minHashPrefixLength = 7
+
+var hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]*$`)
 
 // State describes retrieval and persistence methods for the objectstore.
 type State interface {
 	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error)
+
+	// GetMetadataBySHA256Prefix returns the persistence metadata for the object
+	// with SHA256 starting with the provided prefix.
+	GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (objectstore.Metadata, error)
+
 	// PutMetadata adds a new specified path for the persistence metadata.
 	PutMetadata(ctx context.Context, metadata objectstore.Metadata) (objectstore.UUID, error)
+
 	// ListMetadata returns the persistence metadata for all paths.
 	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
+
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
+
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the persistence metadata.
 	InitialWatchStatement() (string, string)
@@ -54,7 +65,29 @@ func NewService(st State) *Service {
 func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
-		return objectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
+		return objectstore.Metadata{}, errors.Errorf("retrieving metadata %s: %w", path, err)
+	}
+	return objectstore.Metadata{
+		Path:   metadata.Path,
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   metadata.Size,
+	}, nil
+}
+
+// GetMetadataBySHA256Prefix returns the persistence metadata for the object
+// with SHA256 starting with the provided prefix.
+func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (objectstore.Metadata, error) {
+	if len(sha256Prefix) < minHashPrefixLength {
+		return objectstore.Metadata{}, errors.Errorf("minimum has prefix length is %d: %w", minHashPrefixLength, objectstoreerrors.ErrHashPrefixTooShort)
+	}
+	if !hashPrefixRegexp.MatchString(sha256Prefix) {
+		return objectstore.Metadata{}, errors.Errorf("%s: %w", sha256Prefix, objectstoreerrors.ErrInvalidHashPrefix)
+	}
+
+	metadata, err := s.st.GetMetadataBySHA256Prefix(ctx, sha256Prefix)
+	if err != nil {
+		return objectstore.Metadata{}, errors.Errorf("retrieving metadata with sha256 %s: %w", sha256Prefix, err)
 	}
 	return objectstore.Metadata{
 		Path:   metadata.Path,
@@ -68,7 +101,7 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Met
 func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, error) {
 	metadata, err := s.st.ListMetadata(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("retrieving metadata: %w", err)
+		return nil, errors.Errorf("retrieving metadata: %w", err)
 	}
 	m := make([]objectstore.Metadata, len(metadata))
 	for i, v := range metadata {
@@ -89,9 +122,9 @@ func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, err
 func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (objectstore.UUID, error) {
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
-		return "", errors.Annotatef(objectstoreerrors.ErrMissingHash, "missing hash256")
+		return "", errors.Errorf("missing hash256: %w", objectstoreerrors.ErrMissingHash)
 	} else if h1 == "" && h2 != "" {
-		return "", errors.Annotatef(objectstoreerrors.ErrMissingHash, "missing hash384")
+		return "", errors.Errorf("missing hash384: %w", objectstoreerrors.ErrMissingHash)
 	}
 
 	uuid, err := s.st.PutMetadata(ctx, objectstore.Metadata{
@@ -101,7 +134,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 		Size:   metadata.Size,
 	})
 	if err != nil {
-		return "", errors.Annotatef(err, "adding path %s", metadata.Path)
+		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
 	}
 
 	return uuid, nil
@@ -111,7 +144,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	err := s.st.RemoveMetadata(ctx, path)
 	if err != nil {
-		return errors.Annotatef(err, "removing path %s", path)
+		return errors.Errorf("removing path %s: %w", path, err)
 	}
 	return nil
 }

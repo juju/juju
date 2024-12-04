@@ -41,8 +41,7 @@ func (s *State) GetMetadata(ctx context.Context, path string) (coreobjectstore.M
 
 	stmt, err := s.Prepare(`
 SELECT &dbMetadata.*
-FROM object_store_metadata_path p
-LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid
+FROM v_object_store_metadata
 WHERE path = $dbMetadata.path`, metadata)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
@@ -61,7 +60,43 @@ WHERE path = $dbMetadata.path`, metadata)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
 	}
-	return metadata.ToCoreObjectStoreMetadata(), nil
+	return decodeDbMetadata(metadata), nil
+}
+
+// GetMetadataBySHA256Prefix returns the persistence metadata for the object
+// with SHA256 starting with the provided prefix.
+func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Trace(err)
+	}
+
+	sha256Prefix := sha256Prefix{SHA256Prefix: sha256}
+	var metadata dbMetadata
+
+	stmt, err := s.Prepare(`
+SELECT &dbMetadata.*
+FROM v_object_store_metadata
+WHERE sha_256 LIKE $sha256Prefix.sha_256_prefix || '%'`, metadata, sha256Prefix)
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sha256Prefix).Get(&metadata)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return objectstoreerrors.ErrNotFound
+			}
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata with sha256 %s", sha256)
+	}
+
+	return decodeDbMetadata(metadata), nil
 }
 
 // ListMetadata returns the persistence metadata.
@@ -73,8 +108,7 @@ func (s *State) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, e
 
 	stmt, err := s.Prepare(`
 SELECT &dbMetadata.*
-FROM object_store_metadata_path p
-LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
+FROM v_object_store_metadata`, dbMetadata{})
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select metadata statement")
 	}
@@ -90,7 +124,7 @@ LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return transform.Slice(metadata, (dbMetadata).ToCoreObjectStoreMetadata), nil
+	return transform.Slice(metadata, decodeDbMetadata), nil
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.

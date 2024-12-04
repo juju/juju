@@ -82,6 +82,45 @@ func (c *MockStateGetMetadataCall) DoAndReturn(f func(context.Context, string) (
 	return c
 }
 
+// GetMetadataBySHA256Prefix mocks base method.
+func (m *MockState) GetMetadataBySHA256Prefix(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMetadataBySHA256Prefix", arg0, arg1)
+	ret0, _ := ret[0].(objectstore.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMetadataBySHA256Prefix indicates an expected call of GetMetadataBySHA256Prefix.
+func (mr *MockStateMockRecorder) GetMetadataBySHA256Prefix(arg0, arg1 any) *MockStateGetMetadataBySHA256PrefixCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadataBySHA256Prefix", reflect.TypeOf((*MockState)(nil).GetMetadataBySHA256Prefix), arg0, arg1)
+	return &MockStateGetMetadataBySHA256PrefixCall{Call: call}
+}
+
+// MockStateGetMetadataBySHA256PrefixCall wrap *gomock.Call
+type MockStateGetMetadataBySHA256PrefixCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMetadataBySHA256PrefixCall) Return(arg0 objectstore.Metadata, arg1 error) *MockStateGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMetadataBySHA256PrefixCall) Do(f func(context.Context, string) (objectstore.Metadata, error)) *MockStateGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMetadataBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (objectstore.Metadata, error)) *MockStateGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatement mocks base method.
 func (m *MockState) InitialWatchStatement() (string, string) {
 	m.ctrl.T.Helper()

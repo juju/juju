@@ -53,6 +53,44 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	c.Check(p, gc.DeepEquals, metadata)
 }
 
+func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	shaPrefix := "deadbeef"
+
+	metadata := objectstore.Metadata{
+		Path:   "path",
+		SHA256: uuid.MustNewUUID().String(),
+		SHA384: uuid.MustNewUUID().String(),
+		Size:   666,
+	}
+
+	s.state.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), shaPrefix).Return(objectstore.Metadata{
+		Path:   metadata.Path,
+		Size:   metadata.Size,
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+	}, nil)
+
+	p, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), shaPrefix)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(p, gc.DeepEquals, metadata)
+}
+
+func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "beef")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashPrefixTooShort)
+}
+
+func (s *serviceSuite) TestGetMetadataBySHA256PrefixInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "abcdefg")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
+}
+
 func (s *serviceSuite) TestListMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
