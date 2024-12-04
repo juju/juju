@@ -33,6 +33,81 @@ type resourceServiceSuite struct {
 
 var _ = gc.Suite(&resourceServiceSuite{})
 
+func (s *resourceServiceSuite) TestDeleteApplicationResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().DeleteApplicationResources(gomock.Any(),
+		appUUID).Return(nil)
+
+	err := s.service.DeleteApplicationResources(context.
+		Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) TestDeleteApplicationResourcesBadArgs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.DeleteApplicationResources(context.
+		Background(), "not an application ID")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationIDNotValid,
+		gc.Commentf("Application ID should be stated as not valid"))
+}
+
+func (s *resourceServiceSuite) TestDeleteApplicationResourcesUnexpectedError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateError := errors.New("unexpected error")
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().DeleteApplicationResources(gomock.Any(),
+		appUUID).Return(stateError)
+
+	err := s.service.DeleteApplicationResources(context.
+		Background(), appUUID)
+	c.Assert(err, jc.ErrorIs, stateError,
+		gc.Commentf("Should return underlying error"))
+}
+
+func (s *resourceServiceSuite) TestDeleteUnitResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().DeleteUnitResources(gomock.Any(),
+		unitUUID).Return(nil)
+
+	err := s.service.DeleteUnitResources(context.
+		Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) TestDeleteUnitResourcesBadArgs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.DeleteUnitResources(context.
+		Background(), "not an unit UUID")
+	c.Assert(err, jc.ErrorIs, resourceerrors.UnitUUIDNotValid,
+		gc.Commentf("Unit UUID should be stated as not valid"))
+}
+
+func (s *resourceServiceSuite) TestDeleteUnitResourcesUnexpectedError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateError := errors.New("unexpected error")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().DeleteUnitResources(gomock.Any(),
+		unitUUID).Return(stateError)
+
+	err := s.service.DeleteUnitResources(context.
+		Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, stateError,
+		gc.Commentf("Should return underlying error"))
+}
+
 func (s *resourceServiceSuite) TestGetApplicationResourceID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -9,7 +9,6 @@ import (
 	"io"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/store"
@@ -17,11 +16,18 @@ import (
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/errors"
 )
 
-// ResourceState describes retrieval and persistence methods for resource.
+// State describes retrieval and persistence methods for resource.
 type State interface {
+	// DeleteApplicationResources removes all associated resources of a given
+	// application identified by applicationID.
+	DeleteApplicationResources(ctx context.Context, applicationID coreapplication.ID) error
+
+	// DeleteUnitResources deletes the association of resources with a specific
+	// unit.
+	DeleteUnitResources(ctx context.Context, uuid coreunit.UUID) error
+
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
@@ -41,8 +47,8 @@ type State interface {
 	// OpenApplicationResource returns the metadata for an application's resource.
 	OpenApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
 
-	// OpenUnitResource returns the metadata for a resource a. A unit resource is
-	// created to track the given unit and which resource its using.
+	// OpenUnitResource returns the metadata for a resource. A unit resource
+	// is created to track the given unit and which resource its using.
 	OpenUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitID coreunit.UUID) (resource.Resource, error)
 
 	// SetRepositoryResources sets the "polled" resource for the
@@ -78,12 +84,47 @@ func NewService(
 	}
 }
 
-// GetApplicationResourceID returns the ID of the application resource specified by
-// natural key of application and resource name.
+// DeleteApplicationResources removes the resources of a specified application.
+// It should be called after all resources have been unlinked from potential
+// units by DeleteUnitResources and their associated data removed from store.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNameNotValid] if no resource name is provided in
-//     the args.
+//   - [resourceerrors.ApplicationIDNotValid] is returned if the application
+//     ID is not valid.
+//   - [resourceerrors.InvalidCleanUpState] is returned is there is
+//     remaining units or stored resources which are still associated with
+//     application resources.
+func (s *Service) DeleteApplicationResources(
+	ctx context.Context,
+	applicationID coreapplication.ID,
+) error {
+	if err := applicationID.Validate(); err != nil {
+		return resourceerrors.ApplicationIDNotValid
+	}
+	return s.st.DeleteApplicationResources(ctx, applicationID)
+}
+
+// DeleteUnitResources unlinks the resources associated to a unit by its UUID.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.UnitUUIDNotValid] is returned if the unit ID is not
+//     valid.
+func (s *Service) DeleteUnitResources(
+	ctx context.Context,
+	uuid coreunit.UUID,
+) error {
+	if err := uuid.Validate(); err != nil {
+		return resourceerrors.UnitUUIDNotValid
+	}
+	return s.st.DeleteUnitResources(ctx, uuid)
+}
+
+// GetApplicationResourceID returns the ID of the application resource specified
+// by natural key of application and resource name.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNameNotValid] if no resource name is provided
+//     in the args.
 //   - [coreerrors.NotValid] is returned if the application ID is not valid.
 //   - [resourceerrors.ResourceNotFound] if no resource with name exists for
 //     given application.
@@ -106,9 +147,10 @@ func (s *Service) GetApplicationResourceID(
 //
 // The following error types can be expected to be returned:
 //   - [coreerrors.NotValid] is returned if the application ID is not valid.
-//   - [applicationerrors.ApplicationDyingOrDead] for dead or dying applications.
-//   - [applicationerrors.ApplicationNotFound] when the specified application does
-//     not exist.
+//   - [resourceerrors.ApplicationDyingOrDead] for dead or dying
+//     applications.
+//   - [resourceerrors.ApplicationNotFound] when the specified application
+//     does not exist.
 //
 // No error is returned if the provided application has no resource.
 func (s *Service) ListResources(
@@ -124,10 +166,7 @@ func (s *Service) ListResources(
 // GetResource returns the identified application resource.
 //
 // The following error types can be expected to be returned:
-//   - [coreerrors.NotValid] is returned if the application ID is not valid.
-//   - [applicationerrors.ApplicationDyingOrDead] for dead or dying
-//     applications.
-//   - [applicationerrors.ApplicationNotFound] if the specified application does
+//   - [resourceerrors.ApplicationNotFound] if the specified application does
 //     not exist.
 func (s *Service) GetResource(
 	ctx context.Context,
