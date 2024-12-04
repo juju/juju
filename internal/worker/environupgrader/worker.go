@@ -32,7 +32,6 @@ type Facade interface {
 	ModelEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error)
 	ModelTargetEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error)
 	SetModelEnvironVersion(ctx context.Context, tag names.ModelTag, v int) error
-	SetModelStatus(context.Context, names.ModelTag, status.Status, string, map[string]interface{}) error
 	WatchModelEnvironVersion(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error)
 }
 
@@ -202,8 +201,8 @@ func newUpgradeWorker(ctx context.Context, config Config, targetVersion int) (wo
 		setVersion := func(v int) error {
 			return config.Facade.SetModelEnvironVersion(ctx, config.ModelTag, v)
 		}
-		setStatus := func(s status.Status, info string) error {
-			return config.Facade.SetModelStatus(ctx, config.ModelTag, s, info, nil)
+		setStatus := func(_ status.Status, _ string) error {
+			return nil
 		}
 		if targetVersion > currentVersion {
 			if err := setStatus(status.Busy, fmt.Sprintf(
