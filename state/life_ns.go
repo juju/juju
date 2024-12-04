@@ -24,20 +24,6 @@ type nsLife_ struct{}
 // to be good ideas, and should ideally be extended as we continue.
 var nsLife = nsLife_{}
 
-// destroyOp returns errNotAlive if the identified entity is not Alive;
-// or a txn.Op that will fail if the condition no longer holds, and
-// otherwise set Life to Dying and make any other updates supplied in
-// update.
-func (nsLife_) destroyOp(entities mongo.Collection, docID string, update bson.D) (txn.Op, error) {
-	op, err := nsLife.aliveOp(entities, docID)
-	if err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-	setDying := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	op.Update = append(setDying, update...)
-	return op, nil
-}
-
 // aliveOp returns errNotAlive if the identified entity is not Alive; or
 // a txn.Op that will fail if the condition no longer holds.
 func (nsLife_) aliveOp(entities mongo.Collection, docID string) (txn.Op, error) {

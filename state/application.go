@@ -754,21 +754,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	// do it explicitly below.
 	name := a.doc.Name
 	curl := a.doc.CharmURL
-	// When 'force' is set, this call will return operations to delete application references
-	// to this charm as well as accumulate all operational errors encountered in the operation.
-	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	charmOps, err := appCharmDecRefOps(a.st, name, curl, false, op)
-	if err != nil {
-		if errors.Cause(err) == errRefcountAlreadyZero {
-			// We have already removed the reference to the charm, this indicates
-			// the application is already removed, reload yourself and try again
-			return nil, errRefresh
-		}
-		if op.FatalError(err) {
-			return nil, errors.Trace(err)
-		}
-	}
-	ops = append(ops, charmOps...)
 
 	// By the time we get to here, all units and charm refs have been removed,
 	// so it's safe to do this additional cleanup.
@@ -1278,28 +1263,6 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 
-	// Add or create a reference to the new charm, settings,
-	// and storage constraints docs.
-	incOps, err := appCharmIncRefOps(a.st, a.doc.Name, &cURL, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var decOps []txn.Op
-	// Drop the references to the old settings, storage constraints,
-	// and charm docs (if the refs actually exist yet).
-	if oldKey != nil {
-		// Since we can force this now, let's.. There is no point hanging on
-		// to the old key.
-		op := &ForcedOperation{Force: true}
-		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, op) // current charm
-		if err != nil {
-			return nil, errors.Annotatef(err, "could not remove old charm references for %v", oldKey)
-		}
-		if len(op.Errors) != 0 {
-			logger.Errorf("could not remove old charm references for %v:%v", oldKey, op.Errors)
-		}
-	}
-
 	// Build the transaction.
 	var ops []txn.Op
 	if oldKey != nil {
@@ -1307,7 +1270,6 @@ func (a *Application) changeCharmOps(
 		ops = append(ops, oldKey.assertUnchangedOp())
 	}
 	ops = append(ops, unitOps...)
-	ops = append(ops, incOps...)
 	ops = append(ops, []txn.Op{
 		// Create or replace new settings.
 		settingsOp,
@@ -1367,7 +1329,7 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, relOps...)
 
 	// And finally, decrement the old charm and settings.
-	return append(ops, decOps...), nil
+	return ops, nil
 }
 
 // bindingsForOps returns a Bindings object intended for createOps and updateOps
@@ -2768,22 +2730,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	}
 	ops = append(ops, storageInstanceOps...)
 
-	if u.doc.CharmURL != nil {
-		// If the unit has a different URL to the application, allow any final
-		// cleanup to happen; otherwise we just do it when the app itself is removed.
-		maybeDoFinal := *u.doc.CharmURL != *a.doc.CharmURL
-
-		// When 'force' is set, this call will return both needed operations
-		// as well as all operational errors encountered.
-		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
-		if errors.Is(err, errors.NotFound) {
-			return nil, errRefresh
-		} else if op.FatalError(err) {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, decOps...)
-	}
 	appOp := txn.Op{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -3347,10 +3293,6 @@ type addApplicationOpsArgs struct {
 // entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
 func addApplicationOps(mb modelBackend, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
-	charmRefOps, err := appCharmIncRefOps(mb, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	globalKey := app.globalKey()
 	charmConfigKey := app.charmConfigKey()
@@ -3381,7 +3323,6 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.Name()), operatorStatusDoc))
 	}
 
-	ops = append(ops, charmRefOps...)
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
 		Id:     app.Name(),
@@ -3727,4 +3668,23 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 		// docs are not ignored by the watcher.
 		revnoThreshold: -1,
 	})
+}
+
+// finalAppCharmRemoveOps returns operations to delete the settings
+// and storage, device constraints documents and queue a charm cleanup.
+func finalAppCharmRemoveOps(appName string, curl *string) []txn.Op {
+	settingsKey := applicationCharmConfigKey(appName, curl)
+	removeSettingsOp := txn.Op{
+		C:      settingsC,
+		Id:     settingsKey,
+		Remove: true,
+	}
+	// ensure removing storage constraints doc
+	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
+	removeStorageConstraintsOp := removeStorageConstraintsOp(storageConstraintsKey)
+	// ensure removing device constraints doc
+	deviceConstraintsKey := applicationDeviceConstraintsKey(appName, curl)
+	removeDeviceConstraintsOp := removeDeviceConstraintsOp(deviceConstraintsKey)
+
+	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp, removeDeviceConstraintsOp}
 }

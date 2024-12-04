@@ -1526,38 +1526,15 @@ func (u *Unit) SetCharmURL(curl string) error {
 			return nil, errors.Errorf("unknown charm url %q", curl)
 		}
 
-		// Add a reference to the application settings for the new charm.
-		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, &curl, false)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		// Set the new charm URL.
 		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
-		ops := append(incOps,
-			txn.Op{
-				C:      unitsC,
-				Id:     u.doc.DocID,
-				Assert: append(notDeadDoc, differentCharm...),
-				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
-			})
 
-		unitCURL := u.doc.CharmURL
-		if unitCURL != nil {
-			// Drop the reference to the old charm.
-			// Since we can force this now, let's.. There is no point hanging on to the old charm.
-			op := &ForcedOperation{Force: true}
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, unitCURL, true, op)
-			if err != nil {
-				// No need to stop further processing if the old key could not be removed.
-				logger.Errorf("could not remove old charm references for %s: %v", unitCURL, err)
-			}
-			if len(op.Errors) != 0 {
-				logger.Errorf("could not remove old charm references for %s: %v", unitCURL, op.Errors)
-			}
-			ops = append(ops, decOps...)
-		}
-		return ops, nil
+		return []txn.Op{{
+			C:      unitsC,
+			Id:     u.doc.DocID,
+			Assert: append(notDeadDoc, differentCharm...),
+			Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
+		}}, nil
 	}
 	err := u.st.db().Run(buildTxn)
 	if err == nil {
@@ -2614,20 +2591,6 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 		createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc),
 		createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc),
 	)
-
-	// Freshly-created units will not have a charm URL set; migrated
-	// ones will, and they need to maintain their refcounts. If we
-	// relax the restrictions on migrating apps mid-upgrade, this
-	// will need to be more sophisticated, because it might need to
-	// create the settings doc.
-	if charmURL := args.unitDoc.CharmURL; charmURL != nil {
-		appName := args.unitDoc.Application
-		charmRefOps, err := appCharmIncRefOps(st, appName, charmURL, false)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		prereqOps = append(prereqOps, charmRefOps...)
-	}
 
 	return append(prereqOps, txn.Op{
 		C:      unitsC,
