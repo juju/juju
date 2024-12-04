@@ -41,6 +41,180 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
+// DeleteApplicationResources deletes all resources associated with a given
+// application ID. It checks that resources are not linked to a file store,
+// image store, or unit before deletion.
+// The method uses several SQL statements to prepare and execute the deletion
+// process within a transaction. If related records are found in any store,
+// deletion is halted and an error is returned, preventing any deletion which
+// can led to inconsistent state due to foreign key constraints.
+func (st *State) DeleteApplicationResources(
+	ctx context.Context,
+	applicationID application.ID,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type uuids []string
+	appIdentity := resourceIdentity{ApplicationUUID: applicationID.String()}
+
+	// SQL statement to list all resources for an application.
+	listAppResourcesStmt, err := st.Prepare(`
+SELECT resource_uuid AS &resourceIdentity.uuid 
+FROM application_resource 
+WHERE application_uuid = $resourceIdentity.application_uuid`, appIdentity)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to check there is no related resources in resource_file_store.
+	noFileStoreStmt, err := st.Prepare(`
+SELECT resource_uuid AS &resourceIdentity.uuid 
+FROM resource_file_store
+WHERE resource_uuid IN ($uuids[:])`, resourceIdentity{}, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to check there is no related resources in resource_image_store.
+	noImageStoreStmt, err := st.Prepare(`
+SELECT resource_uuid AS &resourceIdentity.uuid 
+FROM resource_image_store
+WHERE resource_uuid IN ($uuids[:])`, resourceIdentity{}, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to check there is no related resources in unit_resource.
+	noUnitResourceStmt, err := st.Prepare(`
+SELECT resource_uuid AS &resourceIdentity.uuid 
+FROM unit_resource
+WHERE resource_uuid IN ($uuids[:])`, resourceIdentity{}, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to delete resources from resource_retrieved_by.
+	deleteFromRetrievedByStmt, err := st.Prepare(`
+DELETE FROM resource_retrieved_by
+WHERE resource_uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to delete resources from application_resource.
+	deleteFromApplicationResourceStmt, err := st.Prepare(`
+DELETE FROM application_resource
+WHERE resource_uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to delete resources from resource.
+	deleteFromResourceStmt, err := st.Prepare(`
+DELETE FROM resource
+WHERE uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		// list all resources for an application.
+		var resources []resourceIdentity
+		err = tx.Query(ctx, listAppResourcesStmt, appIdentity).GetAll(&resources)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		resUUIDs := make(uuids, 0, len(resources))
+		for _, res := range resources {
+			resUUIDs = append(resUUIDs, res.UUID)
+		}
+
+		checkLink := func(message string, stmt *sqlair.Statement) error {
+			var resources []resourceIdentity
+			err := tx.Query(ctx, stmt, resUUIDs).GetAll(&resources)
+			switch {
+			case errors.Is(err, sqlair.ErrNoRows): // Happy path
+				return nil
+			case err != nil:
+				return err
+			}
+			return errors.Errorf("%s: %w", message, resourceerrors.InvalidCleanUpState)
+		}
+
+		// check there are no related resources in resource_file_store.
+		if err = checkLink("resource linked to file store data", noFileStoreStmt); err != nil {
+			return errors.Capture(err)
+		}
+
+		// check there are no related resources in resource_image_store.
+		if err = checkLink("resource linked to image store data", noImageStoreStmt); err != nil {
+			return errors.Capture(err)
+		}
+
+		// check there are no related resources in unit_resource.
+		if err = checkLink("resource linked to unit", noUnitResourceStmt); err != nil {
+			return errors.Capture(err)
+		}
+
+		// delete resources from resource_retrieved_by.
+		if err = tx.Query(ctx, deleteFromRetrievedByStmt, resUUIDs).Run(); err != nil {
+			return errors.Capture(err)
+		}
+
+		safedelete := func(stmt *sqlair.Statement) error {
+			var outcome sqlair.Outcome
+			err = tx.Query(ctx, stmt, resUUIDs).Get(&outcome)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			num, err := outcome.Result().RowsAffected()
+			if err != nil {
+				return errors.Capture(err)
+			}
+			if num != int64(len(resUUIDs)) {
+				return errors.Errorf("expected %d rows to be deleted, got %d", len(resUUIDs), num)
+			}
+			return nil
+		}
+
+		// delete resources from application_resource.
+		err = safedelete(deleteFromApplicationResourceStmt)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// delete resources from resource.
+		return safedelete(deleteFromResourceStmt)
+	})
+}
+
+// DeleteUnitResources removes the association of a unit, identified by UUID,
+// with any of its' application's resources. It initiates a transaction and
+// executes an SQL statement to delete rows from the unit_resource table.
+// Returns an error if the operation fails at any point in the process.
+func (st *State) DeleteUnitResources(
+	ctx context.Context,
+	uuid coreunit.UUID,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unit := unitResource{UnitUUID: uuid.String()}
+	stmt, err := st.Prepare(`DELETE FROM unit_resource WHERE unit_uuid = $unitResource.unit_uuid`, unit)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt, unit).Run())
+	})
+}
+
 // GetApplicationResourceID returns the ID of the application resource
 // specified by natural key of application and resource name.
 func (st *State) GetApplicationResourceID(

@@ -3,9 +3,15 @@
 
 package errors
 
-import "github.com/juju/juju/internal/errors"
+import (
+	"github.com/juju/juju/internal/errors"
+)
 
 const (
+	// ApplicationIDNotValid describes an error when the application ID is
+	// not valid.
+	ApplicationIDNotValid = errors.ConstError("application ID not valid")
+
 	// ApplicationNotFound describes an error that occurs when the application
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
@@ -30,7 +36,16 @@ const (
 	// does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
 
+	// UnitUUIDNotValid describes an error when the unit UUID is
+	// not valid.
+	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
+
 	// ResourceStateNotValid describes an error where the resource state is not
 	// valid.
 	ResourceStateNotValid = errors.ConstError("resource state not valid")
+
+	// InvalidCleanUpState describes an error where the application state is
+	// during cleanup. It means that application dependencies are deleted in
+	// an incorrect order.
+	InvalidCleanUpState = errors.ConstError("invalid cleanup state")
 )
