@@ -40,12 +40,13 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"api-caller",
 		"api-config-watcher",
 		"application-scaler",
-		"charm-downloader",
+		"async-charm-downloader",
 		"charm-revision-updater",
 		"clock",
 		"compute-provisioner",
 		"domain-services",
 		"firewaller",
+		"http-client",
 		"instance-mutater",
 		"instance-poller",
 		"is-responsible-flag",
@@ -87,15 +88,16 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"async-charm-downloader",
 		"caas-application-provisioner",
 		"caas-firewaller",
 		"caas-model-config-manager",
 		"caas-model-operator",
 		"caas-storage-provisioner",
-		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
 		"domain-services",
+		"http-client",
 		"is-responsible-flag",
 		"logging-config-updater",
 		"migration-fortress",
@@ -133,6 +135,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"provider-upgraded-flag",
 		"provider-upgrader",
 		"domain-services",
+		"http-client",
 		"valid-credential-flag",
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
@@ -306,16 +309,12 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"charm-downloader": {
+	"async-charm-downloader": {
 		"agent",
 		"api-caller",
+		"domain-services",
+		"http-client",
 		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-		"provider-upgrade-gate",
-		"provider-upgraded-flag",
-		"valid-credential-flag",
 	},
 
 	"charm-revision-updater": {
@@ -405,6 +404,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"domain-services": {},
 
+	"http-client": {},
+
 	"state-cleaner": {
 		"agent",
 		"api-caller",
@@ -466,16 +467,13 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgraded-flag",
 		"not-dead-flag"},
 
-	"charm-downloader": {
+	"async-charm-downloader": {
 		"agent",
 		"api-caller",
+		"domain-services",
+		"http-client",
 		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"provider-upgrade-gate",
-		"provider-upgraded-flag",
-		"not-dead-flag",
-		"valid-credential-flag"},
+	},
 
 	"charm-revision-updater": {
 		"agent",
@@ -642,6 +640,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"domain-services": {},
+
+	"http-client": {},
 
 	"state-cleaner": {
 		"agent",
