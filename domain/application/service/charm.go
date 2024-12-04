@@ -150,7 +150,7 @@ type CharmStore interface {
 	// Store the charm at the specified path into the object store. It is
 	// expected that the archive already exists at the specified path. If the
 	// file isn't found, a [ErrNotFound] is returned.
-	Store(ctx context.Context, path string, size int64, hash string) (objectstore.UUID, error)
+	Store(ctx context.Context, path string, size int64, hash string) (string, objectstore.UUID, error)
 	// GetCharm retrieves a ReadCloser for the charm archive at the give path from
 	// the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)

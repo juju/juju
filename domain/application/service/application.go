@@ -1327,7 +1327,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// Use the hash from the reservation, incase the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
-	objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, info.Hash)
+	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, info.Hash)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1342,6 +1342,6 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		Actions:         domainCharm.Actions,
 		LXDProfile:      domainCharm.LXDProfile,
 		ObjectStoreUUID: objectStoreUUID,
-		ArchivePath:     resolve.Path,
+		ArchivePath:     archivePath,
 	})
 }

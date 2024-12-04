@@ -2782,12 +2782,13 @@ func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context
 }
 
 // Store mocks base method.
-func (m *MockCharmStore) Store(arg0 context.Context, arg1 string, arg2 int64, arg3 string) (objectstore.UUID, error) {
+func (m *MockCharmStore) Store(arg0 context.Context, arg1 string, arg2 int64, arg3 string) (string, objectstore.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Store", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(objectstore.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(objectstore.UUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Store indicates an expected call of Store.
@@ -2803,19 +2804,19 @@ type MockCharmStoreStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmStoreStoreCall) Return(arg0 objectstore.UUID, arg1 error) *MockCharmStoreStoreCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockCharmStoreStoreCall) Return(arg0 string, arg1 objectstore.UUID, arg2 error) *MockCharmStoreStoreCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStoreStoreCall) Do(f func(context.Context, string, int64, string) (objectstore.UUID, error)) *MockCharmStoreStoreCall {
+func (c *MockCharmStoreStoreCall) Do(f func(context.Context, string, int64, string) (string, objectstore.UUID, error)) *MockCharmStoreStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, int64, string) (objectstore.UUID, error)) *MockCharmStoreStoreCall {
+func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, int64, string) (string, objectstore.UUID, error)) *MockCharmStoreStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
