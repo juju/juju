@@ -34,6 +34,10 @@ type ObjectStoreMetadata interface {
 	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (Metadata, error)
 
+	// GetMetadataBySHA256Prefix returns the persistence metadata for the object
+	// with SHA256 starting with the provided prefix.
+	GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (Metadata, error)
+
 	// PutMetadata adds a new specified path for the persistence metadata.
 	PutMetadata(ctx context.Context, metadata Metadata) (UUID, error)
 

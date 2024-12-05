@@ -11,7 +11,9 @@ import (
 	"os"
 
 	"github.com/juju/juju/core/objectstore"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -78,6 +80,26 @@ func (s *CharmStore) Get(ctx context.Context, archivePath string) (io.ReadCloser
 		return nil, errors.Errorf("getting object store: %w", err)
 	}
 	reader, _, err := store.Get(ctx, archivePath)
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
+		return nil, applicationerrors.CharmNotFound
+	}
+	if err != nil {
+		return nil, errors.Errorf("getting charm: %w", err)
+	}
+	return reader, nil
+}
+
+// GetBySHA256Prefix retrieves a ReadCloser for a charm archive who's SHA256 hash
+// starts with the provided prefix.
+func (s *CharmStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error) {
+	store, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting object store: %w", err)
+	}
+	reader, _, err := store.GetBySHA256Prefix(ctx, sha256Prefix)
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
+		return nil, applicationerrors.CharmNotFound
+	}
 	if err != nil {
 		return nil, errors.Errorf("getting charm: %w", err)
 	}

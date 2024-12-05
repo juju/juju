@@ -81,6 +81,45 @@ func (c *MockObjectStoreMetadataGetMetadataCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// GetMetadataBySHA256Prefix mocks base method.
+func (m *MockObjectStoreMetadata) GetMetadataBySHA256Prefix(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMetadataBySHA256Prefix", arg0, arg1)
+	ret0, _ := ret[0].(objectstore.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMetadataBySHA256Prefix indicates an expected call of GetMetadataBySHA256Prefix.
+func (mr *MockObjectStoreMetadataMockRecorder) GetMetadataBySHA256Prefix(arg0, arg1 any) *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadataBySHA256Prefix", reflect.TypeOf((*MockObjectStoreMetadata)(nil).GetMetadataBySHA256Prefix), arg0, arg1)
+	return &MockObjectStoreMetadataGetMetadataBySHA256PrefixCall{Call: call}
+}
+
+// MockObjectStoreMetadataGetMetadataBySHA256PrefixCall wrap *gomock.Call
+type MockObjectStoreMetadataGetMetadataBySHA256PrefixCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall) Return(arg0 objectstore.Metadata, arg1 error) *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall) Do(f func(context.Context, string) (objectstore.Metadata, error)) *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (objectstore.Metadata, error)) *MockObjectStoreMetadataGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListMetadata mocks base method.
 func (m *MockObjectStoreMetadata) ListMetadata(arg0 context.Context) ([]objectstore.Metadata, error) {
 	m.ctrl.T.Helper()

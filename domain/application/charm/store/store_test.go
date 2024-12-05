@@ -19,7 +19,9 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
 type storeSuite struct {
@@ -134,6 +136,50 @@ func (s *storeSuite) TestGetFailed(c *gc.C) {
 	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.Get(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *storeSuite) TestGetNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, objectstoreerrors.ObjectNotFound)
+
+	storage := NewCharmStore(s.objectStoreGetter)
+	_, err := storage.Get(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *storeSuite) TestGetBySHA256Prefix(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	archive := io.NopCloser(strings.NewReader("archive-content"))
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(archive, 0, nil)
+
+	storage := NewCharmStore(s.objectStoreGetter)
+	reader, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
+	c.Assert(err, jc.ErrorIsNil)
+	content, err := io.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(content), gc.Equals, "archive-content")
+}
+
+func (s *storeSuite) TestGetBySHA256PrefixFailed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, errors.Errorf("boom"))
+
+	storage := NewCharmStore(s.objectStoreGetter)
+	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *storeSuite) TestGetBySHA256NotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, objectstoreerrors.ObjectNotFound)
+
+	storage := NewCharmStore(s.objectStoreGetter)
+	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
