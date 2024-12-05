@@ -335,6 +335,20 @@ type indexedChanged struct {
 	index  int
 }
 
+// WatchApplication watches for changes to the specified application in the
+// application table.
+func (s *WatchableService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+	uuid, err := s.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
+	}
+	return s.watcherFactory.NewValueWatcher(
+		"application",
+		uuid.String(),
+		changestream.All,
+	)
+}
+
 // isValidApplicationName returns whether name is a valid application name.
 func isValidApplicationName(name string) bool {
 	return validApplication.MatchString(name)

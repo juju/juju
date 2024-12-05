@@ -2556,6 +2556,45 @@ func (c *MockWatcherFactoryNewValueMapperWatcherCall) DoAndReturn(f func(string,
 	return c
 }
 
+// NewValueWatcher mocks base method.
+func (m *MockWatcherFactory) NewValueWatcher(arg0, arg1 string, arg2 changestream.ChangeType) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewValueWatcher", arg0, arg1, arg2)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewValueWatcher indicates an expected call of NewValueWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewValueWatcher(arg0, arg1, arg2 any) *MockWatcherFactoryNewValueWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewValueWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewValueWatcher), arg0, arg1, arg2)
+	return &MockWatcherFactoryNewValueWatcherCall{Call: call}
+}
+
+// MockWatcherFactoryNewValueWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewValueWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatcherFactoryNewValueWatcherCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockWatcherFactoryNewValueWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatcherFactoryNewValueWatcherCall) Do(f func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewValueWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatcherFactoryNewValueWatcherCall) DoAndReturn(f func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewValueWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockAgentVersionGetter is a mock of AgentVersionGetter interface.
 type MockAgentVersionGetter struct {
 	ctrl     *gomock.Controller

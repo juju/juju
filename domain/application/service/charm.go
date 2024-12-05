@@ -41,6 +41,9 @@ type WatcherFactory interface {
 		initialStateQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 	) (watcher.StringsWatcher, error)
+	NewValueWatcher(
+		namespace, changeValue string, changeMask changestream.ChangeType,
+	) (watcher.NotifyWatcher, error)
 }
 
 // CharmState describes retrieval and persistence methods for charms.
