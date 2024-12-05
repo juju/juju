@@ -1165,7 +1165,7 @@ func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *gc.C) {
 	c.Check(obtained, gc.DeepEquals, 42)
 }
 
-func (s *applicationServiceSuite) TestReserveCharmDownload(c *gc.C) {
+func (s *applicationServiceSuite) TestGetAsyncCharmDownloadInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1183,9 +1183,9 @@ func (s *applicationServiceSuite) TestReserveCharmDownload(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, nil)
+	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 
-	obtained, err := s.service.ReserveCharmDownload(context.Background(), appUUID)
+	obtained, err := s.service.GetAsyncCharmDownloadInfo(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.DeepEquals, info)
 }
@@ -1219,7 +1219,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, nil)
+	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash").Return("somepath", objectStoreUUID, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
@@ -1253,7 +1253,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *gc
 		},
 	}
 
-	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, applicationerrors.CharmAlreadyAvailable)
+	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, applicationerrors.CharmAlreadyAvailable)
 
 	err := s.service.ResolveCharmDownload(context.Background(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
@@ -1281,7 +1281,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *gc.
 		},
 	}
 
-	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, applicationerrors.CharmAlreadyResolved)
+	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, applicationerrors.CharmAlreadyResolved)
 
 	err := s.service.ResolveCharmDownload(context.Background(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
@@ -1312,7 +1312,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *g
 		},
 	}
 
-	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, nil)
+	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 
 	err := s.service.ResolveCharmDownload(context.Background(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
@@ -1345,7 +1345,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().ReserveCharmDownload(gomock.Any(), appUUID).Return(info, nil)
+	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash").Return("somepath", objectStoreUUID, jujuerrors.NotFoundf("not found"))
 
 	err := s.service.ResolveCharmDownload(context.Background(), appUUID, application.ResolveCharmDownload{

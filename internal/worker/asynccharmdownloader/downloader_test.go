@@ -59,7 +59,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
@@ -109,7 +109,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 
 	// Expect the download to fail twice before succeeding.
 
@@ -166,7 +166,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 
 	gomock.InOrder(
 		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, errors.Errorf("boom")).Times(retryAttempts-1),
@@ -209,7 +209,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *gc.C) {
 		},
 	}
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.ID) (domainapplication.CharmDownloadInfo, error) {
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.ID) (domainapplication.CharmDownloadInfo, error) {
 		close(done)
 		return reserveInfo, applicationerrors.CharmAlreadyAvailable
 	})
@@ -253,7 +253,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 	curl, err := url.Parse("https://example.com/foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,

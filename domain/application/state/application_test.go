@@ -1983,13 +1983,13 @@ WHERE a.uuid=?`, id1.String())
 	c.Check(expected, gc.HasLen, 0)
 }
 
-func (s *applicationStateSuite) TestReserveCharmDownload(c *gc.C) {
+func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfo(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := s.state.ReserveCharmDownload(context.Background(), id)
+	info, err := s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(info, jc.DeepEquals, application.CharmDownloadInfo{
@@ -2005,14 +2005,14 @@ func (s *applicationStateSuite) TestReserveCharmDownload(c *gc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestReserveCharmDownloadNoApplication(c *gc.C) {
+func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoNoApplication(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 
-	_, err := s.state.ReserveCharmDownload(context.Background(), id)
+	_, err := s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestReserveCharmDownloadAlreadyDone(c *gc.C) {
+func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoAlreadyDone(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
@@ -2021,7 +2021,7 @@ func (s *applicationStateSuite) TestReserveCharmDownloadAlreadyDone(c *gc.C) {
 	err = s.state.SetCharmAvailable(context.Background(), charmUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.state.ReserveCharmDownload(context.Background(), id)
+	_, err = s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
 }
 
@@ -2030,7 +2030,7 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *gc.C) {
 
 	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
 
-	info, err := s.state.ReserveCharmDownload(context.Background(), id)
+	info, err := s.state.GetAsyncCharmDownloadInfo(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions := charm.Actions{
@@ -2097,7 +2097,7 @@ func (s *applicationStateSuite) TestResolveCharmDownloadNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *applicationStateSuite) TestReserveCharmDownloadLocalCharm(c *gc.C) {
+func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *gc.C) {
 	platform := application.Platform{
 		Channel:      "22.04/stable",
 		OSType:       application.Ubuntu,
@@ -2129,7 +2129,7 @@ func (s *applicationStateSuite) TestReserveCharmDownloadLocalCharm(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.state.ReserveCharmDownload(context.Background(), appID)
+	_, err = s.state.GetAsyncCharmDownloadInfo(context.Background(), appID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmProvenanceNotValid)
 }
 

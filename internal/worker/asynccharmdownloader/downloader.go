@@ -74,7 +74,7 @@ func (w *asyncDownloadWorker) loop() error {
 
 	w.logger.Infof("downloading charm for application %q", w.appID)
 
-	info, err := w.applicationService.ReserveCharmDownload(ctx, w.appID)
+	info, err := w.applicationService.GetAsyncCharmDownloadInfo(ctx, w.appID)
 	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		// If the application is already downloading a charm, we can skip this
 		// application.

@@ -34,12 +34,12 @@ type ApplicationService interface {
 	// have the same application ID multiple times in the list.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
 
-	// ReserveCharmDownload reserves a charm download slot for the specified
+	// GetAsyncCharmDownloadInfo reserves a charm download slot for the specified
 	// application. If the charm is already being downloaded, the method will
 	// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
 	// information is returned which includes the charm name, origin and the
 	// digest.
-	ReserveCharmDownload(ctx context.Context, appID application.ID) (domainapplication.CharmDownloadInfo, error)
+	GetAsyncCharmDownloadInfo(ctx context.Context, appID application.ID) (domainapplication.CharmDownloadInfo, error)
 
 	// ResolveCharmDownload resolves the charm download slot for the specified
 	// application. The method will update the charm with the specified charm

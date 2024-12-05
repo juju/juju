@@ -1873,12 +1873,12 @@ WHERE uuid = $applicationID.uuid
 	return version.CharmModifiedVersion, err
 }
 
-// ReserveCharmDownload reserves the charm download for the specified
+// GetAsyncCharmDownloadInfo gets the charm download for the specified
 // application, returning an error satisfying
 // [applicationerrors.CharmAlreadyAvailable] if the application is already
 // downloading a charm, or [applicationerrors.ApplicationNotFound] if the
 // application is not found.
-func (st *State) ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return application.CharmDownloadInfo{}, internalerrors.Capture(err)

@@ -219,11 +219,11 @@ type ApplicationState interface {
 	// different status, it's ignored.
 	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error)
 
-	// ReserveCharmDownload reserves the charm download for the specified
+	// GetAsyncCharmDownloadInfo reserves the charm download for the specified
 	// application, returning an error satisfying
 	// [applicationerrors.AlreadyDownloadingCharm] if the application is already
 	// downloading a charm.
-	ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error)
+	GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error)
 
 	// ResolveCharmDownload resolves the charm download for the specified
 	// application, updating the charm with the specified charm information.
@@ -1266,17 +1266,17 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 	return s.st.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
 }
 
-// ReserveCharmDownload reserves a charm download slot for the specified
+// GetAsyncCharmDownloadInfo returns a charm download info for the specified
 // application. If the charm is already being downloaded, the method will
 // return [applicationerrors.CharmAlreadyAvailable]. The charm download
 // information is returned which includes the charm name, origin and the
 // digest.
-func (s *Service) ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
 	if err := appID.Validate(); err != nil {
 		return application.CharmDownloadInfo{}, internalerrors.Errorf("application ID: %w", err)
 	}
 
-	return s.st.ReserveCharmDownload(ctx, appID)
+	return s.st.GetAsyncCharmDownloadInfo(ctx, appID)
 }
 
 // ResolveCharmDownload resolves the charm download slot for the specified
@@ -1294,7 +1294,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// This has the added benefit of returning the charm hash, so that we can
 	// verify the charm download. We don't want it to be passed in the resolve
 	// charm download, in case the caller has the wrong hash.
-	info, err := s.ReserveCharmDownload(ctx, appID)
+	info, err := s.GetAsyncCharmDownloadInfo(ctx, appID)
 	// There is nothing to do if the charm is already downloaded or resolved.
 	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) ||
 		errors.Is(err, applicationerrors.CharmAlreadyResolved) {
