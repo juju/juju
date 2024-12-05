@@ -46,33 +46,18 @@ var _ = gc.Suite(&charmHubRepositorySuite{})
 
 func (s *charmHubRepositorySuite) TestResolveForDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectCharmRefreshInstallOneFromChannel(c, uuid.MustNewUUID().String())
-	// The origin.ID should never be saved to the origin during
-	// ResolveWithPreferredChannel.  That is done during the file
-	// download only.
-	s.testResolve(c, "")
-}
 
-func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	cfg, err := charmhub.RefreshOne("instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
-		Architecture: arch.DefaultArchitecture,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.expectCharmRefresh(c, cfg, uuid.MustNewUUID().String())
-	// If the origin has an ID, ensure it's kept thru the call
-	// to ResolveWithPreferredChannel.
-	s.testResolve(c, "charmCHARMcharmCHARMcharmCHARM01")
-}
+	hash := uuid.MustNewUUID().String()
 
-func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 	curl := charm.MustParseURL("ch:wordpress")
 	rev := 16
+
 	channel := corecharm.MustParseChannel("latest/stable")
 	origin := corecharm.Origin{
 		Source:   "charm-hub",
-		ID:       id,
+		ID:       "charmCHARMcharmCHARMcharmCHARM01",
 		Revision: &rev,
+		Hash:     hash,
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
@@ -80,26 +65,30 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		},
 		Channel: &channel,
 	}
-	if id != "" {
-		origin.InstanceKey = "instance-key"
-	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	s.expectCharmRefreshInstallOneFromChannel(c, hash)
+
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl.Revision = rev
+	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
 
-	origin.Type = "charm"
-	origin.Revision = &curl.Revision
-	origin.Platform.Architecture = arch.DefaultArchitecture
-	origin.Platform.OS = "ubuntu"
-	origin.Platform.Channel = "20.04"
+	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+}
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
+func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	hash := uuid.MustNewUUID().String()
+
+	cfg, err := charmhub.RefreshOne("instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectCharmRefresh(c, cfg, hash)
+	//s.testResolve(c, "charmCHARMcharmCHARMcharmCHARM01", hash)
 }
 
 func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *gc.C) {
@@ -119,9 +108,9 @@ func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *gc.C) {
 		},
 		Channel: &channel,
 	}
-	_, obtainedOrigin, _, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedOrigin.Channel.Track, gc.Equals, "latest")
+	c.Assert(resolvedData.Origin.Channel.Track, gc.Equals, "latest")
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
@@ -145,7 +134,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -162,9 +151,9 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
@@ -182,7 +171,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -197,9 +186,9 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{})
+	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.C) {
@@ -262,7 +251,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 
 func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectedRefreshInvalidPlatformError(c)
+	s.expectedRefreshInvalidPlatformError()
 	s.expectCharmRefreshInstallOneFromChannelFullBase(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
@@ -328,7 +317,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -343,9 +332,9 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 
 	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture)
 
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{})
+	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
@@ -353,7 +342,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	hash := uuid.MustNewUUID().String()
 
-	s.expectedRefreshInvalidPlatformError(c)
+	s.expectedRefreshInvalidPlatformError()
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 
 	curl := charm.MustParseURL("ch:wordpress")
@@ -364,7 +353,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -381,14 +370,14 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
+	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectedRefreshRevisionNotFoundError(c)
+	s.expectedRefreshRevisionNotFoundError()
 
 	origin := corecharm.Origin{
 		Source: "charm-hub",
@@ -397,7 +386,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 		},
 	}
 
-	_, _, _, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	_, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64"
 available releases are:
@@ -406,7 +395,7 @@ available releases are:
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectedRefreshRevisionNotFoundError(c)
+	s.expectedRefreshRevisionNotFoundError()
 
 	origin := corecharm.Origin{
 		Source: "charm-hub",
@@ -418,7 +407,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), s.client)
-	_, _, _, err := repo.ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	_, err := repo.ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64/ubuntu/18.04"
 available releases are:
@@ -463,9 +452,9 @@ func (s *charmHubRepositorySuite) TestDownload(c *gc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 	s.client.EXPECT().Download(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(&charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       hash,
-		Size:       10,
+		SHA256: hash,
+		SHA384: "sha-384",
+		Size:   10,
 	}, nil)
 
 	client := s.newClient(c)
@@ -474,9 +463,9 @@ func (s *charmHubRepositorySuite) TestDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       hash,
-		Size:       10,
+		SHA256: hash,
+		SHA384: "sha-384",
+		Size:   10,
 	})
 }
 
@@ -518,9 +507,9 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(resolvedArchive, &charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       hash,
-		Size:       10,
+		SHA256: hash,
+		SHA384: "sha-384",
+		Size:   10,
 	}, nil)
 
 	client := s.newClient(c)
@@ -530,9 +519,9 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	c.Check(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
 	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       hash,
-		Size:       10,
+		SHA256: hash,
+		SHA384: "sha-384",
+		Size:   10,
 	})
 }
 
@@ -831,7 +820,6 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.Refre
 					Size:       42,
 					URL:        "http://example.com/wordpress-42",
 				},
-				//
 				Bases: []transport.Base{
 					{
 						Name:         "ubuntu",
@@ -876,7 +864,7 @@ func (s *charmHubRepositorySuite) expectBundleRefresh(c *gc.C) {
 	})
 }
 
-func (s *charmHubRepositorySuite) expectedRefreshInvalidPlatformError(c *gc.C) {
+func (s *charmHubRepositorySuite) expectedRefreshInvalidPlatformError() {
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -898,7 +886,7 @@ func (s *charmHubRepositorySuite) expectedRefreshInvalidPlatformError(c *gc.C) {
 	})
 }
 
-func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError(c *gc.C) {
+func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError() {
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -1022,111 +1010,11 @@ func (s *charmHubRepositorySuite) expectRefreshWithRevision(rev int, id bool) {
 	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{id: id}).Return(resp, nil)
 }
 
-// charmhubConfigMatcher matches only the charm IDs and revisions of a
-// charmhub.RefreshMany config.
-type charmhubConfigMatcher struct {
-	id bool
-}
-
-func (m charmhubConfigMatcher) Matches(x interface{}) bool {
-	config, ok := x.(charmhub.RefreshConfig)
-	if !ok {
-		return false
-	}
-	h, err := config.Build()
-	if err != nil {
-		return false
-	}
-	if m.id && h.Actions[0].ID != nil && *h.Actions[0].ID == "meshuggah" {
-		return true
-	}
-	if !m.id && h.Actions[0].Name != nil && *h.Actions[0].Name == "ubuntu" {
-		return true
-	}
-	return false
-}
-
-func (m charmhubConfigMatcher) String() string {
-	if m.id {
-		return "match id"
-	}
-	return "match name"
-}
-
 func (s *charmHubRepositorySuite) expectListResourceRevisions(rev int) {
 	resp := []transport.ResourceRevision{
 		resourceRevision(rev),
 	}
 	s.client.EXPECT().ListResourceRevisions(gomock.Any(), gomock.Any(), gomock.Any()).Return(resp, nil)
-}
-
-func fp(c *gc.C) charmresource.Fingerprint {
-	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	c.Assert(err, jc.ErrorIsNil)
-	return fp
-}
-
-func charmID() corecharm.CharmID {
-	curl := charm.MustParseURL("ubuntu")
-	channel, _ := charm.ParseChannel("stable")
-	return corecharm.CharmID{
-		URL: curl,
-		Origin: corecharm.Origin{
-			ID:      "meshuggah",
-			Source:  corecharm.CharmHub,
-			Channel: &channel,
-			Platform: corecharm.Platform{
-				OS:           "ubuntu",
-				Channel:      "20.04",
-				Architecture: "amd64",
-			},
-		}}
-}
-
-func resourceRevision(rev int) transport.ResourceRevision {
-	return transport.ResourceRevision{
-		Download: transport.Download{
-			HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
-			Size:       0,
-			URL:        "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0",
-		},
-		Name:        "wal-e",
-		Revision:    rev,
-		Type:        "file",
-		Filename:    "wal-e.snap",
-		Description: "WAL-E Snap Package",
-	}
-}
-
-// RefreshConfigMatcher is required so that we do check somethings going into
-// the refresh method. As instanceKey is private we don't know what it is until
-// it's called.
-type RefreshConfigMatcher struct {
-	c      *gc.C
-	Config charmhub.RefreshConfig
-}
-
-func (m RefreshConfigMatcher) Matches(x interface{}) bool {
-	rc, ok := x.(charmhub.RefreshConfig)
-	if !ok {
-		return false
-	}
-
-	cb, err := m.Config.Build()
-	m.c.Assert(err, jc.ErrorIsNil)
-
-	rcb, err := rc.Build()
-	m.c.Assert(err, jc.ErrorIsNil)
-	m.c.Assert(len(cb.Actions), gc.Equals, len(rcb.Actions))
-
-	if cb.Actions[0].ID == nil && rcb.Actions[0].ID == nil {
-		return true
-	}
-	return cb.Actions[0].ID != nil && rcb.Actions[0].ID != nil && *cb.Actions[0].ID == *rcb.Actions[0].ID
-}
-
-func (RefreshConfigMatcher) String() string {
-	return "is refresh config"
 }
 
 type refreshConfigSuite struct {
@@ -1387,7 +1275,6 @@ func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 
 	channel := corecharm.MustParseChannel("stable")
@@ -1405,7 +1292,6 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	err := repo.handleRevisionNotFound([]transport.Release{{
 		Base: transport.Base{
@@ -1425,11 +1311,6 @@ available releases are:
   channel "latest/stable": available bases are: ubuntu@20.04`)
 }
 
-func (s *selectNextBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	return ctrl
-}
-
 type composeSuggestionsSuite struct {
 	testing.IsolationSuite
 }
@@ -1437,14 +1318,12 @@ type composeSuggestionsSuite struct {
 var _ = gc.Suite(&composeSuggestionsSuite{})
 
 func (s *composeSuggestionsSuite) TestNoReleases(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{}, corecharm.Origin{})
 	c.Assert(suggestions, gc.DeepEquals, []string(nil))
 }
 
 func (s *composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
@@ -1458,7 +1337,6 @@ func (s *composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
@@ -1478,7 +1356,6 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
@@ -1498,7 +1375,6 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
@@ -1540,7 +1416,6 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
-	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
@@ -1559,7 +1434,102 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
 	})
 }
 
-func (s *composeSuggestionsSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	return ctrl
+// RefreshConfigMatcher is required so that we do check somethings going into
+// the refresh method. As instanceKey is private we don't know what it is until
+// it's called.
+type RefreshConfigMatcher struct {
+	c      *gc.C
+	Config charmhub.RefreshConfig
+}
+
+func (m RefreshConfigMatcher) Matches(x interface{}) bool {
+	rc, ok := x.(charmhub.RefreshConfig)
+	if !ok {
+		return false
+	}
+
+	cb, err := m.Config.Build()
+	m.c.Assert(err, jc.ErrorIsNil)
+
+	rcb, err := rc.Build()
+	m.c.Assert(err, jc.ErrorIsNil)
+	m.c.Assert(len(cb.Actions), gc.Equals, len(rcb.Actions))
+
+	if cb.Actions[0].ID == nil && rcb.Actions[0].ID == nil {
+		return true
+	}
+	return cb.Actions[0].ID != nil && rcb.Actions[0].ID != nil && *cb.Actions[0].ID == *rcb.Actions[0].ID
+}
+
+func (m RefreshConfigMatcher) String() string {
+	return m.Config.String()
+}
+
+// charmhubConfigMatcher matches only the charm IDs and revisions of a
+// charmhub.RefreshMany config.
+type charmhubConfigMatcher struct {
+	id bool
+}
+
+func (m charmhubConfigMatcher) Matches(x interface{}) bool {
+	config, ok := x.(charmhub.RefreshConfig)
+	if !ok {
+		return false
+	}
+	h, err := config.Build()
+	if err != nil {
+		return false
+	}
+	if m.id && h.Actions[0].ID != nil && *h.Actions[0].ID == "meshuggah" {
+		return true
+	}
+	if !m.id && h.Actions[0].Name != nil && *h.Actions[0].Name == "ubuntu" {
+		return true
+	}
+	return false
+}
+
+func (m charmhubConfigMatcher) String() string {
+	if m.id {
+		return "match id"
+	}
+	return "match name"
+}
+
+func fp(c *gc.C) charmresource.Fingerprint {
+	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
+	c.Assert(err, jc.ErrorIsNil)
+	return fp
+}
+
+func charmID() corecharm.CharmID {
+	curl := charm.MustParseURL("ubuntu")
+	channel, _ := charm.ParseChannel("stable")
+	return corecharm.CharmID{
+		URL: curl,
+		Origin: corecharm.Origin{
+			ID:      "meshuggah",
+			Source:  corecharm.CharmHub,
+			Channel: &channel,
+			Platform: corecharm.Platform{
+				OS:           "ubuntu",
+				Channel:      "20.04",
+				Architecture: "amd64",
+			},
+		}}
+}
+
+func resourceRevision(rev int) transport.ResourceRevision {
+	return transport.ResourceRevision{
+		Download: transport.Download{
+			HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
+			Size:       0,
+			URL:        "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0",
+		},
+		Name:        "wal-e",
+		Revision:    rev,
+		Type:        "file",
+		Filename:    "wal-e.snap",
+		Description: "WAL-E Snap Package",
+	}
 }

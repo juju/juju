@@ -33,13 +33,13 @@ func (s *downloaderSuite) TestDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       "hash",
-		Size:       123,
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Size:   123,
 	}, nil)
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
-	result, err := downloader.Download(context.Background(), cURL, "hash")
+	result, err := downloader.Download(context.Background(), cURL, "sha256")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the path is not empty and that the temp file still exists.
@@ -62,9 +62,9 @@ func (s *downloaderSuite) TestDownloadFailure(c *gc.C) {
 	spy := func(_ context.Context, _ *url.URL, path string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 		tmpPath = path
 		return &charmhub.Digest{
-			DigestType: charmhub.SHA256,
-			Hash:       "downloaded-hash",
-			Size:       123,
+			SHA256: "sha256-ignored",
+			SHA384: "sha384-ignored",
+			Size:   123,
 		}, errors.Errorf("boom")
 	}
 	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
@@ -89,9 +89,9 @@ func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *gc.C) {
 	spy := func(_ context.Context, _ *url.URL, path string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 		tmpPath = path
 		return &charmhub.Digest{
-			DigestType: charmhub.SHA256,
-			Hash:       "downloaded-hash",
-			Size:       123,
+			SHA256: "sha256-ignored",
+			SHA384: "sha384-ignored",
+			Size:   123,
 		}, nil
 	}
 	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
