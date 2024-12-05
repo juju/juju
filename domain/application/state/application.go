@@ -1993,7 +1993,7 @@ WHERE application_uuid = $applicationID.uuid
 		return application.CharmDownloadInfo{}, internalerrors.Errorf("encoding charm uuid for %q: %w", appID, err)
 	}
 
-	provenance, err := decodeProvenance(info.DownloadProvenance)
+	provenance, err := decodeProvenance(info.Provenance)
 	if err != nil {
 		return application.CharmDownloadInfo{}, fmt.Errorf("decoding charm provenance: %w", err)
 	}
