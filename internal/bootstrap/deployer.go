@@ -396,7 +396,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		Charm:           result.Charm,
 		Origin:          &resolved.Origin,
 		DownloadInfo:    &downloadInfo,
-		ArchivePath:     downloadResult.Path,
+		ArchivePath:     result.ArchivePath,
 		ObjectStoreUUID: result.ObjectStoreUUID,
 	}, nil
 }
