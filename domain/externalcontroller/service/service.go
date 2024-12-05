@@ -62,7 +62,10 @@ func (s *Service) Controller(
 	controllerUUID string,
 ) (*crossmodel.ControllerInfo, error) {
 	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
-	return controllerInfo, errors.Errorf("retrieving external controller %s %w", controllerUUID, err)
+	if err != nil {
+		return nil, errors.Errorf("retrieving external controller %s %w", controllerUUID, err)
+	}
+	return controllerInfo, nil
 }
 
 // ControllerForModel returns the controller record that's associated
@@ -89,8 +92,10 @@ func (s *Service) ControllerForModel(
 func (s *Service) UpdateExternalController(
 	ctx context.Context, ec crossmodel.ControllerInfo,
 ) error {
-	err := s.st.UpdateExternalController(ctx, ec)
-	return errors.Errorf("updating external controller state %w", err)
+	if err := s.st.UpdateExternalController(ctx, ec); err != nil {
+		return errors.Errorf("updating external controller state %w", err)
+	}
+	return nil
 }
 
 // ImportExternalControllers imports the list of MigrationControllerInfo

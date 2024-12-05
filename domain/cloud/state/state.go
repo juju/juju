@@ -855,5 +855,8 @@ WHERE name = $cloudID.name`, cloud)
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher("cloud", cloud.UUID, changestream.All)
-	return result, errors.Errorf("watching cloud %w", err)
+	if err != nil {
+		return nil, errors.Errorf("watching cloud: %w", err)
+	}
+	return result, nil
 }

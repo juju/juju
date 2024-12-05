@@ -174,7 +174,11 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		}
 		return nil
 	})
-	return appID, errors.Errorf("creating application %q %w", name, err)
+
+	if err != nil {
+		return "", errors.Errorf("creating application %q %w", name, err)
+	}
+	return appID, nil
 }
 
 func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, name string) error {

@@ -456,7 +456,10 @@ WHERE user_public_ssh_key_id IN (SELECT id
 		return nil
 	})
 
-	return errors.Errorf("removing user %q %w", name, err)
+	if err != nil {
+		return errors.Errorf("removing user %q %w", name, err)
+	}
+	return nil
 }
 
 // SetActivationKey removes any active passwords for the user and sets the

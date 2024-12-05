@@ -32,15 +32,19 @@ func NewService(st State) *Service {
 // CurateNodes modifies the known control plane by adding and removing
 // controller node records according to the input slices.
 func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) error {
-	err := s.st.CurateNodes(ctx, toAdd, toRemove)
-	return errors.Errorf("curating controller codes; adding %v, removing %v %w", toAdd, toRemove, err)
+	if err := s.st.CurateNodes(ctx, toAdd, toRemove); err != nil {
+		return errors.Errorf("curating controller codes; adding %v, removing %v %w", toAdd, toRemove, err)
+	}
+	return nil
 }
 
 // UpdateDqliteNode sets the Dqlite node ID and bind address for the input
 // controller ID.
 func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
-	err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr)
-	return errors.Errorf("updating Dqlite node details for %q %w", controllerID, err)
+	if err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr); err != nil {
+		return errors.Errorf("updating Dqlite node details for %q %w", controllerID, err)
+	}
+	return nil
 }
 
 // IsKnownDatabaseNamespace reports if the namespace is known to the controller.

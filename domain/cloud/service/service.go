@@ -51,32 +51,44 @@ func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.
 	if err != nil {
 		return errors.Errorf("creating uuid for cloud %q %w", cloud.Name, err)
 	}
-	err = s.st.CreateCloud(ctx, owner, credUUID.String(), cloud)
-	return errors.Errorf("creating cloud %q %w", cloud.Name, err)
+	if err = s.st.CreateCloud(ctx, owner, credUUID.String(), cloud); err != nil {
+		return errors.Errorf("creating cloud %q: %w", cloud.Name, err)
+	}
+	return nil
 }
 
 // UpdateCloud updates the specified cloud.
 func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
-	err := s.st.UpdateCloud(ctx, cloud)
-	return errors.Errorf("updating cloud %q %w", cloud.Name, err)
+	if err := s.st.UpdateCloud(ctx, cloud); err != nil {
+		return errors.Errorf("updating cloud %q: %w", cloud.Name, err)
+	}
+	return nil
 }
 
 // DeleteCloud removes the specified cloud.
 func (s *Service) DeleteCloud(ctx context.Context, name string) error {
-	err := s.st.DeleteCloud(ctx, name)
-	return errors.Errorf("deleting cloud %q %w", name, err)
+	if err := s.st.DeleteCloud(ctx, name); err != nil {
+		return errors.Errorf("deleting cloud %q %w", name, err)
+	}
+	return nil
 }
 
 // ListAll returns all the clouds.
 func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 	all, err := s.st.ListClouds(ctx)
-	return all, errors.Capture(err)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return all, nil
 }
 
 // Cloud returns the named cloud.
 func (s *Service) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	cloud, err := s.st.Cloud(ctx, name)
-	return cloud, errors.Capture(err)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return cloud, nil
 }
 
 // WatchableService defines a service for interacting with the underlying state

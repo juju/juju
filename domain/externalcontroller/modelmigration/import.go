@@ -69,6 +69,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		})
 	}
 
-	err := i.service.ImportExternalControllers(ctx, controllers)
-	return errors.Errorf("cannot import external controllers %w", err)
+	if err := i.service.ImportExternalControllers(ctx, controllers); err != nil {
+		return errors.Errorf("cannot import external controllers %w", err)
+	}
+	return nil
 }

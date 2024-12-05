@@ -78,7 +78,7 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 	if err != nil {
 		return nil, errors.Errorf("unable to create controller config %w", err)
 	}
-	return ctrlConfig, errors.Errorf("getting controller config state %w", err)
+	return ctrlConfig, nil
 }
 
 // UpdateControllerConfig updates the controller config.
@@ -109,7 +109,11 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 
 		return nil
 	})
-	return errors.Errorf("updating controller config state %w", err)
+
+	if err != nil {
+		return errors.Errorf("updating controller config state %w", err)
+	}
+	return nil
 }
 
 // validateConfig validates the given updateAttrs and removeAttrs.

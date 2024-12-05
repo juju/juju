@@ -70,7 +70,10 @@ func (s *BakeryConfigService) InitialiseBakeryConfig(ctx context.Context) error 
 		externalUsersThirdPartyKey,
 		offersThirdPartyKey,
 	)
-	return errors.Errorf("initialising bakery config %w", err)
+	if err != nil {
+		return errors.Errorf("initialising bakery config %w", err)
+	}
+	return nil
 }
 
 // GetLocalUsersKey returns the key pair used with the local users bakery.

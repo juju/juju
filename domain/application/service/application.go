@@ -441,7 +441,10 @@ func (s *Service) AddUnits(ctx context.Context, name string, units ...AddUnitArg
 		}
 		return s.st.AddUnits(ctx, appID, args...)
 	})
-	return errors.Errorf("adding units to application %q %w", name, err)
+	if err != nil {
+		return errors.Errorf("adding units to application %q %w", name, err)
+	}
+	return nil
 }
 
 // GetApplicationIDByUnitName returns the application ID for the named unit,
@@ -727,7 +730,10 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args Reg
 			HashAlgorithm: application.HashAlgorithmSHA256,
 		})
 	})
-	return errors.Errorf("saving caas unit %q %w", args.UnitName, err)
+	if err != nil {
+		return errors.Errorf("saving caas unit %q %w", args.UnitName, err)
+	}
+	return nil
 }
 
 func (s *Service) insertCAASUnit(
@@ -833,7 +839,11 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		}
 		return nil
 	})
-	return errors.Errorf("updating caas unit %q %w", unitName, err)
+
+	if err != nil {
+		return errors.Errorf("updating caas unit %q %w", unitName, err)
+	}
+	return nil
 }
 
 // SetUnitPassword updates the password for the specified unit, returning an error

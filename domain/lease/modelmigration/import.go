@@ -75,7 +75,7 @@ func (o *importOperation) Execute(ctx context.Context, model description.Model) 
 			Duration: LeadershipGuarantee,
 		}
 		if err := o.service.ClaimLease(ctx, key, req); err != nil {
-			return errors.Errorf("claiming lease for %q %w", key, err)
+			return errors.Errorf("claiming lease for %q: %w", key, err)
 		}
 	}
 

@@ -704,8 +704,10 @@ WHERE  cloud_credential.uuid = $M.uuid
 		if err := tx.Query(ctx, credAttrDeleteStmt, uuidMap).Run(); err != nil {
 			return errors.Errorf("deleting credential attributes %w", err)
 		}
-		err = tx.Query(ctx, credDeleteStmt, uuidMap).Run()
-		return errors.Errorf("deleting credential %w", err)
+		if err = tx.Query(ctx, credDeleteStmt, uuidMap).Run(); err != nil {
+			return errors.Errorf("deleting credential %w", err)
+		}
+		return nil
 	})
 }
 

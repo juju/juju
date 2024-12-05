@@ -246,7 +246,7 @@ WHERE machine_uuid=$machineUUID.uuid
 
 		// Delete the machine cloud instance.
 		if err := tx.Query(ctx, deleteInstanceStmt, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting machine cloud instance for machine %q %w", mUUID, domain.CoerceError(err))
+			return errors.Errorf("deleting machine cloud instance for machine %q: %w", mUUID, domain.CoerceError(err))
 		}
 
 		// Delete the machine cloud instance tags.

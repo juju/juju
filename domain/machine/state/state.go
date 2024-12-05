@@ -198,7 +198,11 @@ WHERE  machine_uuid = $machineUUID.uuid`
 
 		return nil
 	})
-	return errors.Errorf("inserting machine %q %w", mName, err)
+
+	if err != nil {
+		return errors.Errorf("inserting machine %q %w", mName, err)
+	}
+	return nil
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
@@ -276,7 +280,7 @@ DELETE FROM net_node WHERE uuid IN
 
 		// Remove the machine.
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
-			return errors.Errorf("deleting machine %q %w", mName, err)
+			return errors.Errorf("deleting machine %q: %w", mName, err)
 		}
 
 		// Remove the net node for the machine.
@@ -286,7 +290,10 @@ DELETE FROM net_node WHERE uuid IN
 
 		return nil
 	})
-	return errors.Errorf("deleting machine %q %w", mName, err)
+	if err != nil {
+		return errors.Errorf("deleting machine %q: %w", mName, err)
+	}
+	return nil
 }
 
 // InitialWatchModelMachinesStatement returns the table and the initial watch

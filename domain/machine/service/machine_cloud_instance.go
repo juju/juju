@@ -36,14 +36,20 @@ func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID string) (in
 // AvailabilityZone returns the availability zone for the specified machine.
 func (s *Service) AvailabilityZone(ctx context.Context, machineUUID string) (string, error) {
 	az, err := s.st.AvailabilityZone(ctx, machineUUID)
-	return az, errors.Errorf("retrieving availability zone for machine %q %w", machineUUID, err)
+	if err != nil {
+		return "", errors.Errorf("retrieving availability zone for machine %q %w", machineUUID, err)
+	}
+	return az, nil
 }
 
 // HardwareCharacteristics returns the hardware characteristics of the
 // of the specified machine.
 func (s *Service) HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error) {
 	hc, err := s.st.HardwareCharacteristics(ctx, machineUUID)
-	return hc, errors.Errorf("retrieving hardware characteristics for machine %q %w", machineUUID, err)
+	if err != nil {
+		return nil, errors.Errorf("retrieving hardware characteristics for machine %q %w", machineUUID, err)
+	}
+	return hc, nil
 }
 
 // SetMachineCloudInstance sets an entry in the machine cloud instance table
@@ -64,7 +70,7 @@ func (s *Service) SetMachineCloudInstance(
 // table along with the instance tags and the link to a lxd profile if any, as
 // well as any associated status data.
 func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID string) error {
-	return errors.Errorf("deleting machine cloud instance for machine %q %w", machineUUID,
+	return errors.Errorf("deleting machine cloud instance for machine %q: %w", machineUUID,
 		s.st.DeleteMachineCloudInstance(ctx, machineUUID))
 
 }

@@ -176,7 +176,7 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 			// to know about it.
 			continue
 		} else if err != nil {
-			results = append(results, errors.Errorf("getting instance id for machine %s %w", machine.Id(), err))
+			results = append(results, errors.Errorf("getting instance id for machine %s: %w", machine.Id(), err))
 			continue
 		}
 		machinesByInstance[instanceId] = machine.Id()

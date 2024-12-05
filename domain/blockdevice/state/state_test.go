@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -240,7 +241,7 @@ func (s *stateSuite) TestSetMachineBlockDevicesBadFilesystemType(c *gc.C) {
 	}
 
 	err := NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666", bd)
-	c.Assert(err, gc.ErrorMatches, `updating block devices on machine "666".*: filesystem type "foo" for block device "name-666" not valid`)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *stateSuite) TestSetMachineBlockDevices(c *gc.C) {

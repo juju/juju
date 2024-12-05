@@ -175,12 +175,13 @@ func (s *Service) CreateMachine(ctx context.Context, machineName coremachine.Nam
 	// the state layer we don't keep regenerating.
 	nodeUUID, machineUUID, err := createUUIDs()
 	if err != nil {
-		return "", errors.Errorf("creating machine %q %w", machineName, err)
+		return "", errors.Errorf("creating machine %q: %w", machineName, err)
 	}
 
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID)
-
-	return machineUUID, errors.Errorf("creating machine %q %w", machineName, err)
+	if err := s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID); err != nil {
+		return "", errors.Errorf("creating machine %q: %w", machineName, err)
+	}
+	return machineUUID, nil
 }
 
 // CreateMachineWirhParent creates the specified machine with the specified
@@ -194,12 +195,13 @@ func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, pare
 	// the state layer we don't keep regenerating.
 	nodeUUID, machineUUID, err := createUUIDs()
 	if err != nil {
-		return "", errors.Errorf("creating machine %q with parent %q %w", machineName, parentName, err)
+		return "", errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
 	}
 
-	err = s.st.CreateMachineWithParent(ctx, machineName, parentName, nodeUUID, machineUUID)
-
-	return machineUUID, errors.Errorf("creating machine %q with parent %q %w", machineName, parentName, err)
+	if err := s.st.CreateMachineWithParent(ctx, machineName, parentName, nodeUUID, machineUUID); err != nil {
+		return "", errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
+	}
+	return machineUUID, nil
 }
 
 // createUUIDs generates a new UUID for the machine and the net-node.
@@ -225,14 +227,16 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName coremachine.Nam
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)
-	return life, errors.Errorf("getting life status for machine %q %w", machineName, err)
+	return life, errors.Errorf("getting life status for machine %q: %w", machineName, err)
 }
 
 // SetMachineLife sets the life status of the specified machine.
 // It returns a MachineNotFound if the provided machine doesn't exist.
 func (s *Service) SetMachineLife(ctx context.Context, machineName coremachine.Name, life life.Life) error {
-	err := s.st.SetMachineLife(ctx, machineName, life)
-	return errors.Errorf("setting life status for machine %q %w", machineName, err)
+	if err := s.st.SetMachineLife(ctx, machineName, life); err != nil {
+		return errors.Errorf("setting life status for machine %q: %w", machineName, err)
+	}
+	return nil
 }
 
 // EnsureDeadMachine sets the provided machine's life status to Dead.
@@ -246,7 +250,7 @@ func (s *Service) EnsureDeadMachine(ctx context.Context, machineName coremachine
 func (s *Service) AllMachineNames(ctx context.Context) ([]coremachine.Name, error) {
 	machines, err := s.st.AllMachineNames(ctx)
 	if err != nil {
-		return nil, errors.Errorf("retrieving all machines %w", err)
+		return nil, errors.Errorf("retrieving all machines: %w", err)
 	}
 	return machines, nil
 }
@@ -259,7 +263,7 @@ func (s *Service) AllMachineNames(ctx context.Context) ([]coremachine.Name, erro
 func (s *Service) GetInstanceStatus(ctx context.Context, machineName coremachine.Name) (status.StatusInfo, error) {
 	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving cloud instance status for machine %q %w", machineName, err)
+		return status.StatusInfo{}, errors.Errorf("retrieving cloud instance status for machine %q: %w", machineName, err)
 	}
 	return instanceStatus, nil
 }
@@ -274,7 +278,7 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName coremachine
 	}
 	err := s.st.SetInstanceStatus(ctx, machineName, status)
 	if err != nil {
-		return errors.Errorf("setting cloud instance status for machine %q %w", machineName, err)
+		return errors.Errorf("setting cloud instance status for machine %q: %w", machineName, err)
 	}
 	return nil
 }
@@ -286,7 +290,7 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName coremachine
 func (s *Service) GetMachineStatus(ctx context.Context, machineName coremachine.Name) (status.StatusInfo, error) {
 	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
 	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q %w", machineName, err)
+		return status.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
 	}
 	return machineStatus, nil
 }
@@ -300,7 +304,7 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName coremachine.
 	}
 	err := s.st.SetMachineStatus(ctx, machineName, status)
 	if err != nil {
-		return errors.Errorf("setting machine status for machine %q %w", machineName, err)
+		return errors.Errorf("setting machine status for machine %q: %w", machineName, err)
 	}
 	return nil
 }
@@ -310,7 +314,7 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName coremachine.
 func (s *Service) IsMachineController(ctx context.Context, machineName coremachine.Name) (bool, error) {
 	isController, err := s.st.IsMachineController(ctx, machineName)
 	if err != nil {
-		return false, errors.Errorf("checking if machine %q is a controller %w", machineName, err)
+		return false, errors.Errorf("checking if machine %q is a controller: %w", machineName, err)
 	}
 	return isController, nil
 }
@@ -331,23 +335,35 @@ func (s *Service) ShouldKeepInstance(ctx context.Context, machineName coremachin
 // exists.
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error {
-	return errors.Capture(s.st.SetKeepInstance(ctx, machineName, keep))
+	if err := s.st.SetKeepInstance(ctx, machineName, keep); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
-	return errors.Errorf("requiring a machine reboot for machine with uuid %q %w", uuid, s.st.RequireMachineReboot(ctx, uuid))
+	if err := s.st.RequireMachineReboot(ctx, uuid); err != nil {
+		return errors.Errorf("requiring a machine reboot for machine with uuid %q: %w", uuid, err)
+	}
+	return nil
 }
 
 // ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
 func (s *Service) ClearMachineReboot(ctx context.Context, uuid string) error {
-	return errors.Errorf("clear machine reboot flag for machine with uuid %q %w", uuid, s.st.ClearMachineReboot(ctx, uuid))
+	if err := s.st.ClearMachineReboot(ctx, uuid); err != nil {
+		return errors.Errorf("clear machine reboot flag for machine with uuid %q %w", uuid, err)
+	}
+	return nil
 }
 
 // IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
 func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
 	rebootRequired, err := s.st.IsMachineRebootRequired(ctx, uuid)
-	return rebootRequired, errors.Errorf("checking if machine with uuid %q is requiring a reboot %w", uuid, err)
+	if err != nil {
+		return rebootRequired, errors.Errorf("checking if machine with uuid %q is requiring a reboot: %w", uuid, err)
+	}
+	return rebootRequired, nil
 }
 
 // GetMachineParentUUID returns the parent UUID of the specified machine.
@@ -357,7 +373,7 @@ func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (boo
 func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error) {
 	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineUUID)
 	if err != nil {
-		return "", errors.Errorf("retrieving parent UUID for machine %q %w", machineUUID, err)
+		return "", errors.Errorf("retrieving parent UUID for machine %q: %w", machineUUID, err)
 	}
 	return parentUUID, nil
 }
@@ -365,13 +381,19 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID string) 
 // ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
 func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
-	return rebootRequired, errors.Errorf("getting if the machine with uuid %q need to reboot or shutdown %w", uuid, err)
+	if err != nil {
+		return rebootRequired, errors.Errorf("getting if the machine with uuid %q need to reboot or shutdown %w", uuid, err)
+	}
+	return rebootRequired, nil
 }
 
 // MarkMachineForRemoval marks the given machine for removal.
 // It returns a MachineNotFound error if the machine does not exist.
 func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName coremachine.Name) error {
-	return errors.Errorf("marking machine %q for removal %w", machineName, s.st.MarkMachineForRemoval(ctx, machineName))
+	if err := s.st.MarkMachineForRemoval(ctx, machineName); err != nil {
+		return errors.Errorf("marking machine %q for removal %w", machineName, err)
+	}
+	return nil
 }
 
 // GetAllMachineRemovals returns the UUIDs of all of the machines that need to
@@ -405,7 +427,10 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]s
 // [machineerrors.MachineNotFound] will be returned if the machine does not
 // exist.
 func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
-	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
+	if err := s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // ProviderService provides the API for working with machines using the
