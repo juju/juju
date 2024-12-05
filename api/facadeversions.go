@@ -22,7 +22,6 @@ func SupportedFacadeVersions() facades.FacadeVersions {
 // We no longer support facade versions at 0.
 var facadeVersions = facades.FacadeVersions{
 	"Action":                       {7},
-	"ActionPruner":                 {2},
 	"Agent":                        {3},
 	"AgentLifeFlag":                {1},
 	"AgentTools":                   {1},
@@ -113,7 +112,6 @@ var facadeVersions = facades.FacadeVersions{
 	"Singular":                     {2},
 	"Spaces":                       {6},
 	"SSHClient":                    {4},
-	"StatusHistory":                {3},
 	"Storage":                      {6},
 	"StorageProvisioner":           {4},
 	"StringsWatcher":               {1},

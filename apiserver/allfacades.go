@@ -66,7 +66,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
-	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
@@ -93,7 +92,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
-	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
@@ -168,7 +166,6 @@ func AllFacades() *facade.Registry {
 	registry := new(facade.Registry)
 
 	action.Register(registry)
-	actionpruner.Register(registry)
 	agent.Register(registry)
 	agenttools.Register(registry)
 	annotations.Register(registry)
@@ -250,7 +247,6 @@ func AllFacades() *facade.Registry {
 	usersecretsdrain.Register(registry)
 	sshclient.Register(registry)
 	spaces.Register(registry)
-	statushistory.Register(registry)
 	storage.Register(registry)
 	storageprovisioner.Register(registry)
 	subnets.Register(registry)

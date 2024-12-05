@@ -32,7 +32,6 @@ var (
 		"valid-credential-flag",
 	}
 	requireValidCredentialModelWorkers = []string{
-		"action-pruner",          // tertiary dependency: will be inactive because migration workers will be inactive
 		"application-scaler",     // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-downloader",       // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
@@ -49,15 +48,13 @@ var (
 		"provider-upgrader",
 		"remote-relations", // tertiary dependency: will be inactive because migration workers will be inactive
 		"secrets-pruner",
-		"state-cleaner",         // tertiary dependency: will be inactive because migration workers will be inactive
-		"status-history-pruner", // tertiary dependency: will be inactive because migration workers will be inactive
-		"storage-provisioner",   // tertiary dependency: will be inactive because migration workers will be inactive
+		"state-cleaner",       // tertiary dependency: will be inactive because migration workers will be inactive
+		"storage-provisioner", // tertiary dependency: will be inactive because migration workers will be inactive
 		"undertaker",
 		"unit-assigner", // tertiary dependency: will be inactive because migration workers will be inactive
 		"user-secrets-drain-worker",
 	}
 	aliveModelWorkers = []string{
-		"action-pruner",
 		"application-scaler",
 		"charm-downloader",
 		"charm-revision-updater",
@@ -74,7 +71,6 @@ var (
 		"remote-relations",
 		"secrets-pruner",
 		"state-cleaner",
-		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
 		"user-secrets-drain-worker",

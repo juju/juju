@@ -595,12 +595,3 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	results = partial
 	return results, nil
 }
-
-// PruneStatusHistory prunes the status history collection.
-func PruneStatusHistory(stop <-chan struct{}, st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	coll, closer := st.db().GetRawCollection(statusesHistoryC)
-	defer closer()
-
-	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "updated", nil, NanoSeconds)
-	return errors.Trace(err)
-}
