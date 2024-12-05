@@ -36,44 +36,36 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	manifolds := unit.Manifolds(config)
 	expectedKeys := []string{
 		"agent",
-		"api-config-watcher",
+		"api-address-updater",
 		"api-caller",
-		"s3-caller",
-		"uniter",
-		"log-sender",
-
+		"api-config-watcher",
+		"caas-prober",
+		"caas-unit-termination-worker",
+		"caas-unit-prober-binder",
+		"caas-units-manager",
+		"caas-zombie-prober-binder",
 		"charm-dir",
-		"leadership-tracker",
+		"dead-flag",
 		"hook-retry-strategy",
-
+		"leadership-tracker",
+		"log-sender",
+		"logging-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
-
-		"proxy-config-updater",
-		"logging-config-updater",
-		"api-address-updater",
-
-		"caas-prober",
-		"probe-http-server",
-
-		"upgrader",
-		"upgrade-steps-runner",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
-
-		"caas-unit-termination-worker",
-		"caas-units-manager",
-		"secret-drain-worker",
-
-		"caas-zombie-prober",
-
-		"dead-flag",
 		"not-dead-flag",
-
+		"probe-http-server",
+		"proxy-config-updater",
+		"s3-caller",
+		"secret-drain-worker",
 		"signal-handler",
 
 		"trace",
+		"uniter",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		"upgrade-steps-runner",
+		"upgrader",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -89,41 +81,35 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
 	manifolds := unit.Manifolds(config)
 	expectedKeys := []string{
 		"agent",
-		"api-config-watcher",
 		"api-caller",
-		"s3-caller",
+		"api-config-watcher",
 		"caas-prober",
-		"probe-http-server",
-		"uniter",
-		"log-sender",
-
+		"caas-unit-prober-binder",
+		"caas-unit-termination-worker",
+		"caas-units-manager",
+		"caas-zombie-prober-binder",
 		"charm-dir",
-		"leadership-tracker",
+		"dead-flag",
 		"hook-retry-strategy",
-
+		"leadership-tracker",
+		"log-sender",
+		"logging-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
-
-		"proxy-config-updater",
-		"logging-config-updater",
-
-		"upgrader",
-		"upgrade-steps-runner",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
-
-		"caas-unit-termination-worker",
-		"caas-units-manager",
-		"secret-drain-worker",
-		"caas-zombie-prober",
-
-		"dead-flag",
 		"not-dead-flag",
-
+		"probe-http-server",
+		"proxy-config-updater",
+		"s3-caller",
+		"secret-drain-worker",
 		"signal-handler",
 
 		"trace",
+		"uniter",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		"upgrade-steps-runner",
+		"upgrader",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -140,6 +126,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"s3-caller",
 		"caas-prober",
 		"probe-http-server",
+		"caas-unit-prober-binder",
 		"log-sender",
 
 		"migration-fortress",
@@ -157,6 +144,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"not-dead-flag",
 		"signal-handler",
 		"caas-zombie-prober",
+		"caas-zombie-prober-binder",
 
 		"trace",
 	)
@@ -289,19 +277,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	},
 	"probe-http-server": {},
 	"caas-prober": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"charm-dir",
-		"hook-retry-strategy",
-		"leadership-tracker",
-		"migration-fortress",
-		"migration-inactive-flag",
 		"probe-http-server",
-		"s3-caller",
-		"uniter",
-		"not-dead-flag",
-		"trace",
 	},
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
@@ -342,10 +318,27 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"not-dead-flag",
 	},
-	"caas-zombie-prober": {
+	"caas-unit-prober-binder": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"caas-prober",
+		"charm-dir",
+		"hook-retry-strategy",
+		"leadership-tracker",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"probe-http-server",
+		"s3-caller",
+		"trace",
+		"uniter",
+	},
+	"caas-zombie-prober-binder": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"caas-prober",
 		"dead-flag",
 		"probe-http-server",
 	},

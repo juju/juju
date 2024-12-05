@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
+	"github.com/juju/juju/internal/worker/caasprobebinder"
 	"github.com/juju/juju/internal/worker/caasprober"
 	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
@@ -333,15 +334,17 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 
 		// Kubernetes probe handler responsible for reporting status for
 		// Kubernetes probes
-		caasProberName: ifNotDead(caasprober.Manifold(caasprober.ManifoldConfig{
+		caasProberName: caasprober.Manifold(caasprober.ManifoldConfig{
 			MuxName: probeHTTPServerName,
-			Providers: []string{
-				uniterName,
-			},
+		}),
+
+		caasUniterProberBinderName: ifNotDead(caasprobebinder.Manifold(caasprobebinder.ManifoldConfig{
+			ProberName:         caasProberName,
+			ProbeProviderNames: []string{uniterName},
 		})),
 
-		caasZombieProberName: ifDead(caasprober.Manifold(caasprober.ManifoldConfig{
-			MuxName: probeHTTPServerName,
+		caasZombieProberBinderName: ifDead(caasprobebinder.Manifold(caasprobebinder.ManifoldConfig{
+			ProberName: caasProberName,
 			DefaultProviders: map[string]probe.ProbeProvider{
 				"zombie-readiness": probe.ReadinessProvider(probe.Failure),
 			},
@@ -479,9 +482,10 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	caasProberName       = "caas-prober"
-	caasZombieProberName = "caas-zombie-prober"
-	probeHTTPServerName  = "probe-http-server"
+	caasProberName             = "caas-prober"
+	caasZombieProberBinderName = "caas-zombie-prober-binder"
+	caasUniterProberBinderName = "caas-unit-prober-binder"
+	probeHTTPServerName        = "probe-http-server"
 
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"

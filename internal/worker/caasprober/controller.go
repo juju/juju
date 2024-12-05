@@ -4,9 +4,12 @@
 package caasprober
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
@@ -22,6 +25,9 @@ type Mux interface {
 
 type Controller struct {
 	catacomb catacomb.Catacomb
+
+	mux    Mux
+	probes *CAASProbes
 }
 
 const (
@@ -33,11 +39,14 @@ const (
 
 // NewController constructs a new caas prober Controller.
 func NewController(probes *CAASProbes, mux Mux) (*Controller, error) {
-	c := &Controller{}
+	c := &Controller{
+		mux:    mux,
+		probes: probes,
+	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &c.catacomb,
-		Work: c.makeLoop(probes, mux),
+		Work: c.loop,
 	}); err != nil {
 		return c, jujuerrors.Trace(err)
 	}
@@ -50,46 +59,38 @@ func (c *Controller) Kill() {
 	c.catacomb.Kill(nil)
 }
 
-// makeLoop is responsible for producing the loop needed to run as part of the
-// controller worker.
-func (c *Controller) makeLoop(
-	probes *CAASProbes,
-	mux Mux,
-) func() error {
-	return func() error {
-		if err := mux.AddHandler(
-			http.MethodGet,
-			k8sconstants.AgentHTTPPathLiveness,
-			ProbeHandler("liveness", probes.Liveness)); err != nil {
-			return jujuerrors.Trace(err)
-		}
-		defer mux.RemoveHandler(http.MethodGet, PathLivenessProbe)
-
-		if err := mux.AddHandler(
-			http.MethodGet,
-			k8sconstants.AgentHTTPPathReadiness,
-			ProbeHandler("readiness", probes.Readiness)); err != nil {
-			return jujuerrors.Trace(err)
-		}
-		defer mux.RemoveHandler(http.MethodGet, PathReadinessProbe)
-
-		if err := mux.AddHandler(
-			http.MethodGet,
-			k8sconstants.AgentHTTPPathStartup,
-			ProbeHandler("startup", probes.Startup)); err != nil {
-			return jujuerrors.Trace(err)
-		}
-		defer mux.RemoveHandler(http.MethodGet, PathStartupProbe)
-
-		select {
-		case <-c.catacomb.Dying():
-			return c.catacomb.ErrDying()
-		}
+func (c *Controller) loop() error {
+	if err := c.mux.AddHandler(
+		http.MethodGet,
+		k8sconstants.AgentHTTPPathLiveness,
+		ProbeHandler(probe.ProbeLiveness, c.probes)); err != nil {
+		return jujuerrors.Trace(err)
 	}
+	defer c.mux.RemoveHandler(http.MethodGet, PathLivenessProbe)
+
+	if err := c.mux.AddHandler(
+		http.MethodGet,
+		k8sconstants.AgentHTTPPathReadiness,
+		ProbeHandler(probe.ProbeReadiness, c.probes)); err != nil {
+		return jujuerrors.Trace(err)
+	}
+	defer c.mux.RemoveHandler(http.MethodGet, PathReadinessProbe)
+
+	if err := c.mux.AddHandler(
+		http.MethodGet,
+		k8sconstants.AgentHTTPPathStartup,
+		ProbeHandler(probe.ProbeStartup, c.probes)); err != nil {
+		return jujuerrors.Trace(err)
+	}
+	defer c.mux.RemoveHandler(http.MethodGet, PathStartupProbe)
+
+	<-c.catacomb.Dying()
+	return c.catacomb.ErrDying()
 }
 
 // ProbeHandler implements a http handler for the supplied probe and probe name.
-func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
+func ProbeHandler(name probe.ProbeType, probes *CAASProbes) http.Handler {
+	var last atomic.Bool
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		shouldDetailResponse := false
 		detailedVals, exists := req.URL.Query()[DetailedResponseQueryKey]
@@ -103,7 +104,16 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 			shouldDetailResponse = val
 		}
 
-		good, err := aggProbe.ProbeWithResultCallback(
+		aggProbe, ok := probes.ProbeAggregate(name)
+		if !ok {
+			http.Error(res, fmt.Sprintf("%s: probe %s",
+				http.StatusText(http.StatusNotImplemented), name),
+				http.StatusNotImplemented)
+			return
+		}
+
+		detail := &bytes.Buffer{}
+		good, n, err := aggProbe.ProbeWithResultCallback(
 			probe.ProbeResultCallback(func(probeKey string, val bool, err error) {
 				if !shouldDetailResponse {
 					return
@@ -116,22 +126,22 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 
 				if val {
 					// Print + on probe success
-					fmt.Fprintf(res, "+ ")
+					fmt.Fprintf(detail, "+ ")
 				} else {
 					// Print - on probe failure
-					fmt.Fprintf(res, "- ")
+					fmt.Fprintf(detail, "- ")
 				}
 
 				// Print the probe name
-				fmt.Fprintf(res, "%s", probeKey)
+				fmt.Fprintf(detail, "%s", probeKey)
 
 				// Print the error if one exists
 				if err != nil {
-					fmt.Fprintf(res, ": %s", err)
+					fmt.Fprintf(detail, ": %s", err)
 				}
 
 				// Finish the current line
-				fmt.Fprintf(res, "\n")
+				fmt.Fprintf(detail, "\n")
 			}),
 		)
 
@@ -140,12 +150,18 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 				http.StatusText(http.StatusNotImplemented), name),
 				http.StatusNotImplemented)
 			return
-		}
-		if err != nil {
+		} else if err != nil {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusInternalServerError), name),
 				http.StatusInternalServerError)
 			return
+		}
+
+		// If no probers were consulted, return the last value.
+		if n == 0 {
+			good = last.Load()
+		} else {
+			last.Store(good)
 		}
 
 		if !good {
@@ -158,6 +174,9 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		res.WriteHeader(http.StatusOK)
 		fmt.Fprintf(res, "%s: probe %s", http.StatusText(http.StatusOK), name)
+		if shouldDetailResponse {
+			_, _ = io.Copy(res, detail)
+		}
 	})
 }
 
