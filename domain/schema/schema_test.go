@@ -497,6 +497,8 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 	// Ensure that each view is present.
 	expected := set.NewStrings(
 		"v_address",
+		"v_application_charm_download_info",
+		"v_application_resource",
 		"v_charm_annotation_index",
 		"v_charm_config",
 		"v_charm_container",
@@ -506,20 +508,20 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_relation",
 		"v_charm_resource",
 		"v_charm_storage",
-		"v_hardware_characteristics",
-		"v_port_range",
 		"v_endpoint",
+		"v_hardware_characteristics",
+		"v_object_store_metadata",
+		"v_port_range",
+		"v_resource",
 		"v_secret_permission",
 		"v_space_subnet",
-
-		// Object store metadata
-		"v_object_store_metadata",
-
-		// resources
-		"v_application_resource",
-		"v_resource",
 	)
-	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
+	got := readEntityNames(c, s.DB(), "view")
+	c.Assert(got, jc.SameContents, expected.SortedValues(), gc.Commentf(
+		"additive: %v, deletion: %v",
+		set.NewStrings(got...).Difference(expected).SortedValues(),
+		expected.Difference(set.NewStrings(got...)).SortedValues(),
+	))
 }
 
 func (s *schemaSuite) TestControllerTriggers(c *gc.C) {

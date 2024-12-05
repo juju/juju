@@ -58,7 +58,7 @@ CREATE TABLE charm (
     CONSTRAINT fk_charm_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
-    CONSTRAINT fk_charm_object_store_metadata 
+    CONSTRAINT fk_charm_object_store_metadata
     FOREIGN KEY (object_store_uuid)
     REFERENCES object_store_metadata (uuid),
 
