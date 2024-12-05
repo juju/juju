@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -453,6 +454,68 @@ WHERE uuid=?`, id0.String())
 	})
 
 	harness.Run(c, []string{})
+}
+
+func (s *watcherSuite) TestWatchApplication(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	appUUID := s.createApplication(c, svc, appName)
+
+	ctx := context.Background()
+	watcher, err := svc.WatchApplication(ctx, appName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
+
+	// Assert that a change to the charm modified version triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		db, err := factory()
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+UPDATE application SET charm_modified_version = 1
+WHERE uuid=?`, appUUID)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that a changing the name to itself does not trigger the watcher.
+	harness.AddTest(func(c *gc.C) {
+		db, err := factory()
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+UPDATE application SET name = ?
+WHERE uuid=?`, appName, appUUID)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert that nothing changes if nothing happens.
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchApplicationBadName(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchApplication(context.Background(), "bad-name")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
