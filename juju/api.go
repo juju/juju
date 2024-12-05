@@ -119,7 +119,13 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 
 	// If the account details are set, ensure that the user we've logged in as
 	// matches the user we expected to log in as.
-	if args.AccountDetails != nil && st.AuthTag() != nil && args.AccountDetails.User != st.AuthTag().Id() {
+	// This only applies if the user was explicitly set.
+	// Logging in via an external auth provider is allowed with specifying a
+	// user in the args - that comes from the provider.
+	if args.AccountDetails != nil &&
+		args.AccountDetails.User != "" &&
+		st.AuthTag() != nil &&
+		args.AccountDetails.User != st.AuthTag().Id() {
 		return nil, errors.Unauthorizedf("attempted login as %q for user %q", st.AuthTag().Id(), args.AccountDetails.User)
 	}
 
