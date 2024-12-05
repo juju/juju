@@ -6,13 +6,13 @@ package resource
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 type resourceStoreSuite struct {

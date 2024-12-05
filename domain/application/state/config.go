@@ -4,11 +4,11 @@
 package state
 
 import (
-	"fmt"
 	"strconv"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 func decodeConfig(configs []charmConfig) (charm.Config, error) {
@@ -18,12 +18,12 @@ func decodeConfig(configs []charmConfig) (charm.Config, error) {
 	for _, config := range configs {
 		optionType, err := decodeConfigType(config.Type)
 		if err != nil {
-			return charm.Config{}, fmt.Errorf("cannot decode config type %q: %w", config.Type, err)
+			return charm.Config{}, errors.Errorf("cannot decode config type %q: %w", config.Type, err)
 		}
 
 		defaultValue, err := decodeConfigDefaultValue(optionType, config.DefaultValue)
 		if err != nil {
-			return charm.Config{}, fmt.Errorf("cannot decode config default value %v: %w", config.DefaultValue, err)
+			return charm.Config{}, errors.Errorf("cannot decode config default value %v: %w", config.DefaultValue, err)
 		}
 
 		result.Options[config.Key] = charm.Option{
@@ -48,7 +48,7 @@ func decodeConfigType(t string) (charm.OptionType, error) {
 	case "secret":
 		return charm.OptionSecret, nil
 	default:
-		return "", fmt.Errorf("unknown config type %q", t)
+		return "", errors.Errorf("unknown config type %q", t)
 	}
 }
 
@@ -67,7 +67,7 @@ func decodeConfigDefaultValue(t charm.OptionType, value *string) (any, error) {
 	case charm.OptionBool:
 		return strconv.ParseBool(*value)
 	default:
-		return nil, fmt.Errorf("unknown config type %q", t)
+		return nil, errors.Errorf("unknown config type %q", t)
 	}
 }
 
@@ -76,12 +76,12 @@ func encodeConfig(id corecharm.ID, config charm.Config) ([]setCharmConfig, error
 	for key, option := range config.Options {
 		encodedType, err := encodeConfigType(option.Type)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode config type %q: %w", option.Type, err)
+			return nil, errors.Errorf("cannot encode config type %q: %w", option.Type, err)
 		}
 
 		encodedDefaultValue, err := encodeConfigDefaultValue(option.Default)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode config default value %q: %w", option.Default, err)
+			return nil, errors.Errorf("cannot encode config default value %q: %w", option.Default, err)
 		}
 
 		result = append(result, setCharmConfig{
@@ -108,7 +108,7 @@ func encodeConfigType(t charm.OptionType) (int, error) {
 	case charm.OptionSecret:
 		return 4, nil
 	default:
-		return -1, fmt.Errorf("unknown config type %q", t)
+		return -1, errors.Errorf("unknown config type %q", t)
 	}
 }
 
@@ -127,7 +127,7 @@ func encodeConfigDefaultValue(value any) (*string, error) {
 	case nil:
 		return nil, nil
 	default:
-		return nil, fmt.Errorf("unknown config default value type %T", value)
+		return nil, errors.Errorf("unknown config default value type %T", value)
 	}
 }
 

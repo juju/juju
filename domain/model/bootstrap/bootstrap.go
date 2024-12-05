@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/model/state"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -59,13 +59,13 @@ func CreateModel(
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
-			return fmt.Errorf("cannot create model when validating args: %w", err)
+			return errors.Errorf("cannot create model when validating args: %w", err)
 		}
 
 		if err := modelID.Validate(); err != nil {
-			return fmt.Errorf(
-				"cannot create model %q when validating id: %w", args.Name, err,
-			)
+			return errors.Errorf(
+				"cannot create model %q when validating id: %w", args.Name, err)
+
 		}
 
 		agentVersion := args.AgentVersion
@@ -74,7 +74,7 @@ func CreateModel(
 		}
 
 		if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {
-			return fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
+			return errors.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
 		}
 		args.AgentVersion = agentVersion
 
@@ -86,7 +86,7 @@ func CreateModel(
 				})
 			modelType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
 			if err != nil {
-				return fmt.Errorf("determining cloud type for model %q: %w", args.Name, err)
+				return errors.Errorf("determining cloud type for model %q: %w", args.Name, err)
 			}
 
 			if args.SecretBackend == "" && modelType == coremodel.CAAS {
@@ -94,20 +94,20 @@ func CreateModel(
 			} else if args.SecretBackend == "" && modelType == coremodel.IAAS {
 				args.SecretBackend = jujusecrets.BackendName
 			} else if args.SecretBackend == "" {
-				return fmt.Errorf(
+				return errors.Errorf(
 					"%w for model type %q when creating model with name %q",
 					secretbackenderrors.NotFound,
 					modelType,
-					args.Name,
-				)
+					args.Name)
+
 			}
 
 			if err := state.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
-				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+				return errors.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 
 			if err := activator(ctx, preparer{}, tx, modelID); err != nil {
-				return fmt.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+				return errors.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 			return nil
 		})
@@ -123,7 +123,7 @@ func CreateReadOnlyModel(
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {
-			return fmt.Errorf("creating read only model, id %q: %w", id, err)
+			return errors.Errorf("creating read only model, id %q: %w", id, err)
 		}
 
 		var m coremodel.Model
@@ -133,7 +133,7 @@ func CreateReadOnlyModel(
 			return err
 		})
 		if err != nil {
-			return fmt.Errorf("getting model for id %q: %w", id, err)
+			return errors.Errorf("getting model for id %q: %w", id, err)
 		}
 
 		args := model.ReadOnlyModelCreationArgs{

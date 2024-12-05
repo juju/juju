@@ -6,16 +6,17 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	corepermission "github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -65,7 +66,7 @@ func (s *serviceSuite) TestCreatePermissionError(c *gc.C) {
 		},
 	}
 	_, err := NewService(s.state).CreatePermission(context.Background(), spec)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestDeletePermission(c *gc.C) {
@@ -85,7 +86,7 @@ func (s *serviceSuite) TestDeletePermissionError(c *gc.C) {
 		ObjectType: "faileme",
 		Key:        "aws",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
@@ -133,7 +134,7 @@ func (s *serviceSuite) TestReadUserAccessForTargetError(c *gc.C) {
 			ObjectType: "faileme",
 			Key:        "aws",
 		})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(errors.Is(err, coreerrors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
@@ -160,7 +161,7 @@ func (s *serviceSuite) TestReadUserAccessLevelForTargetError(c *gc.C) {
 			ObjectType: "faileme",
 			Key:        "aws",
 		})
-	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestReadAllUserAccessForTarget(c *gc.C) {
@@ -185,7 +186,7 @@ func (s *serviceSuite) TestReadAllUserAccessForTargetError(c *gc.C) {
 			ObjectType: "faileme",
 			Key:        "aws",
 		})
-	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestReadAllUserAccessForUser(c *gc.C) {
@@ -216,7 +217,7 @@ func (s *serviceSuite) TestReadAllAccessForUserAndObjectTypeError(c *gc.C) {
 		context.Background(),
 		usertesting.GenNewName(c, "testme"),
 		"failme")
-	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestAllModelAccessForCloudCredential(c *gc.C) {

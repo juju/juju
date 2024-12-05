@@ -6,13 +6,14 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 )
 
 type subnetSuite struct {
@@ -120,7 +121,7 @@ func (s *subnetSuite) TestFailRetrieveSubnetByID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSubnet(gomock.Any(), "unknown-subnet").
-		Return(nil, errors.NotFoundf("subnet %q", "unknown-subnet"))
+		Return(nil, errors.Errorf("subnet %q %w", "unknown-subnet", coreerrors.NotFound))
 	_, err := NewService(s.st, nil).Subnet(context.Background(), "unknown-subnet")
 	c.Assert(err, gc.ErrorMatches, "subnet \"unknown-subnet\" not found")
 }
@@ -154,7 +155,7 @@ func (s *subnetSuite) TestFailUpdateSubnet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().UpdateSubnet(gomock.Any(), "unknown-subnet", "space0").
-		Return(errors.NotFoundf("subnet %q", "unknown-subnet"))
+		Return(errors.Errorf("subnet %q %w", "unknown-subnet", coreerrors.NotFound))
 	err := NewService(s.st, nil).UpdateSubnet(context.Background(), "unknown-subnet", "space0")
 	c.Assert(err, gc.ErrorMatches, "subnet \"unknown-subnet\" not found")
 }
@@ -171,7 +172,7 @@ func (s *subnetSuite) TestFailRemoveSubnet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().DeleteSubnet(gomock.Any(), "unknown-subnet").
-		Return(errors.NotFoundf("subnet %q", "unknown-subnet"))
+		Return(errors.Errorf("subnet %q %w", "unknown-subnet", coreerrors.NotFound))
 	err := NewService(s.st, nil).RemoveSubnet(context.Background(), "unknown-subnet")
 	c.Assert(err, gc.ErrorMatches, "subnet \"unknown-subnet\" not found")
 }

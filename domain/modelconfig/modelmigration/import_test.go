@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -49,7 +49,7 @@ func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestModelConfig(c *gc.C) {

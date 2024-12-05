@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // FullConfig holds the full macaroon bakery config data

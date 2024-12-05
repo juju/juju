@@ -6,7 +6,6 @@ package domain
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -268,7 +268,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *gc.C) {
 			select {
 			case <-start:
 			case <-time.After(testing.LongWait):
-				secondErr <- fmt.Errorf("failed to start in time")
+				secondErr <- errors.Errorf("failed to start in time")
 				return
 			}
 
@@ -278,7 +278,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *gc.C) {
 				// will be 2. This isn't exact, but it should be good enough
 				// to ensure that the first run has completed.
 				if atomic.LoadInt64(&called) != 2 {
-					return fmt.Errorf("called before first run completed")
+					return errors.Errorf("called before first run completed")
 				}
 
 				atomic.AddInt64(&called, 1)
@@ -294,13 +294,13 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *gc.C) {
 				return err
 			}
 		case <-time.After(testing.LongWait):
-			return fmt.Errorf("failed to complete first run in time")
+			return errors.Errorf("failed to complete first run in time")
 		}
 		select {
 		case err := <-secondErr:
 			return err
 		case <-time.After(testing.LongWait):
-			return fmt.Errorf("failed to complete second run in time")
+			return errors.Errorf("failed to complete second run in time")
 		}
 	})
 	c.Assert(err, jc.ErrorIsNil)

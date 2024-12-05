@@ -5,18 +5,17 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"io"
 
-	"github.com/juju/errors"
-
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ResourceState describes retrieval and persistence methods for resource.
@@ -97,7 +96,7 @@ func (s *Service) GetApplicationResourceID(
 	args resource.GetApplicationResourceIDArgs,
 ) (coreresource.UUID, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return "", fmt.Errorf("application id: %w", err)
+		return "", errors.Errorf("application id: %w", err)
 	}
 	if args.Name == "" {
 		return "", applicationerrors.ResourceNameNotValid
@@ -121,7 +120,7 @@ func (s *Service) ListResources(
 	applicationID coreapplication.ID,
 ) (resource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
-		return resource.ApplicationResources{}, fmt.Errorf("application id: %w", err)
+		return resource.ApplicationResources{}, errors.Errorf("application id: %w", err)
 	}
 	return s.st.ListResources(ctx, applicationID)
 }
@@ -138,7 +137,7 @@ func (s *Service) GetResource(
 	resourceUUID coreresource.UUID,
 ) (resource.Resource, error) {
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("application id: %w", err)
+		return resource.Resource{}, errors.Errorf("application id: %w", err)
 	}
 	return s.st.GetResource(ctx, resourceUUID)
 }
@@ -157,14 +156,14 @@ func (s *Service) SetResource(
 	args resource.SetResourceArgs,
 ) (resource.Resource, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("application id: %w", err)
+		return resource.Resource{}, errors.Errorf("application id: %w", err)
 	}
 	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
 		return resource.Resource{},
-			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
+			errors.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", coreerrors.NotValid)
 	}
 	if err := args.Resource.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("resource: %w", err)
+		return resource.Resource{}, errors.Errorf("resource: %w", err)
 	}
 	return s.st.SetResource(ctx, args)
 }
@@ -183,14 +182,14 @@ func (s *Service) SetUnitResource(
 	args resource.SetUnitResourceArgs,
 ) (resource.SetUnitResourceResult, error) {
 	if err := args.UnitUUID.Validate(); err != nil {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
+		return resource.SetUnitResourceResult{}, errors.Errorf("unit id: %w", err)
 	}
 	if err := args.ResourceUUID.Validate(); err != nil {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("resource id: %w", err)
+		return resource.SetUnitResourceResult{}, errors.Errorf("resource id: %w", err)
 	}
 	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
 		return resource.SetUnitResourceResult{},
-			fmt.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", errors.NotValid)
+			errors.Errorf("%w RetrievedByType cannot be unknown if RetrievedBy set", coreerrors.NotValid)
 	}
 	return s.st.SetUnitResource(ctx, args)
 }
@@ -206,7 +205,7 @@ func (s *Service) OpenApplicationResource(
 	resourceUUID coreresource.UUID,
 ) (resource.Resource, io.ReadCloser, error) {
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
+		return resource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
 	res, err := s.st.OpenApplicationResource(ctx, resourceUUID)
 	return res, &noopReadCloser{}, err
@@ -230,10 +229,10 @@ func (s *Service) OpenUnitResource(
 	unitID coreunit.UUID,
 ) (resource.Resource, io.ReadCloser, error) {
 	if err := unitID.Validate(); err != nil {
-		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
+		return resource.Resource{}, nil, errors.Errorf("unit id: %w", err)
 	}
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
+		return resource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
 	res, err := s.st.OpenUnitResource(ctx, resourceUUID, unitID)
 	return res, &noopReadCloser{}, err
@@ -254,18 +253,18 @@ func (s *Service) SetRepositoryResources(
 	args resource.SetRepositoryResourcesArgs,
 ) error {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return fmt.Errorf("application id: %w", err)
+		return errors.Errorf("application id: %w", err)
 	}
 	if len(args.Info) == 0 {
-		return fmt.Errorf("empty Info %w", errors.NotValid)
+		return errors.Errorf("empty Info %w", coreerrors.NotValid)
 	}
 	for _, info := range args.Info {
 		if err := info.Validate(); err != nil {
-			return fmt.Errorf("resource: %w", err)
+			return errors.Errorf("resource: %w", err)
 		}
 	}
 	if args.LastPolled.IsZero() {
-		return fmt.Errorf("zero LastPolled %w", errors.NotValid)
+		return errors.Errorf("zero LastPolled %w", coreerrors.NotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
 }

@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 )
 
 // CharmhubURLChange returns a config validator that will check to make sure
@@ -55,7 +55,7 @@ func AgentVersionChange() config.ValidatorFunc {
 
 		cfg, err := cfg.Remove([]string{config.AgentVersionKey})
 		if err != nil {
-			return cfg, fmt.Errorf("removing agent version key from model config: %w", err)
+			return cfg, errors.Errorf("removing agent version key from model config: %w", err)
 		}
 		return cfg, nil
 	}
@@ -112,7 +112,7 @@ func SpaceChecker(provider SpaceProvider) config.ValidatorFunc {
 
 		has, err := provider.HasSpace(ctx, spaceName)
 		if err != nil {
-			return cfg, fmt.Errorf("checking for space %q existence to validate model config: %w", spaceName, err)
+			return cfg, errors.Errorf("checking for space %q existence to validate model config: %w", spaceName, err)
 		}
 
 		if !has {
@@ -166,13 +166,13 @@ func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
 		}
 
 		if !canTrace && haveTrace {
-			return cfg, fmt.Errorf(
+			return cfg, errors.Errorf(
 				"%w %w",
 				ErrorLogTracingPermission,
 				&config.ValidationError{
 					InvalidAttrs: []string{config.LoggingConfigKey},
-				},
-			)
+				})
+
 		}
 
 		return cfg, nil

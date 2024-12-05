@@ -5,15 +5,14 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -28,6 +27,7 @@ import (
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -139,19 +139,19 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	modelName, modelID, err := i.getModelNameAndID(model)
 	if err != nil {
-		return fmt.Errorf("importing model during migration %w", errors.NotValid)
+		return errors.Errorf("importing model during migration %w", coreerrors.NotValid)
 	}
 
 	user, err := i.userService.GetUserByName(ctx, coreuser.NameFromTag(model.Owner()))
 	if errors.Is(err, accesserrors.UserNotFound) {
-		return fmt.Errorf("cannot import model %q with uuid %q, %w for name %q",
-			modelName, modelID, accesserrors.UserNotFound, model.Owner().Name(),
-		)
+		return errors.Errorf("cannot import model %q with uuid %q, %w for name %q",
+			modelName, modelID, accesserrors.UserNotFound, model.Owner().Name())
+
 	} else if err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing model %q with uuid %q during migration, finding user %q: %w",
-			modelName, modelID, model.Owner().Name(), err,
-		)
+			modelName, modelID, model.Owner().Name(), err)
+
 	}
 
 	cred := credential.Key{}
@@ -161,9 +161,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		cred.Cloud = model.CloudCredential().Cloud()
 		cred.Owner, err = coreuser.NewName(model.CloudCredential().Owner())
 		if err != nil {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"cannot import model %q with uuid %q: model cloud credential owner: %w",
 				modelName, modelID, err)
+
 		}
 	}
 
@@ -171,15 +172,17 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// over the wire as a top-level field on the model, removing it from model config.
 	agentVersionStr, ok := model.Config()[config.AgentVersionKey].(string)
 	if !ok {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"cannot import model %q with uuid %q: agent-version missing from model config",
 			modelName, modelID)
+
 	}
 	agentVersion, err := version.Parse(agentVersionStr)
 	if err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"cannot import model %q with uuid %q: cannot parse agent-version: %w",
 			modelName, modelID, err)
+
 	}
 
 	args := domainmodel.ModelImportArgs{
@@ -196,20 +199,20 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	controllerConfig, err := i.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing model %q with uuid %q during migration, getting controller uuid: %w",
-			modelName, modelID, err,
-		)
+			modelName, modelID, err)
+
 	}
 
 	// NOTE: Try to get all things that can fail before creating the model in
 	// the database.
 	activator, err := i.modelService.ImportModel(ctx, args)
 	if err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing model %q with id %q during migration: %w",
-			modelName, modelID, err,
-		)
+			modelName, modelID, err)
+
 	}
 
 	// NOTE: If we add any more steps to the import operation, we should
@@ -219,9 +222,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// activator needs to be called as the last operation to say that we are
 	// happy that the model is ready to rock and roll.
 	if err := activator(ctx); err != nil {
-		return fmt.Errorf(
-			"activating imported model %q with uuid %q: %w", modelName, modelID, err,
-		)
+		return errors.Errorf(
+			"activating imported model %q with uuid %q: %w", modelName, modelID, err)
+
 	}
 
 	// When importing a model, we need to move the model from the prior
@@ -230,16 +233,16 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	controllerUUID, err := uuid.UUIDFromString(controllerConfig.ControllerUUID())
 	if err != nil {
-		return fmt.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)
+		return errors.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)
 	}
 
 	// We need to establish the read only model information in the model database.
 	err = i.readOnlyModelServiceFunc(modelID).CreateModel(ctx, controllerUUID)
 	if err != nil {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
-			modelName, controllerUUID, err,
-		)
+			modelName, controllerUUID, err)
+
 	}
 
 	return nil
@@ -251,7 +254,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	// Attempt to roll back the model database if it was created.
 	modelName, modelID, err := i.getModelNameAndID(model)
 	if err != nil {
-		return fmt.Errorf("rollback of model during migration %w", errors.NotValid)
+		return errors.Errorf("rollback of model during migration %w", coreerrors.NotValid)
 	}
 
 	// If the model is not found, or the underlying db is not found, we can
@@ -259,20 +262,20 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) &&
 		!errors.Is(err, coredatabase.ErrDBNotFound) {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"rollback of read only model %q with uuid %q during migration: %w",
-			modelName, modelID, err,
-		)
+			modelName, modelID, err)
+
 	}
 
 	// If the model isn't found, we can simply ignore the error.
 	if err := i.modelService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) &&
 		!errors.Is(err, coredatabase.ErrDBNotFound) {
-		return fmt.Errorf(
+		return errors.Errorf(
 			"rollback of model %q with uuid %q during migration: %w",
-			modelName, modelID, err,
-		)
+			modelName, modelID, err)
+
 	}
 
 	return nil
@@ -286,22 +289,22 @@ func (i *importOperation) getModelNameAndID(model description.Model) (string, co
 
 	modelNameI, exists := modelConfig[config.NameKey]
 	if !exists {
-		return "", "", fmt.Errorf("no model name found in model config")
+		return "", "", errors.Errorf("no model name found in model config")
 	}
 
 	modelNameS, ok := modelNameI.(string)
 	if !ok {
-		return "", "", fmt.Errorf("establishing model name type as string. Got unknown type")
+		return "", "", errors.Errorf("establishing model name type as string. Got unknown type")
 	}
 
 	uuidI, exists := modelConfig[config.UUIDKey]
 	if !exists {
-		return "", "", fmt.Errorf("no model uuid found in model config")
+		return "", "", errors.Errorf("no model uuid found in model config")
 	}
 
 	uuidS, ok := uuidI.(string)
 	if !ok {
-		return "", "", fmt.Errorf("establishing model uuid type as string. Got unknown type")
+		return "", "", errors.Errorf("establishing model uuid type as string. Got unknown type")
 	}
 
 	return modelNameS, coremodel.UUID(uuidS), nil

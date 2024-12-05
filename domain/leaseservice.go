@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/lease"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // LeaseService creates a base service that offers lease capabilities.
@@ -34,12 +34,12 @@ func (s *LeaseService) WithLeader(
 	// Holding the lease is quite a complex operation, so we need to ensure that
 	// the context is not cancelled before we start the operation.
 	if err := ctx.Err(); err != nil {
-		return internalerrors.Errorf("lease pre-checking").Add(ctx.Err())
+		return errors.Errorf("lease pre-checking").Add(ctx.Err())
 	}
 
 	leaseChecker, err := s.leaseChecker.GetLeaseManager()
 	if err != nil {
-		return internalerrors.Errorf("getting lease manager: %w", err)
+		return errors.Errorf("getting lease manager: %w", err)
 	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held by the
@@ -81,7 +81,7 @@ func (s *LeaseService) WithLeader(
 		select {
 		case <-waitCtx.Done():
 			return
-		case waitErr <- internalerrors.Errorf("waiting for lease to expire: %w", err):
+		case waitErr <- errors.Errorf("waiting for lease to expire: %w", err):
 		}
 	}()
 
@@ -89,14 +89,14 @@ func (s *LeaseService) WithLeader(
 	case <-leaseCtx.Done():
 		// If the leaseCtx is cancelled, then the waiting for the lease to
 		// expire finished unexpectedly. Return the context error.
-		return internalerrors.Errorf("waiting for lease finished before execution").Add(leaseCtx.Err())
+		return errors.Errorf("waiting for lease finished before execution").Add(leaseCtx.Err())
 	case err := <-waitErr:
 		if err == nil {
 			// This shouldn't happen, but if it does, we need to return an
 			// error. If we're attempting to wait whilst holding the lease,
 			// before running the function and then wait return nil, we don't
 			// know if the lease is held by the holder or what state we're in.
-			return internalerrors.Errorf("unable to wait for lease to expire whilst holding lease")
+			return errors.Errorf("unable to wait for lease to expire whilst holding lease")
 		}
 		return err
 	case <-start:
@@ -107,14 +107,14 @@ func (s *LeaseService) WithLeader(
 	// context will have been cancelled.
 	token := leaseChecker.Token(appName, unitName)
 	if err := token.Check(); err != nil {
-		return internalerrors.Errorf("checking lease token: %w", err)
+		return errors.Errorf("checking lease token: %w", err)
 	}
 
 	// The leaseCtx will be cancelled when the lease is no longer held. This
 	// will ensure that the function is cancelled when the lease is no longer
 	// held.
 	if err := fn(leaseCtx); err != nil {
-		return internalerrors.Errorf("executing lease func: %w", err)
+		return errors.Errorf("executing lease func: %w", err)
 	}
 	return nil
 }

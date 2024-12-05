@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -98,7 +97,7 @@ func SetCloudDefaults(
 	return func(ctx context.Context, controller, _ database.TxnRunner) error {
 		strDefaults, err := modelconfigservice.CoerceConfigForStorage(defaults)
 		if err != nil {
-			return fmt.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
+			return errors.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
 		}
 
 		err = controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -106,7 +105,7 @@ func SetCloudDefaults(
 		})
 
 		if err != nil {
-			return fmt.Errorf("setting cloud %q bootstrap defaults: %w", cloudName, err)
+			return errors.Errorf("setting cloud %q bootstrap defaults: %w", cloudName, err)
 		}
 		return nil
 	}

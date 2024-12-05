@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForUserPublicSshKey generates the triggers for the
 // user_public_ssh_key table.
 func ChangeLogTriggersForUserPublicSshKey(columnName string, namespaceID int) func() schema.Patch {
@@ -48,4 +47,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

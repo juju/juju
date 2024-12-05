@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/version/v2"
 
@@ -197,10 +196,10 @@ func (s *ModelService) WatchMachineTargetAgentVersion(
 
 	w, err := s.WatchModelTargetAgentVersion(ctx)
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"getting watcher for machine %q model target agent version: %w",
-			machineName, err,
-		)
+			machineName, err)
+
 	}
 	return w, nil
 }
@@ -254,10 +253,10 @@ func (s *ModelService) WatchUnitTargetAgentVersion(
 
 	w, err := s.WatchModelTargetAgentVersion(ctx)
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"getting watcher for unit %q model target agent version: %w",
-			unitName, err,
-		)
+			unitName, err)
+
 	}
 	return w, nil
 }

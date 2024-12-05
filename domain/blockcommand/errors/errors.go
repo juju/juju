@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/juju/internal/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// NotFound describes an error that occurs when the block being operated on

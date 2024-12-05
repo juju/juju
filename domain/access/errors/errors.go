@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// UserNotFound describes an error that occurs when the user being requested does

@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -56,7 +57,7 @@ type baseSuite struct {
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return s.setupMocksWithAtomic(c, func(ctx domain.AtomicContext) error {
-		return errors.NotImplementedf("not implemented")
+		return errors.Errorf("not implemented %w", coreerrors.NotImplemented)
 	})
 }
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -190,7 +190,7 @@ func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(nil)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
@@ -204,7 +204,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
@@ -219,7 +219,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
@@ -235,7 +235,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
@@ -258,7 +258,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
@@ -282,7 +282,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
@@ -318,7 +318,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
@@ -370,7 +370,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
@@ -592,7 +592,7 @@ func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmManifest(s.charmManifest)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportEmptyCharmLXDProfile(c *gc.C) {

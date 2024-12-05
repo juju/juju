@@ -4,10 +4,9 @@
 package state
 
 import (
-	"fmt"
-
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -26,7 +25,7 @@ func decodeManifest(manifests []charmManifest) (charm.Manifest, error) {
 	for _, base := range manifests {
 		channel, err := decodeManifestChannel(base)
 		if err != nil {
-			return charm.Manifest{}, fmt.Errorf("cannot decode channel: %w", err)
+			return charm.Manifest{}, errors.Errorf("cannot decode channel: %w", err)
 		}
 
 		if b, ok := bases[base.Index]; ok {
@@ -73,7 +72,7 @@ func decodeManifest(manifests []charmManifest) (charm.Manifest, error) {
 func decodeManifestChannel(base charmManifest) (charm.Channel, error) {
 	risk, err := decodeManifestChannelRisk(base.Risk)
 	if err != nil {
-		return charm.Channel{}, fmt.Errorf("cannot decode risk: %w", err)
+		return charm.Channel{}, errors.Errorf("cannot decode risk: %w", err)
 	}
 
 	return charm.Channel{
@@ -95,7 +94,7 @@ func decodeManifestChannelRisk(risk string) (charm.ChannelRisk, error) {
 	case "edge":
 		return charm.RiskEdge, nil
 	default:
-		return "", fmt.Errorf("unknown risk %q", risk)
+		return "", errors.Errorf("unknown risk %q", risk)
 	}
 }
 
@@ -104,12 +103,12 @@ func encodeManifest(id corecharm.ID, manifest charm.Manifest) ([]setCharmManifes
 	for index, base := range manifest.Bases {
 		encodedRisk, err := encodeManifestChannelRisk(base.Channel.Risk)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode risk: %w", err)
+			return nil, errors.Errorf("cannot encode risk: %w", err)
 		}
 
 		encodedOS, err := encodeManifestOS(base.Name)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode OS: %w", err)
+			return nil, errors.Errorf("cannot encode OS: %w", err)
 		}
 
 		// No architectures specified, use the default.
@@ -130,7 +129,7 @@ func encodeManifest(id corecharm.ID, manifest charm.Manifest) ([]setCharmManifes
 		for i, architecture := range base.Architectures {
 			encodedArch, err := encodeManifestArchitecture(architecture)
 			if err != nil {
-				return nil, fmt.Errorf("cannot encode architecture: %w", err)
+				return nil, errors.Errorf("cannot encode architecture: %w", err)
 			}
 			result = append(result, setCharmManifest{
 				CharmUUID:      id.String(),
@@ -158,7 +157,7 @@ func encodeManifestChannelRisk(risk charm.ChannelRisk) (string, error) {
 	case charm.RiskEdge:
 		return "edge", nil
 	default:
-		return "", fmt.Errorf("unknown risk %q", risk)
+		return "", errors.Errorf("unknown risk %q", risk)
 	}
 }
 
@@ -167,7 +166,7 @@ func encodeManifestOS(os string) (int, error) {
 	case "ubuntu":
 		return 0, nil
 	default:
-		return -1, fmt.Errorf("unknown OS %q", os)
+		return -1, errors.Errorf("unknown OS %q", os)
 	}
 }
 
@@ -184,6 +183,6 @@ func encodeManifestArchitecture(architecture string) (int, error) {
 	case "riscv64":
 		return 4, nil
 	default:
-		return -1, fmt.Errorf("unknown architecture %q", architecture)
+		return -1, errors.Errorf("unknown architecture %q", architecture)
 	}
 }

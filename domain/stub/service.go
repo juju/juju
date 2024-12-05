@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/unit"
@@ -47,7 +46,7 @@ func NewStubService(
 func (s *StubService) AssignUnitsToMachines(ctx context.Context, groupedUnitsByMachine map[string][]unit.Name) error {
 	db, err := s.DB()
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	getNetNodeQuery, err := s.Prepare(`

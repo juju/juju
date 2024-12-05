@@ -8,12 +8,12 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 )
@@ -36,9 +36,9 @@ func SeedControllerConfig(
 type noopTxnRunner struct{}
 
 func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) error) error {
-	return errors.NotImplemented
+	return coreerrors.NotImplemented
 }
 
 func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
-	return errors.NotImplemented
+	return coreerrors.NotImplemented
 }

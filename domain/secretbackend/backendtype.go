@@ -4,8 +4,8 @@
 package secretbackend
 
 import (
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/secrets/provider/vault"
@@ -31,5 +31,5 @@ func MarshallBackendType(backendType string) (BackendType, error) {
 	case vault.BackendType:
 		return BackendTypeVault, nil
 	}
-	return 0, errors.NotValidf("secret backend type %q", backendType)
+	return 0, errors.Errorf("secret backend type %q %w", backendType, coreerrors.NotValid)
 }

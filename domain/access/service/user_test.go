@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -606,7 +606,7 @@ func (s *userServiceSuite) TestLastModelLogin(c *gc.C) {
 func (s *userServiceSuite) TestLastModelLoginBadUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service().LastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), "bad-uuid")
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestLastModelLoginBadUsername tests a bad username for LastModelLogin.

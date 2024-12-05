@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/version/v2"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -43,33 +41,33 @@ func decodeMetadata(metadata charmMetadata, args decodeMetadataArgs) (charm.Meta
 	if metadata.MinJujuVersion != "" {
 		minVersion, err = version.Parse(metadata.MinJujuVersion)
 		if err != nil {
-			return charm.Metadata{}, fmt.Errorf("cannot parse min juju version %q: %w", metadata.MinJujuVersion, err)
+			return charm.Metadata{}, errors.Errorf("cannot parse min juju version %q: %w", metadata.MinJujuVersion, err)
 		}
 	}
 
 	runAs, err := decodeRunAs(metadata.RunAs)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("cannot decode run as %q: %w", metadata.RunAs, err)
+		return charm.Metadata{}, errors.Errorf("cannot decode run as %q: %w", metadata.RunAs, err)
 	}
 
 	provides, requires, peer, err := decodeRelations(args.relations)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("cannot decode relations: %w", err)
+		return charm.Metadata{}, errors.Errorf("cannot decode relations: %w", err)
 	}
 
 	storage, err := decodeStorage(args.storage)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("cannot decode storage: %w", err)
+		return charm.Metadata{}, errors.Errorf("cannot decode storage: %w", err)
 	}
 
 	resources, err := decodeResources(args.resources)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("cannot decode resources: %w", err)
+		return charm.Metadata{}, errors.Errorf("cannot decode resources: %w", err)
 	}
 
 	containers, err := decodeContainers(args.containers)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("cannot decode containers: %w", err)
+		return charm.Metadata{}, errors.Errorf("cannot decode containers: %w", err)
 	}
 
 	return charm.Metadata{
@@ -106,7 +104,7 @@ func decodeRunAs(runAs string) (charm.RunAs, error) {
 	case "user":
 		return charm.RunAsNonRoot, nil
 	default:
-		return "", fmt.Errorf("unknown run as value %q", runAs)
+		return "", errors.Errorf("unknown run as value %q", runAs)
 	}
 }
 
@@ -138,12 +136,12 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 	makeRelation := func(relation charmRelation) (charm.Relation, error) {
 		role, err := decodeRelationRole(relation.Role)
 		if err != nil {
-			return charm.Relation{}, fmt.Errorf("cannot decode relation role %q: %w", relation.Role, err)
+			return charm.Relation{}, errors.Errorf("cannot decode relation role %q: %w", relation.Role, err)
 		}
 
 		scope, err := decodeRelationScope(relation.Scope)
 		if err != nil {
-			return charm.Relation{}, fmt.Errorf("cannot decode relation scope %q: %w", relation.Scope, err)
+			return charm.Relation{}, errors.Errorf("cannot decode relation scope %q: %w", relation.Scope, err)
 		}
 
 		return charm.Relation{
@@ -161,7 +159,7 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 	for _, relation := range relations {
 		rel, err := makeRelation(relation)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot make relation: %w", err)
+			return nil, nil, nil, errors.Errorf("cannot make relation: %w", err)
 		}
 
 		switch relation.Kind {
@@ -181,7 +179,7 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 			}
 			peers[relation.Key] = rel
 		default:
-			return nil, nil, nil, fmt.Errorf("unknown relation role %q", relation.Kind)
+			return nil, nil, nil, errors.Errorf("unknown relation role %q", relation.Kind)
 		}
 	}
 
@@ -197,7 +195,7 @@ func decodeRelationRole(role string) (charm.RelationRole, error) {
 	case "peer":
 		return charm.RolePeer, nil
 	default:
-		return "", fmt.Errorf("unknown relation role %q", role)
+		return "", errors.Errorf("unknown relation role %q", role)
 	}
 }
 
@@ -208,7 +206,7 @@ func decodeRelationScope(scope string) (charm.RelationScope, error) {
 	case "container":
 		return charm.ScopeContainer, nil
 	default:
-		return "", fmt.Errorf("unknown relation scope %q", scope)
+		return "", errors.Errorf("unknown relation scope %q", scope)
 	}
 }
 
@@ -245,7 +243,7 @@ func decodeStorage(storages []charmStorage) (map[string]charm.Storage, error) {
 
 		kind, err := decodeStorageType(storage.Kind)
 		if err != nil {
-			return nil, fmt.Errorf("cannot decode storage type %q: %w", storage.Kind, err)
+			return nil, errors.Errorf("cannot decode storage type %q: %w", storage.Kind, err)
 		}
 
 		// If we've got a property that isn't an empty string, then we need to
@@ -278,7 +276,7 @@ func decodeStorageType(kind string) (charm.StorageType, error) {
 	case "filesystem":
 		return charm.StorageFilesystem, nil
 	default:
-		return "", fmt.Errorf("unknown storage kind %q", kind)
+		return "", errors.Errorf("unknown storage kind %q", kind)
 	}
 }
 
@@ -324,7 +322,7 @@ func decodeResources(resources []charmResource) (map[string]charm.Resource, erro
 	for _, resource := range resources {
 		kind, err := decodeResourceType(resource.Kind)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse resource type %q: %w", resource.Kind, err)
+			return nil, errors.Errorf("cannot parse resource type %q: %w", resource.Kind, err)
 		}
 
 		result[resource.Name] = charm.Resource{
@@ -344,7 +342,7 @@ func decodeResourceType(kind string) (charm.ResourceType, error) {
 	case "oci-image":
 		return charm.ResourceTypeContainerImage, nil
 	default:
-		return "", fmt.Errorf("unknown resource kind %q", kind)
+		return "", errors.Errorf("unknown resource kind %q", kind)
 	}
 }
 
@@ -398,7 +396,7 @@ func decodeContainers(containers []charmContainer) (map[string]charm.Container, 
 func encodeMetadata(id corecharm.ID, metadata charm.Metadata, lxdProfile []byte) (setCharmMetadata, error) {
 	runAs, err := encodeRunAs(metadata.RunAs)
 	if err != nil {
-		return setCharmMetadata{}, fmt.Errorf("cannot encode run as %q: %w", metadata.RunAs, err)
+		return setCharmMetadata{}, errors.Errorf("cannot encode run as %q: %w", metadata.RunAs, err)
 	}
 
 	return setCharmMetadata{
@@ -425,7 +423,7 @@ func encodeRunAs(runAs charm.RunAs) (int, error) {
 	case charm.RunAsNonRoot:
 		return 3, nil
 	default:
-		return -1, fmt.Errorf("unknown run as value %q", runAs)
+		return -1, errors.Errorf("unknown run as value %q", runAs)
 	}
 }
 
@@ -540,7 +538,7 @@ func encodeRelationKind(kind string) (int, error) {
 	case relationKindPeers:
 		return 2, nil
 	default:
-		return -1, fmt.Errorf("unknown relation kind %q", kind)
+		return -1, errors.Errorf("unknown relation kind %q", kind)
 	}
 }
 
@@ -555,7 +553,7 @@ func encodeRelationRole(role charm.RelationRole) (int, error) {
 	case charm.RolePeer:
 		return 2, nil
 	default:
-		return -1, fmt.Errorf("unknown relation role %q", role)
+		return -1, errors.Errorf("unknown relation role %q", role)
 	}
 }
 
@@ -568,7 +566,7 @@ func encodeRelationScope(scope charm.RelationScope) (int, error) {
 	case charm.ScopeContainer:
 		return 1, nil
 	default:
-		return -1, fmt.Errorf("unknown relation scope %q", scope)
+		return -1, errors.Errorf("unknown relation scope %q", scope)
 	}
 }
 
@@ -592,7 +590,7 @@ func encodeStorage(id corecharm.ID, storage map[string]charm.Storage) ([]setChar
 	for key, storage := range storage {
 		kind, err := encodeStorageType(storage.Type)
 		if err != nil {
-			return nil, nil, fmt.Errorf("cannot encode storage type %q: %w", storage.Type, err)
+			return nil, nil, errors.Errorf("cannot encode storage type %q: %w", storage.Type, err)
 		}
 
 		storages = append(storages, setCharmStorage{
@@ -630,7 +628,7 @@ func encodeStorageType(kind charm.StorageType) (int, error) {
 	case charm.StorageFilesystem:
 		return 1, nil
 	default:
-		return -1, fmt.Errorf("unknown storage kind %q", kind)
+		return -1, errors.Errorf("unknown storage kind %q", kind)
 	}
 }
 
@@ -671,7 +669,7 @@ func encodeResources(id corecharm.ID, resources map[string]charm.Resource) ([]se
 	for _, resource := range resources {
 		kind, err := encodeResourceType(resource.Type)
 		if err != nil {
-			return nil, fmt.Errorf("cannot encode resource type %q: %w", resource.Type, err)
+			return nil, errors.Errorf("cannot encode resource type %q: %w", resource.Type, err)
 		}
 
 		result = append(result, setCharmResource{
@@ -695,7 +693,7 @@ func encodeResourceType(kind charm.ResourceType) (int, error) {
 	case charm.ResourceTypeContainerImage:
 		return 1, nil
 	default:
-		return -1, fmt.Errorf("unknown resource kind %q", kind)
+		return -1, errors.Errorf("unknown resource kind %q", kind)
 	}
 }
 

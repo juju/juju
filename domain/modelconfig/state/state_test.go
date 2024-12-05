@@ -7,10 +7,10 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -147,7 +147,7 @@ func (s *stateSuite) TestSetModelConfig(c *gc.C) {
 func (s *stateSuite) TestAgentVersionNotFound(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	version, err := st.AgentVersion(context.Background())
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Check(version, gc.Equals, "")
 }
 

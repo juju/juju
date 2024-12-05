@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1216,7 +1216,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	}}
 
 	_, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperOrder(c *gc.C) {
@@ -1420,7 +1420,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, jujuerrors.NotSupported
+		return s.provider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 

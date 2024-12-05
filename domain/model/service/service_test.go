@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -89,7 +89,7 @@ func (s *serviceSuite) TestControllerModelOwnerUsername(c *gc.C) {
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestModelCreation(c *gc.C) {
@@ -169,7 +169,7 @@ func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
@@ -185,7 +185,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 		Name:        "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestModelCreationOwnerNotFound is testing that if we make a model with an
@@ -229,7 +229,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 		Name:  "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
@@ -358,7 +358,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, credential.Key{})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
@@ -398,7 +398,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, cred2)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
@@ -432,7 +432,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), id, cred2)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *serviceSuite) TestDeleteModel(c *gc.C) {
@@ -880,7 +880,7 @@ func (s *serviceSuite) TestGetModelUsers(c *gc.C) {
 func (s *serviceSuite) TestGetModelUsersBadUUID(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUsers(context.Background(), "bad-uuid)")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetModelUser(c *gc.C) {
@@ -907,7 +907,7 @@ func (s *serviceSuite) TestGetModelUser(c *gc.C) {
 func (s *serviceSuite) TestGetModelUserBadUUID(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	_, err := svc.GetModelUser(context.Background(), "bad-uuid", usertesting.GenNewName(c, "bob"))
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetModelUserZeroUserName(c *gc.C) {
@@ -975,7 +975,7 @@ func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
 func (s *serviceSuite) TestListModelsForUserBadName(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	_, err := svc.ListModelsForUser(context.Background(), "((*)(")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {

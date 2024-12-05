@@ -7,13 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 type exportSuite struct {
@@ -176,7 +177,7 @@ func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc
 
 	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).
 		Times(1).
-		Return(nil, errors.NotFoundf("test-external-controller"))
+		Return(nil, errors.Errorf("test-external-controller %w", coreerrors.NotFound))
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)

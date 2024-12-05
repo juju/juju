@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -295,7 +295,7 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *gc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *stateSuite) TestCreateCloudInvalidAuthType(c *gc.C) {
@@ -473,7 +473,7 @@ func (s *stateSuite) TestWatchCloudNotFound(c *gc.C) {
 
 	ctx := context.Background()
 	_, err := st.WatchCloud(ctx, s.watcherFunc(c, ""), "fluffy")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *stateSuite) TestWatchCloud(c *gc.C) {

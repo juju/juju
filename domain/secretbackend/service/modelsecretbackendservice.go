@@ -5,12 +5,10 @@ package service
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/juju/errors"
 
 	coremodel "github.com/juju/juju/core/model"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
@@ -31,7 +29,7 @@ func NewModelSecretBackendService(modelID coremodel.UUID, st State) *ModelSecret
 func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (string, error) {
 	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
 	if err != nil {
-		return "", fmt.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
+		return "", errors.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 	}
 	backendName := modelSecretBackend.SecretBackendName
 	switch modelSecretBackend.ModelType {
@@ -53,16 +51,16 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 // returning an error satisfying [secretbackenderrors.NotValid] if the backend name provided is not valid.
 func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, backendName string) error {
 	if backendName == "" {
-		return fmt.Errorf("missing backend name")
+		return errors.Errorf("missing backend name")
 	}
 	if backendName == provider.Internal || backendName == kubernetes.BackendName {
-		return fmt.Errorf("secret backend name %q not valid%w", backendName, errors.Hide(secretbackenderrors.NotValid))
+		return errors.Errorf("secret backend name %q not valid", backendName).Add(secretbackenderrors.NotValid)
 	}
 
 	if backendName == provider.Auto {
 		modelType, err := s.st.GetModelType(ctx, s.modelID)
 		if err != nil {
-			return fmt.Errorf("getting model type for %q: %w", s.modelID, err)
+			return errors.Errorf("getting model type for %q: %w", s.modelID, err)
 		}
 		switch modelType {
 		case coremodel.IAAS:
@@ -71,13 +69,13 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 			backendName = kubernetes.BackendName
 		default:
 			// Should never happen.
-			return fmt.Errorf("setting model secret backend for unsupported model type %q for model %q",
-				modelType, s.modelID,
-			)
+			return errors.Errorf("setting model secret backend for unsupported model type %q for model %q",
+				modelType, s.modelID)
+
 		}
 	}
 	if err := s.st.SetModelSecretBackend(ctx, s.modelID, backendName); err != nil {
-		return fmt.Errorf("setting model secret backend for %q: %w", s.modelID, err)
+		return errors.Errorf("setting model secret backend for %q: %w", s.modelID, err)
 	}
 	return nil
 }

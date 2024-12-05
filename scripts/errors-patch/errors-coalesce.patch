@@ -1,0 +1,20 @@
+# Patch file for coalescing the import names that we give internal/errors.
+# Due to the way that gopatch works we need a well known target to hit for
+# naming the internal errors import.
+@@
+var x identifier
+@@
+- import internalerrors "github.com/juju/juju/internal/errors"
++ import interrors "github.com/juju/juju/internal/errors"
+
+-internalerrors.x
++interrors.x
+
+@@
+var x identifier
+@@
+- import "github.com/juju/juju/internal/errors"
++ import interrors "github.com/juju/juju/internal/errors"
+
+-errors.x
++interrors.x
