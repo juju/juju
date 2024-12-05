@@ -22,7 +22,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/featureflag"
@@ -446,8 +445,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	resourcesSt := e.st.Resources(e.store)
-
 	appOfferMap, err := e.groupOffersByApplicationName()
 	if err != nil {
 		return errors.Trace(err)
@@ -455,18 +452,13 @@ func (e *exporter) applications(leaders map[string]string) error {
 
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
-		resources, err := resourcesSt.ListResources(application.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
 		appCtx := addApplicationContext{
 			application:      application,
 			units:            applicationUnits,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
 			payloads:         payloads,
-			resources:        resources,
-			endpoingBindings: bindings,
+			endpointBindings: bindings,
 			leader:           leaders[application.Name()],
 		}
 
@@ -530,8 +522,7 @@ type addApplicationContext struct {
 	units            []*Unit
 	leader           string
 	payloads         map[string][]payloads.FullPayloadInfo
-	resources        resource.ApplicationResources
-	endpoingBindings map[string]bindingsMap
+	endpointBindings map[string]bindingsMap
 
 	// CAAS
 	cloudServices   map[string]*cloudServiceDoc
@@ -598,7 +589,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		HasResources:         application.doc.HasResources,
 		DesiredScale:         application.doc.DesiredScale,
 		MinUnits:             application.doc.MinUnits,
-		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
+		EndpointBindings:     map[string]string(ctx.endpointBindings[globalKey]),
 		ApplicationConfig:    applicationConfig,
 		CharmConfig:          charmConfig,
 		Leader:               ctx.leader,
@@ -695,10 +686,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	exApplication.SetCharmOrigin(charmOriginArgs)
 
-	if err := e.setResources(exApplication, ctx.resources); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Set Tools for application - this is only for CAAS models.
 	isSidecar, err := ctx.application.IsSidecar()
 	if err != nil {
@@ -749,8 +736,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			args.StorageState = storageState
 		}
 		exUnit := exApplication.AddUnit(args)
-
-		e.setUnitResources(exUnit, ctx.resources.UnitResources)
 
 		if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
 			return errors.Trace(err)
@@ -834,69 +819,6 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return info.Message, nil
-}
-
-func (e *exporter) setResources(exApp description.Application, resources resource.ApplicationResources) error {
-	if len(resources.Resources) != len(resources.CharmStoreResources) {
-		return errors.New("number of resources don't match charm store resources")
-	}
-
-	for i, resource := range resources.Resources {
-		exResource := exApp.AddResource(description.ResourceArgs{
-			Name: resource.Name,
-		})
-		exResource.SetApplicationRevision(description.ResourceRevisionArgs{
-			Revision:       resource.Revision,
-			Type:           resource.Type.String(),
-			Path:           resource.Path,
-			Description:    resource.Description,
-			Origin:         resource.Origin.String(),
-			FingerprintHex: resource.Fingerprint.Hex(),
-			Size:           resource.Size,
-			Timestamp:      resource.Timestamp,
-			Username:       resource.Username,
-		})
-		csResource := resources.CharmStoreResources[i]
-		exResource.SetCharmStoreRevision(description.ResourceRevisionArgs{
-			Revision:       csResource.Revision,
-			Type:           csResource.Type.String(),
-			Path:           csResource.Path,
-			Description:    csResource.Description,
-			Origin:         csResource.Origin.String(),
-			Size:           csResource.Size,
-			FingerprintHex: csResource.Fingerprint.Hex(),
-		})
-	}
-
-	return nil
-}
-
-func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
-	for _, res := range findUnitResources(exUnit.Name(), allResources) {
-		exUnit.AddResource(description.UnitResourceArgs{
-			Name: res.Name,
-			RevisionArgs: description.ResourceRevisionArgs{
-				Revision:       res.Revision,
-				Type:           res.Type.String(),
-				Path:           res.Path,
-				Description:    res.Description,
-				Origin:         res.Origin.String(),
-				FingerprintHex: res.Fingerprint.Hex(),
-				Size:           res.Size,
-				Timestamp:      res.Timestamp,
-				Username:       res.Username,
-			},
-		})
-	}
-}
-
-func findUnitResources(unitName string, allResources []resource.UnitResources) []resource.Resource {
-	for _, unitResources := range allResources {
-		if unitResources.Tag.Id() == unitName {
-			return unitResources.Resources
-		}
-	}
-	return nil
 }
 
 func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payloads.FullPayloadInfo) error {

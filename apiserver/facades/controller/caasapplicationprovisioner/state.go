@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/controller"
@@ -104,8 +105,8 @@ func (s stateShim) Application(name string) (Application, error) {
 	return &applicationShim{app}, nil
 }
 
-func (s stateShim) Resources(store objectstore.ObjectStore) Resources {
-	return s.State.Resources(store)
+func (s stateShim) Resources(_ objectstore.ObjectStore) Resources {
+	return &resourcesShim{}
 }
 
 func (s stateShim) Unit(unitTag string) (Unit, error) {
@@ -120,6 +121,10 @@ func (a *applicationShim) Charm() (Charm, bool, error) {
 	return a.Application.Charm()
 }
 
+func (a *applicationShim) ClearResources() error {
+	return errors.NotImplementedf("ClearResources")
+}
+
 func (a *applicationShim) AllUnits() ([]Unit, error) {
 	units, err := a.Application.AllUnits()
 	if err != nil {
@@ -130,6 +135,12 @@ func (a *applicationShim) AllUnits() ([]Unit, error) {
 		res = append(res, unit)
 	}
 	return res, nil
+}
+
+type resourcesShim struct{}
+
+func (s resourcesShim) OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error) {
+	return resource.Resource{}, nil, errors.NotImplementedf("OpenResource")
 }
 
 // StorageBackend provides the subset of backend storage

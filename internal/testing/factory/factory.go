@@ -33,7 +33,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
@@ -435,17 +434,6 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		objectstoretesting.MemoryMetadataService(),
 		objectstoretesting.MemoryClaimer(),
 	)
-	rSt := factory.st.Resources(objectStore)
-
-	resourceMap := make(map[string]string)
-	for name, res := range params.Charm.Meta().Resources {
-		pendingID, err := rSt.AddPendingResource(params.Name, "", charmresource.Resource{
-			Meta:   res,
-			Origin: charmresource.OriginUpload,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		resourceMap[name] = pendingID
-	}
 
 	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -459,7 +447,6 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			ApplicationConfig: appConfig,
 			Storage:           params.Storage,
 			Constraints:       params.Constraints,
-			Resources:         resourceMap,
 			EndpointBindings:  params.EndpointBindings,
 			Placement:         params.Placement,
 		},

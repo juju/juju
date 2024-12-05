@@ -19,6 +19,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// Resources represents the methods required to migrate a
+// resource blob.
+type Resources interface {
+	SetUnitResource(string, string, charmresource.Resource) (resource.Resource, error)
+	SetResource(string, string, charmresource.Resource, io.Reader, bool) (resource.Resource, error)
+}
+
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
 	ctxt          httpContext
@@ -84,7 +91,6 @@ func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	rSt := st.Resources(store)
 
 	reader := r.Body
 
@@ -93,20 +99,20 @@ func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state
 		reader = nil
 	}
 
-	outRes, err := setResource(isUnit, target, userID, res, reader, rSt)
+	outRes, err := setResource(isUnit, target, userID, res, reader, &noopResourceShim{})
 	if err != nil {
 		return empty, errors.Annotate(err, "resource upload failed")
 	}
 	return outRes, nil
 }
 
-func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt state.Resources) (
+func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt Resources) (
 	resource.Resource, error,
 ) {
 	if isUnit {
 		return rSt.SetUnitResource(target, user, res)
 	}
-	return rSt.SetResource(target, user, res, r, state.DoNotIncrementCharmModifiedVersion)
+	return rSt.SetResource(target, user, res, r, false)
 }
 
 func isPlaceholder(query url.Values) bool {
@@ -175,4 +181,16 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 		}
 	}
 	return res, nil
+}
+
+// noopResourceShim is a placeholder for state.Resource until
+// the resource domain is used by the resourcesMigrationUploadHandler.
+type noopResourceShim struct{}
+
+func (r *noopResourceShim) SetUnitResource(string, string, charmresource.Resource) (resource.Resource, error) {
+	return resource.Resource{}, nil
+}
+
+func (r *noopResourceShim) SetResource(string, string, charmresource.Resource, io.Reader, bool) (resource.Resource, error) {
+	return resource.Resource{}, nil
 }

@@ -36,7 +36,7 @@ func NewResourceOpener(
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName string,
 ) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(args, resourceDownloadLimiterFunc, unitName, "")
+	return notImplementedInternalResourceOpener(args, resourceDownloadLimiterFunc, unitName, "")
 }
 
 // NewResourceOpenerForApplication returns a new resource.Opener for the given app.
@@ -47,7 +47,7 @@ func NewResourceOpenerForApplication(
 	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(args, func() ResourceDownloadLock {
+	return notImplementedInternalResourceOpener(args, func() ResourceDownloadLock {
 		return noopDownloadResourceLocker{}
 	}, "", applicationName)
 }
@@ -65,14 +65,28 @@ func (noopDownloadResourceLocker) Release(appName string) {}
 
 type resourceClientGetterFunc func(ctx context.Context) (*ResourceRetryClient, error)
 
+// Disable opening resources while the new resource service is
+// being wired up. The old state methods have been removed.
+// TODO: delete me once the opener is using the resource domain.
+func notImplementedInternalResourceOpener(
+	_ ResourceOpenerArgs,
+	_ func() ResourceDownloadLock,
+	_, appName string,
+) (opener resource.Opener, err error) {
+	return nil, errors.NotImplementedf("not implemented")
+}
+
+var _ = newInternalResourceOpener
+
 func newInternalResourceOpener(
 	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName, appName string,
 ) (opener resource.Opener, err error) {
-	var unit *state.Unit
+	stateShim := deprecatedStateShim{args.State}
+	var unit Unit
 	if unitName != "" {
-		unit, err = args.State.Unit(unitName)
+		unit, err = stateShim.Unit(unitName)
 		if err != nil {
 			return nil, errors.Annotate(err, "loading unit")
 		}
@@ -84,7 +98,7 @@ func newInternalResourceOpener(
 		}
 		appName = unit.ApplicationName()
 	}
-	application, err := args.State.Application(appName)
+	application, err := stateShim.Application(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,7 +136,7 @@ func newInternalResourceOpener(
 	}
 
 	return &ResourceOpener{
-		resourceCache:               args.State.Resources(args.Store),
+		resourceCache:               nil, // TODO: provide resource service
 		modelUUID:                   args.State.ModelUUID(),
 		resourceClientGetter:        clientGetter,
 		user:                        userID,
@@ -238,7 +252,7 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
-	res, reader, err = ro.set(data.Resource, data, state.DoNotIncrementCharmModifiedVersion)
+	res, reader, err = ro.set(data.Resource, data, false)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -276,7 +290,7 @@ func (ro ResourceOpener) open(resName string) (resource.Resource, io.ReadCloser,
 // set stores the resource info and data in a repo, if there is one.
 // If no repo is in use then this is a no-op. Note that the returned
 // reader may or may not be the same one that was passed in.
-func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType) (_ resource.Resource, _ io.ReadCloser, err error) {
+func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion bool) (_ resource.Resource, _ io.ReadCloser, err error) {
 	if ro.resourceCache == nil {
 		res := resource.Resource{
 			Resource: chRes,
