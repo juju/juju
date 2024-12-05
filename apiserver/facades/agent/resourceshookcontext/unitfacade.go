@@ -12,14 +12,21 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreresources "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
+
+type Resources interface {
+	ListResources(string) (coreresources.ApplicationResources, error)
+}
+
+type Unit interface {
+	ApplicationName() string
+}
 
 // resourcesUnitDatastore is a shim to elide serviceName from
 // ListResources.
 type resourcesUnitDataStore struct {
-	resources state.Resources
-	unit      *state.Unit
+	resources Resources
+	unit      Unit
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.

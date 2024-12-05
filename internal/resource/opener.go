@@ -37,6 +37,19 @@ func NewResourceOpener(
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName string,
 ) (opener resource.Opener, err error) {
+	// Disable opening resources while the new resource service is
+	// being wired up. The old state methods have been removed.
+	// TODO: replace error return with newResourceOpener.
+	return nil, jujuerrors.NotImplementedf("not implemented")
+}
+
+var _ = newResourceOpener
+
+func newResourceOpener(
+	args ResourceOpenerArgs,
+	resourceDownloadLimiterFunc func() ResourceDownloadLock,
+	unitName string,
+) (opener resource.Opener, err error) {
 	unit, err := args.State.Unit(unitName)
 	if err != nil {
 		return nil, errors.Errorf("loading unit: %w", err)
@@ -59,7 +72,7 @@ func NewResourceOpener(
 	}
 
 	return &ResourceOpener{
-		state:                       args.State.Resources(args.Store),
+		state:                       nil, // TODO: provide resource service
 		modelUUID:                   args.State.ModelUUID(),
 		resourceClientGetter:        newClientGetter(charmURL, args.ModelConfigService),
 		retrievedBy:                 unit.Tag(),
@@ -79,6 +92,18 @@ func NewResourceOpenerForApplication(
 	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener resource.Opener, err error) {
+	// Disable opening resources while the new resource service is
+	// being wired up. The old state methods have been removed.
+	// TODO: replace error return with newResourceOpenerForApplication.
+	return nil, jujuerrors.NotImplementedf("not implemented")
+}
+
+var _ = newResourceOpenerForApplication
+
+func newResourceOpenerForApplication(
+	args ResourceOpenerArgs,
+	applicationName string,
+) (opener resource.Opener, err error) {
 	application, err := args.State.Application(applicationName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -95,7 +120,7 @@ func NewResourceOpenerForApplication(
 	}
 
 	return &ResourceOpener{
-		state:                args.State.Resources(args.Store),
+		state:                nil, // TODO: provide resource service
 		modelUUID:            args.State.ModelUUID(),
 		resourceClientGetter: newClientGetter(charmURL, args.ModelConfigService),
 		retrievedBy:          application.Tag(),
@@ -259,7 +284,7 @@ func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser)
 			_ = reader.Close()
 		}
 	}()
-	res, err := ro.state.SetResource(ro.appName, ro.retrievedBy.Id(), chRes, reader, state.DoNotIncrementCharmModifiedVersion)
+	res, err := ro.state.SetResource(ro.appName, ro.retrievedBy.Id(), chRes, reader, false)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Capture(err)
 	}

@@ -32,6 +32,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+const content = "stuff"
+
 type ResourcesHandlerSuite struct {
 	testing.IsolationSuite
 
@@ -262,7 +264,7 @@ func (s *fakeBackend) GetPendingResource(service, name, pendingID string) (resou
 func (s *fakeBackend) SetResource(
 	applicationID, userID string,
 	res charmresource.Resource, r io.Reader,
-	incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType,
+	incrementCharmModifiedVersion bool,
 ) (resource.Resource, error) {
 	if s.SetResourceErr != nil {
 		return resource.Resource{}, s.SetResourceErr

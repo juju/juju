@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var _ = Register
+
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ResourcesHookContext", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
@@ -59,6 +61,6 @@ func newStateFacade(ctx facade.ModelContext) (*UnitFacade, error) {
 		return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 	}
 
-	res := st.Resources(ctx.ObjectStore())
+	var res Resources
 	return NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
 }

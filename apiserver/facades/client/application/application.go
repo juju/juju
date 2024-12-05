@@ -319,21 +319,6 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 		}
 		err := api.deployApplication(ctx, arg)
 		result.Results[i].Error = apiservererrors.ServerError(errors.Annotatef(err, "cannot deploy %q", arg.ApplicationName))
-
-		if err != nil && len(arg.Resources) != 0 {
-			// Remove any pending resources - these would have been
-			// converted into real resources if the application had
-			// been created successfully, but will otherwise be
-			// leaked. lp:1705730
-			// TODO(babbageclunk): rework the deploy API so the
-			// resources are created transactionally to avoid needing
-			// to do this.
-			resources := api.backend.Resources(api.store)
-			err = resources.RemovePendingAppResources(arg.ApplicationName, arg.Resources)
-			if err != nil {
-				api.logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
-			}
-		}
 	}
 	return result, nil
 }

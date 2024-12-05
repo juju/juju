@@ -15,7 +15,6 @@ import (
 
 	resource "github.com/juju/juju/core/resource"
 	resource0 "github.com/juju/juju/internal/charm/resource"
-	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -162,7 +161,7 @@ func (c *MockDeprecatedResourcesStateOpenResourceForUniterCall) DoAndReturn(f fu
 }
 
 // SetResource mocks base method.
-func (m *MockDeprecatedResourcesState) SetResource(arg0, arg1 string, arg2 resource0.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resource.Resource, error) {
+func (m *MockDeprecatedResourcesState) SetResource(arg0, arg1 string, arg2 resource0.Resource, arg3 io.Reader, arg4 bool) (resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(resource.Resource)
@@ -189,13 +188,13 @@ func (c *MockDeprecatedResourcesStateSetResourceCall) Return(arg0 resource.Resou
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeprecatedResourcesStateSetResourceCall) Do(f func(string, string, resource0.Resource, io.Reader, state.IncrementCharmModifiedVersionType) (resource.Resource, error)) *MockDeprecatedResourcesStateSetResourceCall {
+func (c *MockDeprecatedResourcesStateSetResourceCall) Do(f func(string, string, resource0.Resource, io.Reader, bool) (resource.Resource, error)) *MockDeprecatedResourcesStateSetResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeprecatedResourcesStateSetResourceCall) DoAndReturn(f func(string, string, resource0.Resource, io.Reader, state.IncrementCharmModifiedVersionType) (resource.Resource, error)) *MockDeprecatedResourcesStateSetResourceCall {
+func (c *MockDeprecatedResourcesStateSetResourceCall) DoAndReturn(f func(string, string, resource0.Resource, io.Reader, bool) (resource.Resource, error)) *MockDeprecatedResourcesStateSetResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

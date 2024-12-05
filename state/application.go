@@ -525,11 +525,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 	if !op.Force && failedRels {
 		return nil, op.LastError()
 	}
-	resOps, err := removeResourcesOps(op.app.st, store, op.app.doc.Name)
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, resOps...)
 
 	removeUnitAssignmentOps, err := op.app.removeUnitAssignmentsOps()
 	if err != nil {
@@ -589,32 +584,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 			{"relationcount", removeCount},
 		}
 
-		// There are resources pending so don't remove app yet.
-		if op.app.doc.HasResources && !op.CleanupIgnoringResources {
-			if op.Force {
-				// We need to wait longer than normal for any k8s resources to be fully removed
-				// since it can take a while for the cluster to terminate running pods etc.
-				logger.Debugf("scheduling forced application %q cleanup", op.app.doc.Name)
-				deadline := op.app.st.stateClock.Now().Add(2 * op.MaxWait)
-				cleanupOp := newCleanupAtOp(deadline, cleanupForceApplication, op.app.doc.Name, op.MaxWait)
-				ops = append(ops, cleanupOp)
-			}
-			logger.Debugf("advancing application %q to dead, waiting for cluster resources", op.app.doc.Name)
-			update := bson.D{{"$set", bson.D{{"life", Dead}}}}
-			if removeCount != 0 {
-				decref := bson.D{{"$inc", bson.D{{"relationcount", -removeCount}}}}
-				update = append(update, decref...)
-			}
-			advanceLifecycleOp := txn.Op{
-				C:      applicationsC,
-				Id:     op.app.doc.DocID,
-				Assert: assertion,
-				Update: update,
-			}
-			op.PostDestroyAppLife = Dead
-			return append(ops, advanceLifecycleOp), nil
-		}
-
 		// When forced, this call will return operations to remove this
 		// application and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set and the call came across some errors,
@@ -671,15 +640,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		Assert: notLastRefs,
 		Update: update,
 	})
-	return ops, nil
-}
-
-func removeResourcesOps(st *State, store objectstore.ObjectStore, applicationID string) ([]txn.Op, error) {
-	resources := st.resources(store)
-	ops, err := resources.removeResourcesOps(applicationID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return ops, nil
 }
 
@@ -1501,12 +1461,6 @@ func incCharmModifiedVersionOps(applicationID string) []txn.Op {
 	}}
 }
 
-func (a *Application) resolveResourceOps(pendingResourceIDs map[string]string, store objectstore.ObjectStore) ([]txn.Op, error) {
-	// Collect pending resource resolution operations.
-	resources := a.st.Resources(store).(*resourcePersistence)
-	return resources.resolveApplicationPendingResourcesOps(a.doc.Name, pendingResourceIDs)
-}
-
 // SetCharmConfig contains the parameters for Application.SetCharm.
 type SetCharmConfig struct {
 	// Charm is the new charm to use for the application. New units
@@ -1656,19 +1610,6 @@ func (a *Application) SetCharm(
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, chng...)
-			newCharmModifiedVersion++
-		}
-
-		// Resources can be upgraded independent of a charm upgrade.
-		resourceOps, err := a.resolveResourceOps(cfg.PendingResourceIDs, store)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, resourceOps...)
-		// Only update newCharmModifiedVersion once. It might have been
-		// incremented in charmCharmOps.
-		if len(resourceOps) > 0 && newCharmModifiedVersion == a.doc.CharmModifiedVersion {
-			ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
 			newCharmModifiedVersion++
 		}
 
@@ -2023,47 +1964,6 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 		return errors.Errorf("cannot set scale for application %q to %v: %v", a, scale, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.DesiredScale = scale
-	return nil
-}
-
-// ClearResources sets the application's pending resources to false.
-// This is used on CAAS models.
-func (a *Application) ClearResources() error {
-	if a.doc.Life == Alive {
-		return errors.Errorf("application %q is alive", a.doc.Name)
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-			if !a.doc.HasResources {
-				return nil, jujutxn.ErrNoOperations
-			}
-		}
-		ops := []txn.Op{{
-			C:  applicationsC,
-			Id: a.doc.DocID,
-			Assert: bson.D{
-				{"life", bson.M{"$ne": Alive}},
-				{"charmurl", a.doc.CharmURL},
-				{"unitcount", a.doc.UnitCount},
-				{"has-resources", true}},
-			Update: bson.D{{"$set", bson.D{{"has-resources", false}}}},
-		}}
-		logger.Debugf("application %q now has no cluster resources, scheduling cleanup", a.doc.Name)
-		cleanupOp := newCleanupOp(
-			cleanupApplication,
-			a.doc.Name,
-			false, // force
-			false, // destroy storage
-		)
-		return append(ops, cleanupOp), nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return errors.Errorf("cannot clear cluster resources for application %q: %v", a, onAbort(err, applicationNotAliveErr))
-	}
-	a.doc.HasResources = false
 	return nil
 }
 
@@ -2666,10 +2566,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	resOps, err := removeUnitResourcesOps(a.st, store, u.doc.Name)
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
 
 	// Reimplement in dqlite.
 	//secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
@@ -2708,7 +2604,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		removeConstraintsOp(u.globalAgentKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
-	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 
 	m, err := a.st.Model()
@@ -2746,15 +2641,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 			op.Force,
 		)
 		ops = append(ops, cleanupOp)
-	}
-	return ops, nil
-}
-
-func removeUnitResourcesOps(st *State, store objectstore.ObjectStore, unitID string) ([]txn.Op, error) {
-	resources := st.resources(store)
-	ops, err := resources.removeUnitResourcesOps(unitID)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	return ops, nil
 }
