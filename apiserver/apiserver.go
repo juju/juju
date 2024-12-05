@@ -761,8 +761,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 
 	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		ctxt:                     httpCtxt,
+		stateAuthFunc:            httpCtxt.stateForRequestAuthenticatedUser,
+		applicationServiceGetter: &applicationServiceGetter{ctxt: httpCtxt},
 	}, "charms")
 
 	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
