@@ -328,11 +328,6 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			// TODO(babbageclunk): rework the deploy API so the
 			// resources are created transactionally to avoid needing
 			// to do this.
-			resources := api.backend.Resources(api.store)
-			err = resources.RemovePendingAppResources(arg.ApplicationName, arg.Resources)
-			if err != nil {
-				api.logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
-			}
 		}
 	}
 	return result, nil

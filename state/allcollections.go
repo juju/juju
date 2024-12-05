@@ -215,9 +215,6 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		// Stores Docker image resource details
-		dockerResourcesC: {},
-
 		// -----
 
 		// These collections hold information associated with machines.
@@ -337,15 +334,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "name"},
 			}},
 		},
-
-		// This collection holds information associated with charm resources.
-		// See resource/persistence/mongo.go, where it should never have
-		// been put in the first place.
-		"resources": {},
-		// see vendor/github.com/juju/blobstore/v2/resourcecatalog.go
-		// This shouldn't need to be declared here, but we need to allocate the
-		// collection before a TXN tries to insert it.
-		"storedResources": {},
 
 		// -----
 
@@ -469,7 +457,6 @@ const (
 	containerRefsC         = "containerRefs"
 	controllersC           = "controllers"
 	controllerNodesC       = "controllerNodes"
-	dockerResourcesC       = "dockerResources"
 	filesystemAttachmentsC = "filesystemAttachments"
 	filesystemsC           = "filesystems"
 	globalClockC           = "globalclock"
@@ -494,7 +481,6 @@ const (
 	endpointBindingsC      = "endpointbindings"
 	settingsC              = "settings"
 	refcountsC             = "refcounts"
-	resourcesC             = "resources"
 	sshHostKeysC           = "sshhostkeys"
 	statusesC              = "statuses"
 	statusesHistoryC       = "statuseshistory"
