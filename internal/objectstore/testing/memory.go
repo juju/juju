@@ -6,6 +6,7 @@ package testing
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,6 +67,15 @@ func (s *objectStore) GetMetadata(ctx context.Context, path string) (coreobjects
 	return s.store.get(path)
 }
 
+// GetMetadataBySHA256Prefix implements objectstore.ObjectStoreMetadata.
+func (s *objectStore) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (coreobjectstore.Metadata, error) {
+	if sha256Prefix == "" {
+		return coreobjectstore.Metadata{}, errors.NotValidf("sha256 cannot be empty")
+	}
+
+	return s.store.getBySHAPrefix(sha256Prefix)
+}
+
 // PutMetadata implements objectstore.ObjectStoreMetadata.
 func (s *objectStore) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
 	return s.store.put(metadata)
@@ -124,6 +134,18 @@ func (s *store) get(path string) (coreobjectstore.Metadata, error) {
 		return coreobjectstore.Metadata{}, errors.NotFoundf("metadata for %q", path)
 	}
 	return m.metadata, nil
+}
+
+func (s *store) getBySHAPrefix(sha256Prefix string) (coreobjectstore.Metadata, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, m := range s.metadata {
+		if strings.HasPrefix(m.metadata.SHA256, sha256Prefix) {
+			return m.metadata, nil
+		}
+	}
+	return coreobjectstore.Metadata{}, errors.NotFoundf("metadata for SHA %q", sha256Prefix)
 }
 
 func (s *store) put(metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {

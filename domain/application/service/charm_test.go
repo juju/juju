@@ -420,6 +420,21 @@ func (s *charmServiceSuite) TestGetCharmArchive(c *gc.C) {
 	c.Check(string(content), gc.Equals, "archive-content")
 }
 
+func (s *charmServiceSuite) TestGetCharmArchiveBySHA256Prefix(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	archive := io.NopCloser(strings.NewReader("archive-content"))
+
+	s.charmStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "prefix").Return(archive, nil)
+
+	reader, err := s.service.GetCharmArchiveBySHA256Prefix(context.Background(), "prefix")
+	c.Assert(err, jc.ErrorIsNil)
+
+	content, err := io.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(content), gc.Equals, "archive-content")
+}
+
 func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -149,6 +149,10 @@ type CharmStore interface {
 	// GetCharm retrieves a ReadCloser for the charm archive at the give path
 	// from the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
+
+	// GetBySHA256Prefix retrieves a ReadCloser for a charm archive who's SHA256
+	// hash starts with the provided prefix.
+	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 }
 
 // GetCharmID returns a charm ID by name. It returns an error if the charm can
@@ -462,6 +466,20 @@ func (s *Service) GetCharmArchive(ctx context.Context, id corecharm.ID) (io.Read
 	}
 
 	return reader, hash, nil
+}
+
+// GetCharmArchiveBySHA256Prefix returns a ReadCloser stream for the charm
+// archive who's SHA256 hash starts with the provided prefix.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error) {
+	reader, err := s.charmStore.GetBySHA256Prefix(ctx, sha256Prefix)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return reader, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This

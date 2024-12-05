@@ -8,18 +8,19 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	"github.com/juju/juju/internal/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
 const (
@@ -76,6 +77,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 
 // Get returns an io.ReadCloser for data at path, namespaced to the
 // model.
+//
+// If the object does not exist, an [objectstore.ObjectNotFound]
+// error is returned.
 func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
@@ -105,10 +109,46 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			if errors.Is(resp.err, os.ErrNotExist) {
-				return nil, -1, fmt.Errorf("getting blob: %w", errors.NotFoundf("path %q", path))
-			}
-			return nil, -1, fmt.Errorf("getting blob: %w", resp.err)
+			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
+		}
+		return resp.reader, resp.size, nil
+	}
+}
+
+// GetBySHA256Prefix returns an io.ReadCloser for any object with the a SHA256
+// hash starting with a given prefix, namespaced to the model.
+//
+// If no object is found, an [objectstore.ObjectNotFound] error is returned.
+func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, int64, error) {
+	// Optimistically try to get the file from the file system. If it doesn't
+	// exist, then we'll get an error, and we'll try to get it when sequencing
+	// the get request with the put and remove requests.
+	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix); err == nil {
+		return reader, size, nil
+	}
+
+	// Sequence the get request with the put and remove requests.
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case t.requests <- request{
+		op:           opGetByHash,
+		sha256Prefix: sha256Prefix,
+		response:     response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case resp := <-response:
+		if resp.err != nil {
+			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
 		}
 		return resp.reader, resp.size, nil
 	}
@@ -139,7 +179,7 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 		return "", tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return "", fmt.Errorf("putting blob: %w", resp.err)
+			return "", errors.Errorf("putting blob: %w", resp.err)
 		}
 		return resp.uuid, nil
 	}
@@ -171,7 +211,7 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 		return "", tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return "", fmt.Errorf("putting blob and check hash: %w", resp.err)
+			return "", errors.Errorf("putting blob and check hash: %w", resp.err)
 		}
 		return resp.uuid, nil
 	}
@@ -199,7 +239,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 		return tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return fmt.Errorf("removing blob: %w", resp.err)
+			return errors.Errorf("removing blob: %w", resp.err)
 		}
 		return nil
 	}
@@ -208,14 +248,14 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
-		return errors.Annotatef(err, "ensuring file store directories exist")
+		return errors.Errorf("ensuring file store directories exist: %w", err)
 	}
 
 	// Remove any temporary files that may have been left behind. We don't
 	// provide continuation for these operations, so a retry will be required
 	// if the operation fails.
 	if err := t.cleanupTmpFiles(); err != nil {
-		return errors.Annotatef(err, "cleaning up temp files")
+		return errors.Errorf("cleaning up temp files: %w", err)
 	}
 
 	ctx, cancel := t.scopedContext()
@@ -234,6 +274,20 @@ func (t *fileObjectStore) loop() error {
 			switch req.op {
 			case opGet:
 				reader, size, err := t.get(ctx, req.path)
+
+				select {
+				case <-t.tomb.Dying():
+					return tomb.ErrDying
+
+				case req.response <- response{
+					reader: reader,
+					size:   size,
+					err:    err,
+				}:
+				}
+
+			case opGetByHash:
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix)
 
 				select {
 				case <-t.tomb.Dying():
@@ -270,7 +324,7 @@ func (t *fileObjectStore) loop() error {
 				}
 
 			default:
-				return fmt.Errorf("unknown request type %d", req.op)
+				return errors.Errorf("unknown request type %d", req.op)
 			}
 
 		case <-timer.Chan():
@@ -291,27 +345,51 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 	t.logger.Debugf("getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
+	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+		return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
+	}
 	if err != nil {
-		return nil, -1, fmt.Errorf("get metadata: %w", err)
+		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
 
+	return t.getWithMetadata(ctx, metadata)
+}
+
+func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+	t.logger.Debugf("getting object with SHA256 %q from file storage", sha256)
+
+	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
+	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
+	}
+	if err != nil {
+		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
+	}
+
+	return t.getWithMetadata(ctx, metadata)
+}
+
+func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
 	hash := selectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, -1, objectstoreerrors.ObjectNotFound
+	}
 	if err != nil {
-		return nil, -1, fmt.Errorf("opening file %q encoded as %q: %w", path, hash, err)
+		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
 	// Verify that the size of the file matches the expected size.
 	// This is a sanity check, that the underlying file hasn't changed.
 	stat, err := file.Stat()
 	if err != nil {
-		return nil, -1, fmt.Errorf("retrieving size: file %q encoded as %q: %w", path, hash, err)
+		return nil, -1, errors.Errorf("retrieving size: file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
 	size := stat.Size()
 	if metadata.Size != size {
-		return nil, -1, fmt.Errorf("size mismatch for %q: expected %d, got %d", path, metadata.Size, size)
+		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
 	}
 
 	return file, size, nil
@@ -338,7 +416,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	// then we need seek back to the beginning of the file.
 	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(hash384, hash256)), size)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	// Ensure that we remove the temporary file if we fail to persist it.
@@ -350,7 +428,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 
 	// Ensure that the hash of the file matches the expected hash.
 	if expected, ok := validator(encoded384); !ok {
-		return "", fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded384, objectstore.ErrHashMismatch)
+		return "", errors.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded384, objectstore.ErrHashMismatch)
 	}
 
 	// Lock the file with the given hash, so that we can't remove the file
@@ -359,7 +437,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	if err := t.withLock(ctx, encoded384, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
 		if err := t.persistTmpFile(ctx, tmpFileName, encoded384, size); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		// Save the metadata for the file after we've written it. That way we
@@ -372,11 +450,11 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 			SHA384: encoded384,
 			Size:   size,
 		}); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	}); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	return uuid, nil
 }
@@ -389,18 +467,18 @@ func (t *fileObjectStore) persistTmpFile(_ context.Context, tmpFileName, hash st
 		// If the file on disk isn't the same as the one we're trying to write,
 		// then we have a problem.
 		if info.Size() != size {
-			return errors.AlreadyExistsf("encoded as %q", filePath)
+			return errors.Errorf("encoded as %q: %w", hash, objectstoreerrors.ObjectAlreadyExists)
 		}
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		// There is an error attempting to stat the file, and it's not because
 		// the file doesn't exist.
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Swap out the temporary file for the real one.
 	if err := os.Rename(tmpFileName, filePath); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return nil
@@ -411,13 +489,13 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
-		return fmt.Errorf("get metadata: %w", err)
+		return errors.Errorf("get metadata: %w", err)
 	}
 
 	hash := selectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
-			return fmt.Errorf("remove metadata: %w", err)
+			return errors.Errorf("remove metadata: %w", err)
 		}
 		return t.deleteObject(ctx, hash)
 	})
@@ -432,13 +510,13 @@ func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []s
 
 	metadata, err := t.metadataService.ListMetadata(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list metadata: %w", err)
+		return nil, nil, errors.Errorf("list metadata: %w", err)
 	}
 
 	// List all the files in the directory.
 	entries, err := fs.ReadDir(t.fs, ".")
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading directory: %w", err)
+		return nil, nil, errors.Errorf("reading directory: %w", err)
 	}
 
 	// Filter out any directories.

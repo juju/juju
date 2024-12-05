@@ -91,7 +91,16 @@ type ObjectStore interface {
 type ReadObjectStore interface {
 	// Get returns an io.ReadCloser for data at path, namespaced to the
 	// model.
+	//
+	// If the object does not exist, an [objectstore.ObjectNotFound]
+	// error is returned.
 	Get(context.Context, string) (io.ReadCloser, int64, error)
+
+	// GetBySHA256Prefix returns an io.ReadCloser for any object with the a SHA256
+	// hash starting with a given prefix, namespaced to the model.
+	//
+	// If no object is found, an [objectstore.ObjectNotFound] error is returned.
+	GetBySHA256Prefix(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // WriteObjectStore represents an object store that can only be written to.

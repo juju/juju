@@ -2663,3 +2663,42 @@ func (c *MockCharmStoreGetCall) DoAndReturn(f func(context.Context, string) (io.
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// GetBySHA256Prefix mocks base method.
+func (m *MockCharmStore) GetBySHA256Prefix(arg0 context.Context, arg1 string) (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBySHA256Prefix", arg0, arg1)
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBySHA256Prefix indicates an expected call of GetBySHA256Prefix.
+func (mr *MockCharmStoreMockRecorder) GetBySHA256Prefix(arg0, arg1 any) *MockCharmStoreGetBySHA256PrefixCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBySHA256Prefix", reflect.TypeOf((*MockCharmStore)(nil).GetBySHA256Prefix), arg0, arg1)
+	return &MockCharmStoreGetBySHA256PrefixCall{Call: call}
+}
+
+// MockCharmStoreGetBySHA256PrefixCall wrap *gomock.Call
+type MockCharmStoreGetBySHA256PrefixCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStoreGetBySHA256PrefixCall) Return(arg0 io.ReadCloser, arg1 error) *MockCharmStoreGetBySHA256PrefixCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStoreGetBySHA256PrefixCall) Do(f func(context.Context, string) (io.ReadCloser, error)) *MockCharmStoreGetBySHA256PrefixCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, error)) *MockCharmStoreGetBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
