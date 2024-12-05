@@ -278,10 +278,6 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	"probe-http-server": {},
 	"caas-prober": {
 		"probe-http-server",
-		"s3-caller",
-		"uniter",
-		"not-dead-flag",
-		"trace",
 	},
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
@@ -335,6 +331,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"probe-http-server",
 		"s3-caller",
+		"trace",
 		"uniter",
 	},
 	"caas-zombie-prober-binder": {
