@@ -1100,9 +1100,22 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
-	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
-		return s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
-	})
+	err := s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestMachineSetProvisionedWhenDead(c *gc.C) {
+	err := s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
+	c.Assert(err, gc.ErrorMatches, ".* neither alive nor dying")
 }
 
 func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
