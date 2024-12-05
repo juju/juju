@@ -407,11 +407,17 @@ func makeCreateApplicationArgs(
 		return application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
 	}
 
+	resourcesArgs, err := makeResourcesArgs(args.ResolvedResources)
+	if err != nil {
+		return application.AddApplicationArg{}, fmt.Errorf("checking resources: %w", err)
+	}
+
 	return application.AddApplicationArg{
 		Charm:             ch,
 		CharmDownloadInfo: args.DownloadInfo,
 		Platform:          platformArg,
 		Channel:           channelArg,
+		Resources:         resourcesArgs,
 	}, nil
 }
 
@@ -678,6 +684,23 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer CloudContainer
 		}
 	}
 	return result
+}
+
+// makeResourcesArgs creates a slice of AddApplicationResourceArg from ResolvedResources.
+// Returns an error if any of the ResolvedResources are invalid.
+func makeResourcesArgs(resolvedResources ResolvedResources) ([]application.AddApplicationResourceArg, error) {
+	var result []application.AddApplicationResourceArg
+	if err := resolvedResources.Validate(); err != nil {
+		return result, err
+	}
+	for _, res := range resolvedResources {
+		result = append(result, application.AddApplicationResourceArg{
+			Name:     res.Name,
+			Revision: res.Revision,
+			Origin:   res.Origin,
+		})
+	}
+	return result, nil
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas model,

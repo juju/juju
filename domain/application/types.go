@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // AddApplicationArg contains parameters for saving an application to state.
@@ -23,6 +24,16 @@ type AddApplicationArg struct {
 	Scale             int
 	Platform          Platform
 	Channel           *Channel
+	// Resources defines the list of resources to add to an application.
+	// They should match all the resources defined in the Charm.
+	Resources []AddApplicationResourceArg
+}
+
+// AddApplicationResourceArg defines the arguments required to add a resource to an application.
+type AddApplicationResourceArg struct {
+	Name     string
+	Revision *int
+	Origin   charmresource.Origin
 }
 
 // Channel represents the channel of a application charm.

@@ -11,7 +11,10 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	apperrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -42,6 +45,10 @@ type AddApplicationArgs struct {
 
 	// DownloadInfo contains the download information for the charm.
 	DownloadInfo *domaincharm.DownloadInfo
+
+	// ResolvedResources contains a list of ResolvedResource instances,
+	// which allows to define a revision and an origin for each resource
+	ResolvedResources ResolvedResources
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.
@@ -130,4 +137,47 @@ type UpdateCharmParams struct {
 	// unaffected; the storage directives will only be used for
 	// provisioning new storage instances.
 	Storage map[string]storage.Directive
+}
+
+// ResolvedResources is a collection of ResolvedResource elements.
+type ResolvedResources []ResolvedResource
+
+// ResolvedResource represents a resource with a given name, origin, and optional revision.
+type ResolvedResource struct {
+	Name     string
+	Origin   charmresource.Origin
+	Revision *int
+}
+
+// Validate checks the ResolvedResource's attributes for validity and returns an error if invalid.
+// Returns a [apperrors.InvalidResourceArgs] if:
+// - the resource name is empty,
+// - the resource origin is not valid,
+// - the revision is not defined for a resource originated from store
+// - the revision is defined for a resource originated from upload
+func (r ResolvedResource) Validate() error {
+	if r.Name == "" {
+		return errors.Errorf("resource name is empty: %w", apperrors.InvalidResourceArgs)
+	}
+	if err := r.Origin.Validate(); err != nil {
+		return errors.Errorf("resource origin %q is invalid: %w", r.Origin,
+			apperrors.InvalidResourceArgs)
+	}
+	if r.Origin == charmresource.OriginUpload && r.Revision != nil {
+		return errors.Errorf("resource revision should be nil with %q origin: %w", r.Origin,
+			apperrors.InvalidResourceArgs)
+	}
+	return nil
+}
+
+// Validate checks the validity of each ResolvedResource in the collection.
+// It accumulates errors and returns a combined error, if any invalid resources are encountered.
+func (r ResolvedResources) Validate() error {
+	var errs []error
+	for _, res := range r {
+		if err := res.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
