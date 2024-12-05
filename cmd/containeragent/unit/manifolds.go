@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
+	"github.com/juju/juju/internal/worker/caasprobebinder"
 	"github.com/juju/juju/internal/worker/caasprober"
 	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
@@ -57,7 +58,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/units3caller"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
-	"github.com/juju/juju/worker/caasprobebinder"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.

@@ -5,10 +5,10 @@ package caasprobebinder
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/observability/probe"
-	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/internal/observability/probe"
+	"github.com/juju/juju/internal/worker/caasprober"
 )
 
 // ProbeBinder is a worker that binds a set of probe providers

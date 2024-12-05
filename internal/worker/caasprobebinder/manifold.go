@@ -4,14 +4,15 @@
 package caasprobebinder
 
 import (
+	"context"
 	"maps"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/observability/probe"
-	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/internal/observability/probe"
+	"github.com/juju/juju/internal/worker/caasprober"
 )
 
 // ManifoldConfig is the configuration used to setup a new caasprober.
@@ -37,13 +38,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error) {
+func (c ManifoldConfig) Start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var probes *caasprober.CAASProbes
-	if err := context.Get(c.ProberName, &probes); err != nil {
+	if err := getter.Get(c.ProberName, &probes); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -53,7 +54,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 	}
 	for _, k := range c.ProbeProviderNames {
 		var provider probe.ProbeProvider
-		if err := context.Get(k, &provider); err != nil {
+		if err := getter.Get(k, &provider); err != nil {
 			return nil, errors.Trace(err)
 		}
 		providers[k] = provider

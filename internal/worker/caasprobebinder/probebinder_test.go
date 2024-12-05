@@ -7,13 +7,13 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/observability/probe"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasprobebinder"
-	"github.com/juju/juju/worker/caasprober"
+	"github.com/juju/juju/internal/observability/probe"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/worker/caasprobebinder"
+	"github.com/juju/juju/internal/worker/caasprober"
 )
 
 type binderSuite struct{}
