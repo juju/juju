@@ -18,8 +18,8 @@ const (
 	Install Kind = "install"
 
 	// The `start` hook always runs once immediately after the first config-changed
-	// hook; there are currently no other circumstances in which it will be called,
-	// but this may change in the future.
+	// hook. Also, on kubernetes charms, whenever a unit’s pod churns, `start` will
+	// be fired again on that unit.
 	Start Kind = "start"
 
 	// The `config-changed` hook always runs once immediately after the install hook,
