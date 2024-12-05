@@ -1,14 +1,14 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource
+package store
 
 import (
 	"context"
 	"io"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -35,8 +35,8 @@ func (f fileResourceStore) Put(
 	storageKey string,
 	r io.Reader,
 	size int64,
-	fingerprint resource.Fingerprint,
-) (ResourceStorageUUID, error) {
+	fingerprint store.Fingerprint,
+) (store.UUID, error) {
 	if storageKey == "" {
 		return "", errors.Errorf("storage key empty")
 	}
@@ -53,7 +53,7 @@ func (f fileResourceStore) Put(
 	if err != nil {
 		return "", err
 	}
-	return ResourceStorageUUID(uuid.String()), nil
+	return store.UUID(uuid.String()), nil
 }
 
 // Remove the specified resource from the object store.

@@ -15,13 +15,13 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	coreresourcestore "github.com/juju/juju/core/resource/store"
 	corestorage "github.com/juju/juju/core/storage"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
 	charmstore "github.com/juju/juju/domain/application/charm/store"
-	"github.com/juju/juju/domain/application/resource"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
@@ -30,6 +30,8 @@ import (
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
+	containerimageresourcestoreservice "github.com/juju/juju/domain/containerimageresourcestore/service"
+	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -51,6 +53,8 @@ import (
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
+	resourceservice "github.com/juju/juju/domain/resource/service"
+	resourcestate "github.com/juju/juju/domain/resource/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -61,6 +65,7 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/resource/store"
 )
 
 // PublicKeyImporter describes a service that is capable of fetching and
@@ -174,7 +179,6 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.storageRegistry,
-		resource.NewResourceStoreFactory(s.objectstore),
 		s.modelUUID,
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
@@ -338,6 +342,31 @@ func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 	return blockcommandservice.NewService(
 		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("blockcommand"),
+	)
+}
+
+// Resource returns the service for persisting and retrieving application
+// resources for the current model.
+func (s *ModelServices) Resource() *resourceservice.Service {
+	containerImageResourceStoreGetter := func() coreresourcestore.ResourceStore {
+		return containerimageresourcestoreservice.NewService(
+			containerimageresourcestorestate.NewState(
+				changestream.NewTxnRunnerFactory(s.modelDB),
+				s.logger.Child("containerimageresourcestore.state"),
+			))
+	}
+	resourceStoreFactory := store.NewResourceStoreFactory(
+		s.objectstore,
+		containerImageResourceStoreGetter,
+	)
+	return resourceservice.NewService(
+		resourcestate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+			s.clock,
+			s.logger.Child("resource.state"),
+		),
+		resourceStoreFactory,
+		s.logger.Child("resource.service"),
 	)
 }
 

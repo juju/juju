@@ -16,7 +16,6 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/resource"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
@@ -118,7 +117,6 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
-		resource.NewResourceStoreFactory(nil),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

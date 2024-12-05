@@ -36,7 +36,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -45,8 +44,6 @@ import (
 type State interface {
 	ApplicationState
 	CharmState
-	ResourceState
-	ContainerImageMetadataState
 }
 
 const (
@@ -66,7 +63,6 @@ type Service struct {
 	clock  clock.Clock
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	resourceStoreGetter   ResourceStoreGetter
 	secretDeleter         DeleteSecretState
 	charmStore            CharmStore
 }
@@ -77,25 +73,14 @@ func NewService(
 	deleteSecretState DeleteSecretState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	charmStore CharmStore,
-	resourceStoreGetter ResourceStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
-	// Note:
-	// The store for container image resources is really a DQLite table today.
-	// Using AddStore is a compromise to avoid injecting one service into
-	// another, as would happen if NewResourceStoreFactory had a second
-	// argument to provide a containerImageResourceStore.
-	resourceStoreGetter.AddStore(
-		charmresource.TypeContainerImage,
-		newContainerImageResourceStore(st),
-	)
 	return &Service{
 		st:                    st,
 		logger:                logger,
 		clock:                 clock,
 		storageRegistryGetter: storageRegistryGetter,
-		resourceStoreGetter:   resourceStoreGetter,
 		secretDeleter:         deleteSecretState,
 		charmStore:            charmStore,
 	}
@@ -130,7 +115,6 @@ func NewProviderService(
 	st State,
 	deleteSecretState DeleteSecretState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	resourceStoreGetter ResourceStoreGetter,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
@@ -144,7 +128,6 @@ func NewProviderService(
 			deleteSecretState,
 			storageRegistryGetter,
 			charmStore,
-			resourceStoreGetter,
 			clock,
 			logger,
 		),
@@ -200,7 +183,6 @@ func NewWatchableService(
 	st State,
 	deleteSecretState DeleteSecretState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	resourceStoreGetter ResourceStoreGetter,
 	modelID coremodel.UUID,
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
@@ -214,7 +196,6 @@ func NewWatchableService(
 			st,
 			deleteSecretState,
 			storageRegistryGetter,
-			resourceStoreGetter,
 			modelID,
 			agentVersionGetter,
 			provider,
