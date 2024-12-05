@@ -421,6 +421,4 @@ Subcommands:
 
 type CmdDocumentationSuite struct {
 	testing.LoggingCleanupSuite
-
-	targetCmd cmd.Command
 }

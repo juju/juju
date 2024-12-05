@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/gnuflag"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
@@ -93,13 +94,14 @@ insert details here...
 	}}
 
 	for _, t := range tests {
-		output := cmd.FormatCommand(
+		output, err := cmd.FormatCommand(
 			t.command,
 			&cmd.SuperCommand{Name: "juju"},
 			t.title,
 			[]string{"juju", t.command.Info().Name},
 		)
 		c.Check(output, gc.Equals, t.expected)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 

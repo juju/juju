@@ -613,7 +613,7 @@ func (c *SuperCommand) handleErrorForMachineFormats(ctx *Context) error {
 // exact match.
 // If the resulting fuzzy match algorithm returns a value that is itself too
 // far away from the size of the word, we disgard that and say a match isn't
-// relavent i.e. "foo" "barsomethingfoo" would not match
+// relevant i.e. "foo" "barsomethingfoo" would not match
 func (c *SuperCommand) FindClosestSubCommand(name string) (string, Command, bool) {
 	// Exit early if there are no subcmds
 	if len(c.subcmds) == 0 {

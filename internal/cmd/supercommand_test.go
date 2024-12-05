@@ -795,7 +795,7 @@ func (s *SuperCommandSuite) TestFindClosestSubCommand(c *gc.C) {
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
-	name, _, ok := sc.FindClosestSubCommand("halp")
+	name, _, ok := sc.FindClosestSubCommand("halp") //nolint:misspell
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(name, gc.Equals, "help")
 }

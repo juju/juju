@@ -172,7 +172,7 @@ func (ctx *Context) Verbosef(format string, params ...interface{}) {
 // Errorf allows for the logging of error messages from a command's
 // context. This should be used for errors which cause a command to fail.
 // Usually these errors are logged by returning them in Run, but that is
-// not always sufficent. For instance, if the client has performed multiple
+// not always sufficient. For instance, if the client has performed multiple
 // actions
 func (ctx *Context) Errorf(format string, params ...interface{}) {
 	// Here we use the Loggo.logger method `Logf` as opposed to
@@ -408,7 +408,7 @@ func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) 
 	case nil:
 		return 0, false
 	case gnuflag.ErrHelp:
-		ctx.Stdout.Write(c.Info().Help(f))
+		_, _ = ctx.Stdout.Write(c.Info().Help(f))
 		return 0, true
 	case ErrSilent:
 		return 2, true

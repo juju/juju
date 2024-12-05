@@ -51,8 +51,8 @@ key =
 	c.Assert(err, gc.IsNil)
 	aliases := cmd.ParseAliasFile(filename)
 	c.Assert(aliases, gc.DeepEquals, map[string][]string{
-		"foo":    []string{"trailing-space"},
-		"repeat": []string{"second"},
-		"flags":  []string{"flags", "--with", "flag"},
+		"foo":    {"trailing-space"},
+		"repeat": {"second"},
+		"flags":  {"flags", "--with", "flag"},
 	})
 }

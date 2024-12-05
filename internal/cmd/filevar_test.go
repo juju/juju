@@ -136,6 +136,7 @@ func (s *FileVarSuite) TestOpenValid(c *gc.C) {
 func (s *FileVarSuite) TestOpenInvalid(c *gc.C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.InvalidPath})
+	c.Assert(err, gc.IsNil)
 	c.Assert(config.Path, gc.Equals, s.InvalidPath)
 	_, err = config.Open(s.ctx)
 	c.Assert(err, gc.ErrorMatches, "*permission denied")
@@ -184,6 +185,7 @@ func (s *FileVarSuite) TestReadValid(c *gc.C) {
 func (s *FileVarSuite) TestReadInvalid(c *gc.C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.InvalidPath})
+	c.Assert(err, gc.IsNil)
 	c.Assert(config.Path, gc.Equals, s.InvalidPath)
 	_, err = config.Read(s.ctx)
 	c.Assert(err, gc.ErrorMatches, "*permission denied")

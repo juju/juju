@@ -64,13 +64,9 @@ type documentationCommand struct {
 	// etc...
 	ids map[string]string
 	// reverseAliases maintains a reverse map of the alias and the
-	// targetting command. This is used to find the ids corresponding
+	// targeting command. This is used to find the ids corresponding
 	// to a given alias
 	reverseAliases map[string]string
-}
-
-func newDocumentationCommand(s *SuperCommand) *documentationCommand {
-	return &documentationCommand{super: s}
 }
 
 func (c *documentationCommand) Info() *Info {
@@ -235,11 +231,18 @@ func (c *documentationCommand) writeDoc(folder, target string, ref commandRefere
 	}
 	defer func() { _ = f.Close() }()
 
-	formatted := c.formatCommand(ref, false, commandSeq)
-	if _, err = fmt.Fprintln(f, formatted); err != nil {
+	formatted, err := c.formatCommand(ref, false, commandSeq)
+	if err != nil {
 		return err
 	}
-	_ = f.Sync()
+	_, err = fmt.Fprintln(f, formatted)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -294,7 +297,12 @@ func (c *documentationCommand) writeSections(w io.Writer, superCommands []string
 		// documentation the same.
 		sc, isSuperCommand := ref.command.(*SuperCommand)
 		if !isSuperCommand || (isSuperCommand && !sc.SkipCommandDoc) {
-			if _, err := fmt.Fprintf(w, "%s", c.formatCommand(ref, true, commandSeq)); err != nil {
+			formatted, err := c.formatCommand(ref, true, commandSeq)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(w, "%s", formatted)
+			if err != nil {
 				return err
 			}
 		}
@@ -354,14 +362,13 @@ func (c *documentationCommand) linkForCommand(cmd string) string {
 // by a command in Markdown format. The title param can be used to set
 // whether the command name should be a title or not. This is particularly
 // handy when splitting the commands in different files.
-func (c *documentationCommand) formatCommand(ref commandReference, title bool, commandSeq []string) string {
+func (c *documentationCommand) formatCommand(ref commandReference, title bool, commandSeq []string) (string, error) {
 	var fmtedTitle string
 	if title {
 		fmtedTitle = strings.ToUpper(strings.Join(commandSeq[1:], " "))
 	}
 
-	var buf bytes.Buffer
-	PrintMarkdown(&buf, ref.command, MarkdownOptions{
+	opts := MarkdownOptions{
 		Title:       fmtedTitle,
 		UsagePrefix: strings.Join(commandSeq[:len(commandSeq)-1], " ") + " ",
 		LinkForCommand: func(s string) string {
@@ -382,8 +389,14 @@ func (c *documentationCommand) formatCommand(ref commandReference, title bool, c
 		LinkForSubcommand: func(s string) string {
 			return c.linkForCommand(strings.Join(append(commandSeq[1:], s), "_"))
 		},
-	})
-	return buf.String()
+	}
+
+	var buf bytes.Buffer
+	err := PrintMarkdown(&buf, ref.command, opts)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // getTargetCmd is an auxiliary function that returns the target command or

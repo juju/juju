@@ -230,13 +230,19 @@ func (c *helpCommand) Run(ctx *Context) error {
 	if c.super.showVersion {
 		v := newVersionCommand(c.super.version, c.super.versionDetail)
 		v.SetFlags(c.super.flags)
-		v.Init(nil)
+		err := v.Init(nil)
+		if err != nil {
+			return err
+		}
 		return v.Run(ctx)
 	}
 
 	// If the topic is a registered subcommand, then run the help command with it
 	if c.target != nil {
-		ctx.Stdout.Write(c.getCommandHelp(c.targetSuper, c.target.command, c.target.alias))
+		_, err := ctx.Stdout.Write(c.getCommandHelp(c.targetSuper, c.target.command, c.target.alias))
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -246,14 +252,20 @@ func (c *helpCommand) Run(ctx *Context) error {
 		// current action, but we want the info to be printed
 		// as if there was nothing selected.
 		c.super.action.command = nil
-		ctx.Stdout.Write(c.getCommandHelp(c.super, c.super, ""))
+		_, err := ctx.Stdout.Write(c.getCommandHelp(c.super, c.super, ""))
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
 	// Look to see if the topic is a registered topic.
 	topic, ok := c.topics[c.topic]
 	if ok {
-		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
+		_, err := fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 	// If we have a missing callback, call that with --help

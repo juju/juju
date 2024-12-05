@@ -154,11 +154,6 @@ func (v *formatterValue) doc() string {
 	return "Specify output format (" + strings.Join(choices, "|") + ")"
 }
 
-// format runs the chosen formatter on value.
-func (v *formatterValue) format(writer io.Writer, value interface{}) error {
-	return v.formatters[v.name](writer, value)
-}
-
 // Output is responsible for interpreting output-related command line flags
 // and writing a value to a file or to stdout as directed.
 type Output struct {
