@@ -93,7 +93,7 @@ func (w *asyncDownloadWorker) loop() error {
 	var result *charmdownloader.DownloadResult
 	if err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			result, err = w.downloader.Download(ctx, url, info.Hash)
+			result, err = w.downloader.Download(ctx, url, info.SHA256)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -119,6 +119,8 @@ func (w *asyncDownloadWorker) loop() error {
 
 	// The charm has been downloaded, we can now resolve the download slot.
 	err = w.applicationService.ResolveCharmDownload(ctx, w.appID, domainapplication.ResolveCharmDownload{
+		SHA256:    result.SHA256,
+		SHA384:    result.SHA384,
 		CharmUUID: info.CharmUUID,
 		Path:      result.Path,
 		Size:      result.Size,

@@ -130,9 +130,9 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	resolvedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
 
 	s.repo.EXPECT().DownloadCharm(gomock.Any(), name, requestedOrigin, tmpFile).Return(s.charmArchive, resolvedOrigin, &charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461",
-		Size:       10,
+		SHA256: "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461",
+		SHA384: "<ignored>",
+		Size:   10,
 	}, nil)
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
@@ -239,9 +239,8 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 		func(ctx context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error) {
 			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 			return s.charmArchive, resolvedOrigin, &charmhub.Digest{
-				DigestType: charmhub.SHA256,
-				Hash:       "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461",
-				Size:       10,
+				SHA256: "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461",
+				Size:   10,
 			}, nil
 		},
 	)

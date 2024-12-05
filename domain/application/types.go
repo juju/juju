@@ -183,13 +183,15 @@ type UnitWorkloadStatusInfo struct {
 type CharmDownloadInfo struct {
 	CharmUUID    charm.ID
 	Name         string
-	Hash         string
+	SHA256       string
 	DownloadInfo domaincharm.DownloadInfo
 }
 
 // ResolveCharmDownload contains parameters for resolving a charm download.
 type ResolveCharmDownload struct {
 	CharmUUID charm.ID
+	SHA256    string
+	SHA384    string
 	Path      string
 	Size      int64
 }

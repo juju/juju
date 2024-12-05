@@ -1312,6 +1312,14 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		return applicationerrors.CharmNotResolved
 	}
 
+	// We need to ensure that charm sha256 hash matches the one that was
+	// requested. If this is valid, we can then trust the sha384 hash, as we
+	// have no provenance for it. In other words, we trust the sha384 hash, if
+	// the sha256 hash is valid.
+	if info.SHA256 != resolve.SHA256 {
+		return applicationerrors.CharmHashMismatch
+	}
+
 	// Make sure it's actually a valid charm.
 	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
 	if err != nil {
@@ -1330,7 +1338,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// Use the hash from the reservation, incase the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
-	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, info.Hash)
+	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
 	if err != nil {
 		return errors.Trace(err)
 	}

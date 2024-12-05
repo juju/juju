@@ -1052,6 +1052,8 @@ func refreshConfig(charmName string, origin corecharm.Origin) (charmhub.RefreshC
 		method = MethodID
 	}
 
+	fmt.Println(">>>", method)
+
 	var (
 		cfg charmhub.RefreshConfig
 		err error
