@@ -11,20 +11,19 @@ import (
 )
 
 func TestAggregateProbeSuccess(t *testing.T) {
-	agg := probe.Aggregate{
-		Probes: map[string]probe.Prober{
-			"1": probe.Success,
-			"2": probe.Success,
-			"3": probe.Success,
-			"4": probe.Success,
-		},
-	}
+	agg := probe.Aggregate{}
+	agg.AddProber("1", probe.Success)
+	agg.AddProber("2", probe.Success)
+	agg.AddProber("3", probe.Success)
+	agg.AddProber("4", probe.Success)
 
-	val, err := agg.Probe()
+	val, n, err := agg.Probe()
 	if !val {
 		t.Errorf("expected aggregate probe of all success to provide a true value")
 	}
-
+	if n != 4 {
+		t.Errorf("expected aggregate probe to return 4 probes read")
+	}
 	if err != nil {
 		t.Errorf("unexpected error %v from all success probes to aggregate", err)
 	}
@@ -32,29 +31,31 @@ func TestAggregateProbeSuccess(t *testing.T) {
 
 func TestEmptyAggregateSuccess(t *testing.T) {
 	agg := probe.Aggregate{}
-	val, err := agg.Probe()
+	val, n, err := agg.Probe()
 	if !val {
 		t.Errorf("expected empty aggregate probe to provide a true value")
 	}
-
+	if n != 0 {
+		t.Errorf("expected aggregate probe to return 0 probes read")
+	}
 	if err != nil {
 		t.Errorf("unexpected error %v from empty aggregate probe", err)
 	}
 }
 
 func TestSingleFalseAggregateProbe(t *testing.T) {
-	agg := probe.Aggregate{
-		Probes: map[string]probe.Prober{
-			"1": probe.Success,
-			"2": probe.ProberFn(func() (bool, error) {
-				return false, nil
-			}),
-			"3": probe.Success,
-		},
-	}
-	val, err := agg.Probe()
+	agg := probe.Aggregate{}
+	agg.AddProber("1", probe.Success)
+	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
+		return false, nil
+	}))
+	agg.AddProber("3", probe.Success)
+	val, n, err := agg.Probe()
 	if val {
 		t.Errorf("expected aggregate with false probe to to provide a false value")
+	}
+	if n != 3 {
+		t.Errorf("expected aggregate probe to return 3 probes read")
 	}
 	if err != nil {
 		t.Errorf("unexpected error %v from aggregate prober", err)
@@ -62,22 +63,22 @@ func TestSingleFalseAggregateProbe(t *testing.T) {
 }
 
 func TestMultipleFalseAggregateProbe(t *testing.T) {
-	agg := probe.Aggregate{
-		Probes: map[string]probe.Prober{
-			"1": probe.Success,
-			"2": probe.ProberFn(func() (bool, error) {
-				return false, nil
-			}),
-			"3": probe.Success,
-			"4": probe.ProberFn(func() (bool, error) {
-				return false, nil
-			}),
-			"5": probe.Success,
-		},
-	}
-	val, err := agg.Probe()
+	agg := probe.Aggregate{}
+	agg.AddProber("1", probe.Success)
+	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
+		return false, nil
+	}))
+	agg.AddProber("3", probe.Success)
+	agg.AddProber("4", probe.ProberFn(func() (bool, error) {
+		return false, nil
+	}))
+	agg.AddProber("5", probe.Success)
+	val, n, err := agg.Probe()
 	if val {
 		t.Errorf("expected aggregate with false probes to to provide a false value")
+	}
+	if n != 5 {
+		t.Errorf("expected aggregate probe to return 5 probes read")
 	}
 	if err != nil {
 		t.Errorf("unexpected error %v from aggregate prober", err)
@@ -85,18 +86,19 @@ func TestMultipleFalseAggregateProbe(t *testing.T) {
 }
 
 func TestAggregateProbeWithError(t *testing.T) {
-	agg := probe.Aggregate{
-		Probes: map[string]probe.Prober{
-			"1": probe.Success,
-			"2": probe.ProberFn(func() (bool, error) {
-				return false, errors.New("test error")
-			}),
-			"3": probe.Success,
-		},
-	}
-	val, err := agg.Probe()
+	agg := probe.Aggregate{}
+	agg.AddProber("1", probe.Success)
+	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
+		return false, errors.New("test error")
+	}))
+	agg.AddProber("3", probe.Success)
+
+	val, n, err := agg.Probe()
 	if val {
 		t.Errorf("expected aggregate with false probe to to provide a false value")
+	}
+	if n != 3 {
+		t.Errorf("expected aggregate probe to return 3 probes read")
 	}
 	if err == nil {
 		t.Errorf("expected error from aggregate prober")
@@ -104,17 +106,14 @@ func TestAggregateProbeWithError(t *testing.T) {
 }
 
 func TestAggregateProbeCallback(t *testing.T) {
-	agg := probe.Aggregate{
-		Probes: map[string]probe.Prober{
-			"1": probe.Success,
-			"2": probe.ProberFn(func() (bool, error) {
-				return false, errors.New("test error")
-			}),
-			"3": probe.Success,
-		},
-	}
+	agg := probe.Aggregate{}
+	agg.AddProber("1", probe.Success)
+	agg.AddProber("2", probe.ProberFn(func() (bool, error) {
+		return false, errors.New("test error")
+	}))
+	agg.AddProber("3", probe.Success)
 
-	val, err := agg.ProbeWithResultCallback(func(k string, val bool, err error) {
+	val, n, err := agg.ProbeWithResultCallback(func(k string, val bool, err error) {
 		expectedVal := true
 		shouldError := false
 
@@ -140,6 +139,9 @@ func TestAggregateProbeCallback(t *testing.T) {
 
 	if val {
 		t.Errorf("expected aggregate with false probe to to provide a false value")
+	}
+	if n != 3 {
+		t.Errorf("expected aggregate probe to return 3 probes read")
 	}
 	if err == nil {
 		t.Errorf("expected error from aggregate prober")

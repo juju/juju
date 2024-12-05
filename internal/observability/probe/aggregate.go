@@ -4,6 +4,8 @@
 package probe
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 )
 
@@ -12,9 +14,11 @@ import (
 // the probes fail.
 // Convenience NewAggregate() exists to initialise the map.
 type Aggregate struct {
-	// Probes is a map of probes to run as part of this aggregate with the key
+	mut sync.RWMutex
+
+	// probes is a map of probes to run as part of this aggregate with the key
 	// corresponding to well known name for the probe.
-	Probes map[string]Prober
+	probes map[string]Prober
 }
 
 // ProbeResultCallBack is a function signature for receiving the result of a
@@ -23,12 +27,27 @@ type ProbeResultCallback func(probeKey string, val bool, err error)
 
 func NewAggregate() *Aggregate {
 	return &Aggregate{
-		Probes: make(map[string]Prober),
+		probes: make(map[string]Prober),
 	}
 }
 
+func (a *Aggregate) AddProber(id string, p Prober) {
+	a.mut.Lock()
+	defer a.mut.Unlock()
+	if a.probes == nil {
+		a.probes = make(map[string]Prober)
+	}
+	a.probes[id] = p
+}
+
+func (a *Aggregate) RemoveProber(id string) {
+	a.mut.Lock()
+	defer a.mut.Unlock()
+	delete(a.probes, id)
+}
+
 // Probe implements Prober Probe
-func (a *Aggregate) Probe() (bool, error) {
+func (a *Aggregate) Probe() (bool, int, error) {
 	return a.ProbeWithResultCallback(ProbeResultCallback(func(_ string, _ bool, _ error) {}))
 }
 
@@ -38,11 +57,14 @@ func (a *Aggregate) Probe() (bool, error) {
 // succeeding.
 func (a *Aggregate) ProbeWithResultCallback(
 	cb ProbeResultCallback,
-) (bool, error) {
+) (bool, int, error) {
+	a.mut.RLock()
+	defer a.mut.RUnlock()
+
 	rval := true
 	var errVal error
 
-	for name, p := range a.Probes {
+	for name, p := range a.probes {
 		val, err := p.Probe()
 		cb(name, val, err)
 		if err != nil && errVal == nil {
@@ -56,5 +78,5 @@ func (a *Aggregate) ProbeWithResultCallback(
 		rval = rval && val
 	}
 
-	return rval, errVal
+	return rval, len(a.probes), errVal
 }

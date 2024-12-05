@@ -46,15 +46,15 @@ func gatherCAASProbes(
 		supported := provider.SupportedProbes()
 
 		if supported.Supports(probe.ProbeLiveness) {
-			probes.Liveness.Probes[id] = supported[probe.ProbeLiveness]
+			probes.probes[probe.ProbeLiveness].AddProber(id, supported[probe.ProbeLiveness])
 		}
 
 		if supported.Supports(probe.ProbeReadiness) {
-			probes.Readiness.Probes[id] = supported[probe.ProbeReadiness]
+			probes.probes[probe.ProbeReadiness].AddProber(id, supported[probe.ProbeReadiness])
 		}
 
 		if supported.Supports(probe.ProbeStartup) {
-			probes.Readiness.Probes[id] = supported[probe.ProbeStartup]
+			probes.probes[probe.ProbeStartup].AddProber(id, supported[probe.ProbeStartup])
 		}
 	}
 
@@ -81,15 +81,22 @@ func gatherCAASProbes(
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	providers := config.Providers
-	if providers == nil {
-		providers = []string{}
-	}
-
 	return dependency.Manifold{
-		Inputs: append([]string{config.MuxName}, providers...),
-		Output: nil,
+		Inputs: []string{config.MuxName},
 		Start:  config.Start,
+		Output: func(in worker.Worker, out interface{}) error {
+			controller, _ := in.(*Controller)
+			if controller == nil {
+				return errors.Errorf("expected Controller in")
+			}
+			switch outPtr := out.(type) {
+			case **CAASProbes:
+				*outPtr = controller.probes
+			default:
+				return errors.Errorf("unknown out type")
+			}
+			return nil
+		},
 	}
 }
 
