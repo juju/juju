@@ -155,8 +155,9 @@ type AtomicApplicationState interface {
 type ApplicationState interface {
 	AtomicApplicationState
 
-	// GetModelType returns the model type for the underlying model. If the model
-	// does not exist then an error satisfying [modelerrors.NotFound] will be returned.
+	// GetModelType returns the model type for the underlying model. If the
+	// model does not exist then an error satisfying [modelerrors.NotFound] will
+	// be returned.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// StorageDefaults returns the default storage sources for a model.
@@ -168,13 +169,13 @@ type ApplicationState interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
 	// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if any of the units don't
-	// exist.
+	// error satisfying [applicationerrors.UnitNotFound] if any of the units
+	// don't exist.
 	GetUnitUUIDs(context.Context, []coreunit.Name) ([]coreunit.UUID, error)
 
-	// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if any units are not
-	// found.
+	// GetUnitNames gets in bulk the names for the specified unit UUIDs,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if any
+	// units are not found.
 	GetUnitNames(context.Context, []coreunit.UUID) ([]coreunit.Name, error)
 
 	// UpsertCloudService updates the cloud service for the specified
@@ -204,8 +205,8 @@ type ApplicationState interface {
 	GetCharmIDByApplicationName(context.Context, string) (corecharm.ID, error)
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-	// doesn't exist.
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
 	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
@@ -217,6 +218,16 @@ type ApplicationState interface {
 	// with pending charms for the specified UUIDs. If the application has a
 	// different status, it's ignored.
 	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error)
+
+	// GetAsyncCharmDownloadInfo reserves the charm download for the specified
+	// application, returning an error satisfying
+	// [applicationerrors.AlreadyDownloadingCharm] if the application is already
+	// downloading a charm.
+	GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error)
+
+	// ResolveCharmDownload resolves the charm download for the specified
+	// application, updating the charm with the specified charm information.
+	ResolveCharmDownload(ctx context.Context, charmID corecharm.ID, info application.ResolvedCharmDownload) error
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -1255,25 +1266,82 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 	return s.st.GetApplicationsWithPendingCharmsFromUUIDs(ctx, uuids)
 }
 
-// ReserveCharmDownload reserves a charm download slot for the specified
+// GetAsyncCharmDownloadInfo returns a charm download info for the specified
 // application. If the charm is already being downloaded, the method will
-// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
+// return [applicationerrors.CharmAlreadyAvailable]. The charm download
 // information is returned which includes the charm name, origin and the
 // digest.
-func (s *Service) ReserveCharmDownload(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
 	if err := appID.Validate(); err != nil {
 		return application.CharmDownloadInfo{}, internalerrors.Errorf("application ID: %w", err)
 	}
 
-	return application.CharmDownloadInfo{}, errors.NotImplementedf("ReserveCharmDownload")
+	return s.st.GetAsyncCharmDownloadInfo(ctx, appID)
 }
 
 // ResolveCharmDownload resolves the charm download slot for the specified
 // application. The method will update the charm with the specified charm
 // information.
+// This returns [applicationerrors.CharmNotResolved] if the charm UUID isn't
+// the same as the one that was reserved.
 func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.ID, resolve application.ResolveCharmDownload) error {
 	if err := appID.Validate(); err != nil {
 		return internalerrors.Errorf("application ID: %w", err)
 	}
-	return errors.NotImplementedf("ResolveCharmDownload")
+
+	// Although, we're resolving the charm download, we're calling the
+	// reserve method to ensure that the charm download slot is still valid.
+	// This has the added benefit of returning the charm hash, so that we can
+	// verify the charm download. We don't want it to be passed in the resolve
+	// charm download, in case the caller has the wrong hash.
+	info, err := s.GetAsyncCharmDownloadInfo(ctx, appID)
+	// There is nothing to do if the charm is already downloaded or resolved.
+	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) ||
+		errors.Is(err, applicationerrors.CharmAlreadyResolved) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If the charm UUID doesn't match, what was downloaded then we need to
+	// return an error.
+	if info.CharmUUID != resolve.CharmUUID {
+		return applicationerrors.CharmNotResolved
+	}
+
+	// Make sure it's actually a valid charm.
+	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
+	if err != nil {
+		return errors.Annotatef(err, "reading charm archive %q", resolve.Path)
+	}
+
+	// Encode the charm before we even attempt to store it. The charm storage
+	// backend could be the other side of the globe.
+	domainCharm, warnings, err := encodeCharm(charm)
+	if err != nil {
+		return errors.Annotatef(err, "encoding charm %q", resolve.Path)
+	} else if len(warnings) > 0 {
+		s.logger.Debugf("encoding charm %q: %v", resolve.Path, warnings)
+	}
+
+	// Use the hash from the reservation, incase the caller has the wrong hash.
+	// The resulting objectStoreUUID will enable RI between the charm and the
+	// object store.
+	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, info.Hash)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We must ensure that the objectstore UUID is valid.
+	if err := objectStoreUUID.Validate(); err != nil {
+		return internalerrors.Errorf("invalid object store UUID: %w", err)
+	}
+
+	// Resolve the charm download, which will set itself to available.
+	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, application.ResolvedCharmDownload{
+		Actions:         domainCharm.Actions,
+		LXDProfile:      domainCharm.LXDProfile,
+		ObjectStoreUUID: objectStoreUUID,
+		ArchivePath:     archivePath,
+	})
 }

@@ -141,9 +141,9 @@ const (
 	// so if another is found, an error is returned.
 	MultipleCharmHashes = errors.ConstError("multiple charm hashes found")
 
-	// AlreadyDownloadingCharm describes an error that occurs when a charm is
-	// already being downloaded.
-	AlreadyDownloadingCharm = errors.ConstError("already downloading charm")
+	// CharmAlreadyAvailable describes an error that occurs when a charm is
+	// already been made available. There is no need to download it again.
+	CharmAlreadyAvailable = errors.ConstError("charm already available")
 
 	// UnableToResolveCharm describes an error that occurs when a charm cannot
 	// be resolved.

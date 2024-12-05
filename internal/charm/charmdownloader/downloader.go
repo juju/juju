@@ -5,54 +5,50 @@ package charmdownloader
 
 import (
 	"context"
+	"net/url"
 	"os"
-	"strings"
 
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"
 )
 
 const (
-	// ErrInvalidHash is returned when the hash of the downloaded charm does not
-	// match the expected hash.
-	ErrInvalidHash = errors.ConstError("invalid hash")
+	// ErrInvalidDigestHash is returned when the hash of the downloaded charm
+	// does not match the expected hash.
+	ErrInvalidDigestHash = errors.ConstError("invalid origin hash")
+
+	// ErrInvalidOriginHash is returned when the hash of the actual origin
+	// does not match the expected hash.
+	ErrInvalidOriginHash = errors.ConstError("invalid origin hash")
 )
 
-// CharmRepository provides an API for downloading charms/bundles.
-type CharmRepository interface {
-	// Download downloads a blob with the specified name and origin to the
-	// specified path. The origin is used to determine the source of the blob
-	// and the channel to use when downloading the blob.
-	Download(ctx context.Context, blobName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.Origin, *charmhub.Digest, error)
-}
-
-// RepositoryGetter returns a suitable CharmRepository for the specified Source.
-type RepositoryGetter interface {
-	GetCharmRepository(context.Context, corecharm.Source) (CharmRepository, error)
+// DownloadClient describes the API exposed by the charmhub client.
+type DownloadClient interface {
+	// Download retrieves the specified charm from the store and saves its
+	// contents to the specified path. Read the path to get the contents of the
+	// charm.
+	Download(ctx context.Context, url *url.URL, path string, options ...charmhub.DownloadOption) (*charmhub.Digest, error)
 }
 
 // DownloadResult contains information about a downloaded charm.
 type DownloadResult struct {
-	Path   string
-	Origin corecharm.Origin
-	Size   int64
+	Path string
+	Size int64
 }
 
 // CharmDownloader implements store-agnostic download and persistence of charm
 // blobs.
 type CharmDownloader struct {
-	repoGetter RepositoryGetter
-	logger     logger.Logger
+	client DownloadClient
+	logger logger.Logger
 }
 
 // NewCharmDownloader returns a new charm downloader instance.
-func NewCharmDownloader(repoGetter RepositoryGetter, logger logger.Logger) *CharmDownloader {
+func NewCharmDownloader(client DownloadClient, logger logger.Logger) *CharmDownloader {
 	return &CharmDownloader{
-		repoGetter: repoGetter,
-		logger:     logger,
+		client: client,
+		logger: logger,
 	}
 }
 
@@ -65,44 +61,10 @@ func NewCharmDownloader(repoGetter RepositoryGetter, logger logger.Logger) *Char
 //
 // Returns [ErrInvalidHash] if the hash of the downloaded charm does not match
 // the expected hash.
-func (d *CharmDownloader) Download(ctx context.Context, name string, requestedOrigin corecharm.Origin) (*DownloadResult, error) {
-	channelOrigin := requestedOrigin
+func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash string) (_ *DownloadResult, err error) {
+	d.logger.Debugf("downloading charm: %s", url)
 
-	var err error
-	channelOrigin.Platform, err = d.normalizePlatform(name, requestedOrigin.Platform)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Get the repository for the requested origin source. Allowing us to
-	// switch between different charm sources (charmhub).
-	repo, err := d.getRepo(ctx, requestedOrigin.Source)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Download the charm from the repository and hash it.
-	result, err := d.download(ctx, name, channelOrigin, repo)
-	if err != nil {
-		return nil, errors.Errorf("downloading %q using origin %v: %w", name, requestedOrigin, err)
-	}
-
-	return result, nil
-}
-
-func (d *CharmDownloader) getRepo(ctx context.Context, src corecharm.Source) (CharmRepository, error) {
-	repo, err := d.repoGetter.GetCharmRepository(ctx, src)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return repo, nil
-}
-
-func (d *CharmDownloader) download(ctx context.Context, name string, requestedOrigin corecharm.Origin, repo CharmRepository) (result *DownloadResult, err error) {
-	d.logger.Debugf("downloading charm %q using origin %v", name, requestedOrigin)
-
-	tmpFile, err := os.CreateTemp("", name)
+	tmpFile, err := os.CreateTemp("", "charm-")
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -127,37 +89,21 @@ func (d *CharmDownloader) download(ctx context.Context, name string, requestedOr
 		}
 	}()
 
-	actualOrigin, digest, err := repo.Download(ctx, name, requestedOrigin, tmpFile.Name())
+	// Force the sha256 digest to be calculated on download.
+	digest, err := d.client.Download(ctx, url, tmpFile.Name(), charmhub.WithEnsureDigest(charmhub.SHA256))
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	// We expect that after downloading the result is verified.
-	if digest.Hash != requestedOrigin.Hash {
-		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidHash, requestedOrigin.Hash, digest.Hash)
+	if digest.Hash != hash {
+		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidDigestHash, hash, digest.Hash)
 	}
 
-	d.logger.Debugf("downloaded charm %q from actual origin %v", name, actualOrigin)
+	d.logger.Debugf("downloaded charm: %q", url)
 
 	return &DownloadResult{
-		Path:   tmpFile.Name(),
-		Origin: actualOrigin,
-		Size:   digest.Size,
-	}, nil
-}
-
-func (d *CharmDownloader) normalizePlatform(charmName string, platform corecharm.Platform) (corecharm.Platform, error) {
-	arc := platform.Architecture
-	if platform.Architecture == "" || platform.Architecture == "all" {
-		d.logger.Warningf("received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmName)
-		arc = arch.DefaultArchitecture
-	}
-
-	// Values passed to the api are case sensitive: ubuntu succeeds and
-	// Ubuntu returns `"code": "revision-not-found"`
-	return corecharm.Platform{
-		Architecture: arc,
-		OS:           strings.ToLower(platform.OS),
-		Channel:      platform.Channel,
+		Path: tmpFile.Name(),
+		Size: digest.Size,
 	}, nil
 }

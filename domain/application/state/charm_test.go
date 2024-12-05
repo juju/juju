@@ -2362,9 +2362,9 @@ func (s *charmStateSuite) TestGetCharmLXDProfile(c *gc.C) {
 		}
 
 		_, err := tx.ExecContext(ctx, `
-UPDATE charm_metadata
+UPDATE charm
 SET lxd_profile = ?
-WHERE charm_uuid = ?
+WHERE uuid = ?
 `, `{"profile": []}`, uuid)
 		if err != nil {
 			return errors.Trace(err)

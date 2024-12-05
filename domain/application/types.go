@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -179,9 +180,10 @@ type UnitWorkloadStatusInfo struct {
 
 // CharmDownloadInfo contains parameters for downloading a charm.
 type CharmDownloadInfo struct {
-	CharmUUID charm.ID
-	Name      string
-	Origin    charm.Origin
+	CharmUUID    charm.ID
+	Name         string
+	Hash         string
+	DownloadInfo domaincharm.DownloadInfo
 }
 
 // ResolveCharmDownload contains parameters for resolving a charm download.
@@ -189,4 +191,14 @@ type ResolveCharmDownload struct {
 	CharmUUID charm.ID
 	Path      string
 	Size      int64
+}
+
+// ResolvedCharmDownload contains parameters for a resolved charm download.
+type ResolvedCharmDownload struct {
+	// Actions is the actions that the charm supports.
+	// Deprecated: should be filled in by the charm store.
+	Actions         domaincharm.Actions
+	LXDProfile      []byte
+	ObjectStoreUUID objectstore.UUID
+	ArchivePath     string
 }

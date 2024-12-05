@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination package_mocks_test.go github.com/juju/juju/internal/worker/asynccharmdownloader ApplicationService,ModelConfigService,Downloader
+//go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination package_mocks_test.go github.com/juju/juju/internal/worker/asynccharmdownloader ApplicationService,Downloader
 //go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination http_mocks_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
 
@@ -27,7 +27,6 @@ type baseSuite struct {
 	testing.IsolationSuite
 
 	applicationService *MockApplicationService
-	modelConfigService *MockModelConfigService
 	downloader         *MockDownloader
 	clock              *MockClock
 	httpClientGetter   *MockHTTPClientGetter
@@ -38,7 +37,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
-	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.downloader = NewMockDownloader(ctrl)
 	s.clock = NewMockClock(ctrl)
 

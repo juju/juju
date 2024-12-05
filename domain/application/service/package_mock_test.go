@@ -20,6 +20,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -489,6 +490,45 @@ func (c *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall) Do(f func(conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall) DoAndReturn(f func(context.Context, []application.ID) ([]application.ID, error)) *MockStateGetApplicationsWithPendingCharmsFromUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAsyncCharmDownloadInfo mocks base method.
+func (m *MockState) GetAsyncCharmDownloadInfo(arg0 context.Context, arg1 application.ID) (application0.CharmDownloadInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAsyncCharmDownloadInfo", arg0, arg1)
+	ret0, _ := ret[0].(application0.CharmDownloadInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAsyncCharmDownloadInfo indicates an expected call of GetAsyncCharmDownloadInfo.
+func (mr *MockStateMockRecorder) GetAsyncCharmDownloadInfo(arg0, arg1 any) *MockStateGetAsyncCharmDownloadInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAsyncCharmDownloadInfo", reflect.TypeOf((*MockState)(nil).GetAsyncCharmDownloadInfo), arg0, arg1)
+	return &MockStateGetAsyncCharmDownloadInfoCall{Call: call}
+}
+
+// MockStateGetAsyncCharmDownloadInfoCall wrap *gomock.Call
+type MockStateGetAsyncCharmDownloadInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAsyncCharmDownloadInfoCall) Return(arg0 application0.CharmDownloadInfo, arg1 error) *MockStateGetAsyncCharmDownloadInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAsyncCharmDownloadInfoCall) Do(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockStateGetAsyncCharmDownloadInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAsyncCharmDownloadInfoCall) DoAndReturn(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockStateGetAsyncCharmDownloadInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1704,6 +1744,44 @@ func (c *MockStateListCharmLocatorsByNamesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// ResolveCharmDownload mocks base method.
+func (m *MockState) ResolveCharmDownload(arg0 context.Context, arg1 charm.ID, arg2 application0.ResolvedCharmDownload) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveCharmDownload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ResolveCharmDownload indicates an expected call of ResolveCharmDownload.
+func (mr *MockStateMockRecorder) ResolveCharmDownload(arg0, arg1, arg2 any) *MockStateResolveCharmDownloadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveCharmDownload", reflect.TypeOf((*MockState)(nil).ResolveCharmDownload), arg0, arg1, arg2)
+	return &MockStateResolveCharmDownloadCall{Call: call}
+}
+
+// MockStateResolveCharmDownloadCall wrap *gomock.Call
+type MockStateResolveCharmDownloadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateResolveCharmDownloadCall) Return(arg0 error) *MockStateResolveCharmDownloadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateResolveCharmDownloadCall) Do(f func(context.Context, charm.ID, application0.ResolvedCharmDownload) error) *MockStateResolveCharmDownloadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateResolveCharmDownloadCall) DoAndReturn(f func(context.Context, charm.ID, application0.ResolvedCharmDownload) error) *MockStateResolveCharmDownloadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RunAtomic mocks base method.
 func (m *MockState) RunAtomic(arg0 context.Context, arg1 func(domain.AtomicContext) error) error {
 	m.ctrl.T.Helper()
@@ -2699,6 +2777,46 @@ func (c *MockCharmStoreGetBySHA256PrefixCall) Do(f func(context.Context, string)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, error)) *MockCharmStoreGetBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Store mocks base method.
+func (m *MockCharmStore) Store(arg0 context.Context, arg1 string, arg2 int64, arg3 string) (string, objectstore.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Store", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(objectstore.UUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Store indicates an expected call of Store.
+func (mr *MockCharmStoreMockRecorder) Store(arg0, arg1, arg2, arg3 any) *MockCharmStoreStoreCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Store", reflect.TypeOf((*MockCharmStore)(nil).Store), arg0, arg1, arg2, arg3)
+	return &MockCharmStoreStoreCall{Call: call}
+}
+
+// MockCharmStoreStoreCall wrap *gomock.Call
+type MockCharmStoreStoreCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStoreStoreCall) Return(arg0 string, arg1 objectstore.UUID, arg2 error) *MockCharmStoreStoreCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStoreStoreCall) Do(f func(context.Context, string, int64, string) (string, objectstore.UUID, error)) *MockCharmStoreStoreCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, int64, string) (string, objectstore.UUID, error)) *MockCharmStoreStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

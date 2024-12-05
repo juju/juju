@@ -113,8 +113,10 @@ AFTER UPDATE ON charm FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
 	(NEW.archive_path != OLD.archive_path OR (NEW.archive_path IS NOT NULL AND OLD.archive_path IS NULL) OR (NEW.archive_path IS NULL AND OLD.archive_path IS NOT NULL)) OR
+	(NEW.object_store_uuid != OLD.object_store_uuid OR (NEW.object_store_uuid IS NOT NULL AND OLD.object_store_uuid IS NULL) OR (NEW.object_store_uuid IS NULL AND OLD.object_store_uuid IS NOT NULL)) OR
 	(NEW.available != OLD.available OR (NEW.available IS NOT NULL AND OLD.available IS NULL) OR (NEW.available IS NULL AND OLD.available IS NOT NULL)) OR
 	(NEW.version != OLD.version OR (NEW.version IS NOT NULL AND OLD.version IS NULL) OR (NEW.version IS NULL AND OLD.version IS NOT NULL)) OR
+	(NEW.lxd_profile != OLD.lxd_profile OR (NEW.lxd_profile IS NOT NULL AND OLD.lxd_profile IS NULL) OR (NEW.lxd_profile IS NULL AND OLD.lxd_profile IS NOT NULL)) OR
 	NEW.source_id != OLD.source_id OR
 	NEW.revision != OLD.revision OR
 	(NEW.architecture_id != OLD.architecture_id OR (NEW.architecture_id IS NOT NULL AND OLD.architecture_id IS NULL) OR (NEW.architecture_id IS NULL AND OLD.architecture_id IS NOT NULL)) OR

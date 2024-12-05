@@ -1728,7 +1728,7 @@ WHERE uuid = $applicationID.uuid
 		return "", errors.Trace(err)
 	}
 
-	return corecharm.ID(result.UUID), nil
+	return corecharm.ParseID(result.UUID)
 }
 
 // GetCharmByApplicationID returns the charm for the specified application
@@ -1871,4 +1871,149 @@ WHERE uuid = $applicationID.uuid
 		return -1, internalerrors.Errorf("querying charm modified version: %w", err)
 	}
 	return version.CharmModifiedVersion, err
+}
+
+// GetAsyncCharmDownloadInfo gets the charm download for the specified
+// application, returning an error satisfying
+// [applicationerrors.CharmAlreadyAvailable] if the application is already
+// downloading a charm, or [applicationerrors.ApplicationNotFound] if the
+// application is not found.
+func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Capture(err)
+	}
+
+	appIdent := applicationID{ID: appID}
+
+	query, err := st.Prepare(`
+SELECT &applicationCharmDownloadInfo.*
+FROM v_application_charm_download_info
+WHERE application_uuid = $applicationID.uuid
+`, applicationCharmDownloadInfo{}, appIdent)
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("preparing query for application %q: %w", appID, err)
+	}
+
+	var info applicationCharmDownloadInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, appIdent).Get(&info)
+		if internalerrors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return err
+		}
+		if info.Available {
+			return applicationerrors.CharmAlreadyAvailable
+		}
+		return nil
+	})
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("reserving charm download for application %q: %w", appID, err)
+	}
+
+	// We can only reserve charms from CharmHub charms.
+	if source, err := decodeCharmSource(info.SourceID); err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("decoding charm source for %q: %w", appID, err)
+	} else if source != charm.CharmHubSource {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmProvenanceNotValid)
+	}
+
+	charmUUID, err := corecharm.ParseID(info.CharmUUID)
+	if err != nil {
+		return application.CharmDownloadInfo{}, internalerrors.Errorf("encoding charm uuid for %q: %w", appID, err)
+	}
+
+	provenance, err := decodeProvenance(info.DownloadProvenance)
+	if err != nil {
+		return application.CharmDownloadInfo{}, fmt.Errorf("decoding charm provenance: %w", err)
+	}
+
+	return application.CharmDownloadInfo{
+		CharmUUID: charmUUID,
+		Name:      info.Name,
+		Hash:      info.Hash,
+		DownloadInfo: charm.DownloadInfo{
+			Provenance:         provenance,
+			DownloadURL:        info.DownloadURL,
+			CharmhubIdentifier: info.CharmhubIdentifier,
+			DownloadSize:       info.DownloadSize,
+		},
+	}, nil
+}
+
+// ResolveCharmDownload resolves the charm download for the specified
+// application, updating the charm with the specified charm information.
+// This will only set mutable charm fields. Currently this will also set
+// actions.yaml, although that will be removed once the charmhub store
+// provides this information.
+// Returns an error satisfying [applicationerrors.CharmNotFound] if the charm
+// is not found, and [applicationerrors.CharmAlreadyResolved] if the charm is
+// already resolved.
+func (st *State) ResolveCharmDownload(ctx context.Context, id corecharm.ID, info application.ResolvedCharmDownload) error {
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	charmUUID := charmID{UUID: id.String()}
+
+	resolvedQuery := `
+SELECT &charmAvailable.*
+FROM charm
+WHERE uuid = $charmID.uuid
+`
+	resolvedStmt, err := st.Prepare(resolvedQuery, charmUUID, charmAvailable{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for charm %q: %w", id, err)
+	}
+
+	chState := resolveCharmState{
+		ArchivePath:     info.ArchivePath,
+		ObjectStoreUUID: info.ObjectStoreUUID.String(),
+		LXDProfile:      info.LXDProfile,
+	}
+
+	charmQuery := `
+UPDATE charm
+SET
+	archive_path = $resolveCharmState.archive_path,
+	object_store_uuid = $resolveCharmState.object_store_uuid,
+	lxd_profile = $resolveCharmState.lxd_profile,
+	available = TRUE
+WHERE uuid = $charmID.uuid;`
+	charmStmt, err := st.Prepare(charmQuery, charmUUID, chState)
+	if err != nil {
+		return fmt.Errorf("preparing query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var available charmAvailable
+		err := tx.Query(ctx, resolvedStmt, charmUUID).Get(&available)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		} else if available.Available {
+			// If the charm is already resolved, we don't need to provide
+			// any additional information.
+			return applicationerrors.CharmAlreadyResolved
+		}
+
+		// Write the charm actions.yaml, this will actually disappear once the
+		// charmhub store provides this information.
+		if err = st.setCharmActions(ctx, tx, id, info.Actions); err != nil {
+			return internalerrors.Errorf("setting charm actions for %q: %w", id, err)
+		}
+
+		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {
+			return fmt.Errorf("updating charm state: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internalerrors.Errorf("resolving charm download for %q: %w", id, err)
+	}
+	return nil
 }

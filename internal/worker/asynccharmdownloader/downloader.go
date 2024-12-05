@@ -5,6 +5,8 @@ package asynccharmdownloader
 
 import (
 	"context"
+	"net/url"
+	"os"
 	"time"
 
 	"github.com/juju/clock"
@@ -72,8 +74,8 @@ func (w *asyncDownloadWorker) loop() error {
 
 	w.logger.Infof("downloading charm for application %q", w.appID)
 
-	info, err := w.applicationService.ReserveCharmDownload(ctx, w.appID)
-	if errors.Is(err, applicationerrors.AlreadyDownloadingCharm) {
+	info, err := w.applicationService.GetAsyncCharmDownloadInfo(ctx, w.appID)
+	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		// If the application is already downloading a charm, we can skip this
 		// application.
 		return nil
@@ -81,11 +83,17 @@ func (w *asyncDownloadWorker) loop() error {
 		return errors.Capture(err)
 	}
 
+	// Ensure we've got a valid URL.
+	url, err := url.Parse(info.DownloadInfo.DownloadURL)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Download the charm for the application.
 	var result *charmdownloader.DownloadResult
 	if err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			result, err = w.downloader.Download(ctx, info.Name, info.Origin)
+			result, err = w.downloader.Download(ctx, url, info.Hash)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -101,6 +109,13 @@ func (w *asyncDownloadWorker) loop() error {
 	}); err != nil {
 		return errors.Capture(err)
 	}
+
+	// Ensure the charm is removed after the worker has finished.
+	defer func() {
+		if err := os.Remove(result.Path); err != nil && !os.IsNotExist(err) {
+			w.logger.Warningf("failed to remove temporary file %q: %v", result.Path, err)
+		}
+	}()
 
 	// The charm has been downloaded, we can now resolve the download slot.
 	err = w.applicationService.ResolveCharmDownload(ctx, w.appID, domainapplication.ResolveCharmDownload{

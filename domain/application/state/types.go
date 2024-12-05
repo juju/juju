@@ -248,6 +248,15 @@ type setCharmState struct {
 	SourceID       int           `db:"source_id"`
 	ArchitectureID sql.NullInt64 `db:"architecture_id"`
 	Version        string        `db:"version"`
+	LXDProfile     []byte        `db:"lxd_profile"`
+}
+
+// resolveCharmState is used to resolve the charm state. This will make the
+// charm available if it is not already.
+type resolveCharmState struct {
+	ObjectStoreUUID string `db:"object_store_uuid"`
+	ArchivePath     string `db:"archive_path"`
+	LXDProfile      []byte `db:"lxd_profile"`
 }
 
 // charmDownloadInfo is used to get the download info of a charm.
@@ -289,7 +298,6 @@ type setCharmMetadata struct {
 	MinJujuVersion string `db:"min_juju_version"`
 	Assumes        []byte `db:"assumes"`
 	RunAsID        int    `db:"run_as_id"`
-	LXDProfile     []byte `db:"lxd_profile"`
 }
 
 // charmTag is used to get the tags of a charm.
@@ -607,4 +615,16 @@ type charmLocator struct {
 	Revision       int           `db:"revision"`
 	SourceID       int           `db:"source_id"`
 	ArchitectureID sql.NullInt64 `db:"architecture_id"`
+}
+
+type applicationCharmDownloadInfo struct {
+	CharmUUID          string `db:"charm_uuid"`
+	Name               string `db:"name"`
+	Available          bool   `db:"available"`
+	Hash               string `db:"hash"`
+	DownloadProvenance string `db:"provenance"`
+	CharmhubIdentifier string `db:"charmhub_identifier"`
+	DownloadURL        string `db:"download_url"`
+	DownloadSize       int64  `db:"download_size"`
+	SourceID           int    `db:"source_id"`
 }

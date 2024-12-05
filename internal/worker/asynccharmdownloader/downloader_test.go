@@ -5,8 +5,10 @@ package asynccharmdownloader
 
 import (
 	"context"
+	"net/url"
 	time "time"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -14,9 +16,9 @@ import (
 
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
-	"github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	domainapplication "github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/errors"
@@ -38,23 +40,27 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
 
 	done := make(chan struct{})
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
-		Hash:   "hash",
-	}
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Origin:    origin,
+		Hash:      "hash",
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       123,
+		},
 	}
 	downloadResult := &charmdownloader.DownloadResult{
-		Path:   "path",
-		Origin: origin,
-		Size:   int64(123),
+		Path: "path",
+		Size: int64(123),
 	}
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
-	s.downloader.EXPECT().Download(gomock.Any(), "foo", origin).Return(downloadResult, nil)
+	curl, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",
@@ -84,28 +90,32 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
 
 	done := make(chan struct{})
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
-		Hash:   "hash",
-	}
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Origin:    origin,
+		Hash:      "hash",
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       123,
+		},
 	}
 	downloadResult := &charmdownloader.DownloadResult{
-		Path:   "path",
-		Origin: origin,
-		Size:   int64(123),
+		Path: "path",
+		Size: int64(123),
 	}
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
+	curl, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 
 	// Expect the download to fail twice before succeeding.
 
 	gomock.InOrder(
-		s.downloader.EXPECT().Download(gomock.Any(), "foo", origin).Return(downloadResult, errors.Errorf("boom")).Times(retryAttempts-1),
-		s.downloader.EXPECT().Download(gomock.Any(), "foo", origin).Return(downloadResult, nil),
+		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, errors.Errorf("boom")).Times(retryAttempts-1),
+		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil),
 	)
 
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
@@ -137,26 +147,30 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
 
 	done := make(chan struct{})
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
-		Hash:   "hash",
-	}
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Origin:    origin,
+		Hash:      "hash",
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       123,
+		},
 	}
 	downloadResult := &charmdownloader.DownloadResult{
-		Path:   "path",
-		Origin: origin,
-		Size:   int64(123),
+		Path: "path",
+		Size: int64(123),
 	}
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
+	curl, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
 
 	gomock.InOrder(
-		s.downloader.EXPECT().Download(gomock.Any(), "foo", origin).Return(downloadResult, errors.Errorf("boom")).Times(retryAttempts-1),
-		s.downloader.EXPECT().Download(gomock.Any(), "foo", origin).DoAndReturn(func(ctx context.Context, s string, o charm.Origin) (*charmdownloader.DownloadResult, error) {
+		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, errors.Errorf("boom")).Times(retryAttempts-1),
+		s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").DoAndReturn(func(ctx context.Context, u *url.URL, h string) (*charmdownloader.DownloadResult, error) {
 			close(done)
 			return nil, errors.Errorf("boom")
 		}),
@@ -171,7 +185,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 }
 
@@ -183,19 +197,21 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *gc.C) {
 
 	done := make(chan struct{})
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
-		Hash:   "hash",
-	}
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Origin:    origin,
+		Hash:      "hash",
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       123,
+		},
 	}
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.ID) (domainapplication.CharmDownloadInfo, error) {
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.ID) (domainapplication.CharmDownloadInfo, error) {
 		close(done)
-		return reserveInfo, applicationerrors.AlreadyDownloadingCharm
+		return reserveInfo, applicationerrors.CharmAlreadyAvailable
 	})
 
 	w := s.newWorker(c, appID)
@@ -218,23 +234,27 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 
 	done := make(chan struct{})
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
-		Hash:   "hash",
-	}
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Origin:    origin,
+		Hash:      "hash",
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       123,
+		},
 	}
 	downloadResult := &charmdownloader.DownloadResult{
-		Path:   "path",
-		Origin: origin,
-		Size:   int64(123),
+		Path: "path",
+		Size: int64(123),
 	}
 
-	s.applicationService.EXPECT().ReserveCharmDownload(gomock.Any(), appID).Return(reserveInfo, nil)
-	s.downloader.EXPECT().Download(gomock.Any(), "foo", origin).Return(downloadResult, nil)
+	curl, err := url.Parse("https://example.com/foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).Return(reserveInfo, nil)
+	s.downloader.EXPECT().Download(gomock.Any(), curl, "hash").Return(downloadResult, nil)
 	s.applicationService.EXPECT().ResolveCharmDownload(gomock.Any(), appID, domainapplication.ResolveCharmDownload{
 		CharmUUID: charmID,
 		Path:      "path",

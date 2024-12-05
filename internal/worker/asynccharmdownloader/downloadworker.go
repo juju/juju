@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,12 +24,6 @@ const (
 	// States which report the state of the worker.
 	stateStarted = "started"
 )
-
-// ModelConfigService provides access to the model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
 
 // ApplicationService describes the API exposed by the charm downloader facade.
 type ApplicationService interface {
@@ -41,12 +34,12 @@ type ApplicationService interface {
 	// have the same application ID multiple times in the list.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
 
-	// ReserveCharmDownload reserves a charm download slot for the specified
+	// GetAsyncCharmDownloadInfo reserves a charm download slot for the specified
 	// application. If the charm is already being downloaded, the method will
 	// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
 	// information is returned which includes the charm name, origin and the
 	// digest.
-	ReserveCharmDownload(ctx context.Context, appID application.ID) (domainapplication.CharmDownloadInfo, error)
+	GetAsyncCharmDownloadInfo(ctx context.Context, appID application.ID) (domainapplication.CharmDownloadInfo, error)
 
 	// ResolveCharmDownload resolves the charm download slot for the specified
 	// application. The method will update the charm with the specified charm
@@ -57,7 +50,6 @@ type ApplicationService interface {
 // Config defines the operation of a Worker.
 type Config struct {
 	ApplicationService     ApplicationService
-	ModelConfigService     ModelConfigService
 	HTTPClientGetter       corehttp.HTTPClientGetter
 	NewHTTPClient          NewHTTPClientFunc
 	NewDownloader          NewDownloaderFunc
@@ -70,9 +62,6 @@ type Config struct {
 func (cfg Config) Validate() error {
 	if cfg.ApplicationService == nil {
 		return jujuerrors.NotValidf("nil ApplicationService")
-	}
-	if cfg.ModelConfigService == nil {
-		return jujuerrors.NotValidf("nil ModelConfigService")
 	}
 	if cfg.HTTPClientGetter == nil {
 		return jujuerrors.NotValidf("nil HTTPClientGetter")
@@ -196,7 +185,7 @@ func (w *Worker) loop() error {
 				return errors.Capture(err)
 			}
 
-			downloader := w.config.NewDownloader(httpClient, w.config.ModelConfigService, logger)
+			downloader := w.config.NewDownloader(httpClient, logger)
 
 			// Start up a series of workers to download the charms for the
 			// applications asynchronously. We do not want to block the any

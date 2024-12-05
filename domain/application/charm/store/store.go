@@ -5,8 +5,7 @@ package store
 
 import (
 	"context"
-	"encoding/base32"
-	"fmt"
+	"encoding/base64"
 	"io"
 	"os"
 
@@ -25,31 +24,31 @@ const (
 // CharmStore provides an API for storing and retrieving charm blobs.
 type CharmStore struct {
 	objectStoreGetter objectstore.ModelObjectStoreGetter
-	encoder           *base32.Encoding
+	encoder           *base64.Encoding
 }
 
 // NewCharmStore returns a new charm store instance.
 func NewCharmStore(objectStoreGetter objectstore.ModelObjectStoreGetter) *CharmStore {
 	return &CharmStore{
 		objectStoreGetter: objectStoreGetter,
-		encoder:           base32.StdEncoding.WithPadding(base32.NoPadding),
+		encoder:           base64.StdEncoding.WithPadding(base64.NoPadding),
 	}
 }
 
 // Store the charm at the specified path into the object store. It is expected
 // that the archive already exists at the specified path. If the file isn't
 // found, a [ErrNotFound] is returned.
-func (s *CharmStore) Store(ctx context.Context, name string, path string, size int64, hash string) (objectstore.UUID, error) {
+func (s *CharmStore) Store(ctx context.Context, path string, size int64, hash string) (string, objectstore.UUID, error) {
 	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return "", errors.Errorf("getting object store: %w", err)
+		return "", "", errors.Errorf("getting object store: %w", err)
 	}
 
 	file, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", errors.Errorf("%q: %w", path, ErrNotFound)
+		return "", "", errors.Errorf("%q: %w", path, ErrNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("cannot open file %q: %w", path, err)
+		return "", "", errors.Errorf("opening file %q: %w", path, err)
 	}
 
 	// Ensure that we close any open handles to the file.
@@ -58,28 +57,28 @@ func (s *CharmStore) Store(ctx context.Context, name string, path string, size i
 	// Generate a unique path for the file.
 	unique, err := uuid.NewUUID()
 	if err != nil {
-		return "", errors.Errorf("cannot generate unique path")
+		return "", "", errors.Errorf("cannot generate unique path")
 	}
-
-	// The name won't be unique and that's ok. In that case, we'll slap a
-	// unique identifier at the end of the name. This can happen if you have
-	// a charm with the same name but different content.
-	uniqueName := fmt.Sprintf("%s-%s", name, s.encoder.EncodeToString(unique[:]))
+	uniqueName := s.encoder.EncodeToString(unique[:])
 
 	// Store the file in the object store.
-	return objectStore.PutAndCheckHash(ctx, uniqueName, file, size, hash)
+	uuid, err := objectStore.PutAndCheckHash(ctx, uniqueName, file, size, hash)
+	if err != nil {
+		return "", "", errors.Errorf("putting charm: %w", err)
+	}
+	return uniqueName, uuid, nil
 }
 
 // Get retrieves a ReadCloser for the charm archive at the give path from
 // the underlying storage.
 // NOTE: It is up to the caller to verify the integrity of the data from the charm
 // hash stored in DQLite.
-func (s *CharmStore) Get(ctx context.Context, archivePath string) (io.ReadCloser, error) {
+func (s *CharmStore) Get(ctx context.Context, path string) (io.ReadCloser, error) {
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting object store: %w", err)
 	}
-	reader, _, err := store.Get(ctx, archivePath)
+	reader, _, err := store.Get(ctx, path)
 	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
 		return nil, applicationerrors.CharmNotFound
 	}

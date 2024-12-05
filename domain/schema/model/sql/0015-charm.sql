@@ -22,9 +22,12 @@ CREATE TABLE charm (
     -- Archive path is the path to the charm archive on disk. This is used to
     -- determine the source of the charm.
     archive_path TEXT,
+    object_store_uuid TEXT,
+
     available BOOLEAN DEFAULT FALSE,
 
     version TEXT,
+    lxd_profile TEXT,
 
     -- The following fields are purely here to reconstruct the charm URL.
     -- Once we have the ability to only talk about charms in terms of a UUID,
@@ -55,6 +58,9 @@ CREATE TABLE charm (
     CONSTRAINT fk_charm_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
+    CONSTRAINT fk_charm_object_store_metadata
+    FOREIGN KEY (object_store_uuid)
+    REFERENCES object_store_metadata (uuid),
 
     -- Ensure we have an architecture if the source is charmhub.
     CONSTRAINT chk_charm_architecture
@@ -103,6 +109,25 @@ CREATE TABLE charm_download_info (
     REFERENCES charm (uuid)
 );
 
+CREATE VIEW v_application_charm_download_info AS
+SELECT
+    a.uuid AS application_uuid,
+    c.uuid AS charm_uuid,
+    c.reference_name AS name,
+    c.available,
+    cs.id AS source_id,
+    cp.name AS provenance,
+    cdi.charmhub_identifier,
+    cdi.download_url,
+    cdi.download_size,
+    ch.hash
+FROM application AS a
+LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
+LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+LEFT JOIN charm_provenance AS cp ON cdi.provenance_id = cp.id
+LEFT JOIN charm_source AS cs ON c.source_id = cs.id
+LEFT JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
+
 CREATE TABLE charm_metadata (
     charm_uuid TEXT NOT NULL,
     -- name represents the original name of the charm. This is what is stored
@@ -118,7 +143,6 @@ CREATE TABLE charm_metadata (
     -- As the expression tree is generic, you can't use RI or index into the
     -- blob without constraining the expression to a specific set of rules.
     assumes TEXT,
-    lxd_profile TEXT,
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
     REFERENCES charm_run_as_kind (id),
