@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
@@ -37,6 +35,8 @@ import (
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"

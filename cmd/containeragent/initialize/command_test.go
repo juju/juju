@@ -9,8 +9,6 @@ import (
 	"os"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +20,8 @@ import (
 	"github.com/juju/juju/cmd/containeragent/initialize"
 	"github.com/juju/juju/cmd/containeragent/initialize/mocks"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 

@@ -4,14 +4,14 @@
 package jujuc_test
 
 import (
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )

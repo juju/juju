@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	gorillaws "github.com/gorilla/websocket"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/mitchellh/go-linereader"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/websocket"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/jujuclient"

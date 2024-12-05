@@ -4,11 +4,11 @@
 package jujuc
 
 import (
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // StateGetCommand implements the state-get command.

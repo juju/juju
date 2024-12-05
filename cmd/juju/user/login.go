@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"

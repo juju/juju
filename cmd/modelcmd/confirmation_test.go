@@ -6,7 +6,6 @@ package modelcmd_test
 import (
 	"context"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/modelcmd/mocks"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 )
 

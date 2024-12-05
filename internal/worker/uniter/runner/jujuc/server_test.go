@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/juju/sockets"

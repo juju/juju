@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )

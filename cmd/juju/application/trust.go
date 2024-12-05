@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/cmd"
 )
 
 const (

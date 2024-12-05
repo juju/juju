@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cmd"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"

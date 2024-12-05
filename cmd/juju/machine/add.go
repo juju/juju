@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )

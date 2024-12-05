@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
@@ -30,6 +29,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"

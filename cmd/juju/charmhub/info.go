@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -16,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/cmd"
 )
 
 const (

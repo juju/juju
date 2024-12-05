@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +22,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"

@@ -6,8 +6,6 @@ package agent
 import (
 	"context"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -19,6 +17,8 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/proxyupdater"

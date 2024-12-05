@@ -8,14 +8,14 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/client"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"

@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/jujuclient"
 )

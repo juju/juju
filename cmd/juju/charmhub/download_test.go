@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"

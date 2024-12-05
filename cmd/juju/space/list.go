@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/gosuri/uitable"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // NewListCommand returns a command used to list spaces.

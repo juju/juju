@@ -8,13 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cmd"
 )
 
 var ErrNoAuthorizedKeys = errors.New("no public ssh keys found")

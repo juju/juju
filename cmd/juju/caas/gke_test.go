@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
@@ -20,6 +18,8 @@ import (
 
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type gkeSuite struct {

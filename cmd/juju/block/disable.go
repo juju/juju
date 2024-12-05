@@ -7,11 +7,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // NewDisableCommand returns a disable-command command instance

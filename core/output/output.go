@@ -8,9 +8,9 @@ import (
 	"io"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // DefaultFormatters holds the formatters that can be

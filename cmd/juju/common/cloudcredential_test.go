@@ -6,7 +6,6 @@ package common_test
 import (
 	"bytes"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	_ "github.com/juju/juju/internal/provider/dummy"
 )
 

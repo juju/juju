@@ -11,7 +11,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/cmd"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/osenv"

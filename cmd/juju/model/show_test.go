@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -23,6 +21,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"

@@ -6,13 +6,13 @@ package main
 import (
 	"context"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 

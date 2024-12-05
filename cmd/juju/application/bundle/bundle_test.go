@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/rpc/params"
 )
 

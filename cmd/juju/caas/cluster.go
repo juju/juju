@@ -9,12 +9,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/runner_mock.go github.com/juju/juju/cmd/juju/caas CommandRunner

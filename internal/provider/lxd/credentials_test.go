@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	containerLXD "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
 	coretesting "github.com/juju/juju/internal/testing"

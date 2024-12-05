@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
@@ -33,6 +32,7 @@ import (
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/rpc/params"
 )
 

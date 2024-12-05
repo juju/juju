@@ -7,7 +7,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud/mocks"
 	"github.com/juju/juju/environs"
 	environmocks "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"

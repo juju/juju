@@ -8,8 +8,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +17,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/version"
 	environscmd "github.com/juju/juju/environs/cmd"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"

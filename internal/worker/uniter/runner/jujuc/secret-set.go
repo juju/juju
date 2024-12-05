@@ -4,11 +4,11 @@
 package jujuc
 
 import (
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type secretUpdateCommand struct {

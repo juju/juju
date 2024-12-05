@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )

@@ -7,13 +7,13 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	apistorage "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/jujuclient"
 )

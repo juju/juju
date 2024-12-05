@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,6 +24,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"

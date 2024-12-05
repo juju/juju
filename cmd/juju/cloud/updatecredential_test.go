@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 
-	jujucmd "github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +18,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	jujucmd "github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"

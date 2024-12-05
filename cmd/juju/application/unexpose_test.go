@@ -6,7 +6,6 @@ package application
 import (
 	"strings"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -14,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )

@@ -15,7 +15,7 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	cmd "github.com/juju/cmd/v4"
+	cmd "github.com/juju/juju/internal/cmd"
 	base "github.com/juju/juju/api/base"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"

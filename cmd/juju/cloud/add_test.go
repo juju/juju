@@ -13,8 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	jujutesting "github.com/juju/testing"
@@ -24,6 +22,8 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/lxd"
 	_ "github.com/juju/juju/internal/provider/maas"

@@ -8,14 +8,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"

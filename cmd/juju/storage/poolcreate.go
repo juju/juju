@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/keyvalues"
 
@@ -15,6 +14,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.

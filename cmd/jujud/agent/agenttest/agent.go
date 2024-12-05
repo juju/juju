@@ -8,8 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -28,6 +26,8 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"

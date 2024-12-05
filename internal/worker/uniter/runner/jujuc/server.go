@@ -15,11 +15,11 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/sockets"
 )

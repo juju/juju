@@ -4,9 +4,10 @@
 package ssh
 
 import (
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type CmdSuite struct {

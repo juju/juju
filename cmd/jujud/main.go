@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.

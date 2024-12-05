@@ -13,8 +13,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -49,6 +47,8 @@ import (
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"

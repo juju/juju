@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/common"
 	corestorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"

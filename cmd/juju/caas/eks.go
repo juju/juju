@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cmd/juju/interact"
+	"github.com/juju/juju/internal/cmd"
 )
 
 const eksDomain = "eksctl.io"

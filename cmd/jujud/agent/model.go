@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
 	jworker "github.com/juju/juju/internal/worker"

@@ -12,8 +12,6 @@ import (
 	"strings"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -34,6 +32,8 @@ import (
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

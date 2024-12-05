@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
@@ -27,6 +26,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	pebbleidentity "github.com/juju/juju/internal/service/pebble/identity"
 	pebbleplan "github.com/juju/juju/internal/service/pebble/plan"

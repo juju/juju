@@ -6,7 +6,6 @@ package application_test
 import (
 	"context"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +13,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )

@@ -8,8 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -18,6 +16,8 @@ import (
 
 	statuscmd "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type StatusHistorySuite struct {

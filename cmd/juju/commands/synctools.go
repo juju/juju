@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cmd"
 	coretools "github.com/juju/juju/internal/tools"
 )
 

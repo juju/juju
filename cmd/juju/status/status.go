@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"

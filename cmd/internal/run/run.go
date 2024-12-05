@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -25,6 +24,7 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"

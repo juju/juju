@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

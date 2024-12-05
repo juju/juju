@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )

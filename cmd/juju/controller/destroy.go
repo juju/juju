@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -32,6 +31,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

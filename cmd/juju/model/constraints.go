@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // getConstraintsDoc is multi-line since we need to use ` to denote

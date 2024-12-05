@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +13,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"

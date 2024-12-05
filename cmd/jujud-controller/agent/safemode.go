@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/looputil"
 	jworker "github.com/juju/juju/internal/worker"

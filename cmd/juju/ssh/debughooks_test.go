@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 

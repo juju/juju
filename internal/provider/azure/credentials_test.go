@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 	"github.com/juju/juju/internal/provider/azure/internal/azurecli"

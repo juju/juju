@@ -7,9 +7,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/juju/cmd/v4"
-
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type interruptable interface {

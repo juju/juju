@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type secretUpsertCommand struct {

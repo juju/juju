@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/gnuflag"
 	jujutesting "github.com/juju/testing"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"

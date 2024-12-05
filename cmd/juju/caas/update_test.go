@@ -7,8 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -23,6 +21,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/maas"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"

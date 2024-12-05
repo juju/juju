@@ -6,8 +6,6 @@ package commands
 import (
 	"fmt"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +19,8 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/sync"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )

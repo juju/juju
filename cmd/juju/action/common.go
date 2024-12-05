@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )

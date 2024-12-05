@@ -6,7 +6,6 @@ package sshkeys
 import (
 	"strings"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	gc "gopkg.in/check.v1"
@@ -14,6 +13,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"

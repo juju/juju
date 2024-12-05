@@ -7,8 +7,6 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +16,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

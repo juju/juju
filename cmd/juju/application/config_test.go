@@ -10,8 +10,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +20,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"

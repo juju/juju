@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 

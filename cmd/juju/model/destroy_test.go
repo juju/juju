@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jutesting "github.com/juju/testing"
@@ -22,6 +20,8 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"

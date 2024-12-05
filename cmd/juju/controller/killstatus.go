@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type ctrData struct {

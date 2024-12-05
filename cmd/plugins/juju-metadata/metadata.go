@@ -6,8 +6,7 @@ package main
 import (
 	"os"
 
-	"github.com/juju/cmd/v4"
-
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all"

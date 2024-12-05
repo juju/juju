@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 var _ = gc.Suite(&DebugCodeSuite{})

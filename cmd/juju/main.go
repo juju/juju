@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/internal/cmd"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 )
 

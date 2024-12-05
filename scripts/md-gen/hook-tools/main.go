@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )

@@ -6,9 +6,8 @@ package block
 import (
 	"context"
 
-	"github.com/juju/cmd/v4"
-
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

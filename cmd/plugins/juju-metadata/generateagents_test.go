@@ -15,8 +15,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,6 +28,8 @@ import (
 	sstestings "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"

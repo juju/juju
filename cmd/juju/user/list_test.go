@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +15,8 @@ import (
 
 	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
