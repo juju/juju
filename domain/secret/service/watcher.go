@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/juju/juju/core/leadership"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -27,10 +28,14 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
-	secretState State, secretBackendState SecretBackendState,
-	logger logger.Logger, watcherFactory WatcherFactory, params SecretServiceParams,
+	secretState State,
+	secretBackendState SecretBackendState,
+	leaderEnsurer leadership.Ensurer,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+	params SecretServiceParams,
 ) *WatchableService {
-	svc := NewSecretService(secretState, secretBackendState, logger, params)
+	svc := NewSecretService(secretState, secretBackendState, leaderEnsurer, logger, params)
 	return &WatchableService{
 		SecretService:  *svc,
 		watcherFactory: watcherFactory,

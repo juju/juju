@@ -50,7 +50,6 @@ func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
 	revs.Add(uri, "rev-id2")
 
 	err := s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",

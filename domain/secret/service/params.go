@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	coresecrets "github.com/juju/juju/core/secrets"
 )
@@ -28,8 +27,7 @@ type CreateCharmSecretParams struct {
 
 // UpdateCharmSecretParams are used to update a charm secret.
 type UpdateCharmSecretParams struct {
-	LeaderToken leadership.Token
-	Accessor    SecretAccessor
+	Accessor SecretAccessor
 
 	RotatePolicy *secrets.RotatePolicy
 	ExpireTime   *time.Time
@@ -61,16 +59,14 @@ type UpdateUserSecretParams struct {
 
 // DeleteSecretParams are used to delete a secret.
 type DeleteSecretParams struct {
-	LeaderToken leadership.Token
-	Accessor    SecretAccessor
+	Accessor SecretAccessor
 
 	Revisions []int
 }
 
 // SecretRotatedParams are used to mark a secret as rotated.
 type SecretRotatedParams struct {
-	LeaderToken leadership.Token
-	Accessor    SecretAccessor
+	Accessor SecretAccessor
 
 	OriginalRevision int
 	Skip             bool
@@ -78,8 +74,7 @@ type SecretRotatedParams struct {
 
 // SecretAccessParams are used to define access to a secret.
 type SecretAccessParams struct {
-	LeaderToken leadership.Token
-	Accessor    SecretAccessor
+	Accessor SecretAccessor
 
 	Scope   SecretAccessScope
 	Subject SecretAccessor
@@ -88,8 +83,7 @@ type SecretAccessParams struct {
 
 // ChangeSecretBackendParams are used to change the backend of a secret.
 type ChangeSecretBackendParams struct {
-	LeaderToken leadership.Token
-	Accessor    SecretAccessor
+	Accessor SecretAccessor
 
 	ValueRef *secrets.ValueRef
 	Data     secrets.SecretData
