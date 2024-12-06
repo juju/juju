@@ -407,11 +407,46 @@ func (s *uniterSuite) TestWatchApplicationBadTag(c *gc.C) {
 	}})
 }
 
-func (s *uniterSuite) TestWatchApplicationNotPermission(c *gc.C) {
+func (s *uniterSuite) TestWatchApplicationNoPermission(c *gc.C) {
 	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	// Permissions for mysql will be denied by the accessApplication function
 	// defined in test set up.
 	result, err := uniterAPI.WatchApplication(context.Background(), params.Entity{Tag: "application-mysql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	}})
+}
+
+func (s *uniterSuite) TestUnitWatch(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	// Recreate the uniter API with the mocks initialized.
+	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	args := params.Entity{Tag: "unit-wordpress-0"}
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	result, err := uniterAPI.WatchUnit(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
+		NotifyWatcherId: "1",
+	})
+}
+
+func (s *uniterSuite) TestWatchUnitBadTag(c *gc.C) {
+	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	result, err := uniterAPI.WatchUnit(context.Background(), params.Entity{Tag: "bad-tag"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	}})
+}
+
+func (s *uniterSuite) TestWatchUnitNoPermission(c *gc.C) {
+	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	// Permissions for mysql will be denied by the accessUnit function
+	// defined in test set up.
+	result, err := uniterAPI.WatchUnit(context.Background(), params.Entity{Tag: "unit-mysql-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
 		Code:    params.CodeUnauthorized,

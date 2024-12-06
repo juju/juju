@@ -165,22 +165,6 @@ func (client *Client) getOneAction(ctx context.Context, tag *names.ActionTag) (p
 	return result, nil
 }
 
-// watchApplication starts a NotifyWatcher for the specified application
-func (client *Client) watchApplication(ctx context.Context, tag names.ApplicationTag) (watcher.NotifyWatcher, error) {
-	args := params.Entity{Tag: tag.String()}
-	var result params.NotifyWatchResult
-
-	err := client.facade.FacadeCall(ctx, "WatchApplication", args, &result)
-	if err != nil {
-		return nil, errors.Trace(apiservererrors.RestoreError(err))
-	}
-
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return apiwatcher.NewNotifyWatcher(client.facade.RawAPICaller(), result), nil
-}
-
 // LeadershipSettingsAccessor is an interface that allows us not to have
 // to use the concrete `api/uniter/LeadershipSettings` type, thus
 // simplifying testing.

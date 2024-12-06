@@ -2862,6 +2862,7 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 }
 
 // WatchApplication starts an NotifyWatcher for an application.
+// WatchApplication is not implemented in the UniterAPIv19 facade.
 func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
 	canWatch, err := u.accessApplication()
 	if err != nil {
@@ -2878,6 +2879,35 @@ func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) 
 	}
 
 	watcher, err := u.applicationService.WatchApplication(ctx, tag.Id())
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+	return params.NotifyWatchResult{
+		NotifyWatcherId: id,
+		Error:           apiservererrors.ServerError(err),
+	}, nil
+}
+
+// WatchUnit starts an NotifyWatcher for a unit.
+// WatchUnit is not implemented in the UniterAPIv19 facade.
+func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
+	canWatch, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+
+	tag, err := names.ParseUnitTag(entity.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	if !canWatch(tag) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	watcher, err := u.watchUnit(tag)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}

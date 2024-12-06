@@ -80,12 +80,14 @@ type ApplicationService interface {
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit.
 	//
-	// Returns [applicationerrors.UnitNotFound] if the unit is not found
+	// Returns [github.com/juju/juju/domain/application.UnitNotFound] if the
+	// unit is not found.
 	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
 
 	// GetApplicationIDByName returns an application ID by application name.
 	//
-	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	// Returns [github.com/juju/juju/domain/application.ApplicationNotFound] if
+	// the application is not found.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
