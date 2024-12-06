@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -32,7 +31,6 @@ type UndertakerAPI struct {
 	st        State
 	resources facade.Resources
 
-	*common.StatusSetter
 	*common.ModelConfigWatcher
 	cloudspec.CloudSpecer
 
@@ -51,28 +49,11 @@ func newUndertakerAPI(
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	getCanModifyModel := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			if st.IsController() {
-				return true
-			}
-			// Only the agent's model can be modified.
-			modelTag, ok := tag.(names.ModelTag)
-			if !ok {
-				return false
-			}
-			return modelTag.Id() == model.UUID()
-		}, nil
-	}
+
 	return &UndertakerAPI{
 		st:                   st,
 		resources:            resources,
 		secretBackendService: secretBackendService,
-		StatusSetter:         common.NewStatusSetter(st, getCanModifyModel),
 		ModelConfigWatcher:   common.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		CloudSpecer:          cloudSpecer,
 	}, nil
