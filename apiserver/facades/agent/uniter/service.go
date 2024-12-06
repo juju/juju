@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -73,6 +74,23 @@ type ApplicationService interface {
 
 	// DestroyUnit prepares a unit for removal from the model.
 	DestroyUnit(ctx context.Context, unitName coreunit.Name) error
+
+	// WatchApplication returns a NotifyWatcher for changes to the application.
+	WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+
+	// GetApplicationIDByUnitName returns the application ID for the named unit.
+	//
+	// Returns [applicationerrors.UnitNotFound] if the unit is not found
+	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
+
+	// GetApplicationIDByName returns an application ID by application name.
+	//
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetCharmModifiedVersion looks up the charm modified version of the given
+	// application.
+	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
 }
 
 // UnitStateService describes the ability to retrieve and persist

@@ -174,6 +174,16 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	return uniterAPI
 }
 
+func (s *uniterSuiteBase) newUniterAPIv19(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPIv19 {
+	facadeContext := s.facadeContext(c)
+	facadeContext.State_ = st
+	facadeContext.Auth_ = auth
+	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
+	uniterAPI, err := uniter.NewUniterAPIv19(context.Background(), facadeContext)
+	c.Assert(err, jc.ErrorIsNil)
+	return uniterAPI
+}
+
 func (s *uniterSuiteBase) addRelation(c *gc.C, first, second string) *state.Relation {
 	st := s.ControllerModel(c).State()
 	eps, err := st.InferEndpoints(first, second)

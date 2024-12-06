@@ -21,6 +21,7 @@ var (
 	WatchStorageAttachment = watchStorageAttachment
 
 	NewUniterAPI             = newUniterAPI
+	NewUniterAPIv19          = newUniterAPIv19
 	NewUniterAPIWithServices = newUniterAPIWithServices
 )
 
