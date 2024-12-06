@@ -93,7 +93,7 @@ func NewModelExporter(
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelExporter {
-	return &ModelExporter{
+	me := &ModelExporter{
 		operationExporter:     operationExporter,
 		legacyStateExporter:   legacyStateExporter,
 		scope:                 scope,
@@ -102,6 +102,8 @@ func NewModelExporter(
 		logger:                logger,
 		clock:                 clock,
 	}
+	me.operationExporter.ExportOperations(me.storageRegistryGetter)
+	return me
 }
 
 // ExportModelPartial partially serializes a model description from the
@@ -129,7 +131,6 @@ func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]stri
 
 // Export serializes a model description from the database contents.
 func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
-	e.operationExporter.ExportOperations(e.storageRegistryGetter)
 	if err := e.coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
