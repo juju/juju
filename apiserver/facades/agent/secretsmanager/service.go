@@ -6,7 +6,6 @@ package secretsmanager
 import (
 	"context"
 
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -42,7 +41,7 @@ type SecretService interface {
 	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ProcessCharmSecretConsumerLabel(
-		ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
+		ctx context.Context, unitName string, uri *secrets.URI, label string,
 	) (*secrets.URI, *string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secretservice.SecretAccess, error)
