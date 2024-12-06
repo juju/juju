@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 )
@@ -73,6 +75,16 @@ type ApplicationService interface {
 
 	// DestroyUnit prepares a unit for removal from the model.
 	DestroyUnit(ctx context.Context, unitName coreunit.Name) error
+
+	// GetCharmID returns a charm ID by name, source and revision. It returns an
+	// error if the charm can not be found.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error)
+
+	// GetCharmHash returns the hash of the charm archive identified by its charm
+	// ID.
+	GetCharmHash(ctx context.Context, id corecharm.ID) (string, error)
 }
 
 // UnitStateService describes the ability to retrieve and persist

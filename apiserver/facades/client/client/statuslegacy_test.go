@@ -871,7 +871,7 @@ func (s *statusUnitTestSuite) TestUnitsWithOpenedPortsSent(c *gc.C) {
 type statusUpgradeUnitSuite struct {
 	testing.ApiServerSuite
 
-	charms               map[string]*state.Charm
+	charms               map[string]state.CharmRefFull
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
 	ctrl                 *gomock.Controller
 }
@@ -881,7 +881,7 @@ var _ = gc.Suite(&statusUpgradeUnitSuite{})
 func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.WithLeaseManager = true
 	s.ApiServerSuite.SetUpTest(c)
-	s.charms = make(map[string]*state.Charm)
+	s.charms = make(map[string]state.CharmRefFull)
 
 	state := charmrevisionupdater.StateShim{State: s.ControllerModel(c).State()}
 	s.ctrl = gomock.NewController(c)
@@ -928,7 +928,7 @@ func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state
 }
 
 // AddCharmhubCharmWithRevision adds a charmhub charm with the specified revision to state.
-func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
+func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) state.CharmRefFull {
 	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := fmt.Sprintf("ch:amd64/%s-%d", name, rev)

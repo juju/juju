@@ -39,10 +39,6 @@ type UniterSecretsSuite struct {
 	facade *UniterAPI
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 var _ = gc.Suite(&UniterSecretsSuite{})
 
 func (s *UniterSecretsSuite) SetUpTest(c *gc.C) {
