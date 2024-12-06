@@ -1078,6 +1078,18 @@ func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *gc.C) {
 	c.Check(result, gc.DeepEquals, expected)
 }
 
+func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("hash", nil)
+
+	result, err := s.service.GetAvailableCharmArchiveSHA256(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, "hash")
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 
