@@ -282,7 +282,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 			},
 		},
 		applicationservice.AddApplicationArgs{
-			ReferenceName: bootstrap.ControllerApplicationName,
+			ReferenceName: bootstrap.ControllerCharmName,
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				Provenance: applicationcharm.ProvenanceBootstrap,
 			},
