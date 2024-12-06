@@ -72,7 +72,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	backendstate := secretbackendstate.NewState(scope.ControllerDB(), i.logger)
 	i.service = service.NewSecretService(
 		state.NewState(scope.ModelDB(), i.logger),
-		backendstate, i.logger,
+		backendstate, nil, i.logger,
 		service.SecretServiceParams{
 			BackendUserSecretConfigGetter: service.NotImplementedBackendUserSecretConfigGetter,
 		},
