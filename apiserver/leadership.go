@@ -39,7 +39,7 @@ type leadershipToken struct {
 // Check is part of the leadership.Token interface.
 func (t leadershipToken) Check() error {
 	err := t.token.Check()
-	if errors.Cause(err) == lease.ErrNotHeld {
+	if errors.Is(err, lease.ErrNotHeld) {
 		return leadership.NewNotLeaderError(t.unitName, t.applicationName)
 	}
 	return errors.Trace(err)
@@ -51,9 +51,9 @@ type leadershipClaimer struct {
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
-func (m leadershipClaimer) ClaimLeadership(ctx context.Context, applicationName, unitName string, duration time.Duration) error {
-	err := m.claimer.Claim(applicationName, unitName, duration)
-	if errors.Cause(err) == lease.ErrClaimDenied {
+func (m leadershipClaimer) ClaimLeadership(ctx context.Context, appName, unitName string, duration time.Duration) error {
+	err := m.claimer.Claim(appName, unitName, duration)
+	if errors.Is(err, lease.ErrClaimDenied) {
 		return leadership.ErrClaimDenied
 	}
 	return errors.Trace(err)
@@ -62,7 +62,7 @@ func (m leadershipClaimer) ClaimLeadership(ctx context.Context, applicationName,
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (m leadershipClaimer) BlockUntilLeadershipReleased(ctx context.Context, applicationName string) error {
 	err := m.claimer.WaitUntilExpired(ctx, applicationName, nil)
-	if errors.Cause(err) == lease.ErrWaitCancelled {
+	if errors.Is(err, lease.ErrWaitCancelled) {
 		return leadership.ErrBlockCancelled
 	}
 	return errors.Trace(err)
@@ -76,7 +76,7 @@ type leadershipRevoker struct {
 // RevokeLeadership is part of the leadership.Claimer interface.
 func (m leadershipRevoker) RevokeLeadership(applicationName string, unitName unit.Name) error {
 	err := m.claimer.Revoke(applicationName, unitName.String())
-	if errors.Cause(err) == lease.ErrNotHeld {
+	if errors.Is(err, lease.ErrNotHeld) {
 		return leadership.ErrClaimNotHeld
 	}
 	return errors.Trace(err)
