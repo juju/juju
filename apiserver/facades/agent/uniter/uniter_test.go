@@ -352,7 +352,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 func (s *uniterSuite) TestWatch(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	// Recreate the uniter API with the mocks initialized.
-	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPIv19(c, s.ControllerModel(c).State(), s.authorizer)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -360,14 +360,10 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 		{Tag: "application-mysql"},
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
-		// TODO(dfc) these aren't valid tags any more
-		// but I hope to restore this test when params.Entity takes
-		// tags, not strings, which is coming soon.
-		// {Tag: "just-foo"},
 	}}
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("2", nil)
-	result, err := s.uniter.Watch(context.Background(), args)
+	result, err := uniterAPI.Watch(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -377,10 +373,50 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{NotifyWatcherId: "2"},
 			{Error: apiservertesting.ErrUnauthorized},
-			// see above
-			// {Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *uniterSuite) TestWatchNoArgsNoError(c *gc.C) {
+	uniterAPI := s.newUniterAPIv19(c, s.ControllerModel(c).State(), s.authorizer)
+	result, err := uniterAPI.Watch(context.Background(), params.Entities{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 0)
+}
+
+func (s *uniterSuite) TestApplicationWatch(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	// Recreate the uniter API with the mocks initialized.
+	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	args := params.Entity{Tag: "application-wordpress"}
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	result, err := uniterAPI.WatchApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
+		NotifyWatcherId: "1",
+	})
+}
+
+func (s *uniterSuite) TestWatchApplicationBadTag(c *gc.C) {
+	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	result, err := uniterAPI.WatchApplication(context.Background(), params.Entity{Tag: "bad-tag"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	}})
+}
+
+func (s *uniterSuite) TestWatchApplicationNotPermission(c *gc.C) {
+	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	// Permissions for mysql will be denied by the accessApplication function
+	// defined in test set up.
+	result, err := uniterAPI.WatchApplication(context.Background(), params.Entity{Tag: "application-mysql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	}})
 }
 
 func (s *uniterSuite) TestPublicAddress(c *gc.C) {

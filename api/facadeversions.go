@@ -118,7 +118,7 @@ var facadeVersions = facades.FacadeVersions{
 	"Subnets":                      {5},
 	"Undertaker":                   {1},
 	"UnitAssigner":                 {1},
-	"Uniter":                       {19},
+	"Uniter":                       {19, 20},
 	"Upgrader":                     {1},
 	"UpgradeSteps":                 {3},
 	"UserManager":                  {3},
