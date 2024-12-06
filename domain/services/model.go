@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
@@ -253,8 +254,9 @@ func (s *ModelServices) Secret(params secretservice.SecretServiceParams) *secret
 	return secretservice.NewWatchableService(
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
-		log,
+		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("secret"),
+		log,
 		params,
 	)
 }
