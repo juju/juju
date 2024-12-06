@@ -11552,6 +11552,17 @@
                         }
                     }
                 },
+                "WatchUnit": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                },
                 "WatchUnitAddressesHash": {
                     "type": "object",
                     "properties": {

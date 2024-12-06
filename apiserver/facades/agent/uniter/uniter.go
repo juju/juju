@@ -2889,6 +2889,34 @@ func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) 
 	}, nil
 }
 
+// WatchUnit starts an NotifyWatcher for a unit.
+func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
+	canWatch, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+
+	tag, err := names.ParseUnitTag(entity.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	if !canWatch(tag) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	watcher, err := u.watchUnit(tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+	return params.NotifyWatchResult{
+		NotifyWatcherId: id,
+		Error:           apiservererrors.ServerError(err),
+	}, nil
+}
+
 // Watch starts an NotifyWatcher for a unit or application.
 // This is being deprecated in favour of separate WatchUnit and WatchApplication
 // methods.
