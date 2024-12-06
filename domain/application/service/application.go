@@ -1309,6 +1309,14 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		return applicationerrors.CharmNotResolved
 	}
 
+	// We need to ensure that charm sha256 hash matches the one that was
+	// requested. If this is valid, we can then trust the sha384 hash, as we
+	// have no provenance for it. In other words, we trust the sha384 hash, if
+	// the sha256 hash is valid.
+	if info.SHA256 != resolve.SHA256 {
+		return applicationerrors.CharmHashMismatch
+	}
+
 	// Make sure it's actually a valid charm.
 	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
 	if err != nil {
@@ -1327,7 +1335,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// Use the hash from the reservation, incase the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
-	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, info.Hash)
+	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1344,4 +1352,33 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     archivePath,
 	})
+}
+
+// ResolveControllerCharmDownload resolves the controller charm download slot.
+func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve application.ResolveControllerCharmDownload) (application.ResolvedControllerCharmDownload, error) {
+	// Make sure it's actually a valid charm.
+	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
+	if err != nil {
+		return application.ResolvedControllerCharmDownload{}, errors.Annotatef(err, "reading charm archive %q", resolve.Path)
+	}
+
+	// Use the hash from the reservation, incase the caller has the wrong hash.
+	// The resulting objectStoreUUID will enable RI between the charm and the
+	// object store.
+	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
+	if err != nil {
+		return application.ResolvedControllerCharmDownload{}, errors.Trace(err)
+	}
+
+	// We must ensure that the objectstore UUID is valid.
+	if err := objectStoreUUID.Validate(); err != nil {
+		return application.ResolvedControllerCharmDownload{}, internalerrors.Errorf("invalid object store UUID: %w", err)
+	}
+
+	// Resolve the charm download, which will set itself to available.
+	return application.ResolvedControllerCharmDownload{
+		Charm:           charm,
+		ArchivePath:     archivePath,
+		ObjectStoreUUID: objectStoreUUID,
+	}, nil
 }
