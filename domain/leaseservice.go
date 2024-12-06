@@ -5,10 +5,17 @@ package domain
 
 import (
 	"context"
+	"github.com/juju/juju/core/leadership"
 
 	"github.com/juju/juju/core/lease"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
+
+type errToken struct {
+	err error
+}
+
+func (e errToken) Check() error { return e.err }
 
 // LeaseService creates a base service that offers lease capabilities.
 type LeaseService struct {
@@ -20,6 +27,17 @@ func NewLeaseService(leaseChecker lease.ModelLeaseManagerGetter) *LeaseService {
 	return &LeaseService{
 		leaseChecker: leaseChecker,
 	}
+}
+
+// LeadershipCheck returns a token that can be used to check if the input unit
+// is the leader of the input application.
+func (s *LeaseService) LeadershipCheck(appName, unitName string) leadership.Token {
+	leaseChecker, err := s.leaseChecker.GetLeaseManager()
+	if err != nil {
+		return errToken{err: err}
+	}
+
+	return leaseChecker.Token(appName, unitName)
 }
 
 // WithLeader executes the closure function if the input unit is leader of the
