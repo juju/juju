@@ -3050,6 +3050,72 @@ func (s *charmStateSuite) TestGetCharmDownloadInfoWithInfoForCharmhub(c *gc.C) {
 	c.Check(result, jc.DeepEquals, info)
 }
 
+func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "https://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		Available:     true,
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetAvailableCharmArchiveSHA256(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, "hash")
+}
+
+func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotAvailable(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	info := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "https://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		Version:       "deadbeef",
+	}, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetAvailableCharmArchiveSHA256(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotResolved)
+}
+
+func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetAvailableCharmArchiveSHA256(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, archive_path, available, reference_name, revision, version, architecture_id) 

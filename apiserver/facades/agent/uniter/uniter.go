@@ -8,13 +8,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/retry"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -30,6 +28,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -875,35 +874,40 @@ func (u *UniterAPI) CharmArchiveSha256(ctx context.Context, args params.CharmURL
 }
 
 func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (string, error) {
-	// The charm in state may only be a placeholder when this call is made.
-	// Ideally, the unit agent would not be started until the charm is fully available,
-	// but that's not currently the case and it doesn't hurt to be defensive here regardless.
-	// We'll retry the sha256 lookup if the charm is still pending and therefore not found.
-	var sha string
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			sch, err := u.st.Charm(curl)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			sha = sch.BundleSha256()
-			if sha == "" {
-				return errors.NotFoundf("downloaded charm %q", curl)
-			}
-			return nil
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotFound)
-		},
-		Stop:     ctx.Done(),
-		Delay:    3 * time.Second,
-		Attempts: 20,
-		Clock:    u.clock,
-	})
-	if errors.Is(err, errors.NotFound) {
-		return "", apiservererrors.ErrPerm
+	cu, err := charm.ParseURL(curl)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return sha, errors.Trace(err)
+
+	source, err := domaincharm.ParseCharmSchema(charm.Schema(cu.Schema))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	id, err := u.applicationService.GetCharmID(ctx, domaincharm.GetCharmArgs{
+		Source:   source,
+		Name:     cu.Name,
+		Revision: ptr(cu.Revision),
+	})
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return "", errors.NotFoundf("charm %q", curl)
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// Only return the SHA256 if the charm is available. It is expected
+	// that the caller (in this case the uniter) will retry if they get
+	// a NotYetAvailable error.
+	sha, err := u.applicationService.GetAvailableCharmArchiveSHA256(ctx, id)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return "", errors.NotFoundf("charm %q", curl)
+	} else if errors.Is(err, applicationerrors.CharmNotResolved) {
+		return "", errors.NotYetAvailablef("charm %q not available", curl)
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return sha, nil
 }
 
 // Relation returns information about all given relation/unit pairs,
@@ -2834,4 +2838,8 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 	}
 
 	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
