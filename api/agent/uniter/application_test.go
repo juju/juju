@@ -53,13 +53,11 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 					Life: s.life,
 				}},
 			}
-		case "Watch":
-			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
-			c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
-			*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-				Results: []params.NotifyWatchResult{{
-					NotifyWatcherId: "1",
-				}},
+		case "WatchApplication":
+			c.Assert(arg, jc.DeepEquals, params.Entity{Tag: "application-mysql"})
+			c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+			*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+				NotifyWatcherId: "1",
 			}
 		case "CharmURL":
 			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})

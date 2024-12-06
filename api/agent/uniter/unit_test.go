@@ -344,13 +344,11 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 			return nil
 		}
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "Watch")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
-		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				NotifyWatcherId: "1",
-			}},
+		c.Assert(request, gc.Equals, "WatchUnit")
+		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			NotifyWatcherId: "1",
 		}
 		return nil
 	})
