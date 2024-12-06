@@ -904,9 +904,9 @@ func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (str
 		return "", errors.Trace(err)
 	}
 
-	source := domaincharm.LocalSource
-	if charm.CharmHub.Matches(cu.Schema) {
-		source = domaincharm.CharmHubSource
+	source, err := domaincharm.ParseCharmSchema(charm.Schema(cu.Schema))
+	if err != nil {
+		return "", errors.Trace(err)
 	}
 
 	id, err := u.applicationService.GetCharmID(ctx, domaincharm.GetCharmArgs{
