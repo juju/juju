@@ -190,9 +190,8 @@ func (s *SecretsDrainAPI) changeSecretBackendForOne(ctx context.Context, arg par
 
 func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, token leadership.Token, arg params.ChangeSecretBackendArg) secretservice.ChangeSecretBackendParams {
 	params := secretservice.ChangeSecretBackendParams{
-		LeaderToken: token,
-		Accessor:    accessor,
-		Data:        arg.Content.Data,
+		Accessor: accessor,
+		Data:     arg.Content.Data,
 	}
 	if arg.Content.ValueRef != nil {
 		params.ValueRef = &coresecrets.ValueRef{
