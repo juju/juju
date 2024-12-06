@@ -45,6 +45,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/status",
 		"core/watcher",
 		"internal/charm/resource",
+		"internal/errors",
 		"internal/logger",
 		"internal/uuid",
 	})

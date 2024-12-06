@@ -83,6 +83,289 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("failed to populate DB with applications: %v", errors.ErrorStack(err)))
 }
 
+// TestDeleteApplicationResources is a test method that verifies the deletion of resources
+// associated with a specific application in the database.
+func (s *resourceSuite) TestDeleteApplicationResources(c *gc.C) {
+	// Arrange: populate db with some resources, belonging to app1 (2 res) and app2 (1 res)
+	res1 := resourceData{
+		UUID:            "app1-res1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "res1",
+		// populate table "resource_retrieved_by"
+		RetrievedByType: "user",
+		RetrievedByName: "john",
+	}
+	res2 := resourceData{
+		UUID:            "app1-res2-uuid",
+		Name:            "res2",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+	}
+	other := resourceData{
+		UUID:            "res-uuid",
+		Name:            "res3",
+		ApplicationUUID: s.constants.fakeApplicationUUID2,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		for _, input := range []resourceData{res1, res2, other} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: delete resources from application 1
+	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+
+	// Assert: check that resources have been deleted in expected tables
+	// without errors
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to delete resources from application 1: %v", errors.ErrorStack(err)))
+	var remainingResources []resourceData
+	var noRowsInRessourceRetrievedBy bool
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// fetch resources
+		rows, err := tx.Query(`
+SELECT uuid, charm_resource_name, application_uuid
+FROM resource AS r
+LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var uuid string
+			var resName string
+			var appUUID string
+			if err := rows.Scan(&uuid, &resName, &appUUID); err != nil {
+				return err
+			}
+			remainingResources = append(remainingResources,
+				resourceData{UUID: uuid, ApplicationUUID: appUUID,
+					Name: resName})
+		}
+		// fetch resource_retrieved_by
+		var discard string
+		err = tx.QueryRow(`SELECT resource_uuid from resource_retrieved_by`).
+			Scan(&discard)
+		if errors.Is(err, sql.ErrNoRows) {
+			noRowsInRessourceRetrievedBy = true
+			return nil
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to check db: %v",
+		errors.ErrorStack(err)))
+	c.Check(noRowsInRessourceRetrievedBy, gc.Equals, true, gc.Commentf("(Assert) resource_retrieved_by table should be empty"))
+	c.Check(remainingResources, jc.DeepEquals, []resourceData{other},
+		gc.Commentf("(Assert) only resource from %q should be there",
+			s.constants.fakeApplicationUUID2))
+}
+
+// TestDeleteApplicationResourcesErrorRemainingUnits tests resource deletion with linked units.
+//
+// This method populates the database with a resource linked to a unit, attempts to delete
+// the application's resources, then verifies that an error is returned due to the remaining unit
+// and that no resources have been deleted. This enforces constraints on cleaning up resources
+// with active dependencies.
+func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *gc.C) {
+	// Arrange: populate db with some resource a resource linked to a unit
+	input := resourceData{
+		UUID:            "app1-res1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "res1",
+		// Populate table resource_unit
+		UnitUUID: s.constants.fakeUnitUUID1,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		return input.insert(context.Background(), tx)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: delete resources from application 1
+	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+
+	// Assert: check an error is returned and no resource deleted
+	c.Check(err, jc.ErrorIs, resourceerrors.InvalidCleanUpState,
+		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// fetch resources
+		var discard string
+		return tx.QueryRow(`
+SELECT uuid FROM v_resource
+WHERE uuid = ? AND application_uuid = ? AND name = ?`,
+			input.UUID, input.ApplicationUUID, input.Name,
+		).Scan(&discard)
+	})
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource deleted or cannot check db: %v",
+		errors.ErrorStack(err)))
+}
+
+// TestDeleteApplicationResourcesErrorRemainingObjectStoreData verifies that attempting to delete application
+// resources will fail when there are remaining object store data linked to the resource,
+// and no resource will be deleted.
+func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingObjectStoreData(c *gc.C) {
+	// Arrange: populate db with some resource linked with some data
+	input := resourceData{
+		UUID:            "res1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "res1",
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// Insert the data
+		if err := input.insert(context.Background(), tx); err != nil {
+			return errors.Capture(err)
+		}
+		// Insert some data linked to the resource
+		if _, err := tx.Exec(`
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384,size) 
+VALUES ('store-uuid','','',0)`); err != nil {
+			return errors.Capture(err)
+		}
+		if _, err := tx.Exec(`
+INSERT INTO resource_file_store (resource_uuid, store_uuid) 
+VALUES (?,'store-uuid')`, input.UUID); err != nil {
+			return errors.Capture(err)
+		}
+		return
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: delete resources from application 1
+	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+
+	// Assert: check an error is returned and no resource deleted
+	c.Check(err, jc.ErrorIs, resourceerrors.InvalidCleanUpState,
+		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// fetch resources
+		var discard string
+		return tx.QueryRow(`
+SELECT uuid FROM v_resource
+WHERE uuid = ? AND application_uuid = ? AND name = ?`,
+			input.UUID, input.ApplicationUUID, input.Name,
+		).Scan(&discard)
+	})
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource deleted or cannot check db: %v",
+		errors.ErrorStack(err)))
+}
+
+// TestDeleteApplicationResourcesErrorRemainingImageStoreData verifies that attempting to delete application
+// resources will fail when there are remaining image store data linked to the resource,
+// and no resource will be deleted.
+func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingImageStoreData(c *gc.C) {
+	// Arrange: populate db with some resource linked with some data
+	input := resourceData{
+		UUID:            "res1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "res1",
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// Insert the data
+		if err := input.insert(context.Background(), tx); err != nil {
+			return errors.Capture(err)
+		}
+		// Insert some data linked to the resource
+		if _, err := tx.Exec(`
+INSERT INTO resource_container_image_metadata_store (storage_key, registry_path) 
+VALUES ('store-uuid','')`); err != nil {
+			return errors.Capture(err)
+		}
+		if _, err := tx.Exec(`
+INSERT INTO resource_image_store (resource_uuid, store_storage_key) 
+VALUES (?,'store-uuid')`, input.UUID); err != nil {
+			return errors.Capture(err)
+		}
+		return
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: delete resources from application 1
+	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+
+	// Assert: check an error is returned and no resource deleted
+	c.Check(err, jc.ErrorIs, resourceerrors.InvalidCleanUpState,
+		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// fetch resources
+		var discard string
+		return tx.QueryRow(`
+SELECT uuid FROM v_resource
+WHERE uuid = ? AND application_uuid = ? AND name = ?`,
+			input.UUID, input.ApplicationUUID, input.Name,
+		).Scan(&discard)
+	})
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource deleted or cannot check db: %v",
+		errors.ErrorStack(err)))
+}
+
+// TestDeleteUnitResources verifies that resources linked to a specific unit are deleted correctly.
+func (s *resourceSuite) TestDeleteUnitResources(c *gc.C) {
+	// Arrange: populate db with some resource a resource linked to a unit
+	resUnit1 := resourceData{
+		UUID:            "res-unit1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "res-unit1",
+		// Populate table resource_unit
+		UnitUUID: s.constants.fakeUnitUUID1,
+	}
+	other := resourceData{
+		UUID:            "res-unit2-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "res-unit2",
+		// Populate table resource_unit
+		UnitUUID: s.constants.fakeUnitUUID2,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		for _, input := range []resourceData{resUnit1, other} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: delete resources from application 1
+	err = s.state.DeleteUnitResources(context.Background(), unit.UUID(s.constants.fakeUnitUUID1))
+
+	// Assert: check that resources link to unit 1 have been deleted in expected tables
+	// without errors
+	c.Assert(err, jc.ErrorIsNil,
+		gc.Commentf("(Assert) failed to delete resources link to unit 1: %v",
+			errors.ErrorStack(err)))
+	var obtained []resourceData
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		// fetch resources
+		rows, err := tx.Query(`
+SELECT uuid, name, application_uuid, unit_uuid
+FROM v_resource AS rv
+LEFT JOIN unit_resource AS ur ON rv.uuid = ur.resource_uuid`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var uuid string
+			var resName string
+			var appUUID string
+			var unitUUID *string
+			if err := rows.Scan(&uuid, &resName, &appUUID, &unitUUID); err != nil {
+				return err
+			}
+			obtained = append(obtained,
+				resourceData{UUID: uuid, ApplicationUUID: appUUID,
+					Name: resName, UnitUUID: zeroPtr(unitUUID)})
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to check db: %v",
+		errors.ErrorStack(err)))
+	expectedResUnit1 := resUnit1
+	expectedResUnit1.UnitUUID = ""
+	c.Assert(obtained, jc.SameContents, []resourceData{expectedResUnit1, other}, gc.Commentf("(Assert) unexpected resources: %v", obtained))
+}
+
 // TestGetApplicationResourceID tests that the resource ID can be correctly
 // retrieved from the database, given a name and an application
 func (s *resourceSuite) TestGetApplicationResourceID(c *gc.C) {
@@ -840,11 +1123,22 @@ func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 	return
 }
 
-// nilZero returns a pointer to the input value unless the value is its type's zero value, in which case it returns nil.
+// nilZero returns a pointer to the input value unless the value is its type's
+// zero value, in which case it returns nil.
 func nilZero[T comparable](t T) *T {
 	var zero T
 	if t == zero {
 		return nil
 	}
 	return &t
+}
+
+// zeroPtr returns the value pointed to by t or the zero value if the pointer is
+// nil.
+func zeroPtr[T comparable](t *T) T {
+	var zero T
+	if t == nil {
+		return zero
+	}
+	return *t
 }
