@@ -18,6 +18,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
@@ -25,8 +26,26 @@ import (
 )
 
 type objectsCharmHTTPHandler struct {
-	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	ctxt                     httpContext
+	stateAuthFunc            func(*http.Request) (*state.PooledState, error)
+	applicationServiceGetter ApplicationServiceGetter
+}
+
+// ApplicationService is an interface for the application domain service.
+type ApplicationService interface {
+	// GetCharmArchiveBySHA256Prefix returns a ReadCloser stream for the charm
+	// archive who's SHA256 hash starts with the provided prefix.
+	//
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
+	GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
+}
+
+// ApplicationServiceGetter is an interface for getting an ApplicationService.
+type ApplicationServiceGetter interface {
+
+	// Application returns the model's application service.
+	Application(context.Context) (ApplicationService, error)
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,44 +70,24 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
 func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
+	applicationService, err := h.applicationServiceGetter.Application(r.Context())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer st.Release()
 
 	query := r.URL.Query()
-
-	_, charmSha256, err := splitNameAndSHAFromQuery(query)
+	_, charmSha256Prefix, err := splitNameAndSHAFromQuery(query)
 	if err != nil {
 		return err
 	}
 
-	// Retrieve charm from state.
-	ch, err := st.CharmFromSha256(charmSha256)
+	reader, err := applicationService.GetCharmArchiveBySHA256Prefix(r.Context(), charmSha256Prefix)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return errors.NotFoundf("charm not found")
+	}
 	if err != nil {
-		return errors.Annotate(err, "cannot get charm from state")
+		return errors.Trace(err)
 	}
-
-	// Check if the charm is still pending to be downloaded and return back
-	// a suitable error.
-	if !ch.IsUploaded() {
-		return errors.NewNotYetAvailable(nil, ch.URL())
-	}
-
-	// Get the underlying object store for the model UUID, which we can then
-	// retrieve the blob from.
-	store, err := h.ctxt.objectStoreForRequest(r.Context())
-	if err != nil {
-		return errors.Annotate(err, "cannot get object store")
-	}
-
-	// Use the storage to retrieve the charm archive.
-	reader, _, err := store.Get(r.Context(), ch.StoragePath())
-	if err != nil {
-		return errors.Annotate(err, "cannot get charm from model storage")
-	}
-	defer reader.Close()
 
 	_, err = io.Copy(w, reader)
 	if err != nil {
@@ -278,16 +277,6 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-	if errors.Is(err, errors.NotYetAvailable) {
-		// This error is typically raised when trying to fetch the blob
-		// contents for a charm which is still pending to be downloaded.
-		//
-		// We should log this at debug level to avoid unnecessary noise
-		// in the logs.
-		logger.Debugf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
-	} else {
-		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
-	}
 
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Trace(sendStatusAndJSON(w, status, &params.CharmsResponse{
@@ -334,4 +323,17 @@ func (s storageStateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Up
 func (s storageStateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	return ch, err
+}
+
+type applicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *applicationServiceGetter) Application(ctx context.Context) (ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesForRequest(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return domainServices.Application(), nil
 }
