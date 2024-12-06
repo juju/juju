@@ -28,7 +28,7 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 // If revisions is nil or the last remaining revisions are removed.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, params DeleteSecretParams) error {
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
 	}

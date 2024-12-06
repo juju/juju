@@ -32,17 +32,21 @@ import (
 func NewSecretService(
 	secretState State,
 	secretBackendState SecretBackendState,
+	leaderEnsurer leadership.Ensurer,
 	logger logger.Logger,
 	params SecretServiceParams,
 ) *SecretService {
 	return &SecretService{
-		secretState:            secretState,
-		secretBackendState:     secretBackendState,
-		logger:                 logger,
-		clock:                  clock.WallClock,
-		providerGetter:         provider.Provider,
+		secretState:        secretState,
+		secretBackendState: secretBackendState,
+		providerGetter:     provider.Provider,
+		leaderEnsurer:      leaderEnsurer,
+
 		userSecretConfigGetter: params.BackendUserSecretConfigGetter,
 		uuidGenerator:          uuid.NewUUID,
+
+		clock:  clock.WallClock,
+		logger: logger,
 	}
 }
 
@@ -60,16 +64,20 @@ var NotImplementedBackendUserSecretConfigGetter = func(context.Context, GrantedS
 
 // SecretService provides the API for working with secrets.
 type SecretService struct {
-	secretState            State
-	secretBackendState     SecretBackendState
-	logger                 logger.Logger
-	clock                  clock.Clock
+	secretState        State
+	secretBackendState SecretBackendState
+
 	providerGetter         ProviderGetter
 	userSecretConfigGetter BackendUserSecretConfigGetter
 
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
 	uuidGenerator   func() (uuid.UUID, error)
+
+	leaderEnsurer leadership.Ensurer
+
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // CreateSecretURIs returns the specified number of new secret URIs.
@@ -250,9 +258,9 @@ func ptr[T any](s T) *T {
 	return &s
 }
 
-// CreateCharmSecret creates a charm secret with the specified parameters, returning an error
-// satisfying [secreterrors.SecretLabelAlreadyExists] if the secret owner already has
-// a secret with the same label.
+// CreateCharmSecret creates a charm secret with the specified parameters,
+// returning an error satisfying [secreterrors.SecretLabelAlreadyExists] if the
+// secret owner already has a secret with the same label.
 func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI, params CreateCharmSecretParams) (errOut error) {
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return jujuerrors.New("must specify either content or a value reference but not both")
@@ -300,11 +308,8 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 		}
 	}()
 	if params.CharmOwner.Kind == ApplicationOwner {
-		// Only unit leaders can create application secrets.
-		if params.LeaderToken == nil {
-			return secreterrors.PermissionDenied
-		}
-		if err := params.LeaderToken.Check(); err != nil {
+		appName, _ := names.UnitApplication(params.Accessor.ID)
+		if err := s.leaderEnsurer.LeadershipCheck(appName, params.Accessor.ID).Check(); err != nil {
 			if leadership.IsNotLeaderError(err) {
 				return secreterrors.PermissionDenied
 			}
@@ -331,7 +336,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) error {
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, nil)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -433,7 +438,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return jujuerrors.New("must specify either content or a value reference but not both")
 	}
 
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -619,7 +624,9 @@ func splitCharmSecretOwners(owners ...CharmSecretOwner) (domainsecret.Applicatio
 // ListCharmSecrets returns the secret metadata and revision metadata for any secrets matching the specified owner.
 // The result contains secrets owned by any of the non nil owner attributes.
 // The count of secret and revisions in the result must match.
-func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+func (s *SecretService) ListCharmSecrets(
+	ctx context.Context, owners ...CharmSecretOwner,
+) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	return s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
 }
@@ -720,7 +727,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 // This method returns the resulting uri, and optionally the label to update for
 // the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
-	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
+	ctx context.Context, unitName string, uri *secrets.URI, label string,
 ) (_ *secrets.URI, _ *string, err error) {
 	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -743,7 +750,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 			// If the label has is to be changed by the secret owner, update the secret metadata.
 			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
 			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				isOwner, err := checkUnitOwner(unitName, md.Owner, token)
+				isOwner, err := checkUnitOwner(unitName, md.Owner, s.leaderEnsurer)
 				if err != nil {
 					return nil, nil, jujuerrors.Trace(err)
 				}
@@ -754,8 +761,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 					// can ge done in a single txn.
 					// Update the label.
 					err := s.UpdateCharmSecret(ctx, uri, UpdateCharmSecretParams{
-						LeaderToken: token,
-						Label:       &label,
+						Label: &label,
 						Accessor: SecretAccessor{
 							Kind: UnitAccessor,
 							ID:   unitName,
@@ -767,12 +773,15 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 				}
 			}
 			// 1. secrets can be accessed by the owner;
-			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
+			// 2. application owned secrets can be accessed by all the units of
+			//    the application using owner label or URI.
 			uri = md.URI
-			// We don't update the consumer label in this case since the label comes
-			// from the owner metadata and we don't want to violate uniqueness checks.
+			// We don't update the consumer label in this case since the label
+			// comes from the owner metadata, and we don't want to violate
+			// uniqueness checks.
 			// 1. owners use owner label;
-			// 2. the leader and peer units use the owner label for application-owned secrets.
+			// 2. the leader and peer units use the owner label for
+			//    application-owned secrets.
 			// So, no need to update the consumer label.
 			labelToUpdate = nil
 		}
@@ -791,15 +800,17 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	return uri, labelToUpdate, nil
 }
 
-func checkUnitOwner(unitName string, owner secrets.Owner, token leadership.Token) (bool, error) {
+func checkUnitOwner(unitName string, owner secrets.Owner, ensurer leadership.Ensurer) (bool, error) {
 	if owner.Kind == secrets.UnitOwner && owner.ID == unitName {
 		return true, nil
 	}
+
 	// Only unit leaders can "own" application secrets.
-	if token == nil {
+	if ensurer == nil {
 		return false, secreterrors.PermissionDenied
 	}
-	if err := token.Check(); err != nil {
+
+	if err := ensurer.LeadershipCheck(owner.ID, unitName).Check(); err != nil {
 		if leadership.IsNotLeaderError(err) {
 			return false, nil
 		}
@@ -808,7 +819,9 @@ func checkUnitOwner(unitName string, owner secrets.Owner, token leadership.Token
 	return true, nil
 }
 
-func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context, uri *secrets.URI, unitName, label string) (*secrets.SecretMetadata, error) {
+func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(
+	ctx context.Context, uri *secrets.URI, unitName, label string,
+) (*secrets.SecretMetadata, error) {
 	notFoundErr := fmt.Errorf("secret %q not found%w", uri, jujuerrors.Hide(secreterrors.SecretNotFound))
 	if label != "" {
 		notFoundErr = fmt.Errorf("secret with label %q not found%w", label, jujuerrors.Hide(secreterrors.SecretNotFound))
@@ -848,7 +861,7 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 func (s *SecretService) ChangeSecretBackend(
 	ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams,
 ) error {
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -892,7 +905,7 @@ func (s *SecretService) ChangeSecretBackend(
 
 // SecretRotated rotates the secret with the specified URI.
 func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) error {
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
 	}
