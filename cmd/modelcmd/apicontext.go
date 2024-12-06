@@ -9,13 +9,13 @@ import (
 	"os"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/v2/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
 
 	"github.com/juju/juju/api/authentication"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 )
 

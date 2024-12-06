@@ -7,9 +7,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/juju/cmd/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/cmd"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/api_mock.go github.com/juju/juju/cmd/juju/charmhub CharmHubClient

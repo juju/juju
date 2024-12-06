@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/agent/config"
 	jujucmd "github.com/juju/juju/cmd"
 	coreagent "github.com/juju/juju/core/agent"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type IntrospectCommand struct {

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
@@ -23,6 +22,7 @@ import (
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
 	jnames "github.com/juju/juju/juju/names"

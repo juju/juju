@@ -8,7 +8,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju"

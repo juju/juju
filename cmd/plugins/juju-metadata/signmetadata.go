@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/internal/cmd"
 )
 
 func newSignMetadataCommand() cmd.Command {

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 	apiparams "github.com/juju/juju/rpc/params"
 )

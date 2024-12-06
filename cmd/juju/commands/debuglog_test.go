@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/lxd"
 	coretesting "github.com/juju/juju/internal/testing"
 )

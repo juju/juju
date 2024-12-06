@@ -6,12 +6,12 @@ package cmd_test
 import (
 	"context"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	environscmd "github.com/juju/juju/environs/cmd"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type contextSuite struct {

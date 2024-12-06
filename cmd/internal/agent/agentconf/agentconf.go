@@ -4,13 +4,13 @@
 package agentconf
 
 import (
-	"github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/state/mgo"
 )

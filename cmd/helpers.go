@@ -9,8 +9,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/cmd"
 )
 
 // This file contains helper functions for generic operations commonly needed

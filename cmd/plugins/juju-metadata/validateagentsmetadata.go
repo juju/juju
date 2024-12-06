@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cmd"
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {

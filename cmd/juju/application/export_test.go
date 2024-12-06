@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/cmd/v4"
-
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -17,6 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 )
 

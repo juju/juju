@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -16,6 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // ListAPI has the API methods needed by ListCommand.

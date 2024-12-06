@@ -9,13 +9,13 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type BSInteractSuite struct {

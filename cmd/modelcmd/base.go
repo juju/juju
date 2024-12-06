@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/pki"
 	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 	"github.com/juju/juju/juju"

@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -30,6 +29,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 )
 

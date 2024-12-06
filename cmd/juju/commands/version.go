@@ -4,13 +4,13 @@
 package commands
 
 import (
-	"github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/cmd"
 )
 
 const versionDoc = `

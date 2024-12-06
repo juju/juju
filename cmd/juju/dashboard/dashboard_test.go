@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
@@ -19,6 +17,8 @@ import (
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	proxytesting "github.com/juju/juju/internal/proxy/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"

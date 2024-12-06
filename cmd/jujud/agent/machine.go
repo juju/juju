@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -57,6 +56,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/container/broker"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
@@ -192,7 +192,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
 	if !a.logToStdErr {
-		// the context's stderr is set as the loggo writer in github.com/juju/cmd/v4/logging.go
+		// the context's stderr is set as the loggo writer in github.com/juju/juju/internal/cmd/logging.go
 		ljLogger := &lumberjack.Logger{
 			Filename:   agent.LogFilename(config), // eg: "/var/log/juju/machine-0.log"
 			MaxSize:    config.AgentLogfileMaxSizeMB(),

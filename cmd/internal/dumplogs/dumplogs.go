@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -25,6 +24,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/internal/mongo"
 	corenames "github.com/juju/juju/juju/names"

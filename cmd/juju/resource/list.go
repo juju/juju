@@ -7,7 +7,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -16,6 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	coreresources "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // ListClient has the API client methods needed by ListCommand.

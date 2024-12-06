@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"strings"
 
-	jujucmd "github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	jujucmd "github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 func charmRes(c *gc.C, name, suffix, description, content string) charmresource.Resource {

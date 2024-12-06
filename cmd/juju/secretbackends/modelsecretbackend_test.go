@@ -4,7 +4,6 @@
 package secretbackends_test
 
 import (
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
 )
 

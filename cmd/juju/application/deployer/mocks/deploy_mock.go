@@ -15,7 +15,6 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	cmd "github.com/juju/cmd/v4"
 	base "github.com/juju/juju/api/base"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
@@ -25,6 +24,7 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	charm0 "github.com/juju/juju/internal/charm"
 	resource "github.com/juju/juju/internal/charm/resource"
+	cmd "github.com/juju/juju/internal/cmd"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"

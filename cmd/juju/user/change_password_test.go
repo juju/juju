@@ -7,8 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/cmd/v4"
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +14,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )

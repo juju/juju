@@ -6,10 +6,10 @@ package jujuc
 import (
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/cmd"
 )
 
 // ActionLogCommand implements the action-log command.

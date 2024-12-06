@@ -4,7 +4,6 @@
 package charmhub
 
 import (
-	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type findSuite struct {

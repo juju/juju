@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/schema"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	envconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cmd"
 )
 
 const (

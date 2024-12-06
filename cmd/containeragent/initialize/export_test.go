@@ -5,9 +5,9 @@ package initialize
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/cmd/containeragent/utils"
+	"github.com/juju/juju/internal/cmd"
 )
 
 type (

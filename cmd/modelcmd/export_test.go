@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/cmd/v4"
 
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 )
 

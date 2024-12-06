@@ -4,12 +4,12 @@
 package ssh
 
 import (
-	"github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/network/ssh"
 )
 

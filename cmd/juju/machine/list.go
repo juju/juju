@@ -4,10 +4,9 @@
 package machine
 
 import (
-	"github.com/juju/cmd/v4"
-
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/cmd"
 )
 
 var usageListMachinesSummary = `
