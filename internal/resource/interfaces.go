@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/juju/names/v5"
+
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/environs/config"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -31,7 +33,7 @@ type Resources interface {
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
 	OpenResourceForUniter(unitName, resName string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error)
 }
 
 // ResourceGetter provides the functionality for getting a resource file.
@@ -52,4 +54,39 @@ type ResourceGetter interface {
 type CharmHub interface {
 	DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
+// DeprecatedState defines the mongo state functionality required by the
+// resource package.
+// This interface should be removed over time as part of the DQLite work.
+type DeprecatedState interface {
+	Application(string) (Application, error)
+	ModelUUID() string
+	Unit(string) (Unit, error)
+}
+
+type deprecatedStateShim struct {
+	*state.State
+}
+
+func (s *deprecatedStateShim) Application(name string) (Application, error) {
+	return s.State.Application(name)
+}
+
+func (s *deprecatedStateShim) Unit(name string) (Unit, error) {
+	return s.State.Unit(name)
+}
+
+// Application provides the functionality to handle an application's resources.
+type Application interface {
+	CharmOrigin() *state.CharmOrigin
+	CharmURL() (*string, bool)
+	Tag() names.Tag
+}
+
+// Unit provides the functionality to handle an application's resources.
+type Unit interface {
+	ApplicationName() string
+	CharmURL() *string
+	Tag() names.Tag
 }
