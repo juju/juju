@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	leadership "github.com/juju/juju/core/leadership"
 	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
 	service "github.com/juju/juju/domain/secret/service"
@@ -817,9 +816,9 @@ func (c *MockSecretServiceListGrantedSecretsForBackendCall) DoAndReturn(f func(c
 }
 
 // ProcessCharmSecretConsumerLabel mocks base method.
-func (m *MockSecretService) ProcessCharmSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token) (*secrets.URI, *string, error) {
+func (m *MockSecretService) ProcessCharmSecretConsumerLabel(ctx context.Context, unitName string, uri *secrets.URI, label string) (*secrets.URI, *string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProcessCharmSecretConsumerLabel", ctx, unitName, uri, label, token)
+	ret := m.ctrl.Call(m, "ProcessCharmSecretConsumerLabel", ctx, unitName, uri, label)
 	ret0, _ := ret[0].(*secrets.URI)
 	ret1, _ := ret[1].(*string)
 	ret2, _ := ret[2].(error)
@@ -827,9 +826,9 @@ func (m *MockSecretService) ProcessCharmSecretConsumerLabel(ctx context.Context,
 }
 
 // ProcessCharmSecretConsumerLabel indicates an expected call of ProcessCharmSecretConsumerLabel.
-func (mr *MockSecretServiceMockRecorder) ProcessCharmSecretConsumerLabel(ctx, unitName, uri, label, token any) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
+func (mr *MockSecretServiceMockRecorder) ProcessCharmSecretConsumerLabel(ctx, unitName, uri, label any) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessCharmSecretConsumerLabel", reflect.TypeOf((*MockSecretService)(nil).ProcessCharmSecretConsumerLabel), ctx, unitName, uri, label, token)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessCharmSecretConsumerLabel", reflect.TypeOf((*MockSecretService)(nil).ProcessCharmSecretConsumerLabel), ctx, unitName, uri, label)
 	return &MockSecretServiceProcessCharmSecretConsumerLabelCall{Call: call}
 }
 
@@ -845,13 +844,13 @@ func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) Return(arg0 *secr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) Do(f func(context.Context, string, *secrets.URI, string, leadership.Token) (*secrets.URI, *string, error)) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
+func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) Do(f func(context.Context, string, *secrets.URI, string) (*secrets.URI, *string, error)) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) DoAndReturn(f func(context.Context, string, *secrets.URI, string, leadership.Token) (*secrets.URI, *string, error)) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
+func (c *MockSecretServiceProcessCharmSecretConsumerLabelCall) DoAndReturn(f func(context.Context, string, *secrets.URI, string) (*secrets.URI, *string, error)) *MockSecretServiceProcessCharmSecretConsumerLabelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
