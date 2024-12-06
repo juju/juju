@@ -28,12 +28,11 @@ var (
 
 type EnvironUpgraderSuite struct {
 	testing.IsolationSuite
-	backend      mockCloudService
-	pool         mockPool
-	providers    mockProviderRegistry
-	watcher      mockWatcher
-	statusSetter mockStatusSetter
-	authorizer   apiservertesting.FakeAuthorizer
+	backend    mockCloudService
+	pool       mockPool
+	providers  mockProviderRegistry
+	watcher    mockWatcher
+	authorizer apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&EnvironUpgraderSuite{})
@@ -62,11 +61,10 @@ func (s *EnvironUpgraderSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.watcher = mockWatcher{}
-	s.statusSetter = mockStatusSetter{}
 }
 
 func (s *EnvironUpgraderSuite) TestAuthController(c *gc.C) {
-	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
+	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -81,7 +79,7 @@ func (s *EnvironUpgraderSuite) TestAuthNonController(c *gc.C) {
 }
 
 func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelEnvironVersion(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -110,7 +108,7 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 
 func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelTargetEnvironVersion(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -147,7 +145,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 }
 
 func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelEnvironVersion(context.Background(), params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
@@ -167,35 +165,6 @@ func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
 	})
 	s.pool.models[modelTag1.Id()].CheckCalls(c, []testing.StubCall{
 		{"SetEnvironVersion", []interface{}{int(1)}},
-	})
-}
-
-func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{{
-			Tag:    "machine-0",
-			Status: "bar",
-			Info:   "baz",
-			Data: map[string]interface{}{
-				"qux": "quux",
-			},
-		}},
-	}
-	s.statusSetter.results = params.ErrorResults{
-		Results: []params.ErrorResult{
-			{&params.Error{Message: `"machine-0" is not a valid model tag`}},
-		},
-	}
-
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.SetModelStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, s.statusSetter.results)
-	s.backend.CheckNoCalls(c)
-	s.pool.models[modelTag1.Id()].CheckNoCalls(c)
-	s.statusSetter.CheckCalls(c, []testing.StubCall{
-		{"SetStatus", []interface{}{args}},
 	})
 }
 
@@ -278,14 +247,4 @@ func (m *mockProvider) Version() int {
 	m.MethodCall(m, "Version")
 	m.PopNoErr()
 	return m.version
-}
-
-type mockStatusSetter struct {
-	testing.Stub
-	results params.ErrorResults
-}
-
-func (m *mockStatusSetter) SetStatus(_ context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	m.MethodCall(m, "SetStatus", args)
-	return m.results, m.NextErr()
 }

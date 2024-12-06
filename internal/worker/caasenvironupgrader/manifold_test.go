@@ -14,7 +14,6 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/internal/worker/caasenvironupgrader"
 	"github.com/juju/juju/internal/worker/gate"
 )
@@ -27,35 +26,17 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (*ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-		APICallerName: "api-caller",
-		GateName:      "gate",
+		GateName: "gate",
 	})
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"api-caller", "gate"})
 }
 
-func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
-		"api-caller": dependency.ErrMissing,
-		"gate":       struct{ gate.Unlocker }{},
-	})
-	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-		APICallerName: "api-caller",
-		GateName:      "gate",
-	})
-
-	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-}
-
 func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
-		"api-caller": struct{ base.APICaller }{},
-		"gate":       dependency.ErrMissing,
+		"gate": dependency.ErrMissing,
 	})
 	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-		APICallerName: "api-caller",
-		GateName:      "gate",
+		GateName: "gate",
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
@@ -64,19 +45,12 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
-	expectAPICaller := struct{ base.APICaller }{}
 	expectGate := struct{ gate.Unlocker }{}
 	getter := dt.StubGetter(map[string]interface{}{
-		"api-caller": expectAPICaller,
-		"gate":       expectGate,
+		"gate": expectGate,
 	})
 	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-		APICallerName: "api-caller",
-		GateName:      "gate",
-		NewFacade: func(actual base.APICaller) (caasenvironupgrader.Facade, error) {
-			c.Check(actual, gc.Equals, expectAPICaller)
-			return nil, errors.New("error")
-		},
+		GateName: "gate",
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
@@ -85,19 +59,12 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
-	expectFacade := struct{ caasenvironupgrader.Facade }{}
 	getter := dt.StubGetter(map[string]interface{}{
-		"api-caller": struct{ base.APICaller }{},
-		"gate":       struct{ gate.Unlocker }{},
+		"gate": struct{ gate.Unlocker }{},
 	})
 	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-		APICallerName: "api-caller",
-		GateName:      "gate",
-		NewFacade: func(_ base.APICaller) (caasenvironupgrader.Facade, error) {
-			return expectFacade, nil
-		},
+		GateName: "gate",
 		NewWorker: func(config caasenvironupgrader.Config) (worker.Worker, error) {
-			c.Check(config.Facade, gc.Equals, expectFacade)
 			return nil, errors.New("error")
 		},
 	})
