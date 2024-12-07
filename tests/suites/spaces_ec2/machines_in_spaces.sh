@@ -25,8 +25,8 @@ run_machines_in_spaces() {
 	machine_2_space_ip=$(assert_machine_ip_is_in_cidrs "2" "172.31.254.0/24")
 
 	echo "Verify machines can ping each other within and across spaces"
-	juju ssh 0 -i "$(ssh_key_file "machines-in-spaces")" "ping -c4 ${machine_1_space_ip}"
-	juju ssh 0 -i "$(ssh_key_file "machines-in-spaces")" "ping -c4 ${machine_2_space_ip}"
+	juju ssh 0 "ping -c4 ${machine_1_space_ip}"
+	juju ssh 0 "ping -c4 ${machine_2_space_ip}"
 
 	echo "Attempt assigning a container to a different space to it's host machine and assert this fails"
 	juju add-machine lxd:0 --constraints spaces=isolated
