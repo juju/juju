@@ -350,8 +350,6 @@ func (f *mockFacade) WatchModelEnvironVersion(_ context.Context, tag names.Model
 	return nil, errors.New("unexpected call to WatchModelEnvironVersion")
 }
 
-var nilData map[string]interface{}
-
 type mockEnviron struct {
 	environs.Environ
 	testing.Stub
