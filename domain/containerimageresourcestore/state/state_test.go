@@ -195,13 +195,15 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c 
 	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
-func (s *containerImageMetadataSuite) getContainerImageMetadata(c *gc.C, storageKey store.UUID) (string, string, string) {
+func (s *containerImageMetadataSuite) getContainerImageMetadata(c *gc.C, storageKey store.ID) (string, string, string) {
+	id, err := storageKey.ContainerImageMetadataStoreID()
+	c.Assert(err, jc.ErrorIsNil)
 	var retrievedRegistryPath, retrievedUsername, retrievedPassword string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT registry_path, username, password 
 FROM resource_container_image_metadata_store
-WHERE storage_key = ?`, storageKey).Scan(&retrievedRegistryPath, &retrievedUsername, &retrievedPassword)
+WHERE storage_key = ?`, id).Scan(&retrievedRegistryPath, &retrievedUsername, &retrievedPassword)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return retrievedRegistryPath, retrievedUsername, retrievedPassword
