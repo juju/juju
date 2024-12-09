@@ -63,7 +63,9 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 // CreateApplication creates an application, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already exists.
 // If returns as error satisfying [applicationerrors.CharmNotFound] if the charm
-// for the application is not found.
+// for the application is not found. It may also return an error satisfying
+// [applicationerrors.InvalidResourceArgs] if there is a mismatch between charm
+// resources and resource arguments.
 func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app application.AddApplicationArg) (coreapplication.ID, error) {
 	appUUID, err := coreapplication.NewID()
 	if err != nil {
@@ -133,6 +135,16 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		}
 	}
 
+	// build resources to add.
+	resources, err := st.buildResourceToAdd(
+		appDetails.UUID.String(),
+		appDetails.CharmID,
+		app.Resources,
+		app.Charm.Metadata.Resources)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationExists(ctx, tx, name); err != nil {
@@ -174,7 +186,9 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 				return errors.Annotatef(err, "creating channel row for application %q", name)
 			}
 		}
-		return nil
+
+		// insert application resources
+		return st.insertResources(ctx, tx, resources)
 	})
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
 }
