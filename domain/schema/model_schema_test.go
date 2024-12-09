@@ -413,8 +413,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 	additional := set.NewStrings(
 		"trg_model_immutable_delete",
 		"trg_model_immutable_update",
-		"trg_secret_permission_immutable_update",
-		"trg_charm_local_sequence",
+
+		"trg_secret_permission_guard_update",
+		"trg_charm_local_sequence_guard_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

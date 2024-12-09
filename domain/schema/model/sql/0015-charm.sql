@@ -94,15 +94,6 @@ CREATE TABLE charm_local_sequence (
 CREATE UNIQUE INDEX idx_charm_local_sequence_source_reference
 ON charm_local_sequence (source_id, reference_name);
 
--- The trigger ensures that the sequence number is monotonically increasing.
-CREATE TRIGGER trg_charm_local_sequence
-BEFORE UPDATE OF sequence ON charm_local_sequence
-FOR EACH ROW
-WHEN NEW.sequence <= OLD.sequence
-BEGIN
-    SELECT RAISE(ABORT, 'sequence number must monotonically increase');
-END;
-
 CREATE TABLE charm_provenance (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
