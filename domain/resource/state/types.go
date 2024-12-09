@@ -8,9 +8,9 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // resourceIdentity represents the unique identity of a resource within an
@@ -19,6 +19,17 @@ type resourceIdentity struct {
 	UUID            string `db:"uuid"`
 	ApplicationUUID string `db:"application_uuid"`
 	Name            string `db:"name"`
+}
+
+// resourceUUID represents the unique identifier of a resource.
+type resourceUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// resourceKind is the kind of the resource, e.g. file or oci-image.
+type resourceKind struct {
+	Name string `db:"kind_name"`
+	UUID string `db:"uuid"`
 }
 
 // resourceView represents the view model for a resource entity. It contains
@@ -34,16 +45,20 @@ type resourceView struct {
 	RetrievedByType string    `db:"retrieved_by_type"`
 	Path            string    `db:"path"`
 	Description     string    `db:"description"`
-	KindId          int       `db:"kind_id"`
+	Kind            string    `db:"kind_name"`
 }
 
 // toCharmResource converts the resourceView struct to a
 // charmresource.Resource, populating its fields accordingly.
-func (rv resourceView) toCharmResource() charmresource.Resource {
+func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
+	kind, err := charmresource.ParseType(rv.Kind)
+	if err != nil {
+		return charmresource.Resource{}, errors.Errorf("converting resource type: %w", err)
+	}
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        rv.Name,
-			Type:        charmresource.Type(rv.KindId),
+			Type:        kind,
 			Path:        rv.Path,
 			Description: rv.Description,
 		},
@@ -52,20 +67,24 @@ func (rv resourceView) toCharmResource() charmresource.Resource {
 		// todo(gfouillet): deal with fingerprint & size
 		Fingerprint: charmresource.Fingerprint{},
 		Size:        0,
-	}
+	}, nil
 }
 
 // toResource converts a resourceView object to a resource.Resource object
 // including metadata and timestamps.
-func (rv resourceView) toResource() resource.Resource {
+func (rv resourceView) toResource() (resource.Resource, error) {
+	charmRes, err := rv.toCharmResource()
+	if err != nil {
+		return resource.Resource{}, errors.Capture(err)
+	}
 	return resource.Resource{
-		Resource:        rv.toCharmResource(),
+		Resource:        charmRes,
 		UUID:            coreresource.UUID(rv.UUID),
 		ApplicationID:   coreapplication.ID(rv.ApplicationUUID),
 		RetrievedBy:     rv.RetrievedBy,
 		RetrievedByType: resource.RetrievedByType(rv.RetrievedByType),
 		Timestamp:       rv.CreatedAt,
-	}
+	}, nil
 }
 
 // unitResource represents the mapping of a resource to a unit.
@@ -75,13 +94,23 @@ type unitResource struct {
 	AddedAt      time.Time `db:"added_at"`
 }
 
-// unitNameAndUUID store the name & uuid of a unit
-type unitNameAndUUID struct {
-	UnitUUID coreunit.UUID `db:"uuid"`
-	Name     coreunit.Name `db:"name"`
-}
-
 type applicationNameAndID struct {
 	ApplicationID coreapplication.ID `db:"uuid"`
 	Name          string             `db:"name"`
+}
+
+// kubernetesApplicationResource represents the mapping of a resource to a unit.
+type kubernetesApplicationResource struct {
+	ResourceUUID string    `db:"resource_uuid"`
+	AddedAt      time.Time `db:"added_at"`
+}
+
+type storedFileResource struct {
+	ObjectStoreUUID string `db:"store_uuid"`
+	ResourceUUID    string `db:"resource_uuid"`
+}
+
+type storedContainerImageResource struct {
+	StorageKey   string `db:"store_storage_key"`
+	ResourceUUID string `db:"resource_uuid"`
 }

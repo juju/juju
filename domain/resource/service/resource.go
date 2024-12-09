@@ -5,17 +5,19 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/resource/store"
+	coreresourcestore "github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State describes retrieval and persistence methods for resource.
@@ -38,18 +40,38 @@ type State interface {
 	// GetResource returns the identified resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
 
-	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(ctx context.Context, config resource.SetResourceArgs) (resource.Resource, error)
+	// GetResourceType finds the type of the given resource from the resource table.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
+	//     found.
+	GetResourceType(ctx context.Context, resourceUUID coreresource.UUID) (charmresource.Type, error)
+
+	// RecordStoredResource records a stored resource along with who retrieved it.
+	//
+	// The following error types can be expected to be returned:
+	// - [resourceerrors.StoredResourceNotFound] if the stored resource at the
+	//   storageID cannot be found.
+	// - [resourceerrors.ResourceAlreadyStored] if the resource is already
+	//   associated with a stored resource blob.
+	RecordStoredResource(ctx context.Context, args resource.RecordStoredResourceArgs) error
 
 	// SetUnitResource sets the resource metadata for a specific unit.
-	SetUnitResource(ctx context.Context, config resource.SetUnitResourceArgs) (resource.SetUnitResourceResult, error)
+	//
+	// The following error types can be expected to be returned:
+	//  - [resourceerrors.UnitNotFound] if the unit id doesn't belong to an
+	//    existing unit.
+	//  - [resourceerrors.ResourceNotFound] if the resource id doesn't belong
+	//    to an existing resource.
+	SetUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitUUID coreunit.UUID) error
 
-	// OpenApplicationResource returns the metadata for an application's resource.
-	OpenApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
-
-	// OpenUnitResource returns the metadata for a resource. A unit resource
-	// is created to track the given unit and which resource its using.
-	OpenUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitID coreunit.UUID) (resource.Resource, error)
+	// SetApplicationResource marks an existing resource as in use by a CAAS
+	// application.
+	//
+	// The following error types can be expected to be returned:
+	//  - [resourceerrors.ResourceNotFound] if the resource id doesn't belong
+	//    to an existing resource.
+	SetApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) error
 
 	// SetRepositoryResources sets the "polled" resource for the
 	// application to the provided values. The current data for this
@@ -60,7 +82,7 @@ type State interface {
 type ResourceStoreGetter interface {
 	// GetResourceStore returns the appropriate ResourceStore for the
 	// given resource type.
-	GetResourceStore(context.Context, charmresource.Type) (store.ResourceStore, error)
+	GetResourceStore(context.Context, charmresource.Type) (coreresourcestore.ResourceStore, error)
 }
 
 // Service provides the API for working with resources.
@@ -133,7 +155,7 @@ func (s *Service) GetApplicationResourceID(
 	args resource.GetApplicationResourceIDArgs,
 ) (coreresource.UUID, error) {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return "", fmt.Errorf("application id: %w", err)
+		return "", errors.Errorf("application id: %w", err)
 	}
 	if args.Name == "" {
 		return "", resourceerrors.ResourceNameNotValid
@@ -158,7 +180,7 @@ func (s *Service) ListResources(
 	applicationID coreapplication.ID,
 ) (resource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
-		return resource.ApplicationResources{}, fmt.Errorf("application id: %w", err)
+		return resource.ApplicationResources{}, errors.Errorf("application id: %w", err)
 	}
 	return s.st.ListResources(ctx, applicationID)
 }
@@ -173,105 +195,187 @@ func (s *Service) GetResource(
 	resourceUUID coreresource.UUID,
 ) (resource.Resource, error) {
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("application id: %w", err)
+		return resource.Resource{}, errors.Errorf("application id: %w", err)
 	}
 	return s.st.GetResource(ctx, resourceUUID)
 }
 
-// SetResource adds the application resource to blob storage and updates the metadata.
+// StoreResource adds the application resource to blob storage and updates the
+// metadata. It also sets the retrival information for the resource.
 //
 // The following error types can be expected to be returned:
-//   - [coreerrors.NotValid] is returned if the application ID is not valid.
-//   - [coreerrors.NotValid] is returned if the resource is not valid.
-//   - [coreerrors.NotValid] is returned if the RetrievedByType is unknown while
-//     RetrievedBy has a value.
-//   - [resourceerrors.ApplicationNotFound] if the specified application does
-//     not exist.
-func (s *Service) SetResource(
+//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
+//     found.
+//   - [resourceerrors.ResourceAlreadyStored] if the resource is already
+//     associated with a stored resource blob.
+//   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
+//     invalid.
+func (s *Service) StoreResource(
 	ctx context.Context,
-	args resource.SetResourceArgs,
-) (resource.Resource, error) {
-	if err := args.ApplicationID.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("application id: %w", err)
-	}
-	if args.SuppliedBy != "" && args.SuppliedByType == resource.Unknown {
-		return resource.Resource{},
-			fmt.Errorf("RetrievedByType cannot be unknown if RetrievedBy set: %w", resourceerrors.ArgumentNotValid)
-	}
-	if err := args.Resource.Validate(); err != nil {
-		return resource.Resource{}, fmt.Errorf("resource: %w", err)
-	}
-	return s.st.SetResource(ctx, args)
+	args resource.StoreResourceArgs,
+) error {
+	return s.storeResource(ctx, args, false)
 }
 
-// SetUnitResource sets the resource metadata for a specific unit.
+// StoreResourceAndIncrementCharmModifiedVersion adds the application resource
+// to blob storage and updates the metadata. It sets the retrival information
+// for the resource and also increments the charm modified version for the
+// resources' application.
 //
 // The following error types can be expected to be returned:
-//   - [coreerrors.NotValid] is returned if the unit UUID is not valid.
-//   - [coreerrors.NotValid] is returned if the resource UUID is not valid.
-//   - [resourceerrors.ArgumentNotValid] is returned if the RetrievedByType is unknown while
-//     RetrievedBy has a value.
-//   - [resourceerrors.ResourceNotFound] if the specified resource doesn't exist
-//   - [resourceerrors.UnitNotFound] if the specified unit doesn't exist
+//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
+//     found.
+//   - [resourceerrors.ResourceAlreadyStored] if the resource is already
+//     associated with a stored resource blob.
+//   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
+//     invalid.
+func (s *Service) StoreResourceAndIncrementCharmModifiedVersion(
+	ctx context.Context,
+	args resource.StoreResourceArgs,
+) error {
+	return s.storeResource(ctx, args, true)
+}
+
+func (s *Service) storeResource(
+	ctx context.Context,
+	args resource.StoreResourceArgs,
+	incrementCharmModifiedVersion bool,
+) (err error) {
+	if err = args.ResourceUUID.Validate(); err != nil {
+		return errors.Errorf("resource uuid: %w", err)
+	}
+
+	if args.Reader == nil {
+		return errors.Errorf("cannot have nil reader")
+	}
+
+	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
+		return resourceerrors.RetrievedByTypeNotValid
+	}
+
+	res, err := s.st.GetResource(ctx, args.ResourceUUID)
+	if err != nil {
+		return errors.Errorf("getting resource: %w", err)
+	}
+
+	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
+	if err != nil {
+		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
+	}
+
+	storageUUID, err := store.Put(ctx, args.ResourceUUID.String(), args.Reader, res.Size, coreresourcestore.NewFingerprint(res.Fingerprint.Fingerprint))
+	if err != nil {
+		return errors.Errorf("putting resource %q in store: %w", res.Name, err)
+	}
+	defer func() {
+		// If any subsequent operation fails, remove the resource blob.
+		if err != nil {
+			_ = store.Remove(ctx, args.ResourceUUID.String())
+		}
+	}()
+
+	err = s.st.RecordStoredResource(
+		ctx,
+		resource.RecordStoredResourceArgs{
+			ResourceUUID:                  args.ResourceUUID,
+			StorageID:                     storageUUID,
+			RetrievedBy:                   args.RetrievedBy,
+			RetrievedByType:               args.RetrievedByType,
+			ResourceType:                  res.Type,
+			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
+		},
+	)
+	if err != nil {
+		return errors.Errorf("recording stored resource %q: %w", res.Name, err)
+	}
+	return err
+}
+
+// OpenResource returns the details of and a reader for the resource.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+//     exist.
+//   - [resourceerrors.StoredResourceNotFound] if the specified resource is not
+//     in the resource store.
+func (s *Service) OpenResource(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (resource.Resource, io.ReadCloser, error) {
+	if err := resourceUUID.Validate(); err != nil {
+		return resource.Resource{}, nil, errors.Errorf("resource id: %w", err)
+	}
+
+	res, err := s.st.GetResource(ctx, resourceUUID)
+	if err != nil {
+		return resource.Resource{}, nil, err
+	}
+
+	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
+	}
+
+	// TODO(aflynn): ideally this would be finding the resource via the
+	// resources storageID, however the object store does not currently have a
+	// method for this.
+	reader, _, err := store.Get(ctx, resourceUUID.String())
+	if errors.Is(err, objectstoreerrors.ErrNotFound) ||
+		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
+		return resource.Resource{}, nil, resourceerrors.StoredResourceNotFound
+	} else if err != nil {
+		return resource.Resource{}, nil, errors.Errorf("getting resource from store: %w", err)
+	}
+
+	return res, reader, nil
+}
+
+// SetUnitResource sets the unit as using the resource.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.UnitNotFound] if the unit id doesn't belong to an
+//     existing unit.
+//   - [resourceerrors.ResourceNotFound] if the resource id doesn't belong
+//     to an existing resource.
 func (s *Service) SetUnitResource(
 	ctx context.Context,
-	args resource.SetUnitResourceArgs,
-) (resource.SetUnitResourceResult, error) {
-	if err := args.UnitUUID.Validate(); err != nil {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("unit id: %w", err)
+	resourceUUID coreresource.UUID,
+	unitUUID coreunit.UUID,
+) error {
+	if err := resourceUUID.Validate(); err != nil {
+		return errors.Errorf("resource id: %w", err)
 	}
-	if err := args.ResourceUUID.Validate(); err != nil {
-		return resource.SetUnitResourceResult{}, fmt.Errorf("resource id: %w", err)
+
+	if err := unitUUID.Validate(); err != nil {
+		return errors.Errorf("unit uuid: %w", err)
 	}
-	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
-		return resource.SetUnitResourceResult{},
-			fmt.Errorf("RetrievedByType cannot be unknown if RetrievedBy set: %w", resourceerrors.ArgumentNotValid)
+
+	err := s.st.SetUnitResource(ctx, resourceUUID, unitUUID)
+	if err != nil {
+		return errors.Errorf("recording resource for unit: %w", err)
 	}
-	return s.st.SetUnitResource(ctx, args)
+	return nil
 }
 
-// OpenApplicationResource returns the details of and a reader for the resource.
+// SetApplicationResource marks an existing resource as in use by a CAAS
+// application.
 //
 // The following error types can be expected to be returned:
-//   - [coreerrors.NotValid] is returned if the resource.UUID is not valid.
-//   - [resourceerrors.ResourceNotFound] if the specified resource does
-//     not exist.
-func (s *Service) OpenApplicationResource(
+//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
+//     found.
+func (s *Service) SetApplicationResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
-) (resource.Resource, io.ReadCloser, error) {
+) error {
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
+		return errors.Errorf("resource id: %w", err)
 	}
-	res, err := s.st.OpenApplicationResource(ctx, resourceUUID)
-	return res, &noopReadCloser{}, err
-}
 
-// OpenUnitResource returns metadata about the resource and a reader for
-// the resource. The resource is associated with the unit once the reader is
-// completely exhausted. Read progress is stored until the reader is completely
-// exhausted. Typically used for File resource.
-//
-// The following error types can be returned:
-//   - [coreerrors.NotValid] is returned if the resource.UUID is not valid.
-//   - [coreerrors.NotValid] is returned if the unit UUID is not valid.
-//   - [resourceerrors.ResourceNotFound] if the specified resource does
-//     not exist.
-//   - [resourceerrors.UnitNotFound] if the specified unit does
-//     not exist.
-func (s *Service) OpenUnitResource(
-	ctx context.Context,
-	resourceUUID coreresource.UUID,
-	unitID coreunit.UUID,
-) (resource.Resource, io.ReadCloser, error) {
-	if err := unitID.Validate(); err != nil {
-		return resource.Resource{}, nil, fmt.Errorf("unit id: %w", err)
+	err := s.st.SetApplicationResource(ctx, resourceUUID)
+	if err != nil {
+		return errors.Errorf("recording resource for application: %w", err)
 	}
-	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, nil, fmt.Errorf("resource id: %w", err)
-	}
-	res, err := s.st.OpenUnitResource(ctx, resourceUUID, unitID)
-	return res, &noopReadCloser{}, err
+	return nil
 }
 
 // SetRepositoryResources sets the "polled" resource for the application to
@@ -289,29 +393,18 @@ func (s *Service) SetRepositoryResources(
 	args resource.SetRepositoryResourcesArgs,
 ) error {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return fmt.Errorf("application id: %w", err)
+		return errors.Errorf("application id: %w", err)
 	}
 	if len(args.Info) == 0 {
-		return fmt.Errorf("empty Info: %w", resourceerrors.ArgumentNotValid)
+		return errors.Errorf("empty Info: %w", resourceerrors.ArgumentNotValid)
 	}
 	for _, info := range args.Info {
 		if err := info.Validate(); err != nil {
-			return fmt.Errorf("resource: %w", err)
+			return errors.Errorf("resource: %w", err)
 		}
 	}
 	if args.LastPolled.IsZero() {
-		return fmt.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
+		return errors.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
-}
-
-// TODO: remove me once OpenApplicationResource and OpenUnitResource implemented.
-type noopReadCloser struct{}
-
-func (noopReadCloser) Read(p []byte) (n int, err error) {
-	return 0, nil
-}
-
-func (noopReadCloser) Close() error {
-	return nil
 }

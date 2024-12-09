@@ -1316,6 +1316,14 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersion(c *gc.C) {
 	c.Assert(charmModifiedVersion, gc.Equals, 7)
 }
 
+func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *gc.C) {
+	appUUID := s.createApplication(c, "foo", life.Alive)
+
+	charmModifiedVersion, err := s.state.GetCharmModifiedVersion(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmModifiedVersion, gc.Equals, 0)
+}
+
 func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *gc.C) {
 	_, err := s.state.GetCharmModifiedVersion(context.Background(), applicationtesting.GenApplicationUUID(c))
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)

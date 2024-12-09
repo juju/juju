@@ -9,24 +9,9 @@ import (
 
 	"github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
+	coreresourcestore "github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-)
-
-// IncrementCharmModifiedVersionType is the argument type for incrementing
-// CharmModifiedVersion or not.
-//
-// A change in CharmModifiedVersion triggers the uniter to run the upgrade_charm
-// hook (and config hook). Increment required for a running unit to pick up
-// new resources from `attach` or when a charm is upgraded without a new charm
-// revision.
-type IncrementCharmModifiedVersionType bool
-
-const (
-	// IncrementCharmModifiedVersion means CharmModifiedVersion needs to be incremented.
-	IncrementCharmModifiedVersion IncrementCharmModifiedVersionType = true
-	// DoNotIncrementCharmModifiedVersion means CharmModifiedVersion should not be incremented.
-	DoNotIncrementCharmModifiedVersion IncrementCharmModifiedVersionType = false
 )
 
 // ApplicationResources contains the list of resources for the application
@@ -103,6 +88,10 @@ const (
 	User        RetrievedByType = "user"
 )
 
+func (r RetrievedByType) String() string {
+	return string(r)
+}
+
 // UnitResources contains the list of resources used by a unit.
 type UnitResources struct {
 	// ID is the ID of the unit.
@@ -119,32 +108,6 @@ type GetApplicationResourceIDArgs struct {
 	Name          string
 }
 
-// SetResourceArgs holds the arguments for the SetResource method.
-type SetResourceArgs struct {
-	ApplicationID  application.ID
-	SuppliedBy     string
-	SuppliedByType RetrievedByType
-	Resource       charmresource.Resource
-	Reader         io.Reader
-	Increment      IncrementCharmModifiedVersionType
-}
-
-// SetUnitResourceArgs holds the arguments for the SetUnitResource method.
-type SetUnitResourceArgs struct {
-	ResourceUUID    coreresource.UUID
-	RetrievedBy     string
-	RetrievedByType RetrievedByType
-	UnitUUID        unit.UUID
-}
-
-// SetUnitResourceResult is the result data from setting a unit's resource.
-type SetUnitResourceResult struct {
-	// UUID uniquely identifies the unit resource within the model.
-	UUID coreresource.UUID
-	// Timestamp indicates when the unit started using resource.
-	Timestamp time.Time
-}
-
 // SetRepositoryResourcesArgs holds the arguments for the
 // SetRepositoryResources method.
 type SetRepositoryResourcesArgs struct {
@@ -154,4 +117,38 @@ type SetRepositoryResourcesArgs struct {
 	Info []charmresource.Resource
 	// LastPolled indicates when the resource data was last polled.
 	LastPolled time.Time
+}
+
+// StoreResourceArgs holds the arguments for resource storage methods.
+type StoreResourceArgs struct {
+	// ResourceUUID is the unique identifier of the resource.
+	ResourceUUID coreresource.UUID
+	// Reader is a reader for the resource blob.
+	Reader io.Reader
+	// RetrievedBy is the identity of the entity that retrieved the resource.
+	// This field is optional.
+	RetrievedBy string
+	// RetrievedByType is the type of entity that retrieved the resource. This
+	// field is optional.
+	RetrievedByType RetrievedByType
+}
+
+// RecordStoredResourceArgs holds the arguments for record stored resource state
+// method.
+type RecordStoredResourceArgs struct {
+	// ResourceUUID is the unique identifier of the resource.
+	ResourceUUID coreresource.UUID
+	// StorageID is the store ID of the resources' blob.
+	StorageID coreresourcestore.ID
+	// RetrievedBy is the identity of the entity that retrieved the resource.
+	// This field is optional.
+	RetrievedBy string
+	// RetrievedByType is the type of entity that retrieved the resource. This
+	// field is optional.
+	RetrievedByType RetrievedByType
+	// ResourceType is the type of the resource
+	ResourceType charmresource.Type
+	// IncrementCharmModifiedVersion indicates weather the charm modified
+	// version should be incremented or not.
+	IncrementCharmModifiedVersion bool
 }

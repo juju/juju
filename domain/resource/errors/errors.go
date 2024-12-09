@@ -53,4 +53,8 @@ const (
 	// cannot be found in the relevant resource persistence layer for its
 	// resource type.
 	StoredResourceNotFound = errors.ConstError("stored resource not found")
+
+	// ResourceAlreadyStored describes an errors where the resource has already
+	// been stored.
+	ResourceAlreadyStored = errors.ConstError("resource already found in storage")
 )
