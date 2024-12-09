@@ -943,7 +943,7 @@ func (s *Service) UpdateApplicationCharm(ctx context.Context, name string, param
 	return nil
 }
 
-// GetApplicationIDByName returns a application ID by application name. It
+// GetApplicationIDByName returns an application ID by application name. It
 // returns an error if the application can not be found by the name.
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,

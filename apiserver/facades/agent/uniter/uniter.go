@@ -21,7 +21,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -30,6 +32,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -46,7 +49,6 @@ type UniterAPI struct {
 	*StatusAPI
 	*StorageAPI
 
-	*common.AgentEntityWatcher
 	*common.APIAddresser
 	*common.ModelConfigWatcher
 	*common.RebootRequester
@@ -66,6 +68,7 @@ type UniterAPI struct {
 	accessUnitOrApplication common.GetAuthFunc
 	accessMachine           common.GetAuthFunc
 	containerBrokerFunc     caas.NewContainerBrokerFunc
+	watcherRegistry         facade.WatcherRegistry
 
 	cloudService            CloudService
 	credentialService       CredentialService
@@ -87,6 +90,10 @@ type UniterAPI struct {
 	cloudSpecer     cloudspec.CloudSpecer
 
 	logger corelogger.Logger
+}
+
+type UniterAPIv19 struct {
+	*UniterAPI
 }
 
 // EnsureDead calls EnsureDead on each given unit from state.
@@ -617,7 +624,7 @@ func (u *UniterAPI) CharmModifiedVersion(ctx context.Context, args params.Entiti
 		return results, err
 	}
 	for i, entity := range args.Entities {
-		ver, err := u.charmModifiedVersion(entity.Tag, canAccess)
+		ver, err := u.charmModifiedVersion(ctx, entity.Tag, canAccess)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -627,7 +634,11 @@ func (u *UniterAPI) CharmModifiedVersion(ctx context.Context, args params.Entiti
 	return results, nil
 }
 
-func (u *UniterAPI) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
+func (u *UniterAPI) charmModifiedVersion(
+	ctx context.Context,
+	tagStr string,
+	canAccess func(names.Tag) bool,
+) (int, error) {
 	tag, err := names.ParseTag(tagStr)
 	if err != nil {
 		return -1, apiservererrors.ErrPerm
@@ -635,23 +646,37 @@ func (u *UniterAPI) charmModifiedVersion(tagStr string, canAccess func(names.Tag
 	if !canAccess(tag) {
 		return -1, apiservererrors.ErrPerm
 	}
-	unitOrApplication, err := u.st.FindEntity(tag)
-	if err != nil {
-		return -1, err
-	}
-	var application *state.Application
-	switch entity := unitOrApplication.(type) {
-	case *state.Application:
-		application = entity
-	case *state.Unit:
-		application, err = entity.Application()
+
+	var id application.ID
+	switch tag.(type) {
+	case names.ApplicationTag:
+		id, err = u.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// Return an error that also matches a generic not found error.
+			return -1, internalerrors.Join(err, errors.Hide(errors.NotFound))
+		} else if err != nil {
+			return -1, err
+		}
+	case names.UnitTag:
+		name, err := coreunit.NewName(tag.Id())
 		if err != nil {
 			return -1, err
 		}
+		id, err = u.applicationService.GetApplicationIDByUnitName(ctx, name)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			// Return an error that also matches a generic not found error.
+			return -1, internalerrors.Join(err, errors.Hide(errors.NotFound))
+		} else if err != nil {
+			return -1, err
+		}
 	default:
-		return -1, errors.BadRequestf("type %T does not have a CharmModifiedVersion", entity)
+		return -1, errors.BadRequestf("type %s does not have a CharmModifiedVersion", tag.Kind())
 	}
-	return application.CharmModifiedVersion(), nil
+	charmModifiedVersion, err := u.applicationService.GetCharmModifiedVersion(ctx, id)
+	if err != nil {
+		return -1, err
+	}
+	return charmModifiedVersion, nil
 }
 
 // CharmURL returns the charm URL for all given units or applications.
@@ -2834,4 +2859,121 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 	}
 
 	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
+}
+
+// WatchApplication starts an NotifyWatcher for an application.
+// WatchApplication is not implemented in the UniterAPIv19 facade.
+func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
+	canWatch, err := u.accessApplication()
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+
+	tag, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	if !canWatch(tag) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	watcher, err := u.applicationService.WatchApplication(ctx, tag.Id())
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+	return params.NotifyWatchResult{
+		NotifyWatcherId: id,
+		Error:           apiservererrors.ServerError(err),
+	}, nil
+}
+
+// WatchUnit starts an NotifyWatcher for a unit.
+// WatchUnit is not implemented in the UniterAPIv19 facade.
+func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
+	canWatch, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+
+	tag, err := names.ParseUnitTag(entity.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	if !canWatch(tag) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	watcher, err := u.watchUnit(tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+	return params.NotifyWatchResult{
+		NotifyWatcherId: id,
+		Error:           apiservererrors.ServerError(err),
+	}, nil
+}
+
+// Watch starts an NotifyWatcher for a unit or application.
+// This is being deprecated in favour of separate WatchUnit and WatchApplication
+// methods.
+func (u *UniterAPIv19) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canWatch, err := u.accessUnitOrApplication()
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if !canWatch(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		var watcher corewatcher.NotifyWatcher
+		switch tag.(type) {
+		case names.ApplicationTag:
+			watcher, err = u.applicationService.WatchApplication(ctx, tag.Id())
+		default:
+			watcher, err = u.watchUnit(tag)
+		}
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+		result.Results[i].NotifyWatcherId = id
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+// watchUnit returns a state notify watcher for the given unit.
+func (u *UniterAPI) watchUnit(tag names.Tag) (corewatcher.NotifyWatcher, error) {
+	entity0, err := u.st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	entity, ok := entity0.(state.NotifyWatcherFactory)
+	if !ok {
+		return nil, apiservererrors.NotSupportedError(tag, "watching")
+	}
+	watcher := entity.Watch()
+	return watcher, err
 }

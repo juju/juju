@@ -10,7 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -44,7 +45,18 @@ func (s *Application) String() string {
 
 // Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return common.Watch(ctx, s.client.facade, "Watch", s.tag)
+	arg := params.Entity{Tag: s.tag.String()}
+	var result params.NotifyWatchResult
+
+	err := s.client.facade.FacadeCall(ctx, "WatchApplication", arg, &result)
+	if err != nil {
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
+	}
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewNotifyWatcher(s.client.facade.RawAPICaller(), result), nil
 }
 
 // Life returns the application's current life state.

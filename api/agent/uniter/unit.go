@@ -158,9 +158,20 @@ func (u *Unit) EnsureDead(ctx context.Context) error {
 	return result.OneError()
 }
 
-// Watch returns a watcher for observing changes to the unit.
-func (u *Unit) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return common.Watch(ctx, u.client.facade, "Watch", u.tag)
+// Watch returns a watcher for observing changes to an application.
+func (s *Unit) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
+	arg := params.Entity{Tag: s.tag.String()}
+	var result params.NotifyWatchResult
+
+	err := s.client.facade.FacadeCall(ctx, "WatchUnit", arg, &result)
+	if err != nil {
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
+	}
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewNotifyWatcher(s.client.facade.RawAPICaller(), result), nil
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to
