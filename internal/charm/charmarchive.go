@@ -149,7 +149,7 @@ func readCharmArchive(zopen zipOpener) (archive *CharmArchive, err error) {
 			return nil, err
 		}
 	} else {
-		b.version, err = ReadVersion(reader)
+		b.version, err = readVersion(reader)
 		_ = reader.Close()
 		if err != nil {
 			return nil, err
