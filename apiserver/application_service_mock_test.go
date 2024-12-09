@@ -14,6 +14,8 @@ import (
 	io "io"
 	reflect "reflect"
 
+	charm "github.com/juju/juju/core/charm"
+	charm0 "github.com/juju/juju/domain/application/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -137,6 +139,46 @@ func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, error)) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetCharm mocks base method.
+func (m *MockApplicationService) SetCharm(arg0 context.Context, arg1 charm0.SetCharmArgs) (charm.ID, []string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
+	ret0, _ := ret[0].(charm.ID)
+	ret1, _ := ret[1].([]string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SetCharm indicates an expected call of SetCharm.
+func (mr *MockApplicationServiceMockRecorder) SetCharm(arg0, arg1 any) *MockApplicationServiceSetCharmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplicationService)(nil).SetCharm), arg0, arg1)
+	return &MockApplicationServiceSetCharmCall{Call: call}
+}
+
+// MockApplicationServiceSetCharmCall wrap *gomock.Call
+type MockApplicationServiceSetCharmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceSetCharmCall) Return(arg0 charm.ID, arg1 []string, arg2 error) *MockApplicationServiceSetCharmCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceSetCharmCall) Do(f func(context.Context, charm0.SetCharmArgs) (charm.ID, []string, error)) *MockApplicationServiceSetCharmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceSetCharmCall) DoAndReturn(f func(context.Context, charm0.SetCharmArgs) (charm.ID, []string, error)) *MockApplicationServiceSetCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

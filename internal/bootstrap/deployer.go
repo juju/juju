@@ -4,7 +4,11 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +19,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
@@ -33,6 +36,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
@@ -263,7 +267,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	curl, ch, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
+	curl, ch, err := b.addLocalControllerCharm(ctx, controllerCharmPath)
 	if err != nil {
 		return "", nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
@@ -408,8 +412,23 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, charmFileName string) (*charm.URL, charm.Charm, error) {
-	archive, err := charm.ReadCharmArchive(charmFileName)
+func (b *baseDeployer) addLocalControllerCharm(ctx context.Context, charmFileName string) (*charm.URL, charm.Charm, error) {
+	f, err := os.Open(charmFileName)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "opening charm archive %q", charmFileName)
+	}
+	defer f.Close()
+
+	hash := sha256.New()
+	var charmArchiveBuf bytes.Buffer
+	_, err = io.Copy(io.MultiWriter(hash, &charmArchiveBuf), f)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "reading charm archive %q", charmFileName)
+	}
+
+	archiveSHA256 := hex.EncodeToString(hash.Sum(nil))
+
+	archive, err := charm.ReadCharmArchiveBytes(charmArchiveBuf.Bytes())
 	if err != nil {
 		return nil, nil, errors.Errorf("invalid charm archive: %v", err)
 	}
@@ -425,17 +444,31 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 		Name:     name,
 		Revision: archive.Revision(),
 	}
-	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
+	curl, err = b.charmUploader.PrepareLocalCharmUpload(curl.String())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	_, _, _, _, err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl.String(), archive.Revision())
+	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
+		Logger:       b.logger,
+		StateBackend: b.charmUploader,
+		ObjectStore:  b.objectStore,
+	})
+
+	_, err = charmStorage.Store(ctx, curl.String(), downloader.DownloadedCharm{
+		Charm:        archive,
+		CharmData:    &charmArchiveBuf,
+		CharmVersion: archive.Version(),
+		Size:         int64(charmArchiveBuf.Len()),
+		SHA256:       archiveSHA256,
+		LXDProfile:   archive.LXDProfile(),
+	})
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "storing charm")
 	}
+
 	return curl, archive, nil
 }
 
