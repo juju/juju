@@ -12,6 +12,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
+// Do not register this facade. Resource functionality has been temporarily deleted
+// from state so it won't work. State functionality will be replaced by the resource
+// domain. Once that is wired up, this facade can be re-registered.
+// TODO: Enable facade once it no
+var _ = Register
+
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Resources", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {

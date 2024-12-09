@@ -5,6 +5,7 @@ package charmrevisionupdater
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/state"
 )
 
@@ -22,7 +24,7 @@ type State interface {
 	Charm(curl string) (*state.Charm, error)
 	ControllerUUID() string
 	Model() (Model, error)
-	Resources(objectstore.ObjectStore) state.Resources
+	Resources(objectstore.ObjectStore) Resources
 	AliveRelationKeys() []string
 }
 
@@ -41,6 +43,10 @@ type Model interface {
 	Metrics() (state.ModelMetrics, error)
 	ModelTag() names.ModelTag
 	UUID() string
+}
+
+type Resources interface {
+	SetCharmStoreResources(string, []resource.Resource, time.Time) error
 }
 
 // ModelConfigService is an interface that provides access to the
@@ -68,4 +74,14 @@ func (s StateShim) AllApplications() ([]Application, error) {
 
 func (s StateShim) Model() (Model, error) {
 	return s.State.Model()
+}
+
+func (s StateShim) Resources(_ objectstore.ObjectStore) Resources {
+	return &resourcesShim{}
+}
+
+type resourcesShim struct{}
+
+func (s resourcesShim) SetCharmStoreResources(string, []resource.Resource, time.Time) error {
+	return errors.NotImplementedf("SetCharmStoreResources")
 }
