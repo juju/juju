@@ -150,7 +150,7 @@ func ReadCharmDir(path string, options ...ReadOption) (*CharmDir, error) {
 			return nil, errors.Annotatef(err, `reading "version" file`)
 		}
 	} else {
-		b.version, err = ReadVersion(reader)
+		b.version, err = readVersion(reader)
 		_ = reader.Close()
 		if err != nil {
 			return nil, errors.Annotatef(err, `parsing "version" file`)
