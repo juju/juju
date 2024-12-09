@@ -4,6 +4,9 @@
         "Description": "",
         "Version": 7,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "model-user"
         ],
         "Schema": {

@@ -99,10 +99,11 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	ctx := facadetest.ModelContext{
-		Auth_:      anAuthorizer,
-		Resources_: s.resources,
-		State_:     s.ControllerModel(c).State(),
-		Logger_:    loggertesting.WrapCheckLog(c),
+		Auth_:           anAuthorizer,
+		Resources_:      s.resources,
+		State_:          s.ControllerModel(c).State(),
+		Logger_:         loggertesting.WrapCheckLog(c),
+		DomainServices_: s.ControllerDomainServices(c),
 	}
 	err := factory(ctx)
 	c.Assert(err, gc.NotNil)

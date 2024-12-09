@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -14,12 +15,13 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	domainservicestesting "github.com/juju/juju/domain/services/testing"
+	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
@@ -33,7 +35,19 @@ var _ = gc.Suite(&suite{})
 type suite struct {
 	authority pki.Authority
 	testing.IsolationSuite
-	workerC chan *mockWorker
+	workerC                chan *mockWorker
+	providerServicesGetter modelworkermanager.ProviderServicesGetter
+	domainServicesGetter   *MockDomainServicesGetter
+	domainServices         *MockDomainServices
+}
+
+func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
+	s.domainServices = NewMockDomainServices(ctrl)
+
+	return ctrl
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
@@ -42,6 +56,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
 	s.workerC = make(chan *mockWorker, 100)
+	s.providerServicesGetter = providerServicesGetter{}
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
@@ -186,7 +201,27 @@ func (s *suite) runDirtyTest(c *gc.C, test testFunc) {
 	s.runKillTest(c, workertest.DirtyKill, test)
 }
 
+type uuidMatcher struct{}
+
+func (m uuidMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(model.UUID)
+	if !ok {
+		return false
+	}
+	return set.NewStrings("uuid", "uuid1", "uuid2", "uuid3", "uuid4").Contains(obtained.String())
+}
+
+func (m uuidMatcher) String() string {
+	return "model uuid matcher"
+}
+
 func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(uuidMatcher{}).Return(s.domainServices).AnyTimes()
+	s.domainServices.EXPECT().ControllerConfig().AnyTimes()
+
 	watcher := newMockModelWatcher()
 	mockController := newMockController()
 	config := modelworkermanager.Config{

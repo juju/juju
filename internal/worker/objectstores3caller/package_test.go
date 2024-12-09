@@ -25,6 +25,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination httpclient_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -37,6 +38,7 @@ type baseSuite struct {
 
 	session                 *MockSession
 	controllerConfigService *MockControllerConfigService
+	domainServices          *MockDomainServices
 	clock                   *MockClock
 
 	httpClientGetter *MockHTTPClientGetter
@@ -54,6 +56,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.session = NewMockSession(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.domainServices = NewMockDomainServices(ctrl)
 	s.clock = NewMockClock(ctrl)
 
 	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)

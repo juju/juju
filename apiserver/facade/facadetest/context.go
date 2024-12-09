@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
@@ -202,7 +201,7 @@ func (c ModelContext) HTTPClient(purpose corehttp.Purpose) (facade.HTTPClient, e
 // DomainServices implements facade.ModelContext.
 func (c ModelContext) DomainServices() services.DomainServices {
 	if c.DomainServices_ == nil {
-		return domainservicestesting.NewPlaceholderDomainServices()
+		panic("missing domain services")
 	}
 	return c.DomainServices_
 }

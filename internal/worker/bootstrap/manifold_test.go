@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/internal/bootstrap"
 )
 
@@ -111,7 +110,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"object-store":     s.objectStoreGetter,
 		"bootstrap-gate":   s.bootstrapUnlocker,
 		"http-client":      s.httpClientGetter,
-		"domain-services":  testing.NewPlaceholderDomainServices(),
+		"domain-services":  s.domainServices,
 		"storage-registry": s.storageRegistryGetter,
 	}
 	return dependencytesting.StubGetter(resources)

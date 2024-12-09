@@ -4,7 +4,7 @@
 package objectstores3caller
 
 import (
-	context "context"
+	"context"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -14,10 +14,9 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/testing"
 )
@@ -54,7 +53,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"http-client":           s.httpClientGetter,
-		"object-store-services": servicefactorytesting.NewPlaceholderDomainServices(),
+		"object-store-services": s.domainServices,
 	}
 	return dependencytesting.StubGetter(resources)
 }
