@@ -562,7 +562,7 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 		gomock.AssignableToTypeOf(""),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(
-		func(_ context.Context, name string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+		func(_ context.Context, name string, requestedOrigin corecharm.Origin) (corecharm.ResolvedData, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 			resolvedOrigin.Platform = corecharm.Platform{
@@ -590,7 +590,12 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 				Architecture: "amd64",
 				Revision:     -1,
 			}
-			return curl, resolvedOrigin, bases, err
+			return corecharm.ResolvedData{
+				URL:               curl,
+				EssentialMetadata: corecharm.EssentialMetadata{},
+				Origin:            resolvedOrigin,
+				Platform:          bases,
+			}, err
 		}).Times(times)
 }
 

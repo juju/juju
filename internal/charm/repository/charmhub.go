@@ -75,9 +75,10 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, ch
 		return corecharm.ResolvedData{}, errors.Trace(err)
 	}
 
-	// Get ID and Hash for the origin. Needed in the case where this
+	// Get the Hash for the origin. Needed in the case where this
 	// charm has been downloaded before.
-	resolvedOrigin.ID = resp.Entity.ID
+	// The charmhub ID is missing from the origin, this will be filled in
+	// during the deploy process.
 	resolvedOrigin.Hash = resp.Entity.Download.HashSHA256
 
 	essMeta.ResolvedOrigin = resolvedOrigin
@@ -360,6 +361,11 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Contex
 }
 
 func transformRefreshResult(charmName string, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
+	// We only care about charm metadata.
+	if refreshResult.Entity.Type != transport.CharmType {
+		return corecharm.EssentialMetadata{}, nil
+	}
+
 	entity := refreshResult.Entity
 
 	if entity.MetadataYAML == "" {
@@ -1051,8 +1057,6 @@ func refreshConfig(charmName string, origin corecharm.Origin) (charmhub.RefreshC
 	if !transport.BundleType.Matches(origin.Type) && origin.ID != "" {
 		method = MethodID
 	}
-
-	fmt.Println(">>>", method)
 
 	var (
 		cfg charmhub.RefreshConfig
