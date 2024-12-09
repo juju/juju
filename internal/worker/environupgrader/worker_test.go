@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -54,8 +53,6 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockEnviron.CheckCallNames(c, "UpgradeOperations")
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
@@ -102,8 +99,6 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 }
@@ -155,14 +150,12 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 125", nilData}},
 		{"SetModelEnvironVersion", []interface{}{
 			coretesting.ModelTag, 124,
 		}},
 		{"SetModelEnvironVersion", []interface{}{
 			coretesting.ModelTag, 125,
 		}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockEnviron.Stub.CheckCallNames(c, "UpgradeOperations")
 	// Nil the call context as if fails DeepEquals.
@@ -210,8 +203,6 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Error, "failed to upgrade environ: phooey", nilData}},
 	})
 	mockGateUnlocker.CheckNoCalls(c)
 }
@@ -357,13 +348,6 @@ func (f *mockFacade) WatchModelEnvironVersion(_ context.Context, tag names.Model
 		return f.watcher, nil
 	}
 	return nil, errors.New("unexpected call to WatchModelEnvironVersion")
-}
-
-var nilData map[string]interface{}
-
-func (f *mockFacade) SetModelStatus(ctx context.Context, tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
-	f.MethodCall(f, "SetModelStatus", tag, status, info, data)
-	return f.NextErr()
 }
 
 type mockEnviron struct {

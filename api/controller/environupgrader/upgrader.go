@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -96,18 +95,4 @@ func (c *Client) SetModelEnvironVersion(ctx context.Context, tag names.ModelTag,
 // changes to the environ version of the model with the specified tag.
 func (c *Client) WatchModelEnvironVersion(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 	return common.Watch(ctx, c.facade, "WatchModelEnvironVersion", tag)
-}
-
-// SetModelStatus sets the status of a model.
-func (c *Client) SetModelStatus(ctx context.Context, tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
-	var result params.ErrorResults
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: tag.String(), Status: status.String(), Info: info, Data: data},
-		},
-	}
-	if err := c.facade.FacadeCall(ctx, "SetModelStatus", args, &result); err != nil {
-		return errors.Trace(err)
-	}
-	return result.OneError()
 }

@@ -19,7 +19,6 @@ type Facade struct {
 	pool          Pool
 	providers     ProviderRegistry
 	entityWatcher EntityWatcher
-	statusSetter  StatusSetter
 }
 
 // EntityWatcher is an interface that provides a means of watching
@@ -34,26 +33,18 @@ type ProviderRegistry interface {
 	Provider(string) (environs.EnvironProvider, error)
 }
 
-// StatusSetter is an interface that provides a means of setting
-// the status of entities.
-type StatusSetter interface {
-	SetStatus(context.Context, params.SetStatus) (params.ErrorResults, error)
-}
-
 // NewFacade returns a new Facade using the given Backend and Authorizer.
 func NewFacade(
 	cloudService CloudService,
 	pool Pool,
 	providers ProviderRegistry,
 	entityWatcher EntityWatcher,
-	statusSetter StatusSetter,
 ) (*Facade, error) {
 	return &Facade{
 		cloudService:  cloudService,
 		pool:          pool,
 		providers:     providers,
 		entityWatcher: entityWatcher,
-		statusSetter:  statusSetter,
 	}, nil
 }
 
@@ -161,9 +152,4 @@ func (f *Facade) setModelEnvironVersion(arg params.SetModelEnvironVersion) error
 // the client may be notified of changes unrelated to the environ version.
 func (f *Facade) WatchModelEnvironVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	return f.entityWatcher.Watch(ctx, args)
-}
-
-// SetModelStatus sets the status of each given model.
-func (f *Facade) SetModelStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return f.statusSetter.SetStatus(ctx, args)
 }
