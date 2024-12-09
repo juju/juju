@@ -108,11 +108,11 @@ func (s *ModelService) DeleteModel(
 	return s.modelSt.Delete(ctx, s.modelID)
 }
 
-// Status returns the current status of the model.
+// GetStatus returns the current status of the model.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
-func (s *ModelService) Status(ctx context.Context) (model.StatusInfo, error) {
+func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) {
 	modelState, err := s.controllerSt.GetModelState(ctx, s.modelID)
 	if err != nil {
 		return model.StatusInfo{}, errors.Capture(err)

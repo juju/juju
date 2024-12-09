@@ -51,7 +51,7 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 		CloudRegion:  "region",
 		AgentVersion: version.MustParse("4.0.0"),
 	}, nil)
-	s.modelInfoService.EXPECT().Status(gomock.Any()).Return(domainmodel.StatusInfo{
+	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
 		Status:  status.Available,
 		Message: "all good now",
 		Since:   now,
@@ -85,7 +85,7 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
 		CloudRegion:  "region",
 		AgentVersion: version.MustParse("4.0.0"),
 	}, nil)
-	s.modelInfoService.EXPECT().Status(gomock.Any()).Return(domainmodel.StatusInfo{}, domainmodelerrors.NotFound)
+	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{}, domainmodelerrors.NotFound)
 
 	client := &Client{modelInfoService: s.modelInfoService}
 	_, err := client.modelStatus(context.Background())
