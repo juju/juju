@@ -173,8 +173,6 @@ func (c *DownloadClient) download(ctx context.Context, url *url.URL, archivePath
 		option(opts)
 	}
 
-	fmt.Println("> archivePath", archivePath, "url", url.String())
-
 	f, err := c.fileSystem.Create(archivePath)
 	if err != nil {
 		return nil, errors.Trace(err)
