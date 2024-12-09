@@ -1,0 +1,214 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package schema
+
+import (
+	context "context"
+	"database/sql"
+	"fmt"
+
+	"github.com/juju/juju/core/database/schema"
+	coresecrets "github.com/juju/juju/core/secrets"
+	databasetesting "github.com/juju/juju/internal/database/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v4"
+
+	gc "gopkg.in/check.v1"
+)
+
+type secretSchemaSuite struct {
+	databasetesting.DqliteSuite
+}
+
+var _ = gc.Suite(&secretSchemaSuite{})
+
+// NewCleanDB returns a new sql.DB reference.
+func (s *secretSchemaSuite) NewCleanDB(c *gc.C) *sql.DB {
+	dir := c.MkDir()
+
+	url := fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir)
+	c.Logf("Opening sqlite3 db with: %v", url)
+
+	db, err := sql.Open("sqlite3", url)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return db
+}
+
+func (s *secretSchemaSuite) applyDDL(c *gc.C, ddl *schema.Schema) {
+	if s.Verbose {
+		ddl.Hook(func(i int, statement string) error {
+			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
+			return nil
+		})
+	}
+	changeSet, err := ddl.Ensure(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changeSet.Current, gc.Equals, 0)
+	c.Check(changeSet.Post, gc.Equals, ddl.Len())
+}
+
+func (s *secretSchemaSuite) assertExecSQL(c *gc.C, q string, args ...any) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, q, args...)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) {
+	s.applyDDL(c, ControllerDDL())
+
+	s.assertChangeLogCount(c, 1, tableSecretBackendRotation, 0)
+	s.assertChangeLogCount(c, 2, tableSecretBackendRotation, 0)
+	s.assertChangeLogCount(c, 4, tableSecretBackendRotation, 0)
+
+	backendUUID := utils.MustNewUUID().String()
+
+	s.assertExecSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'myVault', 2);", backendUUID)
+	s.assertExecSQL(c, "INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));", backendUUID)
+	s.assertExecSQL(c, `UPDATE secret_backend_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE backend_uuid = ?;`, backendUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;`, backendUUID)
+
+	s.assertChangeLogCount(c, 1, tableSecretBackendRotation, 1)
+	s.assertChangeLogCount(c, 2, tableSecretBackendRotation, 1)
+	s.assertChangeLogCount(c, 4, tableSecretBackendRotation, 1)
+}
+
+func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
+	s.applyDDL(c, ModelDDL())
+
+	// secret table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 0)
+	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 0)
+	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 0)
+
+	secretURI := coresecrets.NewURI()
+	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, secretURI.ID)
+
+	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 1)
+	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 1)
+	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 1)
+
+	// secret_rotation table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretRotation, 0)
+	s.assertChangeLogCount(c, 2, tableSecretRotation, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRotation, 0)
+
+	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_id = ?;`, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_rotation WHERE secret_id = ?;`, secretURI.ID)
+
+	s.assertChangeLogCount(c, 1, tableSecretRotation, 1)
+	s.assertChangeLogCount(c, 2, tableSecretRotation, 1)
+	s.assertChangeLogCount(c, 4, tableSecretRotation, 1)
+
+	// secret_revision table triggers.
+	revisionUUID := utils.MustNewUUID().String()
+	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 0)
+	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 0)
+
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?);`, revisionUUID)
+	s.assertExecSQL(c, `UPDATE secret_revision_obsolete SET obsolete = true WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
+
+	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 1)
+	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 1)
+	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 1)
+
+	// secret_revision_expire table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 0)
+	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 0)
+
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, datetime('now', '+1 day'));`, revisionUUID)
+	s.assertExecSQL(c, `UPDATE secret_revision_expire SET expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
+
+	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 1)
+	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 1)
+	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 1)
+
+	// secret_revision table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretRevision, 2)
+	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevision, 2)
+
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
+
+	s.assertChangeLogCount(c, 1, tableSecretRevision, 3)
+	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevision, 3)
+
+	// secret_reference table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretReference, 0)
+	s.assertChangeLogCount(c, 2, tableSecretReference, 0)
+	s.assertChangeLogCount(c, 4, tableSecretReference, 0)
+
+	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, 1);`, secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, secretURI.ID)
+
+	s.assertChangeLogCount(c, 1, tableSecretReference, 1)
+	s.assertChangeLogCount(c, 2, tableSecretReference, 1)
+	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
+
+	// secret_deleted_value_ref table triggers.
+	deletedRvisionUUID := utils.MustNewUUID().String()
+	backendUUIDUUID := utils.MustNewUUID().String()
+	s.assertChangeLogCount(c, 1, tableSecretDeletedValueRef, 0)
+	s.assertChangeLogCount(c, 2, tableSecretDeletedValueRef, 0)
+	s.assertChangeLogCount(c, 4, tableSecretDeletedValueRef, 0)
+
+	// We only care about inserts into this table.
+	s.assertExecSQL(c, `INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?);`, deletedRvisionUUID, backendUUIDUUID, "rev")
+	s.assertChangeLogCount(c, 1, tableSecretDeletedValueRef, 1)
+
+	charmUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, 'mysql', 0, 0);", charmUUID)
+	s.assertExecSQL(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'mysql');", charmUUID)
+
+	appUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, `
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
+VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, charmUUID)
+
+	unitNetNodeUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)
+	unitUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, `
+INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id)
+VALUES (?, 0, 0, ?, ?, ?, 0);`,
+		unitUUID, appUUID, unitNetNodeUUID, charmUUID)
+}
+
+func (s *secretSchemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
+	var count int
+	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT COUNT(*) FROM change_log
+WHERE edit_type_id = ? AND namespace_id = ?;`[1:], editType, namespaceID)
+
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		if !rows.Next() {
+			return fmt.Errorf("no rows returned")
+		}
+		return rows.Scan(&count)
+	})
+	c.Assert(count, gc.Equals, expectedCount)
+}
