@@ -45,6 +45,82 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// DeleteApplicationResources mocks base method.
+func (m *MockState) DeleteApplicationResources(arg0 context.Context, arg1 application.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteApplicationResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteApplicationResources indicates an expected call of DeleteApplicationResources.
+func (mr *MockStateMockRecorder) DeleteApplicationResources(arg0, arg1 any) *MockStateDeleteApplicationResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplicationResources", reflect.TypeOf((*MockState)(nil).DeleteApplicationResources), arg0, arg1)
+	return &MockStateDeleteApplicationResourcesCall{Call: call}
+}
+
+// MockStateDeleteApplicationResourcesCall wrap *gomock.Call
+type MockStateDeleteApplicationResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteApplicationResourcesCall) Return(arg0 error) *MockStateDeleteApplicationResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteApplicationResourcesCall) Do(f func(context.Context, application.ID) error) *MockStateDeleteApplicationResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteApplicationResourcesCall) DoAndReturn(f func(context.Context, application.ID) error) *MockStateDeleteApplicationResourcesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteUnitResources mocks base method.
+func (m *MockState) DeleteUnitResources(arg0 context.Context, arg1 unit.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUnitResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUnitResources indicates an expected call of DeleteUnitResources.
+func (mr *MockStateMockRecorder) DeleteUnitResources(arg0, arg1 any) *MockStateDeleteUnitResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnitResources", reflect.TypeOf((*MockState)(nil).DeleteUnitResources), arg0, arg1)
+	return &MockStateDeleteUnitResourcesCall{Call: call}
+}
+
+// MockStateDeleteUnitResourcesCall wrap *gomock.Call
+type MockStateDeleteUnitResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteUnitResourcesCall) Return(arg0 error) *MockStateDeleteUnitResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteUnitResourcesCall) Do(f func(context.Context, unit.UUID) error) *MockStateDeleteUnitResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteUnitResourcesCall) DoAndReturn(f func(context.Context, unit.UUID) error) *MockStateDeleteUnitResourcesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationResourceID mocks base method.
 func (m *MockState) GetApplicationResourceID(arg0 context.Context, arg1 resource0.GetApplicationResourceIDArgs) (resource.UUID, error) {
 	m.ctrl.T.Helper()

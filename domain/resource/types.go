@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // IncrementCharmModifiedVersionType is the argument type for incrementing
@@ -45,7 +45,7 @@ type ApplicationResources struct {
 	// was polled. Each entry here corresponds to the same indexed entry
 	// in the Resources field. An entry may be empty if data has not
 	// yet been retrieve from the repository.
-	RepositoryResources []resource.Resource
+	RepositoryResources []charmresource.Resource
 
 	// UnitResources reports the currently-in-use version of file type
 	// resources for each unit.
@@ -70,7 +70,7 @@ type ApplicationResources struct {
 //
 //	Fingerprint, Size
 type Resource struct {
-	resource.Resource
+	charmresource.Resource
 
 	// UUID uniquely identifies a resource within the model.
 	UUID coreresource.UUID
@@ -124,7 +124,7 @@ type SetResourceArgs struct {
 	ApplicationID  application.ID
 	SuppliedBy     string
 	SuppliedByType RetrievedByType
-	Resource       resource.Resource
+	Resource       charmresource.Resource
 	Reader         io.Reader
 	Increment      IncrementCharmModifiedVersionType
 }
@@ -151,7 +151,7 @@ type SetRepositoryResourcesArgs struct {
 	// ApplicationID is the id of the application having these resources.
 	ApplicationID application.ID
 	// Info is a slice of resource data received from the repository.
-	Info []resource.Resource
+	Info []charmresource.Resource
 	// LastPolled indicates when the resource data was last polled.
 	LastPolled time.Time
 }
