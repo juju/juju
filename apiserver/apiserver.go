@@ -838,8 +838,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: systemState.ControllerTag(),
 	}
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		ctxt:                     httpCtxt,
+		stateAuthFunc:            httpCtxt.stateForMigrationImporting,
+		applicationServiceGetter: &applicationServiceGetter{ctxt: httpCtxt},
 	}, "charms")
 	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,

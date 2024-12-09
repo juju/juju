@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// ReadVersion extracts the VCS version from a charm's version file.
-func ReadVersion(r io.Reader) (string, error) {
+// readVersion extracts the VCS version from a charm's version file.
+func readVersion(r io.Reader) (string, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Scan()
 	if err := scanner.Err(); err != nil {
