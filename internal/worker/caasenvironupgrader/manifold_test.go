@@ -28,7 +28,7 @@ func (*ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 		GateName: "gate",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"api-caller", "gate"})
+	c.Check(manifold.Inputs, jc.DeepEquals, []string{"gate"})
 }
 
 func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
