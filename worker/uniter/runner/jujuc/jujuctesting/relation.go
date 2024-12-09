@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -182,4 +183,10 @@ func (r *ContextRelation) SetStatus(status relation.Status) error {
 func (r *ContextRelation) RemoteApplicationName() string {
 	r.stub.AddCall("RemoteApplicationName")
 	return r.info.RemoteApplicationName
+}
+
+// RemoteModelUUID implements jujuc.ContextRelation.
+func (r *ContextRelation) RemoteModelUUID() string {
+	r.stub.AddCall("RemoteModelUUID")
+	return testing.ModelTag.Id()
 }

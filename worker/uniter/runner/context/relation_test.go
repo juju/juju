@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -182,6 +183,11 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
 	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
+}
+
+func (s *ContextRelationSuite) TestRemoteModelUUID(c *gc.C) {
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
+	c.Assert(ctx.RemoteModelUUID(), gc.Equals, jujutesting.ModelTag.Id())
 }
 
 type relUnitShim struct {

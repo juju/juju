@@ -12356,7 +12356,7 @@
     {
         "Name": "Uniter",
         "Description": "",
-        "Version": 19,
+        "Version": 20,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -12962,7 +12962,7 @@
                             "$ref": "#/definitions/RelationUnits"
                         },
                         "Result": {
-                            "$ref": "#/definitions/RelationResults"
+                            "$ref": "#/definitions/RelationResultsV2"
                         }
                     }
                 },
@@ -12973,7 +12973,7 @@
                             "$ref": "#/definitions/RelationIds"
                         },
                         "Result": {
-                            "$ref": "#/definitions/RelationResults"
+                            "$ref": "#/definitions/RelationResultsV2"
                         }
                     }
                 },
@@ -15226,6 +15226,22 @@
                         "protocol"
                     ]
                 },
+                "RelatedApplicationDetails": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-uuid",
+                        "application"
+                    ]
+                },
                 "RelationIds": {
                     "type": "object",
                     "properties": {
@@ -15241,7 +15257,7 @@
                         "relation-ids"
                     ]
                 },
-                "RelationResult": {
+                "RelationResultV2": {
                     "type": "object",
                     "properties": {
                         "bool": {
@@ -15263,7 +15279,7 @@
                             "type": "string"
                         },
                         "other-application": {
-                            "type": "string"
+                            "$ref": "#/definitions/RelatedApplicationDetails"
                         }
                     },
                     "additionalProperties": false,
@@ -15274,13 +15290,13 @@
                         "endpoint"
                     ]
                 },
-                "RelationResults": {
+                "RelationResultsV2": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/RelationResult"
+                                "$ref": "#/definitions/RelationResultV2"
                             }
                         }
                     },

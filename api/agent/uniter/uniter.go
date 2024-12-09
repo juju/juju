@@ -97,9 +97,9 @@ func (st *State) life(tag names.Tag) (life.Value, error) {
 }
 
 // relation requests relation information from the server.
-func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult, error) {
-	nothing := params.RelationResult{}
-	var result params.RelationResults
+func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResultV2, error) {
+	nothing := params.RelationResultV2{}
+	var result params.RelationResultsV2
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{
 			{Relation: relationTag.String(), Unit: unitTag.String()},
@@ -249,12 +249,13 @@ func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
 		return nil, err
 	}
 	return &Relation{
-		id:        result.Id,
-		tag:       relationTag,
-		life:      result.Life,
-		suspended: result.Suspended,
-		st:        st,
-		otherApp:  result.OtherApplication,
+		id:             result.Id,
+		tag:            relationTag,
+		life:           result.Life,
+		suspended:      result.Suspended,
+		st:             st,
+		otherApp:       result.OtherApplication.ApplicationName,
+		otherModelUUID: result.OtherApplication.ModelUUID,
 	}, nil
 }
 
@@ -333,7 +334,7 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 
 // RelationById returns the existing relation with the given id.
 func (st *State) RelationById(id int) (*Relation, error) {
-	var results params.RelationResults
+	var results params.RelationResultsV2
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
@@ -351,12 +352,13 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}
 	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
-		id:        result.Id,
-		tag:       relationTag,
-		life:      result.Life,
-		suspended: result.Suspended,
-		st:        st,
-		otherApp:  result.OtherApplication,
+		id:             result.Id,
+		tag:            relationTag,
+		life:           result.Life,
+		suspended:      result.Suspended,
+		st:             st,
+		otherApp:       result.OtherApplication.ApplicationName,
+		otherModelUUID: result.OtherApplication.ModelUUID,
 	}, nil
 }
 

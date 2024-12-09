@@ -32,9 +32,9 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 				{Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResults{})
-		*(result.(*params.RelationResults)) = params.RelationResults{
-			Results: []params.RelationResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+		*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
+			Results: []params.RelationResultV2{{
 				Life:      life.Alive,
 				Suspended: false,
 				Id:        666,
@@ -49,7 +49,10 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 						Scope:     "global",
 					},
 				},
-				OtherApplication: "mysql",
+				OtherApplication: params.RelatedApplicationDetails{
+					ApplicationName: "mysql",
+					ModelUUID:       testing.ModelTag.Id(),
+				},
 			}},
 		}
 		return nil
@@ -63,6 +66,7 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 	c.Assert(rel.Life(), gc.Equals, life.Alive)
 	c.Assert(rel.String(), gc.Equals, tag.Id())
 	c.Assert(rel.OtherApplication(), gc.Equals, "mysql")
+	c.Assert(rel.OtherModelUUID(), gc.Equals, testing.ModelTag.Id())
 	ep, err := rel.Endpoint()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ep, jc.DeepEquals, &uniter.Endpoint{
@@ -86,9 +90,9 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 				{Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResults{})
-		*(result.(*params.RelationResults)) = params.RelationResults{
-			Results: []params.RelationResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+		*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
+			Results: []params.RelationResultV2{{
 				Life:      life.Dying,
 				Suspended: true,
 			}},
@@ -149,9 +153,9 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "RelationById")
 		c.Assert(arg, gc.DeepEquals, params.RelationIds{RelationIds: []int{666}})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResults{})
-		*(result.(*params.RelationResults)) = params.RelationResults{
-			Results: []params.RelationResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+		*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
+			Results: []params.RelationResultV2{{
 				Id:        666,
 				Life:      life.Alive,
 				Suspended: true,
@@ -163,6 +167,7 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	rel, err := client.RelationById(666)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Id(), gc.Equals, 666)
 	c.Assert(rel.Tag(), gc.Equals, names.NewRelationTag("wordpress:db mysql:server"))
 	c.Assert(rel.Life(), gc.Equals, life.Alive)
