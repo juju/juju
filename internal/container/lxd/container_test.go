@@ -363,11 +363,9 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
 	gomock.InOrder(
 		exp.CreateInstanceFromImage(cSvr, image, createReq).Return(createOp, errors.Errorf("Container 'juju-5bcbde-5-lxd-6' already exists")),
 		exp.GetInstance(spec.Name).Return(&api.Instance{
-			InstancePut: api.InstancePut{
-				Profiles: spec.Profiles,
-				Devices:  spec.Devices,
-				Config:   spec.Config,
-			},
+			Profiles:   spec.Profiles,
+			Devices:    spec.Devices,
+			Config:     spec.Config,
 			StatusCode: api.Running,
 		}, lxdtesting.ETag, nil),
 	)
