@@ -251,7 +251,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 				Source:   "charm-hub",
 				Type:     "charm",
 				Revision: ptr(1),
-				Hash:     "sha-256",
 				Channel: &state.Channel{
 					Risk: "stable",
 				},

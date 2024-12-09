@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -1339,7 +1340,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
 	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
-	if err != nil {
+	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
 		return errors.Trace(err)
 	}
 
@@ -1369,7 +1370,7 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
 	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
-	if err != nil {
+	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
 		return application.ResolvedControllerCharmDownload{}, errors.Trace(err)
 	}
 

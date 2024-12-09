@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // DeployCharmResult holds the result of deploying a charm.
@@ -449,6 +450,10 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 	// Remove this horrible hack once we've removed all of the .Charm calls
 	// in the state package. This is just to service the current add
 	// application code base.
+
+	stateOrigin.Hash = ""
+	stateOrigin.ID = ""
+
 	_, err = b.charmUploader.PrepareCharmUpload(info.URL.String())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -459,7 +464,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		StoragePath: info.ArchivePath,
 		SHA256:      info.Origin.Hash,
 	})
-	if err != nil {
+	if err != nil && !stateerrors.IsCharmAlreadyUploadedError(err) {
 		return nil, errors.Annotatef(err, "updating uploaded charm")
 	}
 
