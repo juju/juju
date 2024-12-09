@@ -544,7 +544,12 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	}
 	s.cSvr.EXPECT().CreateProfile(post).Return(nil)
 	s.cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil)
-	expProfile := lxdapi.Profile{ProfilePut: lxdapi.ProfilePut(put)}
+	expProfile := lxdapi.Profile{
+		Name:        post.Name,
+		Description: post.Description,
+		Config:      post.Config,
+		Devices:     post.Devices,
+	}
 	s.cSvr.EXPECT().GetProfile(post.Name).Return(&expProfile, "etag", nil)
 
 	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", put)
@@ -629,7 +634,7 @@ func (s *managerSuite) expectDeleteOp(ctrl *gomock.Controller) {
 // concerning GetImage operations.
 func (s *managerSuite) expectGetImage(image lxdapi.Image, getImageErr error) {
 	target := "foo-target"
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
+	alias := &lxdapi.ImageAliasesEntry{Target: target}
 
 	exp := s.cSvr.EXPECT()
 	gomock.InOrder(
@@ -670,7 +675,12 @@ func (s *managerSuite) expectUpdateContainerProfiles(old, new string, newProfile
 		ProfilePut: put,
 		Name:       new,
 	}
-	expProfile := lxdapi.Profile{ProfilePut: put}
+	expProfile := lxdapi.Profile{
+		Name:        post.Name,
+		Description: post.Description,
+		Config:      post.Config,
+		Devices:     post.Devices,
+	}
 	cExp := s.cSvr.EXPECT()
 	gomock.InOrder(
 		cExp.GetProfileNames().Return(oldProfiles, nil),
@@ -678,17 +688,13 @@ func (s *managerSuite) expectUpdateContainerProfiles(old, new string, newProfile
 		cExp.GetProfile(post.Name).Return(&expProfile, "etag", nil),
 		cExp.GetInstance(instId).Return(
 			&lxdapi.Instance{
-				InstancePut: lxdapi.InstancePut{
-					Profiles: oldProfiles,
-				},
+				Profiles: oldProfiles,
 			}, "", nil),
 		cExp.UpdateInstance(instId, gomock.Any(), gomock.Any()).Return(s.updateOp, nil),
 		cExp.DeleteProfile(old).Return(nil),
 		cExp.GetInstance(instId).Return(
 			&lxdapi.Instance{
-				InstancePut: lxdapi.InstancePut{
-					Profiles: newProfiles,
-				},
+				Profiles: newProfiles,
 			}, "", nil),
 	)
 }
