@@ -19,6 +19,7 @@ import (
 type MockSnapManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockSnapManagerMockRecorder
+	isgomock struct{}
 }
 
 // MockSnapManagerMockRecorder is the mock recorder for MockSnapManager.
