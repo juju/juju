@@ -49,16 +49,12 @@ CREATE TRIGGER trg_%[1]s_immutable_delete
 // The errMsg is the error message that will be returned if the trigger is
 // fired.
 func triggerGuardForTable(tableName, condition, errMsg string) func() schema.Patch {
-	if condition != "" {
-		condition = fmt.Sprintf(`
-    WHEN %s`[1:], condition)
-	}
 	return func() schema.Patch {
 		stmt := fmt.Sprintf(`
 CREATE TRIGGER trg_%[1]s_guard_update
     BEFORE UPDATE ON %[1]s
     FOR EACH ROW
-%[2]s
+        WHEN %[2]s
     BEGIN
         SELECT RAISE(FAIL, '%[3]s');
     END;`[1:], tableName, condition, errMsg)
