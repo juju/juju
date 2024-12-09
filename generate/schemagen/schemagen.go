@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
-	"github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/generate/schemagen/gen"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
@@ -280,7 +279,7 @@ func (c context) ObjectStore() objectstore.ObjectStore {
 }
 
 func (c context) DomainServices() services.DomainServices {
-	return testing.NewPlaceholderDomainServices()
+	return nil
 }
 
 type authorizer struct {

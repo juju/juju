@@ -257,26 +257,27 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
 		controllerServices := domainservices.NewControllerServices(databasetesting.ConstFactory(s.TxnRunner()), stubDBDeleter{}, clock, logger)
+		modelServices := domainservices.NewModelServices(
+			modelUUID,
+			databasetesting.ConstFactory(s.TxnRunner()),
+			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
+			s.ProviderTracker,
+			modelObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+				return objectStore, nil
+			}),
+			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
+				return storageRegistry, nil
+			}),
+			sshimporter.NewImporter(&http.Client{}),
+			modelApplicationLeaseManagerGetter(func() lease.Checker {
+				return leaseManager
+			}),
+			clock,
+			logger,
+		)
 		return &domainServices{
 			ControllerServices: controllerServices,
-			ModelServices: domainservices.NewModelServices(
-				modelUUID,
-				databasetesting.ConstFactory(s.TxnRunner()),
-				databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
-				s.ProviderTracker,
-				modelObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
-					return objectStore, nil
-				}),
-				modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
-					return storageRegistry, nil
-				}),
-				sshimporter.NewImporter(&http.Client{}),
-				modelApplicationLeaseManagerGetter(func() lease.Checker {
-					return leaseManager
-				}),
-				clock,
-				logger,
-			),
+			ModelServices:      modelServices,
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -26,11 +27,20 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 
 	st         *mockState
-	api        *cleaner.CleanerAPI
 	authoriser apiservertesting.FakeAuthorizer
+
+	domainServices *MockDomainServices
 }
 
 var _ = gc.Suite(&CleanerSuite{})
+
+func (s *CleanerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.domainServices = NewMockDomainServices(ctrl)
+	s.domainServices.EXPECT().Application()
+	s.domainServices.EXPECT().Machine()
+	return ctrl
+}
 
 func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -40,16 +50,6 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	}
 	s.st = &mockState{&testing.Stub{}, false}
 	cleaner.PatchState(s, s.st)
-
-	res := common.NewResources()
-
-	var err error
-	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
-		Resources_: res,
-		Auth_:      s.authoriser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api, gc.NotNil)
 }
 
 func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
@@ -64,30 +64,69 @@ func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {
-	_, err := s.api.WatchCleanups(context.Background())
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
+		Resources_:      common.NewResources(),
+		Auth_:           s.authoriser,
+		DomainServices_: s.domainServices,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = api.WatchCleanups(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
 func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
+		Resources_:      common.NewResources(),
+		Auth_:           s.authoriser,
+		DomainServices_: s.domainServices,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.st.SetErrors(errors.New("boom!"))
 	s.st.watchCleanupsFails = true
 
-	result, err := s.api.WatchCleanups(context.Background())
+	result, err := api.WatchCleanups(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error.Error(), gc.Equals, "boom!")
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
 func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
-	err := s.api.Cleanup(context.Background())
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
+		Resources_:      common.NewResources(),
+		Auth_:           s.authoriser,
+		DomainServices_: s.domainServices,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = api.Cleanup(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
 }
 
 func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
+		Resources_:      common.NewResources(),
+		Auth_:           s.authoriser,
+		DomainServices_: s.domainServices,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(errors.New("Boom!"))
-	err := s.api.Cleanup(context.Background())
+	err = api.Cleanup(context.Background())
 	c.Assert(err, gc.ErrorMatches, "Boom!")
 	s.st.CheckCallNames(c, "Cleanup")
 }
