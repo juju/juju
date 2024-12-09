@@ -54,8 +54,10 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *gc.C) {
 
 	channel := corecharm.MustParseChannel("latest/stable")
 	origin := corecharm.Origin{
+		// Notice that there is no ID.
+		ID: "",
+
 		Source:   "charm-hub",
-		ID:       "charmCHARMcharmCHARMcharmCHARM01",
 		Revision: &rev,
 		Hash:     hash,
 		Platform: corecharm.Platform{
@@ -74,8 +76,24 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *gc.C) {
 	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
 
 	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
-	c.Assert(resolvedData.Origin, jc.DeepEquals, origin)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, corecharm.Origin{
+		Type:     "charm",
+		Source:   "charm-hub",
+		Revision: &rev,
+		Hash:     hash,
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Channel:      "20.04",
+		},
+		Channel: &channel,
+	})
 	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+	c.Assert(resolvedData.EssentialMetadata.DownloadInfo, jc.DeepEquals, corecharm.DownloadInfo{
+		CharmhubIdentifier: "charmCHARMcharmCHARMcharmCHARM01",
+		DownloadURL:        "http://example.com/wordpress-42",
+		DownloadSize:       42,
+	})
 }
 
 func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *gc.C) {
@@ -83,12 +101,51 @@ func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *gc.C) {
 
 	hash := uuid.MustNewUUID().String()
 
+	curl := charm.MustParseURL("ch:wordpress")
+	rev := 16
+
+	channel := corecharm.MustParseChannel("latest/stable")
+	origin := corecharm.Origin{
+		// Notice that there is an ID.
+		ID: "charmCHARMcharmCHARMcharmCHARM01",
+
+		Source:   "charm-hub",
+		Revision: &rev,
+		Hash:     hash,
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Channel:      "20.04",
+		},
+		Channel: &channel,
+	}
+
 	cfg, err := charmhub.RefreshOne("instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
-	//s.testResolve(c, "charmCHARMcharmCHARMcharmCHARM01", hash)
+
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
+
+	c.Assert(resolvedData.URL, jc.DeepEquals, expected)
+	c.Assert(resolvedData.Origin, jc.DeepEquals, corecharm.Origin{
+		Type:     "charm",
+		Source:   "charm-hub",
+		ID:       "charmCHARMcharmCHARMcharmCHARM01",
+		Revision: &rev,
+		Hash:     hash,
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Channel:      "20.04",
+		},
+		Channel: &channel,
+	})
+	c.Assert(resolvedData.Platform, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *gc.C) {
@@ -145,6 +202,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		Track: "latest",
 		Risk:  "stable",
 	}
+	origin.Hash = hash
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
 	origin.Platform.Channel = "20.04"
@@ -182,6 +240,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 		Track: "latest",
 		Risk:  "stable",
 	}
+	origin.Hash = hash
 	origin.Platform.Architecture = arch.DefaultArchitecture
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
@@ -367,6 +426,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
 	origin.Platform.Channel = "20.04"
+	origin.Hash = hash
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 

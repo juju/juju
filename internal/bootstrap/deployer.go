@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/services"
-	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
 )
 
@@ -137,12 +136,21 @@ type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, 
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, charm.Charm, error)
+	// Download looks up the requested charm using the appropriate store, downloads
+	// it to a temporary file and passes it to the configured storage API so it can
+	// be persisted.
+	//
+	// The resulting charm is verified to be the right hash. It expected that the
+	// origin will always have the correct hash following this call.
+	//
+	// Returns [ErrInvalidHash] if the hash of the downloaded charm does not match
+	// the expected hash.
+	Download(ctx context.Context, url *url.URL, hash string) (*charmdownloader.DownloadResult, error)
 }
 
 // CharmDownloaderFunc is the function that is used to create a charm
 // downloader.
-type CharmDownloaderFunc func(services.CharmDownloaderConfig) (Downloader, error)
+type CharmDownloaderFunc func(HTTPClient, logger.Logger) Downloader
 
 // Application is the interface that is used to get information about an
 // application.
@@ -246,8 +254,8 @@ type baseDeployer struct {
 	constraints         constraints.Value
 	controllerConfig    controller.Config
 	newCharmRepo        CharmRepoFunc
-	newCharmDownloader  CharmDownloaderFunc
 	charmhubHTTPClient  HTTPClient
+	charmDownloader     CharmDownloaderFunc
 	controllerCharmName string
 	channel             charm.Channel
 	logger              logger.Logger
@@ -264,8 +272,8 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
 		newCharmRepo:        config.NewCharmRepo,
-		newCharmDownloader:  config.NewCharmDownloader,
 		charmhubHTTPClient:  config.CharmhubHTTPClient,
+		charmDownloader:     config.NewCharmDownloader,
 		controllerCharmName: config.ControllerCharmName,
 		channel:             config.Channel,
 		logger:              config.Logger,
@@ -365,9 +373,8 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		return DeployCharmInfo{}, errors.Annotatef(err, "parsing download URL %q", downloadInfo.DownloadURL)
 	}
 
-	charmhubClient := charmhub.NewDownloadClient(b.charmhubHTTPClient, charmhub.DefaultFileSystem(), b.logger)
-	downloader := charmdownloader.NewCharmDownloader(charmhubClient, b.logger)
-	downloadResult, err := downloader.Download(ctx, downloadURL, resolved.Origin.Hash)
+	charmDownloader := b.charmDownloader(b.charmhubHTTPClient, b.logger)
+	downloadResult, err := charmDownloader.Download(ctx, downloadURL, resolved.Origin.Hash)
 	if err != nil {
 		return DeployCharmInfo{}, errors.Annotatef(err, "downloading %q", downloadURL)
 	}
@@ -391,8 +398,12 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 
 	b.logger.Debugf("Successfully deployed charmhub Juju controller charm")
 
+	curl = curl.
+		WithRevision(*resolved.Origin.Revision).
+		WithArchitecture(resolved.Origin.Platform.Architecture)
+
 	return DeployCharmInfo{
-		URL:             curl.WithRevision(*resolved.Origin.Revision),
+		URL:             curl,
 		Charm:           result.Charm,
 		Origin:          &resolved.Origin,
 		DownloadInfo:    &downloadInfo,

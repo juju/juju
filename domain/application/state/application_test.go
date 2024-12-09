@@ -2039,7 +2039,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
 		Name:      "foo",
-		Hash:      "hash",
+		SHA256:    "hash",
 		DownloadInfo: charm.DownloadInfo{
 			Provenance:         charm.ProvenanceDownload,
 			CharmhubIdentifier: "ident",

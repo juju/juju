@@ -91,8 +91,8 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		NewCharmRepo: func(services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 			return s.charmRepo, nil
 		},
-		NewCharmDownloader: func(services.CharmDownloaderConfig) (Downloader, error) {
-			return s.charmDownloader, nil
+		NewCharmDownloader: func(h HTTPClient, l logger.Logger) Downloader {
+			return s.charmDownloader
 		},
 		CharmhubHTTPClient: s.httpClient,
 		Channel:            charm.Channel{},
