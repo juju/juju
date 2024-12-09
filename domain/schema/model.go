@@ -120,9 +120,15 @@ func ModelDDL() *schema.Schema {
 		triggersForImmutableTable("model", "", "model table is immutable"),
 
 		// Secret permissions do not allow subject or scope to be updated.
-		triggersForImmutableTableUpdates("secret_permission",
+		triggerGuardForTable("secret_permission",
 			"OLD.subject_type_id <> NEW.subject_type_id OR OLD.scope_uuid <> NEW.scope_uuid OR OLD.scope_type_id <> NEW.scope_type_id",
-			"secret permission subjects and scopes are immutable"),
+			"secret permission subjects and scopes must be identical",
+		),
+
+		triggerGuardForTable("charm_local_sequence",
+			"NEW.sequence <= OLD.sequence",
+			"sequence number must monotonically increase",
+		),
 	)
 
 	modelSchema := schema.New()
