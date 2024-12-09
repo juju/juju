@@ -489,7 +489,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		bootstrap.ControllerApplicationName,
 		info.Charm, origin,
 		applicationservice.AddApplicationArgs{
-			ReferenceName:    bootstrap.ControllerApplicationName,
+			ReferenceName:    bootstrap.ControllerCharmName,
 			CharmStoragePath: info.ArchivePath,
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				Provenance:         applicationcharm.ProvenanceBootstrap,

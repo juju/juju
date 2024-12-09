@@ -276,6 +276,11 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
 	s.stateBackend.EXPECT().Unit(unitName.String()).Return(s.unit, nil)
+
+	// The application is called "controller" and the charm is called
+	// "juju-controller". Do not change this, or the controller charm won't
+	// come back up.
+
 	s.applicationService.EXPECT().CreateApplication(
 		gomock.Any(),
 		bootstrap.ControllerApplicationName,
@@ -293,7 +298,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 			},
 		},
 		applicationservice.AddApplicationArgs{
-			ReferenceName: bootstrap.ControllerApplicationName,
+			ReferenceName: bootstrap.ControllerCharmName,
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				CharmhubIdentifier: "abcd",
 				Provenance:         applicationcharm.ProvenanceBootstrap,
