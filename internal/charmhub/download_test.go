@@ -61,8 +61,8 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(digest, gc.DeepEquals, &Digest{
-		SHA256: "",
-		SHA384: "",
+		SHA256: "679e21d12ebfd206ba08dd7a3a23b81170d30c8c7cbc0ac2443beb6aac67dfdb",
+		SHA384: "5821c48bdfc6d6ec87cfd4fc1e5f26898a3c983ccdbc46816fe6938493cfb003ca9642087666af9e1c0b7397b0a33c8a",
 		Size:   int64(len(archiveBytes)),
 	})
 }
@@ -102,8 +102,8 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *gc.C) {
 	digest, err := client.Download(ctx, serverURL, tmpFile.Name(), WithProgressBar(pgBar))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(digest, gc.DeepEquals, &Digest{
-		SHA256: "",
-		SHA384: "",
+		SHA256: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+		SHA384: "fdbd8e75a67f29f701a4e040385e2e23986303ea10239211af907fcbb83578b3e417cb71ce646efd0819dd8c088de1bd",
 		Size:   11,
 	})
 }
