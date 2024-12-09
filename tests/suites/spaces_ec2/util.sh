@@ -3,9 +3,8 @@
 # Create a new machine, wait for it to boot and hotplug a pre-allocated
 # network interface which has been tagged: "nic-type: hotpluggable".
 add_multi_nic_machine() {
-	local hotplug_nic_id model_name
+	local hotplug_nic_id
 	hotplug_nic_id=$1
-	model_name=$2
 
 	# Ensure machine is deployed to the same az as our nic
 	az=$(aws ec2 describe-network-interfaces --filters Name=network-interface-id,Values="$hotplug_nic_id" | jq -r ".NetworkInterfaces[0].AvailabilityZone")
@@ -26,7 +25,7 @@ add_multi_nic_machine() {
 	timeout=${3:-600} # default timeout: 600s = 10m
 	start_time="$(date -u +%s)"
 	while true; do
-		if juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" 'test $(ls /sys/class/net | grep "ens\|enp\|eth" | wc -l) -eq 2 && echo done' | grep "done"; then
+		if juju ssh ${juju_machine_id} 'test $(ls /sys/class/net | grep "ens\|enp\|eth" | wc -l) -eq 2 && echo done' | grep "done"; then
 			echo "[+] second NIC attached."
 			break
 		fi
@@ -47,28 +46,27 @@ add_multi_nic_machine() {
 # restart the machine agent and wait for juju to detect the new interface
 # before returning.
 configure_multi_nic_netplan() {
-	local juju_machine_id hotplug_iface model_name
+	local juju_machine_id hotplug_iface
 	juju_machine_id=$1
 	hotplug_iface=$2
-	model_name=$3
 
 	# Add an entry to netplan and apply it so the second interface comes online
 	echo "[+] updating netplan and restarting machine agent"
 	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
+	juju ssh ${juju_machine_id} 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
 	# shellcheck disable=SC2086,SC2016
-	default_route=$(juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" 'ip route | grep default | cut -d " " -f3')
+	default_route=$(juju ssh ${juju_machine_id} 'ip route | grep default | cut -d " " -f3')
 	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" "sudo sh -c 'echo \"            routes:\n                - to: default\n                  via: ${default_route}\n        ${hotplug_iface}:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml'"
+	juju ssh ${juju_machine_id} "sudo sh -c 'echo \"            routes:\n                - to: default\n                  via: ${default_route}\n        ${hotplug_iface}:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml'"
 
 	# shellcheck disable=SC2086,SC2016
 	echo "[+] Reconfiguring netplan:"
-	juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" 'sudo cat /etc/netplan/50-cloud-init.yaml'
+	juju ssh ${juju_machine_id} 'sudo cat /etc/netplan/50-cloud-init.yaml'
 	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" 'sudo netplan apply' || true
+	juju ssh ${juju_machine_id} 'sudo netplan apply' || true
 	echo "[+] Applied"
 	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} -i "$(ssh_key_file "$model_name")" 'sudo systemctl restart jujud-machine-*'
+	juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
 
 	# Wait for the interface to be detected by juju
 	echo "[+] waiting for juju to detect added NIC"
