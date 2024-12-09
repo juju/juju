@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -17,9 +16,7 @@ import (
 // ManifoldConfig describes how to configure and construct a Worker,
 // and what registered resources it may depend upon.
 type ManifoldConfig struct {
-	GateName string
-	ModelTag names.ModelTag
-
+	GateName  string
 	NewWorker func(Config) (worker.Worker, error)
 }
 

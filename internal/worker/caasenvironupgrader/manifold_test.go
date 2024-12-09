@@ -44,20 +44,6 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
-func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
-	expectGate := struct{ gate.Unlocker }{}
-	getter := dt.StubGetter(map[string]interface{}{
-		"gate": expectGate,
-	})
-	manifold := caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-		GateName: "gate",
-	})
-
-	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "error")
-}
-
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"gate": struct{ gate.Unlocker }{},

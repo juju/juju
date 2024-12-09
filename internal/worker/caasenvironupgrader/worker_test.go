@@ -18,11 +18,6 @@ type WorkerSuite struct {
 
 var _ = gc.Suite(&WorkerSuite{})
 
-func (*WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
-	_, err := caasenvironupgrader.NewWorker(caasenvironupgrader.Config{})
-	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
-}
-
 func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockGateUnlocker := mockGateUnlocker{}
 	w, err := caasenvironupgrader.NewWorker(caasenvironupgrader.Config{
