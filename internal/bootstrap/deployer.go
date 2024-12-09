@@ -5,6 +5,11 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,7 +21,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
@@ -294,33 +298,70 @@ func (b *baseDeployer) ControllerCharmArch() string {
 // DeployLocalCharm deploys the controller charm from the local charm
 // store.
 func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (DeployCharmInfo, error) {
-	controllerCharmPath := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
-	_, err := os.Stat(controllerCharmPath)
+	path := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
+	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return DeployCharmInfo{}, errors.NotFoundf(controllerCharmPath)
-	}
-	if err != nil {
+		return DeployCharmInfo{}, errors.NotFoundf(path)
+	} else if err != nil {
 		return DeployCharmInfo{}, errors.Trace(err)
 	}
 
-	curl, ch, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
+	file, err := os.Open(path)
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
+		return DeployCharmInfo{}, errors.Annotatef(err, "opening %q", path)
 	}
-	b.logger.Debugf("Successfully deployed local Juju controller charm")
+
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
+
+	size, err := io.Copy(io.MultiWriter(hasher256, hasher384), file)
+	if err != nil {
+		return DeployCharmInfo{}, errors.Annotatef(err, "hashing %q", path)
+	} else if size != info.Size() {
+		return DeployCharmInfo{}, errors.Errorf("expected %d bytes, got %d", info.Size(), size)
+	}
+
+	sha256 := fmt.Sprintf("%x", hasher256.Sum(nil))
+	sha384 := hex.EncodeToString(hasher384.Sum(nil))
+
 	origin := corecharm.Origin{
 		Source: corecharm.Local,
 		Type:   "charm",
+		Hash:   sha256,
 		Platform: corecharm.Platform{
 			Architecture: arch,
 			OS:           base.OS,
 			Channel:      base.Channel.String(),
 		},
 	}
+
+	result, err := b.applicationService.ResolveControllerCharmDownload(ctx, domainapplication.ResolveControllerCharmDownload{
+		SHA256: sha256,
+		SHA384: sha384,
+		Path:   path,
+		Size:   size,
+	})
+	if err != nil {
+		return DeployCharmInfo{}, errors.Annotatef(err, "resolving controller charm download")
+	}
+
+	b.logger.Debugf("Successfully deployed local Juju controller charm")
+
+	curl, err := charm.ParseURL("local:" + bootstrap.ControllerCharmName)
+	if err != nil {
+		return DeployCharmInfo{}, errors.Annotatef(err, "parsing local charm URL")
+	}
+
+	curl = curl.
+		WithRevision(0).
+		WithArchitecture(origin.Platform.Architecture)
+
 	return DeployCharmInfo{
-		URL:    curl,
-		Charm:  ch,
-		Origin: &origin,
+		URL:             curl,
+		Charm:           result.Charm,
+		Origin:          &origin,
+		ArchivePath:     result.ArchivePath,
+		ObjectStoreUUID: result.ObjectStoreUUID,
 	}, nil
 }
 
@@ -504,38 +545,6 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		return nil, errors.Annotatef(err, "creating controller application")
 	}
 	return b.stateBackend.Unit(app.Name() + "/0")
-}
-
-// addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, charmFileName string) (*charm.URL, charm.Charm, error) {
-	archive, err := charm.ReadCharmArchive(charmFileName)
-	if err != nil {
-		return nil, nil, errors.Errorf("invalid charm archive: %v", err)
-	}
-
-	name := archive.Meta().Name
-	if name != bootstrap.ControllerCharmName {
-		return nil, nil, errors.Errorf("unexpected controller charm name %q", name)
-	}
-
-	// Reserve a charm URL for it in state.
-	curl := &charm.URL{
-		Schema:   charm.Local.String(),
-		Name:     name,
-		Revision: archive.Revision(),
-	}
-	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Now we need to repackage it with the reserved URL, upload it to
-	// provider storage and update the state.
-	_, _, _, _, err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl.String(), archive.Revision())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return curl, archive, nil
 }
 
 // ConfigSchema is used to force the trust config option to be true for all
