@@ -173,7 +173,7 @@ func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
 	}
 
 	now := svc.clock.Now()
-	status, err := svc.Status(context.Background())
+	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Status, gc.Equals, corestatus.Suspended)
 	c.Assert(status.Message, gc.Equals, "suspended since cloud credential is not valid")
@@ -196,7 +196,7 @@ func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
 	}
 
 	now := svc.clock.Now()
-	status, err := svc.Status(context.Background())
+	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Status, gc.Equals, corestatus.Destroying)
 	c.Assert(status.Message, gc.Equals, "the model is being destroyed")
@@ -218,7 +218,7 @@ func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
 	}
 
 	now := svc.clock.Now()
-	status, err := svc.Status(context.Background())
+	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Status, gc.Equals, corestatus.Busy)
 	c.Assert(status.Message, gc.Equals, "the model is being migrated")
@@ -238,7 +238,7 @@ func (s *modelServiceSuite) TestStatus(c *gc.C) {
 	s.state.modelState[id] = model.ModelState{}
 
 	now := svc.clock.Now()
-	status, err := svc.Status(context.Background())
+	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Status, gc.Equals, corestatus.Available)
 	c.Assert(status.Since, jc.Almost, now)
@@ -248,6 +248,6 @@ func (s *modelServiceSuite) TestStatusFaildModelNotFound(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.state, s.state)
 
-	_, err := svc.Status(context.Background())
+	_, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }

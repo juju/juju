@@ -149,17 +149,17 @@ func (mr *MockModelInfoServiceMockRecorder) GetModelInfo(arg0 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelInfo", reflect.TypeOf((*MockModelInfoService)(nil).GetModelInfo), arg0)
 }
 
-// Status mocks base method.
-func (m *MockModelInfoService) Status(arg0 context.Context) (model0.StatusInfo, error) {
+// GetStatus mocks base method.
+func (m *MockModelInfoService) GetStatus(arg0 context.Context) (model0.StatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0)
+	ret := m.ctrl.Call(m, "GetStatus", arg0)
 	ret0, _ := ret[0].(model0.StatusInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Status indicates an expected call of Status.
-func (mr *MockModelInfoServiceMockRecorder) Status(arg0 any) *gomock.Call {
+// GetStatus indicates an expected call of GetStatus.
+func (mr *MockModelInfoServiceMockRecorder) GetStatus(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockModelInfoService)(nil).Status), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatus", reflect.TypeOf((*MockModelInfoService)(nil).GetStatus), arg0)
 }
