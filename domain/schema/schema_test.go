@@ -901,13 +901,13 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
 VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, charmUUID)
 
-	netNodeUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, netNodeUUID)
+	unitNetNodeUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
 INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id)
 VALUES (?, 0, 0, ?, ?, ?, 0);`,
-		unitUUID, appUUID, netNodeUUID, charmUUID)
+		unitUUID, appUUID, unitNetNodeUUID, charmUUID)
 }
 
 func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {

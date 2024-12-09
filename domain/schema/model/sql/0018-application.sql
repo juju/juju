@@ -24,15 +24,26 @@ CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
 CREATE TABLE cloud_service (
+    uuid TEXT NOT NULL PRIMARY KEY,
     application_uuid TEXT NOT NULL,
+    net_node_uuid TEXT NOT NULL,
     provider_id TEXT NOT NULL,
-    CONSTRAINT fk_cloud_application
+    CONSTRAINT fk_cloud_service_application
     FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_cloud_service_net_node
+    FOREIGN KEY (net_node_uuid)
+    REFERENCES net_node (uuid)
 );
 
-CREATE UNIQUE INDEX idx_cloud_service_application
+CREATE UNIQUE INDEX idx_cloud_service_provider
+ON cloud_service (provider_id);
+
+CREATE INDEX idx_cloud_service_application
 ON cloud_service (application_uuid);
+
+CREATE UNIQUE INDEX idx_cloud_service_net_node
+ON cloud_service (net_node_uuid);
 
 -- Application scale is currently only targeting k8s applications.
 CREATE TABLE application_scale (

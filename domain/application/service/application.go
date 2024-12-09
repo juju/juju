@@ -1061,6 +1061,9 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 // UpdateCloudService updates the cloud service for the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
+	if providerID == "" {
+		return errors.NotValidf("empty provider ID")
+	}
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
 }
 

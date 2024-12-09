@@ -52,10 +52,10 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	ApplicationID coreapplication.ID `db:"uuid"`
-	Name          string             `db:"name"`
-	CharmID       string             `db:"charm_uuid"`
-	LifeID        life.Life          `db:"life_id"`
+	UUID    coreapplication.ID `db:"uuid"`
+	Name    string             `db:"name"`
+	CharmID string             `db:"charm_uuid"`
+	LifeID  life.Life          `db:"life_id"`
 }
 
 type applicationScale struct {
@@ -126,13 +126,15 @@ type unitStatusData struct {
 }
 
 type cloudContainer struct {
-	NetNodeID  string `db:"net_node_uuid"`
-	ProviderID string `db:"provider_id"`
+	UnitUUID   coreunit.UUID `db:"unit_uuid"`
+	ProviderID string        `db:"provider_id"`
 }
 
 type cloudService struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	ProviderID    string             `db:"provider_id"`
+	UUID            string             `db:"uuid"`
+	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	NetNodeUUID     string             `db:"net_node_uuid"`
+	ProviderID      string             `db:"provider_id"`
 }
 
 type applicationCharmUUID struct {
@@ -148,8 +150,8 @@ type cloudContainerDevice struct {
 }
 
 type cloudContainerPort struct {
-	CloudContainerUUID string `db:"cloud_container_uuid"`
-	Port               string `db:"port"`
+	UnitUUID coreunit.UUID `db:"unit_uuid"`
+	Port     string        `db:"port"`
 }
 
 type ipAddress struct {
