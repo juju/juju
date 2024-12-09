@@ -84,7 +84,7 @@ ON charm (source_id, reference_name, revision);
 -- This is the unique identifier for the charm.
 CREATE TABLE charm_local_sequence (
     source_id INT NOT NULL,
-    reference_name TEXT NOT NULL PRIMARY KEY,
+    reference_name TEXT NOT NULL,
 
     -- The sequence number will start at 0 for each charm and will be
     -- incremented.
