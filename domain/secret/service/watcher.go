@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/juju/juju/core/leadership"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"

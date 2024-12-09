@@ -5,8 +5,8 @@ package domain
 
 import (
 	"context"
-	"github.com/juju/juju/core/leadership"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
