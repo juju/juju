@@ -59,7 +59,8 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePut(c 
 	store := NewService(s.containerImageResourceState)
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
-	expectedUUID := resourcestore.UUID("expected-uuid")
+	expectedUUID, err := resourcestore.NewContainerImageMetadataResourceID("expected-uuid")
+	c.Assert(err, jc.ErrorIsNil)
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
@@ -109,7 +110,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 		s.imageMetadata.RegistryPath,
 		s.imageMetadata.Username,
 		s.imageMetadata.Password,
-	).Return("", kaboom)
+	).Return(resourcestore.ID{}, kaboom)
 
 	_, err := store.Put(
 		context.Background(),
