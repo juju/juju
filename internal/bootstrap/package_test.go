@@ -99,7 +99,3 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		Logger:             s.logger,
 	}
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

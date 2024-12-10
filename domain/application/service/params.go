@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -31,6 +32,10 @@ type AddApplicationArgs struct {
 
 	// CharmStoragePath is the path to the charm in the storage.
 	CharmStoragePath string
+
+	// CharmObjectStoreUUID is the UUID of the object store where the charm is
+	// stored.
+	CharmObjectStoreUUID objectstore.UUID
 
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive

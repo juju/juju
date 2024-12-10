@@ -32,6 +32,11 @@ func ParseUUID(value string) (UUID, error) {
 	return UUID(value), nil
 }
 
+// IsEmpty returns true if the UUID is empty.
+func (u UUID) IsEmpty() bool {
+	return u == ""
+}
+
 // String implements the stringer interface for UUID.
 func (u UUID) String() string {
 	return string(u)

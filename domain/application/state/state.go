@@ -15,6 +15,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -192,16 +193,25 @@ func (s *State) setCharmState(
 		}
 	}
 
+	nullableOjectStoreUUID := sql.NullString{}
+	if !ch.ObjectStoreUUID.IsEmpty() {
+		nullableOjectStoreUUID = sql.NullString{
+			String: ch.ObjectStoreUUID.String(),
+			Valid:  true,
+		}
+	}
+
 	chState := setCharmState{
-		UUID:           id.String(),
-		ReferenceName:  ch.ReferenceName,
-		Revision:       ch.Revision,
-		ArchivePath:    ch.ArchivePath,
-		Available:      ch.Available,
-		Version:        ch.Version,
-		SourceID:       sourceID,
-		ArchitectureID: nullableArchitectureID,
-		LXDProfile:     ch.LXDProfile,
+		UUID:            id.String(),
+		ReferenceName:   ch.ReferenceName,
+		Revision:        ch.Revision,
+		ArchivePath:     ch.ArchivePath,
+		ObjectStoreUUID: nullableOjectStoreUUID,
+		Available:       ch.Available,
+		Version:         ch.Version,
+		SourceID:        sourceID,
+		ArchitectureID:  nullableArchitectureID,
+		LXDProfile:      ch.LXDProfile,
 	}
 
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
@@ -1286,14 +1296,23 @@ func decodeCharmState(state charmState) (charm.Charm, error) {
 		return charm.Charm{}, err
 	}
 
+	var objectStoreUUID objectstore.UUID
+	if state.ObjectStoreUUID.Valid {
+		objectStoreUUID, err = objectstore.ParseUUID(state.ObjectStoreUUID.String)
+		if err != nil {
+			return charm.Charm{}, err
+		}
+	}
+
 	return charm.Charm{
-		ReferenceName: state.ReferenceName,
-		Revision:      state.Revision,
-		ArchivePath:   state.ArchivePath,
-		Available:     state.Available,
-		Version:       state.Version,
-		Architecture:  arch,
-		Source:        source,
+		ReferenceName:   state.ReferenceName,
+		Revision:        state.Revision,
+		ArchivePath:     state.ArchivePath,
+		ObjectStoreUUID: objectStoreUUID,
+		Available:       state.Available,
+		Version:         state.Version,
+		Architecture:    arch,
+		Source:          source,
 	}, nil
 
 }
