@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -108,7 +107,7 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *gc.C) {
 	})
 }
 
-func (s *DownloadSuite) TestDownloadWithSHA256Digest(c *gc.C) {
+func (s *DownloadSuite) TestDownloadWithDigest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -262,7 +261,7 @@ func readSHA256(c *gc.C, reader io.Reader) string {
 	_, err := io.Copy(hash, reader)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return fmt.Sprintf("%x", hash.Sum(nil))
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 func readSHA384(c *gc.C, reader io.Reader) string {

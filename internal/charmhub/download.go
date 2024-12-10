@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -218,7 +217,7 @@ func (c *DownloadClient) download(ctx context.Context, url *url.URL, archivePath
 	}
 
 	return &Digest{
-		SHA256: fmt.Sprintf("%x", hasher256.Sum(nil)),
+		SHA256: hex.EncodeToString(hasher256.Sum(nil)),
 		SHA384: hex.EncodeToString(hasher384.Sum(nil)),
 		Size:   size,
 	}, nil
