@@ -30,12 +30,10 @@ func (s *networkSuite) patch() {
 func defaultProfileWithNIC() *lxdapi.Profile {
 	return &lxdapi.Profile{
 		Name: "default",
-		ProfilePut: lxdapi.ProfilePut{
-			Devices: map[string]map[string]string{
-				"eth0": {
-					"network": network.DefaultLXDBridge,
-					"type":    "nic",
-				},
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"network": network.DefaultLXDBridge,
+				"type":    "nic",
 			},
 		},
 	}
@@ -44,13 +42,11 @@ func defaultProfileWithNIC() *lxdapi.Profile {
 func defaultLegacyProfileWithNIC() *lxdapi.Profile {
 	return &lxdapi.Profile{
 		Name: "default",
-		ProfilePut: lxdapi.ProfilePut{
-			Devices: map[string]map[string]string{
-				"eth0": {
-					"parent":  network.DefaultLXDBridge,
-					"type":    "nic",
-					"nictype": "bridged",
-				},
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"parent":  network.DefaultLXDBridge,
+				"type":    "nic",
+				"nictype": "bridged",
 			},
 		},
 	}
@@ -62,10 +58,8 @@ func (s *networkSuite) TestEnsureIPv4NoChange(c *gc.C) {
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	net := &lxdapi.Network{
-		NetworkPut: lxdapi.NetworkPut{
-			Config: map[string]string{
-				"ipv4.address": "10.5.3.1",
-			},
+		Config: map[string]string{
+			"ipv4.address": "10.5.3.1",
 		},
 	}
 	cSvr.EXPECT().GetNetwork("some-net-name").Return(net, lxdtesting.ETag, nil)
@@ -174,10 +168,8 @@ func (s *networkSuite) TestVerifyNetworkDeviceMultipleNICsOneValid(c *gc.C) {
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,
 		Managed: true,
-		NetworkPut: lxdapi.NetworkPut{
-			Config: map[string]string{
-				"ipv6.address": "something-not-nothing",
-			},
+		Config: map[string]string{
+			"ipv6.address": "something-not-nothing",
 		},
 	}
 
@@ -229,10 +221,8 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6PresentNoFail(c *gc.C) {
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,
 		Managed: true,
-		NetworkPut: lxdapi.NetworkPut{
-			Config: map[string]string{
-				"ipv6.address": "2001:DB8::1",
-			},
+		Config: map[string]string{
+			"ipv6.address": "2001:DB8::1",
 		},
 	}
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
@@ -263,10 +253,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 		NetworkPut: lxdapi.NetworkPut{Config: netConf},
 	}
 	newNet := &lxdapi.Network{
-		Name:       network.DefaultLXDBridge,
-		Type:       "bridge",
-		Managed:    true,
-		NetworkPut: lxdapi.NetworkPut{Config: netConf},
+		Name:    network.DefaultLXDBridge,
+		Type:    "bridge",
+		Managed: true,
+		Config:  netConf,
 	}
 	gomock.InOrder(
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("network not found")),
@@ -329,13 +319,11 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreatedWithUnusedName(c 
 		Name:    network.DefaultLXDBridge,
 		Type:    "bridge",
 		Managed: true,
-		NetworkPut: lxdapi.NetworkPut{
-			Config: map[string]string{
-				"ipv4.address": "auto",
-				"ipv4.nat":     "true",
-				"ipv6.address": "none",
-				"ipv6.nat":     "false",
-			},
+		Config: map[string]string{
+			"ipv4.address": "auto",
+			"ipv4.nat":     "true",
+			"ipv6.address": "none",
+			"ipv6.nat":     "false",
 		},
 	}
 	devReq := lxdapi.ProfilePut{
