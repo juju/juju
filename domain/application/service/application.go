@@ -393,8 +393,14 @@ func makeCreateApplicationArgs(
 	ch.Revision = revision
 	ch.Hash = origin.Hash
 	ch.ArchivePath = args.CharmStoragePath
-	ch.Available = args.CharmStoragePath != ""
+	ch.ObjectStoreUUID = args.CharmObjectStoreUUID
 	ch.Architecture = architecture
+
+	// If we have a storage path, then we know the charm is available.
+	// This is passive for now, but once we update the application, the presence
+	// of the object store UUID will be used to determine if the charm is
+	// available.
+	ch.Available = args.CharmStoragePath != ""
 
 	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
 	if err != nil {
