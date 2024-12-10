@@ -36,24 +36,28 @@ func (f fileResourceStore) Put(
 	r io.Reader,
 	size int64,
 	fingerprint store.Fingerprint,
-) (store.UUID, error) {
+) (store.ID, error) {
 	if storageKey == "" {
-		return "", errors.Errorf("storage key empty")
+		return store.ID{}, errors.Errorf("storage key empty")
 	}
 	if r == nil {
-		return "", errors.Errorf("validating resource: reader is nil")
+		return store.ID{}, errors.Errorf("validating resource: reader is nil")
 	}
 	if size == 0 {
-		return "", errors.Errorf("validating resource size: size is 0")
+		return store.ID{}, errors.Errorf("validating resource size: size is 0")
 	}
 	if err := fingerprint.Validate(); err != nil {
-		return "", errors.Errorf("validating resource fingerprint: %w", err)
+		return store.ID{}, errors.Errorf("validating resource fingerprint: %w", err)
 	}
 	uuid, err := f.objectStore.PutAndCheckHash(ctx, storageKey, r, size, fingerprint.String())
 	if err != nil {
-		return "", err
+		return store.ID{}, errors.Capture(err)
 	}
-	return store.UUID(uuid.String()), nil
+	id, err := store.NewFileResourceID(uuid)
+	if err != nil {
+		return store.ID{}, errors.Capture(err)
+	}
+	return id, nil
 }
 
 // Remove the specified resource from the object store.

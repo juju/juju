@@ -81,10 +81,10 @@ func (s *State) PutContainerImageMetadata(
 	ctx context.Context,
 	storageKey string,
 	registryPath, userName, password string,
-) (store.UUID, error) {
+) (store.ID, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", errors.Capture(err)
+		return store.ID{}, errors.Capture(err)
 	}
 
 	m := containerImageMetadata{
@@ -127,9 +127,13 @@ WHERE storage_key = excluded.storage_key
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return store.ID{}, err
 	}
-	return store.UUID(storageKey), nil
+	id, err := store.NewContainerImageMetadataResourceID(storageKey)
+	if err != nil {
+		return store.ID{}, errors.Capture(err)
+	}
+	return id, nil
 }
 
 // RemoveContainerImageMetadata removes a container image metadata resource from

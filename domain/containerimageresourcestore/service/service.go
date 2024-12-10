@@ -30,7 +30,7 @@ type State interface {
 		ctx context.Context,
 		storageKey string,
 		registryPath, userName, password string,
-	) (store.UUID, error)
+	) (store.ID, error)
 	// GetContainerImageMetadata gets a container image resources metadata from
 	// the container image metadata resource store.
 	GetContainerImageMetadata(
@@ -84,23 +84,23 @@ func (s Service) Put(
 	r io.Reader,
 	_ int64,
 	_ store.Fingerprint,
-) (store.UUID, error) {
+) (store.ID, error) {
 	respBuf := new(bytes.Buffer)
 	bytesRead, err := respBuf.ReadFrom(r)
 	if err != nil {
-		return "", errors.Errorf("reading container image resource: %w", err)
+		return store.ID{}, errors.Errorf("reading container image resource: %w", err)
 	} else if bytesRead == 0 {
-		return "", errors.Errorf("reading container image resource: zero bytes read")
+		return store.ID{}, errors.Errorf("reading container image resource: zero bytes read")
 	}
 
 	dockerDetails, err := docker.UnmarshalDockerResource(respBuf.Bytes())
 	if err != nil {
-		return "", errors.Errorf("unmarshalling container image metadata: %w", err)
+		return store.ID{}, errors.Errorf("unmarshalling container image metadata: %w", err)
 	}
 
 	mUUID, err := s.st.PutContainerImageMetadata(ctx, storageKey, dockerDetails.RegistryPath, dockerDetails.Username, dockerDetails.Password)
 	if err != nil {
-		return "", errors.Errorf("putting container image metadata in state: %w", err)
+		return store.ID{}, errors.Errorf("putting container image metadata in state: %w", err)
 	}
 
 	return mUUID, nil
