@@ -63,15 +63,3 @@ func (s *statusUnitTestSuite) TestStub(c *gc.C) {
 - Status when units with opened ports.
 `)
 }
-
-type statusUpgradeUnitSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&statusUpgradeUnitSuite{})
-
-func (s *statusUpgradeUnitSuite) TestStub(c *gc.C) {
-	c.Skip(`This suite is missing tests for the following scenarios:
-- One test for the scnario where a unit has an available upgrade (assert CanUpgradeTo in status).
-`)
-}
