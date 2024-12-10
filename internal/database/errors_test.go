@@ -6,7 +6,7 @@ package database
 import (
 	"errors"
 
-	dqlite "github.com/canonical/go-dqlite/driver"
+	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/testing"
 	"github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"

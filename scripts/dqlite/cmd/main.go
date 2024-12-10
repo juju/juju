@@ -16,7 +16,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/canonical/go-dqlite/client"
+	"github.com/canonical/go-dqlite/v2/client"
 	"github.com/canonical/sqlair"
 	"github.com/gosuri/uitable"
 	"github.com/juju/errors"

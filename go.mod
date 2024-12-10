@@ -23,7 +23,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.7
 	github.com/aws/smithy-go v1.22.1
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
-	github.com/canonical/go-dqlite v1.21.0
+	github.com/canonical/go-dqlite/v2 v2.0.0
 	github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a
 	github.com/canonical/pebble v1.17.0
 	github.com/canonical/sqlair v0.0.0-20240417091145-13970327005b
@@ -80,7 +80,7 @@ require (
 	github.com/kr/pretty v0.3.1
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/mattn/go-isatty v0.0.20
-	github.com/mattn/go-sqlite3 v1.14.19
+	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/microsoft/kiota-abstractions-go v1.5.3
 	github.com/microsoft/kiota-http-go v1.1.1
 	github.com/microsoftgraph/msgraph-sdk-go v1.28.0
@@ -91,7 +91,7 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/oracle/oci-go-sdk/v65 v65.55.0
 	github.com/packethost/packngo v0.28.1
-	github.com/peterh/liner v1.2.1
+	github.com/peterh/liner v1.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.6
 	github.com/prometheus/client_golang v1.18.0
@@ -110,7 +110,7 @@ require (
 	golang.org/x/crypto v0.28.0
 	golang.org/x/net v0.30.0
 	golang.org/x/oauth2 v0.23.0
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.26.0
 	golang.org/x/time v0.7.0
 	golang.org/x/tools v0.26.0
