@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -78,6 +79,9 @@ type SetCharmArgs struct {
 	Hash string
 	// ArchivePath is the path to the charm archive path.
 	ArchivePath string
+	// ObjectStoreUUID is the UUID of the object store where the charm is
+	// stored.
+	ObjectStoreUUID objectstore.UUID
 	// Version is the optional charm version.
 	Version string
 	// Architecture is the architecture of the charm.
@@ -127,6 +131,9 @@ type Charm struct {
 	Hash string
 	// ArchivePath is the path to the charm archive path.
 	ArchivePath string
+	// ObjectStoreUUID is the UUID of the object store where the charm is
+	// stored.
+	ObjectStoreUUID objectstore.UUID
 	// Version is the optional charm version.
 	Version string
 	// Architecture is the architecture of the charm. The only reason this
