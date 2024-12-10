@@ -135,6 +135,16 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 		},
 	}
 	for _, dm := range dtoMetrics {
+		dm.TimestampMs = nil
+		if dm.Counter != nil {
+			dm.Counter.CreatedTimestamp = nil
+		}
+		if dm.Histogram != nil {
+			dm.Histogram.CreatedTimestamp = nil
+		}
+		if dm.Summary != nil {
+			dm.Summary.CreatedTimestamp = nil
+		}
 		var found bool
 		for i, m := range expected {
 			if !reflect.DeepEqual(dm, m) {
