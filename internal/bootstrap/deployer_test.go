@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,11 +25,14 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
@@ -125,7 +129,7 @@ func (s *deployerSuite) TestDeployLocalCharmThatDoesNotExist(c *gc.C) {
 	cfg := s.newConfig(c)
 	deployer := makeBaseDeployer(cfg)
 
-	_, _, _, err := deployer.DeployLocalCharm(context.Background(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
+	_, err := deployer.DeployLocalCharm(context.Background(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -143,10 +147,10 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	url, origin, ch, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "local:arm64/juju-controller-0")
-	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
+	c.Assert(info.URL.String(), gc.Equals, "local:arm64/juju-controller-0")
+	c.Assert(info.Origin, gc.DeepEquals, &corecharm.Origin{
 		Source: corecharm.Local,
 		Type:   "charm",
 		Platform: corecharm.Platform{
@@ -155,7 +159,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 			Channel:      "22.04/stable",
 		},
 	})
-	c.Assert(ch, gc.NotNil)
+	c.Assert(info.Charm, gc.NotNil)
 }
 
 func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
@@ -166,24 +170,26 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
 
 	cfg := s.newConfig(c)
 
-	s.expectCharmhubCharmUpload(c, "juju-controller")
+	s.expectDownloadAndResolve(c, "juju-controller")
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	url, origin, ch, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "ch:arm64/juju-controller-0")
-	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
-		Source:  corecharm.CharmHub,
-		Type:    "charm",
-		Channel: &charm.Channel{},
+	c.Assert(info.URL.String(), gc.Equals, "ch:arm64/juju-controller-1")
+	c.Assert(info.Origin, gc.DeepEquals, &corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Type:     "charm",
+		Channel:  &charm.Channel{},
+		Hash:     "sha-256",
+		Revision: ptr(1),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
 			Channel:      "22.04",
 		},
 	})
-	c.Assert(ch, gc.NotNil)
+	c.Assert(info.Charm, gc.NotNil)
 }
 
 func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
@@ -194,24 +200,26 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
 	cfg := s.newConfig(c)
 	cfg.ControllerCharmName = "inferi"
 
-	s.expectCharmhubCharmUpload(c, "inferi")
+	s.expectDownloadAndResolve(c, "inferi")
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	url, origin, ch, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "ch:arm64/inferi-0")
-	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
-		Source:  corecharm.CharmHub,
-		Type:    "charm",
-		Channel: &charm.Channel{},
+	c.Assert(info.URL.String(), gc.Equals, "ch:arm64/inferi-1")
+	c.Assert(info.Origin, gc.DeepEquals, &corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Type:     "charm",
+		Channel:  &charm.Channel{},
+		Hash:     "sha-256",
+		Revision: ptr(1),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
 			Channel:      "22.04",
 		},
 	})
-	c.Assert(ch, gc.NotNil)
+	c.Assert(info.Charm, gc.NotNil)
 }
 
 func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
@@ -240,8 +248,9 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 			Charm:    s.charm,
 			CharmURL: "ch:juju-controller-0",
 			CharmOrigin: &state.CharmOrigin{
-				Source: "charm-hub",
-				Type:   "charm",
+				Source:   "charm-hub",
+				Type:     "charm",
+				Revision: ptr(1),
 				Channel: &state.Channel{
 					Risk: "stable",
 				},
@@ -267,14 +276,21 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
 	s.stateBackend.EXPECT().Unit(unitName.String()).Return(s.unit, nil)
+
+	// The application is called "controller" and the charm is called
+	// "juju-controller". Do not change this, or the controller charm won't
+	// come back up.
+
 	s.applicationService.EXPECT().CreateApplication(
 		gomock.Any(),
 		bootstrap.ControllerApplicationName,
 		s.charm,
 		corecharm.Origin{
-			Source:  "charm-hub",
-			Type:    "charm",
-			Channel: &charm.Channel{},
+			Source:   "charm-hub",
+			Type:     "charm",
+			Channel:  &charm.Channel{},
+			Revision: ptr(1),
+			Hash:     "sha-256",
 			Platform: corecharm.Platform{
 				Architecture: "arm64",
 				OS:           "ubuntu",
@@ -282,20 +298,29 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 			},
 		},
 		applicationservice.AddApplicationArgs{
-			ReferenceName: bootstrap.ControllerApplicationName,
+			ReferenceName: bootstrap.ControllerCharmName,
 			DownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance: applicationcharm.ProvenanceBootstrap,
+				CharmhubIdentifier: "abcd",
+				Provenance:         applicationcharm.ProvenanceBootstrap,
+				DownloadURL:        "https://inferi.com",
+				DownloadSize:       42,
 			},
+			CharmStoragePath: "path",
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 
+	s.charmUploader.EXPECT().PrepareCharmUpload(gomock.Any()).Return(nil, nil)
+	s.charmUploader.EXPECT().UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
+
 	deployer := s.newBaseDeployer(c, cfg)
 
 	origin := corecharm.Origin{
-		Source:  corecharm.CharmHub,
-		Type:    "charm",
-		Channel: &charm.Channel{},
+		Source:   corecharm.CharmHub,
+		Type:     "charm",
+		Channel:  &charm.Channel{},
+		Revision: ptr(1),
+		Hash:     "sha-256",
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
@@ -303,7 +328,18 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 		},
 	}
 	address := "10.0.0.1"
-	unit, err := deployer.AddControllerApplication(context.Background(), curl, origin, s.charm, address)
+	unit, err := deployer.AddControllerApplication(context.Background(), DeployCharmInfo{
+		URL:    charm.MustParseURL(curl),
+		Charm:  s.charm,
+		Origin: &origin,
+		DownloadInfo: &corecharm.DownloadInfo{
+			CharmhubIdentifier: "abcd",
+			DownloadURL:        "https://inferi.com",
+			DownloadSize:       42,
+		},
+		ArchivePath:     "path",
+		ObjectStoreUUID: "1234",
+	}, address)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit, gc.NotNil)
 }
@@ -366,7 +402,7 @@ func (s *deployerSuite) expectLocalCharmUpload(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C, name string) {
+func (s *deployerSuite) expectDownloadAndResolve(c *gc.C, name string) {
 	curl := &charm.URL{
 		Schema:       string(charm.CharmHub),
 		Name:         name,
@@ -383,7 +419,50 @@ func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C, name string) {
 			Channel:      "22.04",
 		},
 	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Type:     "charm",
+		Channel:  &charm.Channel{},
+		Hash:     "sha-256",
+		Revision: ptr(1),
+		Platform: corecharm.Platform{
+			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}
 
-	s.charmRepo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), name, origin).Return(curl, origin, nil, nil)
-	s.charmDownloader.EXPECT().DownloadAndStore(gomock.Any(), curl, origin, false).Return(origin, s.charm, nil)
+	s.charmRepo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), name, origin).Return(corecharm.ResolvedData{
+		URL:    curl,
+		Origin: resolvedOrigin,
+		EssentialMetadata: corecharm.EssentialMetadata{
+			ResolvedOrigin: resolvedOrigin,
+			DownloadInfo: corecharm.DownloadInfo{
+				DownloadURL: "https://inferi.com",
+			},
+		},
+	}, nil)
+
+	url, err := url.Parse("https://inferi.com")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.charmDownloader.EXPECT().Download(gomock.Any(), url, "sha-256").Return(&charmdownloader.DownloadResult{
+		SHA256: "sha-256",
+		SHA384: "sha-384",
+		Path:   "path",
+		Size:   42,
+	}, nil)
+
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.applicationService.EXPECT().ResolveControllerCharmDownload(gomock.Any(), domainapplication.ResolveControllerCharmDownload{
+		SHA256: "sha-256",
+		SHA384: "sha-384",
+		Path:   "path",
+		Size:   42,
+	}).Return(domainapplication.ResolvedControllerCharmDownload{
+		Charm:           s.charm,
+		ArchivePath:     "path",
+		ObjectStoreUUID: objectStoreUUID,
+	}, nil)
 }

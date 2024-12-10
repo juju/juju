@@ -45,5 +45,10 @@ repl:
 repl-list-models:
 	+@./scripts/dqlite/scripts/repl/repl-list-models.sh
 
+ifeq (repl-model,$(firstword $(MAKECMDGOALS)))
+  REPL_MODEL_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(REPL_MODEL_ARGS):;@:)
+endif
+
 repl-model:
-	+@./scripts/dqlite/scripts/repl/repl-model.sh
+	+@./scripts/dqlite/scripts/repl/repl-model.sh $(REPL_MODEL_ARGS)

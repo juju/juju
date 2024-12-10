@@ -600,9 +600,16 @@ type charmArchivePath struct {
 	ArchivePath string `db:"archive_path"`
 }
 
+// charmArchivePathAndHash is used to get the archive path and hash of a charm.
 type charmArchivePathAndHash struct {
 	ArchivePath string `db:"archive_path"`
 	Hash        string `db:"hash"`
+}
+
+// charmArchiveHash is used to get the hash of a charm.
+type charmArchiveHash struct {
+	Available bool   `db:"available"`
+	Hash      string `db:"hash"`
 }
 
 type countResult struct {
@@ -624,7 +631,7 @@ type applicationCharmDownloadInfo struct {
 	Name               string `db:"name"`
 	Available          bool   `db:"available"`
 	Hash               string `db:"hash"`
-	DownloadProvenance string `db:"provenance"`
+	Provenance         string `db:"provenance"`
 	CharmhubIdentifier string `db:"charmhub_identifier"`
 	DownloadURL        string `db:"download_url"`
 	DownloadSize       int64  `db:"download_size"`

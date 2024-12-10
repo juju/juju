@@ -15,7 +15,6 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/juju/core/charm"
-	charm0 "github.com/juju/juju/internal/charm"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -125,14 +124,12 @@ func (c *MockCharmRepositoryGetDownloadURLCall) DoAndReturn(f func(context.Conte
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 context.Context, arg1 string, arg2 charm.Origin) (*charm0.URL, charm.Origin, []charm.Platform, error) {
+func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 context.Context, arg1 string, arg2 charm.Origin) (charm.ResolvedData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*charm0.URL)
-	ret1, _ := ret[1].(charm.Origin)
-	ret2, _ := ret[2].([]charm.Platform)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret0, _ := ret[0].(charm.ResolvedData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel.
@@ -148,19 +145,19 @@ type MockCharmRepositoryResolveWithPreferredChannelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmRepositoryResolveWithPreferredChannelCall) Return(arg0 *charm0.URL, arg1 charm.Origin, arg2 []charm.Platform, arg3 error) *MockCharmRepositoryResolveWithPreferredChannelCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+func (c *MockCharmRepositoryResolveWithPreferredChannelCall) Return(arg0 charm.ResolvedData, arg1 error) *MockCharmRepositoryResolveWithPreferredChannelCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmRepositoryResolveWithPreferredChannelCall) Do(f func(context.Context, string, charm.Origin) (*charm0.URL, charm.Origin, []charm.Platform, error)) *MockCharmRepositoryResolveWithPreferredChannelCall {
+func (c *MockCharmRepositoryResolveWithPreferredChannelCall) Do(f func(context.Context, string, charm.Origin) (charm.ResolvedData, error)) *MockCharmRepositoryResolveWithPreferredChannelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmRepositoryResolveWithPreferredChannelCall) DoAndReturn(f func(context.Context, string, charm.Origin) (*charm0.URL, charm.Origin, []charm.Platform, error)) *MockCharmRepositoryResolveWithPreferredChannelCall {
+func (c *MockCharmRepositoryResolveWithPreferredChannelCall) DoAndReturn(f func(context.Context, string, charm.Origin) (charm.ResolvedData, error)) *MockCharmRepositoryResolveWithPreferredChannelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

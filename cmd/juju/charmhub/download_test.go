@@ -421,19 +421,17 @@ func (s *downloadSuite) expectRefreshUnsupportedBase() {
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {
 	resourceURL, err := url.Parse(charmHubURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_r123.charm", gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-		Size:       42,
+	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_r123.charm", gomock.Any()).Return(&charmhub.Digest{
+		SHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		Size:   42,
 	}, nil)
 }
 
 func (s *downloadSuite) expectResourceDownload(c *gc.C, resourceDownloadURL string) {
 	resourceURL, err := url.Parse(resourceDownloadURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "resource_foo_r5_a.tar.gz", gomock.Any(), gomock.Any()).Return(&charmhub.Digest{
-		DigestType: charmhub.SHA256,
-		Hash:       "533513c1397cb8ccec05852b52514becd5fd8c9c21509f7bc2f5d460c6143dd8",
-		Size:       42,
+	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "resource_foo_r5_a.tar.gz", gomock.Any()).Return(&charmhub.Digest{
+		SHA256: "533513c1397cb8ccec05852b52514becd5fd8c9c21509f7bc2f5d460c6143dd8",
+		Size:   42,
 	}, nil)
 }

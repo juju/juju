@@ -143,8 +143,15 @@ type CharmState interface {
 	ListCharmLocatorsByNames(ctx context.Context, names []string) ([]charm.CharmLocator, error)
 
 	// GetCharmDownloadInfo returns the download info for the charm using the
-	// charm ID.
+	// charm ID. Returns [applicationerrors.CharmNotFound] if the charm is not
+	// found.
 	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error)
+
+	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
+	// archive for the given charm id. If the charm is not available,
+	// [applicationerrors.CharmNotResolved] is returned. Returns
+	// [applicationerrors.CharmNotFound] if the charm is not found.
+	GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm.ID) (string, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive
@@ -607,6 +614,16 @@ func (s *Service) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*c
 		return nil, fmt.Errorf("charm id: %w", err)
 	}
 	return s.st.GetCharmDownloadInfo(ctx, id)
+}
+
+// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm archive
+// for the given charm id. If the charm is not available,
+// [applicationerrors.CharmNotResolved] is returned.
+func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", fmt.Errorf("charm id: %w", err)
+	}
+	return s.st.GetAvailableCharmArchiveSHA256(ctx, id)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.

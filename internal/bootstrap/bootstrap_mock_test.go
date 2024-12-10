@@ -13,6 +13,7 @@ import (
 	context "context"
 	io "io"
 	http "net/http"
+	url "net/url"
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
@@ -22,9 +23,11 @@ import (
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	unit "github.com/juju/juju/core/unit"
+	application0 "github.com/juju/juju/domain/application"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
 	charm0 "github.com/juju/juju/internal/charm"
+	charmdownloader "github.com/juju/juju/internal/charm/charmdownloader"
 	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
@@ -117,18 +120,18 @@ func (m *MockControllerCharmDeployer) EXPECT() *MockControllerCharmDeployerMockR
 }
 
 // AddControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddControllerApplication(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 charm0.Charm, arg4 string) (Unit, error) {
+func (m *MockControllerCharmDeployer) AddControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) (Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddControllerApplication", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "AddControllerApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddControllerApplication indicates an expected call of AddControllerApplication.
-func (mr *MockControllerCharmDeployerMockRecorder) AddControllerApplication(arg0, arg1, arg2, arg3, arg4 any) *MockControllerCharmDeployerAddControllerApplicationCall {
+func (mr *MockControllerCharmDeployerMockRecorder) AddControllerApplication(arg0, arg1, arg2 any) *MockControllerCharmDeployerAddControllerApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddControllerApplication", reflect.TypeOf((*MockControllerCharmDeployer)(nil).AddControllerApplication), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddControllerApplication", reflect.TypeOf((*MockControllerCharmDeployer)(nil).AddControllerApplication), arg0, arg1, arg2)
 	return &MockControllerCharmDeployerAddControllerApplicationCall{Call: call}
 }
 
@@ -144,13 +147,13 @@ func (c *MockControllerCharmDeployerAddControllerApplicationCall) Return(arg0 Un
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerAddControllerApplicationCall) Do(f func(context.Context, string, charm.Origin, charm0.Charm, string) (Unit, error)) *MockControllerCharmDeployerAddControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) (Unit, error)) *MockControllerCharmDeployerAddControllerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerAddControllerApplicationCall) DoAndReturn(f func(context.Context, string, charm.Origin, charm0.Charm, string) (Unit, error)) *MockControllerCharmDeployerAddControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) (Unit, error)) *MockControllerCharmDeployerAddControllerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -310,14 +313,12 @@ func (c *MockControllerCharmDeployerControllerCharmBaseCall) DoAndReturn(f func(
 }
 
 // DeployCharmhubCharm mocks base method.
-func (m *MockControllerCharmDeployer) DeployCharmhubCharm(arg0 context.Context, arg1 string, arg2 base.Base) (string, *charm.Origin, charm0.Charm, error) {
+func (m *MockControllerCharmDeployer) DeployCharmhubCharm(arg0 context.Context, arg1 string, arg2 base.Base) (DeployCharmInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeployCharmhubCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(*charm.Origin)
-	ret2, _ := ret[2].(charm0.Charm)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret0, _ := ret[0].(DeployCharmInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeployCharmhubCharm indicates an expected call of DeployCharmhubCharm.
@@ -333,32 +334,30 @@ type MockControllerCharmDeployerDeployCharmhubCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerCharmDeployerDeployCharmhubCharmCall) Return(arg0 string, arg1 *charm.Origin, arg2 charm0.Charm, arg3 error) *MockControllerCharmDeployerDeployCharmhubCharmCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+func (c *MockControllerCharmDeployerDeployCharmhubCharmCall) Return(arg0 DeployCharmInfo, arg1 error) *MockControllerCharmDeployerDeployCharmhubCharmCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerDeployCharmhubCharmCall) Do(f func(context.Context, string, base.Base) (string, *charm.Origin, charm0.Charm, error)) *MockControllerCharmDeployerDeployCharmhubCharmCall {
+func (c *MockControllerCharmDeployerDeployCharmhubCharmCall) Do(f func(context.Context, string, base.Base) (DeployCharmInfo, error)) *MockControllerCharmDeployerDeployCharmhubCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerDeployCharmhubCharmCall) DoAndReturn(f func(context.Context, string, base.Base) (string, *charm.Origin, charm0.Charm, error)) *MockControllerCharmDeployerDeployCharmhubCharmCall {
+func (c *MockControllerCharmDeployerDeployCharmhubCharmCall) DoAndReturn(f func(context.Context, string, base.Base) (DeployCharmInfo, error)) *MockControllerCharmDeployerDeployCharmhubCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeployLocalCharm mocks base method.
-func (m *MockControllerCharmDeployer) DeployLocalCharm(arg0 context.Context, arg1 string, arg2 base.Base) (string, *charm.Origin, charm0.Charm, error) {
+func (m *MockControllerCharmDeployer) DeployLocalCharm(arg0 context.Context, arg1 string, arg2 base.Base) (DeployCharmInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeployLocalCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(*charm.Origin)
-	ret2, _ := ret[2].(charm0.Charm)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret0, _ := ret[0].(DeployCharmInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeployLocalCharm indicates an expected call of DeployLocalCharm.
@@ -374,19 +373,19 @@ type MockControllerCharmDeployerDeployLocalCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerCharmDeployerDeployLocalCharmCall) Return(arg0 string, arg1 *charm.Origin, arg2 charm0.Charm, arg3 error) *MockControllerCharmDeployerDeployLocalCharmCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+func (c *MockControllerCharmDeployerDeployLocalCharmCall) Return(arg0 DeployCharmInfo, arg1 error) *MockControllerCharmDeployerDeployLocalCharmCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerDeployLocalCharmCall) Do(f func(context.Context, string, base.Base) (string, *charm.Origin, charm0.Charm, error)) *MockControllerCharmDeployerDeployLocalCharmCall {
+func (c *MockControllerCharmDeployerDeployLocalCharmCall) Do(f func(context.Context, string, base.Base) (DeployCharmInfo, error)) *MockControllerCharmDeployerDeployLocalCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerDeployLocalCharmCall) DoAndReturn(f func(context.Context, string, base.Base) (string, *charm.Origin, charm0.Charm, error)) *MockControllerCharmDeployerDeployLocalCharmCall {
+func (c *MockControllerCharmDeployerDeployLocalCharmCall) DoAndReturn(f func(context.Context, string, base.Base) (DeployCharmInfo, error)) *MockControllerCharmDeployerDeployLocalCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1972,6 +1971,45 @@ func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context
 	return c
 }
 
+// ResolveControllerCharmDownload mocks base method.
+func (m *MockApplicationService) ResolveControllerCharmDownload(arg0 context.Context, arg1 application0.ResolveControllerCharmDownload) (application0.ResolvedControllerCharmDownload, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveControllerCharmDownload", arg0, arg1)
+	ret0, _ := ret[0].(application0.ResolvedControllerCharmDownload)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveControllerCharmDownload indicates an expected call of ResolveControllerCharmDownload.
+func (mr *MockApplicationServiceMockRecorder) ResolveControllerCharmDownload(arg0, arg1 any) *MockApplicationServiceResolveControllerCharmDownloadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveControllerCharmDownload", reflect.TypeOf((*MockApplicationService)(nil).ResolveControllerCharmDownload), arg0, arg1)
+	return &MockApplicationServiceResolveControllerCharmDownloadCall{Call: call}
+}
+
+// MockApplicationServiceResolveControllerCharmDownloadCall wrap *gomock.Call
+type MockApplicationServiceResolveControllerCharmDownloadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceResolveControllerCharmDownloadCall) Return(arg0 application0.ResolvedControllerCharmDownload, arg1 error) *MockApplicationServiceResolveControllerCharmDownloadCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceResolveControllerCharmDownloadCall) Do(f func(context.Context, application0.ResolveControllerCharmDownload) (application0.ResolvedControllerCharmDownload, error)) *MockApplicationServiceResolveControllerCharmDownloadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceResolveControllerCharmDownloadCall) DoAndReturn(f func(context.Context, application0.ResolveControllerCharmDownload) (application0.ResolvedControllerCharmDownload, error)) *MockApplicationServiceResolveControllerCharmDownloadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetUnitPassword mocks base method.
 func (m *MockApplicationService) SetUnitPassword(arg0 context.Context, arg1 unit.Name, arg2 string) error {
 	m.ctrl.T.Helper()
@@ -2133,42 +2171,41 @@ func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 	return m.recorder
 }
 
-// DownloadAndStore mocks base method.
-func (m *MockDownloader) DownloadAndStore(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, charm0.Charm, error) {
+// Download mocks base method.
+func (m *MockDownloader) Download(arg0 context.Context, arg1 *url.URL, arg2 string) (*charmdownloader.DownloadResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadAndStore", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(charm.Origin)
-	ret1, _ := ret[1].(charm0.Charm)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*charmdownloader.DownloadResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// DownloadAndStore indicates an expected call of DownloadAndStore.
-func (mr *MockDownloaderMockRecorder) DownloadAndStore(arg0, arg1, arg2, arg3 any) *MockDownloaderDownloadAndStoreCall {
+// Download indicates an expected call of Download.
+func (mr *MockDownloaderMockRecorder) Download(arg0, arg1, arg2 any) *MockDownloaderDownloadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndStore", reflect.TypeOf((*MockDownloader)(nil).DownloadAndStore), arg0, arg1, arg2, arg3)
-	return &MockDownloaderDownloadAndStoreCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockDownloader)(nil).Download), arg0, arg1, arg2)
+	return &MockDownloaderDownloadCall{Call: call}
 }
 
-// MockDownloaderDownloadAndStoreCall wrap *gomock.Call
-type MockDownloaderDownloadAndStoreCall struct {
+// MockDownloaderDownloadCall wrap *gomock.Call
+type MockDownloaderDownloadCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDownloaderDownloadAndStoreCall) Return(arg0 charm.Origin, arg1 charm0.Charm, arg2 error) *MockDownloaderDownloadAndStoreCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockDownloaderDownloadCall) Return(arg0 *charmdownloader.DownloadResult, arg1 error) *MockDownloaderDownloadCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDownloaderDownloadAndStoreCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, charm0.Charm, error)) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadCall) Do(f func(context.Context, *url.URL, string) (*charmdownloader.DownloadResult, error)) *MockDownloaderDownloadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDownloaderDownloadAndStoreCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, charm0.Charm, error)) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadCall) DoAndReturn(f func(context.Context, *url.URL, string) (*charmdownloader.DownloadResult, error)) *MockDownloaderDownloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
