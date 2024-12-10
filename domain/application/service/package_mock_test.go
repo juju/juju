@@ -533,6 +533,45 @@ func (c *MockStateGetAsyncCharmDownloadInfoCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// GetAvailableCharmArchiveSHA256 mocks base method.
+func (m *MockState) GetAvailableCharmArchiveSHA256(arg0 context.Context, arg1 charm.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAvailableCharmArchiveSHA256", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAvailableCharmArchiveSHA256 indicates an expected call of GetAvailableCharmArchiveSHA256.
+func (mr *MockStateMockRecorder) GetAvailableCharmArchiveSHA256(arg0, arg1 any) *MockStateGetAvailableCharmArchiveSHA256Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailableCharmArchiveSHA256", reflect.TypeOf((*MockState)(nil).GetAvailableCharmArchiveSHA256), arg0, arg1)
+	return &MockStateGetAvailableCharmArchiveSHA256Call{Call: call}
+}
+
+// MockStateGetAvailableCharmArchiveSHA256Call wrap *gomock.Call
+type MockStateGetAvailableCharmArchiveSHA256Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAvailableCharmArchiveSHA256Call) Return(arg0 string, arg1 error) *MockStateGetAvailableCharmArchiveSHA256Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAvailableCharmArchiveSHA256Call) Do(f func(context.Context, charm.ID) (string, error)) *MockStateGetAvailableCharmArchiveSHA256Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAvailableCharmArchiveSHA256Call) DoAndReturn(f func(context.Context, charm.ID) (string, error)) *MockStateGetAvailableCharmArchiveSHA256Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharm mocks base method.
 func (m *MockState) GetCharm(arg0 context.Context, arg1 charm.ID) (charm0.Charm, *charm0.DownloadInfo, error) {
 	m.ctrl.T.Helper()

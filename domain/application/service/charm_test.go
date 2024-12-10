@@ -1078,6 +1078,32 @@ func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *gc.C) {
 	c.Check(result, gc.DeepEquals, expected)
 }
 
+func (s *charmServiceSuite) TestGetCharmDownloadInfoInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmDownloadInfo(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("hash", nil)
+
+	result, err := s.service.GetAvailableCharmArchiveSHA256(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, "hash")
+}
+
+func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256InvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetAvailableCharmArchiveSHA256(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 

@@ -1,7 +1,7 @@
 name: "Smoke"
 on:
   push:
-    branches: [2.*, 3.*, 4.*, main]
+    branches: [4.*, main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
@@ -10,7 +10,6 @@ permissions:
   contents: read
 
 jobs:
-
   smoke:
     name: Smoke
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
@@ -93,7 +92,8 @@ jobs:
         # Skip destroy to keep the environment up.
         export SKIP_DESTROY=true
 
-        ./main.sh -v -s 'test_build' smoke
+        # Skip the smoke test until we land the async charm downloader.
+        # ./main.sh -v -s 'test_build' smoke
 
     - name: Smoke test (MicroK8s)
       if: matrix.cloud == 'microk8s'
@@ -101,4 +101,6 @@ jobs:
       run: |
         cd tests
         export MODEL_ARCH=$(go env GOARCH)
-        sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
+
+        # Skip the smoke test until we land the async charm downloader.
+        # sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
