@@ -200,6 +200,9 @@ func (c ModelContext) HTTPClient(purpose corehttp.Purpose) (facade.HTTPClient, e
 
 // DomainServices implements facade.ModelContext.
 func (c ModelContext) DomainServices() services.DomainServices {
+	if c.DomainServices_ == nil {
+		panic("missing domain services")
+	}
 	return c.DomainServices_
 }
 

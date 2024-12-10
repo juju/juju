@@ -167,9 +167,10 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = factory(context.Background(), facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
-			ID_:        id,
+			Resources_:      s.resources,
+			Auth_:           s.authorizer,
+			ID_:             id,
+			DomainServices_: s.ControllerDomainServices(c),
 		},
 	})
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
