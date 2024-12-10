@@ -46,6 +46,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		ctx,
 		backend,
 		c.blockCommandService,
+		c.modelInfoService,
 		func(u model.UUID) common.BlockCommandService {
 			return c.blockCommandServiceGetter(u)
 		},

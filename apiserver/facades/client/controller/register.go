@@ -73,6 +73,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.Access(),
 		domainServices.Machine(),
 		domainServices.Model(),
+		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
 		applicationServiceGetter,
 		modelAgentServiceGetter,

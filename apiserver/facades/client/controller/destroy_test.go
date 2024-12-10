@@ -62,7 +62,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 				StatePool_:      s.StatePool(),
 				Resources_:      s.resources,
 				Auth_:           s.authorizer,
-				DomainServices_: s.DefaultModelDomainServices(c),
+				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),
 			},
 			DomainServicesForModel_: s.DefaultModelDomainServices(c),
@@ -146,7 +146,11 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := common.DestroyModel(context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()), domainServices.BlockCommand(), nil, nil, nil, nil)
+	err := common.DestroyModel(
+		context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()),
+		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		nil, nil, nil, nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
@@ -162,7 +166,11 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := common.DestroyModel(context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()), domainServices.BlockCommand(), nil, nil, nil, nil)
+	err := common.DestroyModel(
+		context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()),
+		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		nil, nil, nil, nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -176,7 +184,11 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := common.DestroyModel(context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()), domainServices.BlockCommand(), nil, nil, nil, nil)
+	err := common.DestroyModel(
+		context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()),
+		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		nil, nil, nil, nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
