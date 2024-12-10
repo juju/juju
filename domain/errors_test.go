@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	dqlite "github.com/canonical/go-dqlite/driver"
+	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"

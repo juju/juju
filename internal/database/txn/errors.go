@@ -14,7 +14,7 @@ import (
 
 // IsErrRetryable returns true if the given error might be
 // transient and the interaction can be safely retried.
-// See: https://github.com/canonical/go-dqlite/issues/220
+// See: https://github.com/canonical/go-dqlite/v2/issues/220
 func IsErrRetryable(err error) bool {
 	var dErr *driver.Error
 	if errors.As(err, &dErr) && dErr.Code == driver.ErrBusy {
