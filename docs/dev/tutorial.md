@@ -1,125 +1,266 @@
-# Juju developer tutorial
-This is an onboarding guide for new developers on the Juju project. It will
-guide you through the developer documentation to help you understand how Juju is
-put together.
+(tutorial)=
+# Juju Developer Tutorial
 
-This onboarding guide is not designed to be done all in one go. There is a lot
-of content here which can quickly become overwhelming. It is recommended that you
-use each section as an entry point to that part of Juju and consolidate the
-knowledge by doing the exercise in each section and/or looking at a bug in that
-area.
+To get acquainted with the insides of Juju, you're going to add a brand-new
+feature. A quote-of-the-day service.
 
-> See also: [Developer FAQ](../faq.md)
+With your addition, admin users will be able to set an author for today's quote
+and Juju will fetch one of the authors venerable utterances from a public API on
+the internet. This quote will be stored in Juju's state on the controller.
+Charms will be able to request the quote to be sent to them, so they can use it
+as they see fit.
 
-## Using Juju
-First, make sure that you have a good idea of what Juju is, and what it can do.
-Start by doing the Juju tutorial, and then try building a charm with the
-charming tutorial.
+**What you'll need:**
+- A workstation with `git` and an editor suitable for development in Golang.
+- Working knowledge of Golang syntax/semantics and the latest version of Go
+  installed (preferably via the snap).
 
-Make full use of the Juju documentation to get an understanding of what Juju can
-do, and make sure to report any gaps not covered by the docs to the team!
+**What you'll do:**
+- Add a new command to the Juju CLI to set the author of today's quote.
+- *(Still to write)* Add an API endpoint and facade method to the controller to save the new quote author.
+- *(Still to write)* Add a domain to the controller for storing the quote authors.
+- *(Still to write)* Add a worker to the controller which watches the state for changes, fetches quotes from new authors in state from
+  [Zenquotes API](https://docs.zenquotes.io/zenquotes-documentation/#call-author), and saves these quotes in state.
+- *(Still to write)* Add a hook tool for charms to get the quote of the day from the controller.
+- *(Still to write)* Write a basic charm to fetch the quote of the day, and display it in its status.
 
-> See more: [Juju tutorial](https://juju.is/docs/juju/tutorial),
-[Juju documentation](https://juju.is/)
+## Set up and build Juju
+Clone the main branch of the Juju repository onto your machine:
+```console
+$ git clone -b main git@github.com:juju/juju.git 
+```
+Try compiling and installing this version of Juju to check you have all the
+tools you need:
+```console
+$ cd juju
+$ make build
+```
+If the `make` fails because you are missing any tools, install them.
 
-## Understanding Juju
-The Juju project was one of the first adopters of the Go language. In the early
-days the ecosystem was far smaller and less mature. As a result, the Juju does
-not always follow the standard Go way of doing things. The early developers
-often had to come up with their own solutions so things may not be done as you
-expect. This document will guide you through the way things are done in Juju.
+## Add a new command to Juju
+You are going to add a new command to Juju to set the author of the quote of the
+day:
+```console
+$ juju set-qotd-author
+```
+To begin with, this command will only print out the author you have set. For example:
+```console
+$ juju set-qotd-author "Nelson Mandela"
+You have set todays author to: Nelson Mandela
+```
 
-Each section below explains a concept, or collection of concepts in Juju. Each
-section includes an exercise to help consolidate the knowledge.
+Open the juju repo in your editor and navigate to `cmd/juju`. This contains the
+code for the Juju CLI commands.
 
-### The architecture of Juju
-The [Architectural overview](../architectural-overview.md) is the best place to
-understand how Juju is put together. It is also useful to understand which
-binaries go where, for this see the [List of Agents](reference/agent.md).
+Make a new folder called `qotd` and a file in it called `qotd.go`. Add the base
+command definition and help information for the `set-qotd-author`:
+```go
+package qotd
 
-**Exercise**: TODO
+import (
+  "github.com/juju/cmd/v4"
 
-### The Juju API
-As mentioned in the Architectural overview, the API endpoints are served using
-facades. For more information on Facades see: [Facades](../facades.md).
+  jujucmd "github.com/juju/juju/cmd"
+  "github.com/juju/juju/cmd/modelcmd"
+)
 
-**Exercise**: TODO
+// setQOTDAuthorCommand is the base of the set-qotd-author command.
+type setQOTDAuthorCommand struct {
+  // ControllerCommandBase is used because this is a command that interacts
+  // with the controller.
+  modelcmd.ControllerCommandBase
 
-### State (MongoDB and DQLite)
-The state of Juju is kept in MongoDB and DQLite. For information about how juju
-interacts with mongo, see [MongoDB and Consistency](../MongoDB-and-Consistency.md).
+  // author is the author the user has specified.
+  author string
+  // out is responsible for outputting the response to the user in the correct
+  // format.
+  out cmd.Output
+}
 
-DQLite: TODO
+// NewSetQOTDAuthorCommand returns a command to set the quote of the day author.
+func NewSetQOTDAuthorCommand() cmd.Command {
+  cmd := &setQOTDAuthorCommand{}
+  return modelcmd.WrapBase(cmd)
+}
 
-**Exercise**: TODO
+// Info defines the name of the command and the command documentation. It
+// implements command.Info from the juju/cmd package.
+func (c *setQOTDAuthorCommand) Info() *cmd.Info {
+  // jujucmd.Info adds flags common to all juju cli commands>
+  return jujucmd.Info(&cmd.Info{
+    Name:     "set-qotd-author",
+    Purpose:  "Set the quote of the day author:",
+    Args:     "<quote-of-the-day-author>",
+    Doc:      "Sets the author of the quote of the day",
+    Examples: "juju set-qotd-author \"Nelson Mandela\"\n",
+    SeeAlso: []string{
+      "is",
+      "unleash",
+    },
+  })
+}
+```
 
-### Workers and the dependency engine
-Workers are generally in charge of long-running processes in juju. The
-dependency engine managers which workers are running.
-See [Workers](reference/worker.md) and [The dependency
-engine](reference/dependency-package.md)
+Here you have made use of the `juju/cmd` package to define the command. Our
+command needs to implement the `Command` interface defined in this package. We
+can then register it with the Juju CLI.
 
-**Exercise**: TODO
+> See more: [github.com/juju/cmd](https://github.com/juju/cmd), [`Command` interface](https://github.com/juju/cmd?tab=readme-ov-file#type-command)
 
-### Cloud providers
-The cloud providers are the abstraction layer that allow juju to work on
-different clouds e.g. aws, openstack, MAAS, ect.
-[Implementing environment providers](../implementing-environment-providers.md)
+Now, add the `SetFlags`, `Init` and `Run` methods to the command.
 
-**Exercise**: TODO
+First, add the imports:
+```go
+  "github.com/juju/gnuflag"
 
-### Juju clients (cli, terraform, python-libjuju)
-The Juju CLI (`juju`) is the most used client of Juju, others include:
-- [The Juju terraform provider](https://github.com/juju/terraform-provider-juju)
-- [python-libjuju](https://github.com/juju/python-libjuju)
-- [JAAS](https://jaas.ai)
+  "github.com/juju/juju/internal/errors"
+```
 
-There are many more services that make use of the Juju API.
+Then add the methods:
+```go
+// SetFlags adds flags to the command. It is part of the Command interface in
+// the juju/cmd package.
+func (c *setQOTDAuthorCommand) SetFlags(f *gnuflag.FlagSet) {
+	// Collect the default output formatters.
+	formatters := make(map[string]cmd.Formatter, len(cmd.DefaultFormatters))
+	for k, v := range cmd.DefaultFormatters {
+		formatters[k] = v.Formatter
+	}
+	// Add the output related command flags and set the default formatter to
+	// "smart". This will automatically format strings for output.
+	c.out.AddFlags(f, "smart", formatters)
+}
 
-**Exercise**: TODO
+// Init initializes the command before running it. It collects the user supplied
+// arguments and throws an error if they are not as expected. It is part of the
+// Command interface in the juju/cmd package.
+func (c *setQOTDAuthorCommand) Init(args []string) error {
+	switch len(args) {
+	case 0:
+		return errors.Errorf("No quote author specified")
+	case 1:
+		c.author = args[0]
+		return nil
+	default:
+		//  CheckEmpty checks that there are no extra arguments.
+		return cmd.CheckEmpty(args[1:])
+	}
+}
 
-### Charms
-Juju charms operate applications.
+// Run executes the action of the command. It is part of the Command interface
+// in the juju/cmd package.
+func (c *setQOTDAuthorCommand) Run(ctx *cmd.Context) error {
+	// For now, just tell the user what they wrote.
+	return c.out.Write(ctx, "Quote author set to \""+c.author+"\"")
+}
+```
 
-**Exercise:** build a charm by following a Charm SDK tutorial
+There are two other methods that are part of the command interface:
+`IsSuperCommand` and `AllowIntersperedFlags`. We do not need to provide these.
+The `setQOTDAuthorComand` struct embeds the `modelcmd.ControllerCommandBase`
+which in several layers down embeds `cmd.Command` from the command package. This
+provides a default implementation.
 
-> See more: (Write your first machine charm)[https://juju.is/docs/sdk/write-your-first-machine-charm]
+### Test the command
 
-### The Uniter
+Juju uses the go check library for testing. To test the command you will add a
+go check unit test suite.
 
-TODO
+In the `qotd` directory, create a `package_test.go`, and hook up go check to
+work with the `go test` command:
+```go
+package qotd_test
 
-**Exercise**: TODO
+import (
+  stdtesting "testing"
 
-### Contributing
-See our [CONTRIBUTING.md](../CONTRIBUTING.md) for team etiquette around pull
-requests. The [read before contributing guide](../read-before-contributing.md) has
-a lot of useful tips about coding practice in Juju.
+  gc "gopkg.in/check.v1"
+)
 
-One way to get up to speed with current development is to look at our open PRs.
-Feel free to comment on the PRs and ask questions about context and why things
-are being done the way they are, along with anything else. 
+func TestPackage(t *stdtesting.T) {
+  gc.TestingT(t)
+}
+```
+Next, in the `qotd` directory, create a `qotd_test.go` file and add a go check
+suite.
 
-> See more: [Juju pull requests](https://github.com/juju/juju/pulls)
-## Quiz time!
-After reading the documentation above, write answers to the following questions
-and send your answers to a member of the Juju team to check. This should help
-fill in gaps in your knowledge.
+```go
+package qotd_test
 
-- (overview) Describe what happens in Juju when you do `juju config mysql foo=bar`. Explain
-  how it progresses from the CLI, to the controller, and eventually to the charm
-  code itself.
+import (
+  gc "gopkg.in/check.v1"
 
-- (api) Explain how facades determine which client versions are compatible with which
-  controller versions.
+  "github.com/juju/juju/internal/testing"
+)
 
-- TODO: Question on state
+type SetQOTDAuthorSuite struct {
+  testing.BaseSuite
+}
 
-- (workers) A “flag” worker runs when some condition is true and not when it is false. It
-  loops forever and takes no action. What use does a “flag” worker have in Juju?
+var _ = gc.Suite(&SetQOTDAuthorSuite{})
+```
+Embedding the `testing.BaseSuite` provides isolation for the test from the
+system it is running on.
 
-- TODO: Question on the uniter
+Now, add some tests of the command. We will test the command works as expected
+and returns the right errors.
 
-- TODO: Question on charms
+Add the imports:
+```go
+	"github.com/juju/cmd/v4/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 
-- TODO: Question on debugging
+	"github.com/juju/juju/cmd/juju/qotd"
+```
+
+And the tests:
+```go
+func (s *SetQOTDAuthorSuite) TestSetQOTDAuthor(c *gc.C) {
+  context, err := cmdtesting.RunCommand(c, qotd.NewSetQOTDAuthorCommand(), "Nelson Mandela")
+  // jc.ErrorIsNil checks that the value is explicitly a nil error, as opposed
+  // to gc.NotNil which checks if it is any nil value.
+  c.Assert(err, jc.ErrorIsNil)
+  stdout := cmdtesting.Stdout(context)
+  c.Assert(stdout, gc.Equals, "Quote author set to \"Nelson Mandela\"\n")
+}
+
+func (s *SetQOTDAuthorSuite) TestSetQOTDAuthorTooManyArgs(c *gc.C) {
+  _, err := cmdtesting.RunCommand(c, qotd.NewSetQOTDAuthorCommand(), "author", "arg-two")
+  // First check that the error is not nil before checking its message.
+  c.Assert(err, gc.NotNil)
+  c.Assert(err.Error(), gc.Equals, `unrecognized args: ["arg-two"]`)
+}
+```
+
+**Exercise:** Add a third test to check that the command throws an error when
+no parameters are passed.
+
+> See more: [Go Check](http://labix.org/gocheck)
+
+### Register the command
+The command is implemented, but it needs to be registered to appear when running
+the Juju CLI.
+
+Go to `cmd/juju/command/main.go` and find the `registerCommands` function.
+Import the `qotd` package and register the new command at the bottom.
+```go
+  ...
+
+  // Quote of the day command.
+  r.Register(qotd.NewSetQOTDAuthorCommand())
+}
+```
+
+### Compile and install Juju to try the new command
+From the root of the repo, run:
+```console
+$ make install
+```
+Once it has finished, do `which juju` to check that the `juju` binary has been
+correctly installed. It should be installed in your `GOPATH` (defaults to
+`~/go`) at `GOPATH/bin/juju`.
+
+To admire your handiwork, run: 
+```console
+$ juju set-qotd-author "Nelson Mandela"
+```
