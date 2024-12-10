@@ -479,6 +479,17 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Opened Ports
 		"protocol",
 		"port_range",
+
+		// Relations
+		"application_endpoint",
+		"relation",
+		"relation_application_setting",
+		"relation_sequence",
+		"relation_status",
+		"relation_status_type",
+		"relation_suspended_reason",
+		"relation_unit",
+		"relation_unit_setting",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
