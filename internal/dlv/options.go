@@ -12,13 +12,16 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/retry"
+
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // Config is a type that represents a map of configuration options where the key is a string and the value can be any type.
 // They are passed to Delve as command line option.
 type Config struct {
-	// definedLogger allows injecting a custom logger implementation to handle logging for the wrapped program.
-	definedLogger logger
+	// definedLogger allows injecting the logger to dlv instance
+	definedLogger logger.Logger
 
 	// dlvArgs contains a map of command line arguments for the Delve debugger, which would typically be added to the
 	// command in the form `--[key]=[value]`
@@ -50,14 +53,10 @@ func With(key string, value ...any) Option {
 	}
 }
 
-// LoggerFunc is a type that defines a function signature for logging messages formatted according to a format specifier.
-type LoggerFunc func(format string, v ...interface{})
-
-// WithLoggerFunc allows setting a custom LoggerFunc for logging.
-// It returns an Option that configures a Config instance to use the provided LoggerFunc for logging.
-func WithLoggerFunc(logger LoggerFunc) Option {
+// WithLogger sets a custom logger to be used in the configuration.
+func WithLogger(logger logger.Logger) Option {
 	return func(o *Config) {
-		o.definedLogger = loggerWrapper{logf: logger}
+		o.definedLogger = logger
 	}
 }
 
@@ -138,29 +137,13 @@ func tryFixPermission(path string) error {
 	})
 }
 
-// logger returns the logger implementation to use, defaulting to the predefined defaultLogger if none is specified.
-func (config *Config) logger() logger {
+// logger returns the logger implementation to use, defaulting to noop
+func (config *Config) logger() logger.Logger {
 	if config.definedLogger == nil {
-		return defaultLogger
+		return internallogger.Noop()
 	}
 	return config.definedLogger
 }
-
-// loggerWrapper wraps a LoggerFunc to conform with the logger interface.
-type loggerWrapper struct {
-	logf LoggerFunc
-}
-
-// Printf logs a formatted message using a specified format and variadic arguments.
-func (l loggerWrapper) Printf(format string, v ...interface{}) {
-	l.logf(format, v...)
-}
-
-// defaultLogger is the default logger implementing the logger interface, using fmt.Printf to log formatted messages.
-var defaultLogger = loggerWrapper{func(format string, v ...interface{}) {
-	fmt.Printf(format, v...)
-	fmt.Println()
-}}
 
 // apply sets multiple configuration options on a Config instance.
 func (o *Config) apply(opts ...Option) {

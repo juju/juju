@@ -24,7 +24,7 @@ func main() {
 
 	// Start the delve runner against a socket.
 	debugMain := dlv.NewDlvRunner(
-		dlv.WithLoggerFunc(logger.Infof),
+		dlv.WithLogger(logger.Child("dlv")),
 		dlv.Headless(),
 		dlv.NoWait(),
 		dlv.WithApiVersion(2),

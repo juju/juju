@@ -4,7 +4,6 @@
 package dlv
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/go-delve/delve/cmd/dlv/cmds"
@@ -36,8 +35,8 @@ func NewDlvRunner(opts ...Option) func(main MainWithArgs) MainWithArgs {
 			return main
 		}
 		if err := os.Setenv(envNoDebug, "1"); err != nil {
-			logger.Printf("Failed to set env %q: %v", envNoDebug, err)
-			logger.Printf("Starting without debug mode...")
+			logger.Warningf("Failed to set env %q: %v", envNoDebug, err)
+			logger.Warningf("Starting without debug mode...")
 			return main
 		}
 
@@ -55,21 +54,16 @@ func NewDlvRunner(opts ...Option) func(main MainWithArgs) MainWithArgs {
 			// socket
 			config.runSidecars()
 
-			logger.Printf("Starting dlv with %v", dlvArgs)
-			logger.Printf("Running in debug mode")
-			defer logger.Printf("dlv has stopped")
+			logger.Infof("Starting dlv with %v", dlvArgs)
+			logger.Infof("Running in debug mode")
+			defer logger.Infof("dlv has stopped")
 
 			// Execute delve
 			if err := dlvCmd.Execute(); err != nil {
-				fmt.Printf("Failed to run dlv: %v\n", err)
+				logger.Errorf("Failed to run dlv: %v\n", err)
 				return 1
 			}
 			return 0
 		}
 	}
-}
-
-// logger allows to inject the way logs will be handled by wrapped program.
-type logger interface {
-	Printf(format string, v ...interface{})
 }
