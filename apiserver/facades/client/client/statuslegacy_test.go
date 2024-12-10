@@ -5,20 +5,15 @@ package client_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/clock"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -30,16 +25,13 @@ import (
 	"github.com/juju/juju/core/version"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	testfactory "github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
 )
 
 type statusSuite struct {
@@ -866,188 +858,6 @@ func (s *statusUnitTestSuite) TestUnitsWithOpenedPortsSent(c *gc.C) {
 	c.Assert(status.Applications, gc.HasLen, 1)
 	c.Assert(status.Applications["wordpress"].Units, gc.HasLen, 1)
 	c.Assert(status.Applications["wordpress"].Units["wordpress/0"].OpenedPorts, gc.DeepEquals, []string{"1000/tcp", "2000/tcp"})
-}
-
-type statusUpgradeUnitSuite struct {
-	testing.ApiServerSuite
-
-	charms               map[string]*state.Charm
-	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	ctrl                 *gomock.Controller
-}
-
-var _ = gc.Suite(&statusUpgradeUnitSuite{})
-
-func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.WithLeaseManager = true
-	s.ApiServerSuite.SetUpTest(c)
-	s.charms = make(map[string]*state.Charm)
-
-	state := charmrevisionupdater.StateShim{State: s.ControllerModel(c).State()}
-	s.ctrl = gomock.NewController(c)
-	charmhubClient := mocks.NewMockCharmhubRefreshClient(s.ctrl)
-	charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]transport.RefreshResponse{
-		{Entity: transport.RefreshEntity{Revision: 42}},
-	}, nil)
-	newCharmhubClient := func(context.Context) (charmrevisionupdater.CharmhubRefreshClient, error) {
-		return charmhubClient, nil
-	}
-	modelConfigService := mocks.NewMockModelConfigService(s.ctrl)
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name": "model",
-		"type": "type",
-		"uuid": s.DefaultModelUUID,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(
-		state,
-		testing.NewObjectStore(c, s.ControllerModelUUID()),
-		clock.WallClock,
-		modelConfigService,
-		newCharmhubClient, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
-	s.ApiServerSuite.TearDownTest(c)
-	s.ctrl.Finish()
-}
-
-// AddMachine adds a new machine to state.
-func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
-	st := s.ControllerModel(c).State()
-	machine, err := st.AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{job},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Id(), gc.Equals, machineId)
-}
-
-// AddCharmhubCharmWithRevision adds a charmhub charm with the specified revision to state.
-func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
-	ch := testcharms.Hub.CharmDir(charmName)
-	name := ch.Meta().Name
-	curl := fmt.Sprintf("ch:amd64/%s-%d", name, rev)
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
-	}
-	dummy, err := s.ControllerModel(c).State().AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	s.charms[name] = dummy
-	return dummy
-}
-
-// AddApplication adds an application for the specified charm to state.
-func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationName string) {
-	ch, ok := s.charms[charmName]
-	c.Assert(ok, jc.IsTrue)
-	revision := ch.Revision()
-
-	st := s.ControllerModel(c).State()
-	_, err := st.AddApplication(state.AddApplicationArgs{
-		Name:     applicationName,
-		Charm:    ch,
-		CharmURL: ch.URL(),
-		CharmOrigin: &state.CharmOrigin{
-			ID:     "mycharmhubid",
-			Hash:   "mycharmhash",
-			Source: "charm-hub",
-			Platform: &state.Platform{
-				Architecture: "amd64",
-				OS:           "ubuntu",
-				Channel:      "12.10/stable",
-			},
-			Revision: &revision,
-			Channel: &state.Channel{
-				Track: "latest",
-				Risk:  "stable",
-			},
-		},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// AddUnit adds a new unit for application to the specified machine.
-func (s *statusUpgradeUnitSuite) AddUnit(c *gc.C, appName, machineId string) {
-	app, err := s.ControllerModel(c).State().Application(appName)
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.ControllerModel(c).State().Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// SetUnitRevision sets the unit's charm to the specified revision.
-func (s *statusUpgradeUnitSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
-	unit, err := s.ControllerModel(c).State().Unit(unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	svc, err := unit.Application()
-	c.Assert(err, jc.ErrorIsNil)
-	curl := fmt.Sprintf("ch:amd64/%s-%d", svc.Name(), rev)
-	err = unit.SetCharmURL(curl)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// SetupScenario adds some machines and applications to state.
-// It assumes a controller machine has already been created.
-func (s *statusUpgradeUnitSuite) SetupScenario(c *gc.C) {
-	s.AddMachine(c, "1", state.JobHostUnits)
-	s.AddMachine(c, "2", state.JobHostUnits)
-	s.AddMachine(c, "3", state.JobHostUnits)
-
-	// mysql is out of date
-	s.AddCharmhubCharmWithRevision(c, "mysql", 22)
-	s.AddApplication(c, "mysql", "mysql")
-	s.AddUnit(c, "mysql", "1")
-
-	// wordpress is up to date
-	s.AddCharmhubCharmWithRevision(c, "wordpress", 26)
-	s.AddApplication(c, "wordpress", "wordpress")
-	s.AddUnit(c, "wordpress", "2")
-	s.AddUnit(c, "wordpress", "2")
-	// wordpress/0 has a version, wordpress/1 is unknown
-	s.SetUnitRevision(c, "wordpress/0", 26)
-
-	// varnish is a charm that does not have a version in the mock store.
-	s.AddCharmhubCharmWithRevision(c, "varnish", 5)
-	s.AddApplication(c, "varnish", "varnish")
-	s.AddUnit(c, "varnish", "3")
-}
-
-func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageModel)
-	s.AddMachine(c, "1", state.JobHostUnits)
-	s.AddCharmhubCharmWithRevision(c, "charmhubby", 41)
-	s.AddApplication(c, "charmhubby", "charmhubby")
-	s.AddUnit(c, "charmhubby", "1")
-
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	status, _ := client.Status(context.Background(), nil)
-
-	appStatus, ok := status.Applications["charmhubby"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "")
-
-	// Update to the latest available charm revision.
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-
-	// Check if CanUpgradeTo suggests the latest revision.
-	status, _ = client.Status(context.Background(), nil)
-	appStatus, ok = status.Applications["charmhubby"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/charmhubby-42")
 }
 
 type preparer struct{}
