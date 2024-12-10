@@ -79,10 +79,10 @@ type ModelService interface {
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
-	// Status returns the current status of the model.
+	// GetStatus returns the current status of the model.
 	// The following error types can be expected to be returned:
-	// - [modelerrors.NotFound]: When the model does not exist.
-	Status(context.Context) (domainmodel.StatusInfo, error)
+	// - [github.com/juju/juju/modelerrors.NotFound]: When the model does not exist.
+	GetStatus(context.Context) (domainmodel.StatusInfo, error)
 }
 
 // ApplicationService provides access to the application service.

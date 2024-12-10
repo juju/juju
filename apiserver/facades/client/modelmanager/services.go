@@ -166,10 +166,11 @@ type ModelInfoService interface {
 	// question.
 	GetModelInfo(context.Context) (coremodel.ReadOnlyModel, error)
 
-	// Status returns the current status of the model.
+	// GetStatus returns the current status of the model.
 	// The following error types can be expected to be returned:
-	// - [modelerrors.NotFound]: When the model does not exist.
-	Status(context.Context) (model.StatusInfo, error)
+	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
+	// does not exist.
+	GetStatus(context.Context) (model.StatusInfo, error)
 }
 
 // ModelExporter defines a interface for exporting models.
