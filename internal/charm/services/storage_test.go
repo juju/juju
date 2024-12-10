@@ -40,7 +40,9 @@ func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
 	curl := "ch:ubuntu-lite"
 
 	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
-	s.uploadedCharm.EXPECT().IsUploaded().Return(false)
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// s.uploadedCharm.EXPECT().IsUploaded().Return(false)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,7 +54,9 @@ func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 	curl := "ch:ubuntu-lite"
 
 	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
-	s.uploadedCharm.EXPECT().IsUploaded().Return(true)
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// s.uploadedCharm.EXPECT().IsUploaded().Return(true)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 

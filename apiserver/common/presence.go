@@ -4,7 +4,6 @@
 package common
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/presence"
@@ -31,21 +30,6 @@ func (c *ModelPresenceContext) machinePresence(machine MachineStatusGetter) (boo
 
 func (c *ModelPresenceContext) unitPresence(unit UnitStatusGetter) (bool, error) {
 	agent := names.NewUnitTag(unit.Name()).String()
-	if !unit.ShouldBeAssigned() {
-		sidecar, err := unit.IsSidecar()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if !sidecar {
-			// Units in CAAS models rely on the operator pings.
-			// These are for the application itself.
-			appName, err := names.UnitApplication(unit.Name())
-			if err != nil {
-				return false, errors.Trace(err)
-			}
-			agent = names.NewApplicationTag(appName).String()
-		}
-	}
 	status, err := c.Presence.AgentStatus(agent)
 	return status == presence.Alive, err
 }

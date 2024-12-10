@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/state"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,Charm,MachineService
@@ -62,14 +61,4 @@ func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterS
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
-}
-
-// NewEmptyCharmShim returns a charm shim that satisfies the Charm indirection.
-// CAUTION. This is only suitable for testing scenarios where members of the
-// inner charm document have zero values.
-// Calls relying on the inner state reference will cause a nil-reference panic.
-func NewEmptyCharmShim() *charmShim {
-	return &charmShim{
-		Charm: &state.Charm{},
-	}
 }

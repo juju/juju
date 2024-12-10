@@ -55,7 +55,8 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 
 	// Once the charm is added, set up the controller application.
 	controllerUnit, err := deployer.AddControllerApplication(ctx, curl, *origin, ch, controllerAddress)
-	if err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
+	if err != nil &&
+		!errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 		return errors.Annotatef(err, "adding controller application")
 	}
 

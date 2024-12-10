@@ -264,6 +264,9 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
 		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Config()
 	}
+	charmServiceGetter := func(modelUUID coremodel.UUID) state.CharmService {
+		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Application()
+	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// Pass the minimal controller config needed for bootstrap, the rest
@@ -281,10 +284,11 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 			CloudRegion:     DefaultCloudRegion,
 			CloudCredential: DefaultCredentialTag,
 		},
-		CloudName:     DefaultCloud.Name,
-		MongoSession:  session,
-		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
+		CloudName:          DefaultCloud.Name,
+		MongoSession:       session,
+		AdminPassword:      AdminSecret,
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
+		CharmServiceGetter: charmServiceGetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
