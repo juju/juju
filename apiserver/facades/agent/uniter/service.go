@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 )
@@ -93,6 +95,17 @@ type ApplicationService interface {
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+	// GetCharmID returns a charm ID by name. It returns an error if the charm
+	// can not be found by the name. This can also be used as a cheap way to see
+	// if a charm exists without needing to load the charm metadata. Returns
+	// [applicationerrors.CharmNameNotValid] if the name is not valid, and
+	// [applicationerrors.CharmNotFound] if the charm is not found.
+	GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error)
+
+	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
+	// archive for the given charm id. If the charm is not available,
+	// [applicationerrors.CharmNotResolved] is returned.
+	GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm.ID) (string, error)
 }
 
 // UnitStateService describes the ability to retrieve and persist

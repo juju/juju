@@ -677,8 +677,8 @@ WHERE name IN ($nameSelector[:]);
 	return decodeCharmLocators(results)
 }
 
-// GetCharmDownloadInfo returns the download info for the charm using the
-// charm ID.
+// GetCharmDownloadInfo returns the download info for the charm using the charm
+// ID. Returns [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -703,6 +703,49 @@ func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*cha
 	}
 
 	return downloadInfo, nil
+}
+
+// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm archive
+// for the given charm id. If the charm is not available,
+// [applicationerrors.CharmNotResolved] is returned. Returns
+// [applicationerrors.CharmNotFound] if the charm is not found.
+func (s *State) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm.ID) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT &charmArchiveHash.*
+FROM charm
+JOIN charm_hash ON charm.uuid = charm_hash.charm_uuid
+WHERE charm.uuid = $charmID.uuid;
+`
+	stmt, err := s.Prepare(query, charmArchiveHash{}, ident)
+	if err != nil {
+		return "", internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	var sha256 string
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var result charmArchiveHash
+		if err := tx.Query(ctx, stmt, ident).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("getting available charm archive SHA256: %w", err)
+		} else if !result.Available {
+			return applicationerrors.CharmNotResolved
+		}
+		sha256 = result.Hash
+		return nil
+
+	}); err != nil {
+		return "", internalerrors.Errorf("getting available charm archive SHA256: %w", err)
+	}
+
+	return sha256, nil
 }
 
 func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
