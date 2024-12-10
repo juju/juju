@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -27,10 +28,14 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service wrapping the specified state.
 func NewWatchableService(
-	secretState State, secretBackendState SecretBackendState,
-	logger logger.Logger, watcherFactory WatcherFactory, params SecretServiceParams,
+	secretState State,
+	secretBackendState SecretBackendState,
+	leaderEnsurer leadership.Ensurer,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+	params SecretServiceParams,
 ) *WatchableService {
-	svc := NewSecretService(secretState, secretBackendState, logger, params)
+	svc := NewSecretService(secretState, secretBackendState, leaderEnsurer, logger, params)
 	return &WatchableService{
 		SecretService:  *svc,
 		watcherFactory: watcherFactory,

@@ -264,7 +264,6 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 				Kind: secretservice.UnitAccessor,
 				ID:   s.authTag.Id(),
 			},
-			LeaderToken: s.token,
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
 				RevisionID: "rev-666",
@@ -279,8 +278,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 				Kind: secretservice.UnitAccessor,
 				ID:   s.authTag.Id(),
 			},
-			LeaderToken: s.token,
-			Data:        map[string]string{"foo": "bar"},
+			Data: map[string]string{"foo": "bar"},
 		},
 	).Return(nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)

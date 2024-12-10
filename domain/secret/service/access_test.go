@@ -25,18 +25,15 @@ func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 
-	token := NewMockToken(ctrl)
-
 	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
-	}, token)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 
@@ -49,13 +46,12 @@ func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *gc.C) {
 		SubjectID:     "mariadb",
 	}).Return("manage", nil)
 
-	token := NewMockToken(ctrl)
-	token.EXPECT().Check().Return(nil)
+	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
 
 	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
-	}, token)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -70,12 +66,10 @@ func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *gc.C) {
 		SubjectID:     "model-uuid",
 	}).Return("manage", nil)
 
-	token := NewMockToken(ctrl)
-
 	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
-	}, token)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
