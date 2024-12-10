@@ -87,6 +87,10 @@ EXTRA_BUILD_TAGS += libsqlite3
 EXTRA_BUILD_TAGS += dqlite
 endif
 
+ifdef DEBUG_JUJU
+	EXTRA_BUILD_TAGS += debug
+endif
+
 # TEST_BUILD_TAGS is the final list of build tags for tests only.
 TEST_BUILD_TAGS=$(shell echo "$(BUILD_TAGS) $(EXTRA_BUILD_TAGS)" | awk '{$$1=$$1};1' | tr ' ' ',')
 # FINAL_BUILD_TAGS is the final list of build tags.
@@ -203,7 +207,7 @@ define link_flags_version
 endef
 
 # Compile with debug flags if requested.
-ifeq ($(DEBUG_JUJU), 1)
+ifdef DEBUG_JUJU
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS =  "$(link_flags_version)"
 	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
