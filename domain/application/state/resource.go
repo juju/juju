@@ -74,8 +74,13 @@ func (st *State) buildResourceToAdd(appUUID, charmUUID string,
 // insertResources constructs a transaction to insert resources into the
 // database. It returns a function which, when executed, inserts resources and
 // links them to applications.
-func (st *State) insertResources(ctx context.Context, tx *sqlair.TX,
-	resources []resourceToAdd) error {
+func (st *State) insertResources(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appResources []application.AddApplicationResourceArg, charmResources map[string]charm.Resource) error {
+
+	resources, err := st.buildResourceToAdd(appDetails.UUID.String(), appDetails.CharmID, appResources,
+		charmResources)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	// Prepare SQL statement to get the origin of a specific resource
 	getOriginIDStmt, err := st.Prepare(`

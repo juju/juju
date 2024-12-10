@@ -135,16 +135,6 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		}
 	}
 
-	// build resources to add.
-	resources, err := st.buildResourceToAdd(
-		appDetails.UUID.String(),
-		appDetails.CharmID,
-		app.Resources,
-		app.Charm.Metadata.Resources)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationExists(ctx, tx, name); err != nil {
@@ -187,8 +177,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 			}
 		}
 
-		// insert application resources
-		return st.insertResources(ctx, tx, resources)
+		return st.insertResources(ctx, tx, appDetails, app.Resources, app.Charm.Metadata.Resources)
 	})
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
 }

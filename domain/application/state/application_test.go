@@ -345,6 +345,41 @@ WHERE application_uuid = ?`, appUUID)
 		gc.Commentf("(Assert) mismatch between app resources and inserted resources"))
 }
 
+// TestCreateApplicationWithExistingCharmWithResources ensures that two
+// applications with resources can be created from the same charm.
+func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResources(c *gc.C) {
+	charmResources := map[string]charm.Resource{
+		"some-file": {
+			Name:        "foo-file",
+			Type:        "file",
+			Path:        "/some/path/foo.txt",
+			Description: "A file",
+		},
+	}
+	addResourcesArgs := []application.AddApplicationResourceArg{
+		{
+			Name:   "foo-file",
+			Origin: charmresource.OriginUpload,
+		},
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourcesArgs))
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourcesArgs))
+		return err
+	})
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("Failed to create second "+
+		"application. Maybe the charm UUID is not properly fetched to pass to "+
+		"resources ?"))
+}
+
 // TestCreateApplicationWithResourcesMissingResourceArg verifies resource
 // handling during app creation.
 // If a resource is missing from argument, it is added anyway from charm
