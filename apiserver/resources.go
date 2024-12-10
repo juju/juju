@@ -23,6 +23,30 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// noopResourceShim is a placeholder for noopResourceBackend until
+// the resource domain is used by the resourcesMigrationUploadHandler.
+type noopResourceBackend struct{}
+
+func (noopResourceBackend) OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error) {
+	return resource.Resource{}, nil, errors.NotImplementedf("OpenResource")
+}
+
+func (noopResourceBackend) GetResource(applicationID, name string) (resource.Resource, error) {
+	return resource.Resource{}, errors.NotImplementedf("GetResource")
+}
+
+func (noopResourceBackend) GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error) {
+	return resource.Resource{}, errors.NotImplementedf("GetPendingResource")
+}
+
+func (noopResourceBackend) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error) {
+	return resource.Resource{}, errors.NotImplementedf("SetResource")
+}
+
+func (noopResourceBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	return resource.Resource{}, errors.NotImplementedf("UpdatePendingResource")
+}
+
 // ResourcesBackend is the functionality of Juju's state needed for the resources API.
 type ResourcesBackend interface {
 	// OpenResource returns the identified resource and its content.
@@ -35,7 +59,7 @@ type ResourcesBackend interface {
 	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
 	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
@@ -124,7 +148,7 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
 	} else {
-		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data, state.IncrementCharmModifiedVersion)
+		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data, true)
 	}
 
 	if err != nil {

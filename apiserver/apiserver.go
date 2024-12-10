@@ -780,12 +780,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return nil, nil, nil, errors.Trace(err)
 			}
 
-			store, err := httpCtxt.objectStoreForRequest(req.Context())
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
-			rst := st.Resources(store)
-			return rst, st, entity.Tag(), nil
+			//store, err := httpCtxt.objectStoreForRequest(req.Context())
+			//if err != nil {
+			//	return nil, nil, nil, errors.Trace(err)
+			//}
+
+			return &noopResourceBackend{}, st, entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(ctx context.Context) error {
 			serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)
