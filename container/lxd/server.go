@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	lxd "github.com/canonical/lxd/client"
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 )
@@ -70,7 +70,7 @@ func NewServer(svr lxd.InstanceServer) (*Server, error) {
 		return nil, errors.Trace(err)
 	}
 
-	apiExt := info.APIExtensions
+	apiExt := set.NewStrings(info.APIExtensions...)
 
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
@@ -99,9 +99,9 @@ func NewServer(svr lxd.InstanceServer) (*Server, error) {
 		serverCertificate: serverCertificate,
 		hostArch:          hostArch,
 		supportedArches:   supportedArches,
-		networkAPISupport: shared.StringInSlice("network", apiExt),
-		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
-		storageAPISupport: shared.StringInSlice("storage", apiExt),
+		networkAPISupport: apiExt.Contains("network"),
+		clusterAPISupport: apiExt.Contains("clustering"),
+		storageAPISupport: apiExt.Contains("storage"),
 		serverVersion:     info.Environment.ServerVersion,
 		clock:             clock.WallClock,
 	}, nil

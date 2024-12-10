@@ -101,10 +101,8 @@ func (c *Certificate) AsCreateRequest() (api.CertificatesPost, error) {
 	}
 
 	return api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name:        c.Name,
-			Type:        "client",
-			Certificate: base64.StdEncoding.EncodeToString(block.Bytes),
-		},
+		Name:        c.Name,
+		Type:        "client",
+		Certificate: base64.StdEncoding.EncodeToString(block.Bytes),
 	}, nil
 }
