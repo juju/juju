@@ -33,6 +33,7 @@ func DestroyController(
 	ctx context.Context,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
+	modelInfoService ModelInfoService,
 	blockCommandServiceGetter func(model.UUID) BlockCommandService,
 	destroyHostedModels bool,
 	destroyStorage *bool,
@@ -64,7 +65,7 @@ func DestroyController(
 			}
 		}
 	}
-	return destroyModel(ctx, st, blockCommandService, state.DestroyModelParams{
+	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -79,12 +80,13 @@ func DestroyModel(
 	ctx context.Context,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
+	modelInfoService ModelInfoService,
 	destroyStorage *bool,
 	force *bool,
 	maxWait *time.Duration,
 	timeout *time.Duration,
 ) error {
-	return destroyModel(ctx, st, blockCommandService, state.DestroyModelParams{
+	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        MaxWait(maxWait),
@@ -92,7 +94,11 @@ func DestroyModel(
 	})
 }
 
-func destroyModel(ctx context.Context, st ModelManagerBackend, blockCommandService BlockCommandService, args state.DestroyModelParams) error {
+func destroyModel(
+	ctx context.Context, st ModelManagerBackend,
+	blockCommandService BlockCommandService, modelInfoService ModelInfoService,
+	args state.DestroyModelParams,
+) error {
 	check := NewBlockChecker(blockCommandService)
 	if err := check.DestroyAllowed(ctx); err != nil {
 		return errors.Trace(err)
@@ -105,7 +111,7 @@ func destroyModel(ctx context.Context, st ModelManagerBackend, blockCommandServi
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
 		// If model status is suspended, then model's cloud credential is invalid.
-		modelStatus, err := model.Status()
+		modelStatus, err := modelInfoService.Status(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}

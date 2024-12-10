@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v8"
@@ -27,11 +26,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
@@ -46,79 +42,10 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-// ControllerConfigService is the interface that wraps the ControllerConfig method.
-type ControllerConfigService interface {
-	// ControllerConfig returns a controller.Config
-	ControllerConfig(context.Context) (corecontroller.Config, error)
-	// UpdateControllerConfig updates the controller config and has an optional
-	// list of config keys to remove.
-	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
-}
-
-// UpgradeService provides a subset of the upgrade domain service methods.
-type UpgradeService interface {
-	// IsUpgrading returns whether the controller is currently upgrading.
-	IsUpgrading(context.Context) (bool, error)
-}
-
-// ControllerAccessService provides a subset of the Access domain for use.
-type ControllerAccessService interface {
-	// ReadUserAccessLevelForTarget returns the access level for the provided
-	// subject (user) for controller.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
-	// UpdatePermission updates the access level for a user for the controller.
-	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
-	// LastModelLogin gets the time the specified user last connected to the
-	// model.
-	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
-}
-
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
-}
-
-// ModelService provides access to information about running Juju agents.
-type ModelService interface {
-	// Model returns the model associated with the provided uuid.
-	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
-	// ControllerModel returns the model used for housing the Juju controller.
-	ControllerModel(ctx context.Context) (coremodel.Model, error)
-	// GetModelUsers will retrieve basic information about users with permissions on
-	// the given model UUID.
-	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
-}
-
-type ApplicationService interface {
-	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
-}
-
-// ProxyService provides access to the proxy service.
-type ProxyService interface {
-	// GetProxyToApplication returns the proxy information for the application
-	// with the given port.
-	GetProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error)
-}
 
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
@@ -127,19 +54,6 @@ type ModelExporter interface {
 	// can have their leader set correctly once imported.
 	// The objectstore is used to retrieve charms and resources for export.
 	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
-}
-
-// BlockCommandService defines methods for interacting with block commands.
-type BlockCommandService interface {
-	// GetBlockSwitchedOn returns the optional block message if it is switched
-	// on for the given type.
-	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
-
-	// GetBlocks returns all the blocks that are currently in place.
-	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
-
-	// RemoveAllBlocks removes all the blocks that are currently in place.
-	RemoveAllBlocks(ctx context.Context) error
 }
 
 // ControllerAPI provides the Controller API.
@@ -161,6 +75,7 @@ type ControllerAPI struct {
 	controllerConfigService   ControllerConfigService
 	accessService             ControllerAccessService
 	modelService              ModelService
+	modelInfoService          ModelInfoService
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(coremodel.UUID) ApplicationService
 	modelAgentServiceGetter   func(coremodel.UUID) common.ModelAgentService
@@ -197,6 +112,7 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	machineService MachineService,
 	modelService ModelService,
+	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelAgentServiceGetter func(coremodel.UUID) common.ModelAgentService,
@@ -255,6 +171,7 @@ func NewControllerAPI(
 		accessService:             accessService,
 		modelService:              modelService,
 		blockCommandService:       blockCommandService,
+		modelInfoService:          modelInfoService,
 		modelAgentServiceGetter:   modelAgentServiceGetter,
 		modelConfigServiceGetter:  modelConfigServiceGetter,
 		blockCommandServiceGetter: blockCommandServiceGetter,
@@ -725,14 +642,11 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		spec := permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        c.controllerTag.Id(),
-			},
+		target := permission.ID{
+			ObjectType: permission.Controller,
+			Key:        c.controllerTag.Id(),
 		}
-		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), spec.Target)
+		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), target)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -68,26 +67,6 @@ func (c *Client) ProcessDyingModel(ctx context.Context) error {
 // RemoveModel removes any records of this model from Juju.
 func (c *Client) RemoveModel(ctx context.Context) error {
 	return c.entityFacadeCall(ctx, "RemoveModel", nil)
-}
-
-// SetStatus sets the status of the model.
-func (c *Client) SetStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error {
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: c.modelTag.String(), Status: status.String(), Info: message, Data: data},
-		},
-	}
-	var results params.ErrorResults
-	if err := c.caller.FacadeCall(ctx, "SetStatus", args, &results); err != nil {
-		return errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	if results.Results[0].Error != nil {
-		return errors.Trace(results.Results[0].Error)
-	}
-	return nil
 }
 
 func (c *Client) entityFacadeCall(ctx context.Context, name string, results interface{}) error {
