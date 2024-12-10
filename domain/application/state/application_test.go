@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -37,6 +39,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	domainstorage "github.com/juju/juju/domain/storage"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -235,6 +238,217 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, true)
+}
+
+// TestCreateApplicationWithResources tests creation of an application with
+// specified resources.
+// It verifies that the charm_resource table is populated, alongside the
+// resource and application_resource table with datas from charm and arguments.
+func (s *applicationStateSuite) TestCreateApplicationWithResources(c *gc.C) {
+	charmResources := map[string]charm.Resource{
+		"some-file": {
+			Name:        "foo-file",
+			Type:        "file",
+			Path:        "/some/path/foo.txt",
+			Description: "A file",
+		},
+		"some-image": {
+			Name: "my-image",
+			Type: "oci-image",
+			Path: "repo.org/my-image:tag",
+		},
+	}
+	rev := 42
+	addResourcesArgs := []application.AddApplicationResourceArg{
+		{
+			Name:   "foo-file",
+			Origin: charmresource.OriginUpload,
+		},
+		{
+			Name:     "my-image",
+			Revision: &rev,
+			Origin:   charmresource.OriginStore,
+		},
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourcesArgs))
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Check expected resources are added
+	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
+		err := s.TxnRunner().StdTxn(context.Background(), do)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) %s: %s", comment,
+			errors.ErrorStack(err)))
+	}
+	var (
+		appUUID   string
+		charmUUID string
+	)
+	assertTxn("Fetch application and charm UUID", func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT uuid, charm_uuid
+FROM application 
+WHERE name=?`, "666").Scan(&appUUID, &charmUUID)
+	})
+	var (
+		foundCharmResources []charm.Resource
+		foundAppResources   []application.AddApplicationResourceArg
+	)
+	assertTxn("Fetch charm resources", func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT cr.name, crk.name as kind, path, description
+FROM charm_resource cr
+JOIN charm_resource_kind crk ON crk.id=cr.kind_id
+WHERE charm_uuid=?`, charmUUID)
+		defer rows.Close()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		for rows.Next() {
+			var res charm.Resource
+			if err := rows.Scan(&res.Name, &res.Type, &res.Path, &res.Description); err != nil {
+				return errors.Capture(err)
+			}
+			foundCharmResources = append(foundCharmResources, res)
+		}
+		return nil
+	})
+	assertTxn("Fetch application resources", func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT vr.name, revision, rot.name as origin_name
+FROM v_resource vr
+JOIN resource_origin_type rot ON rot.id=origin_type_id
+WHERE application_uuid = ?`, appUUID)
+		defer rows.Close()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		for rows.Next() {
+			var res application.AddApplicationResourceArg
+			var originName string
+			if err := rows.Scan(&res.Name, &res.Revision, &originName); err != nil {
+				return errors.Capture(err)
+			}
+			if res.Origin, err = charmresource.ParseOrigin(originName); err != nil {
+				return errors.Capture(err)
+			}
+			foundAppResources = append(foundAppResources, res)
+		}
+		return nil
+	})
+	c.Check(foundCharmResources, jc.SameContents, slices.Collect(maps.Values(charmResources)),
+		gc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
+	c.Check(foundAppResources, jc.SameContents, addResourcesArgs,
+		gc.Commentf("(Assert) mismatch between app resources and inserted resources"))
+}
+
+// TestCreateApplicationWithExistingCharmWithResources ensures that two
+// applications with resources can be created from the same charm.
+func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResources(c *gc.C) {
+	charmResources := map[string]charm.Resource{
+		"some-file": {
+			Name:        "foo-file",
+			Type:        "file",
+			Path:        "/some/path/foo.txt",
+			Description: "A file",
+		},
+	}
+	addResourcesArgs := []application.AddApplicationResourceArg{
+		{
+			Name:   "foo-file",
+			Origin: charmresource.OriginUpload,
+		},
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourcesArgs))
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourcesArgs))
+		return err
+	})
+	c.Check(err, jc.ErrorIsNil, gc.Commentf("Failed to create second "+
+		"application. Maybe the charm UUID is not properly fetched to pass to "+
+		"resources ?"))
+}
+
+// TestCreateApplicationWithResourcesMissingResourceArg verifies resource
+// handling during app creation.
+// If a resource is missing from argument, it is added anyway from charm
+// resources and is assumed to be of origin store with no revision.
+func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourceArg(c *gc.
+	C) {
+	charmResources := map[string]charm.Resource{
+		"some-file": {
+			Name:        "foo-file",
+			Type:        "file",
+			Path:        "/some/path/foo.txt",
+			Description: "A file",
+		},
+		"some-image": {
+			Name: "my-image",
+			Type: "oci-image",
+			Path: "repo.org/my-image:tag",
+		},
+	}
+	addResourceArgs := []application.AddApplicationResourceArg{
+		{
+			Name:   "foo-file",
+			Origin: charmresource.OriginUpload,
+		},
+		// Missing some-image
+	}
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourceArgs))
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(c.GetTestLog(), jc.Contains, "charm resources not resolved: [my-image]")
+}
+
+// TestCreateApplicationWithResourcesTooMuchResourceArgs verifies error handling
+// for invalid resources.
+// It fails if there is resources args that doesn't refer to actual resources
+// in charm.
+func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourceArgs(c *gc.C) {
+	charmResources := map[string]charm.Resource{
+		"some-file": {
+			Name:        "foo-file",
+			Type:        "file",
+			Path:        "/some/path/foo.txt",
+			Description: "A file",
+		},
+		// No image resource
+	}
+	rev := 42
+	addResourcesArgs := []application.AddApplicationResourceArg{
+		{
+			Name:   "foo-file",
+			Origin: charmresource.OriginUpload,
+		},
+		// Not a charm resource
+		{
+			Name:     "my-image",
+			Revision: &rev,
+			Origin:   charmresource.OriginStore,
+		},
+	}
+
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+			charmResources, addResourcesArgs))
+		return err
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {

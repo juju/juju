@@ -7,7 +7,7 @@ CREATE UNIQUE INDEX idx_resource_origin_name
 ON resource_origin_type (name);
 
 INSERT INTO resource_origin_type VALUES
-(0, 'uploaded'),
+(0, 'upload'),
 (1, 'store');
 
 CREATE TABLE resource_state (
