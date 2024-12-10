@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -533,6 +534,16 @@ func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
 		publicKeys, err = c.getKeysWithRetry(entity)
 		if err != nil {
 			return "", errors.Trace(err)
+		}
+	}
+	var sshPort = sshPort
+	args := c.getArgs()
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "-p" && i != len(args)-1 {
+			if sshPortNum, err := strconv.Atoi(args[i+1]); err == nil {
+				sshPort = sshPortNum
+			}
 		}
 	}
 
