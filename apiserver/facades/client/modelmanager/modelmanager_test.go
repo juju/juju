@@ -390,6 +390,10 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
+		Status: status.Available,
+		Since:  time.Now(),
+	}, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ReadOnlyModel data.
@@ -1149,6 +1153,10 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
 	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
+		Status: status.Active,
+		Since:  time.Now(),
+	}, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		UUID: modelUUID,
 		// Use a version we shouldn't have now to ensure we're using the
