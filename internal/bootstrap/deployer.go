@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -29,26 +30,56 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 )
+
+// DeployCharmResult holds the result of deploying a charm.
+type DeployCharmInfo struct {
+	URL             *charm.URL
+	Charm           charm.Charm
+	Origin          *corecharm.Origin
+	DownloadInfo    *corecharm.DownloadInfo
+	ArchivePath     string
+	ObjectStoreUUID objectstore.UUID
+}
+
+// Validate validates the DeployCharmInfo.
+func (d DeployCharmInfo) Validate() error {
+	if d.URL == nil {
+		return errors.NotValidf("URL is nil")
+	}
+	if d.Charm == nil {
+		return errors.New("Charm is nil")
+	}
+	if d.Origin == nil {
+		return errors.New("Origin is nil")
+	}
+	if err := d.Origin.Validate(); err != nil {
+		return errors.Annotate(err, "Origin")
+	}
+	return nil
+}
 
 // ControllerCharmDeployer is the interface that is used to deploy the
 // controller charm.
 type ControllerCharmDeployer interface {
 	// DeployLocalCharm deploys the controller charm from the local charm
 	// store.
-	DeployLocalCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, charm.Charm, error)
+	DeployLocalCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// DeployCharmhubCharm deploys the controller charm from charm hub.
-	DeployCharmhubCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, charm.Charm, error)
+	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, string, corecharm.Origin, charm.Charm, string) (Unit, error)
+	AddControllerApplication(context.Context, DeployCharmInfo, string) (Unit, error)
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -106,12 +137,21 @@ type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, 
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, charm.Charm, error)
+	// Download looks up the requested charm using the appropriate store, downloads
+	// it to a temporary file and passes it to the configured storage API so it can
+	// be persisted.
+	//
+	// The resulting charm is verified to be the right hash. It expected that the
+	// origin will always have the correct hash following this call.
+	//
+	// Returns [ErrInvalidHash] if the hash of the downloaded charm does not match
+	// the expected hash.
+	Download(ctx context.Context, url *url.URL, hash string) (*charmdownloader.DownloadResult, error)
 }
 
 // CharmDownloaderFunc is the function that is used to create a charm
 // downloader.
-type CharmDownloaderFunc func(services.CharmDownloaderConfig) (Downloader, error)
+type CharmDownloaderFunc func(HTTPClient, logger.Logger) Downloader
 
 // Application is the interface that is used to get information about an
 // application.
@@ -215,8 +255,8 @@ type baseDeployer struct {
 	constraints         constraints.Value
 	controllerConfig    controller.Config
 	newCharmRepo        CharmRepoFunc
-	newCharmDownloader  CharmDownloaderFunc
 	charmhubHTTPClient  HTTPClient
+	charmDownloader     CharmDownloaderFunc
 	controllerCharmName string
 	channel             charm.Channel
 	logger              logger.Logger
@@ -233,8 +273,8 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
 		newCharmRepo:        config.NewCharmRepo,
-		newCharmDownloader:  config.NewCharmDownloader,
 		charmhubHTTPClient:  config.CharmhubHTTPClient,
+		charmDownloader:     config.NewCharmDownloader,
 		controllerCharmName: config.ControllerCharmName,
 		channel:             config.Channel,
 		logger:              config.Logger,
@@ -253,19 +293,19 @@ func (b *baseDeployer) ControllerCharmArch() string {
 
 // DeployLocalCharm deploys the controller charm from the local charm
 // store.
-func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, charm.Charm, error) {
+func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (DeployCharmInfo, error) {
 	controllerCharmPath := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
 	_, err := os.Stat(controllerCharmPath)
 	if os.IsNotExist(err) {
-		return "", nil, nil, errors.NotFoundf(controllerCharmPath)
+		return DeployCharmInfo{}, errors.NotFoundf(controllerCharmPath)
 	}
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return DeployCharmInfo{}, errors.Trace(err)
 	}
 
 	curl, ch, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
 	if err != nil {
-		return "", nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
+		return DeployCharmInfo{}, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
 	b.logger.Debugf("Successfully deployed local Juju controller charm")
 	origin := corecharm.Origin{
@@ -277,18 +317,22 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 			Channel:      base.Channel.String(),
 		},
 	}
-	return curl.String(), &origin, ch, nil
+	return DeployCharmInfo{
+		URL:    curl,
+		Charm:  ch,
+		Origin: &origin,
+	}, nil
 }
 
 // DeployCharmhubCharm deploys the controller charm from charm hub.
-func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, charm.Charm, error) {
+func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (DeployCharmInfo, error) {
 	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
 		Logger:             b.logger,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 		ModelConfigService: b.modelConfigService,
 	})
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return DeployCharmInfo{}, errors.Trace(err)
 	}
 
 	var curl *charm.URL
@@ -318,33 +362,65 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	// error response.
 	//
 	// The controller charm doesn't have any base specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(ctx, curl.Name, origin)
+	resolved, err := charmRepo.ResolveWithPreferredChannel(ctx, curl.Name, origin)
 	if err != nil {
-		return "", nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
+		return DeployCharmInfo{}, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}
 
-	charmDownloader, err := b.newCharmDownloader(services.CharmDownloaderConfig{
-		Logger:             b.logger,
-		CharmhubHTTPClient: b.charmhubHTTPClient,
-		ObjectStore:        b.objectStore,
-		StateBackend:       b.charmUploader,
-		ModelConfigService: b.modelConfigService,
+	downloadInfo := resolved.EssentialMetadata.DownloadInfo
+
+	downloadURL, err := url.Parse(downloadInfo.DownloadURL)
+	if err != nil {
+		return DeployCharmInfo{}, errors.Annotatef(err, "parsing download URL %q", downloadInfo.DownloadURL)
+	}
+
+	charmDownloader := b.charmDownloader(b.charmhubHTTPClient, b.logger)
+	downloadResult, err := charmDownloader.Download(ctx, downloadURL, resolved.Origin.Hash)
+	if err != nil {
+		return DeployCharmInfo{}, errors.Annotatef(err, "downloading %q", downloadURL)
+	}
+
+	// We can pass the computed SHA384 because we've ensured that the download
+	// SHA256 was correct.
+
+	result, err := b.applicationService.ResolveControllerCharmDownload(ctx, domainapplication.ResolveControllerCharmDownload{
+		SHA256: resolved.Origin.Hash,
+		SHA384: downloadResult.SHA384,
+		Path:   downloadResult.Path,
+		Size:   downloadResult.Size,
 	})
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return DeployCharmInfo{}, errors.Annotatef(err, "resolving controller charm download")
 	}
-	resOrigin, ch, err := charmDownloader.DownloadAndStore(ctx, curl, origin, false)
-	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+
+	if resolved.Origin.Revision == nil {
+		return DeployCharmInfo{}, errors.Errorf("resolved charm %q has no revision", resolved.URL)
 	}
 
 	b.logger.Debugf("Successfully deployed charmhub Juju controller charm")
 
-	return curl.String(), &resOrigin, ch, nil
+	curl = curl.
+		WithRevision(*resolved.Origin.Revision).
+		WithArchitecture(resolved.Origin.Platform.Architecture)
+
+	return DeployCharmInfo{
+		URL:             curl,
+		Charm:           result.Charm,
+		Origin:          &resolved.Origin,
+		DownloadInfo:    &downloadInfo,
+		ArchivePath:     result.ArchivePath,
+		ObjectStoreUUID: result.ObjectStoreUUID,
+	}, nil
 }
 
 // AddControllerApplication adds the controller application.
-func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string, origin corecharm.Origin, ch charm.Charm, controllerAddress string) (Unit, error) {
+func (b *baseDeployer) AddControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) (Unit, error) {
+	if err := info.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	origin := *info.Origin
+
 	cfg := charm.Settings{
 		"is-juju": true,
 	}
@@ -371,10 +447,31 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		return nil, errors.Trace(err)
 	}
 
+	// Remove this horrible hack once we've removed all of the .Charm calls
+	// in the state package. This is just to service the current add
+	// application code base.
+
+	stateOrigin.Hash = ""
+	stateOrigin.ID = ""
+
+	_, err = b.charmUploader.PrepareCharmUpload(info.URL.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	_, err = b.charmUploader.UpdateUploadedCharm(state.CharmInfo{
+		Charm:       info.Charm,
+		ID:          info.URL.String(),
+		StoragePath: info.ArchivePath,
+		SHA256:      info.Origin.Hash,
+	})
+	if err != nil && !stateerrors.IsCharmAlreadyUploadedError(err) {
+		return nil, errors.Annotatef(err, "updating uploaded charm")
+	}
+
 	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
-		Charm:             ch,
-		CharmURL:          curl,
+		Charm:             info.Charm,
+		CharmURL:          info.URL.String(),
 		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		Constraints:       b.constraints,
@@ -382,7 +479,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		NumUnits:          1,
 	}, b.objectStore)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "adding controller application")
 	}
 	unitName, err := unit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
 	if err != nil {
@@ -390,19 +487,21 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 	}
 	_, err = b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
-		ch, origin,
+		info.Charm, origin,
 		applicationservice.AddApplicationArgs{
-			ReferenceName: bootstrap.ControllerApplicationName,
+			ReferenceName:    bootstrap.ControllerCharmName,
+			CharmStoragePath: info.ArchivePath,
 			DownloadInfo: &applicationcharm.DownloadInfo{
-				// We do have all the information we need to download the charm,
-				// we should fill this in with the correct information.
-				Provenance: applicationcharm.ProvenanceBootstrap,
+				Provenance:         applicationcharm.ProvenanceBootstrap,
+				CharmhubIdentifier: info.DownloadInfo.CharmhubIdentifier,
+				DownloadURL:        info.DownloadInfo.DownloadURL,
+				DownloadSize:       info.DownloadInfo.DownloadSize,
 			},
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "creating controller application")
 	}
 	return b.stateBackend.Unit(app.Name() + "/0")
 }

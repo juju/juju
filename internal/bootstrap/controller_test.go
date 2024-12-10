@@ -13,8 +13,9 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/charm"
+	corecharm "github.com/juju/juju/core/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/charm"
 )
 
 var (
@@ -30,8 +31,8 @@ var _ = gc.Suite(&ControllerSuite{})
 func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	origin := charm.Origin{
-		Source: charm.Local,
+	origin := corecharm.Origin{
+		Source: corecharm.Local,
 		ID:     "deadbeef",
 	}
 
@@ -59,8 +60,8 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *gc.C) {
 func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
 		ID:     "deadbeef",
 	}
 
@@ -78,8 +79,8 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *gc.C) {
 func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	origin := charm.Origin{
-		Source: charm.CharmHub,
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
 		ID:     "deadbeef",
 	}
 
@@ -87,7 +88,11 @@ func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *gc.C) {
 	s.expectCharmInfo()
 	s.expectLocalCharmNotFound()
 	s.expectCharmhubDeployment(origin)
-	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), "juju-controller", origin, s.charm, "10.0.0.1").Return(s.unit, applicationerrors.ApplicationAlreadyExists)
+	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, "10.0.0.1").Return(s.unit, applicationerrors.ApplicationAlreadyExists)
 	s.expectCompletion()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)
@@ -103,24 +108,36 @@ func (s *ControllerSuite) expectCharmInfo() {
 	s.deployer.EXPECT().ControllerCharmBase().Return(defaultBase, nil)
 }
 
-func (s *ControllerSuite) expectLocalDeployment(origin charm.Origin) {
-	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return("juju-controller", &origin, s.charm, nil)
+func (s *ControllerSuite) expectLocalDeployment(origin corecharm.Origin) {
+	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, nil)
 }
 
 func (s *ControllerSuite) expectLocalCharmNotFound() {
-	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return("", nil, s.charm, errors.NotFoundf("not found"))
+	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{}, errors.NotFoundf("not found"))
 }
 
 func (s *ControllerSuite) expectLocalCharmError() {
-	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return("", nil, s.charm, errors.Errorf("boom"))
+	s.deployer.EXPECT().DeployLocalCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{}, errors.Errorf("boom"))
 }
 
-func (s *ControllerSuite) expectCharmhubDeployment(origin charm.Origin) {
-	s.deployer.EXPECT().DeployCharmhubCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return("juju-controller", &origin, s.charm, nil)
+func (s *ControllerSuite) expectCharmhubDeployment(origin corecharm.Origin) {
+	s.deployer.EXPECT().DeployCharmhubCharm(gomock.Any(), arch.DefaultArchitecture, defaultBase).Return(DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, nil)
 }
 
-func (s *ControllerSuite) expectAddApplication(origin charm.Origin) {
-	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), "juju-controller", origin, s.charm, "10.0.0.1").Return(s.unit, nil)
+func (s *ControllerSuite) expectAddApplication(origin corecharm.Origin) {
+	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), DeployCharmInfo{
+		URL:    charm.MustParseURL("juju-controller"),
+		Origin: &origin,
+		Charm:  s.charm,
+	}, "10.0.0.1").Return(s.unit, nil)
 }
 
 func (s *ControllerSuite) expectCompletion() {

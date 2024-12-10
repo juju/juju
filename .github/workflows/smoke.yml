@@ -92,8 +92,7 @@ jobs:
         # Skip destroy to keep the environment up.
         export SKIP_DESTROY=true
 
-        # Skip the smoke test until we land the async charm downloader.
-        # ./main.sh -v -s 'test_build' smoke
+        ./main.sh -v -s 'test_build' smoke
 
     - name: Smoke test (MicroK8s)
       if: matrix.cloud == 'microk8s'
@@ -102,5 +101,4 @@ jobs:
         cd tests
         export MODEL_ARCH=$(go env GOARCH)
 
-        # Skip the smoke test until we land the async charm downloader.
-        # sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
+        sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'

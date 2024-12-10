@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
@@ -40,6 +40,7 @@ type ManifoldSuite struct {
 	modelLogger            dummyModelLogger
 	domainServicesGetter   services.DomainServicesGetter
 	providerServicesGetter services.ProviderServicesGetter
+	httpClientGetter       http.HTTPClientGetter
 
 	logger logger.Logger
 
@@ -63,6 +64,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
 	s.domainServicesGetter = stubDomainServicesGetter{}
 	s.providerServicesGetter = stubProviderServicesGetter{}
+	s.httpClientGetter = stubHTTPclientGetter{}
 	s.stub.ResetCalls()
 
 	s.modelLogger = dummyModelLogger{}
@@ -76,6 +78,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LogSinkName:                  "log-sink",
 		DomainServicesName:           "domain-services",
 		ProviderServiceFactoriesName: "provider-services",
+		HTTPClientName:               "http-client",
 		NewWorker:                    s.newWorker,
 		NewModelWorker:               s.newModelWorker,
 		ModelMetrics:                 dummyModelMetrics{},
@@ -101,6 +104,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"log-sink":          s.modelLogger,
 		"domain-services":   s.domainServicesGetter,
 		"provider-services": s.providerServicesGetter,
+		"http-client":       s.httpClientGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -124,7 +128,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state", "log-sink", "domain-services", "provider-services"}
+var expectedInputs = []string{"agent", "authority", "state", "log-sink", "domain-services", "provider-services", "http-client"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -180,6 +184,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		LogSink:                dummyModelLogger{},
 		ProviderServicesGetter: providerServicesGetter{},
 		DomainServicesGetter:   s.domainServicesGetter,
+		HTTPClientGetter:       s.httpClientGetter,
 	})
 }
 
@@ -235,7 +240,7 @@ func (f *fakeAgent) Tag() names.Tag {
 }
 
 type stubLogger struct {
-	corelogger.LogWriterCloser
+	logger.LogWriterCloser
 }
 
 type stubDomainServicesGetter struct {
@@ -252,4 +257,8 @@ type providerServicesGetter struct {
 
 func (s providerServicesGetter) ServicesForModel(_ string) modelworkermanager.ProviderServices {
 	return nil
+}
+
+type stubHTTPclientGetter struct {
+	http.HTTPClientGetter
 }

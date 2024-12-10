@@ -159,6 +159,10 @@ const (
 	// be downloaded.
 	CharmNotResolved = errors.ConstError("charm not resolved")
 
+	// CharmHashMismatch describes an error that occurs when the hash of the
+	// downloaded charm does not match the expected hash.
+	CharmHashMismatch = errors.ConstError("charm hash mismatch")
+
 	// CharmDownloadInfoNotFound describes an error that occurs when the charm
 	// download info is not found.
 	CharmDownloadInfoNotFound = errors.ConstError("charm download info not found")

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"hash"
 	"io"
 	"net/http"
 	"net/url"
@@ -47,7 +46,6 @@ type DownloadOption func(*downloadOptions)
 
 type downloadOptions struct {
 	progressBar ProgressBar
-	digestType  DigestType
 }
 
 // WithProgressBar sets the channel on the option.
@@ -59,49 +57,14 @@ func WithProgressBar(pb ProgressBar) DownloadOption {
 
 // Digest represents a digest of a file.
 type Digest struct {
-	DigestType DigestType
-	Hash       string
-	Size       int64
-}
-
-// DigestType defines the type of digest to compute.
-type DigestType int
-
-const (
-	// NONE is the default digest type.
-	NONE DigestType = iota
-	// SHA256 is the SHA256 digest type.
-	SHA256
-	// SHA384 is the SHA384 digest type.
-	SHA384
-)
-
-func (d DigestType) String() string {
-	switch d {
-	case NONE:
-		return "none"
-	case SHA256:
-		return "sha256"
-	case SHA384:
-		return "sha384"
-	default:
-		return "unknown"
-	}
-}
-
-// WithEnsureDigest allows the caller to specify the digest type to ensure.
-// The download will return the digest so it's possible to validate.
-func WithEnsureDigest(digestType DigestType) DownloadOption {
-	return func(options *downloadOptions) {
-		options.digestType = digestType
-	}
+	SHA256 string
+	SHA384 string
+	Size   int64
 }
 
 // Create a downloadOptions instance with default values.
 func newDownloadOptions() *downloadOptions {
-	return &downloadOptions{
-		digestType: NONE,
-	}
+	return &downloadOptions{}
 }
 
 // DownloadClient represents a client for downloading charm resources directly.
@@ -203,7 +166,7 @@ func (c *DownloadClient) DownloadResource(ctx context.Context, resourceURL *url.
 	return resp.Body, nil
 }
 
-func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
+func (c *DownloadClient) download(ctx context.Context, url *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
 	opts := newDownloadOptions()
 	for _, option := range options {
 		option(opts)
@@ -217,9 +180,9 @@ func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 		_ = f.Close()
 	}()
 
-	r, err := c.downloadFromURL(ctx, resourceURL)
+	r, err := c.downloadFromURL(ctx, url)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve %q", resourceURL)
+		return nil, errors.Annotatef(err, "cannot retrieve %q", url)
 	}
 	defer func() {
 		_ = r.Body.Close()
@@ -243,34 +206,21 @@ func (c *DownloadClient) download(ctx context.Context, resourceURL *url.URL, arc
 		progressBar = opts.progressBar
 	}
 
-	hasher := c.getHasher(opts.digestType)
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
 
-	writer := io.MultiWriter(f, hasher, progressBar)
-	size, err := io.Copy(writer, r.Body)
+	size, err := io.Copy(f, io.TeeReader(r.Body, io.MultiWriter(hasher256, hasher384, progressBar)))
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if size != r.ContentLength {
 		return nil, errors.Errorf("downloaded size %d does not match expected size %d", size, r.ContentLength)
 	}
 
-	digest := hex.EncodeToString(hasher.Sum(nil))
-
 	return &Digest{
-		DigestType: opts.digestType,
-		Hash:       digest,
-		Size:       size,
+		SHA256: hex.EncodeToString(hasher256.Sum(nil)),
+		SHA384: hex.EncodeToString(hasher384.Sum(nil)),
+		Size:   size,
 	}, nil
-}
-
-func (c *DownloadClient) getHasher(digestType DigestType) hash.Hash {
-	switch digestType {
-	case SHA256:
-		return sha256.New()
-	case SHA384:
-		return sha512.New384()
-	default:
-		return noopHasher{}
-	}
 }
 
 func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {
@@ -306,16 +256,4 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 	// Server error, nothing we can do other than inform the user that the
 	// archive was unaviable.
 	return nil, errors.Errorf("unable to locate archive (store API responded with status: %s)", resp.Status)
-}
-
-type noopHasher struct {
-	hash.Hash
-}
-
-func (noopHasher) Write(p []byte) (n int, err error) {
-	return len(p), nil
-}
-
-func (noopHasher) Sum(b []byte) []byte {
-	return nil
 }

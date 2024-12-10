@@ -74,7 +74,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -175,7 +174,6 @@ func AllFacades() *facade.Registry {
 	backups.Register(registry)
 	block.Register(registry)
 	bundle.Register(registry)
-	charmdownloader.Register(registry)
 	charmrevisionupdater.Register(registry)
 	charms.Register(registry)
 	cleaner.Register(registry)

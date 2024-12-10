@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/pki"
@@ -92,6 +93,7 @@ type NewModelConfig struct {
 	ControllerConfig       controller.Config
 	ProviderServicesGetter ProviderServicesGetter
 	DomainServices         services.DomainServices
+	HTTPClientGetter       http.HTTPClientGetter
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -115,6 +117,7 @@ type Config struct {
 	ProviderServicesGetter ProviderServicesGetter
 	DomainServicesGetter   services.DomainServicesGetter
 	GetControllerConfig    GetControllerConfigFunc
+	HTTPClientGetter       http.HTTPClientGetter
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -155,6 +158,9 @@ func (config Config) Validate() error {
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
+	}
+	if config.HTTPClientGetter == nil {
+		return errors.NotValidf("nil HTTPClientGetter")
 	}
 	return nil
 }
@@ -286,10 +292,13 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
 		cfg.DomainServices = m.config.DomainServicesGetter.ServicesForModel(model.UUID(modelUUID))
 
+		cfg.HTTPClientGetter = m.config.HTTPClientGetter
+
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
 		// worker restarts.
-		ctx := m.catacomb.Context(context.Background())
+		ctx, cancel := context.WithCancel(m.catacomb.Context(context.Background()))
+		defer cancel()
 
 		controllerConfigService := cfg.DomainServices.ControllerConfig()
 		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)

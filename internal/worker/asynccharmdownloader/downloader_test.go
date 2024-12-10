@@ -43,7 +43,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *gc.C) {
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Hash:      "hash",
+		SHA256:    "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
@@ -93,7 +93,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *gc.C) {
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Hash:      "hash",
+		SHA256:    "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
@@ -150,7 +150,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *gc.C) {
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Hash:      "hash",
+		SHA256:    "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
@@ -200,7 +200,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *gc.C) {
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Hash:      "hash",
+		SHA256:    "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
@@ -237,7 +237,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *gc.C) {
 	reserveInfo := domainapplication.CharmDownloadInfo{
 		CharmUUID: charmID,
 		Name:      "foo",
-		Hash:      "hash",
+		SHA256:    "hash",
 		DownloadInfo: applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",

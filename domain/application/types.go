@@ -13,6 +13,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
+	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // AddApplicationArg contains parameters for saving an application to state.
@@ -182,15 +183,26 @@ type UnitWorkloadStatusInfo struct {
 type CharmDownloadInfo struct {
 	CharmUUID    charm.ID
 	Name         string
-	Hash         string
+	SHA256       string
 	DownloadInfo domaincharm.DownloadInfo
 }
 
 // ResolveCharmDownload contains parameters for resolving a charm download.
 type ResolveCharmDownload struct {
 	CharmUUID charm.ID
+	SHA256    string
+	SHA384    string
 	Path      string
 	Size      int64
+}
+
+// ResolveControllerCharmDownload contains parameters for resolving a charm
+// download.
+type ResolveControllerCharmDownload struct {
+	SHA256 string
+	SHA384 string
+	Path   string
+	Size   int64
 }
 
 // ResolvedCharmDownload contains parameters for a resolved charm download.
@@ -201,4 +213,12 @@ type ResolvedCharmDownload struct {
 	LXDProfile      []byte
 	ObjectStoreUUID objectstore.UUID
 	ArchivePath     string
+}
+
+// ResolvedControllerCharmDownload contains parameters for a resolved controller
+// charm download.
+type ResolvedControllerCharmDownload struct {
+	Charm           internalcharm.Charm
+	ArchivePath     string
+	ObjectStoreUUID objectstore.UUID
 }

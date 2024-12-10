@@ -988,6 +988,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewMigrationMaster:          migrationmaster.NewWorker,
 		DomainServices:              cfg.DomainServices,
 		ProviderServicesGetter:      cfg.ProviderServicesGetter,
+		HTTPClientGetter:            cfg.HTTPClientGetter,
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second

@@ -19,6 +19,7 @@ import (
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
 	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
@@ -28,12 +29,12 @@ import (
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/applicationscaler"
+	"github.com/juju/juju/internal/worker/asynccharmdownloader"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasenvironupgrader"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
-	"github.com/juju/juju/internal/worker/charmdownloader"
 	"github.com/juju/juju/internal/worker/charmrevision"
 	"github.com/juju/juju/internal/worker/cleaner"
 	"github.com/juju/juju/internal/worker/common"
@@ -123,6 +124,9 @@ type ManifoldsConfig struct {
 
 	// DomainServices is used to access the domain services.
 	DomainServices services.DomainServices
+
+	// HTTPClientGetter is used to get a http client for a given namespace.
+	HTTPClientGetter http.HTTPClientGetter
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -166,6 +170,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		domainServicesName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewValueWorker(config.DomainServices)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// HTTPClientGetter is used to get a http client for a given namespace.
+		httpClientName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.HTTPClientGetter)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -333,6 +345,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:  config.Clock,
 		}))),
 
+		asyncCharmDownloader: ifResponsible(asynccharmdownloader.Manifold(asynccharmdownloader.ManifoldConfig{
+			DomainServicesName:     domainServicesName,
+			HTTPClientName:         httpClientName,
+			NewDownloader:          asynccharmdownloader.NewDownloader,
+			NewHTTPClient:          asynccharmdownloader.NewHTTPClient,
+			NewAsyncDownloadWorker: asynccharmdownloader.NewAsyncDownloadWorker,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.asynccharmdownloader"),
+			Clock:                  config.Clock,
+		})),
+
 		secretsPrunerName: ifNotMigrating(secretspruner.Manifold(secretspruner.ManifoldConfig{
 			APICallerName:        apiCallerName,
 			Logger:               config.LoggingContext.GetLogger("juju.worker.secretspruner"),
@@ -428,10 +450,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
-		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
-		}))),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
@@ -558,11 +576,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			NewWorker:                    storageprovisioner.NewCaasWorker,
 		}))),
-
-		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.charmdownloader"),
-		}))),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
@@ -667,22 +680,25 @@ const (
 	providerUpgradedFlagName = "provider-upgraded-flag"
 	providerUpgraderName     = "provider-upgrader"
 
-	undertakerName               = "undertaker"
-	computeProvisionerName       = "compute-provisioner"
-	storageProvisionerName       = "storage-provisioner"
-	charmDownloaderName          = "charm-downloader"
-	firewallerName               = "firewaller"
-	unitAssignerName             = "unit-assigner"
+	actionPrunerName             = "action-pruner"
 	applicationScalerName        = "application-scaler"
-	instancePollerName           = "instance-poller"
+	asyncCharmDownloader         = "async-charm-downloader"
 	charmRevisionUpdaterName     = "charm-revision-updater"
-	stateCleanerName             = "state-cleaner"
-	machineUndertakerName        = "machine-undertaker"
-	remoteRelationsName          = "remote-relations"
-	loggingConfigUpdaterName     = "logging-config-updater"
-	instanceMutaterName          = "instance-mutater"
-	providerServiceFactoriesName = "provider-service-factories"
+	computeProvisionerName       = "compute-provisioner"
 	domainServicesName           = "domain-services"
+	firewallerName               = "firewaller"
+	httpClientName               = "http-client"
+	instanceMutaterName          = "instance-mutater"
+	instancePollerName           = "instance-poller"
+	loggingConfigUpdaterName     = "logging-config-updater"
+	machineUndertakerName        = "machine-undertaker"
+	providerServiceFactoriesName = "provider-service-factories"
+	remoteRelationsName          = "remote-relations"
+	stateCleanerName             = "state-cleaner"
+	statusHistoryPrunerName      = "status-history-pruner"
+	storageProvisionerName       = "storage-provisioner"
+	undertakerName               = "undertaker"
+	unitAssignerName             = "unit-assigner"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"

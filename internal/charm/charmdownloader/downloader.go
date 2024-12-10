@@ -33,8 +33,10 @@ type DownloadClient interface {
 
 // DownloadResult contains information about a downloaded charm.
 type DownloadResult struct {
-	Path string
-	Size int64
+	SHA256 string
+	SHA384 string
+	Path   string
+	Size   int64
 }
 
 // CharmDownloader implements store-agnostic download and persistence of charm
@@ -90,20 +92,22 @@ func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash strin
 	}()
 
 	// Force the sha256 digest to be calculated on download.
-	digest, err := d.client.Download(ctx, url, tmpFile.Name(), charmhub.WithEnsureDigest(charmhub.SHA256))
+	digest, err := d.client.Download(ctx, url, tmpFile.Name())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	// We expect that after downloading the result is verified.
-	if digest.Hash != hash {
-		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidDigestHash, hash, digest.Hash)
+	if digest.SHA256 != hash {
+		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidDigestHash, hash, digest.SHA256)
 	}
 
 	d.logger.Debugf("downloaded charm: %q", url)
 
 	return &DownloadResult{
-		Path: tmpFile.Name(),
-		Size: digest.Size,
+		SHA256: digest.SHA256,
+		SHA384: digest.SHA384,
+		Path:   tmpFile.Name(),
+		Size:   digest.Size,
 	}, nil
 }
