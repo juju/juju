@@ -141,7 +141,7 @@ WHERE uuid IN ($uuids[:])`, uuids{})
 			case err != nil:
 				return err
 			}
-			return errors.Errorf("%s: %w", message, resourceerrors.InvalidCleanUpState)
+			return errors.Errorf("%s: %w", message, resourceerrors.CleanUpStateNotValid)
 		}
 
 		// check there are no related resources in resource_file_store.

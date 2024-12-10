@@ -186,7 +186,7 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *gc.
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
-	c.Check(err, jc.ErrorIs, resourceerrors.InvalidCleanUpState,
+	c.Check(err, jc.ErrorIs, resourceerrors.CleanUpStateNotValid,
 		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
@@ -235,7 +235,7 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
-	c.Check(err, jc.ErrorIs, resourceerrors.InvalidCleanUpState,
+	c.Check(err, jc.ErrorIs, resourceerrors.CleanUpStateNotValid,
 		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
@@ -284,7 +284,7 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
-	c.Check(err, jc.ErrorIs, resourceerrors.InvalidCleanUpState,
+	c.Check(err, jc.ErrorIs, resourceerrors.CleanUpStateNotValid,
 		gc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources

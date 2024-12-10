@@ -91,7 +91,7 @@ func NewService(
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ApplicationIDNotValid] is returned if the application
 //     ID is not valid.
-//   - [resourceerrors.InvalidCleanUpState] is returned is there is
+//   - [resourceerrors.CleanUpStateNotValid] is returned is there is
 //     remaining units or stored resources which are still associated with
 //     application resources.
 func (s *Service) DeleteApplicationResources(
