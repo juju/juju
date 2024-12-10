@@ -90,10 +90,10 @@ func NewDeployFromRepositoryAPI(
 func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
 	api.logger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
-	dt, addPendingResourceErrs := api.validator.ValidateArg(ctx, arg)
+	dt, errs := api.validator.ValidateArg(ctx, arg)
 
-	if len(addPendingResourceErrs) > 0 {
-		return params.DeployFromRepositoryInfo{}, nil, addPendingResourceErrs
+	if len(errs) > 0 {
+		return params.DeployFromRepositoryInfo{}, nil, errs
 	}
 
 	info := params.DeployFromRepositoryInfo{
@@ -125,7 +125,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
+	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
 		Charm:             dt.charm,
@@ -140,17 +140,35 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Storage:           stateStorageDirectives(dt.storage),
 	}, api.store)
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+	}
 
-	if addApplicationErr == nil {
-		unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
-		for i := 0; i < dt.numUnits; i++ {
-			unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
-			if err != nil {
-				return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-			}
-			unitArgs[i].UnitName = unitName
+	unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
+	for i := 0; i < dt.numUnits; i++ {
+		unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
+		if err != nil {
+			return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 		}
-		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, dt.charm, dt.origin, applicationservice.AddApplicationArgs{
+		unitArgs[i].UnitName = unitName
+	}
+
+	resolvedResources := make(applicationservice.ResolvedResources, 0,
+		len(dt.resolvedResources))
+	for _, res := range dt.resolvedResources {
+		var revision *int
+		if res.Revision > 0 {
+			revision = &res.Revision
+		}
+		resolvedResources = append(resolvedResources, applicationservice.ResolvedResource{
+			Name:     res.Name,
+			Origin:   res.Origin,
+			Revision: revision,
+		})
+	}
+
+	_, err = api.applicationService.CreateApplication(ctx, dt.applicationName, dt.charm, dt.origin,
+		applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,
 			Storage:       dt.storage,
 			// We always have download info for a charm from the charmhub store.
@@ -160,13 +178,13 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 				DownloadURL:        dt.downloadInfo.DownloadURL,
 				DownloadSize:       dt.downloadInfo.DownloadSize,
 			},
+			ResolvedResources: resolvedResources,
 		}, unitArgs...)
-		if addApplicationErr != nil {
-			return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(addApplicationErr)}
-		}
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	return info, dt.pendingResourceUploads, addPendingResourceErrs
+	return info, dt.pendingResourceUploads, nil
 }
 
 // PendingResourceUpload is only returned for local resources
