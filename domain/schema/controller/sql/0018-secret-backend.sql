@@ -8,7 +8,8 @@ CREATE TABLE secret_backend_type (
     CHECK (type != '')
 );
 
-CREATE UNIQUE INDEX idx_secret_backend_type_type ON secret_backend_type (type);
+CREATE UNIQUE INDEX idx_secret_backend_type_type
+ON secret_backend_type (type);
 
 INSERT INTO secret_backend_type VALUES
 (0, 'controller', 'the juju controller secret backend'),
@@ -27,7 +28,8 @@ CREATE TABLE secret_backend (
     REFERENCES secret_backend_type (id)
 );
 
-CREATE UNIQUE INDEX idx_secret_backend_name ON secret_backend (name);
+CREATE UNIQUE INDEX idx_secret_backend_name
+ON secret_backend (name);
 
 CREATE TABLE secret_backend_config (
     backend_uuid TEXT NOT NULL,
