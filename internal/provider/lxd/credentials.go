@@ -429,12 +429,10 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	cert, _, err := server.GetCertificate(fingerprint)
 	if err != nil || cert == nil {
 		if err := server.CreateCertificate(api.CertificatesPost{
-			CertificatePut: api.CertificatePut{
-				Name:        credentials.Label,
-				Type:        "client",
-				Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
-			},
-			Password: trustPassword,
+			Name:        credentials.Label,
+			Type:        "client",
+			Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
+			Password:    trustPassword,
 		}); err != nil {
 			return nil, errors.Trace(err)
 		}

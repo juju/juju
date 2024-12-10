@@ -19,6 +19,7 @@ import (
 type MockAddr struct {
 	ctrl     *gomock.Controller
 	recorder *MockAddrMockRecorder
+	isgomock struct{}
 }
 
 // MockAddrMockRecorder is the mock recorder for MockAddr.
