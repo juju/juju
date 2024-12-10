@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/go-querystring/query"
@@ -204,6 +205,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 			gorillaws.CloseNormalClosure,
 			gorillaws.CloseGoingAway,
 			gorillaws.CloseNoStatusReceived) {
+			return // this is fine
+		}
+		if errors.Is(err, net.ErrClosed) ||
+			strings.Contains(err.Error(), net.ErrClosed.Error()) {
 			return // this is fine
 		}
 		if _, ok := err.(*net.OpError); ok {
