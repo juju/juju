@@ -96,10 +96,10 @@ func NewDeployFromRepositoryAPI(
 func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
 	api.logger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
-	dt, addPendingResourceErrs := api.validator.ValidateArg(ctx, arg)
+	dt, errs := api.validator.ValidateArg(ctx, arg)
 
-	if len(addPendingResourceErrs) > 0 {
-		return params.DeployFromRepositoryInfo{}, nil, addPendingResourceErrs
+	if len(errs) > 0 {
+		return params.DeployFromRepositoryInfo{}, nil, errs
 	}
 
 	info := params.DeployFromRepositoryInfo{
@@ -132,9 +132,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	// Last step, add pending resources.
-	pendingIDs, addPendingResourceErrs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
-
 	// To ensure dqlite unit names match those created in mongo, grab the next unit
 	// sequence number before writing the mongo units.
 	nextUnitNum, err := api.state.ReadSequence(dt.applicationName)
@@ -142,7 +139,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
+	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
 		Charm:             ch,
@@ -155,45 +152,52 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Name:              dt.applicationName,
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
-		Resources:         pendingIDs,
 		Storage:           stateStorageDirectives(dt.storage),
 	}, api.store)
-
-	if addApplicationErr == nil {
-		unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
-		for i := 0; i < dt.numUnits; i++ {
-			unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
-			if err != nil {
-				return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-			}
-			unitArgs[i].UnitName = unitName
-		}
-		_, addApplicationErr = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
-			ReferenceName: dt.charmURL.Name,
-			Storage:       dt.storage,
-			// We always have download info for a charm from the charmhub store.
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance:         applicationcharm.ProvenanceDownload,
-				CharmhubIdentifier: dt.downloadInfo.CharmhubIdentifier,
-				DownloadURL:        dt.downloadInfo.DownloadURL,
-				DownloadSize:       dt.downloadInfo.DownloadSize,
-			},
-		}, unitArgs...)
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	if addApplicationErr != nil {
-		// Check the pending resources that are added before the AddApplication is called
-		if len(pendingIDs) != 0 {
-			// Remove if there's any pending resources before raising addApplicationErr
-			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs, api.store)
-			if removeResourcesErr != nil {
-				api.logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
-			}
+	unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
+	for i := 0; i < dt.numUnits; i++ {
+		unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
+		if err != nil {
+			return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 		}
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(addApplicationErr)}
+		unitArgs[i].UnitName = unitName
 	}
 
-	return info, dt.pendingResourceUploads, addPendingResourceErrs
+	resolvedResources := make(applicationservice.ResolvedResources, 0,
+		len(dt.resolvedResources))
+	for _, res := range dt.resolvedResources {
+		var revision *int
+		if res.Revision > 0 {
+			revision = &res.Revision
+		}
+		resolvedResources = append(resolvedResources, applicationservice.ResolvedResource{
+			Name:     res.Name,
+			Origin:   res.Origin,
+			Revision: revision,
+		})
+	}
+
+	_, err = api.applicationService.CreateApplication(ctx, dt.applicationName, ch, dt.origin, applicationservice.AddApplicationArgs{
+		ReferenceName: dt.charmURL.Name,
+		Storage:       dt.storage,
+		// We always have download info for a charm from the charmhub store.
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: dt.downloadInfo.CharmhubIdentifier,
+			DownloadURL:        dt.downloadInfo.DownloadURL,
+			DownloadSize:       dt.downloadInfo.DownloadSize,
+		},
+		ResolvedResources: resolvedResources,
+	}, unitArgs...)
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+	}
+
+	return info, dt.pendingResourceUploads, nil
 }
 
 // PendingResourceUpload is only returned for local resources
@@ -245,27 +249,6 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
 
 	return resolvedResources, pendingUploadIDs, resolveErr
-}
-
-// addPendingResource adds a pending resource doc for all resources to be
-// added when deploying the charm. All resources will be
-// processed. Errors are not terminal. It also returns the name to pendingIDs
-// map that's needed by the AddApplication.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resources []resource.Resource) (map[string]string, []error) {
-	var errs []error
-	pendingIDs := make(map[string]string)
-
-	for _, r := range resources {
-		pID, err := api.state.AddPendingResource(appName, r, api.store)
-		if err != nil {
-			api.logger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
-			errs = append(errs, err)
-			continue
-		}
-		pendingIDs[r.Name] = pID
-	}
-
-	return pendingIDs, errs
 }
 
 type deployTemplate struct {
