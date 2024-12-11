@@ -5,6 +5,10 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,7 +20,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
@@ -294,33 +297,58 @@ func (b *baseDeployer) ControllerCharmArch() string {
 // DeployLocalCharm deploys the controller charm from the local charm
 // store.
 func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (DeployCharmInfo, error) {
-	controllerCharmPath := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
-	_, err := os.Stat(controllerCharmPath)
+	path := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
+	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return DeployCharmInfo{}, errors.NotFoundf(controllerCharmPath)
-	}
-	if err != nil {
+		return DeployCharmInfo{}, errors.NotFoundf(path)
+	} else if err != nil {
 		return DeployCharmInfo{}, errors.Trace(err)
 	}
 
-	curl, ch, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
+	sha256, sha384, err := b.calculateLocalCharmHashes(path, info.Size())
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
+		return DeployCharmInfo{}, errors.Annotatef(err, "calculating hashes for %q", path)
 	}
+
+	result, err := b.applicationService.ResolveControllerCharmDownload(ctx, domainapplication.ResolveControllerCharmDownload{
+		SHA256: sha256,
+		SHA384: sha384,
+		Path:   path,
+		Size:   info.Size(),
+	})
+	if err != nil {
+		return DeployCharmInfo{}, errors.Annotatef(err, "resolving controller charm download")
+	}
+
 	b.logger.Debugf("Successfully deployed local Juju controller charm")
+
+	// The revision of the charm will always be zero during bootstrap, so
+	// there is no need to have additional logic to determine the revision.
+	// Also there is no architecture, because that prevents the URL from
+	// being parsed.
+
 	origin := corecharm.Origin{
-		Source: corecharm.Local,
-		Type:   "charm",
+		Source:   corecharm.Local,
+		Type:     "charm",
+		Hash:     sha256,
+		Revision: ptr(0),
 		Platform: corecharm.Platform{
 			Architecture: arch,
 			OS:           base.OS,
 			Channel:      base.Channel.String(),
 		},
 	}
+
 	return DeployCharmInfo{
-		URL:    curl,
-		Charm:  ch,
-		Origin: &origin,
+		URL: &charm.URL{
+			Schema:   charm.Local.String(),
+			Name:     bootstrap.ControllerCharmName,
+			Revision: 0,
+		},
+		Charm:           result.Charm,
+		Origin:          &origin,
+		ArchivePath:     result.ArchivePath,
+		ObjectStoreUUID: result.ObjectStoreUUID,
 	}, nil
 }
 
@@ -454,9 +482,16 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 	stateOrigin.Hash = ""
 	stateOrigin.ID = ""
 
-	_, err = b.charmUploader.PrepareCharmUpload(info.URL.String())
-	if err != nil {
-		return nil, errors.Trace(err)
+	if info.URL.Schema == charm.Local.String() {
+		_, err = b.charmUploader.PrepareLocalCharmUpload(info.URL.String())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		_, err = b.charmUploader.PrepareCharmUpload(info.URL.String())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	_, err = b.charmUploader.UpdateUploadedCharm(state.CharmInfo{
 		Charm:       info.Charm,
@@ -485,18 +520,31 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// DownloadInfo is not required for local charms, so we only set it if
+	// it's not nil.
+	if info.URL.Schema == charm.Local.String() && info.DownloadInfo != nil {
+		return nil, errors.New("download info should not be set for local charms")
+	}
+
+	var downloadInfo *applicationcharm.DownloadInfo
+	if info.DownloadInfo != nil {
+		downloadInfo = &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceBootstrap,
+			CharmhubIdentifier: info.DownloadInfo.CharmhubIdentifier,
+			DownloadURL:        info.DownloadInfo.DownloadURL,
+			DownloadSize:       info.DownloadInfo.DownloadSize,
+		}
+	}
+
 	_, err = b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		info.Charm, origin,
 		applicationservice.AddApplicationArgs{
-			ReferenceName:    bootstrap.ControllerCharmName,
-			CharmStoragePath: info.ArchivePath,
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance:         applicationcharm.ProvenanceBootstrap,
-				CharmhubIdentifier: info.DownloadInfo.CharmhubIdentifier,
-				DownloadURL:        info.DownloadInfo.DownloadURL,
-				DownloadSize:       info.DownloadInfo.DownloadSize,
-			},
+			ReferenceName:        bootstrap.ControllerCharmName,
+			CharmStoragePath:     info.ArchivePath,
+			CharmObjectStoreUUID: info.ObjectStoreUUID,
+			DownloadInfo:         downloadInfo,
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
@@ -506,36 +554,24 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 	return b.stateBackend.Unit(app.Name() + "/0")
 }
 
-// addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, charmFileName string) (*charm.URL, charm.Charm, error) {
-	archive, err := charm.ReadCharmArchive(charmFileName)
+func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {
+	file, err := os.Open(path)
 	if err != nil {
-		return nil, nil, errors.Errorf("invalid charm archive: %v", err)
+		return "", "", errors.Annotatef(err, "opening %q", path)
 	}
 
-	name := archive.Meta().Name
-	if name != bootstrap.ControllerCharmName {
-		return nil, nil, errors.Errorf("unexpected controller charm name %q", name)
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
+
+	if size, err := io.Copy(io.MultiWriter(hasher256, hasher384), file); err != nil {
+		return "", "", errors.Annotatef(err, "hashing %q", path)
+	} else if size != expectedSize {
+		return "", "", errors.Errorf("expected %d bytes, got %d", expectedSize, size)
 	}
 
-	// Reserve a charm URL for it in state.
-	curl := &charm.URL{
-		Schema:   charm.Local.String(),
-		Name:     name,
-		Revision: archive.Revision(),
-	}
-	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Now we need to repackage it with the reserved URL, upload it to
-	// provider storage and update the state.
-	_, _, _, _, err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl.String(), archive.Revision())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return curl, archive, nil
+	sha256 := hex.EncodeToString(hasher256.Sum(nil))
+	sha384 := hex.EncodeToString(hasher384.Sum(nil))
+	return sha256, sha384, nil
 }
 
 // ConfigSchema is used to force the trust config option to be true for all
@@ -544,4 +580,8 @@ var configSchema = environschema.Fields{
 	coreapplication.TrustConfigOptionName: {
 		Type: environschema.Tbool,
 	},
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

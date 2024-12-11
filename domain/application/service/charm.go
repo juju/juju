@@ -576,6 +576,7 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 	ch.Revision = args.Revision
 	ch.Hash = args.Hash
 	ch.ArchivePath = args.ArchivePath
+	ch.ObjectStoreUUID = args.ObjectStoreUUID
 	ch.Available = args.ArchivePath != ""
 	ch.Architecture = architecture
 
