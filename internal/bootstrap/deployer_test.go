@@ -378,10 +378,11 @@ description: Juju controller
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
+	defer f.Close()
+
 	size, err := f.Write(buf.Bytes())
-	if err1 := f.Close(); err1 != nil && err == nil {
-		err = err1
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	err = f.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	return path, int64(size)
