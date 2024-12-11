@@ -402,7 +402,7 @@ func (m *containerManager) verifyProfile(pName string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("lxd profile %q: received %+v ", pName, profile.ProfilePut)
+	logger.Debugf("lxd profile %q: received %+v ", pName, profile)
 	return nil
 }
 

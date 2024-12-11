@@ -97,7 +97,7 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 	defer ctrl.Finish()
 	iSvr := s.NewMockServer(ctrl)
 
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
+	alias := &lxdapi.ImageAliasesEntry{Target: "foo-target"}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
@@ -140,7 +140,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 
 	const imageType = "container"
 	image := lxdapi.Image{Filename: "this-is-our-image"}
-	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
+	alias := lxdapi.ImageAliasesEntry{Target: "foo-remote-target"}
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
 		rSvr1.EXPECT().GetImageAliasType(imageType, "16.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
@@ -178,7 +178,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 
 	localAlias := "juju/ubuntu@16.04/" + s.Arch()
 	image := lxdapi.Image{Filename: "this-is-our-image"}
-	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
+	alias := lxdapi.ImageAliasesEntry{Target: "foo-remote-target"}
 	copyReq := &lxdclient.ImageCopyArgs{Aliases: []lxdapi.ImageAlias{{Name: localAlias}}}
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias(localAlias).Return(nil, lxdtesting.ETag, nil),
@@ -209,7 +209,7 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 		"server-that-has-image": rSvr,
 	})
 
-	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
+	alias := lxdapi.ImageAliasesEntry{Target: "foo-remote-target"}
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias("juju/ubuntu@18.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
 		rSvr.EXPECT().GetImageAliasType("container", "18.04/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
