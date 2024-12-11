@@ -717,12 +717,10 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name:        insecureCred.Label,
-			Type:        "client",
-			Certificate: clientX509Base64,
-		},
-		Password: "fred",
+		Name:        insecureCred.Label,
+		Type:        "client",
+		Certificate: clientX509Base64,
+		Password:    "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{
 		Environment: api.ServerEnvironment{
@@ -859,12 +857,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name:        insecureCred.Label,
-			Type:        "client",
-			Certificate: clientX509Base64,
-		},
-		Password: "fred",
+		Name:        insecureCred.Label,
+		Type:        "client",
+		Certificate: clientX509Base64,
+		Password:    "fred",
 	}).Return(errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
@@ -902,12 +898,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name:        insecureCred.Label,
-			Type:        "client",
-			Certificate: clientX509Base64,
-		},
-		Password: "fred",
+		Name:        insecureCred.Label,
+		Type:        "client",
+		Certificate: clientX509Base64,
+		Password:    "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(nil, "etag", errors.New("bad"))
 
@@ -957,12 +951,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
 	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name:        insecureCred.Label,
-			Type:        "client",
-			Certificate: clientX509Base64,
-		},
-		Password: "fred",
+		Name:        insecureCred.Label,
+		Type:        "client",
+		Certificate: clientX509Base64,
+		Password:    "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{
 		Environment: api.ServerEnvironment{

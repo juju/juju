@@ -84,6 +84,20 @@ func (s *MgoStatsCollectorSuite) TestCollect(c *gc.C) {
 	metricFamilies, err := registry.Gather()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricFamilies, gc.HasLen, 9)
+	for _, v := range metricFamilies {
+		for _, u := range v.Metric {
+			u.TimestampMs = nil
+			if u.Counter != nil {
+				u.Counter.CreatedTimestamp = nil
+			}
+			if u.Histogram != nil {
+				u.Histogram.CreatedTimestamp = nil
+			}
+			if u.Summary != nil {
+				u.Summary.CreatedTimestamp = nil
+			}
+		}
+	}
 	c.Assert(metricFamilies, jc.DeepEquals, []*dto.MetricFamily{{
 		Name: stringptr("mgo_clusters"),
 		Help: stringptr("Current number of clusters"),

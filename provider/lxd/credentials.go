@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
@@ -430,12 +429,10 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	cert, _, err := server.GetCertificate(fingerprint)
 	if err != nil || cert == nil {
 		if err := server.CreateCertificate(api.CertificatesPost{
-			CertificatePut: api.CertificatePut{
-				Name:        credentials.Label,
-				Type:        "client",
-				Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
-			},
-			Password: trustPassword,
+			Name:        credentials.Label,
+			Type:        "client",
+			Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
+			Password:    trustPassword,
 		}); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -572,7 +569,7 @@ func (certificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
 type certificateGenerator struct{}
 
 func (certificateGenerator) Generate(client bool, addHosts bool) (certPEM, keyPEM []byte, err error) {
-	return shared.GenerateMemCert(client, addHosts)
+	return lxd.GenerateMemCert(client, addHosts)
 }
 
 func endpointURL(endpoint string) (*url.URL, error) {

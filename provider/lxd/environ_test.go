@@ -132,17 +132,13 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "not-ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-model-uuid": "other",
-				},
+			Config: map[string]string{
+				"user.juju-model-uuid": "other",
 			},
 		}, {
 			Name: "ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-model-uuid": s.Config.UUID(),
-				},
+			Config: map[string]string{
+				"user.juju-model-uuid": s.Config.UUID(),
 			},
 		}},
 	}
@@ -176,10 +172,8 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *gc.
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-model-uuid": s.Config.UUID(),
-				},
+			Config: map[string]string{
+				"user.juju-model-uuid": s.Config.UUID(),
 			},
 		}},
 	}
@@ -204,17 +198,13 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "not-ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-controller-uuid": "other",
-				},
+			Config: map[string]string{
+				"user.juju-controller-uuid": "other",
 			},
 		}, {
 			Name: "ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-controller-uuid": s.Config.UUID(),
-				},
+			Config: map[string]string{
+				"user.juju-controller-uuid": s.Config.UUID(),
 			},
 		}},
 	}
@@ -266,10 +256,8 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-controller-uuid": s.Config.UUID(),
-				},
+			Config: map[string]string{
+				"user.juju-controller-uuid": s.Config.UUID(),
 			},
 		}},
 	}
@@ -316,10 +304,8 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "ours",
-			StorageVolumePut: api.StorageVolumePut{
-				Config: map[string]string{
-					"user.juju-controller-uuid": s.Config.UUID(),
-				},
+			Config: map[string]string{
+				"user.juju-controller-uuid": s.Config.UUID(),
 			},
 		}},
 	}
@@ -698,7 +684,12 @@ func (s *environProfileSuite) expectMaybeWriteLXDProfile(hasProfile bool, name s
 			},
 		}
 		exp.CreateProfile(post).Return(nil)
-		expProfile := api.Profile{ProfilePut: post.ProfilePut}
+		expProfile := api.Profile{
+			Name:        post.Name,
+			Description: post.Description,
+			Config:      post.Config,
+			Devices:     post.Devices,
+		}
 		exp.GetProfile(name).Return(&expProfile, "etag", nil)
 	}
 }
