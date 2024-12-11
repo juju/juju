@@ -22,13 +22,11 @@ var _ = gc.Suite(&storageSuite{})
 func defaultProfileWithDisk() *lxdapi.Profile {
 	return &lxdapi.Profile{
 		Name: "default",
-		ProfilePut: lxdapi.ProfilePut{
-			Devices: map[string]map[string]string{
-				"root": {
-					"type": "disk",
-					"path": "/",
-					"pool": "default",
-				},
+		Devices: map[string]map[string]string{
+			"root": {
+				"type": "disk",
+				"path": "/",
+				"pool": "default",
 			},
 		},
 	}

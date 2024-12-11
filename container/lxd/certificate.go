@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 )
@@ -30,7 +29,7 @@ type Certificate struct {
 // GenerateClientCertificate creates and returns a new certificate for client
 // communication with an LXD server.
 func GenerateClientCertificate() (*Certificate, error) {
-	cert, key, err := shared.GenerateMemCert(true, true)
+	cert, key, err := GenerateMemCert(true, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,10 +100,8 @@ func (c *Certificate) AsCreateRequest() (api.CertificatesPost, error) {
 	}
 
 	return api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name:        c.Name,
-			Type:        "client",
-			Certificate: base64.StdEncoding.EncodeToString(block.Bytes),
-		},
+		Name:        c.Name,
+		Type:        "client",
+		Certificate: base64.StdEncoding.EncodeToString(block.Bytes),
 	}, nil
 }

@@ -160,9 +160,7 @@ func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
 	new := "new-profile"
 	cSvr.EXPECT().GetInstance(instId).Return(
 		&api.Instance{
-			InstancePut: api.InstancePut{
-				Profiles: oldProfiles,
-			},
+			Profiles: oldProfiles,
 		}, "", nil)
 	cSvr.EXPECT().UpdateInstance(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil)
 

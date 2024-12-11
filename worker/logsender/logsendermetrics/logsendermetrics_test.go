@@ -79,16 +79,17 @@ func (s *bufferedLogWriterSuite) TestCollect(c *gc.C) {
 	}
 	c.Assert(metrics, gc.HasLen, 4)
 
-	var dtoMetrics [4]dto.Metric
+	var dtoMetrics [4]*dto.Metric
 	for i, metric := range metrics {
-		err := metric.Write(&dtoMetrics[i])
+		dtoMetrics[i] = &dto.Metric{}
+		err := metric.Write(dtoMetrics[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	float64ptr := func(v float64) *float64 {
 		return &v
 	}
-	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
+	c.Assert(dtoMetrics, jc.DeepEquals, [4]*dto.Metric{
 		{Counter: &dto.Counter{Value: float64ptr(3)}},
 		{Counter: &dto.Counter{Value: float64ptr(5)}},
 		{Counter: &dto.Counter{Value: float64ptr(3)}},
