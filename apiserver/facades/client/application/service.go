@@ -183,6 +183,9 @@ type ApplicationService interface {
 	// GetCharmDownloadInfo returns the download info for the charm using the
 	// charm ID.
 	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*applicationcharm.DownloadInfo, error)
+
+	// IsCharmAvailable returns whether the charm is available in the model.
+	IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error)
 }
 
 // ModelConfigService provides access to the model configuration.

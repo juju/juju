@@ -506,6 +506,8 @@ func (s *applicationSuite) expectCharm(c *gc.C, name string) {
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
 		Revision: 42,
 	}, nil)
+
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
 }
 
 func (s *applicationSuite) expectCharmNotFound(c *gc.C, name string) {
@@ -558,6 +560,8 @@ func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
 		Revision: 42,
 	}, nil)
 
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
+
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{{
 			Name:          "ubuntu",
@@ -576,6 +580,8 @@ func (s applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string) 
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
 		Revision: 42,
 	}, nil)
+
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
 
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{{
@@ -601,6 +607,7 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 			locator: applicationcharm.CharmLocator{
 				Revision: 42,
 			},
+			available: true,
 		})
 		return nil
 	})

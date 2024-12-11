@@ -1469,6 +1469,45 @@ func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// IsCharmAvailable mocks base method.
+func (m *MockApplicationService) IsCharmAvailable(arg0 context.Context, arg1 charm.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCharmAvailable", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsCharmAvailable indicates an expected call of IsCharmAvailable.
+func (mr *MockApplicationServiceMockRecorder) IsCharmAvailable(arg0, arg1 any) *MockApplicationServiceIsCharmAvailableCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCharmAvailable", reflect.TypeOf((*MockApplicationService)(nil).IsCharmAvailable), arg0, arg1)
+	return &MockApplicationServiceIsCharmAvailableCall{Call: call}
+}
+
+// MockApplicationServiceIsCharmAvailableCall wrap *gomock.Call
+type MockApplicationServiceIsCharmAvailableCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsCharmAvailableCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsCharmAvailableCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsCharmAvailableCall) Do(f func(context.Context, charm.ID) (bool, error)) *MockApplicationServiceIsCharmAvailableCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsCharmAvailableCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockApplicationServiceIsCharmAvailableCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationScale mocks base method.
 func (m *MockApplicationService) SetApplicationScale(arg0 context.Context, arg1 string, arg2 int) error {
 	m.ctrl.T.Helper()

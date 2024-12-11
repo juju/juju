@@ -198,7 +198,7 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 		return params.CharmOriginResult{}, err
 	}
 
-	a.logger.Tracef("AddCharm %+v", args)
+	a.logger.Debugf("AddCharm request: %+v", args)
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
@@ -216,6 +216,9 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
+
+	a.logger.Debugf("AddCharm result: %+v", origin)
+
 	return params.CharmOriginResult{
 		Origin: origin,
 	}, nil
@@ -250,9 +253,6 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 	essentialMetadata := resolved.EssentialMetadata
 
 	// Dual write this to state, this will be removed soon.
-	if _, err := a.backendState.Charm(args.URL); err == nil {
-		return essentialMetadata.ResolvedOrigin, errors.Trace(err)
-	}
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
 		Charm: corecharm.NewCharmInfoAdaptor(essentialMetadata),
 		ID:    args.URL,
@@ -272,6 +272,7 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 		ReferenceName: charmURL.Name,
 		Revision:      revision,
 		Hash:          essentialMetadata.ResolvedOrigin.Hash,
+		Architecture:  essentialMetadata.ResolvedOrigin.Platform.Architecture,
 		DownloadInfo: &applicationcharm.DownloadInfo{
 			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: essentialMetadata.DownloadInfo.CharmhubIdentifier,
