@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -570,7 +569,7 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 		return "", "", errors.Errorf("expected %d bytes, got %d", expectedSize, size)
 	}
 
-	sha256 := fmt.Sprintf("%x", hasher256.Sum(nil))
+	sha256 := hex.EncodeToString(hasher256.Sum(nil))
 	sha384 := hex.EncodeToString(hasher384.Sum(nil))
 	return sha256, sha384, nil
 }
