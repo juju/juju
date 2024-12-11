@@ -9,13 +9,14 @@ import (
 	"io"
 
 	"github.com/im7mortal/kmutex"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/state"
 )
 
@@ -36,7 +37,38 @@ func NewResourceOpener(
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName string,
 ) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(args, resourceDownloadLimiterFunc, unitName, "")
+	unit, err := args.State.Unit(unitName)
+	if err != nil {
+		return nil, errors.Errorf("loading unit: %w", err)
+	}
+
+	applicationName := unit.ApplicationName()
+	application, err := args.State.Application(applicationName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	chURLStr := unit.CharmURL()
+	if chURLStr == nil {
+		return nil, errors.Errorf("missing charm URL for %q", applicationName)
+	}
+
+	charmURL, err := charm.ParseURL(*chURLStr)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return &ResourceOpener{
+		state:                       args.State.Resources(args.Store),
+		modelUUID:                   args.State.ModelUUID(),
+		resourceClientGetter:        newClientGetter(charmURL, args.ModelConfigService),
+		retrievedBy:                 unit.Tag(),
+		charmURL:                    charmURL,
+		charmOrigin:                 *application.CharmOrigin(),
+		appName:                     applicationName,
+		unitName:                    unitName,
+		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
+	}, nil
 }
 
 // NewResourceOpenerForApplication returns a new resource.Opener for the given app.
@@ -47,16 +79,53 @@ func NewResourceOpenerForApplication(
 	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener resource.Opener, err error) {
-	return newInternalResourceOpener(args, func() ResourceDownloadLock {
-		return noopDownloadResourceLocker{}
-	}, "", applicationName)
+	application, err := args.State.Application(applicationName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	chURLStr, _ := application.CharmURL()
+	if chURLStr == nil {
+		return nil, errors.Errorf("missing charm URL for %q", applicationName)
+	}
+
+	charmURL, err := charm.ParseURL(*chURLStr)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return &ResourceOpener{
+		state:                args.State.Resources(args.Store),
+		modelUUID:            args.State.ModelUUID(),
+		resourceClientGetter: newClientGetter(charmURL, args.ModelConfigService),
+		retrievedBy:          application.Tag(),
+		charmURL:             charmURL,
+		charmOrigin:          *application.CharmOrigin(),
+		appName:              applicationName,
+		unitName:             "",
+		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
+			return noopDownloadResourceLocker{}
+		},
+	}, nil
+}
+
+func newClientGetter(charmURL *charm.URL, modelConfigService ModelConfigService) resourceClientGetterFunc {
+	var clientGetter resourceClientGetterFunc
+	switch {
+	case charm.CharmHub.Matches(charmURL.Schema):
+		clientGetter = newCharmHubOpener(modelConfigService)
+	default:
+		// Use the no-op opener that returns a not-found error when called.
+		clientGetter = newNoopOpener()
+	}
+	return clientGetter
 }
 
 // noopDownloadResourceLocker is a no-op download resource locker.
 type noopDownloadResourceLocker struct{}
 
 // Acquire grabs the lock for a given application so long as the
-// per application limit is not exceeded and total across all
+// per-application limit is not exceeded and total across all
 // applications does not exceed the global limit.
 func (noopDownloadResourceLocker) Acquire(string) {}
 
@@ -65,135 +134,46 @@ func (noopDownloadResourceLocker) Release(appName string) {}
 
 type resourceClientGetterFunc func(ctx context.Context) (*ResourceRetryClient, error)
 
-func newInternalResourceOpener(
-	args ResourceOpenerArgs,
-	resourceDownloadLimiterFunc func() ResourceDownloadLock,
-	unitName, appName string,
-) (opener resource.Opener, err error) {
-	var unit *state.Unit
-	if unitName != "" {
-		unit, err = args.State.Unit(unitName)
-		if err != nil {
-			return nil, errors.Annotate(err, "loading unit")
-		}
-	}
-
-	if appName == "" {
-		if unit == nil {
-			return nil, errors.Errorf("missing both unit and application")
-		}
-		appName = unit.ApplicationName()
-	}
-	application, err := args.State.Application(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var chURLStr *string
-	if unit != nil {
-		chURLStr = unit.CharmURL()
-	} else {
-		chURLStr, _ = application.CharmURL()
-	}
-	if chURLStr == nil {
-		return nil, errors.Errorf("missing charm URL for %q", appName)
-	}
-	charmURL, err := charm.ParseURL(*chURLStr)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clientGetter resourceClientGetterFunc
-	switch {
-	case charm.CharmHub.Matches(charmURL.Schema):
-		clientGetter = newCharmHubOpener(args.ModelConfigService)
-	default:
-		// Use the nop opener that performs no store side requests. Instead it
-		// will resort to using the state package only. Any thing else will call
-		// a not-found error.
-		clientGetter = newNopOpener()
-	}
-
-	var userID names.Tag
-	if unit != nil {
-		userID = unit.Tag()
-	} else {
-		userID = application.Tag()
-	}
-
-	return &ResourceOpener{
-		resourceCache:               args.State.Resources(args.Store),
-		modelUUID:                   args.State.ModelUUID(),
-		resourceClientGetter:        clientGetter,
-		user:                        userID,
-		charmURL:                    charmURL,
-		charmOrigin:                 *application.CharmOrigin(),
-		appName:                     appName,
-		unitName:                    unitName,
-		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
-	}, nil
-}
-
-// ResourceOpener is a ResourceOpener for charmhub.
-// It will first look in the supplied cache for the
-// requested resource.
+// ResourceOpener is a ResourceOpener for charmhub. It will first look on the
+// controller for the requested resource.
 type ResourceOpener struct {
-	modelUUID     string
-	resourceCache Resources
-	user          names.Tag
-	charmURL      *charm.URL
-	charmOrigin   state.CharmOrigin
-	appName       string
-	unitName      string
+	modelUUID   string
+	state       DeprecatedResourcesState
+	retrievedBy names.Tag
+	charmURL    *charm.URL
+	charmOrigin state.CharmOrigin
+	appName     string
+	unitName    string
 
 	resourceClientGetter        resourceClientGetterFunc
 	resourceDownloadLimiterFunc func() ResourceDownloadLock
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *ResourceOpener) OpenResource(ctx context.Context, name string) (o resource.Opened, err error) {
-	if ro.appName == "" {
-		return resource.Opened{}, errors.Errorf("missing application")
-	}
-
+func (ro ResourceOpener) OpenResource(ctx context.Context, name string) (opener resource.Opened, err error) {
 	appKey := fmt.Sprintf("%s:%s", ro.modelUUID, ro.appName)
-	limiter := ro.resourceDownloadLimiterFunc()
-	limiter.Acquire(appKey)
+	lock := ro.resourceDownloadLimiterFunc()
+	lock.Acquire(appKey)
 
 	done := func() {
-		limiter.Release(appKey)
-	}
-	res, reader, err := ro.getResource(ctx, name, done)
-	if err != nil {
-		return resource.Opened{}, errors.Trace(err)
+		lock.Release(appKey)
 	}
 
-	opened := resource.Opened{
-		Resource:   res,
-		ReadCloser: reader,
-	}
-	return opened, nil
+	return ro.getResource(ctx, name, done)
 }
 
-// TODO(juju3): use raft to lock the resource for writes.
 var resourceMutex = kmutex.New()
 
-// GetResource returns a reader for the resource's data. That data is
-// streamed from charmhub.
+// getResource returns a reader for the resource's data.
 //
-// If a cache is set up then the resource is read from there. If the
-// resource is not in the cache at all then errors.NotFound is returned.
-// If only the resource's details are in the cache (but not the actual
-// file) then the file is read from charmhub. In that case the
-// cache is updated to contain the file too.
-func (ro ResourceOpener) getResource(ctx context.Context, resName string, done func()) (_ resource.Resource, rdr io.ReadCloser, err error) {
+// If the resource is already stored on to the controller then the resource is
+// read from there. Otherwise, it is downloaded from charmhub and saved on the
+// controller. If the resource cannot be found by name then [errors.NotFound] is
+// returned.
+func (ro ResourceOpener) getResource(ctx context.Context, resName string, done func()) (opened resource.Opened, err error) {
 	defer func() {
-		if err == nil {
-			rdr = &resourceAccess{
-				ReadCloser: rdr,
-				done:       done,
-			}
-		} else {
+		// Call done if not returning a ReadCloser that calls done on Close.
+		if err != nil {
 			done()
 		}
 	}()
@@ -203,18 +183,27 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 	locker.Lock()
 	defer locker.Unlock()
 
-	res, reader, err := ro.get(resName)
-	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
-	}
-	if reader != nil {
-		// Both the info *and* the data were found in the cache.
-		return res, reader, nil
+	// Try and open the resource.
+	res, reader, err := ro.open(resName)
+	if err != nil && !errors.Is(err, jujuerrors.NotFound) {
+		return resource.Opened{}, errors.Capture(err)
+	} else if err == nil {
+		// If the resource was stored on the controller, return immediately.
+		return resource.Opened{
+			Resource: res,
+			ReadCloser: &resourceAccess{
+				ReadCloser: reader,
+				done:       done,
+			},
+		}, nil
 	}
 
-	// Otherwise, just the info was found in the cache. So we read the
-	// data from charmhub through a new resourceClient and set the data
-	// for the resource in the cache.
+	// The resource could not be opened, so may not be stored on the controller,
+	// get the resource info and download from charmhub.
+	res, err = ro.state.GetResource(ro.appName, resName)
+	if err != nil {
+		return resource.Opened{}, errors.Capture(err)
+	}
 
 	id := CharmID{
 		URL:    ro.charmURL,
@@ -228,61 +217,40 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 
 	client, err := ro.resourceClientGetter(ctx)
 	data, err := client.GetResource(req)
-	// (anastasiamac 2017-05-25) This might not work all the time
-	// as the error types may be lost after call to some clients, for example http.
-	// But for these cases, the next block will bubble an un-annotated error up.
-	if errors.Is(err, errors.NotFound) {
-		msg := "while getting resource from charmhub"
-		return resource.Resource{}, nil, errors.Annotate(err, msg)
+	if errors.Is(err, jujuerrors.NotFound) {
+		// A NotFound error might not be detectable from some clients as the
+		// error types may be lost after call, for example http. For these
+		// cases, the next block will return un-annotated error.
+		return resource.Opened{}, errors.Errorf("getting resource from charmhub: %w", err)
 	}
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Opened{}, errors.Capture(err)
 	}
-	res, reader, err = ro.set(data.Resource, data, state.DoNotIncrementCharmModifiedVersion)
+	res, reader, err = ro.set(data.Resource, data)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Opened{}, errors.Capture(err)
 	}
 
-	return res, reader, nil
-}
-
-// get retrieves the resource info and data from a repo. If only
-// the info is found then the returned reader will be nil. If a
-// repo is not in use then errors.NotFound is returned.
-func (ro ResourceOpener) get(name string) (resource.Resource, io.ReadCloser, error) {
-	if ro.resourceCache == nil {
-		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
-	}
-
-	res, reader, err := ro.open(name)
-	if errors.Is(err, errors.NotFound) {
-		reader = nil
-		res, err = ro.resourceCache.GetResource(ro.appName, name)
-	}
-	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
-	}
-
-	return res, reader, nil
+	return resource.Opened{
+		Resource: res,
+		ReadCloser: &resourceAccess{
+			ReadCloser: reader,
+			done:       done,
+		},
+	}, nil
 }
 
 func (ro ResourceOpener) open(resName string) (resource.Resource, io.ReadCloser, error) {
 	if ro.unitName == "" {
-		return ro.resourceCache.OpenResource(ro.appName, resName)
+		return ro.state.OpenResource(ro.appName, resName)
 	}
-	return ro.resourceCache.OpenResourceForUniter(ro.unitName, resName)
+	return ro.state.OpenResourceForUniter(ro.unitName, resName)
 }
 
-// set stores the resource info and data in a repo, if there is one.
-// If no repo is in use then this is a no-op. Note that the returned
-// reader may or may not be the same one that was passed in.
-func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser, incrementCharmModifiedVersion state.IncrementCharmModifiedVersionType) (_ resource.Resource, _ io.ReadCloser, err error) {
-	if ro.resourceCache == nil {
-		res := resource.Resource{
-			Resource: chRes,
-		}
-		return res, reader, nil // a no-op
-	}
+// set stores the resource info and data on the controller.
+// Note that the returned reader may or may not be the same one that was passed
+// in.
+func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser) (_ resource.Resource, _ io.ReadCloser, err error) {
 	defer func() {
 		if err != nil {
 			// With no err, the reader was closed down in unitSetter Read().
@@ -291,16 +259,15 @@ func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser,
 			_ = reader.Close()
 		}
 	}()
-	appName := ro.appName
-	res, err := ro.resourceCache.SetResource(appName, ro.user.Id(), chRes, reader, incrementCharmModifiedVersion)
+	res, err := ro.state.SetResource(ro.appName, ro.retrievedBy.Id(), chRes, reader, state.DoNotIncrementCharmModifiedVersion)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Capture(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
 	res, reader, err = ro.open(res.Name)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Capture(err)
 	}
 
 	return res, reader, nil
@@ -341,31 +308,31 @@ type CharmID struct {
 	Origin state.CharmOrigin
 }
 
-// nopOpener is a type for creating no resource requests for accessing local
+// noopOpener is a type for creating no resource requests for accessing local
 // charm resources.
-type nopOpener struct{}
+type noopOpener struct{}
 
-// newNopOpener creates a new nopOpener that creates a new resourceClient. The new
-// nopClient performs no operations for getting resources.
-func newNopOpener() resourceClientGetterFunc {
-	no := &nopOpener{}
+// newNoopOpener creates a new noopOpener that creates a new resourceClient. The new
+// noopClient performs no operations for getting resources.
+func newNoopOpener() resourceClientGetterFunc {
+	no := &noopOpener{}
 	return no.NewClient
 }
 
 // NewClient opens a new charmhub resourceClient.
-func (o *nopOpener) NewClient(context.Context) (*ResourceRetryClient, error) {
-	return newRetryClient(nopClient{}), nil
+func (o *noopOpener) NewClient(context.Context) (*ResourceRetryClient, error) {
+	return newRetryClient(noopClient{}), nil
 }
 
-// nopClient implements a resourceClient for accessing resources from a given store,
+// noopClient implements a resourceClient for accessing resources from a given store,
 // except this implementation performs no operations and instead returns a
 // not-found error. This ensures that no outbound requests are used for
 // scenarios covering local charms.
-type nopClient struct{}
+type noopClient struct{}
 
 // GetResource is a no-op resourceClient implementation of a ResourceGetter. The
 // implementation expects to never call the underlying resourceClient and instead
 // returns a not-found error straight away.
-func (nopClient) GetResource(req ResourceRequest) (ResourceData, error) {
-	return ResourceData{}, errors.NotFoundf("resource %q", req.Name)
+func (noopClient) GetResource(req ResourceRequest) (ResourceData, error) {
+	return ResourceData{}, jujuerrors.NotFoundf("resource %q", req.Name)
 }
