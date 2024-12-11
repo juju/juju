@@ -8,10 +8,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/juju/juju/core/database/schema"
 	jc "github.com/juju/testing/checkers"
-
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/database/schema"
 )
 
 type charmSchemaSuite struct {

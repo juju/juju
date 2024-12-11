@@ -8,13 +8,13 @@ import (
 	"database/sql"
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v4"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/core/database/schema"
 	coresecrets "github.com/juju/juju/core/secrets"
 	databasetesting "github.com/juju/juju/internal/database/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
-
-	gc "gopkg.in/check.v1"
 )
 
 type secretSchemaSuite struct {
