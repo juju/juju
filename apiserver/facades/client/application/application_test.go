@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -22,6 +23,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -382,10 +384,14 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	s.setupAPI(c)
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 2)
-	s.expectCharmMeta("foo", 7)
+	s.expectCharmMeta("foo", map[string]resource.Meta{
+		"bar": {
+			Name: "bar",
+		},
+	}, 8)
 	s.expectReadSequence("foo", 1)
 	s.expectAddApplication()
-	s.expectCreateApplication("foo")
+	s.expectCreateApplication("foo", []string{"bar"})
 
 	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
@@ -475,12 +481,26 @@ func (s *applicationSuite) expectAddApplication() {
 	s.backend.EXPECT().AddApplication(gomock.Any(), s.objectStore).Return(s.application, nil)
 }
 
-func (s *applicationSuite) expectCreateApplication(name string) {
+func (s *applicationSuite) expectCreateApplication(name string, resources []string) {
 	s.applicationService.EXPECT().CreateApplication(gomock.Any(),
 		name,
 		gomock.Any(),
 		gomock.Any(),
-		gomock.Any(),
+		gomock.Cond(func(x any) bool {
+			args, ok := x.(applicationservice.AddApplicationArgs)
+			if !ok {
+				return false
+			}
+			names := set.NewStrings()
+			for _, res := range args.ResolvedResources {
+				if res.Origin != resource.OriginUpload || res.Revision != nil {
+					return false
+				}
+				names.Add(res.Name)
+			}
+			input := set.NewStrings(resources...)
+			return len(names.Difference(input)) == 0 && len(input.Difference(names)) == 0
+		}),
 	).Return(application.ID("app-"+name), nil)
 }
 
@@ -531,9 +551,10 @@ options:
 	s.charm.EXPECT().Config().Return(cfg).Times(times)
 }
 
-func (s *applicationSuite) expectCharmMeta(name string, times int) {
+func (s *applicationSuite) expectCharmMeta(name string, resources map[string]resource.Meta, times int) {
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
-		Name: name,
+		Name:      name,
+		Resources: resources,
 	}).Times(times)
 }
 
