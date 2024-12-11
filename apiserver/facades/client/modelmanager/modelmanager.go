@@ -1169,13 +1169,21 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		info.AgentVersion = &agentVersion
 	}
 
-	status, err := model.Status()
+	status, err := modelInfoService.GetStatus(ctx)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
-	if err == nil {
-		entityStatus := common.EntityStatusFromState(status)
-		info.Status = entityStatus
+
+	// Translate domain model status to params entity status. We put reason
+	// into the data map as this is where the contract to the client expects
+	// this value at the moment.
+	info.Status = params.EntityStatus{
+		Status: status.Status,
+		Info:   status.Message,
+		Data: map[string]interface{}{
+			"reason": status.Reason,
+		},
+		Since: &status.Since,
 	}
 
 	modelAdmin := m.isModelAdmin(ctx, tag)
