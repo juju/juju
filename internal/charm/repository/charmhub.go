@@ -853,53 +853,6 @@ func configsByName(curl *charm.URL, origin corecharm.Origin, name string, revisi
 	return configs, nil
 }
 
-// GetEssentialMetadata resolves each provided MetadataRequest and returns back
-// a slice with the results. The results include the minimum set of metadata
-// that is required for deploying each charm.
-func (c *CharmHubRepository) GetEssentialMetadata(ctx context.Context, reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
-	if len(reqs) == 0 {
-		return nil, nil
-	}
-
-	resolvedOrigins := make([]corecharm.Origin, len(reqs))
-	refreshCfgs := make([]charmhub.RefreshConfig, len(reqs))
-	for reqIdx, req := range reqs {
-		// TODO(achilleasa): We should add support for resolving origin
-		// batches and move this outside the loop.
-		resolved, err := c.ResolveWithPreferredChannel(ctx, req.CharmName, req.Origin)
-		if err != nil {
-			return nil, errors.Annotatef(err, "resolving origin for %q", req.CharmName)
-		}
-
-		resolvedOrigin := resolved.Origin
-
-		refreshCfg, err := refreshConfig(req.CharmName, resolvedOrigin)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		resolvedOrigins[reqIdx] = resolvedOrigin
-		refreshCfgs[reqIdx] = refreshCfg
-	}
-
-	refreshResults, err := c.client.Refresh(ctx, charmhub.RefreshMany(refreshCfgs...))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var metaRes = make([]corecharm.EssentialMetadata, len(reqs))
-	for resIdx, refreshResult := range refreshResults {
-		essMeta, err := transformRefreshResult(reqs[resIdx].CharmName, refreshResult)
-		if err != nil {
-			return nil, err
-		}
-		essMeta.ResolvedOrigin = resolvedOrigins[resIdx]
-		metaRes[resIdx] = essMeta
-	}
-
-	return metaRes, nil
-}
-
 func (c *CharmHubRepository) refreshOne(ctx context.Context, charmName string, origin corecharm.Origin) (transport.RefreshResponse, error) {
 	cfg, err := refreshConfig(charmName, origin)
 	if err != nil {

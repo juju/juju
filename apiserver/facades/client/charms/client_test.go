@@ -201,7 +201,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	// Charmhub charms are downloaded asynchronously
 	defer s.setupMocks(c).Finish()
 
-	curl := "chtest"
+	curl := charm.MustParseURL("chtest")
 
 	requestedOrigin := corecharm.Origin{
 		Source: "charm-hub",
@@ -224,17 +224,18 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
+	s.state.EXPECT().Charm(curl.String()).Return(nil, errors.NotFoundf("%q", curl))
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
 
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
 	expConfig := new(charm.Config)
-	s.repository.EXPECT().GetEssentialMetadata(gomock.Any(), corecharm.MetadataRequest{
-		CharmName: curl,
-		Origin:    requestedOrigin,
-	}).Return([]corecharm.EssentialMetadata{
-		{
+	s.repository.EXPECT().ResolveForDeploy(gomock.Any(), corecharm.CharmID{
+		URL:    curl,
+		Origin: requestedOrigin,
+	}).Return(corecharm.ResolvedDataForDeploy{
+		URL: curl,
+		EssentialMetadata: corecharm.EssentialMetadata{
 			Meta:           expMeta,
 			Manifest:       expManifest,
 			Config:         expConfig,
@@ -244,27 +245,27 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 
 	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
 		func(ci state.CharmInfo) (*state.Charm, error) {
-			c.Assert(ci.ID, gc.DeepEquals, curl)
+			c.Check(ci.ID, gc.DeepEquals, curl.String())
 			// Check that the essential metadata matches what
 			// the repository returned. We use pointer checks here.
-			c.Assert(ci.Charm.Meta(), gc.Equals, expMeta)
-			c.Assert(ci.Charm.Manifest(), gc.Equals, expManifest)
-			c.Assert(ci.Charm.Config(), gc.Equals, expConfig)
+			c.Check(ci.Charm.Meta(), gc.Equals, expMeta)
+			c.Check(ci.Charm.Manifest(), gc.Equals, expManifest)
+			c.Check(ci.Charm.Config(), gc.Equals, expConfig)
 			return nil, nil
 		},
 	)
 
 	s.applicationService.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.SetCharmArgs) (corecharm.ID, []string, error) {
-		c.Assert(args.Charm.Meta(), gc.Equals, expMeta)
-		c.Assert(args.Charm.Manifest(), gc.Equals, expManifest)
-		c.Assert(args.Charm.Config(), gc.Equals, expConfig)
+		c.Check(args.Charm.Meta(), gc.Equals, expMeta)
+		c.Check(args.Charm.Manifest(), gc.Equals, expManifest)
+		c.Check(args.Charm.Config(), gc.Equals, expConfig)
 		return corecharm.ID(""), nil, nil
 	})
 
 	api := s.api(c)
 
 	args := params.AddCharmWithOrigin{
-		URL: curl,
+		URL: curl.String(),
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
 			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
