@@ -602,13 +602,11 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 	// The following nic is found, so we don't create a default nic and so
 	// don't update the profile with the nic.
 	profile := &api.Profile{
-		ProfilePut: api.ProfilePut{
-			Devices: map[string]map[string]string{
-				"eth0": {
-					"type":    "nic",
-					"nictype": "bridged",
-					"parent":  "lxdbr1",
-				},
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  "lxdbr1",
 			},
 		},
 	}
@@ -651,10 +649,8 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 	// If no nics are found in the profile, then the configureLXDBridge will
 	// create a default nic for you.
 	profile := &api.Profile{
-		Name: lxdDefaultProfileName,
-		ProfilePut: api.ProfilePut{
-			Devices: map[string]map[string]string{},
-		},
+		Name:    lxdDefaultProfileName,
+		Devices: map[string]map[string]string{},
 	}
 	network := &api.Network{
 		Managed: false,

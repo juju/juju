@@ -75,9 +75,10 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	}
 	c.Assert(metrics, gc.HasLen, 5)
 
-	var dtoMetrics [5]dto.Metric
+	var dtoMetrics [5]*dto.Metric
 	for i, metric := range metrics {
-		err := metric.Write(&dtoMetrics[i])
+		dtoMetrics[i] = &dto.Metric{}
+		err := metric.Write(dtoMetrics[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -87,7 +88,7 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	labelpair := func(n, v string) *dto.LabelPair {
 		return &dto.LabelPair{Name: &n, Value: &v}
 	}
-	expected := []dto.Metric{
+	expected := []*dto.Metric{
 		{
 			Counter: &dto.Counter{Value: float64ptr(1)},
 			Label: []*dto.LabelPair{
@@ -135,6 +136,16 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 		},
 	}
 	for _, dm := range dtoMetrics {
+		dm.TimestampMs = nil
+		if dm.Counter != nil {
+			dm.Counter.CreatedTimestamp = nil
+		}
+		if dm.Histogram != nil {
+			dm.Histogram.CreatedTimestamp = nil
+		}
+		if dm.Summary != nil {
+			dm.Summary.CreatedTimestamp = nil
+		}
 		var found bool
 		for i, m := range expected {
 			if !reflect.DeepEqual(dm, m) {

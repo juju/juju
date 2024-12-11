@@ -66,7 +66,7 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 		s.collector.Collect(ch)
 	}()
 
-	var dtoMetrics [8]dto.Metric
+	var dtoMetrics [8]*dto.Metric
 	var metrics []prometheus.Metric
 	for metric := range ch {
 		metrics = append(metrics, metric)
@@ -74,7 +74,8 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 	c.Assert(metrics, gc.HasLen, len(dtoMetrics))
 
 	for i, metric := range metrics {
-		err := metric.Write(&dtoMetrics[i])
+		dtoMetrics[i] = &dto.Metric{}
+		err := metric.Write(dtoMetrics[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -87,7 +88,7 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 	labelpair := func(n, v string) *dto.LabelPair {
 		return &dto.LabelPair{Name: &n, Value: &v}
 	}
-	expected := []dto.Metric{{
+	expected := []*dto.Metric{{
 		Counter: &dto.Counter{Value: float64ptr(3)},
 		Label: []*dto.LabelPair{
 			labelpair("failed", ""),
@@ -197,6 +198,16 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 		},
 	}}
 	for _, dm := range dtoMetrics {
+		dm.TimestampMs = nil
+		if dm.Counter != nil {
+			dm.Counter.CreatedTimestamp = nil
+		}
+		if dm.Histogram != nil {
+			dm.Histogram.CreatedTimestamp = nil
+		}
+		if dm.Summary != nil {
+			dm.Summary.CreatedTimestamp = nil
+		}
 		var found bool
 		for i, m := range expected {
 			if !reflect.DeepEqual(dm, m) {
