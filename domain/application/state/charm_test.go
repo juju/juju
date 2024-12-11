@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,8 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -87,6 +90,95 @@ VALUES (?, 'foo')`, id.String())
 	charmID, err := st.GetCharmID(context.Background(), "foo", 1, charm.LocalSource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(charmID, gc.Equals, id)
+}
+
+func (s *charmStateSuite) TestSetCharmObjectStoreUUID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock,
+		loggertesting.WrapCheckLog(c))
+
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	expected := charm.Metadata{
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)
+`, objectStoreUUID.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata:        expected,
+		Manifest:        s.minimalManifest(c),
+		Source:          charm.LocalSource,
+		Revision:        42,
+		ReferenceName:   "foo",
+		Hash:            "hash",
+		Version:         "deadbeef",
+		ObjectStoreUUID: objectStoreUUID,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var resultObjectStoreUUID objectstore.UUID
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id.String()})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resultObjectStoreUUID = ch.ObjectStoreUUID
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resultObjectStoreUUID, gc.Equals, objectStoreUUID)
+}
+
+func (s *charmStateSuite) TestSetCharmWithoutObjectStoreUUID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock,
+		loggertesting.WrapCheckLog(c))
+
+	expected := charm.Metadata{
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	// The archive path is empty, so it's not immediately available.
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata:      expected,
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		Version:       "deadbeef",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var resultObjectStoreUUID objectstore.UUID
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id.String()})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resultObjectStoreUUID = ch.ObjectStoreUUID
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resultObjectStoreUUID, gc.Equals, objectstore.UUID(""))
 }
 
 func (s *charmStateSuite) TestSetCharmNotAvailable(c *gc.C) {

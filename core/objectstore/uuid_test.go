@@ -18,7 +18,7 @@ type ObjectStoreUUIDSuite struct {
 
 var _ = gc.Suite(&ObjectStoreUUIDSuite{})
 
-func (*ObjectStoreUUIDSuite) TestIDValidate(c *gc.C) {
+func (*ObjectStoreUUIDSuite) TestUUIDValidate(c *gc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -46,5 +46,32 @@ func (*ObjectStoreUUIDSuite) TestIDValidate(c *gc.C) {
 		}
 
 		c.Check(err, jc.ErrorIs, test.err)
+	}
+}
+
+func (*ObjectStoreUUIDSuite) TestUUIDIsEmpty(c *gc.C) {
+	tests := []struct {
+		uuid  string
+		value bool
+	}{
+		{
+			uuid:  "",
+			value: true,
+		},
+		{
+			uuid:  "invalid",
+			value: false,
+		},
+		{
+			uuid:  uuid.MustNewUUID().String(),
+			value: false,
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.uuid)
+		empty := UUID(test.uuid).IsEmpty()
+
+		c.Check(empty, gc.Equals, test.value)
 	}
 }

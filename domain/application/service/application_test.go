@@ -56,6 +56,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	u := application.AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -80,11 +81,12 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 			Name:  "ubuntu",
 			RunAs: "default",
 		},
-		Manifest:      s.minimalManifest(c),
-		ReferenceName: "ubuntu",
-		Source:        domaincharm.CharmHubSource,
-		Revision:      42,
-		Architecture:  architecture.ARM64,
+		Manifest:        s.minimalManifest(c),
+		ReferenceName:   "ubuntu",
+		Source:          domaincharm.CharmHubSource,
+		Revision:        42,
+		Architecture:    architecture.ARM64,
+		ObjectStoreUUID: objectStoreUUID,
 	}
 	platform := application.Platform{
 		Channel:      "24.04",
@@ -139,6 +141,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
+		CharmObjectStoreUUID: objectStoreUUID,
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
