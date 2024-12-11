@@ -6,11 +6,9 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -33,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
-	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 
@@ -136,23 +133,32 @@ func (s *deployerSuite) TestDeployLocalCharmThatDoesNotExist(c *gc.C) {
 func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// When deploying the local charm, ensure that we get the returned charm URL
-	// and the origin with the correct architecture and `/stable` suffix
-	// on the origin channel.
-
 	cfg := s.newConfig(c)
-	s.ensureControllerCharm(c, cfg.DataDir)
+	archivePath, archiveSize := s.ensureControllerCharm(c, cfg.DataDir)
 
-	s.expectLocalCharmUpload(c)
+	hash := "edd4580b1d913ff312aa842b8be3ed743cc04c14633b51fb55db6332a299ae07"
+
+	s.applicationService.EXPECT().ResolveControllerCharmDownload(gomock.Any(), domainapplication.ResolveControllerCharmDownload{
+		SHA256: hash,
+		SHA384: "8f108ec3b0b858c07cb36c8ef7738682f3914673f31f775867af7679d37b7c4d65fed1adb5a04dc4f0aae85f9db6a062",
+		Path:   archivePath,
+		Size:   archiveSize,
+	}).Return(domainapplication.ResolvedControllerCharmDownload{
+		Charm:           s.charm,
+		ArchivePath:     "path",
+		ObjectStoreUUID: "1234",
+	}, nil)
 
 	deployer := s.newBaseDeployer(c, cfg)
 
 	info, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.URL.String(), gc.Equals, "local:arm64/juju-controller-0")
+	c.Assert(info.URL.String(), gc.Equals, "local:juju-controller-0")
 	c.Assert(info.Origin, gc.DeepEquals, &corecharm.Origin{
-		Source: corecharm.Local,
-		Type:   "charm",
+		Source:   corecharm.Local,
+		Type:     "charm",
+		Hash:     hash,
+		Revision: ptr(0),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
@@ -305,7 +311,8 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 				DownloadURL:        "https://inferi.com",
 				DownloadSize:       42,
 			},
-			CharmStoragePath: "path",
+			CharmStoragePath:     "path",
+			CharmObjectStoreUUID: "1234",
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
@@ -344,7 +351,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	c.Assert(unit, gc.NotNil)
 }
 
-func (s *deployerSuite) ensureControllerCharm(c *gc.C, dataDir string) {
+func (s *deployerSuite) ensureControllerCharm(c *gc.C, dataDir string) (string, int64) {
 	// This will place the most basic charm (no hooks, no config, no actions)
 	// into the data dir so that we can test the local charm path.
 
@@ -368,8 +375,16 @@ description: Juju controller
 	c.Assert(err, jc.ErrorIsNil)
 
 	path = filepath.Join(path, bootstrap.ControllerCharmArchive)
-	err = os.WriteFile(path, buf.Bytes(), 0644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	c.Assert(err, jc.ErrorIsNil)
+
+	size, err := f.Write(buf.Bytes())
+	if err1 := f.Close(); err1 != nil && err == nil {
+		err = err1
+	}
+	c.Assert(err, jc.ErrorIsNil)
+
+	return path, int64(size)
 }
 
 func (s *deployerSuite) newBaseDeployer(c *gc.C, cfg BaseDeployerConfig) baseDeployer {
@@ -380,26 +395,6 @@ func (s *deployerSuite) newBaseDeployer(c *gc.C, cfg BaseDeployerConfig) baseDep
 	deployer.objectStore = s.objectStore
 
 	return deployer
-}
-
-func (s *deployerSuite) expectLocalCharmUpload(c *gc.C) {
-	s.charmUploader.EXPECT().PrepareLocalCharmUpload("local:juju-controller-0").Return(&charm.URL{
-		Schema:       "local",
-		Name:         "juju-controller",
-		Revision:     0,
-		Architecture: "arm64",
-	}, nil)
-	// Ensure that the charm uploaded to the object store is the one we expect.
-	s.objectStore.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, path string, reader io.Reader, size int64) (objectstore.UUID, error) {
-		c.Check(strings.HasPrefix(path, "charms/local:arm64/juju-controller-0"), jc.IsTrue)
-		return "", nil
-	})
-	s.charmUploader.EXPECT().UpdateUploadedCharm(gomock.Any()).DoAndReturn(func(info state.CharmInfo) (services.UploadedCharm, error) {
-		c.Check(info.ID, gc.Equals, "local:arm64/juju-controller-0")
-		c.Check(strings.HasPrefix(info.StoragePath, "charms/local:arm64/juju-controller-0"), jc.IsTrue)
-
-		return nil, nil
-	})
 }
 
 func (s *deployerSuite) expectDownloadAndResolve(c *gc.C, name string) {
