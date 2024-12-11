@@ -48,3 +48,18 @@ type ReadOnlyModel struct {
 	// controller model.
 	IsControllerModel bool
 }
+
+// ModelMetrics represents the metrics information set in the database.
+type ModelMetrics struct {
+	// Model returns the read only model.
+	Model ReadOnlyModel
+
+	// ApplicationCount is the number of applications in the model.
+	ApplicationCount int
+
+	// MachineCount is the number of machines in the model.
+	MachineCount int
+
+	// UnitCount is the number of units in the model.
+	UnitCount int
+}

@@ -8,75 +8,83 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/charmrevisionupdater"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/services"
 )
+
+// CharmhubClient is responsible for refreshing charms from the charm store.
+type CharmhubClient interface {
+}
+
+// NewCharmhubClientFunc is a function that creates a new CharmhubClient.
+type NewCharmhubClientFunc func(charmhub.HTTPClient, string, corelogger.Logger) (CharmhubClient, error)
+
+// NewHTTPClientFunc is a function that creates a new HTTP client.
+type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehttp.HTTPClient, error)
 
 // ManifoldConfig describes how to create a worker that checks for updates
 // available to deployed charms in an environment.
 type ManifoldConfig struct {
+	DomainServicesName string
+	Period             time.Duration
+	NewWorker          func(Config) (worker.Worker, error)
+	Logger             logger.Logger
+	Clock              clock.Clock
+}
 
-	// The named dependencies will be exposed to the start func as resources.
-	APICallerName string
-	Clock         clock.Clock
-
-	// The remaining dependencies will be used with the resources to configure
-	// and create the worker. The period must be greater than 0; the NewFacade
-	// and NewWorker fields must not be nil. charmrevision.NewWorker, and
-	// NewAPIFacade, are suitable implementations for most clients.
-	Period    time.Duration
-	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
-	Logger    logger.Logger
+// Validate is called by start to check for bad configuration.
+func (cfg ManifoldConfig) Validate() error {
+	if cfg.DomainServicesName == "" {
+		return jujuerrors.NotValidf("empty DomainServicesName")
+	}
+	if cfg.NewWorker == nil {
+		return jujuerrors.NotValidf("nil NewWorker")
+	}
+	if cfg.Logger == nil {
+		return jujuerrors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return jujuerrors.NotValidf("nil Clock")
+	}
+	return nil
 }
 
 // Manifold returns a dependency.Manifold that runs a charm revision worker
 // according to the supplied configuration.
-func Manifold(config ManifoldConfig) dependency.Manifold {
+func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			cfg.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			if config.Clock == nil {
-				return nil, errors.NotValidf("nil Clock")
-			}
-			var apiCaller base.APICaller
-			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
-				return nil, errors.Trace(err)
-			}
-			facade, err := config.NewFacade(apiCaller)
-			if err != nil {
-				return nil, errors.Annotatef(err, "cannot create facade")
+			if err := cfg.Validate(); err != nil {
+				return nil, errors.Capture(err)
 			}
 
-			worker, err := config.NewWorker(Config{
-				RevisionUpdater: facade,
-				Clock:           config.Clock,
-				Period:          config.Period,
-				Logger:          config.Logger,
+			var domainServices services.DomainServices
+			if err := getter.Get(cfg.DomainServicesName, &domainServices); err != nil {
+				return nil, errors.Capture(err)
+			}
+
+			worker, err := cfg.NewWorker(Config{
+				ModelConfigService: domainServices.Config(),
+				ApplicationService: domainServices.Application(),
+				Clock:              cfg.Clock,
+				Period:             cfg.Period,
+				Logger:             cfg.Logger,
 			})
 			if err != nil {
-				return nil, errors.Annotatef(err, "cannot create worker")
+				return nil, errors.Errorf("creating worker: %w", err)
 			}
 			return worker, nil
 		},
 	}
-}
-
-// NewAPIFacade returns a Facade backed by the supplied APICaller.
-var NewAPIFacade = newAPIFacade
-
-func newAPIFacade(apiCaller base.APICaller) (Facade, error) {
-	return charmrevisionupdater.NewClient(apiCaller), nil
-}
-
-// Facade has all the controller methods used by the charm revision worker.
-type Facade interface {
-	RevisionUpdater
 }
