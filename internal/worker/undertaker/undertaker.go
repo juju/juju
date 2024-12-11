@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/envcontext"
@@ -33,7 +32,6 @@ type Facade interface {
 	WatchModel(context.Context) (watcher.NotifyWatcher, error)
 	ProcessDyingModel(context.Context) error
 	RemoveModel(context.Context) error
-	SetStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error
 }
 
 // Config holds the resources and configuration necessary to run an
@@ -205,19 +203,6 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 	}
 
 	if info.Life == life.Dying {
-		// TODO(axw) 2016-04-14 #1570285
-		// We should update status with information
-		// about the remaining resources here, and
-		// also make the worker responsible for
-		// checking the emptiness criteria before
-		// attempting to remove the model.
-		if err := u.setStatus(
-			ctx,
-			status.Destroying,
-			"cleaning up cloud resources",
-		); err != nil {
-			return errors.Trace(err)
-		}
 		// Wait for the model to become empty.
 		if err := u.processDyingModel(ctx); err != nil {
 			u.config.Logger.Errorf("destroy model failed: %v", err)
@@ -279,19 +264,6 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 	if *info.DestroyTimeout == 0 {
 		u.config.Logger.Infof("skipping waiting for model to cleanly shutdown since timeout is 0")
 	} else if info.Life == life.Dying {
-		// TODO(axw) 2016-04-14 #1570285
-		// We should update status with information
-		// about the remaining resources here, and
-		// also make the worker responsible for
-		// checking the emptiness criteria before
-		// attempting to remove the model.
-		if err := u.setStatus(
-			ctx,
-			status.Destroying,
-			"cleaning up cloud resources",
-		); err != nil {
-			return errors.Trace(err)
-		}
 		proccessCtx, proccessCancel := context.WithCancel(ctx)
 		processTimer := u.config.Clock.AfterFunc(*info.DestroyTimeout, func() {
 			proccessCancel()
@@ -392,12 +364,6 @@ func (u *Undertaker) destroyEnviron(ctx context.Context, info params.UndertakerM
 	u.config.Logger.Debugf("destroying cloud resources for model %v", info.Name)
 	// Now the model is known to be hosted and dying, we can tidy up any
 	// provider resources it might have used.
-	if err := u.setStatus(
-		ctx,
-		status.Destroying, "tearing down cloud environment",
-	); err != nil {
-		return errors.Trace(err)
-	}
 
 	callCtx := common.NewCloudCallContextFunc(u.config.CredentialAPI)(ctx)
 	errChan := make(chan error)
@@ -444,10 +410,6 @@ out:
 	return fmt.Errorf("process destroy environ: %w", destroyErr)
 }
 
-func (u *Undertaker) setStatus(ctx context.Context, modelStatus status.Status, message string) error {
-	return u.config.Facade.SetStatus(ctx, modelStatus, message, nil)
-}
-
 func (u *Undertaker) processDyingModel(ctx context.Context) error {
 	watch, err := u.config.Facade.WatchModelResources(ctx)
 	if err != nil {
@@ -474,12 +436,6 @@ func (u *Undertaker) processDyingModel(ctx context.Context) error {
 			if !params.IsCodeModelNotEmpty(err) && !params.IsCodeHasHostedModels(err) {
 				return errors.Trace(err)
 			}
-			// Retry once there are changes to the model's resources.
-			_ = u.setStatus(
-				ctx,
-				status.Destroying,
-				fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err),
-			)
 
 			u.config.Logger.Debugf("attempt %d to destroy model failed (will retry):  %v", attempt, err)
 		}

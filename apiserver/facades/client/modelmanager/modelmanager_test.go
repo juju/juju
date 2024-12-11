@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
-	"github.com/juju/juju/domain/model"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -330,7 +330,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	).Return(user.User{UUID: ownerUUID}, nil)
 
 	// Create model in controller database.
-	s.modelService.EXPECT().CreateModel(gomock.Any(), model.ModelCreationArgs{
+	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.ModelCreationArgs{
 		Name:        modelCreateArgs.Name,
 		Owner:       ownerUUID,
 		Cloud:       expectedCloudName,
@@ -987,6 +987,7 @@ type modelManagerStateSuite struct {
 	controllerConfigService *mocks.MockControllerConfigService
 	accessService           *mocks.MockAccessService
 	modelService            *mocks.MockModelService
+	modelInfoService        *mocks.MockModelInfoService
 	applicationService      *mocks.MockApplicationService
 	domainServicesGetter    *mocks.MockDomainServicesGetter
 	blockCommandService     *mocks.MockBlockCommandService
@@ -1025,6 +1026,7 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
+	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.domainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 	s.blockCommandService = mocks.NewMockBlockCommandService(ctrl)
@@ -1100,7 +1102,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	).Return(user.User{UUID: ownerUUID}, nil)
 
 	// Create model in controller database.
-	s.modelService.EXPECT().CreateModel(gomock.Any(), model.ModelCreationArgs{
+	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.ModelCreationArgs{
 		Name:        modelCreateArgs.Name,
 		Owner:       ownerUUID,
 		Cloud:       "dummy",
@@ -1131,13 +1133,12 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	// Expect calls to get various model services.
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelConfigService := mocks.NewMockModelConfigService(ctrl)
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 	machineService := mocks.NewMockMachineService(ctrl)
 
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 	modelDomainServices.EXPECT().Config().Return(modelConfigService).AnyTimes()
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
+	modelDomainServices.EXPECT().ModelInfo().Return(s.modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Machine().Return(machineService)
 
@@ -1148,8 +1149,8 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
 	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
-	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		UUID: modelUUID,
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ReadOnlyModel data.
@@ -1452,6 +1453,8 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	// s.expectModelStatus(ctrl, domainmodel.StatusInfo{Status: status.Available})
+
 	// TODO(perrito666) Both users are admins in this case, this tesst is of dubious
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
@@ -1471,6 +1474,8 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	backend := common.NewModelManagerBackend(model, s.StatePool())
 
 	domainServices := s.ControllerDomainServices(c)
+
+	s.modelInfoService.EXPECT().Status(gomock.Any()).Return(domainmodel.StatusInfo{Status: status.Available}, nil)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),
