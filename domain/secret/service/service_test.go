@@ -43,6 +43,7 @@ type serviceSuite struct {
 	userSecretConfigGetter BackendUserSecretConfigGetter
 	secretsBackend         *MockSecretsBackend
 	secretsBackendProvider *MockSecretBackendProvider
+	ensurer                *MockEnsurer
 
 	state              *MockState
 	secretBackendState *MockSecretBackendState
@@ -94,6 +95,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.secretBackendState = NewMockSecretBackendState(ctrl)
 	s.secretsBackendProvider = NewMockSecretBackendProvider(ctrl)
 	s.secretsBackend = NewMockSecretsBackend(ctrl)
+	s.ensurer = NewMockEnsurer(ctrl)
 
 	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
 		return fn(domaintesting.NewAtomicContext(ctx))
@@ -102,19 +104,14 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.service = &SecretService{
 		secretState:            s.state,
 		secretBackendState:     s.secretBackendState,
-		logger:                 loggertesting.WrapCheckLog(c),
-		clock:                  s.clock,
 		providerGetter:         func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil },
+		leaderEnsurer:          s.ensurer,
 		userSecretConfigGetter: s.userSecretConfigGetter,
 		uuidGenerator:          func() (uuid.UUID, error) { return s.fakeUUID, nil },
+		clock:                  s.clock,
+		logger:                 loggertesting.WrapCheckLog(c),
 	}
 	return ctrl
-}
-
-type successfulToken struct{}
-
-func (t successfulToken) Check() error {
-	return nil
 }
 
 func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
@@ -361,7 +358,6 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 
 	err = s.service.CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
 		UpdateCharmSecretParams: UpdateCharmSecretParams{
-			LeaderToken: successfulToken{},
 			Accessor: SecretAccessor{
 				Kind: UnitAccessor,
 				ID:   "mariadb/0",
@@ -403,7 +399,6 @@ func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *gc.C
 
 	err = s.service.CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
 		UpdateCharmSecretParams: UpdateCharmSecretParams{
-			LeaderToken: successfulToken{},
 			Accessor: SecretAccessor{
 				Kind: UnitAccessor,
 				ID:   "mariadb/0",
@@ -445,6 +440,8 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 	appUUID, err := coreapplication.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
+
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 1, uri, appUUID, gomock.AssignableToTypeOf(p)).
@@ -466,7 +463,6 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 
 	err = s.service.CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
 		UpdateCharmSecretParams: UpdateCharmSecretParams{
-			LeaderToken: successfulToken{},
 			Accessor: SecretAccessor{
 				Kind: UnitAccessor,
 				ID:   "mariadb/0",
@@ -497,6 +493,8 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *gc.C
 	appUUID, err := coreapplication.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
+
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(true, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
@@ -508,7 +506,6 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *gc.C
 
 	err = s.service.CreateCharmSecret(context.Background(), uri, CreateCharmSecretParams{
 		UpdateCharmSecretParams: UpdateCharmSecretParams{
-			LeaderToken: successfulToken{},
 			Accessor: SecretAccessor{
 				Kind: UnitAccessor,
 				ID:   "mariadb/0",
@@ -564,7 +561,6 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 	s.state.EXPECT().UpdateSecret(domaintesting.IsAtomicContextChecker, uri, p).Return(nil)
 
 	err = s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -625,7 +621,6 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 	})
 
 	err = s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -667,7 +662,6 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwnedFailedLabelExists(c *gc.
 	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, unitUUID, "my secret").Return(true, nil)
 
 	err = s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -728,7 +722,6 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 	})
 
 	err = s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -770,7 +763,6 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *gc.C
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(true, nil)
 
 	err = s.service.UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1072,7 +1064,6 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.GrantSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "another/0",
@@ -1107,7 +1098,6 @@ func (s *serviceSuite) TestGrantSecretApplicationAccess(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.GrantSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "another/0",
@@ -1140,7 +1130,6 @@ func (s *serviceSuite) TestGrantSecretModelAccess(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.GrantSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: ModelAccessor,
 			ID:   "model-uuid",
@@ -1173,7 +1162,6 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.GrantSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "another/0",
@@ -1205,7 +1193,6 @@ func (s *serviceSuite) TestRevokeSecretUnitAccess(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mysql/0",
@@ -1232,7 +1219,6 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mysql/0",
@@ -1259,7 +1245,6 @@ func (s *serviceSuite) TestRevokeSecretModelAccess(c *gc.C) {
 	}).Return(nil)
 
 	err := s.service.RevokeSecretAccess(context.Background(), uri, SecretAccessParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: ModelAccessor,
 			ID:   "model-uuid",
@@ -1403,7 +1388,6 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
 	}, nil)
 
 	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1434,7 +1418,6 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
 	}, nil)
 
 	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1465,7 +1448,6 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 	}, nil)
 
 	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1481,6 +1463,8 @@ func (s *serviceSuite) TestChangeSecretBackendFailedPermissionDenied(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	ctx := context.Background()
+
+	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(badToken{})
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
@@ -1517,7 +1501,6 @@ func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
 	}, nil)
 
 	err := s.service.ChangeSecretBackend(ctx, uri, 1, ChangeSecretBackendParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1550,7 +1533,6 @@ func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
 	}, nil)
 
 	err := s.service.SecretRotated(ctx, uri, SecretRotatedParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1582,7 +1564,6 @@ func (s *serviceSuite) TestSecretsRotatedRetry(c *gc.C) {
 	}, nil)
 
 	err := s.service.SecretRotated(ctx, uri, SecretRotatedParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1615,7 +1596,6 @@ func (s *serviceSuite) TestSecretsRotatedForce(c *gc.C) {
 	}, nil)
 
 	err := s.service.SecretRotated(ctx, uri, SecretRotatedParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1641,7 +1621,6 @@ func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
 	}, nil)
 
 	err := s.service.SecretRotated(ctx, uri, SecretRotatedParams{
-		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",
@@ -1775,6 +1754,10 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 		URI:            uri,
 		LatestRevision: 668,
 		Label:          "foz",
+		Owner: coresecrets.Owner{
+			Kind: "unit",
+			ID:   "mariadb/0",
+		},
 	}}
 	revs := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
 
@@ -1795,7 +1778,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 		Label:        ptr("foo"),
 	}).Return(nil)
 
-	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo", successfulToken{})
+	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
 	c.Assert(gotLabel, gc.IsNil)
@@ -1816,7 +1799,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 		Return(md, revs, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 
-	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo", successfulToken{})
+	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
 	c.Assert(gotLabel, gc.IsNil)
@@ -1838,7 +1821,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "foo", "mariadb/0").Return(uri, nil)
 
-	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo", successfulToken{})
+	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
 	c.Assert(gotLabel, gc.IsNil)
@@ -1860,7 +1843,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
 		Return(md, revs, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
 
-	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo", successfulToken{})
+	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURI, jc.DeepEquals, uri)
 	c.Assert(gotLabel, gc.DeepEquals, ptr("foo"))
@@ -1894,7 +1877,8 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 		return []string{"yyy/1", "yyy/2"}, nil
 	})
 
-	svc := NewWatchableService(s.state, s.secretBackendState, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
+	svc := NewWatchableService(
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
 	w, err := svc.WatchObsolete(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -1955,7 +1939,8 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 
-	svc := NewWatchableService(s.state, s.secretBackendState, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
+	svc := NewWatchableService(
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
 	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -2014,7 +1999,8 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		"mysql/0", "revision-uuid-2",
 	).Return([]string{uri2.String()}, nil)
 
-	svc := NewWatchableService(s.state, s.secretBackendState, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
+	svc := NewWatchableService(
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
 	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -2066,7 +2052,8 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		return []string{uri1.String(), uri2.String()}, nil
 	})
 
-	svc := NewWatchableService(s.state, s.secretBackendState, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
+	svc := NewWatchableService(
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
 	w, err := svc.WatchRemoteConsumedSecretsChanges(context.Background(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -2127,7 +2114,9 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			},
 		}, nil
 	})
-	svc := NewWatchableService(s.state, s.secretBackendState, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
+
+	svc := NewWatchableService(
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
 	w, err := svc.WatchSecretsRotationChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -2209,7 +2198,9 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 			},
 		}, nil
 	})
-	svc := NewWatchableService(s.state, s.secretBackendState, loggertesting.WrapCheckLog(c), mockWatcherFactory, SecretServiceParams{})
+
+	svc := NewWatchableService(
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
 	w, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,

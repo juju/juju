@@ -65,7 +65,6 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
 
 	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: service.SecretAccessor{
 			Kind: service.UnitAccessor,
 			ID:   "mariadb/0",
@@ -89,7 +88,6 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *gc.C) {
 	uri := s.createSecret(c, nil, ref)
 
 	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
-		LeaderToken: successfulToken{},
 		Accessor: service.SecretAccessor{
 			Kind: service.UnitAccessor,
 			ID:   "mariadb/0",
@@ -107,8 +105,11 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.secretBackendState = secret.NewMockSecretBackendState(ctrl)
 
 	s.svc = service.NewSecretService(
-		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(c, s.modelUUID.String()), nil }, loggertesting.WrapCheckLog(c)),
+		state.NewState(func() (database.TxnRunner, error) {
+			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
+		}, loggertesting.WrapCheckLog(c)),
 		s.secretBackendState,
+		nil,
 		loggertesting.WrapCheckLog(c),
 		service.SecretServiceParams{},
 	)
@@ -118,12 +119,12 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
 	ctx := context.Background()
-	state := applicationstate.NewState(func() (database.TxnRunner, error) {
+	st := applicationstate.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appService := applicationservice.NewService(
-		state,
+		st,
 		noopSecretDeleter{},
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
@@ -161,12 +162,6 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return uri
-}
-
-type successfulToken struct{}
-
-func (t successfulToken) Check() error {
-	return nil
 }
 
 type noopSecretDeleter struct{}

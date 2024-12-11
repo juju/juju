@@ -555,9 +555,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	}
 
 	unitName := s.authTag.Id()
-	appName, _ := names.UnitApplication(unitName)
-	token := s.leadershipChecker.LeadershipCheck(appName, unitName)
-	uri, labelToUpdate, err := s.secretService.ProcessCharmSecretConsumerLabel(ctx, unitName, uri, arg.Label, token)
+	uri, labelToUpdate, err := s.secretService.ProcessCharmSecretConsumerLabel(ctx, unitName, uri, arg.Label)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -583,6 +581,9 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	if err != nil || content.ValueRef == nil {
 		return content, nil, false, errors.Trace(err)
 	}
+
+	appName, _ := names.UnitApplication(unitName)
+	token := s.leadershipChecker.LeadershipCheck(appName, unitName)
 	backend, draining, err := s.getBackend(ctx, content.ValueRef.BackendID, accessor, token)
 	return content, backend, draining, errors.Trace(err)
 }
@@ -739,15 +740,11 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 		if err != nil {
 			return errors.Trace(err)
 		}
-		unitName := s.authTag.Id()
-		appName, _ := names.UnitApplication(unitName)
-		token := s.leadershipChecker.LeadershipCheck(appName, unitName)
 		accessor := secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
-			ID:   unitName,
+			ID:   s.authTag.Id(),
 		}
 		return s.secretsTriggers.SecretRotated(ctx, uri, secretservice.SecretRotatedParams{
-			LeaderToken:      token,
 			Accessor:         accessor,
 			OriginalRevision: arg.OriginalRevision,
 			Skip:             arg.Skip,

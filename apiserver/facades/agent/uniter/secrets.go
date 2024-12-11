@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 
 	apiServerErrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -64,8 +63,6 @@ func (u *UniterAPI) createSecret(ctx context.Context, arg params.CreateSecretArg
 		return "", apiServerErrors.ErrPerm
 	}
 
-	appName, _ := names.UnitApplication(authTag.Id())
-	token := u.leadershipChecker.LeadershipCheck(appName, authTag.Id())
 	var uri *coresecrets.URI
 	if arg.URI != nil {
 		uri, err = coresecrets.ParseURI(*arg.URI)
@@ -78,8 +75,10 @@ func (u *UniterAPI) createSecret(ctx context.Context, arg params.CreateSecretArg
 
 	params := secretservice.CreateCharmSecretParams{
 		Version: secrets.Version,
-		// Secret accessor not needed when creating a secret since we are using the secret owner.
-		UpdateCharmSecretParams: fromUpsertParams(arg.UpsertSecretArg, secretservice.SecretAccessor{}, token),
+		UpdateCharmSecretParams: fromUpsertParams(arg.UpsertSecretArg, secretservice.SecretAccessor{
+			Kind: secretservice.UnitAccessor,
+			ID:   authTag.Id(),
+		}),
 	}
 	switch kind := secretOwner.Kind(); kind {
 	case names.UnitTagKind:
@@ -96,7 +95,7 @@ func (u *UniterAPI) createSecret(ctx context.Context, arg params.CreateSecretArg
 	return uri.String(), nil
 }
 
-func fromUpsertParams(p params.UpsertSecretArg, accessor secretservice.SecretAccessor, token leadership.Token) secretservice.UpdateCharmSecretParams {
+func fromUpsertParams(p params.UpsertSecretArg, accessor secretservice.SecretAccessor) secretservice.UpdateCharmSecretParams {
 	var valueRef *coresecrets.ValueRef
 	if p.Content.ValueRef != nil {
 		valueRef = &coresecrets.ValueRef{
@@ -105,7 +104,6 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secretservice.SecretAcc
 		}
 	}
 	return secretservice.UpdateCharmSecretParams{
-		LeaderToken:  token,
 		Accessor:     accessor,
 		RotatePolicy: p.RotatePolicy,
 		ExpireTime:   p.ExpireTime,
@@ -143,14 +141,11 @@ func (u *UniterAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg
 		return errors.New("at least one attribute to update must be specified")
 	}
 
-	authTag := u.auth.GetAuthTag()
 	accessor := secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,
-		ID:   authTag.Id(),
+		ID:   u.auth.GetAuthTag().Id(),
 	}
-	appName, _ := names.UnitApplication(authTag.Id())
-	token := u.leadershipChecker.LeadershipCheck(appName, authTag.Id())
-	err = u.secretService.UpdateCharmSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, accessor, token))
+	err = u.secretService.UpdateCharmSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, accessor))
 	return errors.Trace(err)
 }
 
@@ -164,13 +159,11 @@ func (u *UniterAPI) removeSecrets(ctx context.Context, args params.DeleteSecretA
 		return result, nil
 	}
 
-	authTag := u.auth.GetAuthTag()
 	accessor := secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,
-		ID:   authTag.Id(),
+		ID:   u.auth.GetAuthTag().Id(),
 	}
-	appName, _ := names.UnitApplication(authTag.Id())
-	token := u.leadershipChecker.LeadershipCheck(appName, authTag.Id())
+
 	for i, arg := range args.Args {
 		uri, err := coresecrets.ParseURI(arg.URI)
 		if err != nil {
@@ -178,9 +171,8 @@ func (u *UniterAPI) removeSecrets(ctx context.Context, args params.DeleteSecretA
 			continue
 		}
 		p := secretservice.DeleteSecretParams{
-			LeaderToken: token,
-			Accessor:    accessor,
-			Revisions:   arg.Revisions,
+			Accessor:  accessor,
+			Revisions: arg.Revisions,
 		}
 		err = u.secretService.DeleteSecret(ctx, uri, p)
 		if err != nil {
@@ -284,13 +276,10 @@ func (u *UniterAPI) secretsGrantRevoke(ctx context.Context, args params.GrantRev
 			return errors.NotValidf("secret role %q", arg.Role)
 		}
 
-		authTag := u.auth.GetAuthTag()
 		accessor := secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
-			ID:   authTag.Id(),
+			ID:   u.auth.GetAuthTag().Id(),
 		}
-		appName, _ := names.UnitApplication(authTag.Id())
-		token := u.leadershipChecker.LeadershipCheck(appName, authTag.Id())
 
 		for _, tagStr := range arg.SubjectTags {
 			subjectTag, err := names.ParseTag(tagStr)
@@ -302,11 +291,10 @@ func (u *UniterAPI) secretsGrantRevoke(ctx context.Context, args params.GrantRev
 				return errors.Trace(err)
 			}
 			if err := op(ctx, uri, secretservice.SecretAccessParams{
-				LeaderToken: token,
-				Accessor:    accessor,
-				Scope:       scope,
-				Subject:     subject,
-				Role:        role,
+				Accessor: accessor,
+				Scope:    scope,
+				Subject:  subject,
+				Role:     role,
 			}); err != nil {
 				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)
 			}
