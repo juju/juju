@@ -292,14 +292,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		charmRevisionUpdaterName: ifNotMigrating(charmrevision.Manifold(charmrevision.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Period:        config.CharmRevisionUpdateInterval,
-
-			NewFacade: charmrevision.NewAPIFacade,
-			NewWorker: charmrevision.NewWorker,
-			Logger:    config.LoggingContext.GetLogger("juju.worker.charmrevision"),
+		charmRevisionUpdaterName: ifResponsible(charmrevision.Manifold(charmrevision.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			Clock:              config.Clock,
+			Period:             config.CharmRevisionUpdateInterval,
+			NewWorker:          charmrevision.NewWorker,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevision"),
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,

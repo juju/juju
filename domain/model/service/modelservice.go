@@ -24,8 +24,12 @@ type ModelState interface {
 	// Delete deletes a model.
 	Delete(context.Context, coremodel.UUID) error
 
-	// Model returns the read only model information set in the database.
-	Model(context.Context) (coremodel.ReadOnlyModel, error)
+	// GetModel returns the read only model information set in the database.
+	GetModel(context.Context) (coremodel.ReadOnlyModel, error)
+
+	// GetModelMetrics returns the model metrics information set in the
+	// database.
+	GetModelMetrics(context.Context) (coremodel.ModelMetrics, error)
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -65,7 +69,13 @@ func NewModelService(
 // GetModelInfo returns the readonly model information for the model in
 // question.
 func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ReadOnlyModel, error) {
-	return s.modelSt.Model(ctx)
+	return s.modelSt.GetModel(ctx)
+}
+
+// GetModelMetrics returns the model metrics information set in the
+// database.
+func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetrics, error) {
+	return s.modelSt.GetModelMetrics(ctx)
 }
 
 // CreateModel is responsible for creating a new model within the model
