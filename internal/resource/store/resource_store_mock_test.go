@@ -82,10 +82,10 @@ func (c *MockResourceStoreGetCall) DoAndReturn(f func(context.Context, string) (
 }
 
 // Put mocks base method.
-func (m *MockResourceStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64, arg4 store.Fingerprint) (store.UUID, error) {
+func (m *MockResourceStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64, arg4 store.Fingerprint) (store.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(store.UUID)
+	ret0, _ := ret[0].(store.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,19 +103,19 @@ type MockResourceStorePutCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceStorePutCall) Return(arg0 store.UUID, arg1 error) *MockResourceStorePutCall {
+func (c *MockResourceStorePutCall) Return(arg0 store.ID, arg1 error) *MockResourceStorePutCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStorePutCall) Do(f func(context.Context, string, io.Reader, int64, store.Fingerprint) (store.UUID, error)) *MockResourceStorePutCall {
+func (c *MockResourceStorePutCall) Do(f func(context.Context, string, io.Reader, int64, store.Fingerprint) (store.ID, error)) *MockResourceStorePutCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStorePutCall) DoAndReturn(f func(context.Context, string, io.Reader, int64, store.Fingerprint) (store.UUID, error)) *MockResourceStorePutCall {
+func (c *MockResourceStorePutCall) DoAndReturn(f func(context.Context, string, io.Reader, int64, store.Fingerprint) (store.ID, error)) *MockResourceStorePutCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

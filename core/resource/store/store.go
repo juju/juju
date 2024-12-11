@@ -8,6 +8,9 @@ import (
 	"io"
 
 	"github.com/juju/utils/v4/hash"
+
+	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ResourceStore provides a list of methods necessary for interacting with
@@ -27,7 +30,7 @@ type ResourceStore interface {
 		r io.Reader,
 		size int64,
 		fingerprint Fingerprint,
-	) (UUID, error)
+	) (ID, error)
 
 	// Remove removes a resource from storage.
 	Remove(
@@ -47,11 +50,80 @@ func NewFingerprint(f hash.Fingerprint) Fingerprint {
 	return Fingerprint{f}
 }
 
-// UUID is the UUID of the stored blob in the database, this can
+type storeKind int
+
+const (
+	unsetStoreKind storeKind = iota
+	objectStoreKind
+	containerImageMetadataStoreKind
+)
+
+// ID is the ID of the stored blob in the database, this can
 // be used for adding referential integrity from the resource to the stored
 // blob. This can be an object store metadata UUID or a container image metadata
-// storage key.
-type UUID string
+// storage key. It is only one, never both.
+type ID struct {
+	kind storeKind
+
+	objectStoreUUID               objectstore.UUID
+	containerImageMetadataStoreID string
+}
+
+// NewFileResourceID creates a new storage ID for a file resource.
+func NewFileResourceID(uuid objectstore.UUID) (ID, error) {
+	if err := uuid.Validate(); err != nil {
+		return ID{}, err
+	}
+	return ID{
+		kind:            objectStoreKind,
+		objectStoreUUID: uuid,
+	}, nil
+}
+
+// NewContainerImageMetadataResourceID creates a new storage ID for a container
+// image metadata resource.
+func NewContainerImageMetadataResourceID(id string) (ID, error) {
+	if id == "" {
+		return ID{}, errors.Errorf("container image metadata resource id cannot be empty")
+	}
+	return ID{
+		kind:                          containerImageMetadataStoreKind,
+		containerImageMetadataStoreID: id,
+	}, nil
+}
+
+// IsZero is true if ID has not been set.
+func (id ID) IsZero() bool {
+	return id.kind == unsetStoreKind
+}
+
+// IsObjectStoreUUID returns true if the type contains an object store UUID.
+func (id ID) IsObjectStoreUUID() bool {
+	return id.kind == objectStoreKind
+}
+
+// IsContainerImageMetadataID returns true if the type contains a container
+// image metadata store ID.
+func (id ID) IsContainerImageMetadataID() bool {
+	return id.kind == containerImageMetadataStoreKind
+}
+
+// ObjectStoreUUID returns the object store UUID or an error if it is not set.
+func (id ID) ObjectStoreUUID() (objectstore.UUID, error) {
+	if id.kind != objectStoreKind {
+		return "", errors.Errorf("object store UUID not set")
+	}
+	return id.objectStoreUUID, nil
+}
+
+// ContainerImageMetadataStoreID returns the container image metadata store ID
+// or an error if it is not set.
+func (id ID) ContainerImageMetadataStoreID() (string, error) {
+	if id.kind != containerImageMetadataStoreKind {
+		return "", errors.Errorf("container image metadata store ID not set")
+	}
+	return id.containerImageMetadataStoreID, nil
+}
 
 // ResourceStoreGetter is a function which returns a ResourceStore.
 type ResourceStoreGetter func() ResourceStore

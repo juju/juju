@@ -83,7 +83,10 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *gc.C) {
 		resourcestore.NewFingerprint(s.resource.Fingerprint.Fingerprint),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageUUID, gc.Equals, resourcestore.UUID(expectedStorageUUID))
+
+	id, err := storageUUID.ObjectStoreUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, expectedStorageUUID)
 }
 
 func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *gc.C) {
