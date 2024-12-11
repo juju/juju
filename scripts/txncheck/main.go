@@ -147,6 +147,7 @@ func checkFile(path string, file io.Reader) bool {
 					}
 					if sel.Sel.Name == "Check" {
 						fmt.Printf("found check: %s:%s\n", path, start)
+						return true
 					}
 				}
 			}

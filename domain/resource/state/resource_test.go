@@ -795,14 +795,10 @@ func (s *resourceSuite) TestSetUnitResourceNotYetSuppliedExistingSupplierWrongTy
 
 	// Assert: an error is returned, nothing is updated in the db
 	c.Check(err, jc.ErrorIs, resourceerrors.UnknownRetrievedByType)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var discard string
-		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		err = tx.QueryRow(`SELECT * FROM resource_retrieved_by`).Scan(&discard)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		return nil
-	})
+	err = s.runQuery(`SELECT * FROM unit_resource`)
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
+	err = s.runQuery(`SELECT * FROM resource_retrieved_by`)
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
 // TestSetUnitResourceNotFound verifies that attempting to set a resource for a
@@ -823,14 +819,10 @@ func (s *resourceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 
 	// Assert: an error is returned, nothing is updated in the db
 	c.Check(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var discard string
-		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		err = tx.QueryRow(`SELECT * FROM resource_retrieved_by`).Scan(&discard)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		return nil
-	})
+	err = s.runQuery(`SELECT * FROM unit_resource`)
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
+	err = s.runQuery(`SELECT * FROM resource_retrieved_by`)
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
 // TestSetUnitResourceUnitNotFound tests that setting a unit resource with an
@@ -860,14 +852,10 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *gc.C) {
 
 	// Assert: an error is returned, nothing is updated in the db
 	c.Check(err, jc.ErrorIs, resourceerrors.UnitNotFound)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var discard string
-		err = tx.QueryRow(`SELECT * FROM unit_resource`).Scan(&discard)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		err = tx.QueryRow(`SELECT * FROM resource_retrieved_by`).Scan(&discard)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-		return nil
-	})
+	err = s.runQuery(`SELECT * FROM unit_resource`)
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
+	err = s.runQuery(`SELECT * FROM resource_retrieved_by`)
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows, gc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
 // TestListResourcesNoResources verifies that no resources are listed for an
@@ -1121,6 +1109,14 @@ func (input resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 	}
 
 	return
+}
+
+// runQuery executes a SQL query within a transaction and discards the result.
+func (s *resourceSuite) runQuery(query string) error {
+	var discard string
+	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(query).Scan(&discard)
+	})
 }
 
 // nilZero returns a pointer to the input value unless the value is its type's
