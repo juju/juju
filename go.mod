@@ -312,3 +312,8 @@ require (
 )
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
+
+// go.uber.org/mock v0.5.0 is a broken release. It adds named arguments to mocked
+// methods, which sometimes clash with package names. Fix the package to v0.4.0
+// until the issue is resolved.
+replace go.uber.org/mock => go.uber.org/mock v0.4.0
