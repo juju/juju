@@ -19,7 +19,7 @@ type dummyProviderState struct {
 	model *coremodel.ReadOnlyModel
 }
 
-func (d *dummyProviderState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+func (d *dummyProviderState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, error) {
 	if d.model != nil {
 		return *d.model, nil
 	}
