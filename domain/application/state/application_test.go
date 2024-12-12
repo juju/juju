@@ -411,8 +411,8 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourc
 			charmResources, addResourceArgs))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(c.GetTestLog(), jc.Contains, "charm resources not resolved: [my-image]")
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s",
+		errors.ErrorStack(err)))
 }
 
 // TestCreateApplicationWithResourcesTooMuchResourceArgs verifies error handling
@@ -448,7 +448,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 			charmResources, addResourcesArgs))
 		return err
 	})
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+	c.Assert(err, gc.ErrorMatches,
+		`.*inserting resource "my-image": FOREIGN KEY constraint failed.*`,
+		gc.Commentf("(Assert) unexpected error: %s",
+			errors.ErrorStack(err)))
 }
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {

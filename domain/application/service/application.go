@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -17,6 +18,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -249,7 +251,15 @@ func (s *Service) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
-	if err := validateCreateApplicationParams(name, args.ReferenceName, charm, origin, args.DownloadInfo); err != nil {
+	if err := validateCreateApplicationParams(
+		name,
+		args.ReferenceName,
+		charm,
+		origin,
+		args.DownloadInfo,
+		args.ResolvedResources,
+		s.logger,
+	); err != nil {
 		return "", errors.Annotatef(err, "invalid application args")
 	}
 
@@ -297,6 +307,8 @@ func validateCreateApplicationParams(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	downloadInfo *domaincharm.DownloadInfo,
+	resolvedResources ResolvedResources,
+	logger logger.Logger,
 ) error {
 	if !isValidApplicationName(name) {
 		return applicationerrors.ApplicationNameNotValid
@@ -335,6 +347,37 @@ func validateCreateApplicationParams(
 	if err := origin.Validate(); err != nil {
 		return fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
+
+	// Validate consistency of resources origin and revision
+	if err := resolvedResources.Validate(); err != nil {
+		return err
+	}
+
+	// Validates that all charm resources are resolved
+	appResourceSet := set.NewStrings()
+	charmResourceSet := set.NewStrings()
+	for _, res := range charm.Meta().Resources {
+		charmResourceSet.Add(res.Name)
+	}
+	for _, res := range resolvedResources {
+		appResourceSet.Add(res.Name)
+	}
+	unexpectedResources := appResourceSet.Difference(charmResourceSet)
+	missingResources := charmResourceSet.Difference(appResourceSet)
+	if !unexpectedResources.IsEmpty() {
+		// This needs to be an error because it will cause a foreign constraint
+		// failure on insert, which is less easy to understand.
+		return internalerrors.Errorf("unexpected resources %v: %w", unexpectedResources.Values(),
+			applicationerrors.InvalidResourceArgs)
+	}
+	if !missingResources.IsEmpty() {
+		// todo(gfouillet): It should be an error,
+		//  because it means that there will be charm resources not added into
+		//  application_resource, but if we do it before using dqlite for handling
+		//  resources, it will break the application deployment
+		logger.Warningf("charm resources not resolved: %v", missingResources.Values())
+	}
+
 	return nil
 }
 
@@ -407,17 +450,12 @@ func makeCreateApplicationArgs(
 		return application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
 	}
 
-	resourcesArgs, err := makeResourcesArgs(args.ResolvedResources)
-	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("checking resources: %w", err)
-	}
-
 	return application.AddApplicationArg{
 		Charm:             ch,
 		CharmDownloadInfo: args.DownloadInfo,
 		Platform:          platformArg,
 		Channel:           channelArg,
-		Resources:         resourcesArgs,
+		Resources:         makeResourcesArgs(args.ResolvedResources),
 	}, nil
 }
 
@@ -687,12 +725,8 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer CloudContainer
 }
 
 // makeResourcesArgs creates a slice of AddApplicationResourceArg from ResolvedResources.
-// Returns an error if any of the ResolvedResources are invalid.
-func makeResourcesArgs(resolvedResources ResolvedResources) ([]application.AddApplicationResourceArg, error) {
+func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApplicationResourceArg {
 	var result []application.AddApplicationResourceArg
-	if err := resolvedResources.Validate(); err != nil {
-		return result, err
-	}
 	for _, res := range resolvedResources {
 		result = append(result, application.AddApplicationResourceArg{
 			Name:     res.Name,
@@ -700,7 +734,7 @@ func makeResourcesArgs(resolvedResources ResolvedResources) ([]application.AddAp
 			Origin:   res.Origin,
 		})
 	}
-	return result, nil
+	return result
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas model,

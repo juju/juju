@@ -477,7 +477,7 @@ func (s *MigrationService) ImportApplication(
 	charm internalcharm.Charm, origin corecharm.Origin, args AddApplicationArgs,
 	units ...ImportUnitArg,
 ) error {
-	if err := validateCreateApplicationParams(appName, args.ReferenceName, charm, origin, args.DownloadInfo); err != nil {
+	if err := validateCreateApplicationParams(appName, args.ReferenceName, charm, origin, args.DownloadInfo, args.ResolvedResources, s.logger); err != nil {
 		return errors.Annotatef(err, "invalid application args")
 	}
 

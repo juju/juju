@@ -47,7 +47,7 @@ type AddApplicationArgs struct {
 	DownloadInfo *domaincharm.DownloadInfo
 
 	// ResolvedResources contains a list of ResolvedResource instances,
-	// which allows to define a revision and an origin for each resource
+	// which allows to define a revision and an origin for each resource.
 	ResolvedResources ResolvedResources
 }
 

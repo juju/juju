@@ -62,10 +62,8 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 
 // CreateApplication creates an application, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already exists.
-// If returns as error satisfying [applicationerrors.CharmNotFound] if the charm
-// for the application is not found. It may also return an error satisfying
-// [applicationerrors.InvalidResourceArgs] if there is a mismatch between charm
-// resources and resource arguments.
+// It returns as error satisfying [applicationerrors.CharmNotFound] if the charm
+// for the application is not found.
 func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app application.AddApplicationArg) (coreapplication.ID, error) {
 	appUUID, err := coreapplication.NewID()
 	if err != nil {
@@ -177,7 +175,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 			}
 		}
 
-		return st.insertResources(ctx, tx, appDetails, app.Resources, app.Charm.Metadata.Resources)
+		return st.insertResources(ctx, tx, appDetails, app.Resources)
 	})
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
 }

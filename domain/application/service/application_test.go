@@ -81,6 +81,11 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Metadata: domaincharm.Metadata{
 			Name:  "ubuntu",
 			RunAs: "default",
+			Resources: map[string]domaincharm.Resource{
+				"foo": {Name: "foo", Type: domaincharm.ResourceTypeFile},
+				"bar": {Name: "bar", Type: domaincharm.ResourceTypeContainerImage},
+				"baz": {Name: "baz", Type: domaincharm.ResourceTypeFile},
+			},
 		},
 		Manifest:        s.minimalManifest(c),
 		ReferenceName:   "ubuntu",
@@ -144,6 +149,11 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
+		Resources: map[string]charmresource.Meta{
+			"foo": {Name: "foo", Type: charmresource.TypeFile},
+			"bar": {Name: "bar", Type: charmresource.TypeContainerImage},
+			"baz": {Name: "baz", Type: charmresource.TypeFile},
+		},
 	}).MinTimes(1)
 
 	a := AddUnitArg{
@@ -293,8 +303,18 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
 
-func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWithRevision(c *gc.
-	C) {
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesMismatchCharmAndArgsResources(c *gc.C) {
+	resources := ResolvedResources{
+		{
+			Name:     "not-in-charm",
+			Origin:   charmresource.OriginStore,
+			Revision: ptr(42),
+		},
+	}
+	s.testCreateApplicationWithInvalidResource(c, resources)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWithRevision(c *gc.C) {
 	resources := ResolvedResources{
 		{
 			Name:     "Upload-revision",
@@ -305,8 +325,7 @@ func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesUploa
 	s.testCreateApplicationWithInvalidResource(c, resources)
 }
 
-func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesNoName(c *gc.
-	C) {
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesNoName(c *gc.C) {
 	resources := ResolvedResources{
 		{
 			Origin:   charmresource.OriginStore,
@@ -316,8 +335,7 @@ func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesNoNam
 	s.testCreateApplicationWithInvalidResource(c, resources)
 }
 
-func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesInvalidOrigin(c *gc.
-	C) {
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesInvalidOrigin(c *gc.C) {
 	resources := ResolvedResources{
 		{
 			Name:   "invalid-origin",
@@ -340,10 +358,6 @@ func (s *applicationServiceSuite) testCreateApplicationWithInvalidResource(c *gc
 			Architectures: []string{"amd64"},
 		}},
 	}).MinTimes(1)
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
-	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
 
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,

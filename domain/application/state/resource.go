@@ -7,32 +7,23 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/charm"
-	apperrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
 // buildResourceToAdd creates resources to add based on provided app and charm
 // resources.
 // Returns a slice of resourceToAdd and an error if any issues occur during
-// creation. Validates app resources against charm resources, warning if
-// mismatches are found.
-// Returns an error satisfying [apperrors.InvalidResourceArgs] if there is
-// unexpected resource in argument that are not defined in charm.
-func (st *State) buildResourceToAdd(appUUID, charmUUID string,
+// creation.
+func (st *State) buildResourceToAdd(
+	appUUID, charmUUID string,
 	appResources []application.AddApplicationResourceArg,
-	charmResources map[string]charm.Resource) (
-	[]resourceToAdd, error) {
+) ([]resourceToAdd, error) {
 	resources := make([]resourceToAdd, 0, len(appResources))
-	appResourceSet := set.NewStrings()
-	charmResourceSet := set.NewStrings()
 	now := st.clock.Now()
 	for _, r := range appResources {
-		appResourceSet.Add(r.Name)
 		uuid, err := coreresource.NewUUID()
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -48,36 +39,15 @@ func (st *State) buildResourceToAdd(appUUID, charmUUID string,
 			CreatedAt:       now,
 		})
 	}
-	for _, res := range charmResources {
-		charmResourceSet.Add(res.Name)
-	}
-
-	unexpectedResources := appResourceSet.Difference(charmResourceSet)
-	missingResources := charmResourceSet.Difference(appResourceSet)
-	if !unexpectedResources.IsEmpty() {
-		// This need to be an error because it will cause a foreign constraint
-		// failure on insert, which is less easy to understand.
-		return nil, errors.Errorf("unexpected resources %v: %w", unexpectedResources.Values(),
-			apperrors.InvalidResourceArgs)
-	}
-	if !missingResources.IsEmpty() {
-		// todo(gfouillet): It should be an error,
-		//  because it means that there will be charm resources not added into
-		//  application_resource, but if we do it before using dqlite for handling
-		//  resources, it will break the application deployment
-		st.logger.Warningf("charm resources not resolved: %v", missingResources.Values())
-	}
-
 	return resources, nil
 }
 
 // insertResources constructs a transaction to insert resources into the
 // database. It returns a function which, when executed, inserts resources and
 // links them to applications.
-func (st *State) insertResources(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appResources []application.AddApplicationResourceArg, charmResources map[string]charm.Resource) error {
+func (st *State) insertResources(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appResources []application.AddApplicationResourceArg) error {
 
-	resources, err := st.buildResourceToAdd(appDetails.UUID.String(), appDetails.CharmID, appResources,
-		charmResources)
+	resources, err := st.buildResourceToAdd(appDetails.UUID.String(), appDetails.CharmID, appResources)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -129,11 +99,11 @@ VALUES ($resourceToAdd.application_uuid, $resourceToAdd.uuid)`, resourceToAdd{})
 		}
 		// Insert the resource.
 		if err = tx.Query(ctx, insertStmt, res).Run(); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("inserting resource %q: %w", res.Name, err)
 		}
 		// Link the resource to the application.
 		if err = tx.Query(ctx, linkStmt, res).Run(); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("linking resource %q to application %q: %w", res.Name, res.ApplicationUUID, err)
 		}
 	}
 	return nil
