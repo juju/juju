@@ -18,42 +18,42 @@ var _ = gc.Suite(&filteringUnitTests{})
 
 func (f *filteringUnitTests) TestMatchPortRanges(c *gc.C) {
 
-	match, ok, err := client.MatchPortRanges([]string{"80/tcp"}, network.PortRange{80, 80, "tcp"})
+	match, ok, err := client.MatchPortRanges([]string{"80/tcp"}, network.PortRange{FromPort: 80, ToPort: 80, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
 
-	match, ok, err = client.MatchPortRanges([]string{"80-90/tcp"}, network.PortRange{80, 90, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"80-90/tcp"}, network.PortRange{FromPort: 80, ToPort: 90, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
 
-	match, ok, err = client.MatchPortRanges([]string{"90/tcp"}, network.PortRange{80, 90, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"90/tcp"}, network.PortRange{FromPort: 80, ToPort: 90, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
 
-	match, ok, err = client.MatchPortRanges([]string{"70"}, network.PortRange{7070, 7070, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"70"}, network.PortRange{FromPort: 7070, ToPort: 7070, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsFalse)
 
-	match, ok, err = client.MatchPortRanges([]string{"7070"}, network.PortRange{7070, 7070, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"7070"}, network.PortRange{FromPort: 7070, ToPort: 7070, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsFalse)
 
-	match, ok, err = client.MatchPortRanges([]string{"7070/udp"}, network.PortRange{7070, 7070, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"7070/udp"}, network.PortRange{FromPort: 7070, ToPort: 7070, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsFalse)
 
-	match, ok, err = client.MatchPortRanges([]string{"7070/tcp"}, network.PortRange{7065, 7069, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"7070/tcp"}, network.PortRange{FromPort: 7065, ToPort: 7069, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsFalse)
 
-	match, ok, err = client.MatchPortRanges([]string{"7070/tcp"}, network.PortRange{7069, 7071, "tcp"})
+	match, ok, err = client.MatchPortRanges([]string{"7070/tcp"}, network.PortRange{FromPort: 7069, ToPort: 7071, Protocol: "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
