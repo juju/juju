@@ -74,7 +74,7 @@ CREATE TABLE charm (
 CREATE UNIQUE INDEX idx_charm_reference_name_revision
 ON charm (source_id, reference_name, revision);
 
--- The charm_local_sequence table is used to keep track of the sequence number
+-- The sequence_charm_local table is used to keep track of the sequence number
 -- of the local charm. This is used to determine the revision of the charm.
 -- For that reason we can not use a revision directly in the table.
 --
@@ -82,17 +82,16 @@ ON charm (source_id, reference_name, revision);
 -- locate the charm, we can not use the charm.uuid, as this doesn't allow us
 -- to group them. Instead, the group is the source_id and the reference_name.
 -- This is the unique identifier for the charm.
-CREATE TABLE charm_local_sequence (
+CREATE TABLE sequence_charm_local (
     source_id INT NOT NULL,
     reference_name TEXT NOT NULL,
 
     -- The sequence number will start at 0 for each charm and will be
     -- incremented.
-    sequence INT NOT NULL DEFAULT 0
-);
+    sequence INT NOT NULL DEFAULT 0,
 
-CREATE UNIQUE INDEX idx_charm_local_sequence_source_reference
-ON charm_local_sequence (source_id, reference_name);
+    PRIMARY KEY (source_id, reference_name)
+);
 
 CREATE TABLE charm_provenance (
     id INT PRIMARY KEY,

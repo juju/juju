@@ -125,7 +125,7 @@ func ModelDDL() *schema.Schema {
 			"secret permission subjects and scopes must be identical",
 		),
 
-		triggerGuardForTable("charm_local_sequence",
+		triggerGuardForTable("sequence_charm_local",
 			"NEW.sequence <= OLD.sequence",
 			"sequence number must monotonically increase",
 		),

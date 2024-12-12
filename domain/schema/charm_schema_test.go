@@ -60,16 +60,16 @@ func (s *charmSchemaSuite) TestCharmSequence(c *gc.C) {
 	// Insert the first sequence, then every other one is monotonically
 	// increasing.
 
-	s.assertExecSQL(c, "INSERT INTO charm_local_sequence (source_id, reference_name, sequence) VALUES ('1', 'foo', 1)")
+	s.assertExecSQL(c, "INSERT INTO sequence_charm_local (source_id, reference_name, sequence) VALUES ('1', 'foo', 1)")
 	s.assertExecSQL(c, "INSERT INTO charm (uuid, source_id, reference_name, revision) VALUES ('abc', '1', 'foo', 1)")
 
-	s.assertExecSQL(c, "UPDATE charm_local_sequence SET sequence=2 WHERE source_id='1' AND reference_name='foo'")
+	s.assertExecSQL(c, "UPDATE sequence_charm_local SET sequence=2 WHERE source_id='1' AND reference_name='foo'")
 	s.assertExecSQL(c, "INSERT INTO charm (uuid, source_id, reference_name, revision) VALUES ('def', '1', 'foo', 2)")
 
-	s.assertExecSQL(c, "UPDATE charm_local_sequence SET sequence=3 WHERE source_id='1' AND reference_name='foo'")
+	s.assertExecSQL(c, "UPDATE sequence_charm_local SET sequence=3 WHERE source_id='1' AND reference_name='foo'")
 	s.assertExecSQL(c, "INSERT INTO charm (uuid, source_id, reference_name, revision) VALUES ('ghi', '1', 'foo', 3)")
 
 	// Ensure we can't go backwards.
 
-	s.assertExecSQLError(c, "UPDATE charm_local_sequence SET sequence=2 WHERE source_id='1' AND reference_name='foo'", "sequence number must monotonically increase")
+	s.assertExecSQLError(c, "UPDATE sequence_charm_local SET sequence=2 WHERE source_id='1' AND reference_name='foo'", "sequence number must monotonically increase")
 }
