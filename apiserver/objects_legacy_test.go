@@ -38,8 +38,6 @@ type baseObjectsSuite struct {
 	contentType string
 }
 
-var _ = gc.Suite(&baseObjectsSuite{})
-
 func (s *baseObjectsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.CharmsResponse {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var charmResponse params.CharmsResponse
@@ -235,7 +233,7 @@ func (s *putCharmObjectSuite) TestUploadBumpsRevision(c *gc.C) {
 }
 
 func (s *putCharmObjectSuite) TestUploadVersion(c *gc.C) {
-	expectedVersion := "testcharm-146-g725cfd3-dirty"
+	expectedVersion := "dummy-146-g725cfd3-dirty"
 
 	// Add the dummy charm with version "juju-2.4-beta3-146-g725cfd3-dirty".
 	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
