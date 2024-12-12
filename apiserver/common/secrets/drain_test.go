@@ -281,7 +281,6 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 			Data: map[string]string{"foo": "bar"},
 		},
 	).Return(nil)
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
 
 	result, err := s.facade.ChangeSecretBackend(context.Background(), params.ChangeSecretBackendArgs{
 		Args: []params.ChangeSecretBackendArg{
