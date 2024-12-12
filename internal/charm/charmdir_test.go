@@ -344,7 +344,7 @@ func (s *CharmDirSuite) TestDirSetRevision(c *gc.C) {
 	dir, err := charm.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Revision(), gc.Equals, 1)
-	dir.SetRevision(42)
+	dir.SetDiskRevision(42)
 	c.Assert(dir.Revision(), gc.Equals, 42)
 
 	var b bytes.Buffer
