@@ -36,11 +36,6 @@ type Repository interface {
 	// this charm.
 	ResolveWithPreferredChannel(context.Context, string, Origin) (ResolvedData, error)
 
-	// GetEssentialMetadata resolves each provided MetadataRequest and
-	// returns back a slice with the results. The results include the
-	// minimum set of metadata that is required for deploying each charm.
-	GetEssentialMetadata(context.Context, ...MetadataRequest) ([]EssentialMetadata, error)
-
 	// ListResources returns a list of resources associated with a given charm.
 	ListResources(context.Context, string, Origin) ([]charmresource.Resource, error)
 
@@ -98,10 +93,6 @@ type CharmID struct {
 
 	// Origin holds the original source of a charm, including its channel.
 	Origin Origin
-
-	// Metadata is optional extra information about a particular model's
-	// "in-theatre" use of the charm.
-	Metadata map[string]string
 }
 
 // ResolvedData is the response data from ResolveWithPreferredChannel.

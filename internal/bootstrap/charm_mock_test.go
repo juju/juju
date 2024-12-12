@@ -164,50 +164,6 @@ func (c *MockRepositoryGetDownloadURLCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
-// GetEssentialMetadata mocks base method.
-func (m *MockRepository) GetEssentialMetadata(arg0 context.Context, arg1 ...charm.MetadataRequest) ([]charm.EssentialMetadata, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "GetEssentialMetadata", varargs...)
-	ret0, _ := ret[0].([]charm.EssentialMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetEssentialMetadata indicates an expected call of GetEssentialMetadata.
-func (mr *MockRepositoryMockRecorder) GetEssentialMetadata(arg0 any, arg1 ...any) *MockRepositoryGetEssentialMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEssentialMetadata", reflect.TypeOf((*MockRepository)(nil).GetEssentialMetadata), varargs...)
-	return &MockRepositoryGetEssentialMetadataCall{Call: call}
-}
-
-// MockRepositoryGetEssentialMetadataCall wrap *gomock.Call
-type MockRepositoryGetEssentialMetadataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRepositoryGetEssentialMetadataCall) Return(arg0 []charm.EssentialMetadata, arg1 error) *MockRepositoryGetEssentialMetadataCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRepositoryGetEssentialMetadataCall) Do(f func(context.Context, ...charm.MetadataRequest) ([]charm.EssentialMetadata, error)) *MockRepositoryGetEssentialMetadataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRepositoryGetEssentialMetadataCall) DoAndReturn(f func(context.Context, ...charm.MetadataRequest) ([]charm.EssentialMetadata, error)) *MockRepositoryGetEssentialMetadataCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ListResources mocks base method.
 func (m *MockRepository) ListResources(arg0 context.Context, arg1 string, arg2 charm.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()

@@ -5,9 +5,7 @@ package charms
 
 import (
 	"context"
-	"net/url"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -201,7 +199,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	// Charmhub charms are downloaded asynchronously
 	defer s.setupMocks(c).Finish()
 
-	curl := "chtest"
+	curl := charm.MustParseURL("chtest")
 
 	requestedOrigin := corecharm.Origin{
 		Source: "charm-hub",
@@ -224,17 +222,17 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
 
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
 	expConfig := new(charm.Config)
-	s.repository.EXPECT().GetEssentialMetadata(gomock.Any(), corecharm.MetadataRequest{
-		CharmName: curl,
-		Origin:    requestedOrigin,
-	}).Return([]corecharm.EssentialMetadata{
-		{
+	s.repository.EXPECT().ResolveForDeploy(gomock.Any(), corecharm.CharmID{
+		URL:    curl,
+		Origin: requestedOrigin,
+	}).Return(corecharm.ResolvedDataForDeploy{
+		URL: curl,
+		EssentialMetadata: corecharm.EssentialMetadata{
 			Meta:           expMeta,
 			Manifest:       expManifest,
 			Config:         expConfig,
@@ -244,27 +242,27 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 
 	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
 		func(ci state.CharmInfo) (*state.Charm, error) {
-			c.Assert(ci.ID, gc.DeepEquals, curl)
+			c.Check(ci.ID, gc.DeepEquals, curl.String())
 			// Check that the essential metadata matches what
 			// the repository returned. We use pointer checks here.
-			c.Assert(ci.Charm.Meta(), gc.Equals, expMeta)
-			c.Assert(ci.Charm.Manifest(), gc.Equals, expManifest)
-			c.Assert(ci.Charm.Config(), gc.Equals, expConfig)
+			c.Check(ci.Charm.Meta(), gc.Equals, expMeta)
+			c.Check(ci.Charm.Manifest(), gc.Equals, expManifest)
+			c.Check(ci.Charm.Config(), gc.Equals, expConfig)
 			return nil, nil
 		},
 	)
 
 	s.applicationService.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.SetCharmArgs) (corecharm.ID, []string, error) {
-		c.Assert(args.Charm.Meta(), gc.Equals, expMeta)
-		c.Assert(args.Charm.Manifest(), gc.Equals, expManifest)
-		c.Assert(args.Charm.Config(), gc.Equals, expConfig)
+		c.Check(args.Charm.Meta(), gc.Equals, expMeta)
+		c.Check(args.Charm.Manifest(), gc.Equals, expManifest)
+		c.Check(args.Charm.Config(), gc.Equals, expConfig)
 		return corecharm.ID(""), nil, nil
 	})
 
 	api := s.api(c)
 
 	args := params.AddCharmWithOrigin{
-		URL: curl,
+		URL: curl.String(),
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
 			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
@@ -280,50 +278,6 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Risk:   "stable",
 		},
 	})
-}
-
-func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlreadyDownloadedCharm(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	curl := "chtest"
-	resURL, err := url.Parse(curl)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-		Platform: corecharm.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04",
-		},
-	}
-
-	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().GetDownloadURL(gomock.Any(), curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
-
-	api := s.api(c)
-
-	args := params.AddCharmWithOrigin{
-		URL: curl,
-		Origin: params.CharmOrigin{
-			Source: "charm-hub",
-			Risk:   "edge",
-			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
-		},
-		Force: false,
-	}
-	obtained, err := api.AddCharm(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
-		Origin: params.CharmOrigin{
-			Source: "charm-hub",
-			Risk:   "stable",
-			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
-		},
-	}, gc.Commentf("expected to get back the origin recorded by the application"))
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {

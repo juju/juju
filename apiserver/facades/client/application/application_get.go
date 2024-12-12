@@ -16,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -176,9 +177,18 @@ func (api *APIBase) getCharm(ctx context.Context, charmID corecharm.ID) (Charm, 
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting charm for application")
 	}
+
+	available, err := api.applicationService.IsCharmAvailable(ctx, charmID)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return nil, errors.NotFoundf("charm")
+	} else if err != nil {
+		return nil, errors.Annotate(err, "getting charm availability for application")
+	}
+
 	return &domainCharm{
-		charm:   charm,
-		locator: locator,
+		charm:     charm,
+		locator:   locator,
+		available: available,
 	}, nil
 }
 
@@ -292,8 +302,9 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 }
 
 type domainCharm struct {
-	charm   charm.Charm
-	locator applicationcharm.CharmLocator
+	charm     charm.Charm
+	locator   applicationcharm.CharmLocator
+	available bool
 }
 
 func (c *domainCharm) Manifest() *charm.Manifest {
@@ -317,9 +328,7 @@ func (c *domainCharm) Revision() int {
 }
 
 func (c *domainCharm) IsUploaded() bool {
-	// TODO (stickupkid): This should return if the SHA is set, or we have a way
-	// to determine if the charm is uploaded.
-	return true
+	return c.available
 }
 
 func (c *domainCharm) URL() string {
@@ -332,10 +341,28 @@ func (c *domainCharm) URL() string {
 	if name == "" {
 		panic(fmt.Sprintf("charm name is empty %+v", c.charm))
 	}
+
+	var arch string
+	switch c.locator.Architecture {
+	case architecture.AMD64:
+		arch = "amd64"
+	case architecture.ARM64:
+		arch = "arm64"
+	case architecture.PPC64EL:
+		arch = "ppc64el"
+	case architecture.S390X:
+		arch = "s390x"
+	case architecture.RISV64:
+		arch = "risv64"
+	default:
+		// If there is no architecture set, we should ignore it.
+	}
+
 	curl := &charm.URL{
-		Schema:   schema,
-		Name:     name,
-		Revision: c.locator.Revision,
+		Schema:       schema,
+		Name:         name,
+		Revision:     c.locator.Revision,
+		Architecture: arch,
 	}
 	return curl.String()
 }
