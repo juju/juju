@@ -29,6 +29,9 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// Metrics is a map of metrics data to be sent to the charmhub.
+type Metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricValueKey]string
+
 // action represents the type of refresh is performed.
 type action string
 
@@ -108,7 +111,7 @@ func (c *refreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 
 // RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
 // at the same time.  Used as part of the charm revision updater facade.
-func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics Metrics) ([]transport.RefreshResponse, error) {
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
 		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
 	}
@@ -126,7 +129,7 @@ func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 
 // RefreshWithMetricsOnly is to provide metrics without context or actions. Used
 // as part of the charm revision updater facade.
-func (c *refreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+func (c *refreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics Metrics) error {
 	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
 	m, err := contextMetrics(metrics)
 	if err != nil {
@@ -145,7 +148,7 @@ func (c *refreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[
 	return err
 }
 
-func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) (transport.RequestMetrics, error) {
+func contextMetrics(metrics Metrics) (transport.RequestMetrics, error) {
 	m := make(transport.RequestMetrics)
 	for k, v := range metrics {
 		// verify top level "model" and "controller" keys
@@ -287,7 +290,7 @@ func AddResource(config RefreshConfig, name string, revision int) (RefreshConfig
 
 // AddConfigMetrics adds metrics to a refreshOne config.  All values are
 // applied at once, subsequent calls, replace all values.
-func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricKey]string) (RefreshConfig, error) {
+func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricValueKey]string) (RefreshConfig, error) {
 	c, ok := config.(refreshOne)
 	if !ok {
 		return config, nil // error?

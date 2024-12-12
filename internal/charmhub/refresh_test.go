@@ -259,22 +259,20 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{},
 		Metrics: map[string]map[string]string{
 			"controller": {"uuid": "controller-uuid"},
-			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
+			"model":      {"units": "3", "uuid": "model-uuid"},
 		},
 	}
 
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPost(restClient, baseURLPath, id, body)
 
-	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+	metrics := Metrics{
 		charmmetrics.Controller: {
-
 			charmmetrics.UUID: "controller-uuid",
 		},
 		charmmetrics.Model: {
-			charmmetrics.NumUnits:   "3",
-			charmmetrics.Controller: "controller-uuid",
-			charmmetrics.UUID:       "model-uuid",
+			charmmetrics.NumUnits: "3",
+			charmmetrics.UUID:     "model-uuid",
 		},
 	}
 
@@ -325,7 +323,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 		Fields: expRefreshFields,
 		Metrics: map[string]map[string]string{
 			"controller": {"uuid": "controller-uuid"},
-			"model":      {"units": "3", "controller": "controller-uuid", "uuid": "model-uuid"},
+			"model":      {"units": "3", "uuid": "model-uuid"},
 		},
 	}
 
@@ -358,14 +356,13 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 		return restResponse{StatusCode: http.StatusOK}, nil
 	})
 
-	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
+	metrics := Metrics{
 		charmmetrics.Controller: {
 			charmmetrics.UUID: "controller-uuid",
 		},
 		charmmetrics.Model: {
-			charmmetrics.NumUnits:   "3",
-			charmmetrics.Controller: "controller-uuid",
-			charmmetrics.UUID:       "model-uuid",
+			charmmetrics.NumUnits: "3",
+			charmmetrics.UUID:     "model-uuid",
 		},
 	}
 
@@ -525,7 +522,7 @@ func (s *RefreshConfigSuite) TestRefreshOneWithMetricsBuild(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = AddConfigMetrics(config, map[charmmetrics.MetricKey]string{
+	config, err = AddConfigMetrics(config, map[charmmetrics.MetricValueKey]string{
 		charmmetrics.Provider:        "openstack",
 		charmmetrics.NumApplications: "4",
 	})
