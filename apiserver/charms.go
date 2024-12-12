@@ -5,23 +5,24 @@ package apiserver
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
-func repackageCharmWithRevision(ctx context.Context, archive *charm.CharmArchive, charmRevision int) (*charm.CharmArchive, bytes.Buffer, string, error) {
+func repackageCharmWithRevision(
+	archive *charm.CharmArchive,
+	charmRevision int,
+) (*charm.CharmArchive, bytes.Buffer, string, error) {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
-		return archive, bytes.Buffer{}, "", errors.Annotate(err, "cannot create temp directory")
+		return archive, bytes.Buffer{}, "", errors.Errorf("creating temp directory: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 	extractPath := filepath.Join(tempDir, "extracted")
@@ -29,12 +30,12 @@ func repackageCharmWithRevision(ctx context.Context, archive *charm.CharmArchive
 	// Expand and repack it with the specified revision
 	archive.SetRevision(charmRevision)
 	if err := archive.ExpandTo(extractPath); err != nil {
-		return archive, bytes.Buffer{}, "", errors.Annotate(err, "cannot extract uploaded charm")
+		return archive, bytes.Buffer{}, "", errors.Errorf("extracting uploaded charm: %w", err)
 	}
 
 	charmDir, err := charm.ReadCharmDir(extractPath)
 	if err != nil {
-		return archive, bytes.Buffer{}, "", errors.Annotate(err, "cannot read extracted charm")
+		return archive, bytes.Buffer{}, "", errors.Errorf("reading extracted charm: %w", err)
 	}
 
 	// Bundle the charm and calculate its sha256 hash at the same time.
@@ -42,7 +43,7 @@ func repackageCharmWithRevision(ctx context.Context, archive *charm.CharmArchive
 	hash := sha256.New()
 	err = charmDir.ArchiveTo(io.MultiWriter(hash, &repackagedArchiveBuf))
 	if err != nil {
-		return archive, bytes.Buffer{}, "", errors.Annotate(err, "cannot repackage uploaded charm")
+		return archive, bytes.Buffer{}, "", errors.Errorf("repackaging uploaded charm: %w", err)
 	}
 	repackagedSHA256 := hex.EncodeToString(hash.Sum(nil))
 
