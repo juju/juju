@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	dqlite "github.com/canonical/go-dqlite/driver"
+	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/internal/database/driver"
