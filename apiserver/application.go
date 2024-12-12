@@ -7,7 +7,9 @@ import (
 	"context"
 	"io"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
 )
@@ -20,6 +22,12 @@ type ApplicationService interface {
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
 	GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
+
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
+
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.

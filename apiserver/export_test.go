@@ -33,7 +33,6 @@ import (
 
 var (
 	MaxClientPingInterval = maxClientPingInterval
-	SetResource           = setResource
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {

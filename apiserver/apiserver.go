@@ -660,6 +660,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 const (
 	modelRoutePrefix         = "/model/:modeluuid"
 	charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
+	migrateResourcesPrefix   = "/migrate/resources"
 )
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
@@ -837,19 +838,23 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: systemState.ControllerTag(),
 	}
+	applicationServiceGetter := &applicationServiceGetter{ctxt: httpCtxt}
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
 		ctxt:                     httpCtxt,
 		stateAuthFunc:            httpCtxt.stateForMigrationImporting,
-		applicationServiceGetter: &applicationServiceGetter{ctxt: httpCtxt},
+		applicationServiceGetter: applicationServiceGetter,
 	}, "charms")
 	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}, "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(&resourcesMigrationUploadHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
-		objectStore:   httpCtxt.objectStoreForRequest,
+		ctxt: httpCtxt,
+		stateAuthFunc: func(request *http.Request) (poolStateHelper, error) {
+			return httpCtxt.stateForMigrationImporting(request)
+		},
+		resourceServiceGetter:    &resourceServiceGetter{ctxt: httpCtxt},
+		applicationServiceGetter: applicationServiceGetter,
 	}, "applications")
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
 		ctxt: httpCtxt,
@@ -913,7 +918,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    migrateToolsUploadHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
-		pattern:    "/migrate/resources",
+		pattern:    migrateResourcesPrefix,
 		handler:    resourcesMigrationUploadHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {

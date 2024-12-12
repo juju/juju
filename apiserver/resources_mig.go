@@ -5,127 +5,196 @@ package apiserver
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 
-	"github.com/juju/juju/core/objectstore"
+	coreapplication "github.com/juju/juju/core/application"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/internal/errors"
+
 	"github.com/juju/juju/core/resource"
+	domainresource "github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
+
+type ResourceService interface {
+	GetApplicationResourceID(ctx context.Context, args domainresource.GetApplicationResourceIDArgs) (resource.UUID, error)
+	SetResource(ctx context.Context, args domainresource.SetResourceArgs) (domainresource.Resource, error)
+	SetUnitResource(ctx context.Context, args domainresource.SetUnitResourceArgs) (domainresource.SetUnitResourceResult, error)
+}
+
+type ResourceServiceGetter interface {
+	Resource(context.Context) (ResourceService, error)
+}
+
+type poolStateHelper interface {
+	Release() bool
+}
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
-	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
-	objectStore   func(context.Context) (objectstore.ObjectStore, error)
+	ctxt                     httpContext
+	stateAuthFunc            func(*http.Request) (poolStateHelper, error)
+	resourceServiceGetter    ResourceServiceGetter
+	applicationServiceGetter ApplicationServiceGetter
 }
 
 func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	switch r.Method {
+	case "POST":
+		err = errors.Capture(h.ServePost(w, r))
+	default:
+		err = jujuerrors.MethodNotAllowedf("method not allowed: %s", r.Method)
+	}
+	if err != nil {
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", errors.Errorf("cannot return error to user: %w", err))
+		}
+	}
+}
+
+func (h *resourcesMigrationUploadHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
 	st, err := h.stateAuthFunc(r)
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
-		}
-		return
+		return jujuerrors.Unauthorizedf("auth failure: %w", err)
 	}
 	defer st.Release()
 
-	store, err := h.objectStore(r.Context())
+	resourceService, err := h.resourceServiceGetter.Resource(r.Context())
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
-		}
-		return
+		return errors.Capture(err)
 	}
-
-	switch r.Method {
-	case "POST":
-		res, err := h.processPost(r, st.State, store)
-		if err != nil {
-			if err := sendError(w, err); err != nil {
-				logger.Errorf("%v", err)
-			}
-			return
-		}
-		if err := sendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
-			ID:        res.ID,
-			Timestamp: res.Timestamp,
-		}); err != nil {
-			logger.Errorf("%v", err)
-		}
-	default:
-		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf("%v", err)
-		}
+	applicationService, err := h.applicationServiceGetter.Application(r.Context())
+	if err != nil {
+		return errors.Capture(err)
 	}
+	res, err := h.processPost(r, resourceService, applicationService)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(sendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
+		ID:        res.ID,
+		Timestamp: res.Timestamp,
+	}))
 }
 
 // processPost handles resources upload POST request after
 // authentication.
-func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State, store objectstore.ObjectStore) (resource.Resource, error) {
+func (h *resourcesMigrationUploadHandler) processPost(
+	r *http.Request,
+	resourceService ResourceService,
+	applicationService ApplicationService,
+) (resource.Resource, error) {
 	var empty resource.Resource
+	ctx := r.Context()
 	query := r.URL.Query()
 
-	target, isUnit, err := getUploadTarget(query)
+	userID := query.Get("user") // Is allowed to be blank
+
+	// Get the target of the upload, which is an application with or without unit
+	appID, unitUUID, err := getUploadTarget(ctx, applicationService, query)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, errors.Capture(err)
 	}
 
-	userID := query.Get("user") // Is allowed to be blank
 	res, err := queryToResource(query)
 	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	rSt := st.Resources(store)
-
-	reader := r.Body
-
-	// Don't associate content with a placeholder resource.
-	if isPlaceholder(query) {
-		reader = nil
+		return empty, errors.Capture(err)
 	}
 
-	outRes, err := setResource(isUnit, target, userID, res, reader, rSt)
+	resUUID, err := resourceService.GetApplicationResourceID(ctx,
+		domainresource.GetApplicationResourceIDArgs{
+			ApplicationID: appID,
+			Name:          res.Name,
+		})
 	if err != nil {
-		return empty, errors.Annotate(err, "resource upload failed")
+		return empty, errors.Capture(err)
 	}
-	return outRes, nil
-}
 
-func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt state.Resources) (
-	resource.Resource, error,
-) {
-	if isUnit {
-		return rSt.SetUnitResource(target, user, res)
+	result := resource.Resource{
+		ID:            resUUID.String(),
+		ApplicationID: appID.String(),
+		Resource:      res,
+		Username:      userID,
 	}
-	return rSt.SetResource(target, user, res, r, state.DoNotIncrementCharmModifiedVersion)
+	if err := result.Validate(); err != nil {
+		return empty, errors.Errorf("bad resource metadata: %w", err)
+	}
+
+	if unitUUID != "" {
+		res, err := resourceService.SetUnitResource(ctx,
+			domainresource.SetUnitResourceArgs{
+				ResourceUUID: resUUID,
+				UnitUUID:     unitUUID,
+			})
+		if err != nil {
+			return empty, errors.Capture(err)
+		}
+		result.Timestamp = res.Timestamp
+	}
+
+	if !isPlaceholder(query) {
+		res, err := resourceService.SetResource(ctx, domainresource.SetResourceArgs{
+			ApplicationID: appID,
+			Resource:      res,
+			Reader:        r.Body,
+			Increment:     false,
+		})
+		if err != nil {
+			return empty, errors.Capture(err)
+		}
+		result.Timestamp = res.Timestamp
+		result.Resource = res.Resource
+	}
+	return result, nil
 }
 
 func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
 }
 
-func getUploadTarget(query url.Values) (string, bool, error) {
+func getUploadTarget(
+	ctx context.Context,
+	service ApplicationService,
+	query url.Values,
+) (appID coreapplication.ID, unitUUID coreunit.UUID, err error) {
+	// Validate parameters
 	appName := query.Get("application")
 	unitName := query.Get("unit")
 	switch {
 	case appName == "" && unitName == "":
-		return "", false, errors.BadRequestf("missing application/unit")
+		return appID, unitUUID, jujuerrors.BadRequestf("missing application/unit")
 	case appName != "" && unitName != "":
-		return "", false, errors.BadRequestf("application and unit can't be set at the same time")
-	case appName != "":
-		return appName, false, nil
-	default:
-		return unitName, true, nil
+		return appID, unitUUID, jujuerrors.BadRequestf("application and unit can't be set at the same time")
 	}
+
+	var coreUnitName coreunit.Name
+	// Resolve unitUUID if necessary
+	if unitName != "" {
+		coreUnitName, err = coreunit.NewName(unitName)
+		if err != nil {
+			return appID, unitUUID, jujuerrors.BadRequestf(err.Error())
+		}
+		unitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
+		if err != nil {
+			return appID, unitUUID, errors.Capture(err)
+		}
+	}
+
+	// resolve appUUID
+	if appName == "" {
+		appID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
+	} else {
+		appID, err = service.GetApplicationIDByName(ctx, appName)
+	}
+	return appID, unitUUID, errors.Capture(err)
 }
 
 func queryToResource(query url.Values) (charmresource.Resource, error) {
@@ -140,32 +209,32 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 		},
 	}
 	if res.Name == "" {
-		return empty, errors.BadRequestf("missing name")
+		return empty, jujuerrors.BadRequestf("missing name")
 	}
 	res.Type, err = charmresource.ParseType(query.Get("type"))
 	if err != nil {
-		return empty, errors.BadRequestf("invalid type")
+		return empty, jujuerrors.BadRequestf("invalid type")
 	}
 	res.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
 	if err != nil {
-		return empty, errors.BadRequestf("invalid origin")
+		return empty, jujuerrors.BadRequestf("invalid origin")
 	}
 	res.Revision, err = strconv.Atoi(query.Get("revision"))
 	if err != nil {
-		return empty, errors.BadRequestf("invalid revision")
+		return empty, jujuerrors.BadRequestf("invalid revision")
 	}
 	res.Size, err = strconv.ParseInt(query.Get("size"), 10, 64)
 	if err != nil {
-		return empty, errors.BadRequestf("invalid size")
+		return empty, jujuerrors.BadRequestf("invalid size")
 	}
 	switch res.Type {
 	case charmresource.TypeFile:
 		if res.Path == "" {
-			return empty, errors.BadRequestf("missing path")
+			return empty, jujuerrors.BadRequestf("missing path")
 		}
 		res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
 		if err != nil {
-			return empty, errors.BadRequestf("invalid fingerprint")
+			return empty, jujuerrors.BadRequestf("invalid fingerprint")
 		}
 	case charmresource.TypeContainerImage:
 		res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
@@ -175,4 +244,17 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 		}
 	}
 	return res, nil
+}
+
+type resourceServiceGetter struct {
+	ctxt httpContext
+}
+
+func (rsg *resourceServiceGetter) Resource(ctx context.Context) (ResourceService, error) {
+	domainServices, err := rsg.ctxt.domainServicesForRequest(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return domainServices.Resource(), nil
 }
