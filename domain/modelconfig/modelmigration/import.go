@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 
@@ -71,6 +72,24 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// wrong. In this case, we should return an error.
 	if len(attrs) == 0 {
 		return errors.NotValidf("model config")
+	}
+
+	// Models imported from older controllers may contain config attributes
+	// which have since been removed from use. We filter these out by removing
+	// any incoming attributes not in the default list.
+	defaults, err := i.defaultsProvider.ModelDefaults(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defaultAttrs := set.NewStrings()
+	for k := range defaults {
+		defaultAttrs.Add(k)
+	}
+
+	for k := range attrs {
+		if !defaultAttrs.Contains(k) {
+			delete(attrs, k)
+		}
 	}
 
 	if err := i.service.SetModelConfig(ctx, attrs); err != nil {

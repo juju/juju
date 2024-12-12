@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -56,13 +57,23 @@ func (s *importSuite) TestModelConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config, err := config.New(config.NoDefaults, map[string]any{
-		"name": "foo",
-		"uuid": "a677bdfd-3c96-46b2-912f-38e25faceaf7",
-		"type": "sometype",
+		"name":             "foo",
+		"uuid":             "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":             "sometype",
+		"workload-storage": "mystorage",
+		"operator-storage": "otherstorage",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	importedCOnfig := map[string]any{
+		"logging-config":   "<root>=INFO",
+		"workload-storage": "mystorage",
+	}
 
-	s.service.EXPECT().SetModelConfig(gomock.Any(), config.AllAttrs()).Return(nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), importedCOnfig).Return(nil)
+	s.modelDefaultsProvider.EXPECT().ModelDefaults(gomock.Any()).Return(modeldefaults.Defaults{
+		"logging-config":   modeldefaults.DefaultAttributeValue{},
+		"workload-storage": modeldefaults.DefaultAttributeValue{},
+	}, nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: config.AllAttrs(),
