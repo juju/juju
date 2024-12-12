@@ -16,12 +16,21 @@ import (
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 )
 
 // CharmhubClient is responsible for refreshing charms from the charm store.
 type CharmhubClient interface {
+	// RefreshWithMetricsOnly defines a client making a refresh API call with no
+	// action, whose purpose is to send metrics data for models without current
+	// units.  E.G. the controller model.
+	RefreshWithMetricsOnly(context.Context, charmhub.Metrics) error
+
+	// RefreshWithRequestMetrics defines a client making a refresh API call with
+	// a request and metrics data.
+	RefreshWithRequestMetrics(context.Context, charmhub.RefreshConfig, charmhub.Metrics) ([]transport.RefreshResponse, error)
 }
 
 // NewCharmhubClientFunc is a function that creates a new CharmhubClient.
@@ -77,6 +86,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			worker, err := cfg.NewWorker(Config{
 				ModelConfigService: domainServices.Config(),
 				ApplicationService: domainServices.Application(),
+				ModelService:       domainServices.ModelInfo(),
 				Clock:              cfg.Clock,
 				Period:             cfg.Period,
 				Logger:             cfg.Logger,
