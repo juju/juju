@@ -23,7 +23,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -102,7 +101,6 @@ type APIBase struct {
 
 type CaasBrokerInterface interface {
 	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
-	Version() (*version.Number, error)
 }
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
@@ -454,39 +452,22 @@ func (c caasDeployParams) precheck(
 		return fmt.Errorf("getting model config: %w", err)
 	}
 
-	// For older charms, operator-storage model config is mandatory.
-	if k8s.RequireOperatorStorage(c.charm) {
-		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
-		if storageClassName == "" {
-			return errors.New(
-				"deploying this Kubernetes application requires a suitable storage class.\n" +
-					"None have been configured. Set the operator-storage model config to " +
-					"specify which storage class should be used to allocate operator storage.\n" +
-					"See https://discourse.charmhub.io/t/getting-started/152.",
-			)
-		}
-		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storageService, registry)
-		if err != nil {
-			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
-		}
-		if sp.Provider != string(k8sconstants.StorageProviderType) {
-			poolName := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
-			return errors.Errorf(
-				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
-		}
-		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	workloadStorageClass, _ := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
 	for storageName, cons := range c.storage {
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 		}
-		_, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storageService, registry)
+		sp, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storageService, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
+		}
+		if sp.Provider != string(k8sconstants.StorageProviderType) {
+			poolName := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey]
+			return errors.Errorf(
+				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
+		}
+		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
+			return errors.Trace(err)
 		}
 	}
 

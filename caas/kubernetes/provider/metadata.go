@@ -134,17 +134,10 @@ func GetClusterMetadata(
 		return nil, errors.Annotate(err, "cannot determine cluster region")
 	}
 
-	// We may have the workload storage but still need to look for operator storage.
 	storageClasses, err := storageClassI.List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing storage classes")
 	}
-
-	preferredOperatorStorage := providerstorage.PreferredOperatorStorageForCloud(result.Cloud).Prepend(
-		&providerstorage.PreferredStorageNominated{
-			StorageClassName: nominatedStorageClass,
-		},
-	)
 
 	preferredWorkloadStorage := providerstorage.PreferredWorkloadStorageForCloud(result.Cloud).Prepend(
 		&providerstorage.PreferredStorageNominated{
@@ -153,19 +146,11 @@ func GetClusterMetadata(
 	)
 
 	var (
-		selectedOperatorSC *storagev1.StorageClass
 		selectedWorkloadSC *storagev1.StorageClass
-		operatorPriority   int
 		workloadPriority   int
 	)
 	for i, sc := range storageClasses.Items {
-		priority, matches := preferredOperatorStorage.Matches(&sc)
-		if matches && (priority < operatorPriority || selectedOperatorSC == nil) {
-			selectedOperatorSC = &storageClasses.Items[i]
-			operatorPriority = priority
-		}
-
-		priority, matches = preferredWorkloadStorage.Matches(&sc)
+		priority, matches := preferredWorkloadStorage.Matches(&sc)
 		if matches && (priority < workloadPriority || selectedWorkloadSC == nil) {
 			selectedWorkloadSC = &storageClasses.Items[i]
 			workloadPriority = priority
@@ -173,12 +158,6 @@ func GetClusterMetadata(
 	}
 
 	if nominatedStorageClass != "" {
-		if selectedOperatorSC == nil || selectedOperatorSC.Name != nominatedStorageClass {
-			return nil, &environs.NominatedStorageNotFound{
-				StorageName: nominatedStorageClass,
-			}
-		}
-
 		if selectedWorkloadSC == nil || selectedWorkloadSC.Name != nominatedStorageClass {
 			return nil, &environs.NominatedStorageNotFound{
 				StorageName: nominatedStorageClass,
@@ -186,7 +165,6 @@ func GetClusterMetadata(
 		}
 	}
 
-	result.OperatorStorageClass = selectedOperatorSC
 	result.WorkloadStorageClass = selectedWorkloadSC
 	return &result, nil
 }

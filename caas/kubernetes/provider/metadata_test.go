@@ -28,15 +28,6 @@ type K8sMetadataSuite struct {
 var _ = gc.Suite(&K8sMetadataSuite{})
 
 var (
-	annotatedOperatorStorage = &storagev1.StorageClass{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "operator-storage",
-			Annotations: map[string]string{
-				"juju.is/operator-storage": "true",
-			},
-		},
-	}
-
 	annotatedWorkloadStorage = &storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "workload-storage",
@@ -304,7 +295,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "ec2",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: ec2StorageClass,
-				OperatorStorageClass: ec2StorageClass,
 			},
 		},
 		{
@@ -312,27 +302,23 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				ec2Node,
 				ec2StorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "ec2",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: annotatedWorkloadStorage,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
 			Name: "Test ec2 cloud prefers annotation storage without workload",
 			InitialObjects: []runtime.Object{
 				ec2Node,
-				annotatedOperatorStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "ec2",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
@@ -340,7 +326,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				ec2Node,
 				ec2StorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 				nominatedStorage,
 			},
@@ -349,7 +334,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "ec2",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nominatedStorage,
-				OperatorStorageClass: nominatedStorage,
 			},
 		},
 		{
@@ -361,7 +345,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "ec2",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: nil,
 			},
 		},
 		{
@@ -374,7 +357,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "ec2",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: defaultStorage,
-				OperatorStorageClass: defaultStorage,
 			},
 		},
 
@@ -389,7 +371,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "microk8s",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: microk8sStorageClass,
-				OperatorStorageClass: microk8sStorageClass,
 			},
 		},
 		{
@@ -397,27 +378,23 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				microk8sNode,
 				microk8sStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "microk8s",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: annotatedWorkloadStorage,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
 			Name: "Test microk8s cloud prefers annotation storage without workload",
 			InitialObjects: []runtime.Object{
 				microk8sNode,
-				annotatedOperatorStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "microk8s",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
@@ -425,7 +402,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				microk8sNode,
 				microk8sStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 				nominatedStorage,
 			},
@@ -434,7 +410,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "microk8s",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nominatedStorage,
-				OperatorStorageClass: nominatedStorage,
 			},
 		},
 		{
@@ -446,7 +421,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "microk8s",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: nil,
 			},
 		},
 		{
@@ -459,7 +433,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "microk8s",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: nil,
 			},
 		},
 
@@ -474,7 +447,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "azure",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: azureStorageClass,
-				OperatorStorageClass: azureStorageClass,
 			},
 		},
 		{
@@ -482,27 +454,23 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				azureNode,
 				azureStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "azure",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: annotatedWorkloadStorage,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
 			Name: "Test azure cloud prefers annotation storage without workload",
 			InitialObjects: []runtime.Object{
 				azureNode,
-				annotatedOperatorStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "azure",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
@@ -510,7 +478,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				azureNode,
 				azureStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 				nominatedStorage,
 			},
@@ -519,7 +486,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "azure",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nominatedStorage,
-				OperatorStorageClass: nominatedStorage,
 			},
 		},
 		{
@@ -531,7 +497,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "azure",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: nil,
 			},
 		},
 		{
@@ -544,7 +509,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "azure",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: defaultStorage,
-				OperatorStorageClass: defaultStorage,
 			},
 		},
 
@@ -559,7 +523,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "gce",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: gceStorageClass,
-				OperatorStorageClass: gceStorageClass,
 			},
 		},
 		{
@@ -567,27 +530,23 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				gceNode,
 				gceStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "gce",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: annotatedWorkloadStorage,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
 			Name: "Test gce cloud prefers annotation storage without workload",
 			InitialObjects: []runtime.Object{
 				gceNode,
-				annotatedOperatorStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "gce",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
@@ -595,7 +554,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				gceNode,
 				gceStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 				nominatedStorage,
 			},
@@ -604,7 +562,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "gce",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nominatedStorage,
-				OperatorStorageClass: nominatedStorage,
 			},
 		},
 		{
@@ -616,7 +573,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "gce",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: nil,
 			},
 		},
 		{
@@ -629,7 +585,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "gce",
 				Regions:              set.NewStrings("wallyworld-region"),
 				WorkloadStorageClass: defaultStorage,
-				OperatorStorageClass: defaultStorage,
 			},
 		},
 
@@ -639,27 +594,12 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				newNode(map[string]string{}),
 				gceStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "",
 				Regions:              set.NewStrings(),
 				WorkloadStorageClass: annotatedWorkloadStorage,
-				OperatorStorageClass: annotatedOperatorStorage,
-			},
-		},
-		{
-			Name: "Test other cloud prefers annotation storage without workload",
-			InitialObjects: []runtime.Object{
-				newNode(map[string]string{}),
-				annotatedOperatorStorage,
-			},
-			Result: kubernetes.ClusterMetadata{
-				Cloud:                "",
-				Regions:              set.NewStrings(),
-				WorkloadStorageClass: annotatedOperatorStorage,
-				OperatorStorageClass: annotatedOperatorStorage,
 			},
 		},
 		{
@@ -667,7 +607,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			InitialObjects: []runtime.Object{
 				newNode(map[string]string{}),
 				gceStorageClass,
-				annotatedOperatorStorage,
 				annotatedWorkloadStorage,
 				nominatedStorage,
 			},
@@ -676,7 +615,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "",
 				Regions:              set.NewStrings(),
 				WorkloadStorageClass: nominatedStorage,
-				OperatorStorageClass: nominatedStorage,
 			},
 		},
 		{
@@ -688,7 +626,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "",
 				Regions:              set.NewStrings(),
 				WorkloadStorageClass: nil,
-				OperatorStorageClass: nil,
 			},
 		},
 		{
@@ -701,7 +638,6 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 				Cloud:                "",
 				Regions:              set.NewStrings(),
 				WorkloadStorageClass: defaultStorage,
-				OperatorStorageClass: defaultStorage,
 			},
 		},
 	}
@@ -725,7 +661,6 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *gc.C) {
 	clientSet := fake.NewSimpleClientset(
 		newNode(map[string]string{}),
 		gceStorageClass,
-		annotatedOperatorStorage,
 		annotatedWorkloadStorage,
 	)
 

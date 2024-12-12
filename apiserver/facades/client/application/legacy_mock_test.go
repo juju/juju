@@ -21,7 +21,6 @@ import (
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 	environschema "gopkg.in/juju/environschema.v1"
 )
@@ -2128,45 +2127,6 @@ func (c *MockCaasBrokerInterfaceValidateStorageClassCall) Do(f func(context.Cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCaasBrokerInterfaceValidateStorageClassCall) DoAndReturn(f func(context.Context, map[string]any) error) *MockCaasBrokerInterfaceValidateStorageClassCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Version mocks base method.
-func (m *MockCaasBrokerInterface) Version() (*version.Number, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Version")
-	ret0, _ := ret[0].(*version.Number)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Version indicates an expected call of Version.
-func (mr *MockCaasBrokerInterfaceMockRecorder) Version() *MockCaasBrokerInterfaceVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockCaasBrokerInterface)(nil).Version))
-	return &MockCaasBrokerInterfaceVersionCall{Call: call}
-}
-
-// MockCaasBrokerInterfaceVersionCall wrap *gomock.Call
-type MockCaasBrokerInterfaceVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCaasBrokerInterfaceVersionCall) Return(arg0 *version.Number, arg1 error) *MockCaasBrokerInterfaceVersionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCaasBrokerInterfaceVersionCall) Do(f func() (*version.Number, error)) *MockCaasBrokerInterfaceVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCaasBrokerInterfaceVersionCall) DoAndReturn(f func() (*version.Number, error)) *MockCaasBrokerInterfaceVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
