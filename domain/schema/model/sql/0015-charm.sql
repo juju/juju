@@ -67,9 +67,32 @@ CREATE TABLE charm (
     CHECK (source_id = 0 OR source_id = 1 AND architecture_id >= 0)
 );
 
+-- This ensures that the reference name and revision are unique. This is to
+-- ensure that we don't have two charms with the same reference name and
+-- revision. If this happens, we can just link the application to the existing
+-- charm.
 CREATE UNIQUE INDEX idx_charm_reference_name_revision
-ON charm (reference_name, revision);
+ON charm (source_id, reference_name, revision);
 
+-- The sequence_charm_local table is used to keep track of the sequence number
+-- of the local charm. This is used to determine the revision of the charm.
+-- For that reason we can not use a revision directly in the table.
+--
+-- Charms are unique rows in the database and the metadata is immutable. To
+-- locate the charm, we can not use the charm.uuid, as this doesn't allow us
+-- to group them. Instead, the group is the source_id and the reference_name.
+-- This is the unique identifier for the charm.
+CREATE TABLE sequence_charm_local (
+    source_id INT NOT NULL,
+    reference_name TEXT NOT NULL,
+
+    -- The sequence number will start at 0 for each charm and will be
+    -- incremented.
+    sequence INT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX idx_sequence_charm_local_source_reference
+ON sequence_charm_local (source_id, reference_name);
 
 CREATE TABLE charm_provenance (
     id INT PRIMARY KEY,
