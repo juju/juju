@@ -121,7 +121,7 @@ type Checker interface {
 type Ensurer interface {
 	Checker
 
-	// WithLeader ensures that the input unit, holds leadership of the input
+	// WithLeader ensures that the input unit holds leadership of the input
 	// application for the duration of execution of the input function.
 	WithLeader(ctx context.Context, appName, unitName string, fn func(context.Context) error) error
 }
