@@ -8,54 +8,17 @@ import (
 	"database/sql"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/database/schema"
 	coresecrets "github.com/juju/juju/core/secrets"
-	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
 type secretSchemaSuite struct {
-	databasetesting.DqliteSuite
+	schemaBaseSuite
 }
 
 var _ = gc.Suite(&secretSchemaSuite{})
-
-// NewCleanDB returns a new sql.DB reference.
-func (s *secretSchemaSuite) NewCleanDB(c *gc.C) *sql.DB {
-	dir := c.MkDir()
-
-	url := fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir)
-	c.Logf("Opening sqlite3 db with: %v", url)
-
-	db, err := sql.Open("sqlite3", url)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return db
-}
-
-func (s *secretSchemaSuite) applyDDL(c *gc.C, ddl *schema.Schema) {
-	if s.Verbose {
-		ddl.Hook(func(i int, statement string) error {
-			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
-			return nil
-		})
-	}
-	changeSet, err := ddl.Ensure(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(changeSet.Current, gc.Equals, 0)
-	c.Check(changeSet.Post, gc.Equals, ddl.Len())
-}
-
-func (s *secretSchemaSuite) assertExecSQL(c *gc.C, q string, args ...any) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, args...)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
 
 func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) {
 	s.applyDDL(c, ControllerDDL())

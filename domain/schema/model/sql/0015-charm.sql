@@ -88,10 +88,11 @@ CREATE TABLE sequence_charm_local (
 
     -- The sequence number will start at 0 for each charm and will be
     -- incremented.
-    sequence INT NOT NULL DEFAULT 0,
-
-    PRIMARY KEY (source_id, reference_name)
+    sequence INT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX idx_sequence_charm_local_source_reference
+ON sequence_charm_local (source_id, reference_name);
 
 CREATE TABLE charm_provenance (
     id INT PRIMARY KEY,
