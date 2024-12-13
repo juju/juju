@@ -1363,7 +1363,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 		Provenance: charm.ProvenanceUpload,
 	}
 
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), stat.Size(), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
 		ArchivePath:     path,
@@ -1385,7 +1385,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 	locator, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       reader,
-		Size:         stat.Size(),
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1405,7 +1404,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRe
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), int64(42), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
 		ArchivePath:     "/tmp/foo",
@@ -1418,7 +1417,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRe
 	_, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       strings.NewReader("foo"),
-		Size:         42,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1444,7 +1442,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 		Provenance: charm.ProvenanceUpload,
 	}
 
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), stat.Size(), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
 		ArchivePath:     path,
@@ -1460,7 +1458,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       reader,
-		Size:         stat.Size(),
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1490,7 +1487,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), stat.Size(), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
 		ArchivePath:     path,
@@ -1514,7 +1511,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
 	locator, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       reader,
-		Size:         stat.Size(),
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1537,8 +1533,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingCharmNotFou
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 	reader, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
-	stat, err := reader.Stat()
-	c.Assert(err, jc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
 
@@ -1547,7 +1541,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingCharmNotFou
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       reader,
-		Size:         stat.Size(),
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1571,7 +1564,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), stat.Size(), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
 		ArchivePath:     path,
@@ -1584,7 +1577,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       reader,
-		Size:         stat.Size(),
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1612,7 +1604,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	}
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), stat.Size(), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
 		ArchivePath:     path,
@@ -1636,7 +1628,6 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
 		Reader:       reader,
-		Size:         stat.Size(),
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,

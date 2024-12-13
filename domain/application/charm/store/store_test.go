@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
@@ -147,7 +146,7 @@ func (s *storeSuite) TestGetNotFound(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, jc.ErrorIs, ErrNotFound)
 }
 
 func (s *storeSuite) TestGetBySHA256Prefix(c *gc.C) {
@@ -181,7 +180,7 @@ func (s *storeSuite) TestGetBySHA256NotFound(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter)
 	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Assert(err, jc.ErrorIs, ErrNotFound)
 }
 
 func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {

@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -165,11 +164,6 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st ModelState, applicationService ApplicationService) (*charm.URL, error) {
-	size, err := strconv.Atoi(r.Header.Get("Content-Length"))
-	if err != nil {
-		return nil, jujuerrors.BadRequestf("invalid Content-Length header: %v", err)
-	}
-
 	name, shaFromQuery, err := splitNameAndSHAFromQuery(r.URL.Query())
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -212,11 +206,10 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		Source:       source,
 		Architecture: curl.Architecture,
 		SHA256Prefix: shaFromQuery,
-		Size:         int64(size),
 
 		// Prevent an upload starvation attack by limiting the size of the
 		// charm that can be uploaded.
-		Reader: io.LimitReader(r.Body, min(int64(size), maxUploadSize)),
+		Reader: io.LimitReader(r.Body, maxUploadSize),
 
 		// Importing indicates that the charm is being uploaded during model
 		// migration import. This is useful to set the provenance of the charm
@@ -310,7 +303,10 @@ func (s *stateGetter) GetState(r *http.Request) (ModelState, error) {
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return &stateGetterModel{pooledState: st}, nil
+	return &stateGetterModel{
+		pooledState: st,
+		st:          st.State,
+	}, nil
 }
 
 type stateGetterModel struct {

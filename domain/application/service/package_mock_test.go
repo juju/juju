@@ -3017,9 +3017,9 @@ func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, in
 }
 
 // StoreFromReader mocks base method.
-func (m *MockCharmStore) StoreFromReader(arg0 context.Context, arg1 io.Reader, arg2 int64, arg3 string) (store.StoreResult, store.Digest, error) {
+func (m *MockCharmStore) StoreFromReader(arg0 context.Context, arg1 io.Reader, arg2 string) (store.StoreResult, store.Digest, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreFromReader", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "StoreFromReader", arg0, arg1, arg2)
 	ret0, _ := ret[0].(store.StoreResult)
 	ret1, _ := ret[1].(store.Digest)
 	ret2, _ := ret[2].(error)
@@ -3027,9 +3027,9 @@ func (m *MockCharmStore) StoreFromReader(arg0 context.Context, arg1 io.Reader, a
 }
 
 // StoreFromReader indicates an expected call of StoreFromReader.
-func (mr *MockCharmStoreMockRecorder) StoreFromReader(arg0, arg1, arg2, arg3 any) *MockCharmStoreStoreFromReaderCall {
+func (mr *MockCharmStoreMockRecorder) StoreFromReader(arg0, arg1, arg2 any) *MockCharmStoreStoreFromReaderCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreFromReader", reflect.TypeOf((*MockCharmStore)(nil).StoreFromReader), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreFromReader", reflect.TypeOf((*MockCharmStore)(nil).StoreFromReader), arg0, arg1, arg2)
 	return &MockCharmStoreStoreFromReaderCall{Call: call}
 }
 
@@ -3045,13 +3045,13 @@ func (c *MockCharmStoreStoreFromReaderCall) Return(arg0 store.StoreResult, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStoreStoreFromReaderCall) Do(f func(context.Context, io.Reader, int64, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
+func (c *MockCharmStoreStoreFromReaderCall) Do(f func(context.Context, io.Reader, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStoreStoreFromReaderCall) DoAndReturn(f func(context.Context, io.Reader, int64, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
+func (c *MockCharmStoreStoreFromReaderCall) DoAndReturn(f func(context.Context, io.Reader, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
