@@ -34,7 +34,7 @@ import (
 type uniterNetworkInfoSuite struct {
 	uniterSuiteBase
 	domainServices services.DomainServices
-	mysqlCharm     *state.Charm
+	mysqlCharm     state.CharmRefFull
 	st             *state.State
 }
 
