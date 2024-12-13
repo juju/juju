@@ -20,7 +20,6 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	objectstore "github.com/juju/juju/core/objectstore"
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -28,6 +27,7 @@ import (
 	domain "github.com/juju/juju/domain"
 	application0 "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
+	store "github.com/juju/juju/domain/application/charm/store"
 	life "github.com/juju/juju/domain/life"
 	storage "github.com/juju/juju/domain/storage"
 	version "github.com/juju/version/v2"
@@ -1899,6 +1899,45 @@ func (c *MockStateResolveCharmDownloadCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// ResolveMigratingUploadedCharm mocks base method.
+func (m *MockState) ResolveMigratingUploadedCharm(arg0 context.Context, arg1 charm.ID, arg2 charm0.ResolvedMigratingUploadedCharm) (charm0.CharmLocator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveMigratingUploadedCharm", arg0, arg1, arg2)
+	ret0, _ := ret[0].(charm0.CharmLocator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveMigratingUploadedCharm indicates an expected call of ResolveMigratingUploadedCharm.
+func (mr *MockStateMockRecorder) ResolveMigratingUploadedCharm(arg0, arg1, arg2 any) *MockStateResolveMigratingUploadedCharmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveMigratingUploadedCharm", reflect.TypeOf((*MockState)(nil).ResolveMigratingUploadedCharm), arg0, arg1, arg2)
+	return &MockStateResolveMigratingUploadedCharmCall{Call: call}
+}
+
+// MockStateResolveMigratingUploadedCharmCall wrap *gomock.Call
+type MockStateResolveMigratingUploadedCharmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateResolveMigratingUploadedCharmCall) Return(arg0 charm0.CharmLocator, arg1 error) *MockStateResolveMigratingUploadedCharmCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateResolveMigratingUploadedCharmCall) Do(f func(context.Context, charm.ID, charm0.ResolvedMigratingUploadedCharm) (charm0.CharmLocator, error)) *MockStateResolveMigratingUploadedCharmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateResolveMigratingUploadedCharmCall) DoAndReturn(f func(context.Context, charm.ID, charm0.ResolvedMigratingUploadedCharm) (charm0.CharmLocator, error)) *MockStateResolveMigratingUploadedCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RunAtomic mocks base method.
 func (m *MockState) RunAtomic(arg0 context.Context, arg1 func(domain.AtomicContext) error) error {
 	m.ctrl.T.Helper()
@@ -2938,13 +2977,12 @@ func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context
 }
 
 // Store mocks base method.
-func (m *MockCharmStore) Store(arg0 context.Context, arg1 string, arg2 int64, arg3 string) (string, objectstore.UUID, error) {
+func (m *MockCharmStore) Store(arg0 context.Context, arg1 string, arg2 int64, arg3 string) (store.StoreResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Store", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(objectstore.UUID)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(store.StoreResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Store indicates an expected call of Store.
@@ -2960,19 +2998,59 @@ type MockCharmStoreStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmStoreStoreCall) Return(arg0 string, arg1 objectstore.UUID, arg2 error) *MockCharmStoreStoreCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockCharmStoreStoreCall) Return(arg0 store.StoreResult, arg1 error) *MockCharmStoreStoreCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStoreStoreCall) Do(f func(context.Context, string, int64, string) (string, objectstore.UUID, error)) *MockCharmStoreStoreCall {
+func (c *MockCharmStoreStoreCall) Do(f func(context.Context, string, int64, string) (store.StoreResult, error)) *MockCharmStoreStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, int64, string) (string, objectstore.UUID, error)) *MockCharmStoreStoreCall {
+func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, int64, string) (store.StoreResult, error)) *MockCharmStoreStoreCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// StoreFromReader mocks base method.
+func (m *MockCharmStore) StoreFromReader(arg0 context.Context, arg1 io.Reader, arg2 int64, arg3 string) (store.StoreResult, store.Digest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreFromReader", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(store.StoreResult)
+	ret1, _ := ret[1].(store.Digest)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// StoreFromReader indicates an expected call of StoreFromReader.
+func (mr *MockCharmStoreMockRecorder) StoreFromReader(arg0, arg1, arg2, arg3 any) *MockCharmStoreStoreFromReaderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreFromReader", reflect.TypeOf((*MockCharmStore)(nil).StoreFromReader), arg0, arg1, arg2, arg3)
+	return &MockCharmStoreStoreFromReaderCall{Call: call}
+}
+
+// MockCharmStoreStoreFromReaderCall wrap *gomock.Call
+type MockCharmStoreStoreFromReaderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmStoreStoreFromReaderCall) Return(arg0 store.StoreResult, arg1 store.Digest, arg2 error) *MockCharmStoreStoreFromReaderCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmStoreStoreFromReaderCall) Do(f func(context.Context, io.Reader, int64, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmStoreStoreFromReaderCall) DoAndReturn(f func(context.Context, io.Reader, int64, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

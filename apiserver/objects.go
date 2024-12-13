@@ -17,6 +17,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -57,7 +59,7 @@ type ApplicationService interface {
 	GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 
 	// ResolveUploadCharm resolves the upload of a charm archive.
-	ResolveUploadCharm(context.Context, applicationcharm.ResolveUploadCharm) error
+	ResolveUploadCharm(context.Context, applicationcharm.ResolveUploadCharm) (applicationcharm.CharmLocator, error)
 }
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
@@ -205,7 +207,7 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		return nil, jujuerrors.BadRequestf("unsupported charm source %q", curl.Schema)
 	}
 
-	if err := applicationService.ResolveUploadCharm(r.Context(), applicationcharm.ResolveUploadCharm{
+	locator, err := applicationService.ResolveUploadCharm(r.Context(), applicationcharm.ResolveUploadCharm{
 		Name:         curl.Name,
 		Revision:     curl.Revision,
 		Source:       source,
@@ -221,11 +223,27 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		// migration import. This is useful to set the provenance of the charm
 		// correctly.
 		Importing: isImporting,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return curl, nil
+	schema, err := convertSource(locator.Source)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	architecture, err := convertApplication(locator.Architecture)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return &charm.URL{
+		Schema:       schema,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}, nil
 }
 
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
@@ -246,7 +264,6 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Capture(sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
@@ -278,4 +295,37 @@ func (a *applicationServiceGetter) Application(ctx context.Context) (Application
 	}
 
 	return domainServices.Application(), nil
+}
+
+func convertSource(source applicationcharm.CharmSource) (string, error) {
+	switch source {
+	case applicationcharm.CharmHubSource:
+		return "ch", nil
+	case applicationcharm.LocalSource:
+		return "local", nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
+func convertApplication(arch application.Architecture) (string, error) {
+	switch arch {
+	case architecture.AMD64:
+		return "amd64", nil
+	case architecture.ARM64:
+		return "arm64", nil
+	case architecture.PPC64EL:
+		return "ppc64el", nil
+	case architecture.S390X:
+		return "s390x", nil
+	case architecture.RISV64:
+		return "riscv64", nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", arch)
+	}
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -1337,7 +1338,11 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
-	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return("somepath", objectStoreUUID, nil)
+	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{
+		ArchivePath:     "/tmp/somepath",
+		UniqueName:      "somepath",
+		ObjectStoreUUID: objectStoreUUID,
+	}, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
 		ObjectStoreUUID: objectStoreUUID,
@@ -1444,8 +1449,6 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *g
 func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
-
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
@@ -1465,7 +1468,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
-	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return("somepath", objectStoreUUID, jujuerrors.NotFoundf("not found"))
+	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{}, jujuerrors.NotFoundf("not found"))
 
 	err := s.service.ResolveCharmDownload(context.Background(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
@@ -1507,7 +1510,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *gc.C)
 	}
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
-	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return("somepath", objectStoreUUID, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{}, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
 		ObjectStoreUUID: objectStoreUUID,

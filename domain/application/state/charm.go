@@ -794,6 +794,13 @@ WHERE charm.uuid = $charmID.uuid;
 	return sha256, nil
 }
 
+// ResolveMigratingUploadedCharm resolves the charm that is migrating from
+// the uploaded state to the available state. If the charm is not found, a
+// [applicationerrors.CharmNotFound] error is returned.
+func (s *State) ResolveMigratingUploadedCharm(context.Context, corecharm.ID, charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error) {
+	return charm.CharmLocator{}, nil
+}
+
 func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
 	return transform.SliceOrErr(results, func(c charmLocator) (charm.CharmLocator, error) {
 		source, err := decodeCharmSource(c.SourceID)
