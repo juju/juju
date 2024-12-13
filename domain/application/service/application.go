@@ -1403,7 +1403,12 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
 	result, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
-	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
+	if errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
+		// If the hash already exists but has a different size, then we've
+		// got a hash conflict. There isn't anything we can do about this, so
+		// we'll return an error.
+		return applicationerrors.CharmAlreadyExistsWithDifferentSize
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1437,7 +1442,12 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
 	result, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
-	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
+	if errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
+		// If the hash already exists but has a different size, then we've
+		// got a hash conflict. There isn't anything we can do about this, so
+		// we'll return an error.
+		return application.ResolvedControllerCharmDownload{}, applicationerrors.CharmAlreadyExistsWithDifferentSize
+	} else if err != nil {
 		return application.ResolvedControllerCharmDownload{}, errors.Trace(err)
 	}
 
