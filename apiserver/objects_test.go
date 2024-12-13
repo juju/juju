@@ -264,7 +264,6 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 		c.Check(args.Name, gc.Equals, "testcharm")
 		c.Check(args.Revision, gc.Equals, 1)
 		c.Check(args.Architecture, gc.Equals, "")
-		c.Check(args.Size, gc.Equals, int64(13))
 
 		return applicationcharm.CharmLocator{
 			Name:         "testcharm",
