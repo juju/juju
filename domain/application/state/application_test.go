@@ -1900,7 +1900,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 
 	s.createApplication(c, "foo", life.Alive)
 
-	_, err := s.state.SetCharm(context.Background(), charm.Charm{
+	_, _, err := s.state.SetCharm(context.Background(), charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
