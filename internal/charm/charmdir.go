@@ -167,19 +167,6 @@ func (dir *CharmDir) join(parts ...string) string {
 	return filepath.Join(parts...)
 }
 
-// SetDiskRevision does the same as SetRevision but also changes
-// the revision file in the charm directory.
-func (dir *CharmDir) SetDiskRevision(revision int) error {
-	dir.setRevision(revision)
-	file, err := os.OpenFile(dir.join("revision"), os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return err
-	}
-	_, err = file.Write([]byte(strconv.Itoa(revision)))
-	file.Close()
-	return err
-}
-
 // resolveSymlinkedRoot returns the target destination of a
 // charm root directory if the root directory is a symlink.
 func resolveSymlinkedRoot(rootPath string) (string, error) {

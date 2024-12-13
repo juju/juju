@@ -74,10 +74,3 @@ func (c *charmBase) Manifest() *Manifest {
 func (c *charmBase) SetVersion(version string) {
 	c.version = version
 }
-
-// setRevision changes the charm revision. This affects
-// the revision reported by Revision and the revision of the
-// charm created.
-func (c *charmBase) setRevision(revision int) {
-	c.revision = revision
-}

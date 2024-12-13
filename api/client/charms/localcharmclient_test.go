@@ -71,16 +71,13 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 
 	// Upload a charm directory with changed revision.
 	resp.Header.Set("Juju-Curl", "local:quantal/dummy-42")
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
-	err = charmDir.SetDiskRevision(42)
-	c.Assert(err, jc.ErrorIsNil)
-	savedURL, err = client.AddLocalCharm(curl, charmDir, false, vers)
+	savedURL, err = client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
 	resp.Header.Set("Juju-Curl", "local:quantal/dummy-43")
-	savedURL, err = client.AddLocalCharm(curl, charmDir, false, vers)
+	savedURL, err = client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
@@ -268,7 +265,7 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 	c.Assert(savedCURL.String(), gc.Equals, curl.String())
 }
 
-func (s *addCharmSuite) testCharm(c *gc.C) (*charm.URL, charm.Charm) {
+func (s *addCharmSuite) testCharm(c *gc.C) (*charm.URL, *charm.CharmArchive) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),

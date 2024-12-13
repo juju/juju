@@ -63,22 +63,6 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 	// Package the charm for uploading.
 	var archive *os.File
 	switch ch := ch.(type) {
-	case *charm.CharmDir:
-		var err error
-		if archive, err = os.CreateTemp("", "charm"); err != nil {
-			return nil, errors.Annotate(err, "cannot create temp file")
-		}
-		defer func() {
-			_ = archive.Close()
-			_ = os.Remove(archive.Name())
-		}()
-
-		if err := ch.ArchiveTo(archive); err != nil {
-			return nil, errors.Annotate(err, "cannot repackage charm")
-		}
-		if _, err := archive.Seek(0, os.SEEK_SET); err != nil {
-			return nil, errors.Annotate(err, "cannot rewind packaged charm")
-		}
 	case *charm.CharmArchive:
 		var err error
 		if archive, err = os.Open(ch.Path); err != nil {
@@ -86,7 +70,7 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 		}
 		defer archive.Close()
 	default:
-		return nil, errors.Errorf("unknown charm type %T", ch)
+		return nil, errors.Errorf("unsupported charm type %T", ch)
 	}
 
 	anyHooksOrDispatch, err := hasHooksOrDispatch(archive.Name())

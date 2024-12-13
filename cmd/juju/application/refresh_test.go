@@ -669,10 +669,13 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
-	dir, err := charm.ReadCharmDir(myriakPath)
+
+	// Set the disk revision to 42.
+	revFile, err := os.OpenFile(filepath.Join(myriakPath, "revision"), os.O_CREATE|os.O_WRONLY, 0666)
 	c.Assert(err, jc.ErrorIsNil)
-	rev := 42
-	err = dir.SetDiskRevision(rev)
+	_, err = revFile.WriteString("42")
+	c.Check(err, jc.ErrorIsNil)
+	err = revFile.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "riak", "--path", s.archivePath(c, myriakPath))
@@ -686,7 +689,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
-				Revision: &rev,
+				Revision: ptr(42),
 			},
 		},
 		ConfigSettings:   map[string]string{},
