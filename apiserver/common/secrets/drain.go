@@ -181,18 +181,13 @@ func (s *SecretsDrainAPI) changeSecretBackendForOne(ctx context.Context, arg par
 	if err != nil {
 		return
 	}
-	token, err := LeadershipToken(s.authTag, s.leadershipChecker)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return s.secretService.ChangeSecretBackend(ctx, uri, arg.Revision, toChangeSecretBackendParams(accessor, token, arg))
+	return s.secretService.ChangeSecretBackend(ctx, uri, arg.Revision, toChangeSecretBackendParams(accessor, arg))
 }
 
-func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, token leadership.Token, arg params.ChangeSecretBackendArg) secretservice.ChangeSecretBackendParams {
+func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, arg params.ChangeSecretBackendArg) secretservice.ChangeSecretBackendParams {
 	params := secretservice.ChangeSecretBackendParams{
-		LeaderToken: token,
-		Accessor:    accessor,
-		Data:        arg.Content.Data,
+		Accessor: accessor,
+		Data:     arg.Content.Data,
 	}
 	if arg.Content.ValueRef != nil {
 		params.ValueRef = &coresecrets.ValueRef{

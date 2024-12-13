@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -129,7 +128,7 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -172,7 +171,7 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 // RevokeSecretAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor, params.LeaderToken)
+	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -205,11 +204,9 @@ func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI
 // If the caveat can never be satisfied, an error is returned - the input
 // accessor can never manage the input secret.
 func (s *SecretService) getManagementCaveat(
-	ctx context.Context,
-	uri *secrets.URI, assessor SecretAccessor,
-	leaderToken leadership.Token,
+	ctx context.Context, uri *secrets.URI, accessor SecretAccessor,
 ) (func(context.Context, func(context.Context) error) error, error) {
-	hasRole, err := s.getSecretAccess(ctx, uri, assessor)
+	hasRole, err := s.getSecretAccess(ctx, uri, accessor)
 	if err != nil {
 		// Typically not found error.
 		return nil, errors.Trace(err)
@@ -220,15 +217,9 @@ func (s *SecretService) getManagementCaveat(
 		}, nil
 	}
 	// Units can manage app owned secrets if they are the leader.
-	if assessor.Kind == UnitAccessor {
-		if leaderToken == nil {
-			return nil, secreterrors.PermissionDenied
-		}
-
-		// TODO (manadart 2024-11-29): This section will be updated to
-		// return a WithLease wrapper in a patch to follow.
-		if err := leaderToken.Check(); err == nil {
-			appName, _ := names.UnitApplication(assessor.ID)
+	if accessor.Kind == UnitAccessor {
+		appName, _ := names.UnitApplication(accessor.ID)
+		if err := s.leaderEnsurer.LeadershipCheck(appName, accessor.ID).Check(); err == nil {
 			hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
 				Kind: ApplicationAccessor,
 				ID:   appName,
@@ -237,15 +228,16 @@ func (s *SecretService) getManagementCaveat(
 				// Typically not found error.
 				return nil, errors.Trace(err)
 			}
+
 			if hasRole.Allowed(secrets.RoleManage) {
 				return func(ctx context.Context, fn func(context.Context) error) error {
-					return fn(ctx)
+					return s.leaderEnsurer.WithLeader(ctx, appName, accessor.ID, fn)
 				}, nil
 			}
 		}
 	}
 	return nil, fmt.Errorf(
-		"%q is not allowed to manage this secret %w", assessor.ID, errors.Hide(secreterrors.PermissionDenied))
+		"%q is not allowed to manage this secret %w", accessor.ID, errors.Hide(secreterrors.PermissionDenied))
 }
 
 // canRead checks that the accessor can read the secret.

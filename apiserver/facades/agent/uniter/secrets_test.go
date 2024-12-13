@@ -30,7 +30,6 @@ type UniterSecretsSuite struct {
 
 	authorizer *facademocks.MockAuthorizer
 
-	token         *MockToken
 	leadership    *MockChecker
 	secretService *MockSecretService
 	authTag       names.Tag
@@ -53,7 +52,6 @@ func (s *UniterSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
 	s.leadership = NewMockChecker(ctrl)
-	s.token = NewMockToken(ctrl)
 	s.secretService = NewMockSecretService(ctrl)
 	s.expectAuthUnitAgent()
 
@@ -82,7 +80,10 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 		Version:    secrets.Version,
 		CharmOwner: secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
 		UpdateCharmSecretParams: secretservice.UpdateCharmSecretParams{
-			LeaderToken:  s.token,
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   "mariadb/0",
+			},
 			RotatePolicy: ptr(coresecrets.RotateDaily),
 			ExpireTime:   ptr(s.clock.Now()),
 			Description:  ptr("my secret"),
@@ -93,7 +94,6 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 		},
 	}
 	var gotURI *coresecrets.URI
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
 		func(ctx context.Context, uri *coresecrets.URI, p secretservice.CreateCharmSecretParams) error {
 			gotURI = uri
@@ -140,12 +140,14 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
 		Version:    secrets.Version,
 		CharmOwner: secretservice.CharmSecretOwner{Kind: secretservice.ApplicationOwner, ID: "mariadb"},
 		UpdateCharmSecretParams: secretservice.UpdateCharmSecretParams{
-			LeaderToken: s.token,
-			Label:       ptr("foobar"),
-			Data:        map[string]string{"foo": "bar"},
+			Accessor: secretservice.SecretAccessor{
+				Kind: secretservice.UnitAccessor,
+				ID:   "mariadb/0",
+			},
+			Label: ptr("foobar"),
+			Data:  map[string]string{"foo": "bar"},
 		},
 	}
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).Return(
 		fmt.Errorf("dup label %w", secreterrors.SecretLabelAlreadyExists),
 	)
@@ -175,7 +177,6 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := secretservice.UpdateCharmSecretParams{
-		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
 			ID:   "mariadb/0",
@@ -199,7 +200,6 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 	expectURI := *uri
 	s.secretService.EXPECT().UpdateCharmSecret(gomock.Any(), &expectURI, p).Return(nil)
 	s.secretService.EXPECT().UpdateCharmSecret(gomock.Any(), &expectURI, pWithBackendId).Return(nil)
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
 
 	results, err := s.facade.updateSecrets(context.Background(), params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
@@ -240,12 +240,9 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 func (s *UniterSecretsSuite) TestRemoveSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
-		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
 			ID:   "mariadb/0",
@@ -266,12 +263,9 @@ func (s *UniterSecretsSuite) TestRemoveSecrets(c *gc.C) {
 func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
-		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
 			ID:   "mariadb/0",
@@ -294,12 +288,9 @@ func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretService.EXPECT().DeleteSecret(gomock.Any(), &expectURI, secretservice.DeleteSecretParams{
-		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
 			ID:   "mariadb/0",
@@ -322,7 +313,6 @@ func (s *UniterSecretsSuite) TestSecretsGrant(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
-		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
 			ID:   "mariadb/0",
@@ -331,7 +321,6 @@ func (s *UniterSecretsSuite) TestSecretsGrant(c *gc.C) {
 		Subject: secretservice.SecretAccessor{Kind: secretservice.UnitAccessor, ID: "wordpress/0"},
 		Role:    coresecrets.RoleView,
 	}).Return(errors.New("boom"))
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
@@ -365,7 +354,6 @@ func (s *UniterSecretsSuite) TestSecretsRevoke(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().RevokeSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
-		LeaderToken: s.token,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.UnitAccessor,
 			ID:   "mariadb/0",
@@ -374,7 +362,6 @@ func (s *UniterSecretsSuite) TestSecretsRevoke(c *gc.C) {
 		Subject: secretservice.SecretAccessor{Kind: secretservice.UnitAccessor, ID: "wordpress/0"},
 		Role:    coresecrets.RoleView,
 	}).Return(errors.New("boom"))
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")

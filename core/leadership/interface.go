@@ -104,9 +104,8 @@ type Token interface {
 	Check() error
 }
 
-// Checker exposes leadership testing capabilities.
+// Checker exposes leadership checking capabilities.
 type Checker interface {
-
 	// LeadershipCheck returns a Token representing the supplied unit's
 	// application leadership. The existence of the token does not imply
 	// its accuracy; you need to Check() it.
@@ -115,6 +114,16 @@ type Checker interface {
 	// it will (on success) copy mgo/txn operations that can be used to
 	// verify the unit's continued leadership as part of another txn.
 	LeadershipCheck(applicationId, unitId string) Token
+}
+
+// Ensurer describes the ability to guarantee leadership
+// for the duration of some operation.
+type Ensurer interface {
+	Checker
+
+	// WithLeader ensures that the input unit holds leadership of the input
+	// application for the duration of execution of the input function.
+	WithLeader(ctx context.Context, appName, unitName string, fn func(context.Context) error) error
 }
 
 // Ticket is used to communicate leadership status to Tracker clients.
