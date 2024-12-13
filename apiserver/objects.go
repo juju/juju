@@ -223,7 +223,11 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		// correctly.
 		Importing: isImporting,
 	})
-	if err != nil {
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return nil, jujuerrors.NotFoundf("charm")
+	} else if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
+		return nil, jujuerrors.AlreadyExistsf("charm")
+	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
 
