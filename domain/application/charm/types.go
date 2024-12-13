@@ -124,6 +124,8 @@ type ResolvedMigratingUploadedCharm struct {
 	ArchivePath string
 	// Hash is the sha256 of the charm.
 	Hash string
+	// DownloadInfo holds the information needed to download a charmhub charm.
+	DownloadInfo *DownloadInfo
 }
 
 // Revision is the charm revision.

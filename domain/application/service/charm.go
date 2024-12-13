@@ -654,14 +654,23 @@ func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecha
 	return s.st.GetAvailableCharmArchiveSHA256(ctx, id)
 }
 
-// ResolveUploadCharm resolves the upload of a charm archive.
+// ResolveUploadCharm resolves the upload of a charm archive. If the charm is
+// being imported from a migration then it can returns
+// [applicationerrors.CharmNotFound]. Returns
+// [applicationerrors.CharmSourceNotValid] if the source is not valid. Returns
+// [applicationerrors.CharmMetadataNotValid] if the charm metadata is not valid.
+// Returns [applicationerrors.CharmNameNotValid] if the reference name is not
+// valid. Returns [applicationerrors.CharmManifestNotFound] if the charm
+// manifest is not found. Returns [applicationerrors.CharmDownloadInfoNotFound]
+// if the download info is not found. Returns [applicationerrors.CharmNotFound]
+// if the charm is not found.
 func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
 	var uploadCharm bool
 
 	switch args.Source {
 	case corecharm.CharmHub:
 		if !args.Importing {
-			return charm.CharmLocator{}, internalerrors.Errorf("non-local charms may only be uploaded during model migration import")
+			return charm.CharmLocator{}, applicationerrors.NonLocalCharmImporting
 		}
 	case corecharm.Local:
 		uploadCharm = !args.Importing
@@ -750,6 +759,9 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		Name:     args.Name,
 		Revision: ptr(args.Revision),
 	})
+	if err != nil {
+		return charm.CharmLocator{}, errors.Annotate(err, "locating existing charm")
+	}
 
 	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
 	if err != nil {
@@ -774,17 +786,15 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	return s.st.ResolveMigratingUploadedCharm(ctx, charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: result.ObjectStoreUUID,
 		Hash:            digest.SHA256,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance: charm.ProvenanceMigration,
+		},
 
 		// This is correct, we want to use the unique name of the stored charm
 		// as the archive path. Once every blob is storing the UUID, we can
 		// remove the archive path, until, just use the unique name.
 		ArchivePath: result.UniqueName,
 	})
-}
-
-type setCharmResult struct {
-	ID      corecharm.ID
-	Locator charm.CharmLocator
 }
 
 func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCharmResult, []string, error) {
@@ -859,6 +869,11 @@ func (s *WatchableService) WatchCharms() (watcher.StringsWatcher, error) {
 		"charm",
 		changestream.All,
 	)
+}
+
+type setCharmResult struct {
+	ID      corecharm.ID
+	Locator charm.CharmLocator
 }
 
 // encodeCharm encodes a charm to the service representation.

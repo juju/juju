@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -1510,7 +1509,11 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *gc.C)
 	}
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
-	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{}, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{
+		ArchivePath:     "/tmp/somepath",
+		UniqueName:      "somepath",
+		ObjectStoreUUID: objectStoreUUID,
+	}, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
 		ObjectStoreUUID: objectStoreUUID,
