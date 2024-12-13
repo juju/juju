@@ -35,7 +35,7 @@ const (
 	// There are a few larger charms, but they're corrupted (charms within
 	// charms - inception!) and should be considered outliers.
 	// It's better to have an upper limit rather than no limit at all.
-	maxUploadSize = 500 * 1024 * 1024 // 100MB
+	maxUploadSize = 500 * 1024 * 1024 // 500MB
 
 	// uploadTimeout is the maximum time allowed for a single charm upload.
 	// TODO (stickupkid): This should be configurable either by a model config
@@ -43,9 +43,13 @@ const (
 	uploadTimeout = time.Minute * 5
 )
 
+// StateGetter is an interface for getting the model state.
+type StateGetter interface {
+	GetState(*http.Request) (ModelState, error)
+}
+
 type objectsCharmHTTPHandler struct {
-	ctxt                     httpContext
-	stateAuthFunc            func(*http.Request) (*state.PooledState, error)
+	stateGetter              StateGetter
 	applicationServiceGetter ApplicationServiceGetter
 }
 
@@ -64,7 +68,6 @@ type ApplicationService interface {
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
 type ApplicationServiceGetter interface {
-
 	// Application returns the model's application service.
 	Application(context.Context) (ApplicationService, error)
 }
@@ -130,17 +133,13 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 // rewrite the http request for it to be correctly processed by the legacy
 // '/charms' handler.
 func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "PUT" {
-		return errors.Capture(emitUnsupportedMethodErr(r.Method))
-	}
-
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
 		return jujuerrors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
-	st, err := h.stateAuthFunc(r)
+	st, err := h.stateGetter.GetState(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -155,7 +154,7 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Add a charm to the store provider.
-	charmURL, err := h.processPut(ctx, r, st.State, applicationService)
+	charmURL, err := h.processPut(ctx, r, st, applicationService)
 	if err != nil {
 		return jujuerrors.NewBadRequest(err, "")
 	}
@@ -165,7 +164,7 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	return errors.Capture(sendStatusAndHeadersAndJSON(w, http.StatusOK, headers, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st *state.State, applicationService ApplicationService) (*charm.URL, error) {
+func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st ModelState, applicationService ApplicationService) (*charm.URL, error) {
 	size, err := strconv.Atoi(r.Header.Get("Content-Length"))
 	if err != nil {
 		return nil, jujuerrors.BadRequestf("invalid Content-Length header: %v", err)
@@ -256,6 +255,9 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 		return "", "", jujuerrors.BadRequestf("%q is not a valid charm object path", charmObjectID)
 	}
 	name, sha := charmObjectID[:splitIndex], charmObjectID[splitIndex+1:]
+	if len(sha) != 7 {
+		return "", "", jujuerrors.BadRequestf("invalid sha length: %q", sha)
+	}
 	return name, sha, nil
 }
 
@@ -272,7 +274,18 @@ func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
 	}))
 }
 
-func modelIsImporting(st *state.State) (bool, error) {
+// ModelState is an interface for getting the model state.
+type ModelState interface {
+	Model() (Model, error)
+	Release() bool
+}
+
+// Model is an interface for getting the model migration mode.
+type Model interface {
+	MigrationMode() state.MigrationMode
+}
+
+func modelIsImporting(st ModelState) (bool, error) {
 	model, err := st.Model()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -282,6 +295,31 @@ func modelIsImporting(st *state.State) (bool, error) {
 
 func emitUnsupportedMethodErr(method string) error {
 	return jujuerrors.MethodNotAllowedf("unsupported method: %q", method)
+}
+
+type stateGetter struct {
+	authFunc func(*http.Request) (*state.PooledState, error)
+}
+
+func (s *stateGetter) GetState(r *http.Request) (ModelState, error) {
+	st, err := s.authFunc(r)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &stateGetterModel{pooledState: st}, nil
+}
+
+type stateGetterModel struct {
+	pooledState *state.PooledState
+	st          *state.State
+}
+
+func (s *stateGetterModel) Model() (Model, error) {
+	return s.st.Model()
+}
+
+func (s *stateGetterModel) Release() bool {
+	return s.pooledState.Release()
 }
 
 type applicationServiceGetter struct {
