@@ -83,16 +83,12 @@ ON charm (source_id, reference_name, revision);
 -- to group them. Instead, the group is the source_id and the reference_name.
 -- This is the unique identifier for the charm.
 CREATE TABLE sequence_charm_local (
-    source_id INT NOT NULL,
-    reference_name TEXT NOT NULL,
+    reference_name TEXT NOT NULL PRIMARY KEY,
 
     -- The sequence number will start at 0 for each charm and will be
     -- incremented.
     sequence INT NOT NULL DEFAULT 0
 );
-
-CREATE UNIQUE INDEX idx_sequence_charm_local_source_reference
-ON sequence_charm_local (source_id, reference_name);
 
 CREATE TABLE charm_provenance (
     id INT PRIMARY KEY,

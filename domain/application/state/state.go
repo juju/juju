@@ -201,10 +201,19 @@ func (s *State) setCharmState(
 		}
 	}
 
+	// We have a local charm that needs a new sequence revision.
+	revision := ch.Revision
+	if ch.Source == charm.LocalSource && revision == -1 {
+		revision, err = s.sequence(ctx, tx, ch.ReferenceName)
+		if err != nil {
+			return fmt.Errorf("getting next charm revision: %w", err)
+		}
+	}
+
 	chState := setCharmState{
 		UUID:            id.String(),
 		ReferenceName:   ch.ReferenceName,
-		Revision:        ch.Revision,
+		Revision:        revision,
 		ArchivePath:     ch.ArchivePath,
 		ObjectStoreUUID: nullableOjectStoreUUID,
 		Available:       ch.Available,
@@ -241,6 +250,41 @@ func (s *State) setCharmState(
 	}
 
 	return nil
+}
+
+func (s *State) sequence(ctx context.Context, tx *sqlair.TX, referenceName string) (int, error) {
+	// This should be doable in a single query using the RETURNING result, but
+	// we run into https://github.com/canonical/go-dqlite/issues/192
+	// So we have to do it in two steps.
+
+	updateQuery := `
+INSERT INTO sequence_charm_local (reference_name, sequence) VALUES ($sequenceCharmsLocal.reference_name, 1)
+ON CONFLICT (reference_name) DO UPDATE SET sequence = sequence_charm_local.sequence + 1
+`
+	updateStmt, err := s.Prepare(updateQuery, sequenceCharmsLocal{})
+	if err != nil {
+		return -1, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	selectQuery := `
+SELECT &sequence.* FROM sequence_charm_local
+WHERE reference_name = $sequenceCharmsLocal.reference_name;
+	`
+	selectStmt, err := s.Prepare(selectQuery, sequenceCharmsLocal{}, sequence{})
+	if err != nil {
+		return -1, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	if err := tx.Query(ctx, updateStmt, sequenceCharmsLocal{ReferenceName: referenceName}).Run(); err != nil {
+		return -1, internalerrors.Errorf("updating sequence: %w", err)
+	}
+
+	var sequence sequence
+	if err := tx.Query(ctx, selectStmt, sequenceCharmsLocal{ReferenceName: referenceName}).Get(&sequence); err != nil {
+		return -1, internalerrors.Errorf("getting sequence: %w", err)
+	}
+
+	return sequence.Sequence, nil
 }
 
 func (s *State) setCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id corecharm.ID, downloadInfo *charm.DownloadInfo) error {

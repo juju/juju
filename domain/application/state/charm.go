@@ -622,35 +622,58 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", charm.CharmLocator{}, internalerrors.Capture(err)
 	}
 
 	id, err := corecharm.NewID()
 	if err != nil {
-		return "", internalerrors.Errorf("setting charm: %w", err)
+		return "", charm.CharmLocator{}, internalerrors.Errorf("setting charm: %w", err)
+	}
+
+	charmUUID := charmID{UUID: id.String()}
+
+	var locator charmLocator
+	locatorQuery := `
+SELECT &charmLocator.*
+FROM v_charm_locator
+WHERE uuid = $charmID.uuid;
+	`
+	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
+	if err != nil {
+		return "", charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check the charm doesn't already exist, if it does, return an already
 		// exists error. Also doing this early, prevents the moving straight
 		// to a write transaction.
-		if _, err := s.checkCharmReferenceExists(ctx, tx, charm.ReferenceName, charm.Revision); err != nil {
+		if _, err := s.checkCharmReferenceExists(ctx, tx, ch.ReferenceName, ch.Revision); err != nil {
 			return internalerrors.Capture(err)
 		}
 
-		if err := s.setCharm(ctx, tx, id, charm, downloadInfo); err != nil {
+		if err := s.setCharm(ctx, tx, id, ch, downloadInfo); err != nil {
 			return internalerrors.Capture(err)
 		}
 
+		// The charm will be set, so we can use the new charmUUID to get the
+		// locator.
+		if err := tx.Query(ctx, locatorStmt, charmUUID).Get(&locator); err != nil {
+			return internalerrors.Errorf("getting charm locator: %w", err)
+		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("setting charm: %w", err)
+		return "", charm.CharmLocator{}, internalerrors.Errorf("setting charm: %w", err)
 	}
 
-	return id, nil
+	chLocator, err := decodeCharmLocator(locator)
+	if err != nil {
+		return "", charm.CharmLocator{}, internalerrors.Errorf("decoding charm locator: %w", err)
+	}
+
+	return id, chLocator, nil
 }
 
 // ListCharmLocatorsByNames returns a list of charm locators.
