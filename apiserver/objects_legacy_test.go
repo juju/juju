@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/names/v5"
@@ -260,8 +261,19 @@ func (s *putCharmObjectSuite) TestUploadVersion(c *gc.C) {
 
 func (s *putCharmObjectSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	// Make a dummy charm dir with revision 123.
-	dir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
-	dir.SetDiskRevision(123)
+	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "dummy")
+
+	// Set the disk revision to 42.
+	revFile, err := os.OpenFile(filepath.Join(base, "revision"), os.O_CREATE|os.O_WRONLY, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = revFile.WriteString("123")
+	c.Check(err, jc.ErrorIsNil)
+	err = revFile.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dir, err := charm.ReadCharmDir(base)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Now archive the dir.
 	tempFile, err := os.CreateTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)

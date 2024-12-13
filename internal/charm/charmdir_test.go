@@ -338,34 +338,3 @@ func (s *CharmDirSuite) TestDirRevisionFile(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid revision file")
 	c.Assert(dir, gc.IsNil)
 }
-
-func (s *CharmDirSuite) TestDirSetRevision(c *gc.C) {
-	path := cloneDir(c, charmDirPath(c, "dummy"))
-	dir, err := charm.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir.Revision(), gc.Equals, 1)
-	dir.SetDiskRevision(42)
-	c.Assert(dir.Revision(), gc.Equals, 42)
-
-	var b bytes.Buffer
-	err = dir.ArchiveTo(&b)
-	c.Assert(err, jc.ErrorIsNil)
-
-	archive, err := charm.ReadCharmArchiveBytes(b.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(archive.Revision(), gc.Equals, 42)
-}
-
-func (s *CharmDirSuite) TestDirSetDiskRevision(c *gc.C) {
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(dir.Revision(), gc.Equals, 1)
-	dir.SetDiskRevision(42)
-	c.Assert(dir.Revision(), gc.Equals, 42)
-
-	dir, err = charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir.Revision(), gc.Equals, 42)
-}

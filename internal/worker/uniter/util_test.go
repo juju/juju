@@ -361,16 +361,16 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 	if len(s.badHooks) > 0 {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
+
 	dir, err := jujucharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
-	err = dir.SetDiskRevision(s.revision)
-	c.Assert(err, jc.ErrorIsNil)
-	step(c, ctx, addCharm{dir, curl(s.revision)})
+	step(c, ctx, addCharm{dir, curl(s.revision), s.revision})
 }
 
 type addCharm struct {
-	dir  *jujucharm.CharmDir
-	curl string
+	dir      *jujucharm.CharmDir
+	curl     string
+	revision int
 }
 
 func (s addCharm) step(c *gc.C, ctx *testContext) {
@@ -381,7 +381,7 @@ func (s addCharm) step(c *gc.C, ctx *testContext) {
 	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
+	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.revision)
 	ctx.charms[storagePath] = body
 	ctx.charm = uniterapi.NewMockCharm(ctx.ctrl)
 	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes()
@@ -1480,10 +1480,6 @@ type verifyCharm struct {
 
 func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
-	path := filepath.Join(ctx.path, "charm", "revision")
-	content, err := os.ReadFile(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
 	checkRevision := s.revision
 	if s.attemptedRevision > checkRevision {
 		checkRevision = s.attemptedRevision

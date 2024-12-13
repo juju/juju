@@ -63,8 +63,6 @@ func (br *bundleReader) AddCustomBundle(c *gc.C, url *jujucharm.URL, customize f
 	}
 	dir, err := jujucharm.ReadCharmDir(dirpath)
 	c.Assert(err, jc.ErrorIsNil)
-	err = dir.SetDiskRevision(url.Revision)
-	c.Assert(err, jc.ErrorIsNil)
 	bunpath := filepath.Join(base, "bundle")
 	file, err := os.Create(bunpath)
 	c.Assert(err, jc.ErrorIsNil)
