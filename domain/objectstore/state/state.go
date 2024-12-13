@@ -174,7 +174,7 @@ WHERE  (
 	sha_384 = $dbMetadata.sha_384 OR
 	sha_256 = $dbMetadata.sha_256
 )
-AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
+AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 	if err != nil {
 		return "", errors.Annotate(err, "preparing select metadata statement")
 	}

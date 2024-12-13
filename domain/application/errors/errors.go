@@ -183,4 +183,13 @@ const (
 	// CharmSHA256PrefixMismatch describes an error that occurs when the
 	// SHA256 prefix of the charm does not match the expected prefix.
 	CharmSHA256PrefixMismatch = errors.ConstError("charm SHA256 prefix mismatch")
+
+	// NonLocalCharmImporting describes an error that occurs when the charm is
+	// still being imported.
+	NonLocalCharmImporting = errors.ConstError("non-local charms may only be uploaded during model migration import")
+
+	// CharmAlreadyExistsWithDifferentSize describes an error that occurs when
+	// a charm already exists with a different size. This might not actually be
+	// a charm, but chances are that it is.
+	CharmAlreadyExistsWithDifferentSize = errors.ConstError("charm already exists with different size")
 )
