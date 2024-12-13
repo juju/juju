@@ -710,6 +710,9 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 		return charm.CharmLocator{}, internalerrors.Errorf("reading charm archive %q: %w", result.ArchivePath, err)
 	}
 
+	// TODO (stickupkid): Sequence a charm revision, so each charm has a unique
+	// revision.
+
 	// This is a full blown upload, we need to set everything up.
 	resolved, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
 		Charm:           ch,
@@ -745,6 +748,8 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	//    1. The charm metadata has already been verified.
 	//    2. The charm metadata has already been inserted into the database
 	//       during the migration.
+	//    3. A local charm has already been sequenced, so we don't need to
+	//       attempt to sequence the charm again.
 	//
 	// This means we need to locate the charm that's already stored in the
 	// database and set it as available.

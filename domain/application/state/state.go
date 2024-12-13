@@ -261,7 +261,12 @@ func (s *State) setCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id core
 		DownloadSize:       downloadInfo.DownloadSize,
 	}
 
-	query := `INSERT INTO charm_download_info (*) VALUES ($setCharmDownloadInfo.*);`
+	// If the charmDownloadInfo has already been inserted, we don't need to do
+	// anything. We want to keep the original download information.
+	query := `
+INSERT INTO charm_download_info (*) 
+VALUES ($setCharmDownloadInfo.*)
+ON CONFLICT DO NOTHING;`
 	stmt, err := s.Prepare(query, downloadInfoState)
 	if err != nil {
 		return fmt.Errorf("preparing query: %w", err)
