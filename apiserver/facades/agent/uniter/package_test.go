@@ -60,10 +60,10 @@ type uniterSuiteBase struct {
 
 	machine0          *state.Machine
 	machine1          *state.Machine
-	wpCharm           *state.Charm
+	wpCharm           state.CharmRefFull
 	wordpress         *state.Application
 	wordpressUnit     *state.Unit
-	mysqlCharm        *state.Charm
+	mysqlCharm        state.CharmRefFull
 	mysql             *state.Application
 	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker

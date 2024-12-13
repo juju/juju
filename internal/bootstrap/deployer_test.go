@@ -319,7 +319,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	)
 
 	s.charmUploader.EXPECT().PrepareCharmUpload(gomock.Any()).Return(nil, nil)
-	s.charmUploader.EXPECT().UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
 
 	deployer := s.newBaseDeployer(c, cfg)
 
