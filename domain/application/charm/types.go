@@ -4,6 +4,8 @@
 package charm
 
 import (
+	"io"
+
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
@@ -75,7 +77,7 @@ type SetCharmArgs struct {
 	ReferenceName string
 	// Revision is the revision of the charm.
 	Revision int
-	// Hash is the hash of the charm.
+	// Hash is the sha256 of the charm.
 	Hash string
 	// ArchivePath is the path to the charm archive path.
 	ArchivePath string
@@ -88,6 +90,40 @@ type SetCharmArgs struct {
 	Architecture arch.Arch
 	// DownloadInfo holds the information needed to download a charmhub charm.
 	DownloadInfo *DownloadInfo
+}
+
+// ResolveUploadCharm holds the arguments for the ResolveUploadCharm method.
+type ResolveUploadCharm struct {
+	// Name is the name of the charm.
+	Name string
+	// Revision is the revision of the charm.
+	Revision int
+	// Source is the source of the charm.
+	Source charm.Source
+	// Architecture is the architecture of the charm.
+	Architecture arch.Arch
+	// SHA256Prefix is the SHA256 prefix of the charm.
+	SHA256Prefix string
+	// Reader is the reader to read the charm from.
+	Reader io.Reader
+	// Size is the size of the charm.
+	Size int64
+	// Importing indicates that the charm is being uploaded during model
+	// migration import. This is useful to set the provenance of the charm
+	// correctly.
+	Importing bool
+}
+
+// ResolvedMigratingUploadedCharm holds the arguments for the
+// ResolveMigratingUploadedCharm method.
+type ResolvedMigratingUploadedCharm struct {
+	// ObjectStoreUUID is the UUID of the object store where the charm is
+	// stored.
+	ObjectStoreUUID objectstore.UUID
+	// ArchivePath is the path to the charm archive path.
+	ArchivePath string
+	// Hash is the sha256 of the charm.
+	Hash string
 }
 
 // Revision is the charm revision.
