@@ -640,19 +640,17 @@ type applicationCharmDownloadInfo struct {
 	SourceID           int    `db:"source_id"`
 }
 
-// resourceToAdd represents a resource we want to add into the state.
-// It is used to insert data in resource and application_resource tables.
 type resourceToAdd struct {
-	UUID string `db:"uuid"`
+	UUID      string    `db:"uuid"`
+	CharmUUID string    `db:"charm_uuid"`
+	Name      string    `db:"charm_resource_name"`
+	Revision  *int      `db:"revision"`
+	Origin    string    `db:"origin_type_name"`
+	State     string    `db:"state_name"`
+	CreatedAt time.Time `db:"created_at"`
+}
 
+type linkResourceApplication struct {
+	ResourceUUID    string `db:"resource_uuid"`
 	ApplicationUUID string `db:"application_uuid"`
-	CharmUUID       string `db:"charm_uuid"`
-	Name            string `db:"charm_resource_name"`
-
-	Revision     *int      `db:"revision"`
-	Origin       string    `db:"origin_type_name"`
-	OriginTypeID string    `db:"origin_type_id"`
-	State        string    `db:"state_name"`
-	StateID      int       `db:"state_id"`
-	CreatedAt    time.Time `db:"created_at"`
 }

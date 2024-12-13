@@ -13,12 +13,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// buildResourceToAdd creates resources to add based on provided app and charm
+// buildResourceInserts creates resources to add based on provided app and charm
 // resources.
 // Returns a slice of resourceToAdd and an error if any issues occur during
 // creation.
-func (st *State) buildResourceToAdd(
-	appUUID, charmUUID string,
+func (st *State) buildResourcesToAdd(
+	charmUUID string,
 	appResources []application.AddApplicationResourceArg,
 ) ([]resourceToAdd, error) {
 	resources := make([]resourceToAdd, 0, len(appResources))
@@ -29,14 +29,13 @@ func (st *State) buildResourceToAdd(
 			return nil, errors.Capture(err)
 		}
 		resources = append(resources, resourceToAdd{
-			UUID:            uuid.String(),
-			ApplicationUUID: appUUID,
-			CharmUUID:       charmUUID,
-			Name:            r.Name,
-			Revision:        r.Revision,
-			Origin:          r.Origin.String(),
-			State:           coreresource.StateAvailable.String(),
-			CreatedAt:       now,
+			UUID:      uuid.String(),
+			CharmUUID: charmUUID,
+			Name:      r.Name,
+			Revision:  r.Revision,
+			Origin:    r.Origin.String(),
+			State:     coreresource.StateAvailable.String(),
+			CreatedAt: now,
 		})
 	}
 	return resources, nil
@@ -47,25 +46,7 @@ func (st *State) buildResourceToAdd(
 // links them to applications.
 func (st *State) insertResources(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appResources []application.AddApplicationResourceArg) error {
 
-	resources, err := st.buildResourceToAdd(appDetails.UUID.String(), appDetails.CharmID, appResources)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare SQL statement to get the origin of a specific resource
-	getOriginIDStmt, err := st.Prepare(`
-SELECT id AS &resourceToAdd.origin_type_id
-FROM   resource_origin_type
-WHERE  name = $resourceToAdd.origin_type_name`, resourceToAdd{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare SQL statement to get the state of a specific resource.
-	getStateIDStmt, err := st.Prepare(`
-SELECT id AS &resourceToAdd.state_id
-FROM   resource_state
-WHERE  name = $resourceToAdd.state_name`, resourceToAdd{})
+	resources, err := st.buildResourcesToAdd(appDetails.CharmID, appResources)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -73,8 +54,18 @@ WHERE  name = $resourceToAdd.state_name`, resourceToAdd{})
 	// Prepare SQL statement to insert the resource.
 	insertStmt, err := st.Prepare(`
 INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, 
-origin_type_id, state_id, created_at)
-VALUES ($resourceToAdd.*)`, resourceToAdd{})
+       origin_type_id, state_id, created_at)
+SELECT $resourceToAdd.uuid,
+       $resourceToAdd.charm_uuid,
+       $resourceToAdd.charm_resource_name,
+       $resourceToAdd.revision,
+       rot.id,
+       rs.id,
+       $resourceToAdd.created_at
+FROM   resource_origin_type rot,
+       resource_state rs
+WHERE  rot.name = $resourceToAdd.origin_type_name
+AND    rs.name = $resourceToAdd.state_name`, resourceToAdd{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -82,28 +73,24 @@ VALUES ($resourceToAdd.*)`, resourceToAdd{})
 	// Prepare SQL statement to link resource with application.
 	linkStmt, err := st.Prepare(`
 INSERT INTO application_resource (application_uuid, resource_uuid)
-VALUES ($resourceToAdd.application_uuid, $resourceToAdd.uuid)`, resourceToAdd{})
+VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Insert resources
+	appUUID := appDetails.UUID.String()
 	for _, res := range resources {
-		// Retrieve state id.
-		if err = tx.Query(ctx, getStateIDStmt, res).Get(&res); err != nil {
-			return errors.Capture(err)
-		}
-		// Retrieve origin id.
-		if err = tx.Query(ctx, getOriginIDStmt, res).Get(&res); err != nil {
-			return errors.Capture(err)
-		}
 		// Insert the resource.
 		if err = tx.Query(ctx, insertStmt, res).Run(); err != nil {
 			return errors.Errorf("inserting resource %q: %w", res.Name, err)
 		}
 		// Link the resource to the application.
-		if err = tx.Query(ctx, linkStmt, res).Run(); err != nil {
-			return errors.Errorf("linking resource %q to application %q: %w", res.Name, res.ApplicationUUID, err)
+		if err = tx.Query(ctx, linkStmt, linkResourceApplication{
+			ResourceUUID:    res.UUID,
+			ApplicationUUID: appUUID,
+		}).Run(); err != nil {
+			return errors.Errorf("linking resource %q to application %q: %w", res.Name, appUUID, err)
 		}
 	}
 	return nil
