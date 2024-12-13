@@ -1453,8 +1453,6 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	// s.expectModelStatus(ctrl, domainmodel.StatusInfo{Status: status.Available})
-
 	// TODO(perrito666) Both users are admins in this case, this tesst is of dubious
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")

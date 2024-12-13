@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
@@ -233,44 +232,6 @@ func (c *MockFacadeRemoveModelCall) Do(f func(context.Context) error) *MockFacad
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFacadeRemoveModelCall) DoAndReturn(f func(context.Context) error) *MockFacadeRemoveModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetStatus mocks base method.
-func (m *MockFacade) SetStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetStatus indicates an expected call of SetStatus.
-func (mr *MockFacadeMockRecorder) SetStatus(arg0, arg1, arg2, arg3 any) *MockFacadeSetStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockFacade)(nil).SetStatus), arg0, arg1, arg2, arg3)
-	return &MockFacadeSetStatusCall{Call: call}
-}
-
-// MockFacadeSetStatusCall wrap *gomock.Call
-type MockFacadeSetStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFacadeSetStatusCall) Return(arg0 error) *MockFacadeSetStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFacadeSetStatusCall) Do(f func(context.Context, status.Status, string, map[string]any) error) *MockFacadeSetStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeSetStatusCall) DoAndReturn(f func(context.Context, status.Status, string, map[string]any) error) *MockFacadeSetStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -302,7 +302,6 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	defer ctrl.Finish()
 
 	facade := NewMockFacade(ctrl)
-	facade.EXPECT().SetStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	modelChanged := make(chan struct{}, 1)
 	modelChanged <- struct{}{}

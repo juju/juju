@@ -85,7 +85,9 @@ type ModelInfoService interface {
 	Status(context.Context) (domainmodel.StatusInfo, error)
 }
 
+// ApplicationService provides access to the application service.
 type ApplicationService interface {
+	// GetApplicationLife returns the life value of the application with the given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 }
 
