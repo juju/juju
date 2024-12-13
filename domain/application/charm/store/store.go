@@ -101,7 +101,7 @@ func (s *CharmStore) Store(ctx context.Context, path string, size int64, hash st
 // StoreFromReader stores the charm from the provided reader into the object
 // store. The caller is expected to remove the temporary file after the call.
 // IThis does not check the integrity of the charm hash.
-func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, size int64, hashPrefix string) (StoreResult, Digest, error) {
+func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hashPrefix string) (StoreResult, Digest, error) {
 	file, err := os.CreateTemp("", "charm-")
 	if err != nil {
 		return StoreResult{}, Digest{}, errors.Errorf("creating temporary file: %w", err)
@@ -124,7 +124,7 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, size
 	uniqueName := s.encoder.EncodeToString(unique[:])
 
 	// Copy the reader into the temporary file.
-	sha256, sha384, err := storeAndComputeHashes(file, reader, size)
+	sha256, sha384, size, err := storeAndComputeHashes(file, reader)
 	if err != nil {
 		return StoreResult{}, Digest{}, errors.Errorf("storing charm from reader: %w", err)
 	}
@@ -185,19 +185,18 @@ func (s *CharmStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string)
 	return reader, nil
 }
 
-func storeAndComputeHashes(writer io.Writer, reader io.Reader, expectedSize int64) (string, string, error) {
+func storeAndComputeHashes(writer io.Writer, reader io.Reader) (string, string, int64, error) {
 	hasher256 := sha256.New()
 	hasher384 := sha512.New384()
 
-	if size, err := io.Copy(io.MultiWriter(writer, hasher256, hasher384), reader); errors.Is(err, io.EOF) {
-		return "", "", ErrFileToLarge
+	size, err := io.Copy(io.MultiWriter(writer, hasher256, hasher384), reader)
+	if errors.Is(err, io.EOF) {
+		return "", "", -1, ErrFileToLarge
 	} else if err != nil {
-		return "", "", errors.Errorf("hashing charm: %w", err)
-	} else if size != expectedSize {
-		return "", "", errors.Errorf("expected %d bytes, got %d", expectedSize, size)
+		return "", "", -1, errors.Errorf("hashing charm: %w", err)
 	}
 
 	sha256 := hex.EncodeToString(hasher256.Sum(nil))
 	sha384 := hex.EncodeToString(hasher384.Sum(nil))
-	return sha256, sha384, nil
+	return sha256, sha384, size, nil
 }

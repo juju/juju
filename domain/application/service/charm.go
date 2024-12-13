@@ -181,7 +181,7 @@ type CharmStore interface {
 	// call.
 	// sha256Prefix is the prefix characters of the SHA256 hash of the charm
 	// archive.
-	StoreFromReader(ctx context.Context, reader io.Reader, size int64, sha256Prefix string) (store.StoreResult, store.Digest, error)
+	StoreFromReader(ctx context.Context, reader io.Reader, sha256Prefix string) (store.StoreResult, store.Digest, error)
 
 	// GetCharm retrieves a ReadCloser for the charm archive at the give path
 	// from the underlying storage.
@@ -690,7 +690,7 @@ func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUplo
 }
 
 func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
-	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
+	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.SHA256Prefix)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
@@ -767,7 +767,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		return charm.CharmLocator{}, errors.Annotate(err, "locating existing charm")
 	}
 
-	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
+	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.SHA256Prefix)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
