@@ -126,7 +126,7 @@ type CharmState interface {
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
-	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error)
+	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error)
 
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
@@ -608,7 +608,7 @@ func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecha
 // if the download info is not found. Returns [applicationerrors.CharmNotFound]
 // if the charm is not found.
 func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
-	var uploadCharm bool
+	var localUploadCharm bool
 
 	switch args.Source {
 	case corecharm.CharmHub:
@@ -616,13 +616,13 @@ func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUplo
 			return charm.CharmLocator{}, applicationerrors.NonLocalCharmImporting
 		}
 	case corecharm.Local:
-		uploadCharm = !args.Importing
+		localUploadCharm = !args.Importing
 	default:
 		return charm.CharmLocator{}, applicationerrors.CharmSourceNotValid
 	}
 
 	// We're not importing a charm, this is a full blown upload.
-	if uploadCharm {
+	if localUploadCharm {
 		return s.resolveLocalUploadedCharm(ctx, args)
 	}
 
@@ -653,15 +653,11 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 		return charm.CharmLocator{}, internalerrors.Errorf("reading charm archive %q: %w", result.ArchivePath, err)
 	}
 
-	// TODO (stickupkid): Sequence a charm revision, so each charm has a unique
-	// revision.
-
 	// This is a full blown upload, we need to set everything up.
 	resolved, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
 		Charm:           ch,
 		Source:          args.Source,
 		ReferenceName:   args.Name,
-		Revision:        args.Revision,
 		Hash:            digest.SHA256,
 		ObjectStoreUUID: result.ObjectStoreUUID,
 		Version:         ch.Version(),
@@ -669,6 +665,9 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 		DownloadInfo: &charm.DownloadInfo{
 			Provenance: charm.ProvenanceUpload,
 		},
+
+		// The revision is not set, we need to sequence a revision.
+		Revision: -1,
 
 		// This is correct, we want to use the unique name of the stored charm
 		// as the archive path. Once every blob is storing the UUID, we can
@@ -795,19 +794,14 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 	ch.Available = args.ArchivePath != ""
 	ch.Architecture = architecture
 
-	charmID, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
+	charmID, locator, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
 	if err != nil {
 		return setCharmResult{}, warnings, errors.Trace(err)
 	}
 
 	return setCharmResult{
-		ID: charmID,
-		Locator: charm.CharmLocator{
-			Name:         args.ReferenceName,
-			Revision:     ch.Revision,
-			Source:       ch.Source,
-			Architecture: ch.Architecture,
-		},
+		ID:      charmID,
+		Locator: locator,
 	}, warnings, nil
 }
 

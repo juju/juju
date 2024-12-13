@@ -597,7 +597,12 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 		Source:        charm.LocalSource,
 		Revision:      1,
 		Architecture:  architecture.AMD64,
-	}, downloadInfo).Return(id, nil)
+	}, downloadInfo).Return(id, charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -671,7 +676,12 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *gc.C) {
 		Source:        charm.CharmHubSource,
 		Revision:      1,
 		Architecture:  architecture.AMD64,
-	}, downloadInfo).Return(id, nil)
+	}, downloadInfo).Return(id, charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -961,7 +971,12 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, nil)
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -1030,7 +1045,12 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, nil)
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -1070,7 +1090,12 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, nil)
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
 	got, warnings, err := s.service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         s.charm,
@@ -1259,9 +1284,14 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 		SHA384: "sha-384",
 		Size:   stat.Size(),
 	}, nil)
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, charm charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, error) {
-		c.Check(charm.Metadata.Name, gc.Equals, "dummy")
-		return charmID, nil
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
+		c.Check(ch.Metadata.Name, gc.Equals, "dummy")
+		return charmID, charm.CharmLocator{
+			Name:         "test",
+			Revision:     1,
+			Source:       charm.LocalSource,
+			Architecture: architecture.AMD64,
+		}, nil
 	})
 
 	locator, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
@@ -1335,8 +1365,8 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 		SHA384: "sha-384",
 		Size:   stat.Size(),
 	}, nil)
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, charm charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, error) {
-		return charmID, errors.NotValidf("failed to set charm")
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
+		return charmID, charm.CharmLocator{}, errors.NotValidf("failed to set charm")
 	})
 
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
