@@ -179,4 +179,8 @@ const (
 	// valid, for instance when we try to override non-existing resources in
 	// the charm.
 	InvalidResourceArgs = errors.ConstError("invalid resource args")
+
+	// CharmSHA256PrefixMismatch describes an error that occurs when the
+	// SHA256 prefix of the charm does not match the expected prefix.
+	CharmSHA256PrefixMismatch = errors.ConstError("charm SHA256 prefix mismatch")
 )

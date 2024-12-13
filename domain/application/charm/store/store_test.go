@@ -56,11 +56,11 @@ func (s *storeSuite) TestStore(c *gc.C) {
 	})
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	storagePath, result, err := storage.Store(context.Background(), path, size, hash)
+	storeResult, err := storage.Store(context.Background(), path, size, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(result, gc.DeepEquals, uuid)
-	c.Check(uniqueName, gc.Equals, storagePath)
+	c.Check(storeResult.ObjectStoreUUID, gc.DeepEquals, uuid)
+	c.Check(storeResult.UniqueName, gc.Equals, uniqueName)
 
 	// Make sure the contents are the same and it's not been tampered with.
 	c.Check(contents, gc.Equals, "hello world")
@@ -82,7 +82,7 @@ func (s *storeSuite) TestStoreFileClosed(c *gc.C) {
 	})
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	_, _, err := storage.Store(context.Background(), path, size, hash)
+	_, err := storage.Store(context.Background(), path, size, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempt to read the contents of the read after it's been closed.
@@ -97,7 +97,7 @@ func (s *storeSuite) TestStoreFileNotFound(c *gc.C) {
 	dir := c.MkDir()
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	_, _, err := storage.Store(context.Background(), filepath.Join(dir, "foo"), 12, "hash")
+	_, err := storage.Store(context.Background(), filepath.Join(dir, "foo"), 12, "hash")
 	c.Assert(err, jc.ErrorIs, ErrNotFound)
 }
 
@@ -110,7 +110,7 @@ func (s *storeSuite) TestStoreFailed(c *gc.C) {
 	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), gomock.Any(), gomock.Any(), size, hash).Return("", errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter)
-	_, _, err := storage.Store(context.Background(), path, size, hash)
+	_, err := storage.Store(context.Background(), path, size, hash)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 

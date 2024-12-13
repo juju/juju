@@ -1403,13 +1403,13 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// Use the hash from the reservation, incase the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
-	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
+	result, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
 	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
 		return errors.Trace(err)
 	}
 
 	// We must ensure that the objectstore UUID is valid.
-	if err := objectStoreUUID.Validate(); err != nil {
+	if err := result.ObjectStoreUUID.Validate(); err != nil {
 		return internalerrors.Errorf("invalid object store UUID: %w", err)
 	}
 
@@ -1417,8 +1417,12 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, application.ResolvedCharmDownload{
 		Actions:         domainCharm.Actions,
 		LXDProfile:      domainCharm.LXDProfile,
-		ObjectStoreUUID: objectStoreUUID,
-		ArchivePath:     archivePath,
+		ObjectStoreUUID: result.ObjectStoreUUID,
+
+		// This is correct, we want to use the unique name of the stored charm
+		// as the archive path. Once every blob is storing the UUID, we can
+		// remove the archive path, until, just use the unique name.
+		ArchivePath: result.UniqueName,
 	})
 }
 
@@ -1433,20 +1437,24 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 	// Use the hash from the reservation, incase the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
-	archivePath, objectStoreUUID, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
+	result, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)
 	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
 		return application.ResolvedControllerCharmDownload{}, errors.Trace(err)
 	}
 
 	// We must ensure that the objectstore UUID is valid.
-	if err := objectStoreUUID.Validate(); err != nil {
+	if err := result.ObjectStoreUUID.Validate(); err != nil {
 		return application.ResolvedControllerCharmDownload{}, internalerrors.Errorf("invalid object store UUID: %w", err)
 	}
 
 	// Resolve the charm download, which will set itself to available.
 	return application.ResolvedControllerCharmDownload{
 		Charm:           charm,
-		ArchivePath:     archivePath,
-		ObjectStoreUUID: objectStoreUUID,
+		ObjectStoreUUID: result.ObjectStoreUUID,
+
+		// This is correct, we want to use the unique name of the stored charm
+		// as the archive path. Once every blob is storing the UUID, we can
+		// remove the archive path, until, just use the unique name.
+		ArchivePath: result.UniqueName,
 	}, nil
 }
