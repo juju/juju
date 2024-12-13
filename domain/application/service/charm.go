@@ -161,6 +161,11 @@ type CharmState interface {
 	// [applicationerrors.CharmNotResolved] is returned. Returns
 	// [applicationerrors.CharmNotFound] if the charm is not found.
 	GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm.ID) (string, error)
+
+	// ResolveMigratingUploadedCharm resolves the charm that is migrating from
+	// the uploaded state to the available state. If the charm is not found, a
+	// [applicationerrors.CharmNotFound] error is returned.
+	ResolveMigratingUploadedCharm(context.Context, corecharm.ID, charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive
@@ -603,61 +608,11 @@ func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error 
 // Deprecated: Use a feature specific method to set the charm. This method
 // should become private in the future.
 func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
-	// We require a valid charm metadata.
-	if meta := args.Charm.Meta(); meta == nil {
-		return "", nil, applicationerrors.CharmMetadataNotValid
-	} else if !isValidCharmName(meta.Name) {
-		return "", nil, applicationerrors.CharmNameNotValid
-	}
-
-	// We require a valid charm manifest.
-	if manifest := args.Charm.Manifest(); manifest == nil {
-		return "", nil, applicationerrors.CharmManifestNotFound
-	} else if len(manifest.Bases) == 0 {
-		return "", nil, applicationerrors.CharmManifestNotValid
-	}
-
-	// If the reference name is provided, it must be valid.
-	if !isValidReferenceName(args.ReferenceName) {
-		return "", nil, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
-	}
-
-	// If the origin is from charmhub, then we require the download info.
-	if args.Source == corecharm.CharmHub {
-		if args.DownloadInfo == nil {
-			return "", nil, applicationerrors.CharmDownloadInfoNotFound
-		}
-		if err := args.DownloadInfo.Validate(); err != nil {
-			return "", nil, fmt.Errorf("download info: %w", err)
-		}
-	}
-
-	source, err := encodeCharmSource(args.Source)
+	result, warnings, err := s.setCharm(ctx, args)
 	if err != nil {
-		return "", nil, fmt.Errorf("encoding charm source: %w", err)
+		return "", nil, errors.Trace(err)
 	}
-
-	architecture := encodeArchitecture(args.Architecture)
-	ch, warnings, err := encodeCharm(args.Charm)
-	if err != nil {
-		return "", warnings, fmt.Errorf("encoding charm: %w", err)
-	}
-
-	ch.Source = source
-	ch.ReferenceName = args.ReferenceName
-	ch.Revision = args.Revision
-	ch.Hash = args.Hash
-	ch.ArchivePath = args.ArchivePath
-	ch.ObjectStoreUUID = args.ObjectStoreUUID
-	ch.Available = args.ArchivePath != ""
-	ch.Architecture = architecture
-
-	charmID, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
-	if err != nil {
-		return "", warnings, errors.Trace(err)
-	}
-
-	return charmID, warnings, nil
+	return result.ID, warnings, nil
 }
 
 // DeleteCharm removes the charm from the state.
@@ -700,18 +655,18 @@ func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecha
 }
 
 // ResolveUploadCharm resolves the upload of a charm archive.
-func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUploadCharm) error {
+func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
 	var uploadCharm bool
 
 	switch args.Source {
 	case corecharm.CharmHub:
 		if !args.Importing {
-			return errors.New("non-local charms may only be uploaded during model migration import")
+			return charm.CharmLocator{}, internalerrors.Errorf("non-local charms may only be uploaded during model migration import")
 		}
 	case corecharm.Local:
 		uploadCharm = !args.Importing
 	default:
-		return applicationerrors.CharmSourceNotValid
+		return charm.CharmLocator{}, applicationerrors.CharmSourceNotValid
 	}
 
 	// We're not importing a charm, this is a full blown upload.
@@ -725,15 +680,15 @@ func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUplo
 	return s.resolveMigratingUploadedCharm(ctx, args)
 }
 
-func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) error {
+func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
 	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
 	if err != nil {
-		return internalerrors.Errorf("resolving uploaded charm: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
 
 	// We must ensure that the objectstore UUID is valid.
 	if err := result.ObjectStoreUUID.Validate(); err != nil {
-		return internalerrors.Errorf("invalid object store UUID: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("invalid object store UUID: %w", err)
 	}
 
 	// Note: we don't have a full SHA256 from the user so, we can't actually
@@ -743,11 +698,11 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 	// Make sure it's actually a valid charm.
 	ch, err := internalcharm.ReadCharmArchive(result.ArchivePath)
 	if err != nil {
-		return errors.Annotatef(err, "reading charm archive %q", result.ArchivePath)
+		return charm.CharmLocator{}, internalerrors.Errorf("reading charm archive %q: %w", result.ArchivePath, err)
 	}
 
 	// This is a full blown upload, we need to set everything up.
-	_, warnings, err := s.SetCharm(ctx, charm.SetCharmArgs{
+	resolved, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
 		Charm:           ch,
 		Source:          args.Source,
 		ReferenceName:   args.Name,
@@ -766,14 +721,15 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 		ArchivePath: result.UniqueName,
 	})
 	if err != nil {
-		return errors.Annotate(err, "setting charm")
+		return charm.CharmLocator{}, errors.Annotate(err, "setting charm")
 	} else if len(warnings) > 0 {
 		s.logger.Infof("setting charm: %v", warnings)
 	}
-	return nil
+
+	return resolved.Locator, nil
 }
 
-func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) error {
+func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
 	// If we're importing a charm from migration, there are a few things we
 	// can rely on:
 	//
@@ -785,7 +741,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	// database and set it as available.
 	source, err := encodeCharmSource(args.Source)
 	if err != nil {
-		return fmt.Errorf("encoding charm source: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("encoding charm source: %w", err)
 	}
 
 	// Locale the existing charm.
@@ -797,12 +753,12 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 
 	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
 	if err != nil {
-		return internalerrors.Errorf("resolving uploaded charm: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
 
 	// We must ensure that the objectstore UUID is valid.
 	if err := result.ObjectStoreUUID.Validate(); err != nil {
-		return internalerrors.Errorf("invalid object store UUID: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("invalid object store UUID: %w", err)
 	}
 
 	// Officially, the source model should write the charm hashes into the
@@ -811,7 +767,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	// charm is valid.
 	// Work should be done to ensure the integrity of the charm archive.
 	if _, err := internalcharm.ReadCharmArchive(result.ArchivePath); err != nil {
-		return errors.Annotatef(err, "reading charm archive %q", result.ArchivePath)
+		return charm.CharmLocator{}, errors.Annotatef(err, "reading charm archive %q", result.ArchivePath)
 	}
 
 	// This will correctly sequence the charm if it's a local charm.
@@ -824,6 +780,77 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		// remove the archive path, until, just use the unique name.
 		ArchivePath: result.UniqueName,
 	})
+}
+
+type setCharmResult struct {
+	ID      corecharm.ID
+	Locator charm.CharmLocator
+}
+
+func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCharmResult, []string, error) {
+	// We require a valid charm metadata.
+	if meta := args.Charm.Meta(); meta == nil {
+		return setCharmResult{}, nil, applicationerrors.CharmMetadataNotValid
+	} else if !isValidCharmName(meta.Name) {
+		return setCharmResult{}, nil, applicationerrors.CharmNameNotValid
+	}
+
+	// We require a valid charm manifest.
+	if manifest := args.Charm.Manifest(); manifest == nil {
+		return setCharmResult{}, nil, applicationerrors.CharmManifestNotFound
+	} else if len(manifest.Bases) == 0 {
+		return setCharmResult{}, nil, applicationerrors.CharmManifestNotValid
+	}
+
+	// If the reference name is provided, it must be valid.
+	if !isValidReferenceName(args.ReferenceName) {
+		return setCharmResult{}, nil, fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+	}
+
+	// If the origin is from charmhub, then we require the download info.
+	if args.Source == corecharm.CharmHub {
+		if args.DownloadInfo == nil {
+			return setCharmResult{}, nil, applicationerrors.CharmDownloadInfoNotFound
+		}
+		if err := args.DownloadInfo.Validate(); err != nil {
+			return setCharmResult{}, nil, fmt.Errorf("download info: %w", err)
+		}
+	}
+
+	source, err := encodeCharmSource(args.Source)
+	if err != nil {
+		return setCharmResult{}, nil, fmt.Errorf("encoding charm source: %w", err)
+	}
+
+	architecture := encodeArchitecture(args.Architecture)
+	ch, warnings, err := encodeCharm(args.Charm)
+	if err != nil {
+		return setCharmResult{}, warnings, fmt.Errorf("encoding charm: %w", err)
+	}
+
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = args.Revision
+	ch.Hash = args.Hash
+	ch.ArchivePath = args.ArchivePath
+	ch.ObjectStoreUUID = args.ObjectStoreUUID
+	ch.Available = args.ArchivePath != ""
+	ch.Architecture = architecture
+
+	charmID, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
+	if err != nil {
+		return setCharmResult{}, warnings, errors.Trace(err)
+	}
+
+	return setCharmResult{
+		ID: charmID,
+		Locator: charm.CharmLocator{
+			Name:         args.ReferenceName,
+			Revision:     ch.Revision,
+			Source:       ch.Source,
+			Architecture: ch.Architecture,
+		},
+	}, warnings, nil
 }
 
 // WatchCharms returns a watcher that observes changes to charms.
