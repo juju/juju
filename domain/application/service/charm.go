@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
@@ -169,9 +169,17 @@ type CharmStore interface {
 	// Store the charm at the specified path into the object store. It is
 	// expected that the archive already exists at the specified path. If the
 	// file isn't found, a [ErrNotFound] is returned.
-	Store(ctx context.Context, path string, size int64, hash string) (string, objectstore.UUID, error)
-	// GetCharm retrieves a ReadCloser for the charm archive at the give path from
-	// the underlying storage.
+	Store(ctx context.Context, path string, size int64, hash string) (store.StoreResult, error)
+
+	// StoreFromReader stores the charm from the provided reader into the object
+	// store. The caller is expected to remove the temporary file after the
+	// call.
+	// sha256Prefix is the prefix characters of the SHA256 hash of the charm
+	// archive.
+	StoreFromReader(ctx context.Context, reader io.Reader, size int64, sha256Prefix string) (store.StoreResult, store.Digest, error)
+
+	// GetCharm retrieves a ReadCloser for the charm archive at the give path
+	// from the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
 
 	// GetBySHA256Prefix retrieves a ReadCloser for a charm archive who's SHA256
@@ -533,7 +541,9 @@ func (s *Service) GetCharmArchive(ctx context.Context, id corecharm.ID) (io.Read
 	}
 
 	reader, err := s.charmStore.Get(ctx, archivePath)
-	if err != nil {
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, "", applicationerrors.CharmNotFound
+	} else if err != nil {
 		return nil, "", internalerrors.Errorf("getting charm archive: %w", err)
 	}
 
@@ -547,7 +557,9 @@ func (s *Service) GetCharmArchive(ctx context.Context, id corecharm.ID) (io.Read
 // returned.
 func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error) {
 	reader, err := s.charmStore.GetBySHA256Prefix(ctx, sha256Prefix)
-	if err != nil {
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, applicationerrors.CharmNotFound
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -587,6 +599,9 @@ func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error 
 // state.
 // If there are any non-blocking issues with the charm metadata, actions,
 // config or manifest, a set of warnings will be returned.
+//
+// Deprecated: Use a feature specific method to set the charm. This method
+// should become private in the future.
 func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
 	// We require a valid charm metadata.
 	if meta := args.Charm.Meta(); meta == nil {
@@ -682,6 +697,133 @@ func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecha
 		return "", fmt.Errorf("charm id: %w", err)
 	}
 	return s.st.GetAvailableCharmArchiveSHA256(ctx, id)
+}
+
+// ResolveUploadCharm resolves the upload of a charm archive.
+func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUploadCharm) error {
+	var uploadCharm bool
+
+	switch args.Source {
+	case corecharm.CharmHub:
+		if !args.Importing {
+			return errors.New("non-local charms may only be uploaded during model migration import")
+		}
+	case corecharm.Local:
+		uploadCharm = !args.Importing
+	default:
+		return applicationerrors.CharmSourceNotValid
+	}
+
+	// We're not importing a charm, this is a full blown upload.
+	if uploadCharm {
+		return s.resolveLocalUploadedCharm(ctx, args)
+	}
+
+	// We're importing a charm, all the metadata of the charm will have been
+	// migrated already, so this is pushing the charm to the object store and
+	// setting the charm as available.
+	return s.resolveMigratingUploadedCharm(ctx, args)
+}
+
+func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) error {
+	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
+	if err != nil {
+		return internalerrors.Errorf("resolving uploaded charm: %w", err)
+	}
+
+	// We must ensure that the objectstore UUID is valid.
+	if err := result.ObjectStoreUUID.Validate(); err != nil {
+		return internalerrors.Errorf("invalid object store UUID: %w", err)
+	}
+
+	// Note: we don't have a full SHA256 from the user so, we can't actually
+	// check the integrity of the charm archive. We can only check the prefix
+	// of the SHA256 hash (that's enough to prevent collisions).
+
+	// Make sure it's actually a valid charm.
+	ch, err := internalcharm.ReadCharmArchive(result.ArchivePath)
+	if err != nil {
+		return errors.Annotatef(err, "reading charm archive %q", result.ArchivePath)
+	}
+
+	// This is a full blown upload, we need to set everything up.
+	_, warnings, err := s.SetCharm(ctx, charm.SetCharmArgs{
+		Charm:           ch,
+		Source:          args.Source,
+		ReferenceName:   args.Name,
+		Revision:        args.Revision,
+		Hash:            digest.SHA256,
+		ObjectStoreUUID: result.ObjectStoreUUID,
+		Version:         ch.Version(),
+		Architecture:    args.Architecture,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance: charm.ProvenanceUpload,
+		},
+
+		// This is correct, we want to use the unique name of the stored charm
+		// as the archive path. Once every blob is storing the UUID, we can
+		// remove the archive path, until, just use the unique name.
+		ArchivePath: result.UniqueName,
+	})
+	if err != nil {
+		return errors.Annotate(err, "setting charm")
+	} else if len(warnings) > 0 {
+		s.logger.Infof("setting charm: %v", warnings)
+	}
+	return nil
+}
+
+func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) error {
+	// If we're importing a charm from migration, there are a few things we
+	// can rely on:
+	//
+	//    1. The charm metadata has already been verified.
+	//    2. The charm metadata has already been inserted into the database
+	//       during the migration.
+	//
+	// This means we need to locate the charm that's already stored in the
+	// database and set it as available.
+	source, err := encodeCharmSource(args.Source)
+	if err != nil {
+		return fmt.Errorf("encoding charm source: %w", err)
+	}
+
+	// Locale the existing charm.
+	charmID, err := s.GetCharmID(ctx, charm.GetCharmArgs{
+		Source:   source,
+		Name:     args.Name,
+		Revision: ptr(args.Revision),
+	})
+
+	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.Size, args.SHA256Prefix)
+	if err != nil {
+		return internalerrors.Errorf("resolving uploaded charm: %w", err)
+	}
+
+	// We must ensure that the objectstore UUID is valid.
+	if err := result.ObjectStoreUUID.Validate(); err != nil {
+		return internalerrors.Errorf("invalid object store UUID: %w", err)
+	}
+
+	// Officially, the source model should write the charm hashes into the
+	// description package, and the destination model should verify the hashes
+	// before accepting the charm. For now this is a check to ensure that the
+	// charm is valid.
+	// Work should be done to ensure the integrity of the charm archive.
+	if _, err := internalcharm.ReadCharmArchive(result.ArchivePath); err != nil {
+		return errors.Annotatef(err, "reading charm archive %q", result.ArchivePath)
+	}
+
+	// This will correctly sequence the charm if it's a local charm.
+	return s.st.ResolveMigratingUploadedCharm(ctx, charmID, charm.ResolvedMigratingUploadedCharm{
+		ObjectStoreUUID: result.ObjectStoreUUID,
+		Hash:            digest.SHA256,
+
+		// This is correct, we want to use the unique name of the stored charm
+		// as the archive path. Once every blob is storing the UUID, we can
+		// remove the archive path, until, just use the unique name.
+		ArchivePath: result.UniqueName,
+	})
 }
 
 // WatchCharms returns a watcher that observes changes to charms.

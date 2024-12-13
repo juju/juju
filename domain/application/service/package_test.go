@@ -153,10 +153,6 @@ func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
 	}
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 type changeEvent struct {
 	typ       changestream.ChangeType
 	namespace string
