@@ -21,8 +21,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -2470,25 +2468,6 @@ func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.L
 	c.Assert(err, jc.ErrorIsNil)
 
 	return appID
-}
-
-func (s *applicationStateSuite) createObjectStoreBlob(c *gc.C, path string) objectstore.UUID {
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)
-`, uuid.String())
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
-`, path, uuid.String())
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return uuid
 }
 
 func (s *applicationStateSuite) assertApplication(

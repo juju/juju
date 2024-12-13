@@ -797,29 +797,108 @@ WHERE charm.uuid = $charmID.uuid;
 // ResolveMigratingUploadedCharm resolves the charm that is migrating from
 // the uploaded state to the available state. If the charm is not found, a
 // [applicationerrors.CharmNotFound] error is returned.
-func (s *State) ResolveMigratingUploadedCharm(context.Context, corecharm.ID, charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error) {
-	return charm.CharmLocator{}, nil
+func (s *State) ResolveMigratingUploadedCharm(ctx context.Context, id corecharm.ID, info charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Capture(err)
+	}
+
+	charmUUID := charmID{UUID: id.String()}
+
+	resolvedQuery := `
+SELECT &charmAvailable.*
+FROM charm
+WHERE uuid = $charmID.uuid
+`
+	resolvedStmt, err := s.Prepare(resolvedQuery, charmUUID, charmAvailable{})
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query for charm %q: %w", id, err)
+	}
+
+	chState := resolveCharmState{
+		ArchivePath:     info.ArchivePath,
+		ObjectStoreUUID: info.ObjectStoreUUID.String(),
+	}
+
+	charmQuery := `
+UPDATE charm
+SET
+	archive_path = $resolveCharmState.archive_path,
+	object_store_uuid = $resolveCharmState.object_store_uuid,
+	available = TRUE
+WHERE uuid = $charmID.uuid;`
+	charmStmt, err := s.Prepare(charmQuery, charmUUID, chState)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	var locator charmLocator
+	locatorQuery := `
+SELECT &charmLocator.*
+FROM v_charm_locator
+WHERE uuid = $charmID.uuid;
+	`
+	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var available charmAvailable
+		err := tx.Query(ctx, resolvedStmt, charmUUID).Get(&available)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		} else if available.Available {
+			// If the charm has already been processed, then we don't need to do
+			// anything. Handle the error on the other side.
+			return applicationerrors.CharmAlreadyAvailable
+		}
+
+		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {
+			return internalerrors.Errorf("updating charm state: %w", err)
+		}
+
+		// Insert the charm download info.
+		if err := s.setCharmDownloadInfo(ctx, tx, id, info.DownloadInfo); err != nil {
+			return internalerrors.Errorf("setting charm download info: %w", err)
+		}
+
+		if err := tx.Query(ctx, locatorStmt, charmUUID).Get(&locator); err != nil {
+			return internalerrors.Errorf("getting charm locator: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("resolving migrating uploaded charm: %w", err)
+	}
+
+	return decodeCharmLocator(locator)
 }
 
 func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
-	return transform.SliceOrErr(results, func(c charmLocator) (charm.CharmLocator, error) {
-		source, err := decodeCharmSource(c.SourceID)
-		if err != nil {
-			return charm.CharmLocator{}, err
-		}
+	return transform.SliceOrErr(results, decodeCharmLocator)
+}
 
-		architecture, err := decodeArchitecture(c.ArchitectureID)
-		if err != nil {
-			return charm.CharmLocator{}, err
-		}
+func decodeCharmLocator(c charmLocator) (charm.CharmLocator, error) {
+	source, err := decodeCharmSource(c.SourceID)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("decoding charm source: %w", err)
+	}
 
-		return charm.CharmLocator{
-			Name:         c.Name,
-			Revision:     c.Revision,
-			Source:       source,
-			Architecture: architecture,
-		}, nil
-	})
+	architecture, err := decodeArchitecture(c.ArchitectureID)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("decoding architecture: %w", err)
+	}
+
+	return charm.CharmLocator{
+		Name:         c.Name,
+		Revision:     c.Revision,
+		Source:       source,
+		Architecture: architecture,
+	}, nil
 }
 
 var tablesToDeleteFrom = []string{
