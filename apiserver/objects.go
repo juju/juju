@@ -221,13 +221,6 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, a
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	if archive.Revision() != curl.Revision {
-		archive, charmArchiveBuf, charmSHA, err = repackageCharmWithRevision(archive, curl.Revision)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-	}
-
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:       logger,
 		StateBackend: storageStateShim{State: st},

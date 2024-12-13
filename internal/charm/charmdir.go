@@ -170,7 +170,7 @@ func (dir *CharmDir) join(parts ...string) string {
 // SetDiskRevision does the same as SetRevision but also changes
 // the revision file in the charm directory.
 func (dir *CharmDir) SetDiskRevision(revision int) error {
-	dir.SetRevision(revision)
+	dir.setRevision(revision)
 	file, err := os.OpenFile(dir.join("revision"), os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err

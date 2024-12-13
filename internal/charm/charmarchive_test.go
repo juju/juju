@@ -350,23 +350,6 @@ func (s *CharmArchiveSuite) TestCharmArchiveRevisionFile(c *gc.C) {
 	c.Assert(archive, gc.IsNil)
 }
 
-func (s *CharmArchiveSuite) TestCharmArchiveSetRevision(c *gc.C) {
-	archive, err := charm.ReadCharmArchive(s.archivePath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(archive.Revision(), gc.Equals, 1)
-	archive.SetRevision(42)
-	c.Assert(archive.Revision(), gc.Equals, 42)
-
-	path := filepath.Join(c.MkDir(), "charm")
-	err = archive.ExpandTo(path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir.Revision(), gc.Equals, 42)
-}
-
 func (s *CharmArchiveSuite) TestExpandToWithBadLink(c *gc.C) {
 	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
 	badLink := filepath.Join(charmDir, "hooks", "badlink")

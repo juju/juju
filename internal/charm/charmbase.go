@@ -68,17 +68,16 @@ func (c *charmBase) Manifest() *Manifest {
 	return c.manifest
 }
 
-// SetRevision changes the charm revision number. This affects
-// the revision reported by Revision and the revision of the
-// charm created.
-// The revision file in the charm directory is not modified.
-func (c *charmBase) SetRevision(revision int) {
-	c.revision = revision
-}
-
 // SetVersion changes the charm version. This affects
 // the version reported by Version and the version of the
 // charm created.
 func (c *charmBase) SetVersion(version string) {
 	c.version = version
+}
+
+// setRevision changes the charm revision. This affects
+// the revision reported by Revision and the revision of the
+// charm created.
+func (c *charmBase) setRevision(revision int) {
+	c.revision = revision
 }
