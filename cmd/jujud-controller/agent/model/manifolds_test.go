@@ -386,7 +386,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"secrets-pruner": {
 		"agent",
 		"api-caller",
-
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -396,7 +395,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"user-secrets-drain-worker": {
 		"agent",
 		"api-caller",
-
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -415,7 +413,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-
 		"not-dead-flag"},
 
 	"async-charm-downloader": {
@@ -432,7 +429,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-
 		"not-dead-flag"},
 
 	"clock": {},
@@ -446,7 +442,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-
 		"domain-services",
 		"valid-credential-flag",
 	},
@@ -469,7 +464,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-
 		"valid-credential-flag",
 	},
 
@@ -482,7 +476,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-
 		"valid-credential-flag",
 	},
 
@@ -496,7 +489,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-
 		"valid-credential-flag",
 	},
 
@@ -508,7 +500,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-
 		"not-dead-flag",
 	},
 
@@ -521,7 +512,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-
 		"valid-credential-flag",
 	},
 
@@ -529,14 +519,12 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"is-responsible-flag",
-
 		"not-dead-flag"},
 
 	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
 		"is-responsible-flag",
-
 		"not-dead-flag"},
 
 	"migration-master": {
@@ -545,7 +533,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"is-responsible-flag",
 		"migration-fortress",
-
 		"not-dead-flag"},
 
 	"not-alive-flag": {"agent", "api-caller"},
@@ -560,7 +547,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-
 		"not-dead-flag",
 	},
 
@@ -574,7 +560,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-
 		"not-dead-flag"},
 
 	"storage-provisioner": {
@@ -586,7 +571,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-
 		"valid-credential-flag",
 	},
 
@@ -603,7 +587,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-
 		"not-dead-flag"},
 
 	"valid-credential-flag": {"agent", "api-caller"},

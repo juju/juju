@@ -79,7 +79,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
-	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
@@ -201,7 +200,6 @@ func AllFacades() *facade.Registry {
 	externalcontrollerupdater.Register(registry)
 	deployer.Register(registry)
 	diskmanager.Register(registry)
-	environupgrader.Register(registry)
 	firewaller.Register(registry)
 	highavailability.Register(registry)
 	hostkeyreporter.Register(registry)
