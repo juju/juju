@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql/driver"
 	"io"
 	"net"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
+	dqlitedriver "github.com/juju/juju/internal/database/driver"
 	"github.com/juju/juju/internal/network"
 )
 
@@ -316,9 +318,20 @@ func (m *NodeManager) WithTLSOption() (app.Option, error) {
 	return app.WithTLS(listen, dial), nil
 }
 
-// WithTLSDialer returns a Dqlite DialFunc that uses TLS encryption
+// WithClusterOption returns a Dqlite application Option for initialising
+// Dqlite as the member of a cluster with peers representing other controllers.
+func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
+	peerAddrs := transform.Slice(addrs, func(addr string) string {
+		return net.JoinHostPort(addr, strconv.Itoa(m.port))
+	})
+
+	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
+	return app.WithCluster(peerAddrs)
+}
+
+// TLSDialer returns a Dqlite DialFunc that uses TLS encryption
 // for traffic between clients and clustered application nodes.
-func (m *NodeManager) WithTLSDialer(ctx context.Context) (client.DialFunc, error) {
+func (m *NodeManager) TLSDialer(ctx context.Context) (client.DialFunc, error) {
 	loopbackBound, err := m.IsLoopbackBound(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -332,37 +345,37 @@ func (m *NodeManager) WithTLSDialer(ctx context.Context) (client.DialFunc, error
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(m.cfg.CACert()))
-
-	controllerCert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
+	cert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
 	if err != nil {
 		return nil, errors.Annotate(err, "parsing controller certificate")
 	}
 
-	dial := &tls.Config{
-		RootCAs:      caCertPool,
-		Certificates: []tls.Certificate{controllerCert},
-		// We cannot provide a ServerName value here, so we rely on the
-		// server validating the controller's client certificate.
-		InsecureSkipVerify: true,
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM([]byte(stateInfo.Cert)) {
+		return nil, errors.New("failed to append controller cert to pool")
 	}
 
 	return client.DialFuncWithTLS(
 		client.DefaultDialFunc,
-		dial,
+		app.SimpleDialTLSConfig(cert, pool),
 	), nil
 }
 
-// WithClusterOption returns a Dqlite application Option for initialising
-// Dqlite as the member of a cluster with peers representing other controllers.
-func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
-	peerAddrs := transform.Slice(addrs, func(addr string) string {
-		return net.JoinHostPort(addr, strconv.Itoa(m.port))
-	})
+// DqliteSQLDriver returns a Dqlite SQL driver that can be used to
+// connect to the Dqlite cluster. This is a read only connection, which is
+// intended to be used for running queries against the Dqlite cluster (REPL).
+func (m *NodeManager) DqliteSQLDriver(ctx context.Context) (driver.Driver, error) {
+	store, err := m.nodeClusterStore()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening node cluster store")
+	}
 
-	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
-	return app.WithCluster(peerAddrs)
+	dialer, err := m.TLSDialer(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return dqlitedriver.New(store, dialer)
 }
 
 // nodeClusterStore returns a YamlNodeStore instance based

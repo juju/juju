@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/juju/clock"
@@ -260,7 +261,7 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
+	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker("engine", createEngine)
 
 	//
@@ -291,6 +292,9 @@ func (a *replMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 
 func (a *replMachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
+	Stdout io.Writer,
+	Stderr io.Writer,
+	Stdin io.Reader,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
@@ -313,6 +317,10 @@ func (a *replMachineAgent) makeEngineCreator(
 			IsCaasConfig:         a.isCaasAgent,
 
 			SetupLogging: agentconf.SetupAgentLogging,
+
+			Stdout: Stdout,
+			Stderr: Stderr,
+			Stdin:  Stdin,
 		}
 
 		var manifolds dependency.Manifolds

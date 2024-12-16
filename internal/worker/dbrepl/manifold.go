@@ -5,6 +5,7 @@ package dbrepl
 
 import (
 	"context"
+	"io"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -22,6 +23,9 @@ type ManifoldConfig struct {
 	DBReplAccessorName string
 	Clock              clock.Clock
 	Logger             logger.Logger
+	Stdout             io.Writer
+	Stderr             io.Writer
+	Stdin              io.Reader
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -33,6 +37,15 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Stdout == nil {
+		return errors.NotValidf("nil Stdout")
+	}
+	if cfg.Stderr == nil {
+		return errors.NotValidf("nil Stderr")
+	}
+	if cfg.Stdin == nil {
+		return errors.NotValidf("nil Stdin")
 	}
 	return nil
 }
@@ -58,6 +71,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DBGetter: dbGetter,
 				Clock:    config.Clock,
 				Logger:   config.Logger,
+				Stdout:   config.Stdout,
+				Stderr:   config.Stderr,
+				Stdin:    config.Stdin,
 			}
 
 			return NewWorker(cfg)

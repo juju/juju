@@ -84,14 +84,3 @@ func DefaultDialFunc(ctx context.Context, address string) (net.Conn, error) {
 func DialFuncWithTLS(dial DialFunc, config *tls.Config) DialFunc {
 	return nil
 }
-
-// NodeStore is a store of dqlite node addresses.
-type NodeStore interface {
-	Get(context.Context) ([]dqlite.NodeInfo, error)
-	Set(context.Context, []dqlite.NodeInfo) error
-}
-
-// NewInmemNodeStore creates a new in-memory node store.
-func NewInmemNodeStore() NodeStore {
-	return nil
-}
