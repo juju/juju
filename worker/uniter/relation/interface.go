@@ -202,6 +202,10 @@ type Relation interface {
 	// end of the relation (from this unit's perspective).
 	OtherApplication() string
 
+	// OtherModelUUID returns the UUID of the model hosting the
+	// application on the other end of the relation.
+	OtherModelUUID() string
+
 	// Refresh refreshes the contents of the relation from the underlying
 	// state. It returns an error that satisfies errors.IsNotFound if the
 	// relation has been removed.

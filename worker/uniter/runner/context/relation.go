@@ -37,6 +37,10 @@ type Relation interface {
 	// end of the relation (from this unit's perspective).
 	OtherApplication() string
 
+	// OtherModelUUID returns the UUID of the model hosting the
+	// application on the other end of the relation.
+	OtherModelUUID() string
+
 	// Life returns the relation's current life state.
 	Life() life.Value
 }
@@ -179,6 +183,12 @@ func (ctx *ContextRelation) SetStatus(status relation.Status) error {
 // relation from the perspective of this unit.
 func (ctx *ContextRelation) RemoteApplicationName() string {
 	return ctx.ru.Relation().OtherApplication()
+}
+
+// RemoteModelUUID returns the UUID of the model hosting the
+// application on the other end of the relation.
+func (ctx *ContextRelation) RemoteModelUUID() string {
+	return ctx.ru.Relation().OtherModelUUID()
 }
 
 // Life returns the relation's current life state.

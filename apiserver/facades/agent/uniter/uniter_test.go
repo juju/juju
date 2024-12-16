@@ -1902,9 +1902,47 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	}}
 	result, err := s.uniter.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
+		Results: []params.RelationResultV2{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Life:      life.Value(rel.Life().String()),
+				Suspended: rel.Suspended(),
+				Endpoint: params.Endpoint{
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        params.NewCharmRelation(wpEp.Relation),
+				},
+				OtherApplication: params.RelatedApplicationDetails{
+					ModelUUID:       s.Model.UUID(),
+					ApplicationName: s.mysql.Name(),
+				},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestRelationV19(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
+	}}
+
+	api := &uniter.UniterAPIv19{UniterAPI: *s.uniter}
+	result, err := api.Relation(args)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
-			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Id:        rel.Id(),
 				Key:       rel.String(),
@@ -1916,12 +1954,6 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				},
 				OtherApplication: s.mysql.Name(),
 			},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -1941,9 +1973,45 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 	}
 	result, err := s.uniter.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
+		Results: []params.RelationResultV2{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Life:      life.Value(rel.Life().String()),
+				Suspended: rel.Suspended(),
+				Endpoint: params.Endpoint{
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        params.NewCharmRelation(wpEp.Relation),
+				},
+				OtherApplication: params.RelatedApplicationDetails{
+					ModelUUID:       s.Model.UUID(),
+					ApplicationName: s.mysql.Name(),
+				},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestRelationByIdV19(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	c.Assert(rel.Id(), gc.Equals, 0)
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationIds{
+		RelationIds: []int{rel.Id()},
+	}
+
+	api := &uniter.UniterAPIv19{UniterAPI: *s.uniter}
+	result, err := api.RelationById(args)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
-			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Id:        rel.Id(),
 				Key:       rel.String(),
@@ -1955,9 +2023,6 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				},
 				OtherApplication: s.mysql.Name(),
 			},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -3739,7 +3804,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 
-	api := &uniter.UniterAPIv18{UniterAPI: *uniterAPI}
+	api := &uniter.UniterAPIv18{UniterAPIv19: uniter.UniterAPIv19{UniterAPI: *uniterAPI}}
 	result, err := api.OpenedApplicationPortRangesByEndpoint(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{

@@ -172,6 +172,20 @@ func (mr *MockContextRelationMockRecorder) RemoteApplicationName() *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteApplicationName", reflect.TypeOf((*MockContextRelation)(nil).RemoteApplicationName))
 }
 
+// RemoteModelUUID mocks base method.
+func (m *MockContextRelation) RemoteModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoteModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// RemoteModelUUID indicates an expected call of RemoteModelUUID.
+func (mr *MockContextRelationMockRecorder) RemoteModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteModelUUID", reflect.TypeOf((*MockContextRelation)(nil).RemoteModelUUID))
+}
+
 // SetStatus mocks base method.
 func (m *MockContextRelation) SetStatus(arg0 relation.Status) error {
 	m.ctrl.T.Helper()
