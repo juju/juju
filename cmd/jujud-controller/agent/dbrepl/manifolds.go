@@ -20,6 +20,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
+	"github.com/juju/juju/internal/worker/dbrepl"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
@@ -115,6 +116,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
 		})),
+
+		dbReplName: ifController(dbrepl.Manifold(dbrepl.ManifoldConfig{
+			DBReplAccessorName: dbReplAccessorName,
+			Clock:              config.Clock,
+			Logger:             internallogger.GetLogger("juju.worker.dbrepl"),
+		})),
 	}
 
 	return manifolds
@@ -188,5 +195,6 @@ const (
 	isControllerFlagName      = "is-controller-flag"
 	controllerAgentConfigName = "controller-agent-config"
 
+	dbReplName         = "db-repl"
 	dbReplAccessorName = "db-repl-accessor"
 )
