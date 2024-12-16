@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/internal/charm/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 var _ = gc.Suite(&storageTestSuite{})
@@ -96,12 +94,6 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 	}
 
 	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
-	s.stateBackend.EXPECT().UpdateUploadedCharm(state.CharmInfo{
-		StoragePath: expStoreCharmPath,
-		ID:          curl,
-		SHA256:      "d357",
-		Version:     "the-version",
-	}).Return(nil, stateerrors.NewErrCharmAlreadyUploaded(curl))
 
 	// As the blob is already uploaded (to another path), we need to remove
 	// the duplicate we just uploaded from the store.
@@ -127,12 +119,6 @@ func (s *storageTestSuite) TestStoreCharmAlreadyStored(c *gc.C) {
 	}
 
 	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", nil)
-	s.stateBackend.EXPECT().UpdateUploadedCharm(state.CharmInfo{
-		StoragePath: expStoreCharmPath,
-		ID:          curl,
-		SHA256:      "d357",
-		Version:     "the-version",
-	}).Return(nil, stateerrors.NewErrCharmAlreadyUploaded(curl))
 
 	// As the blob is already uploaded (to another path), we need to remove
 	// the duplicate we just uploaded from the store.

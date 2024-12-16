@@ -318,45 +318,6 @@ func (c *MockBackendStatePrepareCharmUploadCall) DoAndReturn(f func(string) (ser
 	return c
 }
 
-// UpdateUploadedCharm mocks base method.
-func (m *MockBackendState) UpdateUploadedCharm(arg0 state.CharmInfo) (services.UploadedCharm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUploadedCharm", arg0)
-	ret0, _ := ret[0].(services.UploadedCharm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateUploadedCharm indicates an expected call of UpdateUploadedCharm.
-func (mr *MockBackendStateMockRecorder) UpdateUploadedCharm(arg0 any) *MockBackendStateUpdateUploadedCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockBackendState)(nil).UpdateUploadedCharm), arg0)
-	return &MockBackendStateUpdateUploadedCharmCall{Call: call}
-}
-
-// MockBackendStateUpdateUploadedCharmCall wrap *gomock.Call
-type MockBackendStateUpdateUploadedCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendStateUpdateUploadedCharmCall) Return(arg0 services.UploadedCharm, arg1 error) *MockBackendStateUpdateUploadedCharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendStateUpdateUploadedCharmCall) Do(f func(state.CharmInfo) (services.UploadedCharm, error)) *MockBackendStateUpdateUploadedCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendStateUpdateUploadedCharmCall) DoAndReturn(f func(state.CharmInfo) (services.UploadedCharm, error)) *MockBackendStateUpdateUploadedCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller

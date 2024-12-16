@@ -288,14 +288,6 @@ func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
 	return stateCharmShim{CharmRefFull: c}, nil
 }
 
-func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	c, err := s.State.UpdateUploadedCharm(info)
-	if err != nil {
-		return nil, err
-	}
-	return stateCharmShim{CharmRefFull: c}, nil
-}
-
 func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	c, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {

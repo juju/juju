@@ -60,8 +60,6 @@ type SystemState interface {
 	// PrepareLocalCharmUpload returns the charm URL that should be used to
 	// upload the charm.
 	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
-	// UpdateUploadedCharm updates the charm with the given info.
-	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	// PrepareCharmUpload returns the charm URL that should be used to upload
 	// the charm.
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
@@ -209,10 +207,6 @@ type stateShim struct {
 
 func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	return s.State.PrepareCharmUpload(curl)
-}
-
-func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	return s.State.UpdateUploadedCharm(info)
 }
 
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {

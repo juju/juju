@@ -712,45 +712,6 @@ func (c *MockSystemStateUnitCall) DoAndReturn(f func(string) (bootstrap.Unit, er
 	return c
 }
 
-// UpdateUploadedCharm mocks base method.
-func (m *MockSystemState) UpdateUploadedCharm(arg0 state.CharmInfo) (services.UploadedCharm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUploadedCharm", arg0)
-	ret0, _ := ret[0].(services.UploadedCharm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateUploadedCharm indicates an expected call of UpdateUploadedCharm.
-func (mr *MockSystemStateMockRecorder) UpdateUploadedCharm(arg0 any) *MockSystemStateUpdateUploadedCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockSystemState)(nil).UpdateUploadedCharm), arg0)
-	return &MockSystemStateUpdateUploadedCharmCall{Call: call}
-}
-
-// MockSystemStateUpdateUploadedCharmCall wrap *gomock.Call
-type MockSystemStateUpdateUploadedCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateUpdateUploadedCharmCall) Return(arg0 services.UploadedCharm, arg1 error) *MockSystemStateUpdateUploadedCharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateUpdateUploadedCharmCall) Do(f func(state.CharmInfo) (services.UploadedCharm, error)) *MockSystemStateUpdateUploadedCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateUpdateUploadedCharmCall) DoAndReturn(f func(state.CharmInfo) (services.UploadedCharm, error)) *MockSystemStateUpdateUploadedCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockHTTPClient is a mock of HTTPClient interface.
 type MockHTTPClient struct {
 	ctrl     *gomock.Controller

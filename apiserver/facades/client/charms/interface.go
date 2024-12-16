@@ -22,14 +22,6 @@ func newStateShim(st *state.State) interfaces.BackendState {
 	}
 }
 
-func (s stateShim) UpdateUploadedCharm(charmInfo state.CharmInfo) (services.UploadedCharm, error) {
-	ch, err := s.State.UpdateUploadedCharm(charmInfo)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stateCharmShim{CharmRefFull: ch}, nil
-}
-
 func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {
