@@ -137,7 +137,8 @@ func (w *dbReplWorker) loop() (err error) {
 	if err != nil {
 		return errors.Annotate(err, "failed to get db")
 	}
-	currentNamespace := database.ControllerNS
+	controllerDB := currentDB
+	currentNamespace := "*"
 
 	for {
 		select {
@@ -146,7 +147,7 @@ func (w *dbReplWorker) loop() (err error) {
 		default:
 		}
 
-		line.SetPrompt("repl> ")
+		line.SetPrompt("repl (" + currentNamespace + ")> ")
 		if err != nil {
 			return errors.Annotate(err, "failed to read input")
 		}
@@ -179,28 +180,37 @@ func (w *dbReplWorker) loop() (err error) {
 			continue
 		case ".switch":
 			if len(args) != 2 {
-				fmt.Fprintln(w.cfg.Stderr, "usage: .switch <namespace>")
+				fmt.Fprintln(w.cfg.Stderr, "usage: .switch <name>")
 				continue
 			}
 
-			// TODO (stickupkid): Return the controller uuid from a given name.
-
-			currentDB, err = w.dbGetter.GetDB(args[1])
-			if err != nil {
-				fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", args[1], err)
+			name := args[1]
+			if name == "global" || name == "*" {
+				currentDB = controllerDB
+				currentNamespace = "*"
+				continue
 			}
-			currentNamespace = args[1]
 
-		case ".model-name":
-			fmt.Fprintln(w.cfg.Stdout, currentNamespace)
+			var uuid string
+			if err := controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+				row := tx.QueryRowContext(ctx, "SELECT uuid FROM model WHERE name=?", name)
+				if err := row.Scan(&uuid); err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
+				fmt.Fprintf(w.cfg.Stderr, "failed to select %q database: %v\n", name, err)
+				continue
+			}
+
+			currentDB, err = w.dbGetter.GetDB(uuid)
+			if err != nil {
+				fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", name, err)
+			}
+			currentNamespace = name
 
 		case ".models":
-			currentDB, err = w.dbGetter.GetDB(database.ControllerNS)
-			if err != nil {
-				fmt.Fprintf(w.cfg.Stderr, "failed to select controller database: %v\n", err)
-			}
-
-			if err := w.executeQuery(ctx, currentDB, "SELECT uuid, name FROM model;"); err != nil {
+			if err := w.executeQuery(ctx, controllerDB, "SELECT uuid, name FROM model;"); err != nil {
 				w.cfg.Logger.Errorf("failed to execute query: %v", err)
 			}
 
@@ -298,6 +308,8 @@ The following commands are available:
   .exit              Exit the REPL.
   .help              Show this help message.
   .models            Show all models.
-  .switch            Switch to a different model.
-  .model-name        Show the current model.
+  .switch            Switch to a different model (or global database).
+
+The global database can be accessed by using the '*' or 'global' keyword
+when switching databases. 
 `
