@@ -5,6 +5,7 @@ package dbrepl
 
 import (
 	"context"
+	"io"
 	"path"
 
 	"github.com/juju/clock"
@@ -68,6 +69,15 @@ type ManifoldsConfig struct {
 	// SetupLogging is used by the deployer to initialize the logging
 	// context for the unit.
 	SetupLogging func(corelogger.LoggerContext, coreagent.Config)
+
+	// Stdout is the writer to use for stdout.
+	Stdout io.Writer
+
+	// Stderr is the writer to use for stderr.
+	Stderr io.Writer
+
+	// Stdin is the reader to use for stdin.
+	Stdin io.Reader
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -121,6 +131,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBReplAccessorName: dbReplAccessorName,
 			Clock:              config.Clock,
 			Logger:             internallogger.GetLogger("juju.worker.dbrepl"),
+			Stdout:             config.Stdout,
+			Stderr:             config.Stderr,
+			Stdin:              config.Stdin,
 		})),
 	}
 

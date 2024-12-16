@@ -7,13 +7,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/chzyer/readline"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
-	"github.com/peterh/liner"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
+	"github.com/juju/juju/internal/worker"
 )
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
@@ -64,6 +66,9 @@ type WorkerConfig struct {
 	DBGetter coredatabase.DBGetter
 	Clock    clock.Clock
 	Logger   logger.Logger
+	Stdout   io.Writer
+	Stderr   io.Writer
+	Stdin    io.Reader
 }
 
 // Validate ensures that the config values are valid.
@@ -108,15 +113,31 @@ func (w *dbReplWorker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	loggo.GetLogger("***").Criticalf("dbReplWorker loop")
+	history, err := os.CreateTemp("", "juju-repl")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer history.Close()
 
-	line := liner.NewLiner()
+	line, err := readline.NewEx(&readline.Config{
+		Stdin:               readline.NewCancelableStdin(w.cfg.Stdin),
+		Stdout:              w.cfg.Stdout,
+		Stderr:              w.cfg.Stderr,
+		HistoryFile:         history.Name(),
+		InterruptPrompt:     "^C",
+		HistorySearchFold:   true,
+		FuncFilterInputRune: filterInput,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer line.Close()
 
-	db, err := w.dbGetter.GetDB(database.ControllerNS)
+	currentDB, err := w.dbGetter.GetDB(database.ControllerNS)
 	if err != nil {
 		return errors.Annotate(err, "failed to get db")
 	}
+	currentNamespace := database.ControllerNS
 
 	for {
 		select {
@@ -125,50 +146,68 @@ func (w *dbReplWorker) loop() (err error) {
 		default:
 		}
 
-		input, err := line.Prompt("repl> ")
+		line.SetPrompt("repl> ")
 		if err != nil {
 			return errors.Annotate(err, "failed to read input")
 		}
 
-		err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			rows, err := tx.QueryContext(ctx, input)
+		input, err := line.Readline()
+		if err == readline.ErrInterrupt {
+			if len(input) == 0 {
+				return nil
+			} else {
+				continue
+			}
+		} else if err == io.EOF {
+			return nil
+		}
+		input = strings.TrimSpace(input)
+		if input == "" {
+			continue
+		}
+
+		args := strings.Split(input, " ")
+		if len(args) == 0 {
+			continue
+		}
+
+		switch args[0] {
+		case ".exit":
+			return worker.ErrTerminateAgent
+		case ".help":
+			fmt.Fprintln(w.cfg.Stdout, helpText)
+			continue
+		case ".switch":
+			if len(args) != 2 {
+				fmt.Fprintln(w.cfg.Stderr, "usage: .switch <namespace>")
+				continue
+			}
+
+			// TODO (stickupkid): Return the controller uuid from a given name.
+
+			currentDB, err = w.dbGetter.GetDB(args[1])
 			if err != nil {
-				return err
+				fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", args[1], err)
 			}
+			currentNamespace = args[1]
 
-			columns, err := rows.Columns()
+		case ".model-name":
+			fmt.Fprintln(w.cfg.Stdout, currentNamespace)
+
+		case ".models":
+			currentDB, err = w.dbGetter.GetDB(database.ControllerNS)
 			if err != nil {
-				return err
+				fmt.Fprintf(w.cfg.Stderr, "failed to select controller database: %v\n", err)
 			}
-			n := len(columns)
 
-			var sb strings.Builder
-			writer := tabwriter.NewWriter(&sb, 0, 8, 1, '\t', 0)
-			for _, col := range columns {
-				fmt.Fprintf(writer, "%s\t", col)
+			if err := w.executeQuery(ctx, currentDB, "SELECT uuid, name FROM model;"); err != nil {
+				w.cfg.Logger.Errorf("failed to execute query: %v", err)
 			}
-			fmt.Fprintln(writer)
 
-			for rows.Next() {
-				row := make([]interface{}, n)
-				rowPointers := make([]interface{}, n)
-				for i := range row {
-					rowPointers[i] = &row[i]
-				}
-
-				if err := rows.Scan(rowPointers...); err != nil {
-					return err
-				}
-
-				for _, column := range row {
-					fmt.Fprintf(writer, "%v\t", column)
-				}
-				fmt.Fprintln(writer)
+		default:
+			if err := w.executeQuery(ctx, currentDB, input); err != nil {
+				w.cfg.Logger.Errorf("failed to execute query: %v", err)
 			}
-			return err
-		})
-		if err != nil {
-			w.cfg.Logger.Errorf("failed to execute query: %v", err)
 		}
 	}
 }
@@ -190,3 +229,75 @@ func (w *dbReplWorker) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return w.tomb.Context(ctx), cancel
 }
+
+func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, query string) error {
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+
+		columns, err := rows.Columns()
+		if err != nil {
+			return err
+		}
+		n := len(columns)
+
+		var sb strings.Builder
+		writer := tabwriter.NewWriter(&sb, 0, 8, 1, '\t', 0)
+		for _, col := range columns {
+			fmt.Fprintf(writer, "%s\t", col)
+		}
+		fmt.Fprintln(writer)
+
+		for rows.Next() {
+			row := make([]interface{}, n)
+			rowPointers := make([]interface{}, n)
+			for i := range row {
+				rowPointers[i] = &row[i]
+			}
+
+			if err := rows.Scan(rowPointers...); err != nil {
+				return err
+			}
+
+			for _, column := range row {
+				fmt.Fprintf(writer, "%v\t", column)
+			}
+			fmt.Fprintln(writer)
+		}
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		if err := writer.Flush(); err != nil {
+			return err
+		}
+
+		fmt.Fprintln(w.cfg.Stdout, sb.String())
+
+		return err
+	})
+}
+
+// filterInput is used to exclude characters
+// from being accepted from stdin.
+func filterInput(r rune) (rune, bool) {
+	switch r {
+	// block CtrlZ feature
+	case readline.CharCtrlZ:
+		return r, false
+	}
+	return r, true
+}
+
+const helpText = `
+The following commands are available:
+
+  .exit              Exit the REPL.
+  .help              Show this help message.
+  .models            Show all models.
+  .switch            Switch to a different model.
+  .model-name        Show the current model.
+`

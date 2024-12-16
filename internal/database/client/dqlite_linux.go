@@ -43,11 +43,6 @@ func NewYamlNodeStore(path string) (*YamlNodeStore, error) {
 // NodeStore is a store of dqlite node addresses.
 type NodeStore = client.NodeStore
 
-// NewInmemNodeStore creates a new in-memory node store.
-func NewInmemNodeStore() *client.InmemNodeStore {
-	return client.NewInmemNodeStore()
-}
-
 // LogFunc is a function that can be used for logging.
 type LogFunc = client.LogFunc
 

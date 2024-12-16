@@ -6,6 +6,7 @@ package dbreplaccessor
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"math/rand/v2"
 	"sync"
@@ -18,9 +19,6 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/database/client"
-	"github.com/juju/juju/internal/database/dqlite"
-	"github.com/juju/juju/internal/database/driver"
 )
 
 const (
@@ -35,13 +33,14 @@ const (
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
-	// ClusterServers returns the node information for
-	// Dqlite nodes configured to be in the cluster.
-	ClusterServers(context.Context) ([]dqlite.NodeInfo, error)
+	// EnsureDataDir ensures that a directory for Dqlite data exists at
+	// a path determined by the agent config, then returns that path.
+	EnsureDataDir() (string, error)
 
-	// WithTLSDialer returns a dbApp that can be used to connect to the Dqlite
-	// cluster.
-	WithTLSDialer(ctx context.Context) (client.DialFunc, error)
+	// DqliteSQLDriver returns a Dqlite SQL driver that can be used to
+	// connect to the Dqlite cluster. This is a read only connection, which is
+	// intended to be used for running queries against the Dqlite cluster (REPL).
+	DqliteSQLDriver(ctx context.Context) (driver.Driver, error)
 }
 
 // DBGetter describes the ability to supply a sql.DB
@@ -182,7 +181,7 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 }
 
 func (w *dbReplWorker) loop() (err error) {
-	if err := w.joinExistingDqliteNode(); err != nil {
+	if err := w.joinExistingDqliteCluster(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -191,7 +190,6 @@ func (w *dbReplWorker) loop() (err error) {
 		// The following ensures that all dbReplRequests are serialised and
 		// processed in order.
 		case req := <-w.dbReplRequests:
-
 			if err := w.openDatabase(req.namespace); err != nil {
 				select {
 				case req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace):
@@ -293,35 +291,21 @@ func (w *dbReplWorker) workerFromCache(namespace string) (database.TxnRunner, er
 	return nil, nil
 }
 
-// joinExistingDqliteNode takes care of starting Dqlite
-// when this host has run a node previously.
-func (w *dbReplWorker) joinExistingDqliteNode() error {
+// joinExistingDqliteCluster takes care of joining an existing dqlite cluster.
+func (w *dbReplWorker) joinExistingDqliteCluster() error {
+	mgr := w.cfg.NodeManager
+	if _, err := mgr.EnsureDataDir(); err != nil {
+		return errors.Annotatef(err, "ensuring data directory")
+	}
+
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	mgr := w.cfg.NodeManager
-
-	servers, err := mgr.ClusterServers(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	infos := make([]dqlite.NodeInfo, len(servers))
-	for i, address := range servers {
-		infos[i].Address = address.Address
-	}
-	store := client.NewInmemNodeStore()
-	store.Set(context.Background(), infos)
-
-	dialer, err := mgr.WithTLSDialer(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	driver, err := driver.New(store, dialer)
+	driver, err := mgr.DqliteSQLDriver(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "creating dqlite driver")
 	}
+
 	sql.Register(w.driverName, driver)
 
 	w.dbApp, err = w.cfg.NewApp(w.driverName)
