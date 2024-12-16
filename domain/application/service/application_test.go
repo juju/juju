@@ -38,6 +38,7 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -80,6 +81,11 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Metadata: domaincharm.Metadata{
 			Name:  "ubuntu",
 			RunAs: "default",
+			Resources: map[string]domaincharm.Resource{
+				"foo": {Name: "foo", Type: domaincharm.ResourceTypeFile},
+				"bar": {Name: "bar", Type: domaincharm.ResourceTypeContainerImage},
+				"baz": {Name: "baz", Type: domaincharm.ResourceTypeFile},
+			},
 		},
 		Manifest:        s.minimalManifest(c),
 		ReferenceName:   "ubuntu",
@@ -93,6 +99,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		OSType:       application.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
+
 	app := application.AddApplicationArg{
 		Charm: ch,
 		CharmDownloadInfo: &domaincharm.DownloadInfo{
@@ -103,6 +110,24 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		},
 		Platform: platform,
 		Scale:    1,
+		Resources: []application.AddApplicationResourceArg{
+			{
+				Name:   "foo",
+				Origin: charmresource.OriginUpload,
+			},
+			{
+				Name:     "bar",
+				Revision: ptr(42),
+				Origin:   charmresource.OriginStore,
+			},
+			{
+				Name: "baz",
+				// It is ok to not have revision with origin store in case of
+				// local charms
+				Revision: nil,
+				Origin:   charmresource.OriginStore,
+			},
+		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -124,6 +149,11 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
+		Resources: map[string]charmresource.Meta{
+			"foo": {Name: "foo", Type: charmresource.TypeFile},
+			"bar": {Name: "bar", Type: charmresource.TypeContainerImage},
+			"baz": {Name: "baz", Type: charmresource.TypeFile},
+		},
 	}).MinTimes(1)
 
 	a := AddUnitArg{
@@ -142,6 +172,22 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
+		ResolvedResources: ResolvedResources{
+			{
+				Name:   "foo",
+				Origin: charmresource.OriginUpload,
+			},
+			{
+				Name:     "bar",
+				Revision: ptr(42),
+				Origin:   charmresource.OriginStore,
+			},
+			{
+				Name:     "baz",
+				Revision: nil,
+				Origin:   charmresource.OriginStore,
+			},
+		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -255,6 +301,73 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.
 		},
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesMismatchCharmAndArgsResources(c *gc.C) {
+	resources := ResolvedResources{
+		{
+			Name:     "not-in-charm",
+			Origin:   charmresource.OriginStore,
+			Revision: ptr(42),
+		},
+	}
+	s.testCreateApplicationWithInvalidResource(c, resources)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWithRevision(c *gc.C) {
+	resources := ResolvedResources{
+		{
+			Name:     "Upload-revision",
+			Origin:   charmresource.OriginUpload,
+			Revision: ptr(42),
+		},
+	}
+	s.testCreateApplicationWithInvalidResource(c, resources)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesNoName(c *gc.C) {
+	resources := ResolvedResources{
+		{
+			Origin:   charmresource.OriginStore,
+			Revision: ptr(42),
+		},
+	}
+	s.testCreateApplicationWithInvalidResource(c, resources)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesInvalidOrigin(c *gc.C) {
+	resources := ResolvedResources{
+		{
+			Name:   "invalid-origin",
+			Origin: 42,
+		},
+	}
+	s.testCreateApplicationWithInvalidResource(c, resources)
+}
+
+func (s *applicationServiceSuite) testCreateApplicationWithInvalidResource(c *gc.C, resources ResolvedResources) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Risk: charm.Stable,
+			},
+			Architectures: []string{"amd64"},
+		}},
+	}).MinTimes(1)
+
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.Local,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	},
+		AddApplicationArgs{
+			ReferenceName:     "foo",
+			ResolvedResources: resources,
+		})
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
 func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {

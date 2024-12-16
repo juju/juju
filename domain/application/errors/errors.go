@@ -174,4 +174,9 @@ const (
 	// CharmProvenanceNotValid describes an error that occurs when the
 	// charm download provenance is not valid.
 	CharmProvenanceNotValid = errors.ConstError("charm provenance not valid")
+
+	// InvalidResourceArgs indicates the provided resource arguments are not
+	// valid, for instance when we try to override non-existing resources in
+	// the charm.
+	InvalidResourceArgs = errors.ConstError("invalid resource args")
 )

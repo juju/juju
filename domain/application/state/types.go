@@ -639,3 +639,18 @@ type applicationCharmDownloadInfo struct {
 	DownloadSize       int64  `db:"download_size"`
 	SourceID           int    `db:"source_id"`
 }
+
+type resourceToAdd struct {
+	UUID      string    `db:"uuid"`
+	CharmUUID string    `db:"charm_uuid"`
+	Name      string    `db:"charm_resource_name"`
+	Revision  *int      `db:"revision"`
+	Origin    string    `db:"origin_type_name"`
+	State     string    `db:"state_name"`
+	CreatedAt time.Time `db:"created_at"`
+}
+
+type linkResourceApplication struct {
+	ResourceUUID    string `db:"resource_uuid"`
+	ApplicationUUID string `db:"application_uuid"`
+}
