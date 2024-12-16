@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	mongoutils "github.com/juju/juju/internal/mongo/utils"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // CharmService represents a service for retrieving charms.
@@ -1042,37 +1041,6 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 		return ops, nil
 	}
 	return errors.Trace(st.db().Run(buildTxn))
-}
-
-// UpdateUploadedCharm marks the given charm URL as uploaded and
-// updates the rest of its data, returning it as *state.Charm.
-//
-// TODO(achilleas): This call will be removed once the server-side bundle
-// deployment work lands.
-func (st *State) UpdateUploadedCharm(info CharmInfo) (CharmRefFull, error) {
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	doc := &charmDoc{}
-	err := charms.FindId(info.ID).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", info.ID)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !doc.PendingUpload {
-		return nil, errors.Trace(newErrCharmAlreadyUploaded(info.ID))
-	}
-
-	ops, err := updateCharmOps(st, info, stillPending)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := st.db().RunTransaction(ops); err != nil {
-		return nil, onAbort(err, stateerrors.ErrCharmRevisionAlreadyModified)
-	}
-	return st.Charm(info.ID)
 }
 
 // AddCharmMetadata creates a charm document in state and populates it with the

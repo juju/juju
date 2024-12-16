@@ -8,12 +8,10 @@ import (
 	"io"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/state"
 )
 
 // StateBackend describes an API for accessing/mutating information in state.
 type StateBackend interface {
-	UpdateUploadedCharm(info state.CharmInfo) (UploadedCharm, error)
 	PrepareCharmUpload(curl string) (UploadedCharm, error)
 	ModelUUID() string
 }

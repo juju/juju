@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 
@@ -17,7 +16,6 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type baseObjectsSuite struct {
@@ -40,39 +38,12 @@ func (s *baseObjectsSuite) assertErrorResponse(c *gc.C, resp *http.Response, exp
 	c.Check(charmResponse.Error, gc.Matches, expError)
 }
 
-func (s *baseObjectsSuite) uploadRequest(c *gc.C, url, contentType, curl string, content io.Reader) *http.Response {
-	return sendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Method:      "PUT",
-		URL:         url,
-		ContentType: contentType,
-		Body:        content,
-		ExtraHeaders: map[string]string{
-			"Juju-Curl": curl,
-		},
-	})
-}
-
-func (s *baseObjectsSuite) migrateObjectsCharmsURL(charmRef string) *url.URL {
-	return s.URL(fmt.Sprintf("/migrate/charms/%s", charmRef), nil)
-}
-
-func (s *baseObjectsSuite) migrateObjectsCharmsURI(charmRef string) string {
-	return s.migrateObjectsCharmsURL(charmRef).String()
-}
-
 func (s *baseObjectsSuite) objectsCharmsURL(charmRef string) *url.URL {
 	return s.URL(fmt.Sprintf("/model-%s/charms/%s", s.ControllerModelUUID(), charmRef), nil)
 }
 
 func (s *baseObjectsSuite) objectsCharmsURI(charmRef string) string {
 	return s.objectsCharmsURL(charmRef).String()
-}
-
-func (s *baseObjectsSuite) setModelImporting(c *gc.C) {
-	model, err := s.ControllerModel(c).State().Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseObjectsSuite) TestObjectsCharmsServedSecurely(c *gc.C) {

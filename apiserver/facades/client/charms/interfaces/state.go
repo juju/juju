@@ -16,7 +16,6 @@ type BackendState interface {
 	Application(string) (Application, error)
 	Charm(curl string) (state.CharmRefFull, error)
 	ControllerTag() names.ControllerTag
-	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
