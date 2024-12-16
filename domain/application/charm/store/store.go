@@ -129,6 +129,15 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 		return StoreResult{}, Digest{}, errors.Errorf("storing charm from reader: %w", err)
 	}
 
+	// Ensure that we sync the file to disk, as the process may crash before
+	// the file is written to disk.
+	if err := file.Sync(); err != nil {
+		return StoreResult{}, Digest{}, errors.Errorf("syncing temporary file: %w", err)
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return StoreResult{}, Digest{}, errors.Errorf("seeking temporary file: %w", err)
+	}
+
 	if !strings.HasPrefix(sha256, hashPrefix) {
 		return StoreResult{}, Digest{}, ErrCharmHashMismatch
 	}
@@ -189,7 +198,7 @@ func storeAndComputeHashes(writer io.Writer, reader io.Reader) (string, string, 
 	hasher256 := sha256.New()
 	hasher384 := sha512.New384()
 
-	size, err := io.Copy(io.MultiWriter(writer, hasher256, hasher384), reader)
+	size, err := io.Copy(writer, io.TeeReader(reader, io.MultiWriter(hasher256, hasher384)))
 	if errors.Is(err, io.EOF) {
 		return "", "", -1, ErrFileToLarge
 	} else if err != nil {
