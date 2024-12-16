@@ -129,7 +129,6 @@ type HTTPClient interface {
 // state and upload it to the object store.
 type CharmUploader interface {
 	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
-	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	ModelUUID() string
 }
