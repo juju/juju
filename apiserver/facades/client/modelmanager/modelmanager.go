@@ -999,7 +999,11 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 
 		domainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
 
-		err = common.DestroyModel(ctx, st, domainServices.BlockCommand(), destroyStorage, force, maxWait, timeout)
+		err = common.DestroyModel(
+			ctx, st,
+			domainServices.BlockCommand(), domainServices.ModelInfo(),
+			destroyStorage, force, maxWait, timeout,
+		)
 		if err != nil {
 			return errors.Trace(err)
 		}

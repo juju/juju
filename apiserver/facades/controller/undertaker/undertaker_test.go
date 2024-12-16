@@ -16,13 +16,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -212,55 +210,4 @@ func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	cfg, err := hostedAPI.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
-}
-
-func (s *undertakerSuite) TestSetStatus(c *gc.C) {
-	mock, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
-
-	results, err := hostedAPI.SetStatus(
-		context.Background(),
-		params.SetStatus{
-			Entities: []params.EntityStatusArgs{{
-				Tag: mock.model.Tag().String(), Status: status.Destroying.String(),
-				Info: "woop", Data: map[string]interface{}{"da": "ta"},
-			}},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(mock.model.status, gc.Equals, status.Destroying)
-	c.Assert(mock.model.statusInfo, gc.Equals, "woop")
-	c.Assert(mock.model.statusData, jc.DeepEquals, map[string]interface{}{"da": "ta"})
-}
-
-func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
-	_, hostedAPI, _ := s.setupStateAndAPI(c, true, "hostedmodel")
-	results, err := hostedAPI.SetStatus(
-		context.Background(),
-		params.SetStatus{
-			Entities: []params.EntityStatusArgs{{
-				Tag: "model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", Status: status.Destroying.String(),
-				Info: "woop", Data: map[string]interface{}{"da": "ta"},
-			}},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*not found")
-}
-
-func (s *undertakerSuite) TestSetStatusNonControllerPermissions(c *gc.C) {
-	_, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
-	results, err := hostedAPI.SetStatus(
-		context.Background(),
-		params.SetStatus{
-			Entities: []params.EntityStatusArgs{{
-				Tag: "model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", Status: status.Destroying.String(),
-				Info: "woop", Data: map[string]interface{}{"da": "ta"},
-			}},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 }

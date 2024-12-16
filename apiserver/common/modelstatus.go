@@ -13,9 +13,18 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// ModelInfoService defines domain service methods for managing a model.
+type ModelInfoService interface {
+	// Status returns the current status of the model.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	Status(context.Context) (domainmodel.StatusInfo, error)
+}
 
 // ModelStatusAPI implements the ModelStatus() API.
 type ModelStatusAPI struct {

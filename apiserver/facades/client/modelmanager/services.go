@@ -165,6 +165,11 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (coremodel.ReadOnlyModel, error)
+
+	// Status returns the current status of the model.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	Status(context.Context) (model.StatusInfo, error)
 }
 
 // ModelExporter defines a interface for exporting models.
