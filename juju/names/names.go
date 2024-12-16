@@ -13,4 +13,6 @@ const (
 	JujuExec        = "juju-exec"
 	JujuDumpLogs    = "juju-dumplogs"
 	JujuIntrospect  = "juju-introspect"
+	JujuSafeMode    = "juju-safe-mode"
+	JujuDBREPL      = "juju-db-repl"
 )
