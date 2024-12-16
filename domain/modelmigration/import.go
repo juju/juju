@@ -53,7 +53,7 @@ func ImportOperations(
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterImport(coordinator, logger.Child("model"))
 	keymanager.RegisterImport(coordinator, logger.Child("keymanager"))
-	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
+	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, logger.Child("access"))
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, logger.Child("machine"))

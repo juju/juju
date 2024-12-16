@@ -10,6 +10,7 @@ import (
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
@@ -23,9 +24,12 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, defaultsProvider service.ModelDefaultsProvider) {
+func RegisterImport(
+	coordinator Coordinator, defaultsProvider service.ModelDefaultsProvider, logger logger.Logger,
+) {
 	coordinator.Add(&importOperation{
 		defaultsProvider: defaultsProvider,
+		logger:           logger,
 	})
 }
 
@@ -43,6 +47,7 @@ type ImportService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
+	logger           logger.Logger
 	service          ImportService
 	defaultsProvider service.ModelDefaultsProvider
 }
@@ -86,8 +91,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		defaultAttrs.Add(k)
 	}
 
-	for k := range attrs {
+	for k, v := range attrs {
 		if !defaultAttrs.Contains(k) {
+			i.logger.Debugf("model config attribute %s=%v is removed on import", k, v)
 			delete(attrs, k)
 		}
 	}

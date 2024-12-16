@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -39,7 +40,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, s.modelDefaultsProvider)
+	RegisterImport(s.coordinator, s.modelDefaultsProvider, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
@@ -48,7 +49,7 @@ func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
 	// Empty model.
 	model := description.NewModel(description.ModelArgs{})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -79,14 +80,15 @@ func (s *importSuite) TestModelConfig(c *gc.C) {
 		Config: config.AllAttrs(),
 	})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err = op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) newImportOperation() *importOperation {
+func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 	return &importOperation{
 		service:          s.service,
 		defaultsProvider: s.modelDefaultsProvider,
+		logger:           loggertesting.WrapCheckLog(c),
 	}
 }

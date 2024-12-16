@@ -437,7 +437,7 @@ func (k *kubernetesClient) Bootstrap(
 		return nil, errors.NotSupportedf("set base for bootstrapping to kubernetes")
 	}
 
-	// Validate workload storage is available to the controller
+	// Validate workload storage is available to the controller.
 	storageClass, err := k.validateControllerWorkloadStorage(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
