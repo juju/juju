@@ -316,6 +316,44 @@ func (m *NodeManager) WithTLSOption() (app.Option, error) {
 	return app.WithTLS(listen, dial), nil
 }
 
+// WithTLSDialer returns a Dqlite DialFunc that uses TLS encryption
+// for traffic between clients and clustered application nodes.
+func (m *NodeManager) WithTLSDialer(ctx context.Context) (client.DialFunc, error) {
+	loopbackBound, err := m.IsLoopbackBound(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if loopbackBound {
+		return client.DefaultDialFunc, nil
+	}
+
+	stateInfo, ok := m.cfg.StateServingInfo()
+	if !ok {
+		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
+	}
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM([]byte(m.cfg.CACert()))
+
+	controllerCert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing controller certificate")
+	}
+
+	dial := &tls.Config{
+		RootCAs:      caCertPool,
+		Certificates: []tls.Certificate{controllerCert},
+		// We cannot provide a ServerName value here, so we rely on the
+		// server validating the controller's client certificate.
+		InsecureSkipVerify: true,
+	}
+
+	return client.DialFuncWithTLS(
+		client.DefaultDialFunc,
+		dial,
+	), nil
+}
+
 // WithClusterOption returns a Dqlite application Option for initialising
 // Dqlite as the member of a cluster with peers representing other controllers.
 func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
