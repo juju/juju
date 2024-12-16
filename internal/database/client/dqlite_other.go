@@ -39,6 +39,11 @@ func (s *YamlNodeStore) Set(context.Context, []dqlite.NodeInfo) error {
 	return nil
 }
 
+type NodeStore interface {
+	Get(context.Context) ([]dqlite.NodeInfo, error)
+	Set(context.Context, []dqlite.NodeInfo) error
+}
+
 // LogFunc is a function that can be used for logging.
 type LogFunc = func(LogLevel, string, ...interface{})
 
