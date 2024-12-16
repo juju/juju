@@ -24,14 +24,14 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
+	"github.com/juju/juju/cmd/jujud-controller/agent/dbrepl"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/looputil"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/rpc/params"
 )
@@ -158,7 +158,7 @@ type dbReplMachineAgentFactoryFnType func(names.Tag, bool) (*replMachineAgent, e
 func DBReplMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
+	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 	rootDir string,
 ) dbReplMachineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*replMachineAgent, error) {
@@ -173,7 +173,7 @@ func DBReplMachineAgentFactoryFn(
 				Logger:        logger,
 			}),
 			looputil.NewLoopDeviceManager(),
-			newDBWorkerFunc,
+			newDBReplWorkerFunc,
 			rootDir,
 			isCaasAgent,
 		)
@@ -187,22 +187,22 @@ func NewREPLMachineAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
+	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 	rootDir string,
 	isCaasAgent bool,
 ) (*replMachineAgent, error) {
 	a := &replMachineAgent{
-		agentTag:          agentTag,
-		AgentConfigWriter: agentConfWriter,
-		configChangedVal:  voyeur.NewValue(true),
-		bufferedLogger:    bufferedLogger,
-		workersStarted:    make(chan struct{}),
-		dead:              make(chan struct{}),
-		runner:            runner,
-		rootDir:           rootDir,
-		newDBWorkerFunc:   newDBWorkerFunc,
-		loopDeviceManager: loopDeviceManager,
-		isCaasAgent:       isCaasAgent,
+		agentTag:            agentTag,
+		AgentConfigWriter:   agentConfWriter,
+		configChangedVal:    voyeur.NewValue(true),
+		bufferedLogger:      bufferedLogger,
+		workersStarted:      make(chan struct{}),
+		dead:                make(chan struct{}),
+		runner:              runner,
+		rootDir:             rootDir,
+		newDBReplWorkerFunc: newDBReplWorkerFunc,
+		loopDeviceManager:   loopDeviceManager,
+		isCaasAgent:         isCaasAgent,
 	}
 	return a, nil
 }
@@ -222,7 +222,7 @@ type replMachineAgent struct {
 
 	workersStarted chan struct{}
 
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
+	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
 	loopDeviceManager looputil.LoopDeviceManager
 
@@ -263,6 +263,8 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
 	_ = a.runner.StartWorker("engine", createEngine)
 
+	//
+
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err = a.runner.Wait()
@@ -299,13 +301,13 @@ func (a *replMachineAgent) makeEngineCreator(
 			return nil, err
 		}
 
-		manifoldsCfg := safemode.ManifoldsConfig{
+		manifoldsCfg := dbrepl.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			AgentName:            agentName,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
 			RootDir:              a.rootDir,
 			AgentConfigChanged:   a.configChangedVal,
-			NewDBWorkerFunc:      a.newDBWorkerFunc,
+			NewDBReplWorkerFunc:  a.newDBReplWorkerFunc,
 			LogSource:            a.bufferedLogger.Logs(),
 			Clock:                clock.WallClock,
 			IsCaasConfig:         a.isCaasAgent,
@@ -315,9 +317,9 @@ func (a *replMachineAgent) makeEngineCreator(
 
 		var manifolds dependency.Manifolds
 		if a.isCaasAgent {
-			manifolds = safemode.CAASManifolds(manifoldsCfg)
+			manifolds = dbrepl.CAASManifolds(manifoldsCfg)
 		} else {
-			manifolds = safemode.IAASManifolds(manifoldsCfg)
+			manifolds = dbrepl.IAASManifolds(manifoldsCfg)
 		}
 
 		if err := dependency.Install(eng, manifolds); err != nil {
