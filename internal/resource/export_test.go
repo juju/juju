@@ -27,7 +27,7 @@ func NewResourceRetryClientForTest(cl ResourceGetter) *ResourceRetryClient {
 }
 
 func NewResourceOpenerForTest(
-	res Resources,
+	res DeprecatedResourcesState,
 	tag names.Tag,
 	unitName string,
 	appName string,
@@ -38,8 +38,8 @@ func NewResourceOpenerForTest(
 ) *ResourceOpener {
 	return &ResourceOpener{
 		modelUUID:            "uuid",
-		resourceCache:        res,
-		user:                 tag,
+		state:                res,
+		retrievedBy:          tag,
 		unitName:             unitName,
 		appName:              appName,
 		charmURL:             charmURL,

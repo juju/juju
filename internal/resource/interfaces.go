@@ -22,8 +22,9 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 }
 
-// Resources represents the methods used by the resource opener from state.Resources.
-type Resources interface {
+// DeprecatedResourcesState represents the methods used by the resource opener
+// from state.Resources.
+type DeprecatedResourcesState interface {
 	// GetResource returns the identified resource.
 	GetResource(applicationID, name string) (resource.Resource, error)
 	// OpenResource returns the metadata for a resource and a reader for the resource.
