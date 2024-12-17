@@ -323,6 +323,10 @@ func (c *charmImpl) URL() string {
 	return c.url
 }
 
+func (c *charmImpl) Version() string {
+	return ""
+}
+
 func fromInternalCharm(ch charm.Charm, url string) state.CharmRefFull {
 	return &charmImpl{
 		Charm: ch,
