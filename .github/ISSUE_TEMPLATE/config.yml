@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation issue
+    url: https://github.com/juju/docs/issues/new
+    about: Please report documentation issues on juju/docs repository
