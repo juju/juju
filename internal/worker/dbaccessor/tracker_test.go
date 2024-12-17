@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	sqlair "github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -93,6 +94,38 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	defer s.expectTimer(0)()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	done := make(chan struct{})
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		defer close(done)
+
+		if tx == nil {
+			return errors.New("nil transaction")
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for DB callback")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()

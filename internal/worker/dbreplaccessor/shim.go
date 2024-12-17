@@ -34,7 +34,6 @@ type NewAppFunc func(driverName string) (DBApp, error)
 // dbApp wraps a Dqlite App reference, so that we can shim out Client.
 type dbApp struct {
 	driverName string
-	db         *sql.DB
 }
 
 // NewApp creates a new type for opening dqlite databases for a given driver
