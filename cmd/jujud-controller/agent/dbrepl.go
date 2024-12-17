@@ -264,8 +264,6 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker("engine", createEngine)
 
-	//
-
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err = a.runner.Wait()
@@ -292,9 +290,9 @@ func (a *replMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 
 func (a *replMachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
-	Stdout io.Writer,
-	Stderr io.Writer,
-	Stdin io.Reader,
+	stdout io.Writer,
+	stderr io.Writer,
+	stdin io.Reader,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
@@ -318,9 +316,9 @@ func (a *replMachineAgent) makeEngineCreator(
 
 			SetupLogging: agentconf.SetupAgentLogging,
 
-			Stdout: Stdout,
-			Stderr: Stderr,
-			Stdin:  Stdin,
+			Stdout: stdout,
+			Stderr: stderr,
+			Stdin:  stdin,
 		}
 
 		var manifolds dependency.Manifolds

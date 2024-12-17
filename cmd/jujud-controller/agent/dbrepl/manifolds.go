@@ -143,14 +143,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
-
 	return mergeManifolds(config, dependency.Manifolds{
 		dbReplAccessorName: ifController(dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
 			Logger:          internallogger.GetLogger("juju.worker.dbreplaccessor"),
-			LogDir:          agentConfig.LogDir(),
 			NewApp:          dbreplaccessor.NewApp,
 			NewDBReplWorker: config.NewDBReplWorkerFunc,
 			NewNodeManager:  dbreplaccessor.IAASNodeManager,
@@ -161,14 +158,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // CAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
-
 	return mergeManifolds(config, dependency.Manifolds{
 		dbReplAccessorName: ifController(dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
 			Logger:          internallogger.GetLogger("juju.worker.dbreplaccessor"),
-			LogDir:          agentConfig.LogDir(),
 			NewApp:          dbreplaccessor.NewApp,
 			NewDBReplWorker: config.NewDBReplWorkerFunc,
 			NewNodeManager:  dbreplaccessor.CAASNodeManager,

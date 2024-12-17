@@ -140,6 +140,18 @@ func (w *dbReplWorker) loop() (err error) {
 	controllerDB := currentDB
 	currentNamespace := "*"
 
+	// Allow the line to be closed when the worker is dying.
+	go func() {
+		select {
+		case <-w.tomb.Dying():
+			cancel()
+		case <-ctx.Done():
+		}
+
+		line.Close()
+	}()
+
+	// Run the main REPL loop.
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -206,6 +218,7 @@ func (w *dbReplWorker) loop() (err error) {
 			currentDB, err = w.dbGetter.GetDB(uuid)
 			if err != nil {
 				fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", name, err)
+				continue
 			}
 			currentNamespace = name
 
