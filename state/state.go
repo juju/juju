@@ -913,6 +913,7 @@ type CharmRefFull interface {
 	Config() *charm.Config
 	Revision() int
 	URL() string
+	Version() string
 }
 
 // AddApplicationArgs defines the arguments for AddApplication method.

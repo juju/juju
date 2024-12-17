@@ -521,29 +521,6 @@ func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *charmServiceSuite) TestGetCharmHash(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("archive-path", "hash", nil)
-
-	hash, err := s.service.GetCharmHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(hash, gc.Equals, "hash")
-}
-
-func (s *charmServiceSuite) TestGetCharmHashCharmNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("", "", applicationerrors.CharmNotFound)
-
-	_, err := s.service.GetCharmHash(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
 func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

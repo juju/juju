@@ -363,10 +363,10 @@ func (c *MockSystemStateApplyOperationCall) DoAndReturn(f func(*state.UpdateUnit
 }
 
 // Charm mocks base method.
-func (m *MockSystemState) Charm(arg0 string) (bootstrap.Charm, error) {
+func (m *MockSystemState) Charm(arg0 string) (charm0.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
-	ret0, _ := ret[0].(bootstrap.Charm)
+	ret0, _ := ret[0].(charm0.Charm)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -384,19 +384,19 @@ type MockSystemStateCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSystemStateCharmCall) Return(arg0 bootstrap.Charm, arg1 error) *MockSystemStateCharmCall {
+func (c *MockSystemStateCharmCall) Return(arg0 charm0.Charm, arg1 error) *MockSystemStateCharmCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSystemStateCharmCall) Do(f func(string) (bootstrap.Charm, error)) *MockSystemStateCharmCall {
+func (c *MockSystemStateCharmCall) Do(f func(string) (charm0.Charm, error)) *MockSystemStateCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateCharmCall) DoAndReturn(f func(string) (bootstrap.Charm, error)) *MockSystemStateCharmCall {
+func (c *MockSystemStateCharmCall) DoAndReturn(f func(string) (charm0.Charm, error)) *MockSystemStateCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

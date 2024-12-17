@@ -303,13 +303,16 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		Architecture: ch.Architecture,
 	}
 
-	return internalcharm.NewCharmBase(
+	charmBase := internalcharm.NewCharmBase(
 		&metadata,
 		&manifest,
 		&config,
 		&actions,
 		&lxdProfile,
-	), locator, nil
+	)
+	charmBase.SetVersion(ch.Version)
+
+	return charmBase, locator, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
@@ -549,24 +552,6 @@ func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefi
 	}
 
 	return reader, nil
-}
-
-// GetCharmHash returns the hash of the charm archive identified by its charm
-// ID.
-//
-// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
-// returned.
-func (s *Service) GetCharmHash(ctx context.Context, id corecharm.ID) (string, error) {
-	if err := id.Validate(); err != nil {
-		return "", internalerrors.Errorf("charm id: %w", err)
-	}
-
-	_, hash, err := s.st.GetCharmArchiveMetadata(ctx, id)
-	if err != nil {
-		return "", internalerrors.Errorf("getting charm hash: %w", err)
-	}
-
-	return hash, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This

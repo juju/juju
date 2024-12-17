@@ -229,6 +229,44 @@ func (c *MockCharmRevisionCall) DoAndReturn(f func() int) *MockCharmRevisionCall
 	return c
 }
 
+// Version mocks base method.
+func (m *MockCharm) Version() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Version")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Version indicates an expected call of Version.
+func (mr *MockCharmMockRecorder) Version() *MockCharmVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockCharm)(nil).Version))
+	return &MockCharmVersionCall{Call: call}
+}
+
+// MockCharmVersionCall wrap *gomock.Call
+type MockCharmVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCharmVersionCall) Return(arg0 string) *MockCharmVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCharmVersionCall) Do(f func() string) *MockCharmVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCharmVersionCall) DoAndReturn(f func() string) *MockCharmVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockCharmMeta is a mock of CharmMeta interface.
 type MockCharmMeta struct {
 	ctrl     *gomock.Controller

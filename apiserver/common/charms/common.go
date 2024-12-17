@@ -210,6 +210,7 @@ func convertCharm(name string, ch charm.Charm, locator applicationcharm.CharmLoc
 		Meta:     convertCharmMeta(ch.Meta()),
 		Actions:  convertCharmActions(ch.Actions()),
 		Manifest: convertCharmManifest(ch.Manifest()),
+		Version:  ch.Version(),
 	}
 
 	profiler, ok := ch.(charm.LXDProfiler)

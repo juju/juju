@@ -160,16 +160,6 @@ type Application interface {
 	Name() string
 }
 
-// Charm is the interface that is used to get information about a charm.
-type Charm interface {
-	Meta() *charm.Meta
-	Manifest() *charm.Manifest
-	Actions() *charm.Actions
-	Config() *charm.Config
-	Revision() int
-	URL() string
-}
-
 // Unit is the interface that is used to get information about a
 // controller unit.
 type Unit interface {
