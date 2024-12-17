@@ -4,7 +4,10 @@
 package dbrepl
 
 import (
+	"testing"
+
 	jujutesting "github.com/juju/testing"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -13,6 +16,12 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbrepl -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+
+func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	gc.TestingT(t)
+}
 
 type baseSuite struct {
 	jujutesting.IsolationSuite
