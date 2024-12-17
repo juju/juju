@@ -146,6 +146,8 @@ This is a DB REPL (Read-Eval-Print Loop) environment.
 
 You can run arbitrary code here, including code that can modify the
 state of the system. Be careful!
+
+Type '.help' for help.
 `
 )
 
