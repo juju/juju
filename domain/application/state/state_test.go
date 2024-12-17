@@ -9,9 +9,10 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type stateSuite struct {

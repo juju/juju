@@ -290,10 +290,6 @@ func modelIsImporting(st ModelState) (bool, error) {
 	return model.MigrationMode() == state.MigrationModeImporting, nil
 }
 
-func emitUnsupportedMethodErr(method string) error {
-	return jujuerrors.MethodNotAllowedf("unsupported method: %q", method)
-}
-
 type stateGetter struct {
 	authFunc func(*http.Request) (*state.PooledState, error)
 }
