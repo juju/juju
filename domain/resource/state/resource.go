@@ -836,15 +836,6 @@ VALUES      ($kubernetesApplicationResource.*)
 			return errors.Capture(err)
 		}
 
-		// Unset any existing resources with the same charm resource as the
-		// resource being set in the kubernetes application resource table.
-		err = st.unsetApplicationResourcesWithSameCharmResource(ctx, tx, resourceUUID)
-		if err != nil {
-			return errors.Errorf(
-				"removing previously set application resources for resource %s: %w", resourceUUID, err,
-			)
-		}
-
 		// Update kubernetes application resource table.
 		var outcome sqlair.Outcome
 		err = tx.Query(ctx, insertK8sAppResourceStmt, k8sAppResource).Get(&outcome)
@@ -856,72 +847,6 @@ VALUES      ($kubernetesApplicationResource.*)
 	})
 
 	return err
-}
-
-// unsetApplicationResourcesForCharmResource removes all application resources that use a
-// charm resource.
-func (st *State) unsetApplicationResourcesWithSameCharmResource(
-	ctx context.Context, tx *sqlair.TX, uuid coreresource.UUID) error {
-	resUUID := resourceUUID{UUID: uuid.String()}
-
-	// Check if there is a resource on the kubernetes application that is on the
-	// same application and using the same charm resource as the resource we are
-	// trying to set. This will be an old kubernetes application resource of the
-	// applications' which needs to be removed.
-	checkForResourcesStmt, err := st.Prepare(`
-SELECT kar.resource_uuid AS &resourceUUID.uuid
-FROM   kubernetes_application_resource kar
-JOIN   resource r ON kar.resource_uuid = r.uuid
-AND    (r.charm_uuid, r.charm_resource_name, r.application_uuid) IN (
-    SELECT charm_uuid, charm_resource_name, application_uuid
-	FROM   resource 
-	WHERE  uuid = $resourceUUID.uuid
-)`, resUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Check if the kubernetes application already had a resource set for this
-	// charm resource.
-	var matchingUUIDs []resourceUUID
-	err = tx.Query(ctx, checkForResourcesStmt, resUUID).GetAll(&matchingUUIDs)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// Nothing to do.
-		return nil
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-
-	// There should be at most one resource with a matching charm resource entry
-	// for this application. There must be 1 here because of there were none we
-	// would have had ErrNoRows.
-	if len(matchingUUIDs) != 1 {
-		return errors.Errorf("kubernetes application already has the charm resource set more than once")
-	}
-
-	// Unset the old resource pointing to the charm resource.
-	unsetResourceStmt, err := st.Prepare(`
-DELETE FROM   kubernetes_application_resource
-WHERE         resource_uuid = $resourceUUID.uuid
-`, resUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, unsetResourceStmt, matchingUUIDs[0]).Get(&outcome)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	num, err := outcome.Result().RowsAffected()
-	if err != nil {
-		return errors.Capture(err)
-	} else if num != int64(len(matchingUUIDs)) {
-		return errors.Errorf("expected %d rows to be deleted, got %d", len(matchingUUIDs), num)
-	}
-
-	return nil
 }
 
 // SetUnitResource links a unit and a resource. If the unit is already linked to

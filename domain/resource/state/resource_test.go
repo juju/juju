@@ -1033,7 +1033,7 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)
 			addedAts = append(addedAts, addedAt)
 			uuids = append(uuids, uuid)
 		}
-		return nil
+		return rows.Close()
 	})
 	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) cannot check unit_resource table: %v", errors.ErrorStack(err)))
 	c.Check(uuids, gc.DeepEquals, []string{resID2})
@@ -1235,76 +1235,6 @@ WHERE resource_uuid = ?`,
 	})
 	c.Check(foundAddedAt, jc.TimeBetween(addedAt, time.Now()))
 	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) kubernetes_application_resource table not updated: %v", errors.ErrorStack(err)))
-}
-
-// TestSetApplicationResourceUnsetExisting verifies that a unit resource is set and
-// an existing resource with the same charm resource as the new one is unset.
-func (s *resourceSuite) TestSetApplicationResourceUnsetExisting(c *gc.C) {
-	// Arrange: insert a resource link it to a unit then insert a second
-	// resource without linking.
-	startTime := time.Now().Truncate(time.Second).UTC()
-	time1 := startTime.Add(time.Hour * -1)
-	resID1 := "resource-id-1"
-	resID2 := "resource-id-2"
-	input1 := resourceData{
-		UUID:                  resID1,
-		ApplicationUUID:       s.constants.fakeApplicationUUID1,
-		Type:                  charmresource.TypeContainerImage,
-		AddedAt:               time1,
-		KubernetesApplication: true,
-	}
-
-	input2 := resourceData{
-		UUID:            resID2,
-		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Type:            charmresource.TypeContainerImage,
-	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input1.insert(context.Background(), tx); err != nil {
-			return errors.Capture(err)
-		}
-		if err := input2.insert(context.Background(), tx); err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
-
-	// Act set unit resource and check the old resource has been reset.
-	err = s.state.SetApplicationResource(
-		context.Background(),
-		coreresource.UUID(resID2),
-	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
-
-	// Assert: check the unit resource has been added and the old one removed.
-	var addedAts []time.Time
-	var uuids []string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.Query(`
-SELECT added_at, resource_uuid 
-FROM   kubernetes_application_resource kar
-JOIN   application_resource r ON r.uuid = kar.resource_uuid
-WHERE  r.application_uuid = ?`, s.constants.fakeApplicationUUID1)
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var addedAt time.Time
-			var uuid string
-			err := rows.Scan(&addedAt, &uuid)
-			if err != nil {
-				return err
-			}
-			addedAts = append(addedAts, addedAt)
-			uuids = append(uuids, uuid)
-		}
-		return nil
-	})
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) cannot check kubernetes_application_resource table: %v", errors.ErrorStack(err)))
-	c.Check(uuids, gc.DeepEquals, []string{resID2})
-	c.Assert(addedAts, gc.HasLen, 1)
-	c.Check(addedAts[0], jc.TimeBetween(startTime, time.Now()))
 }
 
 func (s *resourceSuite) TestSetApplicationResourceNotFound(c *gc.C) {
