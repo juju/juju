@@ -1,18 +1,15 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package dbreplaccessor
+package dbrepl
 
 import (
-	"context"
+	"io"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/agent"
-	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/logger"
 )
 
 type manifoldSuite struct {
@@ -27,7 +24,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
-	cfg.AgentName = ""
+	cfg.DBReplAccessorName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -39,31 +36,25 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewApp = nil
+	cfg.Stdout = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewNodeManager = nil
+	cfg.Stderr = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewDBReplWorker = nil
+	cfg.Stdin = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName: "agent",
-		Clock:     s.clock,
-		Logger:    s.logger,
-		NewApp: func(string) (DBApp, error) {
-			return s.dbApp, nil
-		},
-		NewDBReplWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
-			return nil, nil
-		},
-		NewNodeManager: func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
-			return s.nodeManager
-		},
+		DBReplAccessorName: "db-repl-accessor",
+		Clock:              s.clock,
+		Logger:             s.logger,
+		Stdout:             io.Discard,
+		Stderr:             io.Discard,
+		Stdin:              strings.NewReader(""),
 	}
 }

@@ -188,7 +188,7 @@ func (w *dbReplWorker) loop() (err error) {
 		case ".exit":
 			return worker.ErrTerminateAgent
 		case ".help":
-			fmt.Fprintln(w.cfg.Stdout, helpText)
+			fmt.Fprintf(w.cfg.Stdout, helpText)
 			continue
 		case ".switch":
 			if len(args) != 2 {
