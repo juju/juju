@@ -126,7 +126,7 @@ func ModelDDL() *schema.Schema {
 		),
 
 		triggerGuardForTable("sequence_charm_local",
-			"NEW.sequence <= OLD.sequence",
+			"OLD.reference_name = NEW.reference_name AND NEW.sequence <= OLD.sequence",
 			"sequence number must monotonically increase",
 		),
 	)
