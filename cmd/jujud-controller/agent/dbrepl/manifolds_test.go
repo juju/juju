@@ -57,9 +57,9 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"agent",
 			"clock",
 			"controller-agent-config",
-			"db-accessor",
+			"db-repl-accessor",
+			"db-repl",
 			"is-controller-flag",
-			"query-logger",
 			"state-config-watcher",
 			"termination-signal-handler",
 		},
@@ -75,9 +75,9 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"agent",
 			"clock",
 			"controller-agent-config",
-			"db-accessor",
+			"db-repl-accessor",
+			"db-repl",
 			"is-controller-flag",
-			"query-logger",
 			"state-config-watcher",
 			"termination-signal-handler",
 		},
@@ -101,11 +101,8 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
 		"controller-agent-config",
-		"db-accessor",
-		"file-notify-watcher",
-		"db-accessor",
-		"query-logger",
-		"file-notify-watcher",
+		"db-repl",
+		"db-repl-accessor",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -181,21 +178,20 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"db-accessor": {
+	"db-repl": {
 		"agent",
-		"controller-agent-config",
+		"db-repl-accessor",
 		"is-controller-flag",
-		"query-logger",
+		"state-config-watcher",
+	},
+
+	"db-repl-accessor": {
+		"agent",
+		"is-controller-flag",
 		"state-config-watcher",
 	},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"query-logger": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
 
 	"state-config-watcher": {"agent"},
 
@@ -214,21 +210,20 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"db-accessor": {
+	"db-repl": {
 		"agent",
-		"controller-agent-config",
+		"db-repl-accessor",
 		"is-controller-flag",
-		"query-logger",
+		"state-config-watcher",
+	},
+
+	"db-repl-accessor": {
+		"agent",
+		"is-controller-flag",
 		"state-config-watcher",
 	},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"query-logger": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
 
 	"state-config-watcher": {"agent"},
 
