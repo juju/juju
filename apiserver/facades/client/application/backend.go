@@ -103,10 +103,8 @@ type Charm interface {
 	Config() *charm.Config
 	Actions() *charm.Actions
 	Revision() int
-	// TODO(nvinuesa): IsUploaded is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-6845
-	// IsUploaded() bool
 	URL() string
+	Version() string
 }
 
 // CharmMeta describes methods that inform charm operation.

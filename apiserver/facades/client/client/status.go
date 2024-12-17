@@ -883,19 +883,6 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 				// Don't look up revision for local charms
 			}
 		}
-
-		// ch, _, err := app.Charm()
-		// if err != nil {
-		// 	continue
-		// }
-		// chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
-		// if profile := ch.LXDProfile(); profile != nil {
-		// 	lxdProfiles[chName] = &charm.LXDProfile{
-		// 		Description: profile.Description,
-		// 		Config:      profile.Config,
-		// 		Devices:     profile.Devices,
-		// 	}
-		// }
 	}
 
 	for baseURL := range latestCharms {
@@ -1289,13 +1276,6 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
-	// var charmProfileName string
-	// if lxdprofile.NotEmpty(lxdStateCharmProfiler{
-	// 	Charm: applicationCharm,
-	// }) {
-	// 	charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
-	// }
-
 	mappedExposedEndpoints, err := context.mapExposedEndpointsFromState(application.ExposedEndpoints())
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
@@ -1317,9 +1297,8 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 	var processedStatus = params.ApplicationStatus{
-		Charm: applicationCharm.URL(),
-		// CharmVersion: applicationCharm.Version(),
-		// CharmProfile: charmProfileName,
+		Charm:        applicationCharm.URL(),
+		CharmVersion: applicationCharm.Version(),
 		CharmRev:     applicationCharm.Revision(),
 		CharmChannel: channel,
 		Base: params.Base{

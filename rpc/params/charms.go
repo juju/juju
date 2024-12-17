@@ -137,6 +137,7 @@ type Charm struct {
 	Actions    *CharmActions          `json:"actions,omitempty"`
 	Manifest   *CharmManifest         `json:"manifest,omitempty"`
 	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
+	Version    string                 `json:"version,omitempty"`
 }
 
 // CharmActions mirrors charm.Actions.

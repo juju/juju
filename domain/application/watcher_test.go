@@ -599,3 +599,7 @@ func (s *stubCharm) Actions() *internalcharm.Actions {
 func (s *stubCharm) Revision() int {
 	return 0
 }
+
+func (s *stubCharm) Version() string {
+	return ""
+}
