@@ -26,7 +26,6 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
@@ -387,10 +386,6 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 				err,
 			)
 		}
-	}
-
-	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
-		return errors.Errorf("cannot set model %q to activated: %w", model.UUID(), err)
 	}
 
 	// TODO(fwereade) - need to validate binaries here.
