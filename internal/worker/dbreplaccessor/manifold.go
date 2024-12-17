@@ -32,7 +32,6 @@ type ManifoldConfig struct {
 	AgentName       string
 	Clock           clock.Clock
 	Logger          logger.Logger
-	LogDir          string
 	NewApp          NewAppFunc
 	NewDBReplWorker NewDBReplWorkerFunc
 	NewNodeManager  NewNodeManagerFunc
@@ -47,9 +46,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.LogDir == "" {
-		return errors.NotValidf("empty LogDir")
 	}
 	if cfg.NewApp == nil {
 		return errors.NotValidf("nil NewApp")
