@@ -3346,7 +3346,7 @@ FROM   secret_model_owner smo
        LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
 WHERE  sm.auto_prune = true AND sro.obsolete = true`
 
-	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{}, revisions{})
+	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
