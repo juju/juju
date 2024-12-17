@@ -76,13 +76,6 @@ type WorkerConfig struct {
 	Logger          logger.Logger
 	NewApp          NewAppFunc
 	NewDBReplWorker NewDBReplWorkerFunc
-
-	// ControllerID uniquely identifies the controller that this
-	// worker is running on. It is equivalent to the machine ID.
-	ControllerID string
-
-	// ClusterConfig supplies bind addresses used for Dqlite clustering.
-	ClusterConfig ClusterConfig
 }
 
 // Validate ensures that the config values are valid.
@@ -101,12 +94,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewDBReplWorker == nil {
 		return errors.NotValidf("missing NewDBReplWorker")
-	}
-	if c.ControllerID == "" {
-		return errors.NotValidf("missing ControllerID")
-	}
-	if c.ClusterConfig == nil {
-		return errors.NotValidf("missing ClusterConfig")
 	}
 	return nil
 }

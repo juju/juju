@@ -5,7 +5,6 @@ package dbreplaccessor
 
 import (
 	"context"
-	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -77,18 +76,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			agentConfig := thisAgent.CurrentConfig()
-			controllerID := agentConfig.Tag().Id()
-			configPath := path.Join(agentConfig.DataDir(), "agents", "controller-"+controllerID, "controller.conf")
-			controllerConf := controllerConfigReader{configPath: configPath}
 
 			cfg := WorkerConfig{
 				NodeManager:     config.NewNodeManager(agentConfig, config.Logger, coredatabase.NoopSlowQueryLogger{}),
 				Clock:           config.Clock,
-				ControllerID:    controllerID,
 				Logger:          config.Logger,
 				NewApp:          config.NewApp,
 				NewDBReplWorker: config.NewDBReplWorker,
-				ClusterConfig:   controllerConf,
 			}
 
 			return NewWorker(cfg)
