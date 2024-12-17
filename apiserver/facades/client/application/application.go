@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -47,6 +46,7 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/environschema"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"

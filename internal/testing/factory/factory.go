@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -33,6 +32,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/environschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"

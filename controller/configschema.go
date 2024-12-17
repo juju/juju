@@ -7,7 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
+
+	"github.com/juju/juju/internal/environschema"
 )
 
 var configChecker = schema.FieldMap(schema.Fields{

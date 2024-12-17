@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/environschema"
 )
 
 // SecretRevisions holds external revision ids for a list of secrets.

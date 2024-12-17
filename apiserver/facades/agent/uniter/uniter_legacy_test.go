@@ -17,7 +17,6 @@ import (
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
@@ -38,6 +37,7 @@ import (
 	stubservice "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/environschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"

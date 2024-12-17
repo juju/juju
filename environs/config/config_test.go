@@ -18,11 +18,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"

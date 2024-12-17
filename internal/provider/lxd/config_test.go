@@ -9,12 +9,12 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/testing"
 )

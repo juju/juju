@@ -31,6 +31,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
+	github.com/frankban/quicktest v1.14.6
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-delve/delve v1.23.1
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
@@ -117,6 +118,7 @@ require (
 	golang.org/x/tools v0.28.0
 	google.golang.org/api v0.171.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
+	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/juju/environschema.v1 v1.0.1
@@ -311,7 +313,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241206012308-a4fef0638583 // indirect
 	google.golang.org/grpc v1.68.1 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
-	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/config"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/environschema"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"

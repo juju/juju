@@ -22,7 +22,7 @@ import (
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
 	gomock "go.uber.org/mock/gomock"
-	environschema "gopkg.in/juju/environschema.v1"
+	environschema "github.com/juju/juju/internal/environschema"
 )
 
 // MockBackend is a mock of Backend interface.
