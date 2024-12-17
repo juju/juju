@@ -72,34 +72,6 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 }
-func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
-	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
-
-	w := s.newWorkerWithDB(c, trackedWorkerDB)
-
-	var num int64
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
-		result, err := tx.ExecContext(ctx, stmt, "foo")
-		if err != nil {
-			return err
-		}
-
-		num, err = result.RowsAffected()
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(num, gc.Equals, int64(1))
-
-	dbw := w.(*dbWorker)
-	ensureStartup(c, dbw)
-
-	return dbw
-}
 
 func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -394,6 +366,35 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+
+	var num int64
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, "foo")
+		if err != nil {
+			return err
+		}
+
+		num, err = result.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(num, gc.Equals, int64(1))
+
+	dbw := w.(*dbWorker)
+	ensureStartup(c, dbw)
+
+	return dbw
 }
 
 type workerTrackedDB struct {

@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math/rand/v2"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -102,7 +101,6 @@ type dbReplWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
 
-	mu           sync.RWMutex
 	dbApp        DBApp
 	dbReplRunner *worker.Runner
 	driverName   string
@@ -146,7 +144,7 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 			ShouldRestart: func(err error) bool {
 				return !errors.Is(err, database.ErrDBDead)
 			},
-			RestartDelay: time.Second * 10,
+			RestartDelay: time.Second * 1,
 			Logger:       cfg.Logger,
 		}),
 		dbReplReady:    make(chan struct{}),
@@ -211,14 +209,14 @@ func (w *dbReplWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	select {
 	case <-w.dbReplReady:
 	case <-w.catacomb.Dying():
-		return nil, database.ErrDBAccessorDying
+		return nil, database.ErrDBReplAccessorDying
 	}
 
 	// First check if we've already got the db worker already running.
 	// The runner is effectively a DB cache.
 	if db, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, database.ErrDBAccessorDying
+			return nil, database.ErrDBReplAccessorDying
 		}
 
 		return nil, errors.Trace(err)
@@ -232,7 +230,7 @@ func (w *dbReplWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	select {
 	case w.dbReplRequests <- req:
 	case <-w.catacomb.Dying():
-		return nil, database.ErrDBAccessorDying
+		return nil, database.ErrDBReplAccessorDying
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -244,7 +242,7 @@ func (w *dbReplWorker) GetDB(namespace string) (database.TxnRunner, error) {
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, database.ErrDBAccessorDying
+		return nil, database.ErrDBReplAccessorDying
 	}
 
 	// This will return a not found error if the request was not honoured.
@@ -323,8 +321,6 @@ func (w *dbReplWorker) openDatabase(namespace string) error {
 	// function. This will create potential data race if openDatabase is called
 	// multiple times for the same namespace.
 	err := w.dbReplRunner.StartWorker(namespace, func() (worker.Worker, error) {
-		w.mu.RLock()
-		defer w.mu.RUnlock()
 		if w.dbApp == nil {
 			// If the dbApp is nil then we're shutting down.
 			select {

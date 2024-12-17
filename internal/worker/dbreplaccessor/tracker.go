@@ -51,7 +51,8 @@ type trackedDBWorker struct {
 	dbApp     DBApp
 	namespace string
 
-	db *sqlair.DB
+	db    *sqlair.DB
+	rawDB *sql.DB
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -93,6 +94,7 @@ func newTrackedDBWorker(
 		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
 
+	w.rawDB = db
 	w.db = sqlair.NewDB(db)
 
 	w.tomb.Go(w.loop)
@@ -160,6 +162,13 @@ func (w *trackedDBWorker) Wait() error {
 }
 
 func (w *trackedDBWorker) loop() error {
+	defer func() {
+		err := w.rawDB.Close()
+		if err != nil {
+			w.logger.Errorf("failed to close database: %v", err)
+		}
+	}()
+
 	<-w.tomb.Dying()
 	return tomb.ErrDying
 }
