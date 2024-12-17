@@ -103,9 +103,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
-		"db-accessor",
 		"query-logger",
-		"file-notify-watcher",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
