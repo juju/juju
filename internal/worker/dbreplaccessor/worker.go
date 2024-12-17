@@ -24,10 +24,6 @@ const (
 	// errTryAgain indicates that the worker should try
 	// again later to start a DB tracker worker.
 	errTryAgain = errors.ConstError("DB node is nil, but worker is not dying; rescheduling TrackedDB start attempt")
-
-	// errNotReady indicates that we successfully created a new Dqlite app,
-	// but the Ready call timed out, and we are waiting for broadcast info.
-	errNotReady = errors.ConstError("started DB app, but it failed to become ready; waiting for topology updates")
 )
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.

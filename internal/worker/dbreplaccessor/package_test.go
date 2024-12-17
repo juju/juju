@@ -65,15 +65,6 @@ func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
 }
 
-func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
-	s.timer.EXPECT().Stop().MinTimes(1)
-	s.clock.EXPECT().NewTimer(interval).Return(s.timer)
-
-	ch := make(chan time.Time)
-	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
-	return ch
-}
-
 func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 	cfg := WorkerConfig{
 		NodeManager: s.nodeManager,

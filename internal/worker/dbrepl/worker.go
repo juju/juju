@@ -45,21 +45,6 @@ type DBGetter interface {
 	GetDB(namespace string) (database.TxnRunner, error)
 }
 
-// dbRequest is used to pass requests for TrackedDB
-// instances into the worker loop.
-type dbRequest struct {
-	namespace string
-	done      chan error
-}
-
-// makeDBGetRequest creates a new TrackedDB request for the input namespace.
-func makeDBGetRequest(namespace string) dbRequest {
-	return dbRequest{
-		namespace: namespace,
-		done:      make(chan error),
-	}
-}
-
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
@@ -259,6 +244,8 @@ func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, 
 		if err != nil {
 			return err
 		}
+
+		defer rows.Close()
 
 		columns, err := rows.Columns()
 		if err != nil {
