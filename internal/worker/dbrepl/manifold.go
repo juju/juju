@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -21,7 +20,6 @@ import (
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
 	DBReplAccessorName string
-	Clock              clock.Clock
 	Logger             logger.Logger
 	Stdout             io.Writer
 	Stderr             io.Writer
@@ -31,9 +29,6 @@ type ManifoldConfig struct {
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.DBReplAccessorName == "" {
 		return errors.NotValidf("empty DBReplAccessorName")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -69,7 +64,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			cfg := WorkerConfig{
 				DBGetter: dbGetter,
-				Clock:    config.Clock,
 				Logger:   config.Logger,
 				Stdout:   config.Stdout,
 				Stderr:   config.Stderr,

@@ -288,9 +288,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	dbReplModeMachineAgentFactory := agentcmd.DBReplMachineAgentFactoryFn(
 		agentConf,
-		bufferedLogger,
 		dbreplaccessor.NewTrackedDBWorker,
-		"",
 	)
 	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplModeMachineAgentFactory, agentConf, agentConf))
 
