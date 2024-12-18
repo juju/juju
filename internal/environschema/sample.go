@@ -105,12 +105,6 @@ func writeSampleDescription(w io.Writer, f Attr, indent string) {
 	section()
 }
 
-// emptyLine writes an empty line prefixed with the given
-// indent, ensuring that it doesn't have any trailing white space.
-func emptyLine(w io.Writer, indent string) {
-	fmt.Fprintf(w, "%s\n", strings.TrimRightFunc(indent, unicode.IsSpace))
-}
-
 // wordyList formats the given slice in the form "x, y or z".
 func wordyList(words []string) string {
 	if len(words) == 0 {
@@ -192,11 +186,6 @@ func canUseSameLine(x interface{}) bool {
 		return v.Len() == 0
 	}
 	return true
-}
-
-func yamlQuote(s string) string {
-	data, _ := yaml.Marshal(s)
-	return strings.TrimSpace(string(data))
 }
 
 func sampleValue(t FieldType) interface{} {
