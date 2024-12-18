@@ -90,6 +90,11 @@ type SetCharmArgs struct {
 	Architecture arch.Arch
 	// DownloadInfo holds the information needed to download a charmhub charm.
 	DownloadInfo *DownloadInfo
+	// RequiresSequencing indicates that the charm requires sequencing. This
+	// will update the charms revision based on the current revision of the
+	// current charm sequence in state. This will reflect on the charms
+	// revision in state.
+	RequiresSequencing bool
 }
 
 // ResolveUploadCharm holds the arguments for the ResolveUploadCharm method.

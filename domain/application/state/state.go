@@ -201,19 +201,10 @@ func (s *State) setCharmState(
 		}
 	}
 
-	// We have a local charm that needs a new sequence revision.
-	revision := ch.Revision
-	if ch.Source == charm.LocalSource && revision == -1 {
-		revision, err = s.sequence(ctx, tx, ch.ReferenceName)
-		if err != nil {
-			return fmt.Errorf("getting next charm revision: %w", err)
-		}
-	}
-
 	chState := setCharmState{
 		UUID:            id.String(),
 		ReferenceName:   ch.ReferenceName,
-		Revision:        revision,
+		Revision:        ch.Revision,
 		ArchivePath:     ch.ArchivePath,
 		ObjectStoreUUID: nullableOjectStoreUUID,
 		Available:       ch.Available,

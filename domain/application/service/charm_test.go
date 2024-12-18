@@ -597,7 +597,7 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 		Source:        charm.LocalSource,
 		Revision:      1,
 		Architecture:  architecture.AMD64,
-	}, downloadInfo).Return(id, charm.CharmLocator{
+	}, downloadInfo, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
@@ -676,7 +676,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *gc.C) {
 		Source:        charm.CharmHubSource,
 		Revision:      1,
 		Architecture:  architecture.AMD64,
-	}, downloadInfo).Return(id, charm.CharmLocator{
+	}, downloadInfo, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
@@ -971,7 +971,7 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, charm.CharmLocator{
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
@@ -1045,7 +1045,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, charm.CharmLocator{
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
@@ -1090,7 +1090,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(id, charm.CharmLocator{
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
@@ -1290,7 +1290,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 					Size:   stat.Size(),
 				}, nil
 		})
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
 		c.Check(ch.Metadata.Name, gc.Equals, "dummy")
 		return charmID, charm.CharmLocator{
 			Name:         "test",
@@ -1305,7 +1305,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 		Reader:       file,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
-		Revision:     1,
+		Revision:     -1,
 		Name:         "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1374,7 +1374,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 					Size:   stat.Size(),
 				}, nil
 		})
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
 		return charmID, charm.CharmLocator{}, errors.NotValidf("failed to set charm")
 	})
 
@@ -1383,7 +1383,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 		Reader:       file,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
-		Revision:     1,
+		Revision:     -1,
 		Name:         "test",
 	})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
