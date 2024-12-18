@@ -1,24 +1,36 @@
 # Core database packages
-/core/changestream/**           @manadart @SimonRichardson
-/core/database/**               @manadart @SimonRichardson
-/core/watcher/**                @manadart @SimonRichardson
-/internal/database/**           @manadart @SimonRichardson
-/worker/dbaccessor/**           @manadart @SimonRichardson
-/worker/changestream/**         @manadart @SimonRichardson
-/worker/changestreampruner/**   @manadart @SimonRichardson
+/core/changestream/**                         @manadart @SimonRichardson
+/core/database/**                             @manadart @SimonRichardson
+/core/watcher/**                              @manadart @SimonRichardson
+/internal/database/**                         @manadart @SimonRichardson
+/internal/worker/dbaccessor/**                @manadart @SimonRichardson
+/internal/worker/changestream/**              @manadart @SimonRichardson
+/internal/worker/changestreampruner/**        @manadart @SimonRichardson
 
 # Lease management packages
-/worker/lease/**                @manadart
-/worker/leaseexpiry/**          @manadart
+/internal/worker/lease/**                     @manadart
+/internal/worker/leaseexpiry/**               @manadart
+
+# REPL worker
+/internal/worker/dbrepl/**                    @manadart @SimonRichardson @jack-w-shaw
+/internal/worker/dbreplaccessor/**            @manadart @SimonRichardson @jack-w-shaw
+
+# Charm
+/core/charm/**                                @SimonRichardson
+/domain/application/**                        @SimonRichardson
+/internal/worker/asynccharmdownloader/**      @SimonRichardson
 
 # Charmhub
-/charmhub/**                    @hmlanigan @SimonRichardson
+/internal/charmhub/**                         @hmlanigan @SimonRichardson
 
 # Model domain packages
-/core/model/**                  @tlm
-/domain/model/**                @tlm
-/domain/modelconfig/**          @tlm
+/core/model/**                                @tlm
+/domain/model/**                              @tlm
+/domain/modelconfig/**                        @tlm
 
 # Macaroons
-/internal/macaroon/**           @jack-w-shaw
-/domain/macaroon/**             @jack-w-shaw
+/internal/macaroon/**                         @jack-w-shaw
+/domain/macaroon/**                           @jack-w-shaw
+
+# Juju controller
+/cmd/jujud-controller/**                      @manadart @SimonRichardson
