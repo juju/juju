@@ -31,7 +31,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
-	github.com/frankban/quicktest v1.14.6
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-delve/delve v1.23.1
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a

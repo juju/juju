@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"testing"
 
-	qt "github.com/frankban/quicktest"
+	gc "gopkg.in/check.v1"
 )
 
 // newInteractionChecker returns a object that can be used to check a sequence of
@@ -42,12 +41,12 @@ import (
 //	fmt.Fprintf(checker, "And your age: ")
 //	n, _ = checker.Read(buf)
 //	age, err := strconv.Atoi(strings.TrimSpace(string(buf[0:n])))
-//	c.Assert(err, qt.IsNil)
+//	c.Assert(err, gc.IsNil)
 //	if age > 90 {
 //		fmt.Fprintf(checker, "You're very old, %s!\n", name)
 //	}
 //	checker.Close()
-func newInteractionChecker(c *qt.C, userInputMarker, text string) *interactionChecker {
+func newInteractionChecker(c *gc.C, userInputMarker, text string) *interactionChecker {
 	var ios []ioInteraction
 	for {
 		i := strings.Index(text, userInputMarker)
@@ -88,7 +87,7 @@ type ioInteraction struct {
 }
 
 type interactionChecker struct {
-	c   *qt.C
+	c   *gc.C
 	ios []ioInteraction
 }
 
@@ -151,13 +150,12 @@ func (c *interactionChecker) Close() error {
 	return nil
 }
 
-func TestNewIOChecker(t *testing.T) {
-	c := qt.New(t)
+func (formSuite) TestNewIOChecker(c *gc.C) {
 	checker := newInteractionChecker(c, "»", `What is your name: »Bob
 And your age: »148
 You're very old, Bob!
 `)
-	c.Assert(checker.ios, qt.DeepEquals, []ioInteraction{{
+	c.Assert(checker.ios, gc.DeepEquals, []ioInteraction{{
 		Data: "What is your name: ",
 	}, {
 		IsInput: true,
@@ -177,11 +175,11 @@ You're very old, Bob!
 	fmt.Fprintf(checker, "And your age: ")
 	n, _ = checker.Read(buf)
 	age, err := strconv.Atoi(strings.TrimSpace(string(buf[0:n])))
-	c.Assert(err, qt.IsNil)
+	c.Assert(err, gc.IsNil)
 	if age > 90 {
 		fmt.Fprintf(checker, "You're very old, %s!\n", name)
 	}
 	checker.Close()
 
-	c.Assert(checker.ios, qt.HasLen, 0)
+	c.Assert(checker.ios, gc.HasLen, 0)
 }
