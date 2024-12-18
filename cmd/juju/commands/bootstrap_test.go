@@ -2019,43 +2019,69 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
-	for _, test := range []struct {
-		charmPath string
-		err       string
-	}{
-		{
-			charmPath: testcharms.Repo.CharmDir("juju-controller").Path,
-		}, {
-			charmPath: testcharms.Repo.CharmDir("mysql").Path,
-			err:       `--controller-charm-path ".*mysql" is not a "juju-controller" charm`,
-		}, {
-			charmPath: c.MkDir(),
-			err:       `--controller-charm-path ".*" is not a valid charm: .*`,
-		}, {
-			charmPath: "/invalid/path",
-			err:       `problem with --controller-charm-path: .* /invalid/path: .*`,
+	tmpDir := c.MkDir()
+	controllerCharmDir := testcharms.Repo.CharmDir("juju-controller")
+	controllerCharmPath := filepath.Join(tmpDir, "juju-controller.charm")
+	err := controllerCharmDir.ArchiveToPath(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
 		},
-	} {
-		var gotArgs bootstrap.BootstrapParams
-		bootstrapFuncs := &fakeBootstrapFuncs{
-			bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
-				gotArgs = args
-				return errors.New("test error")
-			},
-		}
-		s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-			return bootstrapFuncs
-		})
-		_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
-			"dummy", "devcontroller", "--controller-charm-path", test.charmPath,
-		)
-		if test.err == "" {
-			c.Assert(err, gc.Equals, cmd.ErrSilent)
-			c.Assert(gotArgs.ControllerCharmPath, gc.DeepEquals, test.charmPath)
-		} else {
-			c.Assert(err, gc.ErrorMatches, test.err)
-		}
 	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-charm-path", controllerCharmPath,
+	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(gotArgs.ControllerCharmPath, gc.DeepEquals, controllerCharmPath)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharmFailsWithWrongCharm(c *gc.C) {
+	tmpDir := c.MkDir()
+	controllerCharmDir := testcharms.Repo.CharmDir("mysql")
+	controllerCharmPath := filepath.Join(tmpDir, "juju-controller.charm")
+	err := controllerCharmDir.ArchiveToPath(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-charm-path", controllerCharmPath,
+	)
+	c.Assert(err, gc.ErrorMatches, `--controller-charm-path ".*" is not a "juju-controller" charm`)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharmFailsWithInvalidCharm(c *gc.C) {
+	tmpDir := c.MkDir()
+	controllerCharmPath := filepath.Join(tmpDir, "juju-controller.charm")
+	err := os.WriteFile(controllerCharmPath, []byte("invalid"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-charm-path", controllerCharmPath,
+	)
+	c.Assert(err, gc.ErrorMatches, `--controller-charm-path .* is not a valid charm: .*`)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharmFailsWithDir(c *gc.C) {
+	controllerDirPath := testcharms.Repo.CharmDir("juju-controller").Path
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-charm-path", controllerDirPath,
+	)
+	c.Assert(err, gc.ErrorMatches, `.* is a directory`)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharmFailsWithNonexistant(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-charm-path", "/invalid/path.charm",
+	)
+	c.Assert(err, gc.ErrorMatches, `problem with --controller-charm-path: .* /invalid/path.charm: .*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmChannel(c *gc.C) {

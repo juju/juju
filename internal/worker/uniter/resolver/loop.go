@@ -5,6 +5,7 @@ package resolver
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -256,8 +257,8 @@ func checkCharmInstallUpgrade(ctx context.Context, logger logger.Logger, charmDi
 		return nil
 	}
 
-	_, err := jujucharm.ReadCharmDir(charmDir)
-	haveCharmDir := err == nil
+	stat, err := os.Stat(charmDir)
+	haveCharmDir := err == nil && stat.IsDir()
 	if haveCharmDir {
 		// If the unit is installed and already upgrading and the charm dir
 		// exists no need to start an upgrade.

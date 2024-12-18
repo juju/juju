@@ -1019,7 +1019,7 @@ func (a *Application) checkRelationsOps(ch CharmRefFull, relations []*Relation) 
 	for _, rel := range relations {
 		if ep, err := rel.Endpoint(a.doc.Name); err != nil {
 			return nil, err
-		} else if !ep.ImplementedBy(ch) {
+		} else if !ep.ImplementedBy(ch.Meta()) {
 			// When switching charms, we should allow peer
 			// relations to be broken (e.g. because a newer charm
 			// version removes a particular peer relation) even if

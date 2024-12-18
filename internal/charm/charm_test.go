@@ -9,78 +9,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/fs"
 )
 
-type CharmSuite struct {
-	testing.CleanupSuite
-}
-
-var _ = gc.Suite(&CharmSuite{})
-
-func (s *CharmSuite) TestReadCharm(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "dummy"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
-
-	bPath := archivePath(c, readCharmDir(c, "dummy"))
-	ch, err = charm.ReadCharm(bPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
-}
-
-func (s *CharmSuite) TestReadCharmDirEmptyError(c *gc.C) {
-	ch, err := charm.ReadCharm(c.MkDir())
-	c.Assert(err, gc.NotNil)
-	c.Assert(ch, gc.Equals, nil)
-}
-
-func (s *CharmSuite) TestReadCharmArchiveError(c *gc.C) {
-	path := filepath.Join(c.MkDir(), "path")
-	err := os.WriteFile(path, []byte("foo"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	ch, err := charm.ReadCharm(path)
-	c.Assert(err, gc.NotNil)
-	c.Assert(ch, gc.Equals, nil)
-}
-
-type FormatSuite struct {
-	testing.CleanupSuite
-}
-
-var _ = gc.Suite(&FormatSuite{})
-
-func (FormatSuite) TestFormatV2Containers(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "format-containers"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.NotNil)
-
-	err = charm.CheckMeta(ch)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := charm.MetaFormat(ch)
-	c.Assert(f, gc.Equals, charm.FormatV2)
-}
-
-func (FormatSuite) TestFormatV2ContainersManifest(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "format-containersmanifest"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.NotNil)
-
-	err = charm.CheckMeta(ch)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := charm.MetaFormat(ch)
-	c.Assert(f, gc.Equals, charm.FormatV2)
-}
-
-func checkDummy(c *gc.C, f charm.Charm, path string) {
+func checkDummy(c *gc.C, f charm.Charm) {
 	c.Assert(f.Revision(), gc.Equals, 1)
 	c.Assert(f.Meta().Name, gc.Equals, "dummy")
 	c.Assert(f.Config().Options["title"].Default, gc.Equals, "My Title")
@@ -115,12 +53,6 @@ func checkDummy(c *gc.C, f charm.Charm, path string) {
 			},
 		},
 	})
-	switch f := f.(type) {
-	case *charm.CharmArchive:
-		c.Assert(f.Path, gc.Equals, path)
-	case *charm.CharmDir:
-		c.Assert(f.Path, gc.Equals, path)
-	}
 }
 
 type YamlHacker map[interface{}]interface{}
@@ -170,18 +102,18 @@ func assertIsDir(c *gc.C, path string) {
 
 // readCharmDir returns the charm with the given
 // name from the testing repository.
-func readCharmDir(c *gc.C, name string) *charm.CharmDir {
+func readCharmDir(c *gc.C, name string) *charmtesting.CharmDir {
 	path := charmDirPath(c, name)
-	ch, err := charm.ReadCharmDir(path)
+	ch, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 	return ch
 }
 
 // readBundleDir returns the bundle with the
 // given name from the testing repository.
-func readBundleDir(c *gc.C, name string) *charm.BundleDir {
+func readBundleDir(c *gc.C, name string) *charmtesting.BundleDir {
 	path := bundleDirPath(c, name)
-	ch, err := charm.ReadBundleDir(path)
+	ch, err := charmtesting.ReadBundleDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 	return ch
 }

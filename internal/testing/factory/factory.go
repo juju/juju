@@ -594,7 +594,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = factory.applicationService.CreateApplication(
 			context.Background(), params.Application.Name(),
-			charm.NewCharmBase(ch.Meta(), ch.Manifest(), ch.Config(), ch.Actions(), ch.LXDProfile()),
+			ch,
 			chOrigin.AsCoreCharmOrigin(), applicationservice.AddApplicationArgs{
 				ReferenceName: params.Application.Name(),
 				Storage:       directives,

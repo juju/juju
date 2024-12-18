@@ -346,7 +346,7 @@ func ReadBundleData(r io.Reader) (*BundleData, error) {
 	if err != nil {
 		return nil, err
 	}
-	bd, _, err := readBaseFromMultidocBundle(b)
+	bd, _, err := ReadBaseFromMultidocBundle(b)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +361,7 @@ func ReadBundleData(r io.Reader) (*BundleData, error) {
 //
 // Clients that are interested in reading multi-doc bundle data should use the
 // new helpers: LocalBundleDataSource and StreamBundleDataSource.
-func readBaseFromMultidocBundle(b []byte) (*BundleData, bool, error) {
+func ReadBaseFromMultidocBundle(b []byte) (*BundleData, bool, error) {
 	parts, err := parseBundleParts(b)
 	if err != nil {
 		return nil, false, err

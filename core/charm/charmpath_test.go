@@ -13,6 +13,7 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -75,7 +76,7 @@ func (s *charmPathSuite) TestCharmFromDirectoryNotSupported(c *gc.C) {
 func (s *charmPathSuite) TestCharmArchive(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "dummy")
 	s.cloneCharmDir(s.repoPath, "dummy")
-	chDir, err := charm.ReadCharmDir(charmDir)
+	chDir, err := charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dir := c.MkDir()
@@ -117,7 +118,7 @@ func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 func (s *charmPathSuite) TestFindsSymlinks(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "dummy")
 	s.cloneCharmDir(s.repoPath, "dummy")
-	chDir, err := charm.ReadCharmDir(charmDir)
+	chDir, err := charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dir := c.MkDir()

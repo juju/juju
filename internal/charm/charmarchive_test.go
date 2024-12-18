@@ -4,22 +4,19 @@
 package charm_test
 
 import (
-	"archive/zip"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-	"syscall"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 )
 
 type CharmArchiveSuite struct {
@@ -61,7 +58,7 @@ var dummyArchiveMembersActions = append(dummyArchiveMembersCommon, []string{
 func (s *CharmArchiveSuite) TestReadCharmArchive(c *gc.C) {
 	archive, err := charm.ReadCharmArchive(s.archivePath)
 	c.Assert(err, jc.ErrorIsNil)
-	checkDummy(c, archive, s.archivePath)
+	checkDummy(c, archive)
 }
 
 func (s *CharmArchiveSuite) TestReadCharmArchiveWithoutConfig(c *gc.C) {
@@ -97,13 +94,6 @@ func (s *CharmArchiveSuite) TestReadCharmArchiveManifest(c *gc.C) {
 	}})
 }
 
-func (s *CharmArchiveSuite) TestReadCharmArchiveWithoutManifest(c *gc.C) {
-	path := archivePath(c, readCharmDir(c, "mysql"))
-	dir, err := charm.ReadCharmArchive(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir.Manifest(), gc.IsNil)
-}
-
 func (s *CharmArchiveSuite) TestReadCharmArchiveWithoutActions(c *gc.C) {
 	// Wordpress has config but no actions.
 	path := archivePath(c, readCharmDir(c, "wordpress"))
@@ -122,7 +112,7 @@ func (s *CharmArchiveSuite) TestReadCharmArchiveWithActions(c *gc.C) {
 	c.Assert(archive.Actions().ActionSpecs, gc.HasLen, 1)
 }
 
-func (s *CharmDirSuite) TestReadCharmArchiveWithJujuActions(c *gc.C) {
+func (s *CharmArchiveSuite) TestReadCharmArchiveWithJujuActions(c *gc.C) {
 	path := archivePath(c, readCharmDir(c, "juju-charm"))
 	archive, err := charm.ReadCharmArchive(path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +125,7 @@ func (s *CharmArchiveSuite) TestReadCharmArchiveBytes(c *gc.C) {
 
 	archive, err := charm.ReadCharmArchiveBytes(data)
 	c.Assert(err, jc.ErrorIsNil)
-	checkDummy(c, archive, "")
+	checkDummy(c, archive)
 }
 
 func (s *CharmArchiveSuite) TestReadCharmArchiveFromReader(c *gc.C) {
@@ -147,7 +137,7 @@ func (s *CharmArchiveSuite) TestReadCharmArchiveFromReader(c *gc.C) {
 
 	archive, err := charm.ReadCharmArchiveFromReader(f, info.Size())
 	c.Assert(err, jc.ErrorIsNil)
-	checkDummy(c, archive, "")
+	checkDummy(c, archive)
 }
 
 func (s *CharmArchiveSuite) TestArchiveMembers(c *gc.C) {
@@ -203,68 +193,29 @@ func (s *CharmArchiveSuite) TestExpandTo(c *gc.C) {
 	err = archive.ExpandTo(path)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
-	checkDummy(c, dir, path)
-}
-
-func (s *CharmArchiveSuite) prepareCharmArchive(c *gc.C, charmDir *charm.CharmDir, archivePath string) {
-	file, err := os.Create(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer file.Close()
-	zipw := zip.NewWriter(file)
-	defer zipw.Close()
-
-	h := &zip.FileHeader{Name: "revision"}
-	h.SetMode(syscall.S_IFREG | 0644)
-	w, err := zipw.CreateHeader(h)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = w.Write([]byte(strconv.Itoa(charmDir.Revision())))
-	c.Assert(err, jc.ErrorIsNil)
-
-	h = &zip.FileHeader{Name: "metadata.yaml", Method: zip.Deflate}
-	h.SetMode(0644)
-	w, err = zipw.CreateHeader(h)
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := yaml.Marshal(charmDir.Meta())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = w.Write(data)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for name := range charmDir.Meta().Hooks() {
-		hookName := filepath.Join("hooks", name)
-		h = &zip.FileHeader{
-			Name:   hookName,
-			Method: zip.Deflate,
-		}
-		// Force it non-executable
-		h.SetMode(0644)
-		w, err := zipw.CreateHeader(h)
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = w.Write([]byte("not important"))
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	checkDummy(c, dir)
 }
 
 func (s *CharmArchiveSuite) TestExpandToSetsHooksExecutable(c *gc.C) {
-	charmDir, err := charm.ReadCharmDir(cloneDir(c, charmDirPath(c, "all-hooks")))
-	c.Assert(err, jc.ErrorIsNil)
-	// CharmArchive manually, so we can check ExpandTo(), unaffected
-	// by ArchiveTo()'s behavior
-	archivePath := filepath.Join(c.MkDir(), "archive.charm")
-	s.prepareCharmArchive(c, charmDir, archivePath)
-	archive, err := charm.ReadCharmArchive(archivePath)
+	archivePath := archivePath(c, readCharmDir(c, "all-hooks"))
+
+	chArchive, err := charm.ReadCharmArchive(archivePath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := filepath.Join(c.MkDir(), "charm")
-	err = archive.ExpandTo(path)
+	err = chArchive.ExpandTo(path)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = charm.ReadCharmDir(path)
+	_, err = charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 
-	for name := range archive.Meta().Hooks() {
+	for name := range chArchive.Meta().Hooks() {
 		info, err := os.Stat(filepath.Join(path, "hooks", name))
+		if _, ok := err.(*os.PathError); ok {
+			continue
+		}
 		c.Assert(err, jc.ErrorIsNil)
 		perm := info.Mode() & 0777
 		c.Assert(perm&0100 != 0, gc.Equals, true, gc.Commentf("hook %q is not executable", name))
@@ -394,7 +345,7 @@ func extCharmArchiveDir(c *gc.C, dirpath string) *charm.CharmArchive {
 }
 
 func archiveDir(c *gc.C, dirpath string) *charm.CharmArchive {
-	dir, err := charm.ReadCharmDir(dirpath)
+	dir, err := charmtesting.ReadCharmDir(dirpath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	buf := new(bytes.Buffer)

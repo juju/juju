@@ -24,6 +24,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -129,7 +130,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 	}
 
 	var chDir charm.Charm
-	chDir, err := charm.ReadCharmDir(testcharms.RepoWithSeries("bionic").CharmDirPath(name))
+	chDir, err := charmtesting.ReadCharmDir(testcharms.RepoWithSeries("bionic").CharmDirPath(name))
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
 			c.Fatal(err)
@@ -140,12 +141,11 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 	return chDir
 }
 
-func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allBase ...base.Base) {
+func (s *BundleDeploySuite) setupFakeBundle(c *gc.C, url string, allBase ...base.Base) {
 	bundleResolveURL := charm.MustParseURL(url)
 	baseURL := *bundleResolveURL
 	baseURL.Revision = -1
 	withCharmRepoResolvable(s.fakeAPI, &baseURL, base.Base{})
-	bundleDir := testcharms.RepoWithSeries("bionic").BundleArchive(c.MkDir(), name)
 
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
@@ -159,7 +159,7 @@ func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allBase ...ba
 			origin,
 			error(nil),
 		)
-		s.fakeAPI.Call("GetBundle", bundleResolveURL).Returns(bundleDir, error(nil))
+		s.fakeAPI.Call("GetBundle", bundleResolveURL).Returns(nil, error(nil))
 	}
 }
 
@@ -172,7 +172,7 @@ func (s *BundleDeploySuite) runDeploy(c *gc.C, args ...string) error {
 func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	s.setupCharm(c, "ch:mysql-42", "mysql", base.MustParseBaseFromString("ubuntu@18.04"))
 	s.setupCharm(c, "ch:wordpress-47", "wordpress", base.MustParseBaseFromString("ubuntu@18.04"))
-	s.setupBundle(c, "ch:wordpress-simple-1", "wordpress-simple", base.Base{}, base.MustParseBaseFromString("ubuntu@18.04"), base.MustParseBaseFromString("ubuntu@16.04"))
+	s.setupFakeBundle(c, "ch:wordpress-simple-1", base.Base{}, base.MustParseBaseFromString("ubuntu@18.04"), base.MustParseBaseFromString("ubuntu@16.04"))
 
 	err := s.runDeploy(c, "ch:wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")

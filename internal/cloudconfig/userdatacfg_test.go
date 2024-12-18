@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -635,13 +635,17 @@ func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts
 }
 
 func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *gc.C) {
-	controllerCharmPath := testcharms.Repo.CharmDir("juju-controller").Path
-	ch, err := charm.ReadCharmDir(controllerCharmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	tmpDir := c.MkDir()
+	controllerCharmPath := filepath.Join(tmpDir, "controller.charm")
+
+	ch := testcharms.Repo.CharmDir("juju-controller")
 	buf := bytes.NewBuffer(nil)
-	err = ch.ArchiveTo(buf)
+	err := ch.ArchiveTo(buf)
 	c.Assert(err, jc.ErrorIsNil)
 	content := buf.Bytes()
+
+	err = ch.ArchiveToPath(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := makeBootstrapConfig(jammy, 0).setControllerCharm(controllerCharmPath)
 	base64Content := base64.StdEncoding.EncodeToString(content)
@@ -654,7 +658,7 @@ echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 
 func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("juju-controller")
-	dir, err := charm.ReadCharmDir(ch.Path)
+	dir, err := charmtesting.ReadCharmDir(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCharmPath := filepath.Join(c.MkDir(), "controller.charm")

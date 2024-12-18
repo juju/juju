@@ -24,11 +24,10 @@ func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/base")
 	c.Assert(found, jc.SameContents, []string{
 		"core/arch",
-		"core/logger",
 		"internal/charm",
 		"internal/charm/assumes",
 		"internal/charm/hooks",
 		"internal/charm/resource",
-		"internal/logger",
+		"internal/errors",
 	})
 }

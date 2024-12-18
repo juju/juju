@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -136,11 +137,11 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 	cfg := s.newConfig(c)
 	archivePath, archiveSize := s.ensureControllerCharm(c, cfg.DataDir)
 
-	hash := "edd4580b1d913ff312aa842b8be3ed743cc04c14633b51fb55db6332a299ae07"
+	hash := "a6b7b481f0e452ecf77fc65bcab7504caeb56c274c54649cd2fdaf2247b8a00b"
 
 	s.applicationService.EXPECT().ResolveControllerCharmDownload(gomock.Any(), domainapplication.ResolveControllerCharmDownload{
 		SHA256: hash,
-		SHA384: "8f108ec3b0b858c07cb36c8ef7738682f3914673f31f775867af7679d37b7c4d65fed1adb5a04dc4f0aae85f9db6a062",
+		SHA384: "35549bf6887fe51afad516064b6b07bc429f766d464295fa632aa6040d041e11143fce549626681531fd923900a9b66c",
 		Path:   archivePath,
 		Size:   archiveSize,
 	}).Return(domainapplication.ResolvedControllerCharmDownload{
@@ -360,11 +361,31 @@ name: juju-controller
 summary: Juju controller
 description: Juju controller
 `
+
+	manifest := `
+bases:
+- architectures:
+  - amd64
+  channel: '20.04'
+  name: ubuntu
+- architectures:
+  - amd64
+  channel: '22.04'
+  name: ubuntu
+- architectures:
+  - amd64
+  channel: '24.04'
+  name: ubuntu
+`
+
 	dir := c.MkDir()
 	err := os.WriteFile(filepath.Join(dir, "metadata.yaml"), []byte(metadata), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmDir, err := charm.ReadCharmDir(dir)
+	err = os.WriteFile(filepath.Join(dir, "manifest.yaml"), []byte(manifest), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmDir, err := charmtesting.ReadCharmDir(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var buf bytes.Buffer
