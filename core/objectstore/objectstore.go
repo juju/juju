@@ -109,8 +109,8 @@ type WriteObjectStore interface {
 	Put(ctx context.Context, path string, r io.Reader, size int64) (UUID, error)
 
 	// PutAndCheckHash stores data from reader at path, namespaced to the model.
-	// It also ensures the stored data has the correct hash.
-	PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (UUID, error)
+	// It also ensures the stored data has the correct sha384.
+	PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, sha384 string) (UUID, error)
 
 	// Remove removes data at path, namespaced to the model.
 	Remove(ctx context.Context, path string) error

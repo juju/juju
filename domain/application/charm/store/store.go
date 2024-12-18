@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
@@ -50,20 +51,22 @@ type StoreResult struct {
 type CharmStore struct {
 	objectStoreGetter objectstore.ModelObjectStoreGetter
 	encoder           *base64.Encoding
+	logger            logger.Logger
 }
 
 // NewCharmStore returns a new charm store instance.
-func NewCharmStore(objectStoreGetter objectstore.ModelObjectStoreGetter) *CharmStore {
+func NewCharmStore(objectStoreGetter objectstore.ModelObjectStoreGetter, logger logger.Logger) *CharmStore {
 	return &CharmStore{
 		objectStoreGetter: objectStoreGetter,
 		encoder:           base64.StdEncoding.WithPadding(base64.NoPadding),
+		logger:            logger,
 	}
 }
 
 // Store the charm at the specified path into the object store. It is expected
 // that the archive already exists at the specified path. If the file isn't
 // found, a [ErrNotFound] is returned.
-func (s *CharmStore) Store(ctx context.Context, path string, size int64, hash string) (StoreResult, error) {
+func (s *CharmStore) Store(ctx context.Context, path string, size int64, sha384 string) (StoreResult, error) {
 	file, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return StoreResult{}, errors.Errorf("%q: %w", path, ErrNotFound)
@@ -87,7 +90,7 @@ func (s *CharmStore) Store(ctx context.Context, path string, size int64, hash st
 		return StoreResult{}, errors.Errorf("getting object store: %w", err)
 	}
 
-	uuid, err := objectStore.PutAndCheckHash(ctx, uniqueName, file, size, hash)
+	uuid, err := objectStore.PutAndCheckHash(ctx, uniqueName, file, size, sha384)
 	if err != nil {
 		return StoreResult{}, errors.Errorf("putting charm: %w", err)
 	}
@@ -108,7 +111,15 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 	}
 
 	// Ensure that we close any open handles to the file.
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+		if err := os.Remove(file.Name()); err != nil {
+			// We don't need to log this as error, as the file will be removed
+			// when the process exits or by the OS. It's not a direct action
+			// by the user, hence Info.
+			s.logger.Infof("removing temporary file: %v", err)
+		}
+	}()
 
 	// Store the file in the object store.
 	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
@@ -148,7 +159,6 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 	}
 
 	return StoreResult{
-			ArchivePath:     file.Name(),
 			UniqueName:      uniqueName,
 			ObjectStoreUUID: uuid,
 		}, Digest{
