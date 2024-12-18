@@ -19,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -86,7 +87,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 
 	api := common.NewModelStatusAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		s.machineService,
+		s.machineServiceGetter,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -112,7 +113,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	defer st.Close()
 	api := common.NewModelStatusAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		s.machineService,
+		s.machineServiceGetter,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -149,13 +150,17 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	}
 	modelStatusAPI := common.NewModelStatusAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		s.machineService,
+		s.machineServiceGetter,
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
 	)
 	result, err := modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *modelStatusSuite) machineServiceGetter(uuid model.UUID) common.MachineService {
+	return s.machineService
 }
 
 type noopStoragePoolGetter struct{}

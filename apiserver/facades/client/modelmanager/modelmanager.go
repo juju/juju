@@ -76,7 +76,6 @@ type ModelManagerAPI struct {
 	applicationService   ApplicationService
 	cloudService         CloudService
 	credentialService    CredentialService
-	machineService       MachineService
 	modelService         ModelService
 	modelDefaultsService ModelDefaultsService
 	networkService       NetworkService
@@ -122,8 +121,12 @@ func NewModelManagerAPI(
 	}
 	isAdmin := err == nil
 
+	machinServiceGetter := func(modelUUID coremodel.UUID) common.MachineService {
+		return services.DomainServicesGetter.DomainServicesForModel(modelUUID).Machine()
+	}
+
 	return &ModelManagerAPI{
-		ModelStatusAPI:       common.NewModelStatusAPI(st, services.MachineService, authorizer, apiUser),
+		ModelStatusAPI:       common.NewModelStatusAPI(st, machinServiceGetter, authorizer, apiUser),
 		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
 		modelExporter:        modelExporter,
@@ -131,7 +134,6 @@ func NewModelManagerAPI(
 		cloudService:         services.CloudService,
 		credentialService:    services.CredentialService,
 		networkService:       services.NetworkService,
-		machineService:       services.MachineService,
 		applicationService:   services.ApplicationService,
 		store:                services.ObjectStore,
 		getBroker:            getBroker,

@@ -110,7 +110,7 @@ func NewControllerAPI(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
-	machineService MachineService,
+	machineServiceGetter func(coremodel.UUID) common.MachineService,
 	modelService ModelService,
 	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
@@ -143,7 +143,7 @@ func NewControllerAPI(
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),
-			machineService,
+			machineServiceGetter,
 			authorizer,
 			apiUser,
 		),
