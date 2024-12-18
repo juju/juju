@@ -16,18 +16,17 @@ Displays log messages for a model.
 | `-i`, `--include` |  | Only show log messages for these entities |
 | `--include-label` |  | Only show log messages for these logging labels |
 | `--include-module` |  | Only show log messages for these logging modules |
-| `-l`, `--level` |  | Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR] |
-| `--limit` | 0 | Exit once this many of the most recent (possibly filtered) lines are shown |
+| `-l`, `--level` |  | Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]. Logs of higher severity (e.g. ERROR) will still be shown when a lower level (e.g. INFO) is selected |
+| `--limit` | 0 | Show this many of the most recent lines and then exits |
 | `--location` | false | Show filename and line numbers |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--ms` | false | Show times to millisecond precision |
-| `-n`, `--lines` | 10 | Show this many of the most recent (possibly filtered) lines, and continue to append new ones |
-| `--no-tail` | false | Returns existing log messages, then stops. |
-| `-o`, `--output` |  | Specify an output file |
-| `--replay` | false | Show the entire (possibly filtered) log and continue to append new lines |
+| `-n`, `--lines` | 10 | Show this many of the most recent lines, and continue to append new ones |
+| `--no-tail` | false | Show existing log messages and then exits |
+| `--replay` | false | Show the entire log and continue to append new lines |
 | `--retry` | false | Retry connection on failure |
 | `--retry-delay` | 1s | Retry delay between connection failure retries |
-| `--tail` | false | Wait for new logs. This is the default behavior |
+| `--tail` | false | Show existing log messages and wait for new logs. This is the default behavior |
 | `--utc` | false | Show times in UTC |
 | `-x`, `--exclude` |  | Do not show log messages for these entities |
 

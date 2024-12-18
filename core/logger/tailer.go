@@ -36,6 +36,7 @@ type LogTailerParams struct {
 	StartTime     time.Time
 	MinLevel      loggo.Level
 	InitialLines  int
+	Limit         int
 	NoTail        bool
 	IncludeEntity []string
 	ExcludeEntity []string

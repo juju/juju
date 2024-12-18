@@ -546,13 +546,19 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
 			t.params.InitialLines, maxInitialLines)
 	}
-	iter := query.Sort("-t", "-_id").
-		Limit(t.params.InitialLines).
-		Iter()
-	defer iter.Close()
-	queue := make([]logDoc, t.params.InitialLines)
-	cur := t.params.InitialLines
 
+	logsCount := t.params.InitialLines
+
+	// Either InitialLines or Limit must be > 0
+	if t.params.Limit != 0 {
+		logsCount = t.params.Limit
+	}
+
+	iter := query.Sort("-t", "-_id").
+		Limit(logsCount).
+		Iter()
+
+	var queue []logDoc
 	var doc logDoc
 	for iter.Next(&doc) {
 		select {
@@ -560,19 +566,15 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 			return errors.Trace(tomb.ErrDying)
 		default:
 		}
-		cur--
-		queue[cur] = doc
-		if cur == 0 {
-			break
-		}
+		queue = append(queue, doc)
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	// We loaded the queue in reverse order, truncate it to just the actual
-	// contents, and then return them in the correct order.
-	queue = queue[cur:]
-	for _, doc := range queue {
+
+	// We loaded the queue in reverse order
+	for i := len(queue) - 1; i >= 0; i-- {
+		doc := queue[i]
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
 			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
@@ -595,7 +597,7 @@ func (t *logTailer) processCollection() error {
 	query := t.logsColl.Find(sel)
 
 	var doc logDoc
-	if t.params.InitialLines > 0 {
+	if t.params.InitialLines > 0 || t.params.Limit > 0 {
 		return t.processReversed(query)
 	}
 	// In tests, sorting by time can leave the result ordering

@@ -44,7 +44,6 @@ func handleDebugLogDBRequest(
 	socket.sendOk()
 
 	timeout := clock.After(maxDuration)
-
 	var lineCount uint
 	for {
 		select {
@@ -77,6 +76,7 @@ func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
 		NoTail:        reqParams.noTail,
 		StartTime:     reqParams.startTime,
 		InitialLines:  int(reqParams.backlog),
+		Limit:         int(reqParams.maxLines),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,
