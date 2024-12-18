@@ -46,6 +46,16 @@ var sshTests = []struct {
 		},
 	},
 	{
+		about:       "connect to machine 0 with port 222",
+		args:        []string{"0", "-p", "222"},
+		hostChecker: validAddressesWithPort(222, "0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			argsMatch:       `ubuntu@0.(public|private|1\.2\.3)( -p \d+)?`, // can be any of the 3
+		},
+	},
+	{
 		about:       "connect to machine 0 and pass extra arguments",
 		args:        []string{"0", "uname", "-a"},
 		hostChecker: validAddresses("0.public"),

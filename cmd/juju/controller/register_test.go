@@ -387,13 +387,12 @@ func (s *RegisterSuite) TestReplaceLoggedInController(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	userName := "user123"
-	accountDetails := jujuclient.AccountDetails{User: userName}
+	accountDetails := jujuclient.AccountDetails{User: "bob"}
 	err = s.store.UpdateAccount(controllerName, accountDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	registrationData := s.encodeRegistrationData(c, jujuclient.RegistrationInfo{
-		User:           userName,
+		User:           "mary",
 		SecretKey:      mockSecretKey,
 		ControllerName: controllerName,
 	})
@@ -407,16 +406,16 @@ Enter a new password: »hunter2
 Confirm password: »hunter2
 
 Enter a name for this controller \[replace controller-name\]: »controller-name
-Initial password successfully set for user123.
+Initial password successfully set for mary.
 `[1:])
 	err = s.run(c, prompter, registrationData, "--replace")
 	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, `User "user123" is currently logged into controller "controller-name".
+	c.Assert(err.Error(), gc.Equals, `User "bob" is currently logged into controller "controller-name".
 Cannot replace a controller we're currently logged into.
 To register and replace this controller:
     1. run 'juju logout -c controller-name'
     2. request from your controller admin another registration string, i.e
-       output from 'juju change-user-password user123 --reset'
+       output from 'juju change-user-password mary --reset'
     3. re-run 'juju register TOKEN --replace' with the registration string from (2) above.
 `)
 	prompter.CheckDone()
@@ -678,21 +677,55 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 	})
 }
 
-func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpoint(c *gc.C) {
+func (s *RegisterSuite) TestRegisterAlreadyKnownPublicControllerEndpoint(c *gc.C) {
 	prompter := cmdtesting.NewSeqPrompter(c, "»", "")
 	defer prompter.CheckDone()
 
 	err := s.store.AddController("foo", jujuclient.ControllerDetails{
-		APIEndpoints:   []string{"42.42.42.42:17070"},
+		APIEndpoints:   []string{"foo.com:17070"},
 		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
 		CACert:         testing.CACert,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.run(c, prompter, "42.42.42.42:17070")
+	err = s.run(c, prompter, "foo.com:17070")
 	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "foo".
+	c.Assert(err.Error(), gc.Equals, `A controller with the same hostname has already been registered on this client as "foo".
 To login run 'juju login -c foo'.`)
+}
+
+func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointWithReplace(c *gc.C) {
+	controllerName := "controller-name"
+	err := s.store.AddController(controllerName, jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"42.42.42.42:17070"},
+		ControllerUUID: mockControllerUUID,
+		CACert:         testing.CACert,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	registrationData := s.encodeRegistrationDataWithAddrs(c, jujuclient.RegistrationInfo{
+		User:           "bob",
+		SecretKey:      mockSecretKey,
+		ControllerName: controllerName,
+		Addrs:          []string{"42.42.42.42:17070"},
+	})
+
+	srv := s.mockServer(c, nil)
+	s.httpHandler = srv
+
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a new password: »hunter2
+
+Confirm password: »hunter2
+
+Enter a name for this controller \[replace controller-name\]: »controller-name
+Initial password successfully set for bob.
+
+Welcome, bob. You are now logged into "controller-name".
+`[1:]+noModelsText)
+	err = s.run(c, prompter, registrationData, "--replace")
+	c.Assert(err, jc.ErrorIsNil)
+	prompter.CheckDone()
 }
 
 func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUser(c *gc.C) {
@@ -712,11 +745,11 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUser(c *gc.
 
 	err = s.run(c, prompter, "42.42.42.42:17070")
 	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "foo".
-To login as user "bob" run 'juju login -u bob -c foo'.
-To update controller details and login as user "bob":
-    1. run 'juju unregister foo'
-    2. re-run 'juju register' with your registration string.
+	c.Assert(err.Error(), gc.Equals, `A controller with the same address has already been registered on this client as "foo".
+You are already logged in as user "bob".
+To update controller details:
+    1. run 'juju logout'
+    2. re-run 'juju register --replace' with your registration string.
 `)
 }
 
@@ -725,7 +758,7 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUserByBase6
 	defer prompter.CheckDone()
 
 	registrationInfo := jujuclient.RegistrationInfo{
-		User:      "bob",
+		User:      "mary",
 		SecretKey: mockSecretKey,
 		Addrs:     []string{"42.42.42.42:17070"},
 	}
@@ -747,11 +780,11 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUserByBase6
 	args := []string{registrationData}
 	err = s.run(c, prompter, args...)
 	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "foo".
-To login as user "bob" run 'juju login -u bob -c foo'.
-To update controller details and login as user "bob":
-    1. run 'juju unregister foo'
-    2. re-run 'juju register' with your registration string.
+	c.Assert(err.Error(), gc.Equals, `A controller with the same address has already been registered on this client as "foo".
+You are already logged in as user "bob".
+To update controller details and login as user "mary":
+    1. run 'juju logout'
+    2. re-run 'juju register --replace' with your registration string.
 `)
 }
 

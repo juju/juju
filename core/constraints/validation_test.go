@@ -135,6 +135,32 @@ var validationTests = []struct {
 		cons:  "virt-type=bar",
 		vocab: map[string][]interface{}{"virt-type": {"bar"}},
 	},
+	{
+		desc: "valid instance-type",
+		cons: "instance-type=a1.4xlarge",
+		vocab: map[string][]interface{}{
+			"instance-type": {"a1.4xlarge", "a1.large", "a1.xlarge", "a1.medium", "a1.metal",
+				"c3.2xlarge", "c3.xlarge",
+			},
+		},
+	}, {
+		desc: "invalid instance-type unique and sorted by closest Levenshtein Distance vocabs",
+		cons: "instance-type=ba",
+		vocab: map[string][]interface{}{
+			"instance-type": {"car", "bar", "tar", "car", "bar", "car"},
+		},
+		err: "invalid constraint value: instance-type=ba\nvalid values are: bar car tar",
+	}, {
+		desc: "invalid instance-type return count of extra possible vocabs if length of closest vocabs exceeds limit",
+		cons: "instance-type=1a.4xlarge",
+		vocab: map[string][]interface{}{
+			"instance-type": {"a1.4xlarge", "a1.large", "a1.xlarge", "a1.medium", "a1.metal",
+				"c3.2xlarge", "c3.xlarge", "c4.large", "c4.8xlarge", "c4.4xlarge",
+				"c4.2xlarge", "c4.xlarge", "c5.4xlarge",
+			},
+		},
+		err: `invalid constraint value: instance-type=1a\.4xlarge\nvalid values are: .* ...\(plus 3 more\)$`,
+	},
 }
 
 func (s *validationSuite) TestValidation(c *gc.C) {
@@ -398,7 +424,7 @@ func (s *validationSuite) TestUpdateVocabulary(c *gc.C) {
 	cons2 := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons2)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`invalid constraint value: arch=ppc64el
-valid values are: [amd64]`))
+valid values are: amd64`))
 
 	additionalValues := []string{"ppc64el"}
 	validator.UpdateVocabulary(attributeName, additionalValues)

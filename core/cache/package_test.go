@@ -195,6 +195,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/permission",
 		"core/settings",
 		"core/status",
+		"utils/stringcompare",
 	})
 }
 

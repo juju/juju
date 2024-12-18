@@ -56,6 +56,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"storage",
 		"tools",
 		"utils/proxy",
+		"utils/stringcompare",
 		"version",
 	})
 }
