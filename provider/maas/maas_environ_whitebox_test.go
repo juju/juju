@@ -2654,7 +2654,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 arm64\\]")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: amd64 arm64")
 }
 
 func (suite *maasEnvironSuite) TestReleaseContainerAddresses(c *gc.C) {

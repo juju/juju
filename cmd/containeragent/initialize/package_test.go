@@ -110,6 +110,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"worker/apicaller",
 		"worker/introspection",
 		"worker/introspection/pprof",
+		"utils/stringcompare",
 	)
 
 	unexpected := found.Difference(expected)
