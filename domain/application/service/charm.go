@@ -4,6 +4,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -181,7 +182,7 @@ type CharmStore interface {
 	// call.
 	// sha256Prefix is the prefix characters of the SHA256 hash of the charm
 	// archive.
-	StoreFromReader(ctx context.Context, reader io.Reader, sha256Prefix string) (store.StoreResult, store.Digest, error)
+	StoreFromReader(ctx context.Context, reader io.Reader, sha256Prefix string) (store.StoreFromReaderResult, store.Digest, error)
 
 	// GetCharm retrieves a ReadCloser for the charm archive at the give path
 	// from the underlying storage.
@@ -690,7 +691,13 @@ func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUplo
 }
 
 func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
-	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.SHA256Prefix)
+	// The charm has been stored in the objectstore. Rather than read it back
+	// out (consider S3 in a different region), we can just tee the reader
+	// into a buffer and read the charm from the buffer.
+	buffer := new(bytes.Buffer)
+
+	// Store the charm and validate it against the sha256 prefix.
+	result, digest, err := s.charmStore.StoreFromReader(ctx, io.TeeReader(args.Reader, buffer), args.SHA256Prefix)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
@@ -705,9 +712,9 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 	// of the SHA256 hash (that's enough to prevent collisions).
 
 	// Make sure it's actually a valid charm.
-	ch, err := internalcharm.ReadCharmArchive(result.ArchivePath)
+	ch, err := internalcharm.ReadCharmArchiveBytes(buffer.Bytes())
 	if err != nil {
-		return charm.CharmLocator{}, internalerrors.Errorf("reading charm archive %q: %w", result.ArchivePath, err)
+		return charm.CharmLocator{}, internalerrors.Errorf("reading charm archive: %w", err)
 	}
 
 	// This is a full blown upload, we need to set everything up.
@@ -767,7 +774,12 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		return charm.CharmLocator{}, errors.Annotate(err, "locating existing charm")
 	}
 
-	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.SHA256Prefix)
+	// The charm has been stored in the objectstore. Rather than read it back
+	// out (consider S3 in a different region), we can just tee the reader
+	// into a buffer and read the charm from the buffer.
+	buffer := new(bytes.Buffer)
+
+	result, digest, err := s.charmStore.StoreFromReader(ctx, io.TeeReader(args.Reader, buffer), args.SHA256Prefix)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
@@ -782,8 +794,8 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	// before accepting the charm. For now this is a check to ensure that the
 	// charm is valid.
 	// Work should be done to ensure the integrity of the charm archive.
-	if _, err := internalcharm.ReadCharmArchive(result.ArchivePath); err != nil {
-		return charm.CharmLocator{}, errors.Annotatef(err, "reading charm archive %q", result.ArchivePath)
+	if _, err := internalcharm.ReadCharmArchiveBytes(buffer.Bytes()); err != nil {
+		return charm.CharmLocator{}, errors.Annotatef(err, "reading charm archive")
 	}
 
 	// This will correctly sequence the charm if it's a local charm.

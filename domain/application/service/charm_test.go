@@ -1363,15 +1363,21 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 		Provenance: charm.ProvenanceUpload,
 	}
 
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
-		ObjectStoreUUID: objectStoreUUID,
-		UniqueName:      "unique-name",
-		ArchivePath:     path,
-	}, store.Digest{
-		SHA256: "sha-256",
-		SHA384: "sha-384",
-		Size:   stat.Size(),
-	}, nil)
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
+		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
+			// Force the reader, so we populate the buffer.
+			_, err := io.Copy(io.Discard, r)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return store.StoreFromReaderResult{
+					ObjectStoreUUID: objectStoreUUID,
+					UniqueName:      "unique-name",
+				}, store.Digest{
+					SHA256: "sha-256",
+					SHA384: "sha-384",
+					Size:   stat.Size(),
+				}, nil
+		})
 	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
 		c.Check(ch.Metadata.Name, gc.Equals, "dummy")
 		return charmID, charm.CharmLocator{
@@ -1404,10 +1410,9 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRe
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreFromReaderResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
-		ArchivePath:     "/tmp/foo",
 	}, store.Digest{
 		SHA256: "sha-256",
 		SHA384: "sha-384",
@@ -1442,15 +1447,21 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 		Provenance: charm.ProvenanceUpload,
 	}
 
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
-		ObjectStoreUUID: objectStoreUUID,
-		UniqueName:      "unique-name",
-		ArchivePath:     path,
-	}, store.Digest{
-		SHA256: "sha-256",
-		SHA384: "sha-384",
-		Size:   stat.Size(),
-	}, nil)
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
+		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
+			// Force the reader, so we populate the buffer.
+			_, err := io.Copy(io.Discard, r)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return store.StoreFromReaderResult{
+					ObjectStoreUUID: objectStoreUUID,
+					UniqueName:      "unique-name",
+				}, store.Digest{
+					SHA256: "sha-256",
+					SHA384: "sha-384",
+					Size:   stat.Size(),
+				}, nil
+		})
 	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
 		return charmID, charm.CharmLocator{}, errors.NotValidf("failed to set charm")
 	})
@@ -1487,15 +1498,21 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
-		ObjectStoreUUID: objectStoreUUID,
-		UniqueName:      "unique-name",
-		ArchivePath:     path,
-	}, store.Digest{
-		SHA256: "sha-256",
-		SHA384: "sha-384",
-		Size:   stat.Size(),
-	}, nil)
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
+		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
+			// Force the reader, so we populate the buffer.
+			_, err := io.Copy(io.Discard, r)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return store.StoreFromReaderResult{
+					ObjectStoreUUID: objectStoreUUID,
+					UniqueName:      "unique-name",
+				}, store.Digest{
+					SHA256: "sha-256",
+					SHA384: "sha-384",
+					Size:   stat.Size(),
+				}, nil
+		})
 	s.state.EXPECT().ResolveMigratingUploadedCharm(gomock.Any(), charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 		Hash:            "sha-256",
@@ -1564,10 +1581,9 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreFromReaderResult{
 		ObjectStoreUUID: objectStoreUUID,
 		UniqueName:      "unique-name",
-		ArchivePath:     path,
 	}, store.Digest{
 		SHA256: "sha-256",
 		SHA384: "sha-384",
@@ -1604,15 +1620,21 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	}
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
-	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreResult{
-		ObjectStoreUUID: objectStoreUUID,
-		UniqueName:      "unique-name",
-		ArchivePath:     path,
-	}, store.Digest{
-		SHA256: "sha-256",
-		SHA384: "sha-384",
-		Size:   stat.Size(),
-	}, nil)
+	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
+		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
+			// Force the reader, so we populate the buffer.
+			_, err := io.Copy(io.Discard, r)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return store.StoreFromReaderResult{
+					ObjectStoreUUID: objectStoreUUID,
+					UniqueName:      "unique-name",
+				}, store.Digest{
+					SHA256: "sha-256",
+					SHA384: "sha-384",
+					Size:   stat.Size(),
+				}, nil
+		})
 	s.state.EXPECT().ResolveMigratingUploadedCharm(gomock.Any(), charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 		Hash:            "sha-256",

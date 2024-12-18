@@ -39,12 +39,18 @@ type Digest struct {
 	Size   int64
 }
 
+// StoreFromReaderResult contains the unique name of the charm archive and the
+// object store UUID.
+type StoreFromReaderResult struct {
+	UniqueName      string
+	ObjectStoreUUID objectstore.UUID
+}
+
 // StoreResult contains the path of the stored charm archive, the unique name
 // of the charm archive, and the object store UUID.
 type StoreResult struct {
-	ArchivePath     string
-	UniqueName      string
-	ObjectStoreUUID objectstore.UUID
+	StoreFromReaderResult
+	ArchivePath string
 }
 
 // CharmStore provides an API for storing and retrieving charm blobs.
@@ -95,19 +101,21 @@ func (s *CharmStore) Store(ctx context.Context, path string, size int64, sha384 
 		return StoreResult{}, errors.Errorf("putting charm: %w", err)
 	}
 	return StoreResult{
-		ArchivePath:     file.Name(),
-		UniqueName:      uniqueName,
-		ObjectStoreUUID: uuid,
+		StoreFromReaderResult: StoreFromReaderResult{
+			UniqueName:      uniqueName,
+			ObjectStoreUUID: uuid,
+		},
+		ArchivePath: file.Name(),
 	}, nil
 }
 
 // StoreFromReader stores the charm from the provided reader into the object
 // store. The caller is expected to remove the temporary file after the call.
 // IThis does not check the integrity of the charm hash.
-func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hashPrefix string) (StoreResult, Digest, error) {
+func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hashPrefix string) (StoreFromReaderResult, Digest, error) {
 	file, err := os.CreateTemp("", "charm-")
 	if err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("creating temporary file: %w", err)
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("creating temporary file: %w", err)
 	}
 
 	// Ensure that we close any open handles to the file.
@@ -124,41 +132,41 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 	// Store the file in the object store.
 	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("getting object store: %w", err)
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("getting object store: %w", err)
 	}
 
 	// Generate a unique path for the file.
 	unique, err := uuid.NewUUID()
 	if err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("cannot generate unique path")
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("cannot generate unique path")
 	}
 	uniqueName := s.encoder.EncodeToString(unique[:])
 
 	// Copy the reader into the temporary file.
 	sha256, sha384, size, err := storeAndComputeHashes(file, reader)
 	if err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("storing charm from reader: %w", err)
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("storing charm from reader: %w", err)
 	}
 
 	// Ensure that we sync the file to disk, as the process may crash before
 	// the file is written to disk.
 	if err := file.Sync(); err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("syncing temporary file: %w", err)
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("syncing temporary file: %w", err)
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("seeking temporary file: %w", err)
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("seeking temporary file: %w", err)
 	}
 
 	if !strings.HasPrefix(sha256, hashPrefix) {
-		return StoreResult{}, Digest{}, ErrCharmHashMismatch
+		return StoreFromReaderResult{}, Digest{}, ErrCharmHashMismatch
 	}
 
 	uuid, err := objectStore.PutAndCheckHash(ctx, uniqueName, file, size, sha384)
 	if err != nil {
-		return StoreResult{}, Digest{}, errors.Errorf("putting charm: %w", err)
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("putting charm: %w", err)
 	}
 
-	return StoreResult{
+	return StoreFromReaderResult{
 			UniqueName:      uniqueName,
 			ObjectStoreUUID: uuid,
 		}, Digest{
