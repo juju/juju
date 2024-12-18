@@ -261,8 +261,8 @@ func (t *fileObjectStore) loop() error {
 	ctx, cancel := t.scopedContext()
 	defer cancel()
 
-	timer := t.clock.NewTimer(jitter(defaultPruneInterval))
-	defer timer.Stop()
+	pruneTimer := t.clock.NewTimer(jitter(defaultPruneInterval))
+	defer pruneTimer.Stop()
 
 	// Sequence the get request with the put, remove requests.
 	for {
@@ -327,11 +327,11 @@ func (t *fileObjectStore) loop() error {
 				return errors.Errorf("unknown request type %d", req.op)
 			}
 
-		case <-timer.Chan():
+		case <-pruneTimer.Chan():
 
-			// Reset the timer, as we've jittered the interval at the start of
+			// Reset the pruneTimer, as we've jittered the interval at the start of
 			// the loop.
-			timer.Reset(defaultPruneInterval)
+			pruneTimer.Reset(defaultPruneInterval)
 
 			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
 				t.logger.Errorf("prune: %v", err)

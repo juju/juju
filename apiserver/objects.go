@@ -278,6 +278,78 @@ func CharmURLFromLocatorDuringMigration(locator applicationcharm.CharmLocator, i
 	}, nil
 }
 
+type objectsHTTPHandler struct {
+	ctxt              httpContext
+	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
+	objectStoreGetter ObjectStoreServiceGetter
+}
+
+// ObjectStoreService is an interface for the object store domain service.
+type ObjectStoreService interface {
+	// GetObjectBySHA256 returns a ReadCloser stream for the object.
+	//
+	// If the object does not exist, a [objectstoreerrors.NotFound] error is
+	// returned.
+	GetObjectBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, error)
+}
+
+// ObjectStoreServiceGetter is an interface for getting an ApplicationService.
+type ObjectStoreServiceGetter interface {
+
+	// ObjectStore returns the model's application service.
+	ObjectStore(context.Context) (ObjectStoreService, error)
+}
+
+func (h *objectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	switch r.Method {
+	case "GET":
+		err = h.ServeGet(w, r)
+		if err != nil {
+			err = errors.Errorf("cannot retrieve object: %w", err)
+		}
+	default:
+		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
+		return
+	}
+
+	if err != nil {
+		if err := sendJSONError(w, r, errors.Capture(err)); err != nil {
+			logger.Errorf("%v", errors.Errorf("cannot return error to user: %w", err))
+		}
+	}
+}
+
+// ServeGet serves the GET method for the S3 API. This is the equivalent of the
+// `GetObject` method in the AWS S3 API.
+func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+	service, err := h.objectStoreGetter.ObjectStore(r.Context())
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	query := r.URL.Query()
+	sha256 := query.Get(":object")
+	if sha256 == "" {
+		return jujuerrors.BadRequestf("missing object sha256")
+	}
+
+	reader, err := service.GetObjectBySHA256(r.Context(), sha256)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return jujuerrors.NotFoundf("object")
+	}
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	_, err = io.Copy(w, reader)
+	if err != nil {
+		return errors.Errorf("error processing charm archive download: %w", err)
+	}
+
+	return nil
+}
+
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 	charmObjectID := query.Get(":object")
 
