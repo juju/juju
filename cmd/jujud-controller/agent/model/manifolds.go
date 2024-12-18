@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/worker/applicationscaler"
 	"github.com/juju/juju/internal/worker/asynccharmdownloader"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
-	"github.com/juju/juju/internal/worker/caasenvironupgrader"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
@@ -40,10 +39,8 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
-	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
-	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/lifeflag"
@@ -251,17 +248,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Note that the fortress and flag will only exist while
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
-		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold(
+		migrationFortressName: ifNotDead(fortress.Manifold(
 		// No Logger defined in fortress package.
-		))),
-		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
+		)),
+		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 			// No Logger defined in migrationflag package.
-		}))),
-		migrationMasterName: ifNotUpgrading(ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+		})),
+		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
 			DomainServicesName: domainServicesName,
@@ -270,7 +267,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:          migrationmaster.NewFacade,
 			NewWorker:          config.NewMigrationMaster,
 			// No Logger defined in migrationmaster package.
-		}))),
+		})),
 
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
@@ -317,19 +314,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:         config.Clock,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.cleaner"),
 		})),
-		// The provider upgrader runs on all controller agents, and
-		// unlocks the gate when the provider is up-to-date. The
-		// provider tracker will be supplied only to the leader,
-		// which is the agent that will run the upgrade steps;
-		// the other controller agents will wait for it to complete
-		// running those steps before allowing logins to the model.
-		providerUpgradeGateName: gate.Manifold(),
-		providerUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  providerUpgradeGateName,
-			NewWorker: gate.NewFlagWorker,
-			// No Logger defined in gate package.
-		}),
-
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
 			NewWorker:                    providertracker.NewWorker,
@@ -377,7 +361,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // run together to administer an IAAS model, as configured.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
-	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		// Everything else should be wrapped in ifResponsible,
@@ -474,17 +457,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
-		providerUpgraderName: ifNotDead(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
-			APICallerName:                apiCallerName,
-			EnvironName:                  providerTrackerName,
-			GateName:                     providerUpgradeGateName,
-			ControllerTag:                controllerTag,
-			ModelTag:                     modelTag,
-			NewFacade:                    environupgrader.NewFacade,
-			NewWorker:                    environupgrader.NewWorker,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.environupgrader"),
-		}))),
 		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -562,11 +534,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
-
-		providerUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
-			GateName:  providerUpgradeGateName,
-			NewWorker: caasenvironupgrader.NewWorker,
-		}))),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
@@ -644,14 +611,6 @@ var (
 		Occupy: migrationFortressName,
 	}.Decorate
 
-	// ifNotUpgrading wraps a manifold such that it only runs after
-	// the provider upgrade worker has completed.
-	ifNotUpgrading = engine.Housing{
-		Flags: []string{
-			providerUpgradedFlagName,
-		},
-	}.Decorate
-
 	// ifCredentialValid wraps a manifold such that it only runs if
 	// the model has a valid credential.
 	ifCredentialValid = engine.Housing{
@@ -675,10 +634,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	providerTrackerName      = "provider-tracker"
-	providerUpgradeGateName  = "provider-upgrade-gate"
-	providerUpgradedFlagName = "provider-upgraded-flag"
-	providerUpgraderName     = "provider-upgrader"
+	providerTrackerName = "provider-tracker"
 
 	actionPrunerName             = "action-pruner"
 	applicationScalerName        = "application-scaler"
