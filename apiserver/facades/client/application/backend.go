@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -43,7 +42,6 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
-	Resources(objectstore.ObjectStore) Resources
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	services.StateBackend
@@ -280,18 +278,6 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectsto
 	}, nil
 }
 
-// Note that the usedID is only used in some of the implementations of the
-// AddPendingResource
-func (s stateShim) AddPendingResource(appName string, chRes resource.Resource, store objectstore.ObjectStore) (string, error) {
-	return s.State.Resources(store).AddPendingResource(appName, "", chRes)
-}
-
-// RemovePendingResources removes any pending resources for the named application
-// Mainly used as a cleanup if an error is raised during the deployment
-func (s stateShim) RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error {
-	return s.State.Resources(store).RemovePendingAppResources(applicationID, pendingIDs)
-}
-
 func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
 	c, err := s.State.AddCharmMetadata(info)
 	if err != nil {
@@ -418,10 +404,6 @@ func (s stateShim) UnitsInError() ([]Unit, error) {
 		}
 	}
 	return result, nil
-}
-
-func (s stateShim) Resources(store objectstore.ObjectStore) Resources {
-	return s.State.Resources(store)
 }
 
 type OfferConnection interface {

@@ -13,7 +13,6 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
-	"github.com/juju/juju/state"
 )
 
 // ModelConfigService provides access to the model configuration.
@@ -32,7 +31,7 @@ type DeprecatedResourcesState interface {
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
 	OpenResourceForUniter(unitName, resName string) (resource.Resource, io.ReadCloser, error)
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ state.IncrementCharmModifiedVersionType) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error)
 }
 
 // ResourceGetter provides the functionality for getting a resource file.

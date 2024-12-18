@@ -1181,16 +1181,6 @@ func (st *State) AddApplication(
 		}
 		ops = append(ops, addPeerOps...)
 
-		if len(args.Resources) > 0 {
-			// Collect pending resource resolution operations.
-			resources := st.resources(store)
-			resOps, err := resources.resolveApplicationPendingResourcesOps(args.Name, args.Resources)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, resOps...)
-		}
-
 		isSidecar, err := app.IsSidecar()
 		if err != nil {
 			return nil, errors.Trace(err)

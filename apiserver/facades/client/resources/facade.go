@@ -54,8 +54,6 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-	rst := st.Resources(ctx.ObjectStore())
 	modelConfigService := ctx.DomainServices().Config()
 
 	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
@@ -95,6 +93,9 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 		}
 	}
 
+	// rst is a temporary variable to allow for building and tests to run
+	// during the transition from mongo state to the resource domain.
+	var rst Backend
 	f, err := NewResourcesAPI(rst, factory, logger)
 	if err != nil {
 		return nil, errors.Trace(err)

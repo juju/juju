@@ -55,8 +55,6 @@ type DeployFromRepository interface {
 // objects.
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
-	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
@@ -131,9 +129,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	// Last step, add pending resources.
-	pendingIDs, addPendingResourceErrs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
-
 	// To ensure dqlite unit names match those created in mongo, grab the next unit
 	// sequence number before writing the mongo units.
 	nextUnitNum, err := api.state.ReadSequence(dt.applicationName)
@@ -154,7 +149,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Name:              dt.applicationName,
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
-		Resources:         pendingIDs,
 		Storage:           stateStorageDirectives(dt.storage),
 	}, api.store)
 
@@ -178,18 +172,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 				DownloadSize:       dt.downloadInfo.DownloadSize,
 			},
 		}, unitArgs...)
-	}
-
-	if addApplicationErr != nil {
-		// Check the pending resources that are added before the AddApplication is called
-		if len(pendingIDs) != 0 {
-			// Remove if there's any pending resources before raising addApplicationErr
-			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs, api.store)
-			if removeResourcesErr != nil {
-				api.logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
-			}
+		if addApplicationErr != nil {
+			return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(addApplicationErr)}
 		}
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(addApplicationErr)}
 	}
 
 	return info, dt.pendingResourceUploads, addPendingResourceErrs
@@ -244,27 +229,6 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
 
 	return resolvedResources, pendingUploadIDs, resolveErr
-}
-
-// addPendingResource adds a pending resource doc for all resources to be
-// added when deploying the charm. All resources will be
-// processed. Errors are not terminal. It also returns the name to pendingIDs
-// map that's needed by the AddApplication.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resources []resource.Resource) (map[string]string, []error) {
-	var errs []error
-	pendingIDs := make(map[string]string)
-
-	for _, r := range resources {
-		pID, err := api.state.AddPendingResource(appName, r, api.store)
-		if err != nil {
-			api.logger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
-			errs = append(errs, err)
-			continue
-		}
-		pendingIDs[r.Name] = pID
-	}
-
-	return pendingIDs, errs
 }
 
 type deployTemplate struct {

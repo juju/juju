@@ -193,7 +193,7 @@ func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurren
 		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(coreresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
 	}
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
-	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(res, nil)
+	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), false).Return(res, nil)
 
 	other := res
 	other.ApplicationID = "postgreql"
