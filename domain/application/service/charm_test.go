@@ -1263,9 +1263,9 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
-	reader, err := os.Open(path)
+	file, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
-	stat, err := reader.Stat()
+	stat, err := file.Stat()
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
@@ -1277,11 +1277,11 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 
 	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
 		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
-			// Force the reader, so we populate the buffer.
-			_, err := io.Copy(io.Discard, r)
+			_, err := file.Seek(0, io.SeekStart)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
+					Charm:           file,
 					ObjectStoreUUID: objectStoreUUID,
 					UniqueName:      "unique-name",
 				}, store.Digest{
@@ -1302,7 +1302,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *gc.C
 
 	locator, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
-		Reader:       reader,
+		Reader:       file,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1347,9 +1347,9 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
-	reader, err := os.Open(path)
+	file, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
-	stat, err := reader.Stat()
+	stat, err := file.Stat()
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
@@ -1361,11 +1361,11 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 
 	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
 		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
-			// Force the reader, so we populate the buffer.
-			_, err := io.Copy(io.Discard, r)
+			_, err := file.Seek(0, io.SeekStart)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
+					Charm:           file,
 					ObjectStoreUUID: objectStoreUUID,
 					UniqueName:      "unique-name",
 				}, store.Digest{
@@ -1380,7 +1380,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
-		Reader:       reader,
+		Reader:       file,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1397,9 +1397,9 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
 
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
-	reader, err := os.Open(path)
+	file, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
-	stat, err := reader.Stat()
+	stat, err := file.Stat()
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
@@ -1412,11 +1412,11 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
 	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
 		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
-			// Force the reader, so we populate the buffer.
-			_, err := io.Copy(io.Discard, r)
+			_, err := file.Seek(0, io.SeekStart)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
+					Charm:           file,
 					ObjectStoreUUID: objectStoreUUID,
 					UniqueName:      "unique-name",
 				}, store.Digest{
@@ -1439,7 +1439,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
 
 	locator, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
-		Reader:       reader,
+		Reader:       file,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
@@ -1519,9 +1519,9 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
-	reader, err := os.Open(path)
+	file, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
-	stat, err := reader.Stat()
+	stat, err := file.Stat()
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
@@ -1534,11 +1534,11 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
 	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").
 		DoAndReturn(func(ctx context.Context, r io.Reader, s string) (store.StoreFromReaderResult, store.Digest, error) {
-			// Force the reader, so we populate the buffer.
-			_, err := io.Copy(io.Discard, r)
+			_, err := file.Seek(0, io.SeekStart)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
+					Charm:           file,
 					ObjectStoreUUID: objectStoreUUID,
 					UniqueName:      "unique-name",
 				}, store.Digest{
@@ -1561,7 +1561,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
-		Reader:       reader,
+		Reader:       file,
 		SHA256Prefix: "abc",
 		Architecture: arch.AMD64,
 		Revision:     1,
