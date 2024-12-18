@@ -209,7 +209,7 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	const charmBody = "charming"
 	curl := "ch:foo-2"
 	charmRef := "foo-abcdef0"
-	doer := newFakeDoer(c, "", map[string]string{"Juju-Curl": curl})
+	doer := newFakeDoer(c, "", map[string]string{params.JujuCharmURLHeader: curl})
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
@@ -219,7 +219,7 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "PUT")
 	c.Assert(doer.url, gc.Equals, "/migrate/charms/foo-abcdef0")
-	c.Assert(doer.headers.Get("Juju-Curl"), gc.Equals, curl)
+	c.Assert(doer.headers.Get(params.JujuCharmURLHeader), gc.Equals, curl)
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
@@ -227,7 +227,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 	const charmBody = "charming"
 	curl := "ch:s390x/bionic/juju-qa-test-15"
 	charmRef := "juju-qa-test-abcdef0"
-	doer := newFakeDoer(c, "", map[string]string{"Juju-Curl": curl})
+	doer := newFakeDoer(c, "", map[string]string{params.JujuCharmURLHeader: curl})
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{Doer: doer},
 	}
@@ -237,7 +237,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "PUT")
 	c.Assert(doer.url, gc.Equals, "/migrate/charms/juju-qa-test-abcdef0")
-	c.Assert(doer.headers.Get("Juju-Curl"), gc.Equals, curl)
+	c.Assert(doer.headers.Get(params.JujuCharmURLHeader), gc.Equals, curl)
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
