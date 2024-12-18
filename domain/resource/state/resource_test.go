@@ -1023,6 +1023,7 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 		for rows.Next() {
 			var addedAt time.Time
 			var uuid string
@@ -1033,7 +1034,7 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)
 			addedAts = append(addedAts, addedAt)
 			uuids = append(uuids, uuid)
 		}
-		return rows.Close()
+		return nil
 	})
 	c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) cannot check unit_resource table: %v", errors.ErrorStack(err)))
 	c.Check(uuids, gc.DeepEquals, []string{resID2})
