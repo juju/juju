@@ -622,7 +622,13 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error) {
+func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
+	// This check is defensive, as the service layer should not allow this to
+	// happen, but it causes confusion if it does happen.
+	if ch.Revision >= 0 && requiresSequencing {
+		return "", charm.CharmLocator{}, internalerrors.Errorf("setting charm with revision %d and requires sequencing", ch.Revision)
+	}
+
 	db, err := s.DB()
 	if err != nil {
 		return "", charm.CharmLocator{}, internalerrors.Capture(err)
@@ -652,6 +658,15 @@ WHERE uuid = $charmID.uuid;
 		// to a write transaction.
 		if _, err := s.checkCharmReferenceExists(ctx, tx, ch.ReferenceName, ch.Revision); err != nil {
 			return internalerrors.Capture(err)
+		}
+
+		// If the charm requires sequencing, get the next revision from
+		// the reference name.
+		if requiresSequencing {
+			ch.Revision, err = s.sequence(ctx, tx, ch.ReferenceName)
+			if err != nil {
+				return fmt.Errorf("getting next charm revision: %w", err)
+			}
 		}
 
 		if err := s.setCharm(ctx, tx, id, ch, downloadInfo); err != nil {

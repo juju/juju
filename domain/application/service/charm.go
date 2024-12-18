@@ -134,8 +134,11 @@ type CharmState interface {
 	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error)
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
-	// state.
-	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, charm.CharmLocator, error)
+	// state. If the charm requires sequencing, the revision must be set to
+	// -1 and the requiredSequencing flag must be set to true. If the charm
+	// does not require sequencing, the revision must be set to the desired
+	// revision and the requiredSequencing flag must be set to false.
+	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error)
 
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
@@ -725,7 +728,8 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 		},
 
 		// The revision is not set, we need to sequence a revision.
-		Revision: -1,
+		Revision:           -1,
+		RequiresSequencing: true,
 
 		// This is correct, we want to use the unique name of the stored charm
 		// as the archive path. Once every blob is storing the UUID, we can
@@ -832,6 +836,11 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 		}
 	}
 
+	// Charm sequence validation.
+	if args.RequiresSequencing && args.Revision != -1 {
+		return setCharmResult{}, nil, applicationerrors.CharmRevisionNotValid
+	}
+
 	source, err := encodeCharmSource(args.Source)
 	if err != nil {
 		return setCharmResult{}, nil, fmt.Errorf("encoding charm source: %w", err)
@@ -852,7 +861,7 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 	ch.Available = args.ArchivePath != ""
 	ch.Architecture = architecture
 
-	charmID, locator, err := s.st.SetCharm(ctx, ch, args.DownloadInfo)
+	charmID, locator, err := s.st.SetCharm(ctx, ch, args.DownloadInfo, args.RequiresSequencing)
 	if err != nil {
 		return setCharmResult{}, warnings, errors.Trace(err)
 	}

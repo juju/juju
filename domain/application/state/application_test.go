@@ -1910,7 +1910,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 		ReferenceName: expectedMetadata.Name,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
-	}, nil)
+	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	chID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
