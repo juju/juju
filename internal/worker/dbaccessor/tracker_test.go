@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	sqlair "github.com/canonical/sqlair"
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"

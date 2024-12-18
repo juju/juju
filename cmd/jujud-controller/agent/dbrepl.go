@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -30,10 +29,8 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/storage/looputil"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
-	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -158,24 +155,19 @@ type dbReplMachineAgentFactoryFnType func(names.Tag, bool) (*replMachineAgent, e
 // replMachineAgent given a machineId.
 func DBReplMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
-	rootDir string,
 ) dbReplMachineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*replMachineAgent, error) {
 		return NewREPLMachineAgent(
 			agentTag,
 			agentConfWriter,
-			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
 				Logger:        logger,
 			}),
-			looputil.NewLoopDeviceManager(),
 			newDBReplWorkerFunc,
-			rootDir,
 			isCaasAgent,
 		)
 	}
@@ -185,24 +177,17 @@ func DBReplMachineAgentFactoryFn(
 func NewREPLMachineAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
-	loopDeviceManager looputil.LoopDeviceManager,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
-	rootDir string,
 	isCaasAgent bool,
 ) (*replMachineAgent, error) {
 	a := &replMachineAgent{
 		agentTag:            agentTag,
 		AgentConfigWriter:   agentConfWriter,
 		configChangedVal:    voyeur.NewValue(true),
-		bufferedLogger:      bufferedLogger,
-		workersStarted:      make(chan struct{}),
 		dead:                make(chan struct{}),
 		runner:              runner,
-		rootDir:             rootDir,
 		newDBReplWorkerFunc: newDBReplWorkerFunc,
-		loopDeviceManager:   loopDeviceManager,
 		isCaasAgent:         isCaasAgent,
 	}
 	return a, nil
@@ -217,15 +202,11 @@ type replMachineAgent struct {
 	errReason        error
 	agentTag         names.Tag
 	runner           *worker.Runner
-	rootDir          string
-	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
 
 	workersStarted chan struct{}
 
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
-
-	loopDeviceManager looputil.LoopDeviceManager
 
 	isCaasAgent bool
 }
@@ -257,15 +238,13 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	}
 
 	agentConfig := a.CurrentConfig()
-	agentName := a.Tag().String()
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), ctx.Stdout, ctx.Stderr, ctx.Stdin)
+	createEngine := a.makeEngineCreator(ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker("engine", createEngine)
 
 	// At this point, all workers will have been configured to start
-	close(a.workersStarted)
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrRebootMachine:
@@ -289,7 +268,6 @@ func (a *replMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (a *replMachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion version.Number,
 	stdout io.Writer,
 	stderr io.Writer,
 	stdin io.Reader,
@@ -304,17 +282,10 @@ func (a *replMachineAgent) makeEngineCreator(
 		}
 
 		manifoldsCfg := dbrepl.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			AgentName:            agentName,
-			Agent:                agent.APIHostPortsSetter{Agent: a},
-			RootDir:              a.rootDir,
-			AgentConfigChanged:   a.configChangedVal,
-			NewDBReplWorkerFunc:  a.newDBReplWorkerFunc,
-			LogSource:            a.bufferedLogger.Logs(),
-			Clock:                clock.WallClock,
-			IsCaasConfig:         a.isCaasAgent,
-
-			SetupLogging: agentconf.SetupAgentLogging,
+			Agent:               agent.APIHostPortsSetter{Agent: a},
+			AgentConfigChanged:  a.configChangedVal,
+			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
+			Clock:               clock.WallClock,
 
 			Stdout: stdout,
 			Stderr: stderr,

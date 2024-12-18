@@ -13,7 +13,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/chzyer/readline"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
@@ -49,7 +48,6 @@ type DBGetter interface {
 // dbaccessor worker.
 type WorkerConfig struct {
 	DBGetter coredatabase.DBGetter
-	Clock    clock.Clock
 	Logger   logger.Logger
 	Stdout   io.Writer
 	Stderr   io.Writer
@@ -61,11 +59,17 @@ func (c *WorkerConfig) Validate() error {
 	if c.DBGetter == nil {
 		return errors.NotValidf("missing DBGetter")
 	}
-	if c.Clock == nil {
-		return errors.NotValidf("missing Clock")
-	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
+	}
+	if c.Stdout == nil {
+		return errors.NotValidf("missing Stdout")
+	}
+	if c.Stderr == nil {
+		return errors.NotValidf("missing Stderr")
+	}
+	if c.Stdin == nil {
+		return errors.NotValidf("missing Stdin")
 	}
 	return nil
 }
@@ -102,7 +106,12 @@ func (w *dbReplWorker) loop() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer history.Close()
+	defer func() {
+		_ = history.Close()
+		if err := os.Remove(history.Name()); err != nil {
+			w.cfg.Logger.Errorf("failed to remove history file: %v", err)
+		}
+	}()
 
 	line, err := readline.NewEx(&readline.Config{
 		Stdin:               readline.NewCancelableStdin(w.cfg.Stdin),
