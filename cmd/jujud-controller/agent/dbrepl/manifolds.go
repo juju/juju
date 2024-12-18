@@ -4,13 +4,11 @@
 package dbrepl
 
 import (
-	"context"
 	"io"
 	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
@@ -146,15 +144,6 @@ func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) depe
 		result[name] = manifold
 	}
 	return result
-}
-
-func clockManifold(clock clock.Clock) dependency.Manifold {
-	return dependency.Manifold{
-		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-			return engine.NewValueWorker(clock)
-		},
-		Output: engine.ValueWorkerOutput,
-	}
 }
 
 var ifController = engine.Housing{
