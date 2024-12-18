@@ -131,13 +131,13 @@ func (c *Client) UploadCharm(ctx context.Context, modelUUID string, curl string,
 	// expects this header to be present, since we still need some
 	// of the values from the charm url.
 	headers := map[string]string{
-		"Juju-Curl": curl,
+		params.JujuCharmURLHeader: curl,
 	}
 	if err := c.httpPut(ctx, modelUUID, content, apiURI.String(), contentType, headers, &resp); err != nil {
 		return "", errors.Trace(err)
 	}
 
-	respCurl := resp.Header.Get("Juju-Curl")
+	respCurl := resp.Header.Get(params.JujuCharmURLHeader)
 	if respCurl == "" {
 		return "", errors.Errorf("response returned no charm URL")
 	}
