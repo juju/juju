@@ -157,7 +157,7 @@ func (w *dbReplWorker) loop() (err error) {
 		return errors.Annotate(err, "failed to get db")
 	}
 	controllerDB := currentDB
-	currentNamespace := "*"
+	currentNamespace := "controller"
 
 	close(done)
 
@@ -217,12 +217,21 @@ func (w *dbReplWorker) loop() (err error) {
 				continue
 			}
 
-			name := args[1]
-			if name == "global" || name == "*" {
+			argName := args[1]
+			if argName == "controller" {
 				currentDB = controllerDB
-				currentNamespace = "*"
+				currentNamespace = argName
 				continue
 			}
+			parts := strings.Split(argName, "-")
+			if len(parts) != 2 {
+				fmt.Fprintln(w.cfg.Stderr, "invalid namespace name")
+				continue
+			} else if parts[0] != "model" {
+				fmt.Fprintln(w.cfg.Stderr, "invalid model namespace name")
+				continue
+			}
+			name := parts[1]
 
 			var uuid string
 			if err := controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -241,7 +250,7 @@ func (w *dbReplWorker) loop() (err error) {
 				fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", name, err)
 				continue
 			}
-			currentNamespace = name
+			currentNamespace = argName
 
 		case ".models":
 			if err := w.executeQuery(ctx, controllerDB, "SELECT uuid, name FROM model;"); err != nil {
