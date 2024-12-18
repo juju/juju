@@ -5,7 +5,6 @@ package provisioner_test
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -625,67 +624,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
 		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},
 	}}
-	c.Assert(result, jc.DeepEquals, expected)
-}
-
-func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	profileMachine, err := st.AddOneMachine(
-
-		state.MachineTemplate{
-			Base: state.UbuntuBase("12.10"),
-			Jobs: []state.MachineJob{state.JobHostUnits},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "lxd-profile"})
-	profileService := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "lxd-profile",
-		Charm: ch,
-	})
-	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = profileUnit.AssignToMachine(profileMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: profileMachine.Tag().String()},
-	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	domainServices := s.ControllerDomainServices(c)
-	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	mod, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	pName := fmt.Sprintf("juju-%s-lxd-profile-%d", mod.Name(), ch.Revision())
-	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{{
-			Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController:    coretesting.ControllerTag.Id(),
-					tags.JujuModel:         coretesting.ModelTag.Id(),
-					tags.JujuMachine:       "controller-machine-5",
-					tags.JujuUnitsDeployed: profileUnit.Name(),
-				},
-				EndpointBindings: map[string]string{
-					"":        network.AlphaSpaceName,
-					"another": network.AlphaSpaceName,
-					"ubuntu":  network.AlphaSpaceName,
-				},
-				CharmLXDProfiles: []string{pName},
-			},
-		}}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
 

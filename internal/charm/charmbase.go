@@ -17,7 +17,7 @@ type charmBase struct {
 
 // NewCharmBase creates a new charmBase with the given metadata, config,
 // actions, lxdProfile, and manifest.
-func NewCharmBase(meta *Meta, manifest *Manifest, config *Config, actions *Actions, lxdProfile *LXDProfile) Charm {
+func NewCharmBase(meta *Meta, manifest *Manifest, config *Config, actions *Actions, lxdProfile *LXDProfile) *charmBase {
 	return &charmBase{
 		meta:       meta,
 		manifest:   manifest,

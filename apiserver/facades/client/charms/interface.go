@@ -22,20 +22,12 @@ func newStateShim(st *state.State) interfaces.BackendState {
 	}
 }
 
-func (s stateShim) UpdateUploadedCharm(charmInfo state.CharmInfo) (services.UploadedCharm, error) {
-	ch, err := s.State.UpdateUploadedCharm(charmInfo)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stateCharmShim{Charm: ch}, nil
-}
-
 func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return stateCharmShim{Charm: ch}, nil
+	return stateCharmShim{CharmRefFull: ch}, nil
 }
 
 func (s stateShim) Application(name string) (interfaces.Application, error) {
@@ -68,11 +60,14 @@ func (s stateApplicationShim) AllUnits() ([]interfaces.Unit, error) {
 }
 
 type stateCharmShim struct {
-	*state.Charm
+	state.CharmRefFull
 }
 
 func (s stateCharmShim) IsUploaded() bool {
-	return s.Charm.IsUploaded()
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// return s.CharmRefFull.IsUploaded()
+	return false
 }
 
 // StoreCharm represents a store charm.

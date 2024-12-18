@@ -318,11 +318,6 @@ type storageStateShim struct {
 	*state.State
 }
 
-func (s storageStateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	ch, err := s.State.UpdateUploadedCharm(info)
-	return ch, err
-}
-
 func (s storageStateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	return ch, err

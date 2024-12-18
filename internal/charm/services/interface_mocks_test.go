@@ -15,7 +15,6 @@ import (
 	reflect "reflect"
 
 	objectstore "github.com/juju/juju/core/objectstore"
-	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -115,45 +114,6 @@ func (c *MockStateBackendPrepareCharmUploadCall) Do(f func(string) (UploadedChar
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateBackendPrepareCharmUploadCall) DoAndReturn(f func(string) (UploadedCharm, error)) *MockStateBackendPrepareCharmUploadCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpdateUploadedCharm mocks base method.
-func (m *MockStateBackend) UpdateUploadedCharm(arg0 state.CharmInfo) (UploadedCharm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUploadedCharm", arg0)
-	ret0, _ := ret[0].(UploadedCharm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateUploadedCharm indicates an expected call of UpdateUploadedCharm.
-func (mr *MockStateBackendMockRecorder) UpdateUploadedCharm(arg0 any) *MockStateBackendUpdateUploadedCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockStateBackend)(nil).UpdateUploadedCharm), arg0)
-	return &MockStateBackendUpdateUploadedCharmCall{Call: call}
-}
-
-// MockStateBackendUpdateUploadedCharmCall wrap *gomock.Call
-type MockStateBackendUpdateUploadedCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateBackendUpdateUploadedCharmCall) Return(arg0 UploadedCharm, arg1 error) *MockStateBackendUpdateUploadedCharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateBackendUpdateUploadedCharmCall) Do(f func(state.CharmInfo) (UploadedCharm, error)) *MockStateBackendUpdateUploadedCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateBackendUpdateUploadedCharmCall) DoAndReturn(f func(state.CharmInfo) (UploadedCharm, error)) *MockStateBackendUpdateUploadedCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -279,42 +239,4 @@ func NewMockUploadedCharm(ctrl *gomock.Controller) *MockUploadedCharm {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUploadedCharm) EXPECT() *MockUploadedCharmMockRecorder {
 	return m.recorder
-}
-
-// IsUploaded mocks base method.
-func (m *MockUploadedCharm) IsUploaded() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUploaded")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsUploaded indicates an expected call of IsUploaded.
-func (mr *MockUploadedCharmMockRecorder) IsUploaded() *MockUploadedCharmIsUploadedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUploaded", reflect.TypeOf((*MockUploadedCharm)(nil).IsUploaded))
-	return &MockUploadedCharmIsUploadedCall{Call: call}
-}
-
-// MockUploadedCharmIsUploadedCall wrap *gomock.Call
-type MockUploadedCharmIsUploadedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUploadedCharmIsUploadedCall) Return(arg0 bool) *MockUploadedCharmIsUploadedCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUploadedCharmIsUploadedCall) Do(f func() bool) *MockUploadedCharmIsUploadedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUploadedCharmIsUploadedCall) DoAndReturn(f func() bool) *MockUploadedCharmIsUploadedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }

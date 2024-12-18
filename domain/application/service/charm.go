@@ -170,10 +170,11 @@ type CharmStore interface {
 	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 }
 
-// GetCharmID returns a charm ID by name. It returns an error if the charm can
-// not be found by the name. This can also be used as a cheap way to see if a
-// charm exists without needing to load the charm metadata. Returns
-// [applicationerrors.CharmNameNotValid] if the name is not valid, and
+// GetCharmID returns a charm ID by name, source and revision. It returns an
+// error if the charm can not be found.
+// This can also be used as a cheap way to see if a charm exists without
+// needing to load the charm metadata.
+// Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
@@ -293,13 +294,16 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		Architecture: ch.Architecture,
 	}
 
-	return internalcharm.NewCharmBase(
+	charmBase := internalcharm.NewCharmBase(
 		&metadata,
 		&manifest,
 		&config,
 		&actions,
 		&lxdProfile,
-	), locator, nil
+	)
+	charmBase.SetVersion(ch.Version)
+
+	return charmBase, locator, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.

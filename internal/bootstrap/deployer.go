@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // DeployCharmResult holds the result of deploying a charm.
@@ -130,7 +129,6 @@ type HTTPClient interface {
 // state and upload it to the object store.
 type CharmUploader interface {
 	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
-	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	ModelUUID() string
 }
@@ -160,16 +158,6 @@ type CharmDownloaderFunc func(HTTPClient, logger.Logger) Downloader
 // application.
 type Application interface {
 	Name() string
-}
-
-// Charm is the interface that is used to get information about a charm.
-type Charm interface {
-	Meta() *charm.Meta
-	Manifest() *charm.Manifest
-	Actions() *charm.Actions
-	Config() *charm.Config
-	Revision() int
-	URL() string
 }
 
 // Unit is the interface that is used to get information about a
@@ -492,15 +480,6 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-	_, err = b.charmUploader.UpdateUploadedCharm(state.CharmInfo{
-		Charm:       info.Charm,
-		ID:          info.URL.String(),
-		StoragePath: info.ArchivePath,
-		SHA256:      info.Origin.Hash,
-	})
-	if err != nil && !stateerrors.IsCharmAlreadyUploadedError(err) {
-		return nil, errors.Annotatef(err, "updating uploaded charm")
 	}
 
 	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{

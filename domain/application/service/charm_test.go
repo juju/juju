@@ -435,6 +435,17 @@ func (s *charmServiceSuite) TestGetCharmArchiveBySHA256Prefix(c *gc.C) {
 	c.Check(string(content), gc.Equals, "archive-content")
 }
 
+func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("", "", applicationerrors.CharmNotFound)
+
+	_, _, err := s.service.GetCharmArchive(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
 func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

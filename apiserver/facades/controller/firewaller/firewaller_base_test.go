@@ -31,7 +31,7 @@ type firewallerBaseSuite struct {
 
 	machines    []*state.Machine
 	application *state.Application
-	charm       *state.Charm
+	charm       state.CharmRefFull
 	units       []*state.Unit
 	relations   []*state.Relation
 

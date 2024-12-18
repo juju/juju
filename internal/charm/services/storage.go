@@ -13,8 +13,6 @@ import (
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	charmdownloader "github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // CharmStorageConfig encapsulates the information required for creating a
@@ -51,14 +49,16 @@ func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 // charm URL. If the blob for the charm is already stored, the method returns
 // an error to indicate this.
 func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
-	ch, err := s.stateBackend.PrepareCharmUpload(charmURL)
+	_, err := s.stateBackend.PrepareCharmUpload(charmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if ch.IsUploaded() {
-		return charmdownloader.NewCharmAlreadyStoredError(charmURL)
-	}
+	// TODO(nvinuesa): IsUploaded is not implemented yet.
+	// See https://warthogs.atlassian.net/browse/JUJU-6845
+	// if ch.IsUploaded() {
+	// 	return charmdownloader.NewCharmAlreadyStoredError(charmURL)
+	// }
 
 	return nil
 }
@@ -76,34 +76,6 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 		return "", errors.Annotate(err, "cannot add charm to storage")
 	}
 
-	info := state.CharmInfo{
-		StoragePath: storagePath,
-		Charm:       downloadedCharm.Charm,
-		ID:          charmURL,
-		SHA256:      downloadedCharm.SHA256,
-		Version:     downloadedCharm.CharmVersion,
-	}
-
-	// Now update the charm data in state and mark it as no longer pending.
-	_, err = s.stateBackend.UpdateUploadedCharm(info)
-	if err != nil {
-		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
-			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
-			stateerrors.IsCharmAlreadyUploadedError(err)
-		if err := s.objectStore.Remove(ctx, storagePath); err != nil {
-			if alreadyUploaded {
-				s.logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
-			} else {
-				s.logger.Errorf("cannot remove unsuccessfully recorded charm archive from storage: %v", err)
-			}
-		}
-		if alreadyUploaded {
-			// Somebody else managed to upload and update the charm in
-			// state before us. This is not an error.
-			return "", nil
-		}
-		return "", errors.Trace(err)
-	}
 	return storagePath, nil
 }
 
