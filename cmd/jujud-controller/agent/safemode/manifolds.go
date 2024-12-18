@@ -66,8 +66,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// with this code.
 		terminationName: terminationworker.Manifold(),
 
-		clockName: clockManifold(config.Clock),
-
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
 		isControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, true),
@@ -173,7 +171,6 @@ const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
-	clockName              = "clock"
 
 	isControllerFlagName      = "is-controller-flag"
 	controllerAgentConfigName = "controller-agent-config"
