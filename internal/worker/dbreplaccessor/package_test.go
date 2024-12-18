@@ -20,8 +20,8 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbreplaccessor DBApp,NodeManager,TrackedDB,Client
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbreplaccessor DBApp,NodeManager,TrackedDB
+//go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination clock_mock_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination sql_mock_test.go database/sql/driver Driver
 
 func TestPackage(t *testing.T) {
@@ -36,9 +36,7 @@ type baseSuite struct {
 	logger logger.Logger
 
 	clock       *MockClock
-	timer       *MockTimer
 	dbApp       *MockDBApp
-	client      *MockClient
 	nodeManager *MockNodeManager
 
 	newDBReplWorker func() (TrackedDB, error)
@@ -48,9 +46,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
-	s.timer = NewMockTimer(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
-	s.client = NewMockClient(ctrl)
 	s.nodeManager = NewMockNodeManager(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
