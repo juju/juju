@@ -18,13 +18,14 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type LXDProfileBackendV2 interface {
-	Charm(string) (LXDProfileCharmV2, error)
 	Machine(string) (LXDProfileMachineV2, error)
 	Unit(string) (LXDProfileUnitV2, error)
 }
@@ -60,7 +61,8 @@ type LXDProfileAPIv2 struct {
 	logger     corelogger.Logger
 	accessUnit common.GetAuthFunc
 
-	modelInfoService ModelInfoService
+	modelInfoService   ModelInfoService
+	applicationService ApplicationService
 }
 
 // NewLXDProfileAPIv2 returns a new LXDProfileAPIv2. Currently both
@@ -73,15 +75,17 @@ func NewLXDProfileAPIv2(
 	accessUnit common.GetAuthFunc,
 	logger corelogger.Logger,
 	modelInfoService ModelInfoService,
+	applicationService ApplicationService,
 ) *LXDProfileAPIv2 {
 	logger.Tracef("LXDProfileAPIv2 called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPIv2{
-		backend:          backend,
-		machineService:   machineService,
-		watcherRegistry:  watcherRegistry,
-		accessUnit:       accessUnit,
-		logger:           logger,
-		modelInfoService: modelInfoService,
+		backend:            backend,
+		machineService:     machineService,
+		watcherRegistry:    watcherRegistry,
+		accessUnit:         accessUnit,
+		logger:             logger,
+		modelInfoService:   modelInfoService,
+		applicationService: applicationService,
 	}
 }
 
@@ -120,12 +124,11 @@ func (c *lxdProfileCharmV2) LXDProfile() lxdprofile.Profile {
 	// if profile == nil {
 	// 	return lxdprofile.Profile{}
 	// }
-	// return lxdprofile.Profile{
-	// 	Config:      profile.Config,
-	// 	Description: profile.Description,
-	// 	Devices:     profile.Devices,
-	// }
-	return lxdprofile.Profile{}
+	return lxdprofile.Profile{
+		// Config:      profile.Config,
+		// Description: profile.Description,
+		// Devices:     profile.Devices,
+	}
 }
 
 // NewExternalLXDProfileAPIv2 can be used for API registration.
@@ -137,6 +140,7 @@ func NewExternalLXDProfileAPIv2(
 	accessUnit common.GetAuthFunc,
 	logger corelogger.Logger,
 	modelInfoService ModelInfoService,
+	applicationService ApplicationService,
 ) *LXDProfileAPIv2 {
 	return NewLXDProfileAPIv2(
 		LXDProfileStateV2{st},
@@ -146,6 +150,7 @@ func NewExternalLXDProfileAPIv2(
 		accessUnit,
 		logger,
 		modelInfoService,
+		applicationService,
 	)
 }
 
@@ -339,13 +344,13 @@ func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, 
 }
 
 // LXDProfileRequired returns true if charm has an lxd profile in it.
-func (u *LXDProfileAPIv2) LXDProfileRequired(args params.CharmURLs) (params.BoolResults, error) {
+func (u *LXDProfileAPIv2) LXDProfileRequired(ctx context.Context, args params.CharmURLs) (params.BoolResults, error) {
 	u.logger.Tracef("Starting LXDProfileRequired with %+v", args)
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.URLs)),
 	}
 	for i, arg := range args.URLs {
-		required, err := u.getOneLXDProfileRequired(arg.URL)
+		required, err := u.getOneLXDProfileRequired(ctx, arg.URL)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -356,12 +361,27 @@ func (u *LXDProfileAPIv2) LXDProfileRequired(args params.CharmURLs) (params.Bool
 	return result, nil
 }
 
-func (u *LXDProfileAPIv2) getOneLXDProfileRequired(curl string) (bool, error) {
-	ch, err := u.backend.Charm(curl)
+func (u *LXDProfileAPIv2) getOneLXDProfileRequired(ctx context.Context, curl string) (bool, error) {
+	parsedURL, err := charm.ParseURL(curl)
 	if err != nil {
 		return false, err
 	}
-	return !ch.LXDProfile().Empty(), nil
+	parsedSource, err := applicationcharm.ParseCharmSchema(charm.Schema(parsedURL.Schema))
+	if err != nil {
+		return false, err
+	}
+	_, err = u.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+		Source:   parsedSource,
+		Name:     parsedURL.Name,
+		Revision: &parsedURL.Revision,
+	})
+	if err != nil {
+		return false, err
+	}
+	// TODO(nvinuesa): LXD Profiles are not yet implemented. In this case,
+	// we'll find the LXD profile for the given charm and return true if
+	// it's not empty.
+	return false, nil
 }
 
 func (u *LXDProfileAPIv2) getLXDProfileMachineV2(tag names.Tag) (LXDProfileMachineV2, error) {
