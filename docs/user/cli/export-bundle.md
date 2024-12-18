@@ -1,6 +1,5 @@
 (export-bundle.md)=
 # `export-bundle`
-
 ## Summary
 Exports the current model configuration as a reusable bundle.
 

@@ -2,6 +2,8 @@
 # `disabled-commands`
 > See also: [disable-command](#disable-command), [enable-command](#enable-command)
 
+**Aliases:** list-disabled-commands
+
 ## Summary
 List disabled commands.
 

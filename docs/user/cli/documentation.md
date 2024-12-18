@@ -1,6 +1,5 @@
 (documentation.md)=
 # `documentation`
-
 ## Summary
 Generate the documentation for all commands
 

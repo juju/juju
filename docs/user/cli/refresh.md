@@ -12,14 +12,15 @@ Refresh an application's charm.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `--base` |  | Select a different base than what is currently running. |
 | `--bind` |  | Configure application endpoint bindings to spaces |
 | `--channel` |  | Channel to use when getting the charm from Charmhub |
 | `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
 | `--force` | false | Allow a charm to be refreshed which bypasses LXD profile allow list |
-| `--force-series` | false | Refresh even if series of deployed applications are not supported by the new charm |
+| `--force-base`, `--force-series` | false | Refresh even if the base of the deployed application is not supported by the new charm |
 | `--force-units` | false | Refresh all units immediately, even if in error state |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--path` |  | Refresh to a charm package located at path |
+| `--path` |  | Refresh to a charm located at path |
 | `--resource` |  | Resource to be uploaded to the controller |
 | `--revision` | -1 | Explicit revision of current charm |
 | `--storage` |  | Charm storage directives |
@@ -52,12 +53,12 @@ updated copy of the charm.
 
 Deploying from a path is intended to suit the workflow of a charm author working
 on a single client machine; use of this deployment method from multiple clients
-is not supported and may lead to confusing behaviour. Each local packaged charm 
-gets uploaded with the revision specified in the charm, if possible, otherwise 
+is not supported and may lead to confusing behaviour. Each local packaged charm
+gets uploaded with the revision specified in the charm, if possible, otherwise
 it gets a unique revision (highest in state + 1).
 
 When deploying from a path, the --path option is used to specify the location
-of the packaged charm. Note that the charm must match what was originally used 
+of the packaged charm. Note that the charm must match what was originally used
 to deploy the charm as a superficial check that the updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the --resource option.

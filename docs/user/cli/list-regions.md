@@ -1,13 +1,14 @@
 (list-regions.md)=
 # `list-regions`
 > See also: [add-cloud](#add-cloud), [clouds](#clouds), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
-**Alias:** regions
+
+**Aliases:** list-regions
 
 ## Summary
 Lists regions for a given cloud.
 
 ## Usage
-```juju list-regions [options] <cloud>```
+```juju regions [options] <cloud>```
 
 ### Options
 | Flag | Default | Usage |

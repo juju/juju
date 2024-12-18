@@ -1,13 +1,14 @@
 (list-actions.md)=
 # `list-actions`
 > See also: [run](#run), [show-action](#show-action)
-**Alias:** actions
+
+**Aliases:** list-actions
 
 ## Summary
 List actions defined for an application.
 
 ## Usage
-```juju list-actions [options] <application>```
+```juju actions [options] <application>```
 
 ### Options
 | Flag | Default | Usage |

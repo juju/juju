@@ -1,12 +1,12 @@
 (list-payloads.md)=
 # `list-payloads`
-**Alias:** payloads
+**Aliases:** list-payloads
 
 ## Summary
 Display status information about known payloads.
 
 ## Usage
-```juju list-payloads [options] [pattern ...]```
+```juju payloads [options] [pattern ...]```
 
 ### Options
 | Flag | Default | Usage |

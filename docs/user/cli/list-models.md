@@ -1,7 +1,8 @@
 (list-models.md)=
 # `list-models`
 > See also: [add-model](#add-model)
-**Alias:** models
+
+**Aliases:** list-models
 
 ## Summary
 Lists models a user can access on a controller.

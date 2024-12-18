@@ -1,6 +1,5 @@
 (remove-secret.md)=
 # `remove-secret`
-
 ## Summary
 Remove a existing secret.
 

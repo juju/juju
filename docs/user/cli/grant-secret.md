@@ -1,6 +1,5 @@
 (grant-secret.md)=
 # `grant-secret`
-
 ## Summary
 Grant access to a secret.
 

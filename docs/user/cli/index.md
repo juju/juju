@@ -22,8 +22,6 @@ add-ssh-key
 add-storage
 add-unit
 add-user
-agree
-agreements
 attach-resource
 attach-storage
 autoload-credentials
@@ -80,7 +78,6 @@ info
 integrate
 kill-controller
 list-actions
-list-agreements
 list-charm-resources
 list-clouds
 list-controllers

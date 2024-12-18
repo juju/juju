@@ -1,6 +1,5 @@
 (show-application.md)=
 # `show-application`
-
 ## Summary
 Displays information about an application.
 
