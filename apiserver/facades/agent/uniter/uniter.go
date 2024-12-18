@@ -2906,7 +2906,7 @@ func (u *UniterAPI) LXDProfileName(ctx context.Context, args params.Entities) (p
 
 // LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileRequired(ctx context.Context, args params.CharmURLs) (params.BoolResults, error) {
-	return u.lxdProfileAPI.LXDProfileRequired(args)
+	return u.lxdProfileAPI.LXDProfileRequired(ctx, args)
 }
 
 // CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.

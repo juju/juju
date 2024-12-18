@@ -910,7 +910,11 @@ func (a *Application) Charm() (CharmRefFull, bool, error) {
 	if a.doc.CharmURL == nil {
 		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
 	}
-	ch, err := a.st.Charm(*a.doc.CharmURL)
+	parsedURL, err := charm.ParseURL(*a.doc.CharmURL)
+	if err != nil {
+		return nil, false, err
+	}
+	ch, err := a.st.findCharm(parsedURL)
 	if err != nil {
 		return nil, false, err
 	}
