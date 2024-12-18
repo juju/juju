@@ -204,8 +204,6 @@ type replMachineAgent struct {
 	runner           *worker.Runner
 	configChangedVal *voyeur.Value
 
-	workersStarted chan struct{}
-
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
 	isCaasAgent bool

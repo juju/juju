@@ -8,18 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/internal/database/dqlite"
 )
-
-// Client describes a client that speaks the Dqlite wire protocol,
-// and can retrieve cluster information.
-type Client interface {
-	// Cluster returns the current state of the Dqlite cluster.
-	Cluster(context.Context) ([]dqlite.NodeInfo, error)
-	// Leader returns information about the current leader, if any.
-	Leader(ctx context.Context) (*dqlite.NodeInfo, error)
-}
 
 // DBApp describes methods of a Dqlite database application,
 // required to run this host as a Dqlite node.
