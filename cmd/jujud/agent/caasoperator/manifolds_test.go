@@ -233,6 +233,7 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"leadership-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"upgrade-steps-flag",

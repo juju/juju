@@ -115,7 +115,7 @@ type Uniter struct {
 	newRemoteRunnerExecutor NewRunnerExecutorFunc
 	translateResolverErr    func(error) error
 
-	leadershipTracker leadership.TrackerWorker
+	leadershipTracker leadership.Tracker
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
@@ -194,7 +194,7 @@ type UniterParams struct {
 	SecretsBackendGetter          context.SecretsBackendGetter
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
-	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
+	LeadershipTrackerFunc         func(names.UnitTag) leadership.Tracker
 	SecretRotateWatcherFunc       remotestate.SecretTriggerWatcherFunc
 	SecretExpiryWatcherFunc       remotestate.SecretTriggerWatcherFunc
 	DataDir                       string
@@ -306,9 +306,11 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			},
 		}
 		if u.modelType == model.CAAS && !uniterParams.Sidecar {
-			// For podspec units, make sure the leadership tracker is killed when the Uniter
-			// dies.
-			plan.Init = append(plan.Init, u.leadershipTracker)
+			// For podspec units, make sure the leadership tracker is killed when the Uniter dies.
+			// This is the wrong approach but podspec units are deprecated and removed in 4.0.
+			if w, ok := u.leadershipTracker.(worker.Worker); ok {
+				plan.Init = append(plan.Init, w)
+			}
 		}
 		if err := catacomb.Invoke(plan); err != nil {
 			return nil, errors.Trace(err)

@@ -313,6 +313,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		secretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
 			Logger:                loggo.GetLogger("juju.worker.secretsdrainworker"),
+			LeadershipTrackerName: leadershipTrackerName,
 			NewSecretsDrainFacade: secretsdrainworker.NewSecretsDrainFacadeForAgent,
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewSecretBackendsClientForAgent,
@@ -351,6 +352,7 @@ const (
 	logSenderName        = "log-sender"
 
 	charmDirName          = "charm-dir"
+	leadershipTrackerName = "leadership-tracker"
 	hookRetryStrategyName = "hook-retry-strategy"
 
 	upgraderName         = "upgrader"

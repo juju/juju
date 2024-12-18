@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -119,6 +120,75 @@ func (t *Tracker) WaitLeader() leadership.Ticket {
 // WaitMinion is part of the leadership.Tracker interface.
 func (t *Tracker) WaitMinion() leadership.Ticket {
 	return t.submit(t.waitMinionTickets)
+}
+
+// WithoutLeadershipChange is part of the leadership.Tracker interface.
+func (t *Tracker) WithoutLeadershipChange(
+	ctx context.Context, fn func(context.Context) error,
+) error {
+	// Check that the context has not been not cancelled
+	// before we start the operation.
+	if err := ctx.Err(); err != nil {
+		return errors.Annotate(err, "context cancelled before executing leadership func")
+	}
+
+	// leadershipCtx is cancelled if leadership changes.
+	leadershipCtx, leadershipCancel := context.WithCancel(context.Background())
+	defer leadershipCancel()
+
+	// waitCtx ensures the go routine exits even
+	// without a leadership change.
+	waitCtx, waitCancel := context.WithCancel(ctx)
+	defer waitCancel()
+
+	// Start will be closed when we start waiting for leadership to change.
+	start := make(chan struct{})
+
+	// First get the correct channel to wait on, depending if we are the leader or not.
+	var leadershipChanged <-chan struct{}
+	claimLeader := t.ClaimLeader()
+	ready := claimLeader.Ready()
+	select {
+	case <-ctx.Done():
+		return errors.Annotate(ctx.Err(), "context cancelled before executing leadership func")
+	case <-ready:
+		isLeader := claimLeader.Wait()
+		if isLeader {
+			leadershipChanged = t.WaitMinion().Ready()
+		} else {
+			leadershipChanged = t.WaitLeader().Ready()
+		}
+	}
+
+	// Cancel the leadershipCtx when leadership changes.
+	go func() {
+		close(start)
+		select {
+		case <-waitCtx.Done():
+		case <-leadershipChanged:
+			leadershipCancel()
+		}
+	}()
+
+	// Wait for the go routine to start.
+	select {
+	case <-ctx.Done():
+		return errors.Annotate(ctx.Err(), "context cancelled before executing leadership func")
+	case <-leadershipCtx.Done():
+		// Exit early is leadership changes before we even start the operation.
+		return leadership.ErrLeadershipChanged
+	case <-start:
+	}
+
+	// Run the func with the leadershipCtx.
+	err := fn(leadershipCtx)
+	if errors.Is(leadershipCtx.Err(), context.Canceled) {
+		return leadership.ErrLeadershipChanged
+	}
+	if err != nil {
+		return errors.Annotate(err, "executing leadership func")
+	}
+	return ctx.Err()
 }
 
 func (t *Tracker) loop() error {

@@ -110,11 +110,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// leader-deposed hook -- but that's not done yet.
 				return nil, errors.Trace(err)
 			}
-			var leadershipTracker leadership.TrackerWorker
+			var leadershipTracker leadership.Tracker
 			if err := ctx.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, errors.Trace(err)
 			}
-			leadershipTrackerFunc := func(_ names.UnitTag) leadership.TrackerWorker {
+			leadershipTrackerFunc := func(_ names.UnitTag) leadership.Tracker {
 				return leadershipTracker
 			}
 			var charmDirGuard fortress.Guard
