@@ -14,6 +14,7 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/rpc/params"
 )
 
 // CharmPutter uploads a local charm blob to the controller
@@ -50,11 +51,11 @@ func (h *s3Putter) PutCharm(ctx context.Context, modelUUID, charmRef, curl strin
 		return "", errors.Trace(err)
 	}
 	req.Header.Set("Content-Type", "application/zip")
-	req.Header.Set("Juju-Curl", curl)
+	req.Header.Set(params.JujuCharmURLHeader, curl)
 
 	if err := h.httpClient.Do(ctx, req, &resp); err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return resp.Header.Get("Juju-Curl"), nil
+	return resp.Header.Get(params.JujuCharmURLHeader), nil
 }

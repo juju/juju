@@ -117,7 +117,7 @@ func (s *CharmStore) Store(ctx context.Context, path string, size int64, sha384 
 
 // StoreFromReader stores the charm from the provided reader into the object
 // store. The caller is expected to remove the temporary file after the call.
-// IThis does not check the integrity of the charm hash.
+// This does not check the integrity of the charm hash.
 func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hashPrefix string) (_ StoreFromReaderResult, _ Digest, err error) {
 	file, err := os.CreateTemp("", "charm-")
 	if err != nil {
