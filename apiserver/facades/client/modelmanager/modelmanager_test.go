@@ -82,6 +82,7 @@ type modelManagerSuite struct {
 	modelDefaultService  *mocks.MockModelDefaultsService
 	modelExporter        *mocks.MockModelExporter
 	domainServicesGetter *mocks.MockDomainServicesGetter
+	domainServices       *mocks.MockModelDomainServices
 	applicationService   *mocks.MockApplicationService
 	blockCommandService  *mocks.MockBlockCommandService
 	authoriser           apiservertesting.FakeAuthorizer
@@ -89,6 +90,7 @@ type modelManagerSuite struct {
 	caasApi              *modelmanager.ModelManagerAPI
 	controllerUUID       uuid.UUID
 	modelConfigService   *mocks.MockModelConfigService
+	machineService       *mocks.MockMachineService
 }
 
 var _ = gc.Suite(&modelManagerSuite{})
@@ -103,6 +105,9 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.domainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.blockCommandService = mocks.NewMockBlockCommandService(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
+	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
+
 	return ctrl
 }
 
@@ -1688,6 +1693,9 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(s.domainServices).AnyTimes()
+	s.domainServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
 
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.api.ModelStatus(stdcontext.Background(), params.Entities{Entities: []params.Entity{{

@@ -55,6 +55,9 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	blockCommandServiceGetter := func(modelID model.UUID) BlockCommandService {
 		return ctx.DomainServicesForModel(modelID).BlockCommand()
 	}
+	machineServiceGetter := func(modelID model.UUID) common.MachineService {
+		return ctx.DomainServicesForModel(modelID).Machine()
+	}
 
 	return NewControllerAPI(
 		stdCtx,
@@ -71,7 +74,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.Credential(),
 		domainServices.Upgrade(),
 		domainServices.Access(),
-		domainServices.Machine(),
+		machineServiceGetter,
 		domainServices.Model(),
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),

@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -28,10 +29,10 @@ type ModelInfoService interface {
 
 // ModelStatusAPI implements the ModelStatus() API.
 type ModelStatusAPI struct {
-	authorizer     facade.Authorizer
-	apiUser        names.UserTag
-	backend        ModelManagerBackend
-	machineService MachineService
+	authorizer        facade.Authorizer
+	apiUser           names.UserTag
+	backend           ModelManagerBackend
+	getMachineService func(coremodel.UUID) MachineService
 }
 
 // ModelApplicationInfo returns information about applications.
@@ -43,12 +44,13 @@ func ModelApplicationInfo(applications []Application) ([]params.ModelApplication
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(backend ModelManagerBackend, machineService MachineService, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
+func NewModelStatusAPI(backend ModelManagerBackend, getMachineService func(coremodel.UUID) MachineService,
+	authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
 	return &ModelStatusAPI{
-		authorizer:     authorizer,
-		apiUser:        apiUser,
-		backend:        backend,
-		machineService: machineService,
+		authorizer:        authorizer,
+		apiUser:           apiUser,
+		backend:           backend,
+		getMachineService: getMachineService,
 	}
 }
 
@@ -116,7 +118,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		unitCount += app.UnitCount()
 	}
 
-	modelMachines, err := ModelMachineInfo(ctx, st, c.machineService)
+	modelMachines, err := ModelMachineInfo(ctx, st, c.getMachineService(coremodel.UUID(modelTag.Id())))
 	if err != nil {
 		return status, errors.Trace(err)
 	}
