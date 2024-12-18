@@ -39,18 +39,27 @@ type Digest struct {
 	Size   int64
 }
 
-// StoreFromReaderResult contains the unique name of the charm archive and the
-// object store UUID.
-type StoreFromReaderResult struct {
+// StoreResult contains the path of the stored charm archive, the unique name
+// of the charm archive, and the object store UUID.
+type StoreResult struct {
 	UniqueName      string
 	ObjectStoreUUID objectstore.UUID
 }
 
-// StoreResult contains the path of the stored charm archive, the unique name
-// of the charm archive, and the object store UUID.
-type StoreResult struct {
-	StoreFromReaderResult
-	ArchivePath string
+// CharmReader is an interface that combines the io.Reader, io.ReaderAt, and
+// io.Closer interfaces.
+type CharmReader interface {
+	io.Reader
+	io.ReaderAt
+	io.Closer
+}
+
+// StoreFromReaderResult contains the unique name of the charm archive and the
+// object store UUID.
+type StoreFromReaderResult struct {
+	Charm           CharmReader
+	UniqueName      string
+	ObjectStoreUUID objectstore.UUID
 }
 
 // CharmStore provides an API for storing and retrieving charm blobs.
@@ -101,31 +110,30 @@ func (s *CharmStore) Store(ctx context.Context, path string, size int64, sha384 
 		return StoreResult{}, errors.Errorf("putting charm: %w", err)
 	}
 	return StoreResult{
-		StoreFromReaderResult: StoreFromReaderResult{
-			UniqueName:      uniqueName,
-			ObjectStoreUUID: uuid,
-		},
-		ArchivePath: file.Name(),
+		UniqueName:      uniqueName,
+		ObjectStoreUUID: uuid,
 	}, nil
 }
 
 // StoreFromReader stores the charm from the provided reader into the object
 // store. The caller is expected to remove the temporary file after the call.
 // IThis does not check the integrity of the charm hash.
-func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hashPrefix string) (StoreFromReaderResult, Digest, error) {
+func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hashPrefix string) (_ StoreFromReaderResult, _ Digest, err error) {
 	file, err := os.CreateTemp("", "charm-")
 	if err != nil {
 		return StoreFromReaderResult{}, Digest{}, errors.Errorf("creating temporary file: %w", err)
 	}
 
-	// Ensure that we close any open handles to the file.
+	// Clean up the temporary file if an error occurs.
 	defer func() {
-		_ = file.Close()
-		if err := os.Remove(file.Name()); err != nil {
-			// We don't need to log this as error, as the file will be removed
-			// when the process exits or by the OS. It's not a direct action
-			// by the user, hence Info.
-			s.logger.Infof("removing temporary file: %v", err)
+		if err == nil {
+			return
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			s.logger.Errorf("closing temporary file: %v", closeErr)
+		}
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			s.logger.Errorf("removing temporary file: %v", removeErr)
 		}
 	}()
 
@@ -166,7 +174,15 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 		return StoreFromReaderResult{}, Digest{}, errors.Errorf("putting charm: %w", err)
 	}
 
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return StoreFromReaderResult{}, Digest{}, errors.Errorf("seeking temporary file: %w", err)
+	}
+
 	return StoreFromReaderResult{
+			Charm: &charmReaderCloser{
+				file:   file,
+				logger: s.logger,
+			},
 			UniqueName:      uniqueName,
 			ObjectStoreUUID: uuid,
 		}, Digest{
@@ -210,6 +226,30 @@ func (s *CharmStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string)
 		return nil, errors.Errorf("getting charm: %w", err)
 	}
 	return reader, nil
+}
+
+type charmReaderCloser struct {
+	file   *os.File
+	logger logger.Logger
+}
+
+func (c *charmReaderCloser) Read(p []byte) (n int, err error) {
+	return c.file.Read(p)
+}
+
+func (c *charmReaderCloser) ReadAt(p []byte, off int64) (n int, err error) {
+	return c.file.ReadAt(p, off)
+}
+
+func (c *charmReaderCloser) Close() error {
+	err := c.file.Close()
+	if removeErr := os.Remove(c.file.Name()); removeErr != nil {
+		// We don't need to log this as error, as the file will be removed
+		// when the process exits or by the OS. It's not a direct action
+		// by the user, hence Info.
+		c.logger.Infof("removing temporary file: %v", removeErr)
+	}
+	return err
 }
 
 func storeAndComputeHashes(writer io.Writer, reader io.Reader) (string, string, int64, error) {

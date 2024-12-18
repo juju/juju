@@ -4,7 +4,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -691,13 +690,8 @@ func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUplo
 }
 
 func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.ResolveUploadCharm) (charm.CharmLocator, error) {
-	// The charm has been stored in the objectstore. Rather than read it back
-	// out (consider S3 in a different region), we can just tee the reader
-	// into a buffer and read the charm from the buffer.
-	buffer := new(bytes.Buffer)
-
 	// Store the charm and validate it against the sha256 prefix.
-	result, digest, err := s.charmStore.StoreFromReader(ctx, io.TeeReader(args.Reader, buffer), args.SHA256Prefix)
+	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.SHA256Prefix)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
@@ -712,7 +706,7 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 	// of the SHA256 hash (that's enough to prevent collisions).
 
 	// Make sure it's actually a valid charm.
-	ch, err := internalcharm.ReadCharmArchiveBytes(buffer.Bytes())
+	ch, err := internalcharm.ReadCharmArchiveFromReader(result.Charm, digest.Size)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("reading charm archive: %w", err)
 	}
@@ -774,12 +768,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		return charm.CharmLocator{}, errors.Annotate(err, "locating existing charm")
 	}
 
-	// The charm has been stored in the objectstore. Rather than read it back
-	// out (consider S3 in a different region), we can just tee the reader
-	// into a buffer and read the charm from the buffer.
-	buffer := new(bytes.Buffer)
-
-	result, digest, err := s.charmStore.StoreFromReader(ctx, io.TeeReader(args.Reader, buffer), args.SHA256Prefix)
+	result, digest, err := s.charmStore.StoreFromReader(ctx, args.Reader, args.SHA256Prefix)
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
@@ -794,7 +783,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	// before accepting the charm. For now this is a check to ensure that the
 	// charm is valid.
 	// Work should be done to ensure the integrity of the charm archive.
-	if _, err := internalcharm.ReadCharmArchiveBytes(buffer.Bytes()); err != nil {
+	if _, err := internalcharm.ReadCharmArchiveFromReader(result.Charm, digest.Size); err != nil {
 		return charm.CharmLocator{}, errors.Annotatef(err, "reading charm archive")
 	}
 
