@@ -32,6 +32,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+const content = "stuff"
+
 type ResourcesHandlerSuite struct {
 	testing.IsolationSuite
 
