@@ -18,11 +18,11 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	charm "github.com/juju/juju/internal/charm"
 	services "github.com/juju/juju/internal/charm/services"
+	environschema "github.com/juju/juju/internal/environschema"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
 	gomock "go.uber.org/mock/gomock"
-	environschema "github.com/juju/juju/internal/environschema"
 )
 
 // MockBackend is a mock of Backend interface.

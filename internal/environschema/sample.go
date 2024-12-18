@@ -32,13 +32,19 @@ func SampleYAML(w io.Writer, indent int, attrs map[string]interface{}, fields Fi
 	sort.Sort(orderedFields)
 	for i, f := range orderedFields {
 		if i > 0 {
-			w.Write(nl)
+			_, err := w.Write(nl)
+			if err != nil {
+				return err
+			}
 		}
 		writeSampleDescription(w, f.Attr, indentStr+"# ")
 		val, ok := attrs[f.name]
 		if ok {
 			fmt.Fprintf(w, "%s:", f.name)
-			indentVal(w, val, indentStr)
+			err := indentVal(w, val, indentStr)
+			if err != nil {
+				return err
+			}
 		} else {
 			if f.Example != nil {
 				val = f.Example
@@ -46,7 +52,10 @@ func SampleYAML(w io.Writer, indent int, attrs map[string]interface{}, fields Fi
 				val = sampleValue(f.Type)
 			}
 			fmt.Fprintf(w, "# %s:", f.name)
-			indentVal(w, val, indentStr+"# ")
+			err := indentVal(w, val, indentStr+"# ")
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -148,7 +157,7 @@ func (f fieldsByGroup) Less(i0, i1 int) bool {
 
 // indentVal writes the given YAML-formatted value x to w and prefixing
 // the second and subsequent lines with the given ident.
-func indentVal(w io.Writer, x interface{}, indentStr string) {
+func indentVal(w io.Writer, x interface{}, indentStr string) error {
 	data, err := yaml.Marshal(x)
 	if err != nil {
 		panic(fmt.Errorf("cannot marshal YAML: %v", err))
@@ -158,20 +167,39 @@ func indentVal(w io.Writer, x interface{}, indentStr string) {
 	}
 	indent := []byte(indentStr + "  ")
 	if canUseSameLine(x) {
-		w.Write(space)
+		_, err := w.Write(space)
+		if err != nil {
+			return err
+		}
 	} else {
-		w.Write(nl)
-		w.Write(indent)
+		_, err = w.Write(nl)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(indent)
+		if err != nil {
+			return err
+		}
 	}
 	data = bytes.TrimSuffix(data, nl)
 	lines := bytes.Split(data, nl)
 	for i, line := range lines {
 		if i > 0 {
-			w.Write(indent)
+			_, err = w.Write(indent)
+			if err != nil {
+				return err
+			}
 		}
-		w.Write(line)
-		w.Write(nl)
+		_, err = w.Write(line)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(nl)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func canUseSameLine(x interface{}) bool {
