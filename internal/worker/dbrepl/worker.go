@@ -240,7 +240,10 @@ func (w *dbReplWorker) loop() (err error) {
 					return err
 				}
 				return nil
-			}); err != nil {
+			}); errors.Is(err, sql.ErrNoRows) {
+				fmt.Fprintf(w.cfg.Stderr, "model %q not found\n", name)
+				continue
+			} else if err != nil {
 				fmt.Fprintf(w.cfg.Stderr, "failed to select %q database: %v\n", name, err)
 				continue
 			}
