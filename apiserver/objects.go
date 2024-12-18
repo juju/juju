@@ -200,7 +200,7 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		return nil, jujuerrors.BadRequestf("unsupported charm source %q", curl.Schema)
 	}
 
-	locator, err := applicationService.ResolveUploadCharm(r.Context(), applicationcharm.ResolveUploadCharm{
+	locator, err := applicationService.ResolveUploadCharm(ctx, applicationcharm.ResolveUploadCharm{
 		Name:         curl.Name,
 		Revision:     curl.Revision,
 		Source:       source,
