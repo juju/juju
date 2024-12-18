@@ -13,5 +13,4 @@ const (
 	JujuExec        = "juju-exec"
 	JujuDumpLogs    = "juju-dumplogs"
 	JujuIntrospect  = "juju-introspect"
-	JujuDBREPL      = "juju-db-repl"
 )

@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/chzyer/readline"
 	"github.com/juju/errors"
@@ -127,6 +128,30 @@ func (w *dbReplWorker) loop() (err error) {
 	}
 	defer line.Close()
 
+	// TODO (stickupkid): If we're not in a tty, then just write "connecting" to
+	// stdout.
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(time.Millisecond * 500)
+		defer ticker.Stop()
+
+		var amount int
+		for {
+			select {
+			case <-done:
+				return
+			case <-w.tomb.Dying():
+				return
+			case <-ticker.C:
+				if amount > 0 {
+					fmt.Fprint(w.cfg.Stdout, "\033[1A\033[K")
+				}
+				fmt.Fprintln(w.cfg.Stdout, "connecting", strings.Repeat(".", amount%4))
+				amount++
+			}
+		}
+	}()
+
 	currentDB, err := w.dbGetter.GetDB(database.ControllerNS)
 	if err != nil {
 		return errors.Annotate(err, "failed to get db")
@@ -134,15 +159,17 @@ func (w *dbReplWorker) loop() (err error) {
 	controllerDB := currentDB
 	currentNamespace := "*"
 
-	// Allow the line to be closed when the worker is dying.
+	close(done)
+
 	go func() {
+		defer line.Close()
+
 		select {
 		case <-w.tomb.Dying():
-			cancel()
+			return
 		case <-ctx.Done():
+			return
 		}
-
-		line.Close()
 	}()
 
 	// Run the main REPL loop.
