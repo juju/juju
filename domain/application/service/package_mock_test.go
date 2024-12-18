@@ -3017,10 +3017,10 @@ func (c *MockCharmStoreStoreCall) DoAndReturn(f func(context.Context, string, in
 }
 
 // StoreFromReader mocks base method.
-func (m *MockCharmStore) StoreFromReader(arg0 context.Context, arg1 io.Reader, arg2 string) (store.StoreResult, store.Digest, error) {
+func (m *MockCharmStore) StoreFromReader(arg0 context.Context, arg1 io.Reader, arg2 string) (store.StoreFromReaderResult, store.Digest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StoreFromReader", arg0, arg1, arg2)
-	ret0, _ := ret[0].(store.StoreResult)
+	ret0, _ := ret[0].(store.StoreFromReaderResult)
 	ret1, _ := ret[1].(store.Digest)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -3039,19 +3039,19 @@ type MockCharmStoreStoreFromReaderCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmStoreStoreFromReaderCall) Return(arg0 store.StoreResult, arg1 store.Digest, arg2 error) *MockCharmStoreStoreFromReaderCall {
+func (c *MockCharmStoreStoreFromReaderCall) Return(arg0 store.StoreFromReaderResult, arg1 store.Digest, arg2 error) *MockCharmStoreStoreFromReaderCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStoreStoreFromReaderCall) Do(f func(context.Context, io.Reader, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
+func (c *MockCharmStoreStoreFromReaderCall) Do(f func(context.Context, io.Reader, string) (store.StoreFromReaderResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStoreStoreFromReaderCall) DoAndReturn(f func(context.Context, io.Reader, string) (store.StoreResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
+func (c *MockCharmStoreStoreFromReaderCall) DoAndReturn(f func(context.Context, io.Reader, string) (store.StoreFromReaderResult, store.Digest, error)) *MockCharmStoreStoreFromReaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
