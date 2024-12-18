@@ -660,6 +660,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 const (
 	modelRoutePrefix         = "/model/:modeluuid"
 	charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
+	objectsRoutePrefix       = "/model-:modeluuid/objects/:object"
 )
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
@@ -834,6 +835,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}, "units")
 
+	objectsHTTPHandler := srv.monitoredHandler(&objectsHTTPHandler{
+		ctxt:          httpCtxt,
+		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+	}, "objects")
+
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: systemState.ControllerTag(),
 	}
@@ -975,6 +981,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods:    []string{"PUT"},
 		handler:    modelObjectsCharmsHTTPHandler,
 		authorizer: charmsObjectsAuthorizer,
+	}, {
+		pattern: objectsRoutePrefix,
+		methods: []string{"GET"},
+		handler: objectsHTTPHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {

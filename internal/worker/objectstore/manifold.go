@@ -64,11 +64,12 @@ type IsBootstrapControllerFunc func(dataDir string) bool
 
 // ManifoldConfig defines the configuration for the objectstore manifold.
 type ManifoldConfig struct {
-	AgentName               string
-	TraceName               string
-	ObjectStoreServicesName string
-	LeaseManagerName        string
-	S3ClientName            string
+	AgentName                 string
+	TraceName                 string
+	ObjectStoreServicesName   string
+	LeaseManagerName          string
+	S3ClientName              string
+	ControllerAgentConfigName string
 
 	Clock                      clock.Clock
 	Logger                     logger.Logger
@@ -94,6 +95,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.GetMetadataService == nil {
 		return errors.NotValidf("nil GetMetadataService")
+	}
+	if cfg.ControllerAgentConfigName == "" {
+		return errors.NotValidf("empty ControllerAgentConfigName")
 	}
 	if cfg.IsBootstrapController == nil {
 		return errors.NotValidf("nil IsBootstrapController")
@@ -125,6 +129,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreServicesName,
 			config.LeaseManagerName,
 			config.S3ClientName,
+			config.ControllerAgentConfigName,
 		},
 		Output: output,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -175,7 +180,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			dataDir := a.CurrentConfig().DataDir()
+			agentConfig := a.CurrentConfig()
+			dataDir := agentConfig.DataDir()
 
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:               tracerGetter,
