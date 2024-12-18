@@ -699,6 +699,13 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
 
+	// Ensure we close the charm reader.
+	defer func() {
+		if err := result.Charm.Close(); err != nil {
+			s.logger.Errorf("closing reader: %v", err)
+		}
+	}()
+
 	// We must ensure that the objectstore UUID is valid.
 	if err := result.ObjectStoreUUID.Validate(); err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("invalid object store UUID: %w", err)
@@ -776,6 +783,13 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("resolving uploaded charm: %w", err)
 	}
+
+	// Ensure we close the charm reader.
+	defer func() {
+		if err := result.Charm.Close(); err != nil {
+			s.logger.Errorf("closing reader: %v", err)
+		}
+	}()
 
 	// We must ensure that the objectstore UUID is valid.
 	if err := result.ObjectStoreUUID.Validate(); err != nil {
