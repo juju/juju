@@ -1338,9 +1338,11 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *gc.C) {
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{
-		ArchivePath:     "/tmp/somepath",
-		UniqueName:      "somepath",
-		ObjectStoreUUID: objectStoreUUID,
+		StoreFromReaderResult: store.StoreFromReaderResult{
+			UniqueName:      "somepath",
+			ObjectStoreUUID: objectStoreUUID,
+		},
+		ArchivePath: "/tmp/somepath",
 	}, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
@@ -1510,9 +1512,11 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *gc.C)
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
 	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{
-		ArchivePath:     "/tmp/somepath",
-		UniqueName:      "somepath",
-		ObjectStoreUUID: objectStoreUUID,
+		StoreFromReaderResult: store.StoreFromReaderResult{
+			UniqueName:      "somepath",
+			ObjectStoreUUID: objectStoreUUID,
+		},
+		ArchivePath: "/tmp/somepath",
 	}, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
