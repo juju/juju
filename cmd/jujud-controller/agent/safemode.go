@@ -31,10 +31,8 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/storage/looputil"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -175,24 +173,19 @@ type safeModeMachineAgentFactoryFnType func(names.Tag, bool) (*SafeModeMachineAg
 // SafeModeMachineAgent given a machineId.
 func SafeModeMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	rootDir string,
 ) safeModeMachineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeMachineAgent, error) {
 		return NewSafeModeMachineAgent(
 			agentTag,
 			agentConfWriter,
-			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
 				Logger:        logger,
 			}),
-			looputil.NewLoopDeviceManager(),
 			newDBWorkerFunc,
-			rootDir,
 			isCaasAgent,
 		)
 	}
@@ -202,24 +195,18 @@ func SafeModeMachineAgentFactoryFn(
 func NewSafeModeMachineAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
-	loopDeviceManager looputil.LoopDeviceManager,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	rootDir string,
 	isCaasAgent bool,
 ) (*SafeModeMachineAgent, error) {
 	a := &SafeModeMachineAgent{
 		agentTag:          agentTag,
 		AgentConfigWriter: agentConfWriter,
 		configChangedVal:  voyeur.NewValue(true),
-		bufferedLogger:    bufferedLogger,
 		workersStarted:    make(chan struct{}),
 		dead:              make(chan struct{}),
 		runner:            runner,
-		rootDir:           rootDir,
 		newDBWorkerFunc:   newDBWorkerFunc,
-		loopDeviceManager: loopDeviceManager,
 		isCaasAgent:       isCaasAgent,
 	}
 	return a, nil
@@ -234,15 +221,11 @@ type SafeModeMachineAgent struct {
 	errReason        error
 	agentTag         names.Tag
 	runner           *worker.Runner
-	rootDir          string
-	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
 
 	workersStarted chan struct{}
 
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
-
-	loopDeviceManager looputil.LoopDeviceManager
 
 	isCaasAgent bool
 }
@@ -318,17 +301,11 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 		}
 
 		manifoldsCfg := safemode.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			AgentName:            agentName,
-			Agent:                agent.APIHostPortsSetter{Agent: a},
-			RootDir:              a.rootDir,
-			AgentConfigChanged:   a.configChangedVal,
-			NewDBWorkerFunc:      a.newDBWorkerFunc,
-			LogSource:            a.bufferedLogger.Logs(),
-			Clock:                clock.WallClock,
-			IsCaasConfig:         a.isCaasAgent,
-
-			SetupLogging: agentconf.SetupAgentLogging,
+			Agent:              agent.APIHostPortsSetter{Agent: a},
+			AgentConfigChanged: a.configChangedVal,
+			NewDBWorkerFunc:    a.newDBWorkerFunc,
+			Clock:              clock.WallClock,
+			IsCaasConfig:       a.isCaasAgent,
 		}
 
 		var manifolds dependency.Manifolds
