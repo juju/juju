@@ -6,9 +6,11 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
@@ -22,9 +24,12 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, defaultsProvider service.ModelDefaultsProvider) {
+func RegisterImport(
+	coordinator Coordinator, defaultsProvider service.ModelDefaultsProvider, logger logger.Logger,
+) {
 	coordinator.Add(&importOperation{
 		defaultsProvider: defaultsProvider,
+		logger:           logger,
 	})
 }
 
@@ -42,6 +47,7 @@ type ImportService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
+	logger           logger.Logger
 	service          ImportService
 	defaultsProvider service.ModelDefaultsProvider
 }
@@ -71,6 +77,25 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// wrong. In this case, we should return an error.
 	if len(attrs) == 0 {
 		return errors.NotValidf("model config")
+	}
+
+	// Models imported from older controllers may contain config attributes
+	// which have since been removed from use. We filter these out by removing
+	// any incoming attributes not in the default list.
+	defaults, err := i.defaultsProvider.ModelDefaults(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defaultAttrs := set.NewStrings()
+	for k := range defaults {
+		defaultAttrs.Add(k)
+	}
+
+	for k, v := range attrs {
+		if !defaultAttrs.Contains(k) {
+			i.logger.Debugf("model config attribute %s=%v is removed on import", k, v)
+			delete(attrs, k)
+		}
 	}
 
 	if err := i.service.SetModelConfig(ctx, attrs); err != nil {

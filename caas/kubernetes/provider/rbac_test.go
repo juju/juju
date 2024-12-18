@@ -103,7 +103,6 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenCreate(c *gc.C) {
 func (s *rbacSuite) switchToControllerModel(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey:                  environsbootstrap.ControllerModelName,
-		k8sconstants.OperatorStorageKey: "",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)

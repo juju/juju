@@ -387,7 +387,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	// The namespace will be set to controller-name in newcontrollerStack.
 
 	// do validation on storage class.
-	_, err = k.validateOperatorStorage(ctx)
+	_, err = k.validateControllerWorkloadStorage(ctx)
 	return errors.Trace(err)
 }
 
@@ -417,10 +417,10 @@ func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo 
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) validateOperatorStorage(ctx context.Context) (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[constants.OperatorStorageKey].(string)
+func (k *kubernetesClient) validateControllerWorkloadStorage(ctx context.Context) (string, error) {
+	storageClass, _ := k.Config().AllAttrs()[constants.WorkloadStorageKey].(string)
 	if storageClass == "" {
-		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
+		return "", errors.NewNotValid(nil, "config without workload-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
 	_, err := k.getStorageClass(ctx, storageClass)
 	return storageClass, errors.Trace(err)
@@ -437,7 +437,8 @@ func (k *kubernetesClient) Bootstrap(
 		return nil, errors.NotSupportedf("set base for bootstrapping to kubernetes")
 	}
 
-	storageClass, err := k.validateOperatorStorage(ctx)
+	// Validate workload storage is available to the controller.
+	storageClass, err := k.validateControllerWorkloadStorage(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

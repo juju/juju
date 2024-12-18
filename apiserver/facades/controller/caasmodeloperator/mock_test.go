@@ -78,7 +78,6 @@ func (m *mockModel) UUID() string {
 
 func (m *mockModel) ModelConfig(_ context.Context) (*config.Config, error) {
 	attrs := coretesting.FakeConfig()
-	attrs["operator-storage"] = "k8s-storage"
 	attrs["agent-version"] = "2.6-beta3"
 	return config.New(config.UseDefaults, attrs)
 }

@@ -815,7 +815,6 @@ func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *
 
 func (s *CAASApplicationProvisionerSuite) fakeModelConfig() (*envconfig.Config, error) {
 	attrs := coretesting.FakeConfig()
-	attrs["operator-storage"] = "k8s-storage"
 	attrs["agent-version"] = "2.6-beta3.666"
 	return envconfig.New(envconfig.UseDefaults, attrs)
 }

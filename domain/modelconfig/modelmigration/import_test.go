@@ -12,7 +12,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -38,7 +40,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, s.modelDefaultsProvider)
+	RegisterImport(s.coordinator, s.modelDefaultsProvider, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
@@ -47,7 +49,7 @@ func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
 	// Empty model.
 	model := description.NewModel(description.ModelArgs{})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -56,26 +58,37 @@ func (s *importSuite) TestModelConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config, err := config.New(config.NoDefaults, map[string]any{
-		"name": "foo",
-		"uuid": "a677bdfd-3c96-46b2-912f-38e25faceaf7",
-		"type": "sometype",
+		"name":             "foo",
+		"uuid":             "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":             "sometype",
+		"workload-storage": "mystorage",
+		"operator-storage": "otherstorage",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	importedCOnfig := map[string]any{
+		"logging-config":   "<root>=INFO",
+		"workload-storage": "mystorage",
+	}
 
-	s.service.EXPECT().SetModelConfig(gomock.Any(), config.AllAttrs()).Return(nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), importedCOnfig).Return(nil)
+	s.modelDefaultsProvider.EXPECT().ModelDefaults(gomock.Any()).Return(modeldefaults.Defaults{
+		"logging-config":   modeldefaults.DefaultAttributeValue{},
+		"workload-storage": modeldefaults.DefaultAttributeValue{},
+	}, nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: config.AllAttrs(),
 	})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err = op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *importSuite) newImportOperation() *importOperation {
+func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 	return &importOperation{
 		service:          s.service,
 		defaultsProvider: s.modelDefaultsProvider,
+		logger:           loggertesting.WrapCheckLog(c),
 	}
 }
