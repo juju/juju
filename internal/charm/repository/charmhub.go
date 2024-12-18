@@ -70,7 +70,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, ch
 		return corecharm.ResolvedData{}, errors.Trace(err)
 	}
 
-	essMeta, err := transformRefreshResult(resultURL.Name, resp)
+	essMeta, err := EssentialMetadataFromResponse(resultURL.Name, resp)
 	if err != nil {
 		return corecharm.ResolvedData{}, errors.Trace(err)
 	}
@@ -109,7 +109,7 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
 	}
 
-	essMeta, err := transformRefreshResult(resultURL.Name, resp)
+	essMeta, err := EssentialMetadataFromResponse(resultURL.Name, resp)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
@@ -357,63 +357,6 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Contex
 		refreshResponse: res,
 		origin:          origin,
 		bases:           bases,
-	}, nil
-}
-
-func transformRefreshResult(charmName string, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
-	// We only care about charm metadata.
-	if refreshResult.Entity.Type != transport.CharmType {
-		return corecharm.EssentialMetadata{}, nil
-	}
-
-	entity := refreshResult.Entity
-
-	if entity.MetadataYAML == "" {
-		return corecharm.EssentialMetadata{}, errors.NotValidf("charmhub refresh response for %q does not include the contents of metadata.yaml", charmName)
-	}
-	chMeta, err := charm.ReadMeta(strings.NewReader(entity.MetadataYAML))
-	if err != nil {
-		return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing metadata.yaml for %q", charmName)
-	}
-
-	configYAML := entity.ConfigYAML
-	var chConfig *charm.Config
-	// NOTE: Charmhub returns a "{}\n" when no config.yaml exists for
-	// the charm, e.g. postgreql. However, this will fail the charm
-	// config validation which happens in ReadConfig. Valid config
-	// are nil and "Options: {}"
-	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
-		chConfig = charm.NewConfig()
-	} else {
-		chConfig, err = charm.ReadConfig(strings.NewReader(configYAML))
-		if err != nil {
-			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing config.yaml for %q", charmName)
-		}
-	}
-
-	chManifest := new(charm.Manifest)
-	for _, base := range entity.Bases {
-		baseCh, err := charm.ParseChannelNormalize(base.Channel)
-		if err != nil {
-			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing base channel for %q", charmName)
-		}
-
-		chManifest.Bases = append(chManifest.Bases, charm.Base{
-			Name:          base.Name,
-			Channel:       baseCh,
-			Architectures: []string{base.Architecture},
-		})
-	}
-
-	return corecharm.EssentialMetadata{
-		Meta:     chMeta,
-		Config:   chConfig,
-		Manifest: chManifest,
-		DownloadInfo: corecharm.DownloadInfo{
-			CharmhubIdentifier: entity.ID,
-			DownloadURL:        entity.Download.URL,
-			DownloadSize:       int64(entity.Download.Size),
-		},
 	}, nil
 }
 
@@ -768,6 +711,65 @@ func (c *CharmHubRepository) resourceInfo(ctx context.Context, curl *charm.URL, 
 		}
 	}
 	return charmresource.Resource{}, errors.NotFoundf("charm resource %q at revision %d", name, revision)
+}
+
+// EssentialMetadataFromResponse extracts the essential metadata from the
+// provided charmhub refresh response.
+func EssentialMetadataFromResponse(charmName string, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
+	// We only care about charm metadata.
+	if refreshResult.Entity.Type != transport.CharmType {
+		return corecharm.EssentialMetadata{}, nil
+	}
+
+	entity := refreshResult.Entity
+
+	if entity.MetadataYAML == "" {
+		return corecharm.EssentialMetadata{}, errors.NotValidf("charmhub refresh response for %q does not include the contents of metadata.yaml", charmName)
+	}
+	chMeta, err := charm.ReadMeta(strings.NewReader(entity.MetadataYAML))
+	if err != nil {
+		return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing metadata.yaml for %q", charmName)
+	}
+
+	configYAML := entity.ConfigYAML
+	var chConfig *charm.Config
+	// NOTE: Charmhub returns a "{}\n" when no config.yaml exists for
+	// the charm, e.g. postgreql. However, this will fail the charm
+	// config validation which happens in ReadConfig. Valid config
+	// are nil and "Options: {}"
+	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
+		chConfig = charm.NewConfig()
+	} else {
+		chConfig, err = charm.ReadConfig(strings.NewReader(configYAML))
+		if err != nil {
+			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing config.yaml for %q", charmName)
+		}
+	}
+
+	chManifest := new(charm.Manifest)
+	for _, base := range entity.Bases {
+		baseCh, err := charm.ParseChannelNormalize(base.Channel)
+		if err != nil {
+			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing base channel for %q", charmName)
+		}
+
+		chManifest.Bases = append(chManifest.Bases, charm.Base{
+			Name:          base.Name,
+			Channel:       baseCh,
+			Architectures: []string{base.Architecture},
+		})
+	}
+
+	return corecharm.EssentialMetadata{
+		Meta:     chMeta,
+		Config:   chConfig,
+		Manifest: chManifest,
+		DownloadInfo: corecharm.DownloadInfo{
+			CharmhubIdentifier: entity.ID,
+			DownloadURL:        entity.Download.URL,
+			DownloadSize:       int64(entity.Download.Size),
+		},
+	}, nil
 }
 
 func configsByID(curl *charm.URL, origin corecharm.Origin, name string, revision int) ([]charmhub.RefreshConfig, error) {

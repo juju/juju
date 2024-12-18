@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
-	"github.com/juju/juju/api/base"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/cloud"
@@ -58,7 +57,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/charmrevision"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/juju/testing"
@@ -230,10 +228,6 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 
 func (s *MachineLegacySuite) TestHostedModelWorkers(c *gc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
-
-	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
-		return noopRevisionUpdater{}, nil
-	})
 
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
@@ -633,10 +627,6 @@ func (s *MachineLegacySuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 
 func (s *MachineLegacySuite) TestControllerModelWorkers(c *gc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
-
-	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
-		return noopRevisionUpdater{}, nil
-	})
 
 	uuid := s.ControllerModelUUID()
 
