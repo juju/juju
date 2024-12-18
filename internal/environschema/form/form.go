@@ -243,7 +243,7 @@ func (f IOFiller) prompt(attr NamedAttr, checker schema.Checker, def string) (st
 
 func readLine(w io.Writer, r io.Reader, secret bool) (string, error) {
 	if f, ok := r.(*os.File); ok && secret && terminal.IsTerminal(int(f.Fd())) {
-		defer w.Write([]byte{'\n'})
+		defer func() { _, _ = w.Write([]byte{'\n'}) }()
 		line, err := terminal.ReadPassword(int(f.Fd()))
 		return string(line), err
 	}
