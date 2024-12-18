@@ -24,9 +24,9 @@ const (
 	// not found.
 	ResourceNotFound = errors.ConstError("resource not found")
 
-	// UnknownRetrievedByType describes an error where the retrieved by type is
+	// RetrievedByTypeNotValid describes an error where the retrieved by type is
 	// neither user, unit nor application.
-	UnknownRetrievedByType = errors.ConstError("unknown retrieved by type")
+	RetrievedByTypeNotValid = errors.ConstError("retrieved by type not valid")
 
 	// ResourceNameNotValid describes an error where the resource name is not
 	// valid, usually because it's empty.
@@ -44,8 +44,17 @@ const (
 	// valid.
 	ResourceStateNotValid = errors.ConstError("resource state not valid")
 
-	// InvalidCleanUpState describes an error where the application state is
+	// CleanUpStateNotValid describes an error where the application state is
 	// during cleanup. It means that application dependencies are deleted in
 	// an incorrect order.
-	InvalidCleanUpState = errors.ConstError("invalid cleanup state")
+	CleanUpStateNotValid = errors.ConstError("cleanup state not valid")
+
+	// StoredResourceNotFound describes an error where the stored resource
+	// cannot be found in the relevant resource persistence layer for its
+	// resource type.
+	StoredResourceNotFound = errors.ConstError("stored resource not found")
+
+	// ResourceAlreadyStored describes an errors where the resource has already
+	// been stored.
+	ResourceAlreadyStored = errors.ConstError("resource already found in storage")
 )

@@ -4,7 +4,9 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,8 +16,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
-	resourcestesting "github.com/juju/juju/core/resource/testing"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreresourcestore "github.com/juju/juju/core/resource/store"
+	storetesting "github.com/juju/juju/core/resource/store/testing"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -27,6 +34,7 @@ type resourceServiceSuite struct {
 
 	state               *MockState
 	resourceStoreGetter *MockResourceStoreGetter
+	resourceStore       *MockResourceStore
 
 	service *Service
 }
@@ -111,7 +119,7 @@ func (s *resourceServiceSuite) TestDeleteUnitResourcesUnexpectedError(c *gc.C) {
 func (s *resourceServiceSuite) TestGetApplicationResourceID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	retID := resourcestesting.GenResourceUUID(c)
+	retID := resourcetesting.GenResourceUUID(c)
 	args := resource.GetApplicationResourceIDArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		Name:          "test-resource",
@@ -171,7 +179,7 @@ func (s *resourceServiceSuite) TestListResourcesBadID(c *gc.C) {
 func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := resourcestesting.GenResourceUUID(c)
+	id := resourcetesting.GenResourceUUID(c)
 	expectedRes := resource.Resource{
 		RetrievedBy:     "admin",
 		RetrievedByType: resource.Application,
@@ -191,147 +199,387 @@ func (s *resourceServiceSuite) TestGetResourceBadID(c *gc.C) {
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
-func (s *resourceServiceSuite) TestSetResource(c *gc.C) {
+func (s *resourceServiceSuite) TestSetApplicationResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().SetApplicationResource(gomock.Any(), resourceUUID)
+
+	err := s.service.SetApplicationResource(
+		context.Background(),
+		resourceUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) TestSetApplicationResourceBadResourceUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetApplicationResource(context.Background(), "bad-uuid")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeFile
+
+	reader := bytes.NewBufferString("spamspamspam")
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
-	args := resource.SetResourceArgs{
-		ApplicationID:  applicationtesting.GenApplicationUUID(c),
-		SuppliedBy:     "admin",
-		SuppliedByType: resource.User,
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:        "my-resource",
-				Type:        charmresource.TypeFile,
-				Path:        "filename.tgz",
-				Description: "One line that is useful when operators need to push it.",
+	size := int64(42)
+
+	retrievedBy := "bob"
+	retrievedByType := resource.User
+
+	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
+		resource.Resource{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Type: resourceType,
+				},
+				Fingerprint: fp,
+				Size:        size,
 			},
-			Origin:      charmresource.OriginStore,
-			Revision:    1,
-			Fingerprint: fp,
-			Size:        1,
-		},
-		Reader:    nil,
-		Increment: false,
-	}
-	expectedRes := resource.Resource{
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.User,
-	}
-	s.state.EXPECT().SetResource(gomock.Any(), args).Return(expectedRes, nil)
+		}, nil,
+	)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		resourceUUID.String(),
+		reader,
+		size,
+		coreresourcestore.NewFingerprint(fp.Fingerprint),
+	).Return(storageID, nil)
+	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
+		ResourceUUID:                  resourceUUID,
+		StorageID:                     storageID,
+		RetrievedBy:                   retrievedBy,
+		RetrievedByType:               retrievedByType,
+		ResourceType:                  resourceType,
+		IncrementCharmModifiedVersion: false,
+	})
 
-	obtainedRes, err := s.service.SetResource(context.Background(), args)
+	err = s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    resourceUUID,
+			Reader:          reader,
+			RetrievedBy:     retrievedBy,
+			RetrievedByType: retrievedByType,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedRes, gc.DeepEquals, expectedRes)
 }
 
-func (s *resourceServiceSuite) TestSetResourceBadID(c *gc.C) {
+func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	args := resource.SetResourceArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-	}
-	_, err := s.service.SetResource(context.Background(), args)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-}
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeFile
 
-func (s *resourceServiceSuite) TestSetResourceBadSuppliedBy(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	reader := bytes.NewBufferString("spamspamspam")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(42)
 
-	args := resource.SetResourceArgs{
-		ApplicationID:  applicationtesting.GenApplicationUUID(c),
-		SuppliedByType: resource.Application,
-	}
-	_, err := s.service.SetResource(context.Background(), args)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-}
+	retrievedBy := "bob"
+	retrievedByType := resource.User
 
-func (s *resourceServiceSuite) TestSetResourceBadResource(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
+		resource.Resource{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Type: resourceType,
+				},
+				Fingerprint: fp,
+				Size:        size,
+			},
+		}, nil,
+	)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		resourceUUID.String(),
+		reader,
+		size,
+		coreresourcestore.NewFingerprint(fp.Fingerprint),
+	).Return(storageID, nil)
 
-	args := resource.SetResourceArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		Resource: charmresource.Resource{
-			Meta:   charmresource.Meta{},
-			Origin: charmresource.OriginStore,
+	// Return an error from recording the stored resource.
+	expectedErr := errors.New("recording failed with massive error")
+	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
+		ResourceUUID:                  resourceUUID,
+		StorageID:                     storageID,
+		RetrievedBy:                   retrievedBy,
+		RetrievedByType:               retrievedByType,
+		ResourceType:                  resourceType,
+		IncrementCharmModifiedVersion: false,
+	}).Return(expectedErr)
+
+	// Expect the removal of the resource.
+	s.resourceStore.EXPECT().Remove(gomock.Any(), resourceUUID.String())
+
+	err = s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    resourceUUID,
+			Reader:          reader,
+			RetrievedBy:     retrievedBy,
+			RetrievedByType: retrievedByType,
 		},
-		Reader:    nil,
-		Increment: false,
-	}
+	)
+	c.Assert(err, jc.ErrorIs, expectedErr)
+}
 
-	_, err := s.service.SetResource(context.Background(), args)
+func (s *resourceServiceSuite) TestStoreResourceBadUUID(c *gc.C) {
+	err := s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: "bad-uuid",
+		},
+	)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceNilReader(c *gc.C) {
+	err := s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourcetesting.GenResourceUUID(c),
+			Reader:       nil,
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "cannot have nil reader")
+}
+
+func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *gc.C) {
+	err := s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    resourcetesting.GenResourceUUID(c),
+			Reader:          bytes.NewBufferString("spam"),
+			RetrievedBy:     "bob",
+			RetrievedByType: resource.Unknown,
+		},
+	)
+	c.Assert(err, jc.ErrorIs, resourceerrors.RetrievedByTypeNotValid)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeFile
+
+	reader := bytes.NewBufferString("spamspamspam")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(42)
+
+	retrievedBy := "bob"
+	retrievedByType := resource.User
+
+	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
+		resource.Resource{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Type: resourceType,
+				},
+				Fingerprint: fp,
+				Size:        size,
+			},
+		}, nil,
+	)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		resourceUUID.String(),
+		reader,
+		size,
+		coreresourcestore.NewFingerprint(fp.Fingerprint),
+	).Return(storageID, nil)
+	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
+		ResourceUUID:                  resourceUUID,
+		StorageID:                     storageID,
+		RetrievedBy:                   retrievedBy,
+		RetrievedByType:               retrievedByType,
+		ResourceType:                  resourceType,
+		IncrementCharmModifiedVersion: true,
+	})
+
+	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    resourceUUID,
+			Reader:          reader,
+			RetrievedBy:     retrievedBy,
+			RetrievedByType: retrievedByType,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadUUID(c *gc.C) {
+	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: "bad-uuid",
+		},
+	)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionNilReader(c *gc.C) {
+	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourcetesting.GenResourceUUID(c),
+			Reader:       nil,
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "cannot have nil reader")
+}
+
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadRetrievedBy(c *gc.C) {
+	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    resourcetesting.GenResourceUUID(c),
+			Reader:          bytes.NewBufferString("spam"),
+			RetrievedBy:     "bob",
+			RetrievedByType: resource.Unknown,
+		},
+	)
+	c.Assert(err, jc.ErrorIs, resourceerrors.RetrievedByTypeNotValid)
 }
 
 func (s *resourceServiceSuite) TestSetUnitResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	resID := resourcestesting.GenResourceUUID(c)
-	args := resource.SetUnitResourceArgs{
-		ResourceUUID:    resID,
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.User,
-		UnitUUID:        unittesting.GenUnitUUID(c),
-	}
-	expectedRet := resource.SetUnitResourceResult{
-		UUID: resourcestesting.GenResourceUUID(c),
-	}
-	s.state.EXPECT().SetUnitResource(gomock.Any(), args).Return(expectedRet, nil)
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	unitUUID := unittesting.GenUnitUUID(c)
 
-	obtainedRet, err := s.service.SetUnitResource(context.Background(), args)
+	s.state.EXPECT().SetUnitResource(gomock.Any(), resourceUUID, unitUUID).Return(nil)
+
+	err := s.service.SetUnitResource(context.Background(), resourceUUID, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedRet, gc.DeepEquals, expectedRet)
 }
 
-func (s *resourceServiceSuite) TestOpenApplicationResource(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	id := resourcestesting.GenResourceUUID(c)
-	expectedRes := resource.Resource{
-		UUID:          id,
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-	}
-	s.state.EXPECT().OpenApplicationResource(gomock.Any(), id).Return(expectedRes, nil)
-
-	obtainedRes, _, err := s.service.OpenApplicationResource(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedRes, gc.DeepEquals, obtainedRes)
-}
-
-func (s *resourceServiceSuite) TestOpenApplicationResourceBadID(c *gc.C) {
+func (s *resourceServiceSuite) TestSetUnitResourceBadResourceUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.OpenApplicationResource(context.Background(), "id")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	err := s.service.SetUnitResource(context.Background(), "bad-uuid", unitUUID)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *resourceServiceSuite) TestOpenUnitResource(c *gc.C) {
+func (s *resourceServiceSuite) TestSetUnitResourceBadUnitUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	resourceID := resourcestesting.GenResourceUUID(c)
-	unitID := unittesting.GenUnitUUID(c)
-	expectedRes := resource.Resource{
-		UUID:          resourceID,
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-	}
-	s.state.EXPECT().OpenUnitResource(gomock.Any(), resourceID, unitID).Return(expectedRes, nil)
 
-	obtainedRes, _, err := s.service.OpenUnitResource(context.Background(), resourceID, unitID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedRes, gc.DeepEquals, obtainedRes)
-}
+	resourceUUID := resourcetesting.GenResourceUUID(c)
 
-func (s *resourceServiceSuite) TestOpenUnitResourceBadUnitID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	resourceID := resourcestesting.GenResourceUUID(c)
-
-	_, _, err := s.service.OpenUnitResource(context.Background(), resourceID, "")
+	err := s.service.SetUnitResource(context.Background(), resourceUUID, "bad-uuid")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *resourceServiceSuite) TestOpenUnitResourceBadResourceID(c *gc.C) {
+func (s *resourceServiceSuite) TestOpenResource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	id := resourcetesting.GenResourceUUID(c)
+	reader := io.NopCloser(bytes.NewBufferString("spam"))
+	resourceType := charmresource.TypeFile
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(42)
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Type: resourceType,
+			},
+			Fingerprint: fp,
+			Size:        size,
+		},
+		UUID: id,
+	}
+
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Get(
+		gomock.Any(),
+		id.String(),
+	).Return(reader, size, nil)
+
+	obtainedRes, obtainedReader, err := s.service.OpenResource(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedRes, gc.DeepEquals, res)
+	c.Assert(obtainedReader, gc.DeepEquals, reader)
+}
+
+func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	id := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeFile
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(42)
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Type: resourceType,
+			},
+			Fingerprint: fp,
+			Size:        size,
+		},
+	}
+
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Get(
+		gomock.Any(),
+		id.String(),
+	).Return(nil, 0, objectstoreerrors.ErrNotFound)
+
+	_, _, err = s.service.OpenResource(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceNotFound)
+}
+
+func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	id := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeContainerImage
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(42)
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Type: resourceType,
+			},
+			Fingerprint: fp,
+			Size:        size,
+		},
+	}
+
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Get(
+		gomock.Any(),
+		id.String(),
+	).Return(nil, 0, containerimageresourcestoreerrors.ContainerImageMetadataNotFound)
+
+	_, _, err = s.service.OpenResource(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceNotFound)
+}
+
+func (s *resourceServiceSuite) TestOpenResourceBadID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.OpenUnitResource(context.Background(), "", "")
+	_, _, err := s.service.OpenResource(context.Background(), "id")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -368,6 +616,7 @@ func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.resourceStoreGetter = NewMockResourceStoreGetter(ctrl)
+	s.resourceStore = NewMockResourceStore(ctrl)
 
 	s.service = NewService(s.state, s.resourceStoreGetter, loggertesting.WrapCheckLog(c))
 
