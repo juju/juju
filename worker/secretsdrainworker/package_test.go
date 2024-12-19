@@ -12,6 +12,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsdrainworker_mock.go github.com/juju/juju/worker/secretsdrainworker Logger,SecretsDrainFacade
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secrets_mock.go github.com/juju/juju/secrets BackendsClient
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsprovider_mock.go github.com/juju/juju/secrets/provider SecretsBackend
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership TrackerWorker
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

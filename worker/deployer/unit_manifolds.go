@@ -298,6 +298,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		secretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
 			Logger:                config.LoggingContext.GetLogger("juju.worker.secretsdrainworker"),
+			LeadershipTrackerName: leadershipTrackerName,
 			NewSecretsDrainFacade: secretsdrainworker.NewSecretsDrainFacadeForAgent,
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewSecretBackendsClientForAgent,

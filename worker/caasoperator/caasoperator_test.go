@@ -55,7 +55,7 @@ type WorkerSuite struct {
 	charmDownloader       fakeDownloader
 	charmSHA256           string
 	uniterParams          *uniter.UniterParams
-	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
+	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
 	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
 	resourceFacadeFunc    func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error)
 	payloadFacadeFunc     func() *apiuniter.PayloadFacadeClient
@@ -104,7 +104,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.uniterParams = &uniter.UniterParams{
 		Logger: loggo.GetLogger("uniter"),
 	}
-	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.TrackerWorker {
+	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.Tracker {
 		return &runnertesting.FakeTracker{}
 	}
 	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.State {

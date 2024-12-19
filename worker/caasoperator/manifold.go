@@ -185,7 +185,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			newPayloadFacadeFunc := func() *apiuniter.PayloadFacadeClient {
 				return apiuniter.NewPayloadFacadeClient(apiCaller)
 			}
-			leadershipTrackerFunc := func(unitTag names.UnitTag) coreleadership.TrackerWorker {
+			leadershipTrackerFunc := func(unitTag names.UnitTag) coreleadership.Tracker {
 				claimer := apileadership.NewClient(apiCaller)
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}

@@ -122,7 +122,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	var target interface{}
 	err := s.manifold.Output(&leadership.Tracker{}, &target)
 	c.Check(target, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *leadership.Tracker output; got *interface {}")
+	c.Check(err.Error(), gc.Equals, "expected *leadership.[Change]Tracker output; got *interface {}")
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
@@ -134,7 +134,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	source := &leadership.Tracker{}
-	var target coreleadership.TrackerWorker
+	var target coreleadership.Tracker
 	err := s.manifold.Output(source, &target)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(target, gc.Equals, source)

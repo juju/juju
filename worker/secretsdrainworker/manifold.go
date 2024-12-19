@@ -4,6 +4,8 @@
 package secretsdrainworker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -12,13 +14,15 @@ import (
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/usersecretsdrain"
+	"github.com/juju/juju/core/leadership"
 	jujusecrets "github.com/juju/juju/secrets"
 )
 
 // ManifoldConfig describes the resources used by the secretsdrainworker worker.
 type ManifoldConfig struct {
-	APICallerName string
-	Logger        Logger
+	APICallerName         string
+	LeadershipTrackerName string
+	Logger                Logger
 
 	NewSecretsDrainFacade func(base.APICaller) SecretsDrainFacade
 	NewWorker             func(Config) (worker.Worker, error)
@@ -49,11 +53,16 @@ func NewUserSecretBackendsClient(caller base.APICaller) (jujusecrets.BackendsCli
 
 // Manifold returns a Manifold that encapsulates the secretsdrainworker worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{
+		config.APICallerName,
+	}
+	// LeadershipTrackerName is optional.
+	if config.LeadershipTrackerName != "" {
+		inputs = append(inputs, config.LeadershipTrackerName)
+	}
 	return dependency.Manifold{
-		Inputs: []string{
-			config.APICallerName,
-		},
-		Start: config.start,
+		Inputs: inputs,
+		Start:  config.start,
 	}
 }
 
@@ -88,15 +97,36 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.Trace(err)
 	}
 
+	// Drain worker used for user secrets and charm secrets.
+	// Only the charm secrets worker needs the leadership tracker.
+	var leadershipTracker leadership.ChangeTracker
+	if cfg.LeadershipTrackerName == "" {
+		leadershipTracker = passThroughLeadershipTracker{}
+	} else {
+		if err := context.Get(cfg.LeadershipTrackerName, &leadershipTracker); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	leadershipTrackerFunc := func() leadership.ChangeTracker {
+		return leadershipTracker
+	}
+
 	worker, err := cfg.NewWorker(Config{
 		SecretsDrainFacade: cfg.NewSecretsDrainFacade(apiCaller),
 		Logger:             cfg.Logger,
 		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
 			return cfg.NewBackendsClient(apiCaller)
 		},
+		LeadershipTrackerFunc: leadershipTrackerFunc,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return worker, nil
+}
+
+type passThroughLeadershipTracker struct{}
+
+func (passThroughLeadershipTracker) WithoutLeadershipChange(ctx context.Context, fn func(context.Context) error) error {
+	return fn(ctx)
 }

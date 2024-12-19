@@ -555,7 +555,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		UniterFacade: ctx.api,
 		UnitTag:      tag,
 		ModelType:    model.IAAS,
-		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {
+		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.Tracker {
 			return ctx.leaderTracker
 		},
 		PayloadFacade:        ctx.payloads,

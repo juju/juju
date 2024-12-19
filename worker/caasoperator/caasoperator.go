@@ -130,7 +130,7 @@ type Config struct {
 	VersionSetter VersionSetter
 
 	// LeadershipTrackerFunc is a function for getting a leadership tracker worker.
-	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
+	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
 
 	// UniterFacadeFunc is a function for making a uniter facade.
 	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.State

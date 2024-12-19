@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
@@ -91,7 +90,6 @@ func (c *ContextStorage) Location() string {
 
 type FakeTracker struct {
 	leadership.Tracker
-	worker.Worker
 
 	AllowClaimLeader bool
 }

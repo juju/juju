@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/leadership"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/secretsdrainworker/mocks"
@@ -33,8 +34,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) validConfig() secretsdrainworker.ManifoldConfig {
 	return secretsdrainworker.ManifoldConfig{
-		APICallerName: "api-caller",
-		Logger:        loggo.GetLogger("test"),
+		APICallerName:         "api-caller",
+		LeadershipTrackerName: "leadership-tracker",
+		Logger:                loggo.GetLogger("test"),
 		NewWorker: func(config secretsdrainworker.Config) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -100,6 +102,43 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		mc.AddExpr(`_.Facade`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.SecretsBackendGetter`, gc.NotNil)
+		mc.AddExpr(`_.LeadershipTrackerFunc`, gc.NotNil)
+		c.Check(config, mc, secretsdrainworker.Config{SecretsDrainFacade: facade})
+		return nil, nil
+	}
+	manifold := secretsdrainworker.Manifold(s.config)
+	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller":         struct{ base.APICaller }{&mockAPICaller{}},
+		"leadership-tracker": struct{ leadership.TrackerWorker }{&mockLeadershipTracker{}},
+	}))
+	c.Assert(w, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *ManifoldSuite) TestStartNoLeadershipTracker(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade := mocks.NewMockSecretsDrainFacade(ctrl)
+	s.config.NewSecretsDrainFacade = func(base.APICaller) secretsdrainworker.SecretsDrainFacade {
+		return facade
+	}
+	s.config.LeadershipTrackerName = ""
+
+	backendClients := mocks.NewMockBackendsClient(ctrl)
+	s.config.NewBackendsClient = func(base.APICaller) (jujusecrets.BackendsClient, error) {
+		return backendClients, nil
+	}
+
+	called := false
+	s.config.NewWorker = func(config secretsdrainworker.Config) (worker.Worker, error) {
+		called = true
+		mc := jc.NewMultiChecker()
+		mc.AddExpr(`_.Facade`, gc.NotNil)
+		mc.AddExpr(`_.Logger`, gc.NotNil)
+		mc.AddExpr(`_.SecretsBackendGetter`, gc.NotNil)
+		mc.AddExpr(`_.LeadershipTrackerFunc`, gc.NotNil)
 		c.Check(config, mc, secretsdrainworker.Config{SecretsDrainFacade: facade})
 		return nil, nil
 	}
@@ -118,4 +157,8 @@ type mockAPICaller struct {
 
 func (*mockAPICaller) BestFacadeVersion(facade string) int {
 	return 1
+}
+
+type mockLeadershipTracker struct {
+	leadership.TrackerWorker
 }
