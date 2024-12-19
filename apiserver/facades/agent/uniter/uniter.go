@@ -78,10 +78,15 @@ type UniterAPI struct {
 	cloudSpecer     cloudspec.CloudSpecer
 }
 
-// UniterAPIv18 Implements version 18 of the uniter API, which includes methods
+// UniterAPIv18 implements version 18 of the uniter API, which includes methods
 // ModelUUID and OpenedApplicationPortRangesByEndpoint that were removed from
 // later versions.
 type UniterAPIv18 struct {
+	UniterAPIv19
+}
+
+// UniterAPIv19 implements version 19 of the uniter API.
+type UniterAPIv19 struct {
 	UniterAPI
 }
 
@@ -839,13 +844,42 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 
 // Relation returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults, error) {
+// v19 returns v1 RelationResults.
+func (u *UniterAPIv19) Relation(args params.RelationUnits) (params.RelationResults, error) {
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationUnits)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.RelationResults{}, err
+	}
+	for i, rel := range args.RelationUnits {
+		relParams, err := u.getOneRelation(canAccess, rel.Relation, rel.Unit)
+		if err == nil {
+			result.Results[i] = params.RelationResult{
+				Error:            relParams.Error,
+				Life:             relParams.Life,
+				Suspended:        relParams.Suspended,
+				Id:               relParams.Id,
+				Key:              relParams.Key,
+				Endpoint:         relParams.Endpoint,
+				OtherApplication: relParams.OtherApplication.ApplicationName,
+			}
+		}
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+// Relation returns information about all given relation/unit pairs,
+// including their id, key and the local endpoint.
+func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResultsV2, error) {
+	result := params.RelationResultsV2{
+		Results: make([]params.RelationResultV2, len(args.RelationUnits)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.RelationResultsV2{}, err
 	}
 	for i, rel := range args.RelationUnits {
 		relParams, err := u.getOneRelation(canAccess, rel.Relation, rel.Unit)
@@ -967,10 +1001,35 @@ func (u *UniterAPI) LogActionsMessages(args params.ActionMessageParams) (params.
 
 // RelationById returns information about all given relations,
 // specified by their ids, including their key and the local
-// endpoint.
-func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResults, error) {
+// endpoint. v19 returns v1 RelationResults.
+func (u *UniterAPIv19) RelationById(args params.RelationIds) (params.RelationResults, error) {
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationIds)),
+	}
+	for i, relId := range args.RelationIds {
+		relParams, err := u.getOneRelationById(relId)
+		if err == nil {
+			result.Results[i] = params.RelationResult{
+				Error:            relParams.Error,
+				Life:             relParams.Life,
+				Suspended:        relParams.Suspended,
+				Id:               relParams.Id,
+				Key:              relParams.Key,
+				Endpoint:         relParams.Endpoint,
+				OtherApplication: relParams.OtherApplication.ApplicationName,
+			}
+		}
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+// RelationById returns information about all given relations,
+// specified by their ids, including their key and the local
+// endpoint.
+func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResultsV2, error) {
+	result := params.RelationResultsV2{
+		Results: make([]params.RelationResultV2, len(args.RelationIds)),
 	}
 	for i, relId := range args.RelationIds {
 		relParams, err := u.getOneRelationById(relId)
@@ -1601,8 +1660,8 @@ func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, un
 	return rel.Unit(unit)
 }
 
-func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error) {
-	nothing := params.RelationResult{}
+func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResultV2, error) {
+	nothing := params.RelationResultV2{}
 	rel, err := u.st.Relation(relId)
 	if errors.IsNotFound(err) {
 		return nothing, apiservererrors.ErrPerm
@@ -1661,8 +1720,8 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string,
 	return rel, unit, err
 }
 
-func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName string) (params.RelationResult, error) {
-	nothing := params.RelationResult{}
+func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName string) (params.RelationResultV2, error) {
+	nothing := params.RelationResultV2{}
 	ep, err := rel.Endpoint(applicationName)
 	if err != nil {
 		// An error here means the unit's application is not part of the
@@ -1677,7 +1736,18 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName s
 	for _, otherEp := range otherEndpoints {
 		otherAppName = otherEp.ApplicationName
 	}
-	return params.RelationResult{
+	otherApplication := params.RelatedApplicationDetails{
+		ApplicationName: otherAppName,
+		ModelUUID:       u.m.UUID(),
+	}
+	remoteApp, isCMR, err := rel.RemoteApplication()
+	if err != nil {
+		return nothing, err
+	}
+	if isCMR {
+		otherApplication.ModelUUID = remoteApp.SourceModel().Id()
+	}
+	return params.RelationResultV2{
 		Id:        rel.Id(),
 		Key:       rel.String(),
 		Life:      life.Value(rel.Life().String()),
@@ -1686,12 +1756,12 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName s
 			ApplicationName: ep.ApplicationName,
 			Relation:        params.NewCharmRelation(ep.Relation),
 		},
-		OtherApplication: otherAppName,
+		OtherApplication: otherApplication,
 	}, nil
 }
 
-func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
-	nothing := params.RelationResult{}
+func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResultV2, error) {
+	nothing := params.RelationResultV2{}
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nothing, apiservererrors.ErrPerm

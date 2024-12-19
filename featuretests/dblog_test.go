@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/addons"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -122,7 +121,6 @@ func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) 
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		aCfg,
 		logger,
-		addons.DefaultIntrospectionSocketName,
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)

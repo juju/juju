@@ -290,8 +290,14 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
-		instanceTypeName := attrValues[constraints.InstanceType].(string)
-		arch := attrValues[constraints.Arch].(string)
+		instanceTypeName, ok := attrValues[constraints.InstanceType].(string)
+		if !ok {
+			return nil
+		}
+		arch, ok := attrValues[constraints.Arch].(string)
+		if !ok {
+			return nil
+		}
 		for _, itype := range instanceTypes {
 			if itype.Name != instanceTypeName {
 				continue
@@ -743,6 +749,23 @@ func (e *environ) StartInstance(
 	inst = &sdkInstance{
 		e: e,
 		i: instResp.Instances[0],
+	}
+	// In the case the allocate-public-ip constraint is set to false, we
+	// need to dissociate the public IP address from the instance.
+	allocatePublicIP := args.Constraints.AllocatePublicIP
+	if allocatePublicIP != nil && !*allocatePublicIP {
+		// We can safely dissociate the public IP address from the
+		// first (primary) network interface of the instance, because
+		// (from the AWS docs):
+		// This option can be enabled for any network interface but will only apply to the
+		// primary network interface (eth0).
+		_, err := e.ec2Client.ModifyNetworkInterfaceAttribute(ctx, &ec2.ModifyNetworkInterfaceAttributeInput{
+			NetworkInterfaceId:       inst.i.NetworkInterfaces[0].NetworkInterfaceId,
+			AssociatePublicIpAddress: aws.Bool(false),
+		})
+		if err != nil {
+			return nil, errors.Errorf("dissociating public IP address from instance %q: %v", inst.Id(), err)
+		}
 	}
 	instAZ, _ := inst.AvailabilityZone()
 	if hasVPCID {

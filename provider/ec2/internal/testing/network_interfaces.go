@@ -91,6 +91,30 @@ func (srv *Server) AddNetworkInterface(inIface types.NetworkInterface) (types.Ne
 	return added.NetworkInterface, nil
 }
 
+// ModifyNetworkInterfaceAttribute will update a network interface from the
+// test server, as if it was done by the simulated AWS API.
+// The NetworkInterfaceId field in the input arguments must correspond to a
+// network interface that is already attached to an instance.
+// The only supported argument field in this stub method is
+// AssociatePublicIpAddress.
+func (srv *Server) ModifyNetworkInterfaceAttribute(ctx context.Context, params *ec2.ModifyNetworkInterfaceAttributeInput, optFns ...func(*ec2.Options)) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	for _, i := range srv.ifaces {
+		if aws.ToString(i.NetworkInterfaceId) == aws.ToString(params.NetworkInterfaceId) {
+			if params.AssociatePublicIpAddress != nil && !*params.AssociatePublicIpAddress {
+				i.Association = &types.NetworkInterfaceAssociation{
+					PublicIp: nil,
+				}
+			}
+			return &ec2.ModifyNetworkInterfaceAttributeOutput{}, nil
+		}
+	}
+
+	return &ec2.ModifyNetworkInterfaceAttributeOutput{}, nil
+}
+
 type iface struct {
 	types.NetworkInterface
 }

@@ -138,15 +138,13 @@ func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Contex
 	// If the DB health check failed, the worker's error will be set,
 	// and we will be without a usable database reference. Return the error.
 	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
 	if w.err != nil {
-		w.mutex.RUnlock()
 		return errors.Trace(w.err)
 	}
 
-	db := w.db
-	w.mutex.RUnlock()
-
-	return errors.Trace(database.Txn(ctx, db, fn))
+	return errors.Trace(database.Txn(ctx, w.db, fn))
 }
 
 // meterDBOpResults decrements the active DB operation count,
@@ -200,7 +198,16 @@ func (w *trackedDBWorker) loop() error {
 			currentDB := w.db
 			w.mutex.RUnlock()
 
-			newDB, err := w.ensureDBAliveAndOpenIfRequired(currentDB)
+			ctx := w.tomb.Context(context.Background())
+			newDB, err := w.ensureDBAliveAndOpenIfRequired(ctx, currentDB)
+			if errors.Is(err, context.Canceled) {
+				select {
+				case <-w.tomb.Dying():
+					return tomb.ErrDying
+				default:
+					return errors.Trace(err)
+				}
+			}
 			if err != nil {
 				// If we get an error, ensure we close the underlying db and
 				// mark the tracked db in an error state.
@@ -240,11 +247,10 @@ func (w *trackedDBWorker) loop() error {
 // ensureDBAliveAndOpenNewIfRequired is a bit long-winded, but it is a way to
 // ensure that the underlying database is alive and well. If it is not, we
 // attempt to open a new one. If that fails, we return an error.
-func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, error) {
+func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db *sql.DB) (*sql.DB, error) {
 	// Allow killing the tomb to cancel the context,
 	// so shutdown/restart can not be blocked by this call.
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
-	ctx = w.tomb.Context(ctx)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
 	if w.logger.IsTraceEnabled() {

@@ -41,6 +41,7 @@ type debugLogHandlerFunc func(
 	debugLogParams,
 	debugLogSocket,
 	<-chan struct{},
+	<-chan struct{},
 ) error
 
 func newDebugLogHandler(
@@ -119,7 +120,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		clock := h.ctxt.srv.clock
 		maxDuration := h.ctxt.srv.shared.maxDebugLogDuration()
 
-		if err := h.handle(clock, maxDuration, st, params, socket, h.ctxt.stop()); err != nil {
+		if err := h.handle(clock, maxDuration, st, params, socket, h.ctxt.stop(), st.Removing()); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef("debug-log handler stopped (client disconnected)")
 			} else {

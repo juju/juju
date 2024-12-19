@@ -373,8 +373,10 @@ func waitForModelDestroyed(
 		erroredStatuses.PrettyPrint(ctx.Stdout)
 	}
 
-	// no wait for 1st time.
-	intervalSeconds := 0 * time.Second
+	// wait a little bit for the model to be destroyed, backoff
+	// exponentially, but no longer than 2s
+	intervalSeconds := 10 * time.Millisecond
+	const maxIntervalSeconds = 2 * time.Second
 	reported := ""
 	lineLength := 0
 	const perLineLength = 80
@@ -406,7 +408,10 @@ func waitForModelDestroyed(
 				reported = msg
 				lineLength = len(msg) + 3
 			}
-			intervalSeconds = 2 * time.Second
+			intervalSeconds *= 2
+			if intervalSeconds > maxIntervalSeconds {
+				intervalSeconds = maxIntervalSeconds
+			}
 		}
 	}
 }
@@ -571,13 +576,13 @@ func getModelStatus(modelTag names.ModelTag, api DestroyModelAPI) (*base.ModelSt
 		return nil, errors.Errorf("error finding model status: expected one result, got %d", l)
 	}
 	modelStatus := modelStatuses[0]
+	if errors.Is(modelStatus.Error, errors.NotFound) {
+		// This most likely occurred because a model was
+		// destroyed half-way through the call.
+		return nil, errors.Errorf("model not found, it may have been destroyed during this operation")
+	}
 	if modelStatus.Error != nil {
-		if errors.IsNotFound(modelStatus.Error) {
-			// This most likely occurred because a model was
-			// destroyed half-way through the call.
-			return nil, errors.Errorf("model not found, it may have been destroyed during this operation")
-		}
-		return nil, errors.Annotate(err, "getting model status")
+		return nil, errors.Annotate(modelStatus.Error, "getting model status")
 	}
 	return &modelStatus, nil
 }

@@ -62,7 +62,6 @@ TEST_NAMES="agents \
             hooktools \
             kubeflow \
             machine \
-            magma \
             manual \
             model \
             network \
@@ -115,6 +114,7 @@ show_help() {
 	echo ""
 	echo "    $(green './main.sh -h')        Display this help message"
 	echo "    $(green './main.sh -v')        Verbose and debug messages"
+	echo "    $(green './main.sh -V')        Verbose and debug messages with all commands printed"
 	echo "    $(green './main.sh -A')        Run all the test suites"
 	echo "    $(green './main.sh -s')        Skip tests using a comma seperated list"
 	echo "    $(green './main.sh -a')        Create an artifact file"
@@ -161,7 +161,7 @@ show_help() {
 	exit 1
 }
 
-while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
+while getopts "hH?vAs:a:x:rl:p:c:R:S:V" opt; do
 	case "${opt}" in
 	h | \?)
 		show_help
@@ -171,6 +171,11 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		;;
 	v)
 		VERBOSE=2
+		# shellcheck disable=SC2262
+		alias juju="juju --debug"
+		;;
+	V)
+		VERBOSE=11
 		# shellcheck disable=SC2262
 		alias juju="juju --debug"
 		;;

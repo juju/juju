@@ -686,7 +686,7 @@ type ResolveCharmWithChannelResults struct {
 	Results []ResolveCharmWithChannelResult
 }
 
-// ResolveCharmWithChannelResult is the result of a single charm resolution.
+// ResolveCharmWithChannelResultV6 is the result of a single charm resolution.
 type ResolveCharmWithChannelResultV6 struct {
 	URL             string      `json:"url"`
 	Origin          CharmOrigin `json:"charm-origin"`
@@ -694,7 +694,7 @@ type ResolveCharmWithChannelResultV6 struct {
 	Error           *Error      `json:"error,omitempty"`
 }
 
-// ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
+// ResolveCharmWithChannelResultsV6 holds the results of ResolveCharmsWithChannel.
 type ResolveCharmWithChannelResultsV6 struct {
 	Results []ResolveCharmWithChannelResultV6
 }

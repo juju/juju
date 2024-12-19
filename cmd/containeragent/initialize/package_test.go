@@ -80,6 +80,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/tags",
 		"feature",
 		"juju/osenv",
+		"juju/sockets",
 		"logfwd",
 		"logfwd/syslog",
 		"mongo",
@@ -109,6 +110,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"worker/apicaller",
 		"worker/introspection",
 		"worker/introspection/pprof",
+		"utils/stringcompare",
 	)
 
 	unexpected := found.Difference(expected)

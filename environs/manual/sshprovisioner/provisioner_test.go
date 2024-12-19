@@ -95,15 +95,19 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(machineId, gc.Not(gc.Equals), "")
+			c.Check(machineId, gc.Not(gc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
-			c.Assert(machineId, gc.Equals, fmt.Sprint(i+1))
+			c.Check(machineId, gc.Equals, fmt.Sprint(i+1))
+
 			m, err := s.State.Machine(machineId)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Check(m.Addresses(), gc.HasLen, 0)
+
 			instanceId, err := m.InstanceId()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))
+
+			c.Check(instanceId, gc.Equals, instance.Id("manual:"+hostname))
 		}
 	}
 

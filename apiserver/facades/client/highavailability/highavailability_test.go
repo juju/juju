@@ -177,6 +177,34 @@ func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestEnableHANoErrorVirtualAddresses verifies that virtual IPv4 addresses doesn't prevent enabling HA
+// (see https://bugs.launchpad.net/juju/+bug/2073986)
+func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV4(c *gc.C) {
+	// Add a virtual address to machine 0
+	m, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	fakeIP := fmt.Sprintf("cloud-local-virtual%s.internal", "0")
+	err = m.SetMachineAddresses(network.NewSpaceAddress(fakeIP, network.WithScope(network.ScopeCloudLocal), network.WithCIDR(fmt.Sprintf("%s/32", fakeIP))))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.enableHA(c, 0, emptyCons, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestEnableHANoErrorVirtualAddressesIpV6 verifies that virtual IPv6 addresses doesn't prevent enabling HA
+// (see https://bugs.launchpad.net/juju/+bug/2073986)
+func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV6(c *gc.C) {
+	// Add a virtual address to machine 0
+	m, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	fakeIP := "fd42:9102:88cb:dce3:216:3eff:fef7:4c4b"
+	err = m.SetMachineAddresses(network.NewSpaceAddress(fakeIP, network.WithScope(network.ScopeCloudLocal), network.WithCIDR(fmt.Sprintf("%s/128", fakeIP))))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.enableHA(c, 0, emptyCons, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)

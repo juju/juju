@@ -100,6 +100,20 @@ func membersToTestMembers(m []replicaset.Member) []TestMember {
 	return result
 }
 
+func addVirtualAddress(ipVersion TestIPVersion, id int) func(machines *controllerTracker) *controllerTracker {
+	return func(m *controllerTracker) *controllerTracker {
+		fakeAddress := m.addresses[0]
+		fakeAddress.Value = fmt.Sprintf(ipVersion.formatHost, id)
+		if ipVersion.addressType == network.IPv6Address {
+			fakeAddress.CIDR = fakeAddress.Value + "/128"
+		} else {
+			fakeAddress.CIDR = fakeAddress.Value + "/32"
+		}
+		m.addresses = append(m.addresses, fakeAddress)
+		return m
+	}
+}
+
 func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 	return []desiredPeerGroupTest{
 		{
@@ -262,6 +276,31 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v", ipVersion),
 			expectChanged: true,
 		}, {
+			about: "a changed controller address with virtual IP should propagate to the members",
+			machines: append(mkMachines("11v 12v", ipVersion), addVirtualAddress(ipVersion, 14)(&controllerTracker{
+				id:        "13",
+				wantsVote: true,
+				addresses: []network.SpaceAddress{{
+					MachineAddress: network.MachineAddress{
+						Value: ipVersion.extraHost,
+						Type:  ipVersion.addressType,
+						Scope: network.ScopeCloudLocal,
+					},
+				},
+				},
+				host: mkController(state.Alive),
+			})),
+			statuses:     mkStatuses("1s 2p 3s", ipVersion),
+			members:      mkMembers("1v 2v 3v", ipVersion),
+			expectVoting: []bool{true, true, true},
+			expectMembers: append(mkMembers("1v 2v", ipVersion), replicaset.Member{
+				Id:      3,
+				Address: net.JoinHostPort(ipVersion.extraHost, fmt.Sprint(mongoPort)),
+				Tags:    memberTag("13"),
+			}),
+			expectChanged: true,
+		},
+		{
 			about: "a changed controller address should propagate to the members",
 			machines: append(mkMachines("11v 12v", ipVersion), &controllerTracker{
 				id:        "13",
@@ -272,7 +311,8 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 						Type:  ipVersion.addressType,
 						Scope: network.ScopeCloudLocal,
 					},
-				}},
+				},
+				},
 				host: mkController(state.Alive),
 			}),
 			statuses:     mkStatuses("1s 2p 3s", ipVersion),
@@ -537,8 +577,14 @@ func newFloat64(f float64) *float64 {
 	return &f
 }
 
+type noopInvariantChecker struct{}
+
+func (noopInvariantChecker) checkInvariants() {}
+
 func mkController(life state.Life) *fakeController {
-	ctrl := &fakeController{}
+	ctrl := &fakeController{
+		checker: noopInvariantChecker{},
+	}
 	ctrl.val.Set(controllerDoc{life: life})
 	return ctrl
 }

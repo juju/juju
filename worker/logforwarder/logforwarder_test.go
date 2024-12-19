@@ -4,6 +4,7 @@
 package logforwarder_test
 
 import (
+	"slices"
 	"time"
 
 	"github.com/juju/errors"
@@ -112,6 +113,7 @@ func (s *LogForwarderSuite) TestOne(c *gc.C) {
 		{"Send", []interface{}{[]logfwd.Record{s.rec}}},
 		{"Close", nil},
 	})
+	c.Check(slices.ContainsFunc(s.stream.stub.Calls(), func(call testing.StubCall) bool { return call.FuncName == "Close" }), jc.IsTrue)
 }
 
 func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
@@ -151,6 +153,7 @@ func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
 		{"Send", []interface{}{[]logfwd.Record{rec1}}},
 		{"Close", nil},
 	})
+	c.Check(slices.ContainsFunc(s.stream.stub.Calls(), func(call testing.StubCall) bool { return call.FuncName == "Close" }), jc.IsTrue)
 }
 
 func (s *LogForwarderSuite) TestNotEnabled(c *gc.C) {
@@ -182,6 +185,7 @@ func (s *LogForwarderSuite) TestStreamError(c *gc.C) {
 		{"Send", []interface{}{[]logfwd.Record{s.rec}}},
 		{"Close", nil},
 	})
+	c.Check(slices.ContainsFunc(s.stream.stub.Calls(), func(call testing.StubCall) bool { return call.FuncName == "Close" }), jc.IsTrue)
 }
 
 func (s *LogForwarderSuite) TestSenderError(c *gc.C) {
@@ -205,6 +209,7 @@ func (s *LogForwarderSuite) TestSenderError(c *gc.C) {
 		{"Send", []interface{}{[]logfwd.Record{rec1}}},
 		{"Close", nil},
 	})
+	c.Check(slices.ContainsFunc(s.stream.stub.Calls(), func(call testing.StubCall) bool { return call.FuncName == "Close" }), jc.IsTrue)
 }
 
 type mockLogForwardConfig struct {
@@ -283,6 +288,14 @@ func (s *stubStream) Next() ([]logfwd.Record, error) {
 		return []logfwd.Record{}, errors.Trace(err)
 	}
 	return []logfwd.Record{<-s.nextRecs}, nil
+}
+
+func (s *stubStream) Close() error {
+	s.stub.AddCall("Close")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 type stubSender struct {

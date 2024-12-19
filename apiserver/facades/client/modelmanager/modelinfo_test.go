@@ -303,8 +303,8 @@ func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
 	info := s.getModelInfo(c, modelManagerV9, s.st.model.cfg.UUID())
 	_true := true
 	expectedInfo := s.expectedModelInfo(c, &_true)
-	expectedInfo.DefaultSeries = "jammy"
-	expectedInfo.DefaultBase = "ubuntu@22.04/stable"
+	expectedInfo.DefaultSeries = "noble"
+	expectedInfo.DefaultBase = "ubuntu@24.04/stable"
 	s.assertModelInfo(c, info, expectedInfo)
 
 	s.st.CheckCalls(c, []jujutesting.StubCall{

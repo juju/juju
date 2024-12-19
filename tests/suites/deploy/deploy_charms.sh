@@ -75,8 +75,8 @@ run_deploy_specific_series() {
 	charm_name="juju-qa-refresher"
 	# Have to check against default base, to avoid false positives.
 	# These two bases should be different.
-	default_base="ubuntu@22.04"
-	expected_base="ubuntu@20.04"
+	default_base="ubuntu@20.04"
+	expected_base="ubuntu@22.04"
 
 	juju deploy "$charm_name" app1
 	juju deploy "$charm_name" app2 --base "$expected_base"

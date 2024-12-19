@@ -402,6 +402,15 @@ func (w *TxnWatcher) init() (bool, error) {
 		{"pipeline", []bson.D{
 			{{"$changeStream", cs}},
 			{{"$match", match}},
+			{{"$project", bson.M{
+				"operationType":          1,
+				"documentKey":            1,
+				"ns":                     1,
+				"updateDescription":      1,
+				"txnNumber":              1,
+				"fullDocument._id":       1,
+				"fullDocument.txn-revno": 1,
+			}}},
 		}},
 		{"cursor", bson.D{{"batchSize", 10}}},
 		{"readConcern", bson.D{{"level", "majority"}}},

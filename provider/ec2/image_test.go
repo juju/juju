@@ -193,6 +193,11 @@ var findInstanceSpecTests = []struct {
 		storage: []string{"ebs"},
 		image:   "ami-00001139",
 	}, {
+		version: "24.04",
+		arch:    "amd64",
+		itype:   "t3a.small",
+		image:   "ami-02404133",
+	}, {
 		version: "22.04",
 		arch:    "amd64",
 		itype:   "t3a.small",
@@ -274,7 +279,7 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		base: version.DefaultSupportedLTSBase(),
 		arch: "arm",
-		err:  `no metadata for "ubuntu@22.04" images in test with arch arm`,
+		err:  `no metadata for "ubuntu@24.04" images in test with arch arm`,
 	}, {
 		base: corebase.MakeDefaultBase("ubuntu", "15.04"),
 		arch: "amd64",
