@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -131,21 +130,24 @@ func (d *deployCharm) deploy(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := d.deployResources(
-		ctx,
-		applicationName,
-		resources.CharmID{
-			URL:    id.URL,
-			Origin: id.Origin,
-		},
-		d.resources,
-		charmInfo.Meta.Resources,
-		deployAPI,
-		d.model.Filesystem(),
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// todo(resources): reenable deploy when the facade will be recreated.
+	/*
+		ids, err := d.deployResources(
+			ctx,
+			applicationName,
+			resources.CharmID{
+				URL:    id.URL,
+				Origin: id.Origin,
+			},
+			d.resources,
+			charmInfo.Meta.Resources,
+			deployAPI,
+			d.model.Filesystem(),
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	*/
 
 	if len(appConfig) == 0 {
 		appConfig = nil
@@ -164,7 +166,6 @@ func (d *deployCharm) deploy(
 		Storage:          d.storage,
 		Devices:          d.devices,
 		AttachStorage:    d.attachStorage,
-		Resources:        ids,
 		EndpointBindings: d.bindings,
 		Force:            d.force,
 	}
