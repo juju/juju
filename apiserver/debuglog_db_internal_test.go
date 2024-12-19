@@ -38,17 +38,17 @@ func (s *debugLogDBIntSuite) SetUpTest(c *gc.C) {
 func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	t1 := time.Date(2016, 11, 30, 10, 51, 0, 0, time.UTC)
 	reqParams := debugLogParams{
-		fromTheStart:  false,
-		noTail:        true,
-		backlog:       11,
-		startTime:     t1,
-		filterLevel:   loggo.INFO,
-		includeEntity: []string{"foo"},
-		includeModule: []string{"bar"},
-		includeLabel:  []string{"xxx"},
-		excludeEntity: []string{"baz"},
-		excludeModule: []string{"qux"},
-		excludeLabel:  []string{"yyy"},
+		fromTheStart:   false,
+		noTail:         true,
+		latestLogCount: 11,
+		startTime:      t1,
+		filterLevel:    loggo.INFO,
+		includeEntity:  []string{"foo"},
+		includeModule:  []string{"bar"},
+		includeLabel:   []string{"xxx"},
+		excludeEntity:  []string{"baz"},
+		excludeModule:  []string{"qux"},
+		excludeLabel:   []string{"yyy"},
 	}
 
 	called := false
@@ -60,7 +60,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 		c.Assert(params.StartTime, gc.Equals, t1)
 		c.Assert(params.NoTail, jc.IsTrue)
 		c.Assert(params.MinLevel, gc.Equals, loggo.INFO)
-		c.Assert(params.InitialLines, gc.Equals, 11)
+		c.Assert(params.LatestLogCount, gc.Equals, 11)
 		c.Assert(params.IncludeEntity, jc.DeepEquals, []string{"foo"})
 		c.Assert(params.IncludeModule, jc.DeepEquals, []string{"bar"})
 		c.Assert(params.IncludeLabel, jc.DeepEquals, []string{"xxx"})
@@ -80,8 +80,8 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 
 func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 	reqParams := debugLogParams{
-		fromTheStart: true,
-		backlog:      123,
+		fromTheStart:   true,
+		latestLogCount: 123,
 	}
 
 	called := false
@@ -89,7 +89,7 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
-		c.Assert(params.InitialLines, gc.Equals, 0)
+		c.Assert(params.LatestLogCount, gc.Equals, 0)
 
 		return newFakeLogTailer(), nil
 	})
@@ -192,7 +192,7 @@ func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	c.Assert(tailer.stopped, jc.IsTrue)
 }
 
-func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
+func (s *debugLogDBIntSuite) TestLatestLogCount(c *gc.C) {
 	// Set up a fake log tailer with a 5 log records ready to send.
 	tailer := newFakeLogTailer()
 	for i := 0; i < 5; i++ {
@@ -209,7 +209,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 		return tailer, nil
 	})
 
-	done := s.runRequest(debugLogParams{maxLines: 3}, nil)
+	done := s.runRequest(debugLogParams{latestLogCount: 3}, nil)
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.

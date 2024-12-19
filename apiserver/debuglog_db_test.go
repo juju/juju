@@ -31,7 +31,7 @@ func (s *debugLogDBSuite) TestBadParams(c *gc.C) {
 	conn := s.dialWebsocket(c, url.Values{"maxLines": {"foo"}})
 	defer conn.Close()
 
-	websockettest.AssertJSONError(c, conn, `maxLines value "foo" is not a valid unsigned number`)
+	websockettest.AssertJSONError(c, conn, `maxLogCount value "foo" is not a valid unsigned number`)
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 

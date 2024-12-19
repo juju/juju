@@ -128,8 +128,8 @@ func (h *logStreamEndpointHandler) newTailer(
 	}
 
 	tailerArgs := corelogger.LogTailerParams{
-		StartTime:    start,
-		InitialLines: cfg.MaxLookbackRecords,
+		StartTime:      start,
+		LatestLogCount: cfg.MaxLookbackRecords,
 	}
 	tailer, err := source.newTailer(tailerArgs)
 	if err != nil {

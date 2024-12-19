@@ -78,10 +78,10 @@ func (args DebugLogParams) URLQuery() url.Values {
 		attrs.Set("noTail", fmt.Sprint(args.NoTail))
 	}
 	if args.Limit > 0 {
-		attrs.Set("maxLines", fmt.Sprint(args.Limit))
+		attrs.Set("maxLogCount", fmt.Sprint(args.Limit))
 	}
 	if args.Backlog > 0 {
-		attrs.Set("backlog", fmt.Sprint(args.Backlog))
+		attrs.Set("latestLogCount", fmt.Sprint(args.Backlog))
 	}
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))
