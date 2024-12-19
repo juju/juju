@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/objectstore/remote"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
 // MetadataService is the interface that is used to get a object store.
@@ -88,15 +90,23 @@ func WithAllowDraining(allowDraining bool) Option {
 	}
 }
 
+// WithAPIRemoveCallers is the option to set the api remote callers to use.
+func WithAPIRemoveCallers(apiRemoteCallers apiremotecaller.APIRemoteCallers) Option {
+	return func(o *options) {
+		o.apiRemoteCallers = apiRemoteCallers
+	}
+}
+
 type options struct {
-	rootDir         string
-	rootBucket      string
-	s3Client        objectstore.Client
-	metadataService MetadataService
-	claimer         Claimer
-	logger          logger.Logger
-	clock           clock.Clock
-	allowDraining   bool
+	rootDir          string
+	rootBucket       string
+	s3Client         objectstore.Client
+	metadataService  MetadataService
+	claimer          Claimer
+	logger           logger.Logger
+	clock            clock.Clock
+	allowDraining    bool
+	apiRemoteCallers apiremotecaller.APIRemoteCallers
 }
 
 func newOptions() *options {
@@ -127,6 +137,9 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Claimer:         opts.claimer,
 			Logger:          opts.logger,
 			Clock:           opts.clock,
+
+			// TODO (stickupkid): Wire this up as configured in the options.
+			BlobRetriever: remote.NewBlobRetriever(opts.apiRemoteCallers, remote.NewObjectClient, opts.logger),
 		})
 	case objectstore.S3Backend:
 		return NewS3ObjectStore(S3ObjectStoreConfig{

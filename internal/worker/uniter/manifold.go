@@ -147,7 +147,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			s3Downloader := charms.NewS3CharmDownloader(s3client.NewCharmsS3Client(objectStoreCaller), apiConn)
+			s3Downloader := charms.NewS3CharmDownloader(s3client.NewBlobsS3Client(objectStoreCaller), apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn, uniter.WithTracer(tracer))
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
