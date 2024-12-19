@@ -906,11 +906,15 @@ func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]Expos
 
 // Charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
-func (a *Application) Charm() (*Charm, bool, error) {
+func (a *Application) Charm() (CharmRefFull, bool, error) {
 	if a.doc.CharmURL == nil {
 		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
 	}
-	ch, err := a.st.Charm(*a.doc.CharmURL)
+	parsedURL, err := charm.ParseURL(*a.doc.CharmURL)
+	if err != nil {
+		return nil, false, err
+	}
+	ch, err := a.st.findCharm(parsedURL)
 	if err != nil {
 		return nil, false, err
 	}
@@ -1133,25 +1137,6 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 		}
 	}
 	return ops, nil
-}
-
-// IsSidecar returns true when using new CAAS charms in sidecar mode.
-func (a *Application) IsSidecar() (bool, error) {
-	ch, _, err := a.Charm()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	meta := ch.Meta()
-	if meta == nil {
-		return false, nil
-	}
-	m, err := a.st.Model()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	// TODO(sidecar): Determine a better way represent this.
-	return m.Type() == ModelTypeCAAS && charm.MetaFormat(ch) == charm.FormatV2, nil
 }
 
 // changeCharmOps returns the operations necessary to set a application's
@@ -2057,6 +2042,10 @@ type applicationAddUnitOpsArgs struct {
 	ports        *[]string
 	unitName     *string
 	passwordHash *string
+
+	// We need charm Meta to add the unit storage and we can't retrieve it
+	// from the legacy state so we must pass it here.
+	charmMeta *charm.Meta
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
@@ -2080,12 +2069,8 @@ func (a *Application) addUnitOpsWithCons(
 	}
 	unitTag := names.NewUnitTag(name)
 
-	appCharm, _, err := a.Charm()
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
 	storageOps, numStorageAttachments, err := a.addUnitStorageOps(
-		args, unitTag, appCharm,
+		args, unitTag,
 	)
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -2193,7 +2178,6 @@ func (a *Application) addUnitOpsWithCons(
 func (a *Application) addUnitStorageOps(
 	args applicationAddUnitOpsArgs,
 	unitTag names.UnitTag,
-	charm *Charm,
 ) ([]txn.Op, int, error) {
 	sb, err := NewStorageConfigBackend(a.st)
 	if err != nil {
@@ -2242,7 +2226,7 @@ func (a *Application) addUnitStorageOps(
 		a.st,
 		sb,
 		unitTag,
-		charm.Meta(),
+		args.charmMeta,
 		args.storageCons,
 		platform.OS,
 		machineAssignable,
@@ -2263,7 +2247,7 @@ func (a *Application) addUnitStorageOps(
 			si,
 			unitTag,
 			platform.OS,
-			charm,
+			args.charmMeta,
 			machineAssignable,
 		)
 		if err != nil {
@@ -2275,7 +2259,7 @@ func (a *Application) addUnitStorageOps(
 	}
 	for name, tags := range storageTags {
 		count := len(tags)
-		charmStorage := charm.Meta().Storage[name]
+		charmStorage := args.charmMeta.Storage[name]
 		if err := validateCharmStorageCountChange(charmStorage, 0, count); err != nil {
 			return nil, -1, errors.Trace(err)
 		}
@@ -3493,19 +3477,7 @@ func (a *Application) UnitNames() ([]string, error) {
 // CharmPendingToBeDownloaded returns true if the charm referenced by this
 // application is pending to be downloaded.
 func (a *Application) CharmPendingToBeDownloaded() bool {
-	ch, _, err := a.Charm()
-	if err != nil {
-		return false
-	}
-	origin := a.CharmOrigin()
-	if origin == nil {
-		return false
-	}
-	// The charm may be downloaded, but the application's
-	// data may not updated yet. This can happen when multiple
-	// applications share a charm.
-	notReady := origin.Source == "charm-hub" && origin.ID == ""
-	return !ch.IsPlaceholder() && !ch.IsUploaded() || notReady
+	return true
 }
 
 func appUnitNames(st *State, appName string) ([]string, error) {

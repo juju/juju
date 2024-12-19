@@ -7,17 +7,14 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 
 type BackendState interface {
-	AddCharmMetadata(state.CharmInfo) (*state.Charm, error)
+	AddCharmMetadata(state.CharmInfo) (state.CharmRefFull, error)
 	Application(string) (Application, error)
-	Charm(curl string) (*state.Charm, error)
+	Charm(curl string) (state.CharmRefFull, error)
 	ControllerTag() names.ControllerTag
-	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
-	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
 }

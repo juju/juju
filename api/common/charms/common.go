@@ -67,6 +67,7 @@ type CharmInfo struct {
 	Actions    *charm.Actions
 	Manifest   *charm.Manifest
 	LXDProfile *charm.LXDProfile
+	Version    string
 }
 
 func (info *CharmInfo) Charm() charm.Charm {
@@ -90,6 +91,7 @@ func convertCharm(info *params.Charm) (*CharmInfo, error) {
 		Actions:    convertCharmActions(info.Actions),
 		Manifest:   manifest,
 		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
+		Version:    info.Version,
 	}
 	return result, nil
 }
@@ -336,6 +338,10 @@ func (c *charmImpl) Actions() *charm.Actions {
 
 func (c *charmImpl) Revision() int {
 	return c.info.Revision
+}
+
+func (c *charmImpl) Version() string {
+	return c.info.Version
 }
 
 func convertCharmManifest(input *params.CharmManifest) (*charm.Manifest, error) {

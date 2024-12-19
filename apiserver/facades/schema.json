@@ -4678,6 +4678,9 @@
                         },
                         "url": {
                             "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,

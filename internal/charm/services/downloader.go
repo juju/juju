@@ -26,7 +26,6 @@ type CharmDownloaderConfig struct {
 	// given model.
 	ObjectStore Storage
 
-	StateBackend       StateBackend
 	ModelConfigService ModelConfigService
 }
 
@@ -34,9 +33,8 @@ type CharmDownloaderConfig struct {
 // charmdownloader.Downloader instance.
 func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader, error) {
 	storage := NewCharmStorage(CharmStorageConfig{
-		Logger:       cfg.Logger.Child("charmstorage"),
-		StateBackend: cfg.StateBackend,
-		ObjectStore:  cfg.ObjectStore,
+		Logger:      cfg.Logger.Child("charmstorage"),
+		ObjectStore: cfg.ObjectStore,
 	})
 
 	repoFactory := repoFactoryShim{

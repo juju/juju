@@ -656,10 +656,10 @@ func (c *MockStateAllApplicationsCall) DoAndReturn(f func() ([]charmrevisionupda
 }
 
 // Charm mocks base method.
-func (m *MockState) Charm(arg0 string) (*state.Charm, error) {
+func (m *MockState) Charm(arg0 string) (state.CharmRefFull, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
-	ret0, _ := ret[0].(*state.Charm)
+	ret0, _ := ret[0].(state.CharmRefFull)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -677,19 +677,19 @@ type MockStateCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCharmCall) Return(arg0 *state.Charm, arg1 error) *MockStateCharmCall {
+func (c *MockStateCharmCall) Return(arg0 state.CharmRefFull, arg1 error) *MockStateCharmCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCharmCall) Do(f func(string) (*state.Charm, error)) *MockStateCharmCall {
+func (c *MockStateCharmCall) Do(f func(string) (state.CharmRefFull, error)) *MockStateCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCharmCall) DoAndReturn(f func(string) (*state.Charm, error)) *MockStateCharmCall {
+func (c *MockStateCharmCall) DoAndReturn(f func(string) (state.CharmRefFull, error)) *MockStateCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
