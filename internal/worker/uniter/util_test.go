@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujucharm "github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -362,13 +363,13 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
 
-	dir, err := jujucharm.ReadCharmDir(base)
+	dir, err := charmtesting.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	step(c, ctx, addCharm{dir, curl(s.revision), s.revision})
 }
 
 type addCharm struct {
-	dir      *jujucharm.CharmDir
+	dir      *charmtesting.CharmDir
 	curl     string
 	revision int
 }

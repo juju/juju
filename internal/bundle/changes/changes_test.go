@@ -22,6 +22,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -2843,14 +2844,15 @@ series:
 }
 
 func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *gc.C) {
-	charmDir := filepath.Join(c.MkDir(), "multiseries")
-	err := os.Mkdir(charmDir, 0700)
+	tmpDir := filepath.Join(c.MkDir(), "multiseries")
+	charmPath := filepath.Join(tmpDir, "multiseries.charm")
+	err := os.Mkdir(tmpDir, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	bundleContent := fmt.Sprintf(`
         applications:
             django:
                 charm: %s
-    `, charmDir)
+    `, charmPath)
 	charmMeta := `
 name: multi-series
 summary: That's a dummy charm with multi-series.
@@ -2865,22 +2867,29 @@ bases:
 - name: ubuntu
   channel: "18.04"  
 `[1:]
-	err = os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(charmDir, "manifest.yaml"), []byte(charmManifest), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "manifest.yaml"), []byte(charmManifest), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertLocalBundleChanges(c, charmDir, bundleContent, "ubuntu@22.04/stable")
-	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@22.04/stable")
+
+	charmDir, err := charmtesting.ReadCharmDir(tmpDir)
+	c.Assert(err, jc.ErrorIsNil)
+	err = charmDir.ArchiveToPath(charmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLocalBundleChanges(c, charmPath, bundleContent, "ubuntu@22.04/stable")
+	s.assertLocalBundleChangesWithDevices(c, charmPath, bundleContent, "ubuntu@22.04/stable")
 }
 
 func (s *changesSuite) TestLocalCharmWithBaseFromBundle(c *gc.C) {
-	charmDir := c.MkDir()
+	tmpDir := c.MkDir()
+	charmPath := filepath.Join(tmpDir, "django.charm")
 	bundleContent := fmt.Sprintf(`
         default-base: ubuntu@20.04
         applications:
             django:
                 charm: %s
-    `, charmDir)
+    `, charmPath)
 	charmMeta := `
 name: multi-series
 summary: That's a dummy charm with multi-series.
@@ -2895,12 +2904,18 @@ bases:
 - name: ubuntu
   channel: "18.04"  
 `[1:]
-	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(charmDir, "manifest.yaml"), []byte(charmManifest), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "manifest.yaml"), []byte(charmManifest), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertLocalBundleChanges(c, charmDir, bundleContent, "ubuntu@20.04/stable")
-	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@20.04/stable")
+
+	charmDir, err := charmtesting.ReadCharmDir(tmpDir)
+	c.Assert(err, jc.ErrorIsNil)
+	err = charmDir.ArchiveToPath(charmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLocalBundleChanges(c, charmPath, bundleContent, "ubuntu@20.04/stable")
+	s.assertLocalBundleChangesWithDevices(c, charmPath, bundleContent, "ubuntu@20.04/stable")
 }
 
 func (s *changesSuite) TestSimpleBundleEmptyModel(c *gc.C) {

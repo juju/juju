@@ -427,7 +427,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			if err != nil {
 				return errors.Annotatef(err, "problem with --controller-charm-path")
 			}
-			ch, err := charm.ReadCharm(c.ControllerCharmPath)
+			ch, err := charm.ReadCharmArchive(c.ControllerCharmPath)
 			if err != nil {
 				return errors.Annotatef(err, "--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
 			}

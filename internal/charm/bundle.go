@@ -4,7 +4,6 @@
 package charm
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -21,19 +20,6 @@ type Bundle interface {
 	ReadMe() string
 	// ContainsOverlays returns true if the bundle contains any overlays.
 	ContainsOverlays() bool
-}
-
-// ReadBundle reads a Bundle from path, which can point to either a
-// bundle archive or a bundle directory.
-func ReadBundle(path string) (Bundle, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	if info.IsDir() {
-		return ReadBundleDir(path)
-	}
-	return ReadBundleArchive(path)
 }
 
 // IsValidLocalCharmOrBundlePath returns true if path is valid for reading a

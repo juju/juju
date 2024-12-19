@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/actions"
+	coreactions "github.com/juju/juju/core/actions"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -85,16 +85,21 @@ func (f *factory) NewHookRunner(stdCtx stdcontext.Context, hookInfo hook.Info) (
 
 // NewActionRunner exists to satisfy the Factory interface.
 func (f *factory) NewActionRunner(stdCtx stdcontext.Context, action *uniter.Action, cancel <-chan struct{}) (Runner, error) {
-	ch, err := getCharm(f.paths.GetCharmDir())
+	charmDir := f.paths.GetCharmDir()
+	meta, err := charm.ReadCharmDirMetadata(charmDir)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	actions, err := charm.ReadCharmDirActions(meta.Name, f.paths.GetCharmDir())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	name := action.Name()
-	spec, ok := actions.PredefinedActionsSpec[name]
+	spec, ok := coreactions.PredefinedActionsSpec[name]
 	if !ok {
 		var ok bool
-		spec, ok = ch.Actions().ActionSpecs[name]
+		spec, ok = actions.ActionSpecs[name]
 		if !ok {
 			return nil, charmrunner.NewBadActionError(name, "not defined")
 		}
@@ -113,12 +118,4 @@ func (f *factory) NewActionRunner(stdCtx stdcontext.Context, action *uniter.Acti
 	}
 	runner := f.newProcessRunner(ctx, f.paths)
 	return runner, nil
-}
-
-func getCharm(charmPath string) (charm.Charm, error) {
-	ch, err := charm.ReadCharm(charmPath)
-	if err != nil {
-		return nil, err
-	}
-	return ch, nil
 }

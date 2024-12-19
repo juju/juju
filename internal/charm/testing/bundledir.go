@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
-package charm
+package testing
 
 import (
 	"fmt"
@@ -9,38 +9,31 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 // BundleDir defines a bundle from a given directory.
 type BundleDir struct {
 	Path        string
-	data        *BundleData
+	data        *charm.BundleData
 	bundleBytes []byte
 	readMe      string
 
 	containsOverlays bool
-	logger           logger.Logger
 }
-
-// Trick to ensure *BundleDir implements the Bundle interface.
-var _ Bundle = (*BundleDir)(nil)
 
 // ReadBundleDir returns a BundleDir representing an expanded
 // bundle directory. It does not verify the bundle data.
-func ReadBundleDir(path string, options ...ReadOption) (dir *BundleDir, err error) {
-	opts := newReadOptions(options)
-
+func ReadBundleDir(path string) (dir *BundleDir, err error) {
 	dir = &BundleDir{
-		Path:   path,
-		logger: opts.logger,
+		Path: path,
 	}
 	b, err := os.ReadFile(dir.join("bundle.yaml"))
 	if err != nil {
 		return nil, err
 	}
 	dir.bundleBytes = b
-	dir.data, dir.containsOverlays, err = readBaseFromMultidocBundle(b)
+	dir.data, dir.containsOverlays, err = charm.ReadBaseFromMultidocBundle(b)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +46,7 @@ func ReadBundleDir(path string, options ...ReadOption) (dir *BundleDir, err erro
 }
 
 // Data returns the contents of the bundle's bundle.yaml file.
-func (dir *BundleDir) Data() *BundleData {
+func (dir *BundleDir) Data() *charm.BundleData {
 	return dir.data
 }
 
@@ -73,7 +66,7 @@ func (dir *BundleDir) ContainsOverlays() bool {
 }
 
 func (dir *BundleDir) ArchiveTo(w io.Writer) error {
-	return writeArchive(w, dir.Path, -1, "", nil, dir.logger)
+	return writeArchive(w, dir.Path, -1, "", nil)
 }
 
 // join builds a path rooted at the bundle's expanded directory
