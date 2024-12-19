@@ -314,8 +314,8 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 	if len(topologySpreadValues) == 0 {
 		return nil
 	}
-	_, present := topologySpreadValues[TopologyKeyTag]
-	if !present {
+	_, ok := topologySpreadValues[TopologyKeyTag]
+	if !ok {
 		return errors.Errorf("topology-key not set for topology spread constraints: %v", affinityLabels)
 	}
 
@@ -338,26 +338,20 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 
 		for _, key := range keys {
 
-			if key == TopologyKeyTag {
+			switch key {
+			case TopologyKeyTag:
 				topologyKey = tags[TopologyKeyTag]
-				continue
-			}
-			if key == topologySpreadMinDomains {
+			case topologySpreadMinDomains:
 				domains, err := strconv.Atoi(tags[topologySpreadMinDomains])
 				if err == nil && domains > minDomains {
 					minDomains = domains
 				}
-				continue
-			}
-			if key == topologySpreadMaxSkew {
+			case topologySpreadMaxSkew:
 				skew, err := strconv.Atoi(tags[topologySpreadMaxSkew])
 				if err == nil && skew >= maxSkew {
 					maxSkew = skew
 				}
-				continue
-			}
-
-			if key == topologySpreadNodeTaintPolicy {
+			case topologySpreadNodeTaintPolicy:
 				taintPolicy, err := strconv.ParseBool(tags[key])
 				if err != nil {
 					taintPolicy = true
@@ -369,12 +363,6 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 					ignorePolicy := core.NodeInclusionPolicy("Ignore")
 					nodeTaintsPolicy = &ignorePolicy
 				}
-				continue
-			}
-
-			if key == appNameLabel {
-				// Nothing to do, we will add this key anyways
-				continue
 			}
 
 			allValues := strings.Split(tags[key], "|")
@@ -419,12 +407,10 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		Values:   []string{appName},
 	})
 
-	if len(topologyTerm.LabelSelector.MatchExpressions) > 0 || topologyTerm.TopologyKey != "" {
-		if pod.TopologySpreadConstraints == nil {
-			pod.TopologySpreadConstraints = make([]core.TopologySpreadConstraint, 0)
-		}
-		pod.TopologySpreadConstraints = append(pod.TopologySpreadConstraints, topologyTerm)
+	if pod.TopologySpreadConstraints == nil {
+		pod.TopologySpreadConstraints = make([]core.TopologySpreadConstraint, 0)
 	}
+	pod.TopologySpreadConstraints = append(pod.TopologySpreadConstraints, topologyTerm)
 	return nil
 }
 
