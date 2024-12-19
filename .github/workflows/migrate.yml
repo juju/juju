@@ -59,7 +59,10 @@ jobs:
         if: ${{ matrix.channel != 'local' }}
         run: |
           /snap/bin/juju version
-          /snap/bin/juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
+          /snap/bin/juju bootstrap lxd source-controller \
+            --constraints "arch=$(go env GOARCH)" \
+            --model-default logging-config="#migration=TRACE" \
+            --model-default enable-os-upgrade=false
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
           /snap/bin/juju download ubuntu --filepath /tmp/ubuntu.charm
@@ -69,7 +72,10 @@ jobs:
         if: matrix.channel == 'local'
         run: |
           juju version
-          juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
+          juju bootstrap lxd source-controller \
+            --constraints "arch=$(go env GOARCH)" \
+            --model-default logging-config="#migration=TRACE" \
+            --model-default enable-os-upgrade=false
           juju add-model test-migrate
           juju set-model-constraints arch=$(go env GOARCH)
           juju download ubuntu --filepath ./ubuntu.charm
@@ -80,6 +86,7 @@ jobs:
           juju version
           juju bootstrap lxd target-controller \
             --constraints "arch=$(go env GOARCH)" \
+            --model-default logging-config="#migration=TRACE" \
             --model-default enable-os-upgrade=false
           juju switch controller
 
@@ -211,11 +218,11 @@ jobs:
           juju status -m source-controller:test-migrate --format json || true
           
           echo " - Migration source controller logs"
-          juju debug-log -m source-controller:controller || true
+          juju debug-log -m source-controller:controller --lines 200 --no-tail || true
           
           echo " - Migration target status"
           juju status -m target-controller:controller --format json || true
           juju status -m target-controller:test-migrate --format json || true
           
           echo " - Migration target controller logs"
-          juju debug-log -m target-controller:controller || true
+          juju debug-log -m target-controller:controller --lines 200 --no-tail || true
