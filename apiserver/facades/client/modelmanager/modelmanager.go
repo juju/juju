@@ -1156,7 +1156,8 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		if thisErr == nil {
 			return false
 		}
-		return !ignoreNotFoundError || !(errors.Is(thisErr, errors.NotFound) || errors.Is(thisErr, modelerrors.NotFound))
+		isNotFound := errors.Is(thisErr, errors.NotFound) || errors.Is(thisErr, modelerrors.NotFound)
+		return !ignoreNotFoundError || !isNotFound
 	}
 
 	modelDomainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
@@ -1259,8 +1260,8 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 
 	fs, err := m.applicationService.GetSupportedFeatures(ctx)
-	if err != nil {
-		return params.ModelInfo{}, err
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
 	}
 	for _, feat := range fs.AsList() {
 		mappedFeat := params.SupportedFeature{
