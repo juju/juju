@@ -175,7 +175,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			dataDir := a.CurrentConfig().DataDir()
+			agentConfig := a.CurrentConfig()
+			dataDir := agentConfig.DataDir()
 
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:               tracerGetter,
