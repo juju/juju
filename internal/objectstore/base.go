@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
@@ -49,6 +50,25 @@ const (
 	defaultTempDirectoryName = "tmp"
 )
 
+// accessStrategy is the type of fallback to use when getting a file.
+type accessStrategy int
+
+const (
+	// noFallback denotes that we should not attempt to locate the file using
+	// a fallback.
+	noFallbackStrategy accessStrategy = 0
+
+	// fileStrategy denotes that it's possible to go look in the file
+	// system accessor for a file if it's not found in the s3 object store.
+	// This can occur when draining files from the file backed object store to
+	// the s3 object store.
+	fileStrategy accessStrategy = 1
+
+	// remoteStrategy denotes that it's possible to go look in the remote
+	// API accessor for a file if it's not found in the s3 object store.
+	remoteStrategy accessStrategy = 2
+)
+
 type opType int
 
 const (
@@ -76,7 +96,7 @@ type response struct {
 }
 
 type baseObjectStore struct {
-	tomb            tomb.Tomb
+	catacomb        catacomb.Catacomb
 	path            string
 	metadataService objectstore.ObjectStoreMetadata
 	claimer         Claimer
@@ -86,12 +106,12 @@ type baseObjectStore struct {
 
 // Kill implements the worker.Worker interface.
 func (s *baseObjectStore) Kill() {
-	s.tomb.Kill(nil)
+	s.catacomb.Kill(nil)
 }
 
 // Wait implements the worker.Worker interface.
 func (s *baseObjectStore) Wait() error {
-	return s.tomb.Wait()
+	return s.catacomb.Wait()
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
@@ -99,7 +119,7 @@ func (s *baseObjectStore) Wait() error {
 // completed.
 func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return w.tomb.Context(ctx), cancel
+	return w.catacomb.Context(ctx), cancel
 }
 
 func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, func() error, error) {
@@ -182,7 +202,7 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 
 		for {
 			select {
-			case <-w.tomb.Dying():
+			case <-w.catacomb.Dying():
 				return
 			case <-runnerCtx.Done():
 				return
@@ -202,13 +222,13 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 		return ctx.Err()
 	case <-runner.Dying():
 		return runner.Err()
-	case <-w.tomb.Dying():
+	case <-w.catacomb.Dying():
 		// Ensure that we cancel the context if the runner is dying.
 		runner.Kill(nil)
 		if err := runner.Wait(); err != nil {
 			return errors.Trace(err)
 		}
-		return tomb.ErrDying
+		return w.catacomb.ErrDying()
 	}
 }
 
