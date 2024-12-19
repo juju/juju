@@ -56,8 +56,8 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
 	stub.CheckCall(c, 1, "getStart", "spam")
 	stub.CheckCall(c, 2, "newTailer", corelogger.LogTailerParams{
-		StartTime:    time.Unix(10, 0),
-		InitialLines: 100,
+		StartTime:      time.Unix(10, 0),
+		LatestLogCount: 100,
 	})
 }
 

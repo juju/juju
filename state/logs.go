@@ -542,17 +542,16 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 	// c) use the aggregation pipeline in Mongo 3.2 to write the docs to
 	//    a temp location and iterate them forward from there.
 	// (a) makes the most sense for me :)
-	if t.params.InitialLines > t.maxInitialLines {
+	if t.params.LatestLogCount > t.maxInitialLines {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
-			t.params.InitialLines, maxInitialLines)
+			t.params.LatestLogCount, maxInitialLines)
 	}
-	iter := query.Sort("-t", "-_id").
-		Limit(t.params.InitialLines).
-		Iter()
-	defer iter.Close()
-	queue := make([]logDoc, t.params.InitialLines)
-	cur := t.params.InitialLines
 
+	iter := query.Sort("-t", "-_id").
+		Limit(t.params.LatestLogCount).
+		Iter()
+
+	var queue []logDoc
 	var doc logDoc
 	for iter.Next(&doc) {
 		select {
@@ -560,19 +559,15 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 			return errors.Trace(tomb.ErrDying)
 		default:
 		}
-		cur--
-		queue[cur] = doc
-		if cur == 0 {
-			break
-		}
+		queue = append(queue, doc)
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	// We loaded the queue in reverse order, truncate it to just the actual
-	// contents, and then return them in the correct order.
-	queue = queue[cur:]
-	for _, doc := range queue {
+
+	// We loaded the queue in reverse order
+	for i := len(queue) - 1; i >= 0; i-- {
+		doc := queue[i]
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
 			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
@@ -595,7 +590,7 @@ func (t *logTailer) processCollection() error {
 	query := t.logsColl.Find(sel)
 
 	var doc logDoc
-	if t.params.InitialLines > 0 {
+	if t.params.LatestLogCount > 0 {
 		return t.processReversed(query)
 	}
 	// In tests, sorting by time can leave the result ordering

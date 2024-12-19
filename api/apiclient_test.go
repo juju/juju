@@ -1315,18 +1315,18 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	}
 
 	urlValues := url.Values{
-		"includeEntity": params.IncludeEntity,
-		"includeModule": params.IncludeModule,
-		"includeLabel":  params.IncludeLabel,
-		"excludeEntity": params.ExcludeEntity,
-		"excludeModule": params.ExcludeModule,
-		"excludeLabel":  params.ExcludeLabel,
-		"maxLines":      {"100"},
-		"backlog":       {"200"},
-		"level":         {"ERROR"},
-		"replay":        {"true"},
-		"noTail":        {"true"},
-		"startTime":     {"2016-11-30T11:48:00.0000001Z"},
+		"includeEntity":  params.IncludeEntity,
+		"includeModule":  params.IncludeModule,
+		"includeLabel":   params.IncludeLabel,
+		"excludeEntity":  params.ExcludeEntity,
+		"excludeModule":  params.ExcludeModule,
+		"excludeLabel":   params.ExcludeLabel,
+		"maxLogCount":    {"100"},
+		"latestLogCount": {"200"},
+		"level":          {"ERROR"},
+		"replay":         {"true"},
+		"noTail":         {"true"},
+		"startTime":      {"2016-11-30T11:48:00.0000001Z"},
 	}
 
 	client := apiclient.NewClient(s.APIState, jtesting.NoopLogger{})

@@ -456,7 +456,7 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	s.writeLogs(c, s.otherUUID, 3, logTemplate{Message: "dont want"})
 	s.writeLogs(c, s.otherUUID, 5, expected)
 
-	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{InitialLines: 5}, nil)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{LatestLogCount: 5}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -488,7 +488,7 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
 	s.writeLogs(c, s.otherUUID, 2, expected)
 
-	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{InitialLines: 5}, nil)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{LatestLogCount: 5}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 

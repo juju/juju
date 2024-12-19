@@ -45,7 +45,8 @@ func handleDebugLogDBRequest(
 
 	timeout := clock.After(maxDuration)
 
-	var lineCount uint
+	var logsCount uint
+
 	for {
 		select {
 		case <-stateClosing:
@@ -62,9 +63,8 @@ func handleDebugLogDBRequest(
 			if err := socket.sendLogRecord(formatLogRecord(rec)); err != nil {
 				return errors.Annotate(err, "sending failed")
 			}
-
-			lineCount++
-			if reqParams.maxLines > 0 && lineCount == reqParams.maxLines {
+			logsCount++
+			if reqParams.noTail && reqParams.latestLogCount > 0 && logsCount == reqParams.latestLogCount {
 				return nil
 			}
 		}
@@ -73,19 +73,19 @@ func handleDebugLogDBRequest(
 
 func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
 	tailerParams := corelogger.LogTailerParams{
-		MinLevel:      reqParams.filterLevel,
-		NoTail:        reqParams.noTail,
-		StartTime:     reqParams.startTime,
-		InitialLines:  int(reqParams.backlog),
-		IncludeEntity: reqParams.includeEntity,
-		ExcludeEntity: reqParams.excludeEntity,
-		IncludeModule: reqParams.includeModule,
-		ExcludeModule: reqParams.excludeModule,
-		IncludeLabel:  reqParams.includeLabel,
-		ExcludeLabel:  reqParams.excludeLabel,
+		MinLevel:       reqParams.filterLevel,
+		NoTail:         reqParams.noTail,
+		StartTime:      reqParams.startTime,
+		LatestLogCount: int(reqParams.latestLogCount),
+		IncludeEntity:  reqParams.includeEntity,
+		ExcludeEntity:  reqParams.excludeEntity,
+		IncludeModule:  reqParams.includeModule,
+		ExcludeModule:  reqParams.excludeModule,
+		IncludeLabel:   reqParams.includeLabel,
+		ExcludeLabel:   reqParams.excludeLabel,
 	}
 	if reqParams.fromTheStart {
-		tailerParams.InitialLines = 0
+		tailerParams.LatestLogCount = 0
 	}
 	return tailerParams
 }
