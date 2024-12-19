@@ -74,7 +74,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	session, err := config.NewClient(ensureHTTPS(httpClient.BaseURL), newHTTPClient(httpClient), config.Logger)
+	session, err := config.NewClient(httpClient.BaseURL, newHTTPClient(httpClient), config.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 // intended to be used by the unit, there is never an expectation that the unit
 // will write to the object store.
 func NewS3Client(url string, client s3client.HTTPClient, logger logger.Logger) (objectstore.ReadSession, error) {
-	return s3client.NewS3Client(url, client, s3client.AnonymousCredentials{}, logger)
+	return s3client.NewS3Client(ensureHTTPS(url), client, s3client.AnonymousCredentials{}, logger)
 }
 
 // httpClient is a shim around a shim. The httprequest.Client is a shim around

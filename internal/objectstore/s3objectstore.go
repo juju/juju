@@ -91,6 +91,10 @@ const (
 	// noFileFallback denotes that we should not look in the file system
 	// accessor for a file if it's not found in the s3 object store.
 	noFileFallback getAccessorPattern = 1
+
+	// useRemoteAccessor denotes that it's possible to go look in the remote
+	// API accessor for a file if it's not found in the s3 object store.
+	useRemoteAccessor getAccessorPattern = 0
 )
 
 const (
@@ -516,7 +520,7 @@ func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstor
 	} else if errors.Is(err, jujuerrors.NotFound) {
 		// If we're not allowed to use the file accessor, then we can't
 		// attempt to get the file from the file backed object store.
-		if useAccessor == noFileFallback {
+		if useAccessor != useFileAccessor {
 			return nil, -1, objectstoreerrors.ObjectNotFound
 		}
 

@@ -202,6 +202,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{servicesGetter: objectStoreServicesGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
 				AllowDraining:              AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
+				APIRemoteCallers:           apiRemoteCallers,
 			})
 			return w, errors.Trace(err)
 		},
