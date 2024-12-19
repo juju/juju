@@ -133,24 +133,16 @@ func (t *Tracker) WithoutLeadershipChange(
 	}
 
 	// leadershipCtx is cancelled if leadership changes.
-	leadershipCtx, leadershipCancel := context.WithCancel(context.Background())
-	defer leadershipCancel()
+	leadershipCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
 
-	// waitCtx ensures the go routine exits even
-	// without a leadership change.
-	waitCtx, waitCancel := context.WithCancel(ctx)
-	defer waitCancel()
-
-	// Start will be closed when we start waiting for leadership to change.
-	start := make(chan struct{})
-
-	// First get the correct channel to wait on, depending if we are the leader or not.
+	// First get the correct channel to wait on, depending on if we are the leader or not.
 	var leadershipChanged <-chan struct{}
 	claimLeader := t.ClaimLeader()
 	ready := claimLeader.Ready()
 	select {
-	case <-ctx.Done():
-		return errors.Annotate(ctx.Err(), "context cancelled before executing leadership func")
+	case <-leadershipCtx.Done():
+		return errors.Annotate(leadershipCtx.Err(), "context cancelled before executing leadership func")
 	case <-ready:
 		isLeader := claimLeader.Wait()
 		if isLeader {
@@ -162,33 +154,21 @@ func (t *Tracker) WithoutLeadershipChange(
 
 	// Cancel the leadershipCtx when leadership changes.
 	go func() {
-		close(start)
 		select {
-		case <-waitCtx.Done():
+		case <-leadershipCtx.Done():
 		case <-leadershipChanged:
-			leadershipCancel()
+			cancel(leadership.ErrLeadershipChanged)
 		}
 	}()
 
-	// Wait for the go routine to start.
-	select {
-	case <-ctx.Done():
-		return errors.Annotate(ctx.Err(), "context cancelled before executing leadership func")
-	case <-leadershipCtx.Done():
-		// Exit early is leadership changes before we even start the operation.
-		return leadership.ErrLeadershipChanged
-	case <-start:
-	}
-
 	// Run the func with the leadershipCtx.
 	err := fn(leadershipCtx)
-	if errors.Is(leadershipCtx.Err(), context.Canceled) {
-		return leadership.ErrLeadershipChanged
-	}
-	if err != nil {
+	if errors.Is(err, context.Canceled) {
+		return context.Cause(leadershipCtx)
+	} else if err != nil {
 		return errors.Annotate(err, "executing leadership func")
 	}
-	return ctx.Err()
+	return leadershipCtx.Err()
 }
 
 func (t *Tracker) loop() error {

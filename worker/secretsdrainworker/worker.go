@@ -115,10 +115,10 @@ waitforchanges:
 			}
 			w.config.Logger.Debugf("got new secret backend")
 			for {
-				switch err := w.drainSecrets(); err {
-				case nil:
+				switch err := w.drainSecrets(); {
+				case err == nil:
 					continue waitforchanges
-				case leadership.ErrLeadershipChanged:
+				case errors.Is(err, leadership.ErrLeadershipChanged):
 					// If leadership changes during the drain operation,
 					// we need to finish up and start again.
 					w.config.Logger.Warningf("leadership changed, restarting drain operation")
