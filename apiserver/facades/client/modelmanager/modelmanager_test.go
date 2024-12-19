@@ -395,6 +395,10 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 
 	// Expect calls to functions of the model services.
 	modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
+		Status: status.Available,
+		Since:  time.Now(),
+	}, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ReadOnlyModel data.
@@ -1155,6 +1159,10 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
 	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), s.controllerUUID)
+	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
+		Status: status.Active,
+		Since:  time.Now(),
+	}, nil)
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ReadOnlyModel{
 		UUID: modelUUID,
 		// Use a version we shouldn't have now to ensure we're using the
@@ -1478,7 +1486,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 
 	domainServices := s.ControllerDomainServices(c)
 
-	s.modelInfoService.EXPECT().Status(gomock.Any()).Return(domainmodel.StatusInfo{Status: status.Available}, nil)
+	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{Status: status.Available}, nil)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),

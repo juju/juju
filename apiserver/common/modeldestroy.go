@@ -111,7 +111,7 @@ func destroyModel(
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
 		// If model status is suspended, then model's cloud credential is invalid.
-		modelStatus, err := modelInfoService.Status(ctx)
+		modelStatus, err := modelInfoService.GetStatus(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}

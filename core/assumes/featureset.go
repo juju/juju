@@ -39,6 +39,9 @@ func (fs *FeatureSet) Merge(other FeatureSet) {
 
 // AsList returns the contents of this set as a list sorted by feature name.
 func (fs *FeatureSet) AsList() []Feature {
+	if fs == nil {
+		return nil
+	}
 	set := set.NewStrings()
 	for featName := range fs.features {
 		set.Add(featName)

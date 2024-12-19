@@ -582,7 +582,7 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	// 	info.AvailableVersion = latestVersion.String()
 	// }
 
-	aStatus, err := c.modelInfoService.Status(ctx)
+	aStatus, err := c.modelInfoService.GetStatus(ctx)
 	if internalerrors.Is(err, domainmodelerrors.NotFound) {
 		// This should never happen but just in case.
 		return params.ModelStatusInfo{}, errors.NotFoundf("model status for %q", modelInfo.Name)
