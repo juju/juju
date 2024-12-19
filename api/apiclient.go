@@ -623,11 +623,17 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 }
 
 type resolvedAddress struct {
-	host string
-	ip   string
-	port string
+	host         string
+	ip           string
+	port         string
+	existingPath string
 }
 
+// addressProvider provides a mechanism for resolving
+// host addresses to IP addresses. It utilises a DNS cache and an IP
+// address resolver to manage and resolve addresses. It maintains
+// separate pools for addresses that need to be resolved and those that
+// have been resolved via the DNS cache.
 type addressProvider struct {
 	dnsCache       DNSCache
 	ipAddrResolver IPAddrResolver
@@ -642,6 +648,7 @@ type addressProvider struct {
 	resolvedAddrs  []*resolvedAddress
 }
 
+// newAddressProvider returns a new addressProvider.
 func newAddressProvider(initialAddrs []string, dnsCache DNSCache, ipAddrResolver IPAddrResolver) *addressProvider {
 	return &addressProvider{
 		dnsCache:       dnsCache,
@@ -674,6 +681,19 @@ func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
 				return nil, errors.Errorf("invalid address %q: %v", next, err)
 			}
 
+			// Lookup only the host section excluding segments
+			// But store the Path to append to resolved addresses.
+			path := ""
+			if strings.Contains(host, "/") {
+				host = "https://" + host // Just so we can parse it into a URL
+				parsedURL, err := url.Parse(host)
+				if err != nil {
+					return nil, errors.Errorf("invalid address %q: %v", host, err)
+				}
+				host = parsedURL.Hostname()
+				path = parsedURL.Path
+			}
+
 			ips := ap.dnsCache.Lookup(host)
 			if len(ips) > 0 {
 				ap.cachedAddrPool = append(ap.cachedAddrPool, next)
@@ -691,9 +711,10 @@ func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
 
 			for _, ip := range ips {
 				ap.resolvedAddrs = append(ap.resolvedAddrs, &resolvedAddress{
-					host: next,
-					ip:   ip,
-					port: port,
+					host:         next,
+					ip:           ip,
+					port:         port,
+					existingPath: path,
 				})
 			}
 		}
@@ -893,6 +914,13 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 			continue
 		}
 		tried[ipStr] = true
+
+		// Check if it is an existing path and prepend it to the resolved
+		// path.
+		if resolvedAddr.existingPath != "" {
+			path = resolvedAddr.existingPath + path
+		}
+
 		err = startDialWebsocket(ctx, try, ipStr, resolvedAddr.host, path, opts)
 		if err == parallel.ErrStopped {
 			break

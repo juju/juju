@@ -764,6 +764,37 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
 }
 
+// We want open to perform a DNS lookup against the host without the segments,
+// but for the opening of the connect maintain the segments i.e.,
+// jimm.com/my-segment/api
+func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		return fakeConn{}, nil
+	}
+	dnsCache := make(dnsCacheMap)
+
+	conn, err := api.Open(
+		&api.Info{
+			Addrs: []string{
+				"place1.example/segment:1234",
+			},
+			SkipLogin: true,
+			CACert:    jtesting.CACert,
+		},
+		api.DialOpts{
+			DialWebsocket: fakeDialer,
+			IPAddrResolver: apitesting.IPAddrResolverMap{
+				"place1.example": {"0.1.1.1"},
+			},
+			DNSCache: dnsCache,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+
+	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
+}
+
 func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 	var dialed string
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
