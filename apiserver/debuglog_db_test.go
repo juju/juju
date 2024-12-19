@@ -28,10 +28,10 @@ var _ = gc.Suite(&debugLogDBSuite{})
 // featuretests package for an end-to-end integration test.
 
 func (s *debugLogDBSuite) TestBadParams(c *gc.C) {
-	conn := s.dialWebsocket(c, url.Values{"maxLines": {"foo"}})
+	conn := s.dialWebsocket(c, url.Values{"maxLogCount": {"foo"}})
 	defer conn.Close()
 
-	websockettest.AssertJSONError(c, conn, `maxLines value "foo" is not a valid unsigned number`)
+	websockettest.AssertJSONError(c, conn, `maxLogCount value "foo" is not a valid unsigned number`)
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 
@@ -63,7 +63,7 @@ func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 
-var noResultsPlease = url.Values{"maxLines": {"0"}, "noTail": {"true"}}
+var noResultsPlease = url.Values{"maxLogCount": {"0"}, "noTail": {"true"}}
 
 func (s *debugLogDBSuite) TestUserLoginsAccepted(c *gc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{

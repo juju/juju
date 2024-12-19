@@ -80,7 +80,7 @@ func newDebugLogHandler(
 //	   - as with include, it may finish with a '*'
 //	excludeModule -> []string - lists logging modules to exclude from the response
 //	limit -> uint - show *at most* this many lines
-//	backlog -> uint
+//	latestLogCount -> uint
 //	   - go back this many lines from the end before starting to filter
 //	   - has no meaning if 'replay' is true
 //	level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
@@ -182,29 +182,37 @@ func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
 
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
-	startTime     time.Time
-	maxLines      uint
-	fromTheStart  bool
-	noTail        bool
-	backlog       uint
-	filterLevel   loggo.Level
-	includeEntity []string
-	excludeEntity []string
-	includeModule []string
-	excludeModule []string
-	includeLabel  []string
-	excludeLabel  []string
+	startTime      time.Time
+	fromTheStart   bool
+	noTail         bool
+	latestLogCount uint
+	filterLevel    loggo.Level
+	includeEntity  []string
+	excludeEntity  []string
+	includeModule  []string
+	excludeModule  []string
+	includeLabel   []string
+	excludeLabel   []string
 }
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	var params debugLogParams
 
-	if value := queryMap.Get("maxLines"); value != "" {
+	if value := queryMap.Get("latestLogCount"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("latestLogCount value %q is not a valid unsigned number", value)
 		}
-		params.maxLines = uint(num)
+		params.latestLogCount = uint(num)
+	}
+
+	if value := queryMap.Get("maxLogCount"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return params, errors.Errorf("maxLogCount value %q is not a valid unsigned number", value)
+		}
+		params.noTail = true
+		params.latestLogCount = uint(num)
 	}
 
 	if value := queryMap.Get("replay"); value != "" {
@@ -221,14 +229,6 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
-	}
-
-	if value := queryMap.Get("backlog"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
-		}
-		params.backlog = uint(num)
 	}
 
 	if value := queryMap.Get("level"); value != "" {

@@ -46,13 +46,13 @@ type DebugLogParams struct {
 	// sent down the connection until the client closes the connection.
 	Limit uint
 	// Backlog tells the server to try to go back this many lines before
-	// starting filtering. If backlog is zero and replay is false, then there
+	// starting filtering. If Backlog is zero and replay is false, then there
 	// may be an initial delay until the next matching log message is written.
 	Backlog uint
 	// Level specifies the minimum logging level to be sent back in the response.
 	Level loggo.Level
 	// Replay tells the server to start at the start of the log file rather
-	// than the end. If replay is true, backlog is ignored.
+	// than the end. If replay is true, LatestLogCount is ignored.
 	Replay bool
 	// NoTail tells the server to only return the logs it has now, and not
 	// to wait for new logs to arrive.
@@ -78,10 +78,10 @@ func (args DebugLogParams) URLQuery() url.Values {
 		attrs.Set("noTail", fmt.Sprint(args.NoTail))
 	}
 	if args.Limit > 0 {
-		attrs.Set("maxLines", fmt.Sprint(args.Limit))
+		attrs.Set("maxLogCount", fmt.Sprint(args.Limit))
 	}
 	if args.Backlog > 0 {
-		attrs.Set("backlog", fmt.Sprint(args.Backlog))
+		attrs.Set("latestLogCount", fmt.Sprint(args.Backlog))
 	}
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))

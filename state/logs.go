@@ -542,20 +542,13 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 	// c) use the aggregation pipeline in Mongo 3.2 to write the docs to
 	//    a temp location and iterate them forward from there.
 	// (a) makes the most sense for me :)
-	if t.params.InitialLines > t.maxInitialLines {
+	if t.params.LatestLogCount > t.maxInitialLines {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
-			t.params.InitialLines, maxInitialLines)
-	}
-
-	logsCount := t.params.InitialLines
-
-	// Either InitialLines or Limit must be > 0
-	if t.params.Limit != 0 {
-		logsCount = t.params.Limit
+			t.params.LatestLogCount, maxInitialLines)
 	}
 
 	iter := query.Sort("-t", "-_id").
-		Limit(logsCount).
+		Limit(t.params.LatestLogCount).
 		Iter()
 
 	var queue []logDoc
@@ -597,7 +590,7 @@ func (t *logTailer) processCollection() error {
 	query := t.logsColl.Find(sel)
 
 	var doc logDoc
-	if t.params.InitialLines > 0 || t.params.Limit > 0 {
+	if t.params.LatestLogCount > 0 {
 		return t.processReversed(query)
 	}
 	// In tests, sorting by time can leave the result ordering

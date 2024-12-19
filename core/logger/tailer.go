@@ -32,16 +32,15 @@ type LogTailer interface {
 // LogTailerParams specifies the filtering a LogTailer should
 // apply to log records in order to decide which to return.
 type LogTailerParams struct {
-	StartID       int64
-	StartTime     time.Time
-	MinLevel      loggo.Level
-	InitialLines  int
-	Limit         int
-	NoTail        bool
-	IncludeEntity []string
-	ExcludeEntity []string
-	IncludeModule []string
-	ExcludeModule []string
-	IncludeLabel  []string
-	ExcludeLabel  []string
+	StartID        int64
+	StartTime      time.Time
+	MinLevel       loggo.Level
+	LatestLogCount int
+	NoTail         bool
+	IncludeEntity  []string
+	ExcludeEntity  []string
+	IncludeModule  []string
+	ExcludeModule  []string
+	IncludeLabel   []string
+	ExcludeLabel   []string
 }

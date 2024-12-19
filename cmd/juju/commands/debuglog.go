@@ -27,9 +27,9 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// defaultLineCount is the default number of lines to
+// defaultLogCount is the default number of logs to
 // display, from the end of the consolidated log.
-const defaultLineCount = 10
+const defaultLogCount = 10
 
 var usageDebugLogSummary = `
 Displays log messages for a model.`[1:]
@@ -166,8 +166,8 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR].")
 	f.StringVar(&c.level, "level", "", "")
 
-	f.UintVar(&c.params.Backlog, "n", defaultLineCount, "Show this many of the most recent lines and continue to append new ones")
-	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
+	f.UintVar(&c.params.Backlog, "n", defaultLogCount, "Show this many of the most recent lines and continue to append new ones")
+	f.UintVar(&c.params.Backlog, "lines", defaultLogCount, "")
 	f.UintVar(&c.params.Limit, "limit", 0, "Show this many of the most recent logs and then exits")
 	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire log and continue to append new ones")
 
