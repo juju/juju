@@ -17,7 +17,6 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	charm0 "github.com/juju/juju/internal/charm"
-	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -275,45 +274,6 @@ func (c *MockBackendStateModelConstraintsCall) Do(f func() (constraints.Value, e
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendStateModelConstraintsCall) DoAndReturn(f func() (constraints.Value, error)) *MockBackendStateModelConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PrepareCharmUpload mocks base method.
-func (m *MockBackendState) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
-	ret0, _ := ret[0].(services.UploadedCharm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareCharmUpload indicates an expected call of PrepareCharmUpload.
-func (mr *MockBackendStateMockRecorder) PrepareCharmUpload(arg0 any) *MockBackendStatePrepareCharmUploadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockBackendState)(nil).PrepareCharmUpload), arg0)
-	return &MockBackendStatePrepareCharmUploadCall{Call: call}
-}
-
-// MockBackendStatePrepareCharmUploadCall wrap *gomock.Call
-type MockBackendStatePrepareCharmUploadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendStatePrepareCharmUploadCall) Return(arg0 services.UploadedCharm, arg1 error) *MockBackendStatePrepareCharmUploadCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendStatePrepareCharmUploadCall) Do(f func(string) (services.UploadedCharm, error)) *MockBackendStatePrepareCharmUploadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendStatePrepareCharmUploadCall) DoAndReturn(f func(string) (services.UploadedCharm, error)) *MockBackendStatePrepareCharmUploadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

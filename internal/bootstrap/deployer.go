@@ -129,7 +129,6 @@ type HTTPClient interface {
 // state and upload it to the object store.
 type CharmUploader interface {
 	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
-	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	ModelUUID() string
 }
 
@@ -472,11 +471,6 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 
 	if info.URL.Schema == charm.Local.String() {
 		_, err = b.charmUploader.PrepareLocalCharmUpload(info.URL.String())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		_, err = b.charmUploader.PrepareCharmUpload(info.URL.String())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

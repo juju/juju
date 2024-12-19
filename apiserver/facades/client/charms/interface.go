@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 
@@ -20,14 +19,6 @@ func newStateShim(st *state.State) interfaces.BackendState {
 	return stateShim{
 		State: st,
 	}
-}
-
-func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	ch, err := s.State.PrepareCharmUpload(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stateCharmShim{CharmRefFull: ch}, nil
 }
 
 func (s stateShim) Application(name string) (interfaces.Application, error) {
@@ -57,17 +48,6 @@ func (s stateApplicationShim) AllUnits() ([]interfaces.Unit, error) {
 		results[i] = unit
 	}
 	return results, nil
-}
-
-type stateCharmShim struct {
-	state.CharmRefFull
-}
-
-func (s stateCharmShim) IsUploaded() bool {
-	// TODO(nvinuesa): IsUploaded is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-6845
-	// return s.CharmRefFull.IsUploaded()
-	return false
 }
 
 // StoreCharm represents a store charm.

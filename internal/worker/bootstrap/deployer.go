@@ -60,9 +60,6 @@ type SystemState interface {
 	// PrepareLocalCharmUpload returns the charm URL that should be used to
 	// upload the charm.
 	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
-	// PrepareCharmUpload returns the charm URL that should be used to upload
-	// the charm.
-	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	// ApplyOperation applies the given operation.
 	ApplyOperation(*state.UpdateUnitOperation) error
 	// CloudService returns the cloud service for the given cloud.
@@ -203,10 +200,6 @@ func (c charmUploader) ModelUUID() string {
 
 type stateShim struct {
 	*state.State
-}
-
-func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	return s.State.PrepareCharmUpload(curl)
 }
 
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {

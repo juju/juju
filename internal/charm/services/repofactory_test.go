@@ -22,7 +22,6 @@ var _ = gc.Suite(&repoFactoryTestSuite{})
 type repoFactoryTestSuite struct {
 	testing.IsolationSuite
 
-	stateBackend       *MockStateBackend
 	modelConfigService *MockModelConfigService
 	repoFactory        corecharm.RepositoryFactory
 }
@@ -46,7 +45,6 @@ func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {
 
 func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.stateBackend = NewMockStateBackend(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	s.repoFactory = NewCharmRepoFactory(CharmRepoFactoryConfig{

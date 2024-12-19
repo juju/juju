@@ -31,7 +31,6 @@ import (
 	config "github.com/juju/juju/environs/config"
 	bootstrap "github.com/juju/juju/internal/bootstrap"
 	charm0 "github.com/juju/juju/internal/charm"
-	services "github.com/juju/juju/internal/charm/services"
 	storage "github.com/juju/juju/internal/storage"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
@@ -475,45 +474,6 @@ func (c *MockSystemStateMachineCall) Do(f func(string) (bootstrap.Machine, error
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSystemStateMachineCall) DoAndReturn(f func(string) (bootstrap.Machine, error)) *MockSystemStateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PrepareCharmUpload mocks base method.
-func (m *MockSystemState) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
-	ret0, _ := ret[0].(services.UploadedCharm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareCharmUpload indicates an expected call of PrepareCharmUpload.
-func (mr *MockSystemStateMockRecorder) PrepareCharmUpload(arg0 any) *MockSystemStatePrepareCharmUploadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockSystemState)(nil).PrepareCharmUpload), arg0)
-	return &MockSystemStatePrepareCharmUploadCall{Call: call}
-}
-
-// MockSystemStatePrepareCharmUploadCall wrap *gomock.Call
-type MockSystemStatePrepareCharmUploadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStatePrepareCharmUploadCall) Return(arg0 services.UploadedCharm, arg1 error) *MockSystemStatePrepareCharmUploadCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStatePrepareCharmUploadCall) Do(f func(string) (services.UploadedCharm, error)) *MockSystemStatePrepareCharmUploadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStatePrepareCharmUploadCall) DoAndReturn(f func(string) (services.UploadedCharm, error)) *MockSystemStatePrepareCharmUploadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
