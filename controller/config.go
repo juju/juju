@@ -16,10 +16,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/pki"
 )
 

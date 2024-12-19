@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/environschema.v1"
 
 	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/environschema"
 )
 
 var ctrConfigBase = config.ConfigCommandBase{

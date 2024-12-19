@@ -13,8 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/internal/environschema"
 )
 
 // CloudCredential contains attributes used to define credentials for a cloud.

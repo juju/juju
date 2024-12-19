@@ -5,9 +5,9 @@ package application
 
 import (
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/internal/environschema"
 )
 
 const defaultTrustLevel = false

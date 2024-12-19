@@ -8,9 +8,9 @@ import (
 	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/internal/environschema"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
