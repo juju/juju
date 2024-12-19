@@ -27,7 +27,7 @@ from custom_conf import *
 #
 # TODO: Update with the official name of your project or product
 
-project = "Juju CLI and core"
+project = "Juju"
 author = "Canonical Ltd."
 
 
@@ -103,7 +103,7 @@ ogp_image = \
 
 html_context = {
     # Product page URL; can be different from product docs URL
-    "product_page": "juju.is",
+     "product_page": "juju.is",
     # Product tag image; the orange part of your logo, shown in the page header
     'product_tag': '/docs/logos/juju-logo.png',
     # Your Discourse instance URL
@@ -201,9 +201,9 @@ linkcheck_anchors_ignore_for_url = [r"https://github\.com/.*"]
 #       - youtube-links
 
 extensions = [
-    "canonical_sphinx",
-    "sphinxcontrib.cairosvgconverter",
-]
+    'canonical_sphinx',
+    'sphinx_design',
+    ]
 
 
 # Excludes files or directories from processing

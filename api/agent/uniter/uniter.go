@@ -100,9 +100,9 @@ func (client *Client) life(ctx context.Context, tag names.Tag) (life.Value, erro
 }
 
 // relation requests relation information from the server.
-func (client *Client) relation(ctx context.Context, relationTag, unitTag names.Tag) (params.RelationResult, error) {
-	nothing := params.RelationResult{}
-	var result params.RelationResults
+func (client *Client) relation(ctx context.Context, relationTag, unitTag names.Tag) (params.RelationResultV2, error) {
+	nothing := params.RelationResultV2{}
+	var result params.RelationResultsV2
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{
 			{Relation: relationTag.String(), Unit: unitTag.String()},
@@ -265,12 +265,13 @@ func (client *Client) Relation(ctx context.Context, relationTag names.RelationTa
 		return nil, err
 	}
 	return &Relation{
-		id:        result.Id,
-		tag:       relationTag,
-		life:      result.Life,
-		suspended: result.Suspended,
-		client:    client,
-		otherApp:  result.OtherApplication,
+		id:             result.Id,
+		tag:            relationTag,
+		life:           result.Life,
+		suspended:      result.Suspended,
+		client:         client,
+		otherApp:       result.OtherApplication.ApplicationName,
+		otherModelUUID: result.OtherApplication.ModelUUID,
 	}, nil
 }
 
@@ -349,7 +350,7 @@ func (client *Client) ActionFinish(ctx context.Context, tag names.ActionTag, sta
 
 // RelationById returns the existing relation with the given id.
 func (client *Client) RelationById(ctx context.Context, id int) (*Relation, error) {
-	var results params.RelationResults
+	var results params.RelationResultsV2
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
@@ -367,12 +368,13 @@ func (client *Client) RelationById(ctx context.Context, id int) (*Relation, erro
 	}
 	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
-		id:        result.Id,
-		tag:       relationTag,
-		life:      result.Life,
-		suspended: result.Suspended,
-		client:    client,
-		otherApp:  result.OtherApplication,
+		id:             result.Id,
+		tag:            relationTag,
+		life:           result.Life,
+		suspended:      result.Suspended,
+		client:         client,
+		otherApp:       result.OtherApplication.ApplicationName,
+		otherModelUUID: result.OtherApplication.ModelUUID,
 	}, nil
 }
 
