@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
@@ -912,6 +913,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:               config.Clock,
 			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
 		}),
+
+		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
+			AgentName:      agentName,
+			CentralHubName: centralHubName,
+			Clock:          config.Clock,
+			Logger:         internallogger.GetLogger("juju.worker.apiremotecaller"),
+			NewWorker:      apiremotecaller.NewWorker,
+		})),
 	}
 
 	return manifolds
@@ -1321,6 +1330,7 @@ const (
 
 	apiAddressUpdaterName         = "api-address-updater"
 	apiServerName                 = "api-server"
+	apiRemoteCallerName           = "api-remote-caller"
 	auditConfigUpdaterName        = "audit-config-updater"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	brokerTrackerName             = "broker-tracker"
