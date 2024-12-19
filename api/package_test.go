@@ -69,6 +69,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"internal/proxy/config",
 		"internal/rpcreflect",
 		"internal/storage",
+		"internal/stringcompare",
 		"internal/tools",
 		"internal/uuid",
 		"rpc",

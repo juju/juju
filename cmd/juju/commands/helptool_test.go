@@ -71,6 +71,7 @@ Currently available charm hook tools are:
     relation-get             Get relation settings.
     relation-ids             List all relation IDs for the given endpoint.
     relation-list            List relation units.
+    relation-model-get       Get details about the model hosing a related application.
     relation-set             Set relation settings.
     resource-get             Get the path to the locally cached resource file.
     secret-add               Add a new secret.
@@ -126,6 +127,7 @@ var expectedCommands = []string{
 	"relation-get",
 	"relation-ids",
 	"relation-list",
+	"relation-model-get",
 	"relation-set",
 	"resource-get",
 	"secret-add",

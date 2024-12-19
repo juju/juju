@@ -25,16 +25,27 @@ func Register(registry facade.FacadeRegistry) {
 		return newUniterAPIv19(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPIv19)(nil)))
 	registry.MustRegister("Uniter", 20, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newUniterAPIv20(stdCtx, ctx)
+	}, reflect.TypeOf((*UniterAPIv20)(nil)))
+	registry.MustRegister("Uniter", 21, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
 
 func newUniterAPIv19(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPIv19, error) {
+	api, err := newUniterAPIv20(stdCtx, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIv19{UniterAPIv20: api}, nil
+}
+
+func newUniterAPIv20(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPIv20, error) {
 	api, err := newUniterAPI(stdCtx, ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIv19{UniterAPI: api}, nil
+	return &UniterAPIv20{UniterAPI: api}, nil
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.

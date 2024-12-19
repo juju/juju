@@ -220,7 +220,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64\\]")
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: amd64")
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
