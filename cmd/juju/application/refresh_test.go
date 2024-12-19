@@ -38,6 +38,7 @@ import (
 	coreresouces "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -1011,14 +1012,11 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 }
 
 func (s *RefreshSuite) archivePath(c *gc.C, path string) string {
-	charm, err := charm.ReadCharmDir(path)
+	charm, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	archivePath := filepath.Join(c.MkDir(), "myriak.charm")
-	archiveFile, err := os.Create(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = archiveFile.Close() }()
-	err = charm.ArchiveTo(archiveFile)
+	err = charm.ArchiveToPath(archivePath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return archivePath

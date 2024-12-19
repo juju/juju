@@ -6,7 +6,6 @@ package charm_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/juju/collections/set"
@@ -14,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucharm "github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/testcharms"
 )
@@ -61,13 +61,10 @@ func (br *bundleReader) AddCustomBundle(c *gc.C, url *jujucharm.URL, customize f
 	if customize != nil {
 		customize(dirpath)
 	}
-	dir, err := jujucharm.ReadCharmDir(dirpath)
+	dir, err := charmtesting.ReadCharmDir(dirpath)
 	c.Assert(err, jc.ErrorIsNil)
 	bunpath := filepath.Join(base, "bundle")
-	file, err := os.Create(bunpath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = file.Close() }()
-	err = dir.ArchiveTo(file)
+	err = dir.ArchiveToPath(bunpath)
 	c.Assert(err, jc.ErrorIsNil)
 	bundle, err := jujucharm.ReadCharmArchive(bunpath)
 	c.Assert(err, jc.ErrorIsNil)

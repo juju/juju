@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -1847,14 +1848,21 @@ applications:
 relations:
     - ["wordpress:db", "mysql:server"]
 `
-	charmsPath := c.MkDir()
-	mysql := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "mysql")
-	s.expectLocalCharm(mysql, mysqlCurl, nil)
+	tmpDir := c.MkDir()
 
-	wordpress := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "wordpress")
-	s.expectLocalCharm(wordpress, wordpressCurl, nil)
+	mysql := testcharms.RepoWithSeries("focal").CharmDir("mysql")
+	mysqlPath := filepath.Join(tmpDir, "mysql.charm")
+	err := mysql.ArchiveToPath(mysqlPath)
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectLocalCharm(mysqlPath, mysql, mysqlCurl, nil)
 
-	bundle := fmt.Sprintf(content, wordpress.Path, mysql.Path)
+	wordpress := testcharms.RepoWithSeries("focal").CharmDir("wordpress")
+	wordpressPath := filepath.Join(tmpDir, "wordpress.charm")
+	err = wordpress.ArchiveToPath(wordpressPath)
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectLocalCharm(wordpressPath, wordpress, wordpressCurl, nil)
+
+	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1874,7 +1882,7 @@ relations:
 		"- add unit wordpress/0 to new machine 2\n" +
 		"Deploy of bundle completed.\n"
 
-	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysql.Path, wordpress.Path))
+	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
@@ -1918,14 +1926,22 @@ applications:
 relations:
     - ["wordpress:db", "mysql:server"]
 `
-	charmsPath := c.MkDir()
-	mysql := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "mysql")
-	s.expectLocalCharm(mysql, mysqlCurl, nil)
 
-	wordpress := testcharms.RepoWithSeries("focal").ClonedDir(charmsPath, "wordpress")
-	s.expectLocalCharm(wordpress, wordpressCurl, nil)
+	tmpdir := c.MkDir()
 
-	bundle := fmt.Sprintf(content, wordpress.Path, mysql.Path)
+	mysql := testcharms.RepoWithSeries("focal").CharmDir("mysql")
+	mysqlPath := filepath.Join(tmpdir, "mysql.charm")
+	err := mysql.ArchiveToPath(mysqlPath)
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectLocalCharm(mysqlPath, mysql, mysqlCurl, nil)
+
+	wordpress := testcharms.RepoWithSeries("focal").CharmDir("wordpress")
+	wordpressPath := filepath.Join(tmpdir, "wordpress.charm")
+	err = wordpress.ArchiveToPath(wordpressPath)
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectLocalCharm(wordpressPath, wordpress, wordpressCurl, nil)
+
+	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1945,7 +1961,7 @@ relations:
 		"- add unit wordpress/0 to new machine 2\n" +
 		"Deploy of bundle completed.\n"
 
-	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysql.Path, wordpress.Path))
+	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 
 }
 
@@ -2434,8 +2450,8 @@ func (s *BundleDeployRepositorySuite) expectAddRelation(endpoints []string) {
 	s.deployerAPI.EXPECT().AddRelation(gomock.Any(), endpoints, nil).Return(nil, nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectLocalCharm(ch *charm.CharmDir, curl *charm.URL, err error) {
-	s.charmReader.EXPECT().NewCharmAtPath(ch.Path).Return(ch, curl, err)
+func (s *BundleDeployRepositorySuite) expectLocalCharm(path string, ch charm.Charm, curl *charm.URL, err error) {
+	s.charmReader.EXPECT().NewCharmAtPath(path).Return(ch, curl, err)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit string) {

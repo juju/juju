@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucharm "github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"
@@ -50,9 +51,9 @@ func (f fakeBundleInfo) ArchiveSha256(ctx context.Context) (string, error) {
 	return f.sha256, nil
 }
 
-func (s *BundlesDirSuite) testCharm(c *gc.C) *jujucharm.CharmDir {
+func (s *BundlesDirSuite) testCharm(c *gc.C) *charmtesting.CharmDir {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
-	dir, err := jujucharm.ReadCharmDir(base)
+	dir, err := charmtesting.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	return dir
 }
@@ -132,7 +133,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	checkDownloadsEmpty()
 }
 
-func assertCharm(c *gc.C, bun charm.Bundle, sch *jujucharm.CharmDir) {
+func assertCharm(c *gc.C, bun charm.Bundle, sch *charmtesting.CharmDir) {
 	actual := bun.(*jujucharm.CharmArchive)
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())

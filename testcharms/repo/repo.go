@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v4/fs"
 
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 )
 
 func check(err error) {
@@ -70,8 +71,8 @@ func (r *CharmRepo) BundleDirPath(name string) string {
 }
 
 // BundleDir returns the actual charm.BundleDir named name.
-func (r *CharmRepo) BundleDir(name string) *charm.BundleDir {
-	b, err := charm.ReadBundleDir(r.BundleDirPath(name))
+func (r *CharmRepo) BundleDir(name string) *charmtesting.BundleDir {
+	b, err := charmtesting.ReadBundleDir(r.BundleDirPath(name))
 	check(err)
 	return b
 }
@@ -83,8 +84,8 @@ func (r *CharmRepo) CharmDirPath(name string) string {
 }
 
 // CharmDir returns the actual charm.CharmDir named name.
-func (r *CharmRepo) CharmDir(name string) *charm.CharmDir {
-	ch, err := charm.ReadCharmDir(r.CharmDirPath(name))
+func (r *CharmRepo) CharmDir(name string) *charmtesting.CharmDir {
+	ch, err := charmtesting.ReadCharmDir(r.CharmDirPath(name))
 	check(err)
 	return ch
 }
@@ -112,8 +113,8 @@ func (r *CharmRepo) RenamedClonedDirPath(dst, name, newName string) string {
 
 // ClonedDir returns an actual charm.CharmDir based on a new copy of the charm directory
 // named name, in the directory dst.
-func (r *CharmRepo) ClonedDir(dst, name string) *charm.CharmDir {
-	ch, err := charm.ReadCharmDir(r.ClonedDirPath(dst, name))
+func (r *CharmRepo) ClonedDir(dst, name string) *charmtesting.CharmDir {
+	ch, err := charmtesting.ReadCharmDir(r.ClonedDirPath(dst, name))
 	check(err)
 	return ch
 }
@@ -121,24 +122,10 @@ func (r *CharmRepo) ClonedDir(dst, name string) *charm.CharmDir {
 // CharmArchivePath returns the path to a new charm archive file
 // in the directory dst, created from the charm directory named name.
 func (r *CharmRepo) CharmArchivePath(dst, name string) string {
-	dir := r.CharmDir(name)
+	dir, err := charmtesting.ReadCharmDir(r.CharmDirPath(name))
+	check(err)
 	path := filepath.Join(dst, fmt.Sprintf("archive-%s.charm", time.Now().Format(time.RFC3339Nano)))
-	file, err := os.Create(path)
-	check(err)
-	defer func() { _ = file.Close() }()
-	check(dir.ArchiveTo(file))
-	return path
-}
-
-// BundleArchivePath returns the path to a new bundle archive file
-// in the directory dst, created from the bundle directory named name.
-func (r *CharmRepo) BundleArchivePath(dst, name string) string {
-	dir := r.BundleDir(name)
-	path := filepath.Join(dst, "archive.bundle")
-	file, err := os.Create(path)
-	check(err)
-	defer func() { _ = file.Close() }()
-	check(dir.ArchiveTo(file))
+	check(dir.ArchiveToPath(path))
 	return path
 }
 
@@ -149,13 +136,4 @@ func (r *CharmRepo) CharmArchive(dst, name string) *charm.CharmArchive {
 	ch, err := charm.ReadCharmArchive(r.CharmArchivePath(dst, name))
 	check(err)
 	return ch
-}
-
-// BundleArchive returns an actual charm.BundleArchive created from a new
-// bundle archive file created from the bundle directory named name, in
-// the directory dst.
-func (r *CharmRepo) BundleArchive(dst, name string) *charm.BundleArchive {
-	b, err := charm.ReadBundleArchive(r.BundleArchivePath(dst, name))
-	check(err)
-	return b
 }

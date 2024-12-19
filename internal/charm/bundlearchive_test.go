@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
 )
 
 var _ = gc.Suite(&BundleArchiveSuite{})
@@ -75,7 +76,7 @@ func (s *BundleArchiveSuite) TestReadBundleArchiveWithoutREADME(c *gc.C) {
 
 func testReadBundleArchiveWithoutFile(c *gc.C, fileToRemove string) {
 	path := cloneDir(c, bundleDirPath(c, "wordpress-simple"))
-	dir, err := charm.ReadBundleDir(path)
+	dir, err := charmtesting.ReadBundleDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove the file from the bundle directory.
@@ -106,7 +107,7 @@ func (s *BundleArchiveSuite) TestExpandTo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = archive.ExpandTo(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	bdir, err := charm.ReadBundleDir(dir)
+	bdir, err := charmtesting.ReadBundleDir(dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bdir.ReadMe(), gc.Equals, archive.ReadMe())
 	c.Assert(bdir.Data(), gc.DeepEquals, archive.Data())

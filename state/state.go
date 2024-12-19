@@ -1940,7 +1940,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				if !ep.ImplementedBy(ch) {
+				if !ep.ImplementedBy(ch.Meta()) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
 				charmBases, err := corecharm.ComputedBases(ch)

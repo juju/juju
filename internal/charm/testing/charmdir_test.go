@@ -1,12 +1,11 @@
 // Copyright 2011, 2012, 2013 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
-package charm_test
+package testing_test
 
 import (
 	"archive/zip"
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,6 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
+	charmtesting "github.com/juju/juju/internal/charm/testing"
+	"github.com/juju/juju/internal/fs"
 )
 
 type CharmDirSuite struct {
@@ -27,31 +28,53 @@ type CharmDirSuite struct {
 
 var _ = gc.Suite(&CharmDirSuite{})
 
-func (s *CharmDirSuite) TestIsCharmDirGoodCharm(c *gc.C) {
-	path := charmDirPath(c, "dummy")
-	c.Assert(charm.IsCharmDir(path), jc.IsTrue)
-}
-
-func (s *CharmDirSuite) TestIsCharmDirBundle(c *gc.C) {
-	path := bundleDirPath(c, "wordpress-simple")
-	c.Assert(charm.IsCharmDir(path), jc.IsFalse)
-}
-
-func (s *CharmDirSuite) TestIsCharmDirNoMetadataYaml(c *gc.C) {
-	path := charmDirPath(c, "bad")
-	c.Assert(charm.IsCharmDir(path), jc.IsFalse)
+func checkDummy(c *gc.C, f charm.Charm) {
+	c.Assert(f.Revision(), gc.Equals, 1)
+	c.Assert(f.Meta().Name, gc.Equals, "dummy")
+	c.Assert(f.Config().Options["title"].Default, gc.Equals, "My Title")
+	c.Assert(f.Actions(), jc.DeepEquals,
+		&charm.Actions{
+			ActionSpecs: map[string]charm.ActionSpec{
+				"snapshot": {
+					Description: "Take a snapshot of the database.",
+					Params: map[string]interface{}{
+						"type":        "object",
+						"description": "Take a snapshot of the database.",
+						"title":       "snapshot",
+						"properties": map[string]interface{}{
+							"outfile": map[string]interface{}{
+								"description": "The file to write out to.",
+								"type":        "string",
+								"default":     "foo.bz2",
+							}},
+						"additionalProperties": false}}}})
+	lpc, ok := f.(charm.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(lpc.LXDProfile(), jc.DeepEquals, &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting":    "true",
+			"security.privileged": "true",
+		},
+		Description: "sample lxdprofile for testing",
+		Devices: map[string]map[string]string{
+			"tun": {
+				"path": "/dev/net/tun",
+				"type": "unix-char",
+			},
+		},
+	})
 }
 
 func (s *CharmDirSuite) TestReadCharmDir(c *gc.C) {
 	path := charmDirPath(c, "dummy")
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
-	checkDummy(c, dir, path)
+	checkDummy(c, dir)
 }
 
 func (s *CharmDirSuite) TestReadCharmDirWithoutConfig(c *gc.C) {
 	path := charmDirPath(c, "varnish")
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// A lacking config.yaml file still causes a proper
@@ -61,7 +84,7 @@ func (s *CharmDirSuite) TestReadCharmDirWithoutConfig(c *gc.C) {
 
 func (s *CharmDirSuite) TestReadCharmDirWithoutActions(c *gc.C) {
 	path := charmDirPath(c, "wordpress")
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// A lacking actions.yaml file still causes a proper
@@ -71,21 +94,21 @@ func (s *CharmDirSuite) TestReadCharmDirWithoutActions(c *gc.C) {
 
 func (s *CharmDirSuite) TestReadCharmDirWithActions(c *gc.C) {
 	path := charmDirPath(c, "dummy-actions")
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Actions().ActionSpecs, gc.HasLen, 1)
 }
 
 func (s *CharmDirSuite) TestReadCharmDirWithJujuActions(c *gc.C) {
 	path := charmDirPath(c, "juju-charm")
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Actions().ActionSpecs, gc.HasLen, 1)
 }
 
 func (s *CharmDirSuite) TestReadCharmDirManifest(c *gc.C) {
 	path := charmDirPath(c, "dummy")
-	dir, err := charm.ReadCharmDir(path)
+	dir, err := charmtesting.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(dir.Manifest().Bases, gc.DeepEquals, []charm.Base{{
@@ -104,10 +127,9 @@ func (s *CharmDirSuite) TestReadCharmDirManifest(c *gc.C) {
 }
 
 func (s *CharmDirSuite) TestReadCharmDirWithoutManifest(c *gc.C) {
-	path := charmDirPath(c, "mysql")
-	dir, err := charm.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir.Manifest(), gc.IsNil)
+	path := charmDirPath(c, "no-manifest")
+	_, err := charmtesting.ReadCharmDir(path)
+	c.Assert(err, jc.ErrorIs, charm.FileNotFound)
 }
 
 func (s *CharmDirSuite) TestArchiveTo(c *gc.C) {
@@ -116,14 +138,14 @@ func (s *CharmDirSuite) TestArchiveTo(c *gc.C) {
 	s.assertArchiveTo(c, baseDir, charmDir)
 }
 
-func (s *CharmSuite) TestReadCharmDirNoLogging(c *gc.C) {
+func (s *CharmDirSuite) TestReadCharmDirNoLogging(c *gc.C) {
 	var tw loggo.TestWriter
 	err := loggo.RegisterWriter("versionstring-test", &tw)
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("versionstring-test")
 
 	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-	dir, err := charm.ReadCharmDir(charmDir)
+	dir, err := charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Version(), gc.Equals, "")
 
@@ -147,7 +169,7 @@ func (s *CharmDirSuite) assertArchiveTo(c *gc.C, baseDir, charmDir string) {
 		haveSymlinks = false
 	}
 
-	dir, err := charm.ReadCharmDir(charmDir)
+	dir, err := charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := filepath.Join(baseDir, "archive.charm")
@@ -240,13 +262,6 @@ func (s *CharmDirSuite) TestArchiveToWithNonExecutableHooks(c *gc.C) {
 	file.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	tlog := c.GetTestLog()
-	for _, hook := range hooks {
-		fullpath := filepath.Join(dir.Path, "hooks", hook)
-		exp := fmt.Sprintf(`^(.|\n)*WARNING juju.charm making "%s" executable in charm(.|\n)*$`, fullpath)
-		c.Assert(tlog, gc.Matches, exp, gc.Commentf("hook %q was not made executable", fullpath))
-	}
-
 	// Expand it and check the hooks' permissions
 	// (But do not use ExpandTo(), just use the raw zip)
 	f, err := os.Open(path)
@@ -278,7 +293,7 @@ func (s *CharmDirSuite) TestArchiveToWithBadType(c *gc.C) {
 	err := os.Symlink("../../target", badFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err := charm.ReadCharmDir(charmDir)
+	dir, err := charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dir.ArchiveTo(&bytes.Buffer{})
@@ -289,7 +304,7 @@ func (s *CharmDirSuite) TestArchiveToWithBadType(c *gc.C) {
 	err = os.Symlink("/target", badFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err = charm.ReadCharmDir(charmDir)
+	dir, err = charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dir.ArchiveTo(&bytes.Buffer{})
@@ -300,7 +315,7 @@ func (s *CharmDirSuite) TestArchiveToWithBadType(c *gc.C) {
 	err = syscall.Mkfifo(badFile, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err = charm.ReadCharmDir(charmDir)
+	dir, err = charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dir.ArchiveTo(&bytes.Buffer{})
@@ -315,7 +330,7 @@ func (s *CharmDirSuite) TestDirRevisionFile(c *gc.C) {
 	err := os.Remove(revPath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err := charm.ReadCharmDir(charmDir)
+	dir, err := charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Revision(), gc.Equals, 0)
 
@@ -326,7 +341,7 @@ func (s *CharmDirSuite) TestDirRevisionFile(c *gc.C) {
 	_, err = file.Write([]byte("\nrevision: 1234\n"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err = charm.ReadCharmDir(charmDir)
+	dir, err = charmtesting.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Revision(), gc.Equals, 0)
 
@@ -334,7 +349,40 @@ func (s *CharmDirSuite) TestDirRevisionFile(c *gc.C) {
 	err = os.WriteFile(revPath, []byte("garbage"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err = charm.ReadCharmDir(charmDir)
-	c.Assert(err, gc.ErrorMatches, "invalid revision file")
+	dir, err = charmtesting.ReadCharmDir(charmDir)
+	c.Assert(err, gc.ErrorMatches, `parsing "revision" file: expected integer`)
 	c.Assert(dir, gc.IsNil)
+}
+
+// charmDirPath returns the path to the charm with the
+// given name in the testing repository.
+func charmDirPath(c *gc.C, name string) string {
+	path := filepath.Join("../internal/test-charm-repo/quantal", name)
+	assertIsDir(c, path)
+	return path
+}
+
+func assertIsDir(c *gc.C, path string) {
+	info, err := os.Stat(path)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.IsDir(), gc.Equals, true)
+}
+
+// readCharmDir returns the charm with the given
+// name from the testing repository.
+func readCharmDir(c *gc.C, name string) *charmtesting.CharmDir {
+	path := charmDirPath(c, name)
+	ch, err := charmtesting.ReadCharmDir(path)
+	c.Assert(err, jc.ErrorIsNil)
+	return ch
+}
+
+// cloneDir recursively copies the path directory
+// into a new directory and returns the path
+// to it.
+func cloneDir(c *gc.C, path string) string {
+	newPath := filepath.Join(c.MkDir(), filepath.Base(path))
+	err := fs.Copy(path, newPath)
+	c.Assert(err, jc.ErrorIsNil)
+	return newPath
 }

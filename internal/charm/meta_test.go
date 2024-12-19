@@ -823,7 +823,7 @@ func (s *MetaSuite) TestImplementedBy(c *gc.C) {
 			Role:      t.role,
 			Scope:     t.scope,
 		}
-		c.Assert(r.ImplementedBy(&dummyCharm{}), gc.Equals, t.match)
+		c.Assert(r.ImplementedBy(dummyMeta), gc.Equals, t.match)
 		c.Assert(r.IsImplicit(), gc.Equals, t.implicit)
 	}
 }
@@ -1715,45 +1715,17 @@ storage:
 	c.Assert(err, gc.ErrorMatches, `ambiguous metadata: keys "series" cannot be used with "containers"`)
 }
 
-type dummyCharm struct{}
-
-func (c *dummyCharm) Version() string {
-	panic("unused")
-}
-
-func (c *dummyCharm) Config() *charm.Config {
-	panic("unused")
-}
-
-func (c *dummyCharm) Actions() *charm.Actions {
-	panic("unused")
-}
-
-func (c *dummyCharm) LXDProfile() *charm.LXDProfile {
-	panic("unused")
-}
-
-func (c *dummyCharm) Manifest() *charm.Manifest {
-	panic("unused")
-}
-
-func (c *dummyCharm) Revision() int {
-	panic("unused")
-}
-
-func (c *dummyCharm) Meta() *charm.Meta {
-	return &charm.Meta{
-		Provides: map[string]charm.Relation{
-			"pro": {Interface: "ifce-pro", Scope: charm.ScopeGlobal},
-		},
-		Requires: map[string]charm.Relation{
-			"req":  {Interface: "ifce-req", Scope: charm.ScopeGlobal},
-			"info": {Interface: "juju-info", Scope: charm.ScopeContainer},
-		},
-		Peers: map[string]charm.Relation{
-			"peer": {Interface: "ifce-peer", Scope: charm.ScopeGlobal},
-		},
-	}
+var dummyMeta = &charm.Meta{
+	Provides: map[string]charm.Relation{
+		"pro": {Interface: "ifce-pro", Scope: charm.ScopeGlobal},
+	},
+	Requires: map[string]charm.Relation{
+		"req":  {Interface: "ifce-req", Scope: charm.ScopeGlobal},
+		"info": {Interface: "juju-info", Scope: charm.ScopeContainer},
+	},
+	Peers: map[string]charm.Relation{
+		"peer": {Interface: "ifce-peer", Scope: charm.ScopeGlobal},
+	},
 }
 
 type FormatMetaSuite struct{}

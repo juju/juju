@@ -89,11 +89,8 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	chDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "multi-series")
 
 	archivePath := filepath.Join(dir, "archive.charm")
-	file, err := os.Create(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer file.Close()
 
-	err = chDir.ArchiveTo(file)
+	err := chDir.ArchiveToPath(archivePath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectStat(archivePath, nil)
@@ -116,11 +113,8 @@ func (s *deployerSuite) TestGetDeployerLocalCharmPathWithSchema(c *gc.C) {
 	chDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "multi-series")
 
 	archivePath := filepath.Join(dir, "archive.charm")
-	file, err := os.Create(archivePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer file.Close()
 
-	err = chDir.ArchiveTo(file)
+	err := chDir.ArchiveToPath(archivePath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	archivePath = "local:" + archivePath

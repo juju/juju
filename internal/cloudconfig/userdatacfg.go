@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/featureflag"
@@ -558,27 +557,9 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 	}
 
 	logger.Infof("preparing to upload controller charm from %v", charmPath)
-	_, err := charm.ReadCharm(charmPath)
+	charmData, err := stdos.ReadFile(charmPath)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	var charmData []byte
-	if charm.IsCharmDir(charmPath) {
-		ch, err := charm.ReadCharmDir(charmPath)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		buf := bytes.NewBuffer(nil)
-		err = ch.ArchiveTo(buf)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmData = buf.Bytes()
-	} else {
-		charmData, err = stdos.ReadFile(charmPath)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
 

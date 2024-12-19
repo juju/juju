@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	context "context"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -300,42 +301,33 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasHooksOnly(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks only
-	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	err = ch.ArchiveTo(tempFile)
+	charmPath := filepath.Join(c.MkDir(), "charm")
+	err := ch.ArchiveToPath(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	f := *charms.HasHooksOrDispatch
-	hasHooks, err := f(tempFile.Name())
+	hasHooks, err := f(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsTrue)
 }
 
 func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category-dispatch") // has dispatch file only
-	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	err = ch.ArchiveTo(tempFile)
+	charmPath := filepath.Join(c.MkDir(), "charm")
+	err := ch.ArchiveToPath(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	f := *charms.HasHooksOrDispatch
-	hasDispatch, err := f(tempFile.Name())
+	hasDispatch, err := f(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasDispatch, jc.IsTrue)
 }
 
 func (s *charmsMockSuite) TestZipHasNoHooksNorDispatch(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks nor dispatch file
-	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	err = ch.ArchiveTo(tempFile)
+	charmPath := filepath.Join(c.MkDir(), "charm")
+	err := ch.ArchiveToPath(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	f := *charms.HasHooksOrDispatch
-	hasHooks, err := f(tempFile.Name())
+	hasHooks, err := f(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsFalse)
 }

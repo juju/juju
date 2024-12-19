@@ -160,18 +160,18 @@ type Relation struct {
 }
 
 // ImplementedBy returns whether the relation is implemented by the supplied charm.
-func (r Relation) ImplementedBy(ch Charm) bool {
+func (r Relation) ImplementedBy(meta *Meta) bool {
 	if r.IsImplicit() {
 		return true
 	}
 	var m map[string]Relation
 	switch r.Role {
 	case RoleProvider:
-		m = ch.Meta().Provides
+		m = meta.Provides
 	case RoleRequirer:
-		m = ch.Meta().Requires
+		m = meta.Requires
 	case RolePeer:
-		m = ch.Meta().Peers
+		m = meta.Peers
 	default:
 		panic(errors.Errorf("unknown relation role %q", r.Role))
 	}

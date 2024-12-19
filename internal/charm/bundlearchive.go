@@ -66,7 +66,7 @@ func readBundleArchive(zopen zipOpener) (*BundleArchive, error) {
 		return nil, err
 	}
 	a.bundleBytes = b
-	a.data, a.containsOverlays, err = readBaseFromMultidocBundle(b)
+	a.data, a.containsOverlays, err = ReadBaseFromMultidocBundle(b)
 	reader.Close()
 	if err != nil {
 		return nil, err

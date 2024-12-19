@@ -1262,7 +1262,7 @@ func computeApplicationBase(application *charm.ApplicationSpec, defaultBase core
 		return defaultBase, nil
 	}
 
-	ch, err := charm.ReadCharm(application.Charm)
+	ch, err := charm.ReadCharmArchive(application.Charm)
 	if err != nil {
 		return corebase.Base{}, errors.Trace(err)
 	}

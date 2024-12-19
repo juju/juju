@@ -230,7 +230,7 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 	if isTraceEnabled {
 		r.logger.Tracef("%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
 	}
-	var charmSpec *charm.CharmDir
+	var charmMeta *charm.Meta
 	knownUnits := make(map[string]bool)
 	for id, relationSnapshot := range remote.Relations {
 		if relr, found := r.relationers[id]; found {
@@ -278,8 +278,8 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 
 		// Make sure we ignore relations not implemented by the unit's charm.
 		if !r.RelationCreated(id) {
-			if charmSpec == nil {
-				charmSpec, err = charm.ReadCharmDir(r.charmDir)
+			if charmMeta == nil {
+				charmMeta, err = charm.ReadCharmDirMetadata(r.charmDir)
 				if err != nil {
 					if !os.IsNotExist(errors.Cause(err)) {
 						return errors.Trace(err)
@@ -287,7 +287,7 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 					r.logger.Warningf("charm deleted, skipping relation endpoint check for %q", rel)
 				}
 			}
-			if charmSpec != nil && !ep.ImplementedBy(charmSpec) {
+			if charmMeta != nil && !ep.ImplementedBy(charmMeta) {
 				r.logger.Warningf("skipping relation %q with unknown endpoint %q", rel, ep.Name)
 				continue
 			}
