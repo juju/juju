@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiremote
+package apiremotecaller
 
 import (
 	"context"
@@ -14,7 +14,17 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/worker/common"
 )
+
+// APIRemoteCallers is an interface that represents the remote API callers.
+type APIRemoteCallers interface {
+	// GetAPIRemotes returns the current API connections. It is expected that
+	// the caller will call this method just before making an API call to ensure
+	// that the connection is still valid. The caller must not cache the
+	// connections as they may change over time.
+	GetAPIRemotes() []RemoteConnection
+}
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -27,8 +37,8 @@ type ManifoldConfig struct {
 	NewWorker func(WorkerConfig) (worker.Worker, error)
 }
 
-// Manifold returns a dependency manifold that runs a pubsub
-// worker, using the resource names defined in the supplied config.
+// Manifold returns a dependency manifold that runs a API remote caller worker,
+// using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -36,7 +46,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.CentralHubName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			// Get the agent.
 			var agent coreagent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
@@ -72,5 +81,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func remoteOutput(in worker.Worker, out interface{}) error {
+	if w, ok := in.(*common.CleanupWorker); ok {
+		in = w.Worker
+	}
+	w, ok := in.(*remoteWorker)
+	if !ok {
+		return errors.Errorf("expected input of type remoteWorker, got %T", in)
+	}
+
+	switch out := out.(type) {
+	case *APIRemoteCallers:
+		var target APIRemoteCallers = w
+		*out = target
+	default:
+		return errors.Errorf("expected output of APIRemoteCallers, got %T", out)
+	}
 	return nil
 }

@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiremote
+package apiremotecaller
 
 import (
 	"context"
@@ -10,16 +10,29 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 )
 
+// RemoteConnection is an interface that represents a connection to a remote
+// API server.
+type RemoteConnection interface {
+	// Connection returns a channel that will be populated with the connection
+	// to the remote API server. If the connection is lost or the remote server
+	// is unreachable, the channel will be closed.
+	Connection() chan api.Connection
+
+	// Tag returns the tag of the remote API server.
+	Tag() names.Tag
+}
+
 // RemoteServer represents the public interface of the worker
 // responsible modeling the remote API server.
 type RemoteServer interface {
 	worker.Worker
-	Connection() chan api.Connection
+	RemoteConnection
 	UpdateAddresses(addresses []string)
 }
 
@@ -68,6 +81,11 @@ func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
 // unreachable, the channel will be closed.
 func (w *remoteServer) Connection() chan api.Connection {
 	return w.connections
+}
+
+// Tag returns the tag of the remote API server.
+func (w *remoteServer) Tag() names.Tag {
+	return w.info.Tag
 }
 
 // UpdateAddresses will update the addresses held for the target API server.
