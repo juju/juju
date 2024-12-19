@@ -209,7 +209,7 @@ func (s *debugLogDBIntSuite) TestLatestLogCount(c *gc.C) {
 		return tailer, nil
 	})
 
-	done := s.runRequest(debugLogParams{latestLogCount: 3}, nil)
+	done := s.runRequest(debugLogParams{latestLogCount: 3, noTail: true}, nil)
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.

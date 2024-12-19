@@ -28,7 +28,7 @@ var _ = gc.Suite(&debugLogDBSuite{})
 // featuretests package for an end-to-end integration test.
 
 func (s *debugLogDBSuite) TestBadParams(c *gc.C) {
-	conn := s.dialWebsocket(c, url.Values{"maxLines": {"foo"}})
+	conn := s.dialWebsocket(c, url.Values{"maxLogCount": {"foo"}})
 	defer conn.Close()
 
 	websockettest.AssertJSONError(c, conn, `maxLogCount value "foo" is not a valid unsigned number`)
