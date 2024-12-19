@@ -46,13 +46,13 @@ type DebugLogParams struct {
 	// sent down the connection until the client closes the connection.
 	Limit uint
 	// Backlog tells the server to try to go back this many lines before
-	// starting filtering. If Backlog is zero and replay is false, then there
+	// starting filtering. If backlog is zero and replay is false, then there
 	// may be an initial delay until the next matching log message is written.
 	Backlog uint
 	// Level specifies the minimum logging level to be sent back in the response.
 	Level loggo.Level
 	// Replay tells the server to start at the start of the log file rather
-	// than the end. If replay is true, LatestLogCount is ignored.
+	// than the end. If replay is true, backlog is ignored.
 	Replay bool
 	// NoTail tells the server to only return the logs it has now, and not
 	// to wait for new logs to arrive.

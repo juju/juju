@@ -43,9 +43,10 @@ func handleDebugLogDBRequest(
 	// Indicate that all is well.
 	socket.sendOk()
 
+	timeout := clock.After(maxDuration)
+
 	var logsCount uint
 
-	timeout := clock.After(maxDuration)
 	for {
 		select {
 		case <-stateClosing:

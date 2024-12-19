@@ -80,7 +80,7 @@ func newDebugLogHandler(
 //	   - as with include, it may finish with a '*'
 //	excludeModule -> []string - lists logging modules to exclude from the response
 //	limit -> uint - show *at most* this many lines
-//	latestLogCount -> uint
+//	backlog -> uint
 //	   - go back this many lines from the end before starting to filter
 //	   - has no meaning if 'replay' is true
 //	level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
