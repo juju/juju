@@ -43,7 +43,7 @@ import (
 	statewatcher "github.com/juju/juju/state/watcher"
 )
 
-// UniterAPI implements the latest version (v19) of the Uniter API.
+// UniterAPI implements the latest version (v21) of the Uniter API.
 type UniterAPI struct {
 	*StatusAPI
 	*StorageAPI
@@ -92,6 +92,10 @@ type UniterAPI struct {
 }
 
 type UniterAPIv19 struct {
+	*UniterAPIv20
+}
+
+type UniterAPIv20 struct {
 	*UniterAPI
 }
 
@@ -2931,7 +2935,7 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 }
 
 // WatchApplication starts an NotifyWatcher for an application.
-// WatchApplication is not implemented in the UniterAPIv19 facade.
+// WatchApplication is not implemented in the UniterAPIv20 facade.
 func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
 	canWatch, err := u.accessApplication()
 	if err != nil {
@@ -2960,7 +2964,7 @@ func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) 
 }
 
 // WatchUnit starts an NotifyWatcher for a unit.
-// WatchUnit is not implemented in the UniterAPIv19 facade.
+// WatchUnit is not implemented in the UniterAPIv20 facade.
 func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
 	canWatch, err := u.accessUnit()
 	if err != nil {
@@ -2991,7 +2995,7 @@ func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params
 // Watch starts an NotifyWatcher for a unit or application.
 // This is being deprecated in favour of separate WatchUnit and WatchApplication
 // methods.
-func (u *UniterAPIv19) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIv20) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
