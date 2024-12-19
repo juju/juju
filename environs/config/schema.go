@@ -5,9 +5,9 @@ package config
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/environschema"
 )
 
 // Schema returns a configuration schema that includes both

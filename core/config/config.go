@@ -9,8 +9,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/internal/environschema"
 )
 
 // ConfigAttributes represents config for an entity.

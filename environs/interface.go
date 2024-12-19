@@ -11,7 +11,6 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
 )

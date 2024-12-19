@@ -8,11 +8,11 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/environschema"
 )
 
 var configSchema = environschema.Fields{

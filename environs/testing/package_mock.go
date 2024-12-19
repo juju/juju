@@ -22,11 +22,11 @@ import (
 	config "github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
+	environschema "github.com/juju/juju/internal/environschema"
 	storage "github.com/juju/juju/internal/storage"
 	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
-	environschema "gopkg.in/juju/environschema.v1"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface.

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	coreconfig "github.com/juju/juju/core/config"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
