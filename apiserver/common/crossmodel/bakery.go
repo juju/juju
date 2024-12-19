@@ -5,9 +5,9 @@ package crossmodel
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 
@@ -126,9 +126,9 @@ func (o *JaaSOfferBakery) RefreshDischargeURL(accessEndpoint string) (string, er
 	return accessEndpoint, errors.Trace(o.refreshBakery(accessEndpoint))
 }
 
-// cleanDischargeURL inexplicitly expects a login-token-refresh-url,
-// and with this expectation in mind attempts to remove the .well-known/jwks.json
-// path segments, whilst preserving any pre-existing prefixes.
+// cleanDischargeURL expects an address to JIMM's login-token-refresh-url,
+// and attempts to remove the .well-known/jwks.json path segments,
+// whilst preserving any pre-existing prefixes.
 //
 // For example:
 //   - jimm.com/.well-known/jwks.json -> jimm.com/macaroons
@@ -142,7 +142,8 @@ func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
 	if !ok {
 		return "", errors.Trace(errors.New("failed to cut .well-known"))
 	}
-	refreshURL.Path = fmt.Sprintf("%s/%s", cleanedPath, "macaroons")
+	refreshURL.Path = path.Join(cleanedPath, "macaroons")
+
 	return refreshURL.String(), nil
 }
 
