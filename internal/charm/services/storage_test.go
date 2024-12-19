@@ -14,6 +14,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	charm "github.com/juju/juju/core/charm"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/charm/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -25,11 +27,10 @@ var _ = gc.Suite(&storageTestSuite{})
 type storageTestSuite struct {
 	testing.IsolationSuite
 
-	stateBackend   *MockStateBackend
-	uploadedCharm  *MockUploadedCharm
-	storageBackend *MockStorage
-	storage        *CharmStorage
-	uuid           uuid.UUID
+	storageBackend     *MockStorage
+	storage            *CharmStorage
+	uuid               uuid.UUID
+	applicationService *MockApplicationService
 }
 
 func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
@@ -37,10 +38,13 @@ func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
 
 	curl := "ch:ubuntu-lite"
 
-	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
-	// TODO(nvinuesa): IsUploaded is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-6845
-	// s.uploadedCharm.EXPECT().IsUploaded().Return(false)
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, args applicationcharm.GetCharmArgs) (charm.ID, error) {
+			c.Check(args.Name, gc.Equals, "ubuntu-lite")
+			c.Check(args.Source, gc.Equals, applicationcharm.CharmHubSource)
+			return "charm0", nil
+		})
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), charm.ID("charm0")).Return(nil, applicationcharm.CharmLocator{}, nil)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,10 +55,13 @@ func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 
 	curl := "ch:ubuntu-lite"
 
-	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
-	// TODO(nvinuesa): IsUploaded is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-6845
-	// s.uploadedCharm.EXPECT().IsUploaded().Return(true)
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, args applicationcharm.GetCharmArgs) (charm.ID, error) {
+			c.Check(args.Name, gc.Equals, "ubuntu-lite")
+			c.Check(args.Source, gc.Equals, applicationcharm.CharmHubSource)
+			return "charm0", nil
+		})
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), charm.ID("charm0")).Return(nil, applicationcharm.CharmLocator{}, nil)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 
@@ -130,18 +137,17 @@ func (s *storageTestSuite) TestStoreCharmAlreadyStored(c *gc.C) {
 
 func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.stateBackend = NewMockStateBackend(ctrl)
-	s.uploadedCharm = NewMockUploadedCharm(ctrl)
 	s.storageBackend = NewMockStorage(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	var err error
 	s.uuid, err = uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storage = NewCharmStorage(CharmStorageConfig{
-		Logger:       loggertesting.WrapCheckLog(c),
-		StateBackend: s.stateBackend,
-		ObjectStore:  s.storageBackend,
+		Logger:             loggertesting.WrapCheckLog(c),
+		ObjectStore:        s.storageBackend,
+		ApplicationService: s.applicationService,
 	})
 	s.storage.uuidGenerator = func() (uuid.UUID, error) {
 		return s.uuid, nil

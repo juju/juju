@@ -388,26 +388,6 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	return []txn.Op{op}, nil
 }
 
-// convertPlaceholderCharmOps returns the txn operations necessary to convert
-// the charm with the supplied docId from a placeholder to one marked for
-// pending upload.
-func convertPlaceholderCharmOps(docID string) ([]txn.Op, error) {
-	return []txn.Op{{
-		C:  charmsC,
-		Id: docID,
-		Assert: bson.D{
-			{"bundlesha256", ""},
-			{"pendingupload", false},
-			{"placeholder", true},
-		},
-		Update: bson.D{{"$set", bson.D{
-			{"pendingupload", true},
-			{"placeholder", false},
-		}}},
-	}}, nil
-
-}
-
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
 // records older than the specified charm URL.
 func deleteOldPlaceholderCharmsOps(mb modelBackend, charms mongo.Collection, curl *charm.URL) ([]txn.Op, error) {
@@ -937,68 +917,6 @@ func isCharmRevSeqName(name string) bool {
 
 func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 	return charm.CharmHub.Matches(curl.Schema)
-}
-
-// PrepareCharmUpload must be called before a charm store charm is uploaded to
-// the provider storage in order to create a charm document in state. If a charm
-// with the same URL is already in state, it will be returned as a *state.Charm
-// (it can be still pending or already uploaded). Otherwise, a new charm
-// document is added in state with just the given charm URL and
-// PendingUpload=true, which is then returned as a *state.Charm.
-//
-// The url's schema must be charmhub ("ch") and it must
-// include a revision that isn't a negative value.
-//
-// TODO(achilleas): This call will be removed once the server-side bundle
-// deployment work lands.
-func (st *State) PrepareCharmUpload(curl string) (*Charm, error) {
-	// Perform a few sanity checks first.
-	parsedURL, err := charm.ParseURL(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !isValidPlaceholderCharmURL(parsedURL) {
-		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", curl)
-	}
-	if parsedURL.Revision < 0 {
-		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	var (
-		uploadedCharm charmDoc
-	)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(curl).One(&uploadedCharm)
-		switch {
-		case err == mgo.ErrNotFound:
-			uploadedCharm = charmDoc{
-				DocID:         st.docID(curl),
-				URL:           &curl,
-				PendingUpload: true,
-			}
-			return insertAnyCharmOps(st, &uploadedCharm)
-		case err != nil:
-			return nil, errors.Trace(err)
-		case uploadedCharm.Placeholder:
-			// Update the fields of the document we're returning.
-			uploadedCharm.PendingUpload = true
-			uploadedCharm.Placeholder = false
-			return convertPlaceholderCharmOps(uploadedCharm.DocID)
-		default:
-			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case,
-			// there's nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		}
-	}
-	if err = st.db().Run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm), nil
-	}
-	return nil, errors.Trace(err)
 }
 
 var (

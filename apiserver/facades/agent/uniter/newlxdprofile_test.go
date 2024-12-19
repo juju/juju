@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -37,8 +36,9 @@ type newLxdProfileSuite struct {
 	machine *MockLXDProfileMachineV2
 	unit    *MockLXDProfileUnitV2
 
-	machineService   *MockMachineService
-	modelInfoService *MockModelInfoService
+	machineService     *MockMachineService
+	modelInfoService   *MockModelInfoService
+	applicationService *MockApplicationService
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -123,7 +123,7 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.LXDProfileRequired(args)
+	results, err := api.LXDProfileRequired(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -252,6 +252,7 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 		unitAuthFunc,
 		loggertesting.WrapCheckLog(c),
 		s.modelInfoService,
+		s.applicationService,
 	)
 	return api
 }
@@ -263,6 +264,7 @@ func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machine = NewMockLXDProfileMachineV2(ctrl)
 	s.unit = NewMockLXDProfileUnitV2(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
@@ -279,10 +281,7 @@ func (s *newLxdProfileSuite) expectOneLXDProfileName() {
 }
 
 func (s *newLxdProfileSuite) expectOneLXDProfileRequired() {
-	s.backend.EXPECT().Charm("ch:mysql-1").Return(s.charm, nil)
 	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{Config: map[string]string{"one": "two"}})
-
-	s.backend.EXPECT().Charm("ch:testme-3").Return(nil, errors.NotFoundf("ch:testme-3"))
 }
 
 func (s *newLxdProfileSuite) expectManual(manual bool) {

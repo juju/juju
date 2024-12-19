@@ -318,8 +318,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 
-	s.charmUploader.EXPECT().PrepareCharmUpload(gomock.Any()).Return(nil, nil)
-
 	deployer := s.newBaseDeployer(c, cfg)
 
 	origin := corecharm.Origin{

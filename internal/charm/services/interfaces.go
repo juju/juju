@@ -7,20 +7,25 @@ import (
 	"context"
 	"io"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/application/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 )
 
-// StateBackend describes an API for accessing/mutating information in state.
-type StateBackend interface {
-	PrepareCharmUpload(curl string) (UploadedCharm, error)
-	ModelUUID() string
-}
+// ApplicationService provides access to application related operations, this
+// includes charms, units and resources.
+type ApplicationService interface {
+	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
+	// if the charm can not be found by the name.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error)
 
-// UploadedCharm represents a charm whose upload status can be queried.
-type UploadedCharm interface {
-	// TODO(nvinuesa): IsUploaded is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-6845
-	// IsUploaded() bool
+	// GetCharm returns the charm metadata for the given charm ID.
+	// It returns an error.CharmNotFound if the charm can not be found by the
+	// ID.
+	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error)
 }
 
 // Storage describes an API for storing and deleting blobs.

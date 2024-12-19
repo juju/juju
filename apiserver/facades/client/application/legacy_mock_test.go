@@ -17,8 +17,6 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
 	charm "github.com/juju/juju/internal/charm"
-	services "github.com/juju/juju/internal/charm/services"
-	environschema "github.com/juju/juju/internal/environschema"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
@@ -409,44 +407,6 @@ func (c *MockBackendMachineCall) DoAndReturn(f func(string) (Machine, error)) *M
 	return c
 }
 
-// ModelUUID mocks base method.
-func (m *MockBackend) ModelUUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockBackendMockRecorder) ModelUUID() *MockBackendModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockBackend)(nil).ModelUUID))
-	return &MockBackendModelUUIDCall{Call: call}
-}
-
-// MockBackendModelUUIDCall wrap *gomock.Call
-type MockBackendModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelUUIDCall) Return(arg0 string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelUUIDCall) Do(f func() string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelUUIDCall) DoAndReturn(f func() string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // OfferConnectionForRelation mocks base method.
 func (m *MockBackend) OfferConnectionForRelation(arg0 string) (OfferConnection, error) {
 	m.ctrl.T.Helper()
@@ -482,45 +442,6 @@ func (c *MockBackendOfferConnectionForRelationCall) Do(f func(string) (OfferConn
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendOfferConnectionForRelationCall) DoAndReturn(f func(string) (OfferConnection, error)) *MockBackendOfferConnectionForRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PrepareCharmUpload mocks base method.
-func (m *MockBackend) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
-	ret0, _ := ret[0].(services.UploadedCharm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareCharmUpload indicates an expected call of PrepareCharmUpload.
-func (mr *MockBackendMockRecorder) PrepareCharmUpload(arg0 any) *MockBackendPrepareCharmUploadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockBackend)(nil).PrepareCharmUpload), arg0)
-	return &MockBackendPrepareCharmUploadCall{Call: call}
-}
-
-// MockBackendPrepareCharmUploadCall wrap *gomock.Call
-type MockBackendPrepareCharmUploadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendPrepareCharmUploadCall) Return(arg0 services.UploadedCharm, arg1 error) *MockBackendPrepareCharmUploadCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendPrepareCharmUploadCall) Do(f func(string) (services.UploadedCharm, error)) *MockBackendPrepareCharmUploadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendPrepareCharmUploadCall) DoAndReturn(f func(string) (services.UploadedCharm, error)) *MockBackendPrepareCharmUploadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
