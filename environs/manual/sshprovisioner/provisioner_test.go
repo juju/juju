@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -61,8 +62,14 @@ func (m *mockMachineManager) AddMachines(ctx context.Context, args []params.AddM
 	if a.Nonce == "" {
 		return nil, errors.Errorf("unexpected empty nonce")
 	}
+	if !strings.HasPrefix(a.InstanceId.String(), "manual:") {
+		return nil, errors.Errorf("unexpected instanceId: %s", a.InstanceId)
+	}
 	if len(a.Jobs) != 1 && a.Jobs[0] != model.JobHostUnits {
 		return nil, errors.Errorf("unexpected jobs: %v", a.Jobs)
+	}
+	if len(a.Addrs) > 0 {
+		return nil, errors.Errorf("unexpected addresses: %v", a.Addrs)
 	}
 	return []params.AddMachinesResult{{
 		Machine: "2",
@@ -118,7 +125,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(machineId, gc.Not(gc.Equals), "")
+			c.Check(machineId, gc.Not(gc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
 			c.Assert(machineId, gc.Equals, fmt.Sprint(i+1))

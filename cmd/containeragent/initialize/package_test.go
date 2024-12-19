@@ -123,6 +123,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/service/snap",
 		"internal/service/systemd",
 		"internal/storage",
+		"internal/stringcompare",
 		"internal/tools",
 		"internal/uuid",
 		"internal/worker/apicaller",

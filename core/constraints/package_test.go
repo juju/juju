@@ -23,11 +23,12 @@ var _ = gc.Suite(&ImportTest{})
 func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/constraints")
 
-	// This package should only depend on other core packages.
+	// This package should only depend on the core packages and the utils/stringcompare package.
 	// If this test fails with a non-core package, please check the dependencies.
 	c.Assert(found, jc.SameContents, []string{
 		"core/arch",
 		"core/instance",
 		"core/status",
+		"internal/stringcompare",
 	})
 }

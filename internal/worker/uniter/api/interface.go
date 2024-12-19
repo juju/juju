@@ -109,6 +109,7 @@ type Relation interface {
 	Id() int
 	Life() life.Value
 	OtherApplication() string
+	OtherModelUUID() string
 	Refresh(context.Context) error
 	SetStatus(ctx context.Context, status2 relation.Status) error
 	String() string

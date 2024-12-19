@@ -223,11 +223,6 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	addr, err := manual.HostAddress(hostname)
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to compute public address for %q", hostname)
-	}
-
 	provisioned, err := checkProvisioned(hostname)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error checking if provisioned")
@@ -257,7 +252,6 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
-		Addrs:                   params.FromProviderAddresses(addr),
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 	}
 	return machineParams, nil

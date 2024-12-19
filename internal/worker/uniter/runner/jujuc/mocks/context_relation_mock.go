@@ -389,6 +389,44 @@ func (c *MockContextRelationRemoteApplicationNameCall) DoAndReturn(f func() stri
 	return c
 }
 
+// RemoteModelUUID mocks base method.
+func (m *MockContextRelation) RemoteModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoteModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// RemoteModelUUID indicates an expected call of RemoteModelUUID.
+func (mr *MockContextRelationMockRecorder) RemoteModelUUID() *MockContextRelationRemoteModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteModelUUID", reflect.TypeOf((*MockContextRelation)(nil).RemoteModelUUID))
+	return &MockContextRelationRemoteModelUUIDCall{Call: call}
+}
+
+// MockContextRelationRemoteModelUUIDCall wrap *gomock.Call
+type MockContextRelationRemoteModelUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockContextRelationRemoteModelUUIDCall) Return(arg0 string) *MockContextRelationRemoteModelUUIDCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockContextRelationRemoteModelUUIDCall) Do(f func() string) *MockContextRelationRemoteModelUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockContextRelationRemoteModelUUIDCall) DoAndReturn(f func() string) *MockContextRelationRemoteModelUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetStatus mocks base method.
 func (m *MockContextRelation) SetStatus(arg0 context.Context, arg1 relation.Status) error {
 	m.ctrl.T.Helper()

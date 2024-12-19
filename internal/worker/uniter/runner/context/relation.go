@@ -150,6 +150,12 @@ func (c *ContextRelation) RemoteApplicationName() string {
 	return c.ru.Relation().OtherApplication()
 }
 
+// RemoteModelUUID returns the UUID of the model hosting the
+// application on the other end of the relation.
+func (ctx *ContextRelation) RemoteModelUUID() string {
+	return ctx.ru.Relation().OtherModelUUID()
+}
+
 // Life returns the relation's current life state.
 func (c *ContextRelation) Life() life.Value {
 	return c.ru.Relation().Life()

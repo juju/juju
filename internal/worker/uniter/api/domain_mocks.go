@@ -1843,6 +1843,44 @@ func (c *MockRelationOtherApplicationCall) DoAndReturn(f func() string) *MockRel
 	return c
 }
 
+// OtherModelUUID mocks base method.
+func (m *MockRelation) OtherModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OtherModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// OtherModelUUID indicates an expected call of OtherModelUUID.
+func (mr *MockRelationMockRecorder) OtherModelUUID() *MockRelationOtherModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OtherModelUUID", reflect.TypeOf((*MockRelation)(nil).OtherModelUUID))
+	return &MockRelationOtherModelUUIDCall{Call: call}
+}
+
+// MockRelationOtherModelUUIDCall wrap *gomock.Call
+type MockRelationOtherModelUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationOtherModelUUIDCall) Return(arg0 string) *MockRelationOtherModelUUIDCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationOtherModelUUIDCall) Do(f func() string) *MockRelationOtherModelUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationOtherModelUUIDCall) DoAndReturn(f func() string) *MockRelationOtherModelUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Refresh mocks base method.
 func (m *MockRelation) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()

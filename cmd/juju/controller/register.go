@@ -175,8 +175,14 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 
 	// Check if user is trying to register an already known controller by
 	// comparing its public and private addresses to all known addresses.
-	if err := ensureNotKnownEndpoint(c.store, registrationParams.publicHost, registrationParams.controllerAddrs); err != nil {
-		return errors.Trace(err)
+	if registrationParams.publicHost != "" {
+		if err := c.ensureNotKnownPublicEndpoint(registrationParams.publicHost); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		if err := c.ensureNotKnownEndpoint(registrationParams.userTag.Id(), registrationParams.controllerAddrs); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// If we're not registering to a public controller, we need to prompt for a password.
@@ -446,15 +452,15 @@ func (c *registerCommand) updateController(
 			}
 
 			// We are replacing a known controller - reject the request if this client is logged into that controller.
-			_, err := c.store.AccountDetails(controllerName)
+			existingLogin, err := c.store.AccountDetails(controllerName)
 			if err != nil {
 				if errors.Is(err, errors.NotFound) {
-					// Not logged in.  Continue to update.
+					// Not logged in. Continue to update.
 					break
 				}
 				return errors.Trace(err)
 			}
-			return genReplacingLoggedInControllerError(controllerName, accountDetails.User)
+			return genReplacingLoggedInControllerError(controllerName, existingLogin.User, accountDetails.User)
 		}
 	}
 	if c.replace {
@@ -757,16 +763,39 @@ func (r byteAtATimeReader) Read(out []byte) (int, error) {
 	return r.Reader.Read(out[:1])
 }
 
-// ensureNotKnownEndpoint checks whether any controllers in the local client
-// cache contain the provided endpoint and returns an error if that is the
+// ensureNotKnownPublicEndpoint checks whether any controllers in the local client
+// cache contain the provided hostname endpoint and returns an error if that is the
 // case.
-func ensureNotKnownEndpoint(store jujuclient.ClientStore, publicHost string, controllerAddrs []string) error {
-	allAddresses := set.NewStrings(controllerAddrs...)
-	if publicHost != "" {
-		allAddresses.Add(publicHost)
+func (c *registerCommand) ensureNotKnownPublicEndpoint(publicHost string) error {
+	existingDetails, existingName, err := c.store.ControllerByAPIEndpoints(publicHost)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 
-	existingDetails, existingName, err := store.ControllerByAPIEndpoints(allAddresses.Values()...)
+	if existingDetails == nil {
+		return nil
+	}
+
+	// Check if we know the username for this controller
+	accountDetails, err := c.store.AccountDetails(existingName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if accountDetails != nil {
+		return genAlreadyRegisteredPublicTokenStillValidError(existingName, accountDetails.User)
+	}
+
+	return errors.Errorf(`A controller with the same hostname has already been registered on this client as %q.
+To login run 'juju login -c %s'.`, existingName, existingName)
+}
+
+// ensureNotKnownEndpoint checks whether any controllers in the local client
+// cache contain any of the provided address endpoints and returns an error
+// if that is the case.
+func (c *registerCommand) ensureNotKnownEndpoint(user string, controllerAddrs []string) error {
+	allAddresses := set.NewStrings(controllerAddrs...)
+	existingDetails, existingName, err := c.store.ControllerByAPIEndpoints(allAddresses.Values()...)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
@@ -776,16 +805,20 @@ func ensureNotKnownEndpoint(store jujuclient.ClientStore, publicHost string, con
 	}
 
 	// Check if we know the username for this controller
-	accountDetails, err := store.AccountDetails(existingName)
+	accountDetails, err := c.store.AccountDetails(existingName)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 
 	if accountDetails != nil {
-		return genAlreadyRegisteredTokenStillValidError(existingName, accountDetails.User)
+		return genAlreadyRegisteredTokenStillValidError(existingName, accountDetails.User, user)
 	}
 
-	return errors.Errorf(`This controller has already been registered on this client as %q.
+	if c.replace {
+		return nil
+	}
+
+	return errors.Errorf(`A controller with the same address has already been registered on this client as %q.
 To login run 'juju login -c %s'.`, existingName, existingName)
 }
 
@@ -814,23 +847,48 @@ func genAlreadyRegisteredError(controller, user string) error {
 }
 
 var alreadyRegisteredMessageTokenStillValidT = template.Must(template.New("").Parse(`
-This controller has already been registered on this client as "{{.ControllerName}}".
-To login as user "{{.UserName}}" run 'juju login -u {{.UserName}} -c {{.ControllerName}}'.
+A controller with the same address has already been registered on this client as "{{.ControllerName}}".
+You are already logged in as user "{{.LoggedInUserName}}".
 To update controller details and login as user "{{.UserName}}":
-    1. run 'juju unregister {{.ControllerName}}'
-    2. re-run 'juju register' with your registration string.
+    1. run 'juju logout'
+    2. re-run 'juju register --replace' with your registration string.
 `[1:]))
 
 // genAlreadyRegisteredTokenStillValidError generates an error message for the case where the controller is already
 // registered, but the registration token is still valid and can be used again.
-func genAlreadyRegisteredTokenStillValidError(controller, user string) error {
+func genAlreadyRegisteredTokenStillValidError(controller, loggedInUser, user string) error {
 	var buf bytes.Buffer
 	if err := alreadyRegisteredMessageTokenStillValidT.Execute(
 		&buf,
 		struct {
-			ControllerName string
-			UserName       string
-		}{controller, user},
+			ControllerName   string
+			UserName         string
+			LoggedInUserName string
+		}{ControllerName: controller, UserName: user, LoggedInUserName: loggedInUser},
+	); err != nil {
+		return err
+	}
+	return errors.New(buf.String())
+}
+
+var alreadyRegisteredPublicMessageTokenStillValidT = template.Must(template.New("").Parse(`
+A controller with the same address has already been registered on this client as "{{.ControllerName}}".
+You are already logged in as user "{{.LoggedInUserName}}".
+To update controller details:
+    1. run 'juju logout'
+    2. re-run 'juju register --replace' with your registration string.
+`[1:]))
+
+// genAlreadyRegisteredPublicTokenStillValidError generates an error message for the case where
+// a public controller is already registered, but the registration token is still valid and can be used again.
+func genAlreadyRegisteredPublicTokenStillValidError(controller, loggedInUser string) error {
+	var buf bytes.Buffer
+	if err := alreadyRegisteredPublicMessageTokenStillValidT.Execute(
+		&buf,
+		struct {
+			ControllerName   string
+			LoggedInUserName string
+		}{ControllerName: controller, LoggedInUserName: loggedInUser},
 	); err != nil {
 		return err
 	}
@@ -838,7 +896,7 @@ func genAlreadyRegisteredTokenStillValidError(controller, user string) error {
 }
 
 var replacingLoggedInControllerT = template.Must(template.New("").Parse(`
-User "{{.UserName}}" is currently logged into controller "{{.ControllerName}}".
+User "{{.LoggedInUserName}}" is currently logged into controller "{{.ControllerName}}".
 Cannot replace a controller we're currently logged into.
 To register and replace this controller:
     1. run 'juju logout -c {{.ControllerName}}'
@@ -847,12 +905,13 @@ To register and replace this controller:
     3. re-run 'juju register TOKEN --replace' with the registration string from (2) above.
 `[1:]))
 
-func genReplacingLoggedInControllerError(controller, user string) error {
+func genReplacingLoggedInControllerError(controller, loggedInUser, user string) error {
 	var buf bytes.Buffer
 	if err := replacingLoggedInControllerT.Execute(&buf, struct {
-		ControllerName string
-		UserName       string
-	}{controller, user}); err != nil {
+		ControllerName   string
+		UserName         string
+		LoggedInUserName string
+	}{ControllerName: controller, UserName: user, LoggedInUserName: loggedInUser}); err != nil {
 		return err
 	}
 	return errors.New(buf.String())

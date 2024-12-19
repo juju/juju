@@ -1798,8 +1798,8 @@ func (s *uniterLegacySuite) TestRelation(c *gc.C) {
 	}}
 	result, err := s.uniter.Relation(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationResults{
-		Results: []params.RelationResult{
+	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
+		Results: []params.RelationResultV2{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Id:        rel.Id(),
@@ -1810,7 +1810,10 @@ func (s *uniterLegacySuite) TestRelation(c *gc.C) {
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
-				OtherApplication: s.mysql.Name(),
+				OtherApplication: params.RelatedApplicationDetails{
+					ApplicationName: s.mysql.Name(),
+					ModelUUID:       coretesting.ModelTag.Id(),
+				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1837,8 +1840,8 @@ func (s *uniterLegacySuite) TestRelationById(c *gc.C) {
 	}
 	result, err := s.uniter.RelationById(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationResults{
-		Results: []params.RelationResult{
+	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
+		Results: []params.RelationResultV2{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Id:        rel.Id(),
@@ -1849,7 +1852,10 @@ func (s *uniterLegacySuite) TestRelationById(c *gc.C) {
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
-				OtherApplication: s.mysql.Name(),
+				OtherApplication: params.RelatedApplicationDetails{
+					ApplicationName: s.mysql.Name(),
+					ModelUUID:       coretesting.ModelTag.Id(),
+				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

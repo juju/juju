@@ -36,9 +36,9 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 		switch request {
 		case "Relation":
 			c.Assert(arg, gc.DeepEquals, relUnitArg)
-			c.Assert(result, gc.FitsTypeOf, &params.RelationResults{})
-			*(result.(*params.RelationResults)) = params.RelationResults{
-				Results: []params.RelationResult{{
+			c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+			*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
+				Results: []params.RelationResultV2{{
 					Id:        666,
 					Key:       "wordpress:db mysql:server",
 					Life:      life.Alive,
@@ -53,7 +53,10 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 							Scope:     "global",
 						},
 					},
-					OtherApplication: "mysql",
+					OtherApplication: params.RelatedApplicationDetails{
+						ModelUUID:       testing.ModelTag.Id(),
+						ApplicationName: "mysql",
+					},
 				}},
 			}
 		case "EnterScope":
