@@ -1,10 +1,11 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiremote
+package apiremotecaller
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -66,6 +67,9 @@ type remoteWorker struct {
 	runner  *worker.Runner
 	changes chan serverChanges
 
+	mu         sync.Mutex
+	apiRemotes []RemoteConnection
+
 	unsubServerDetails func()
 }
 
@@ -123,6 +127,17 @@ func newWorker(cfg WorkerConfig) (*remoteWorker, error) {
 	return w, nil
 }
 
+// GetAPIRemotes returns the current API connections. It is expected that
+// the caller will call this method just before making an API call to ensure
+// that the connection is still valid. The caller must not cache the connections
+// as they may change over time.
+func (w *remoteWorker) GetAPIRemotes() []RemoteConnection {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.apiRemotes
+}
+
 // Kill is part of the worker.Worker interface.
 func (w *remoteWorker) Kill() {
 	w.catacomb.Kill(nil)
@@ -153,9 +168,8 @@ func (w *remoteWorker) loop() error {
 			// no longer required.
 			current := w.runner.WorkerNames()
 
-			required := make(map[string]struct{})
+			required := make(map[names.Tag]RemoteConnection)
 			for target, addresses := range change.servers {
-				required[target.String()] = struct{}{}
 
 				server, err := w.newRemoteServer(target, addresses)
 				if err != nil {
@@ -166,17 +180,37 @@ func (w *remoteWorker) loop() error {
 				// it was just created. This is to ensure that the server is
 				// always up to date with the latest addresses.
 				server.UpdateAddresses(addresses)
+
+				required[target] = server
 			}
 
 			// Walk over the current workers and remove any that are no longer
 			// required.
-			for _, target := range current {
+			for _, s := range current {
+				target, err := names.ParseTag(s)
+				if err != nil {
+					// This really should never happen, but if it does, bounce
+					// the worker and start again.
+					return errors.Trace(err)
+				}
+
 				if _, ok := required[target]; ok {
 					continue
 				}
 
 				w.stopRemoteServer(ctx, target)
 			}
+
+			w.cfg.Logger.Debugf("remote workers updated: %v", required)
+
+			remotes := make([]RemoteConnection, 0, len(required))
+			for _, remote := range required {
+				remotes = append(remotes, remote)
+			}
+
+			w.mu.Lock()
+			w.apiRemotes = remotes
+			w.mu.Unlock()
 		}
 	}
 }
@@ -186,6 +220,8 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 		w.cfg.Logger.Errorf("remoteWorker callback error: %v", err)
 		return
 	}
+
+	w.cfg.Logger.Debugf("remoteWorker API server changes: %v", details)
 
 	var origin names.Tag
 	changes := make(map[names.Tag][]string)
@@ -236,6 +272,7 @@ func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (Re
 
 	// Start a new worker with the target and addresses.
 	err := w.runner.StartWorker(target.String(), func() (worker.Worker, error) {
+		w.cfg.Logger.Debugf("starting remote worker for %q", target)
 		return w.cfg.NewRemote(RemoteServerConfig{
 			Clock:   w.cfg.Clock,
 			Logger:  w.cfg.Logger,
@@ -260,12 +297,13 @@ func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (Re
 	return server, nil
 }
 
-func (w *remoteWorker) stopRemoteServer(ctx context.Context, target string) error {
+func (w *remoteWorker) stopRemoteServer(ctx context.Context, target names.Tag) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	// Stop and remove the worker if it's no longer required.
-	if err := w.runner.StopAndRemoveWorker(target, ctx.Done()); errors.Is(err, context.DeadlineExceeded) {
+	w.cfg.Logger.Debugf("stopping remote worker for %q", target)
+	if err := w.runner.StopAndRemoveWorker(target.String(), ctx.Done()); errors.Is(err, context.DeadlineExceeded) {
 		return errors.Errorf("failed to stop worker %q: timed out", target)
 	} else if err != nil {
 		return errors.Errorf("failed to stop worker %q: %v", target, err)

@@ -22,6 +22,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/trace"
 )
@@ -69,6 +70,7 @@ type ManifoldConfig struct {
 	ObjectStoreServicesName string
 	LeaseManagerName        string
 	S3ClientName            string
+	APIRemoteCallerName     string
 
 	Clock                      clock.Clock
 	Logger                     logger.Logger
@@ -89,6 +91,15 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
 	}
+	if cfg.LeaseManagerName == "" {
+		return errors.NotValidf("empty LeaseManagerName")
+	}
+	if cfg.S3ClientName == "" {
+		return errors.NotValidf("empty S3ClientName")
+	}
+	if cfg.APIRemoteCallerName == "" {
+		return errors.NotValidf("empty APIRemoteCallerName")
+	}
 	if cfg.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
 	}
@@ -98,20 +109,14 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.IsBootstrapController == nil {
 		return errors.NotValidf("nil IsBootstrapController")
 	}
-	if cfg.LeaseManagerName == "" {
-		return errors.NotValidf("empty LeaseManagerName")
-	}
-	if cfg.S3ClientName == "" {
-		return errors.NotValidf("empty S3ClientName")
+	if cfg.NewObjectStoreWorker == nil {
+		return errors.NotValidf("nil NewObjectStoreWorker")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.NewObjectStoreWorker == nil {
-		return errors.NotValidf("nil NewObjectStoreWorker")
 	}
 	return nil
 }
@@ -125,6 +130,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreServicesName,
 			config.LeaseManagerName,
 			config.S3ClientName,
+			config.APIRemoteCallerName,
 		},
 		Output: output,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -163,6 +169,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var s3Client coreobjectstore.Client
 			if err := getter.Get(config.S3ClientName, &s3Client); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var apiRemoteCallers apiremotecaller.APIRemoteCallers
+			if err := getter.Get(config.APIRemoteCallerName, &apiRemoteCallers); err != nil {
 				return nil, errors.Trace(err)
 			}
 
