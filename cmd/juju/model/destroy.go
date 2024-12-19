@@ -67,7 +67,7 @@ var destroyDoc = `
 Destroys the specified model. This will result in the non-recoverable
 removal of all the units operating in the model and any resources stored
 there. Due to the irreversible nature of the command, it will prompt for
-confirmation (unless overridden with the '-y' option) before taking any
+confirmation (unless overridden with the '--no-prompt' option) before taking any
 action.
 
 If there is persistent storage in any of the models managed by the
