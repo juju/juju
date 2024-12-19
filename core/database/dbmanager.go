@@ -13,10 +13,17 @@ const (
 
 	// ErrDBAccessorDying is used to indicate to *third parties* that the
 	// db-accessor worker is dying, instead of catacomb.ErrDying, which is
-	// unsuitable for propagating inter-worker.
-	// This error indicates to consuming workers that their dependency has
-	// become unmet and a restart by the dependency engine is imminent.
+	// unsuitable for propagating inter-worker. This error indicates to
+	// consuming workers that their dependency has become unmet and a restart by
+	// the dependency engine is imminent.
 	ErrDBAccessorDying = errors.ConstError("db-accessor worker is dying")
+
+	// ErrDBReplAccessorDying is used to indicate to *third parties* that the
+	// db-repl-accessor worker is dying, instead of catacomb.ErrDying, which is
+	// unsuitable for propagating inter-worker. This error indicates to
+	// consuming workers that their dependency has become unmet and a restart by
+	// the dependency engine is imminent.
+	ErrDBReplAccessorDying = errors.ConstError("db-repl-accessor worker is dying")
 
 	// ErrDBDead is used to indicate that the database is dead and should no
 	// longer be used.

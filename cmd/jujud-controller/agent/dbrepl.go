@@ -5,9 +5,8 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -26,41 +24,41 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
+	"github.com/juju/juju/cmd/jujud-controller/agent/dbrepl"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/rpc/params"
 )
 
-// NewSafeModeAgentCommand creates a Command that handles parsing
+// NewDBReplAgentCommand creates a Command that handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
-func NewSafeModeAgentCommand(
+func NewDBReplAgentCommand(
 	ctx *cmd.Context,
-	safeModeMachineAgentFactory safeModeMachineAgentFactoryFnType,
+	replMachineAgentFactory dbReplMachineAgentFactoryFnType,
 	agentInitializer AgentInitializer,
 	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
-	return &safeModeAgentCommand{
-		ctx:                         ctx,
-		safeModeMachineAgentFactory: safeModeMachineAgentFactory,
-		agentInitializer:            agentInitializer,
-		currentConfig:               configFetcher,
+	return &dbReplAgentCommand{
+		ctx:                     ctx,
+		replMachineAgentFactory: replMachineAgentFactory,
+		agentInitializer:        agentInitializer,
+		currentConfig:           configFetcher,
 	}
 }
 
-type safeModeAgentCommand struct {
+type dbReplAgentCommand struct {
 	cmd.CommandBase
 
 	// This group of arguments is required.
-	agentInitializer            AgentInitializer
-	currentConfig               agentconfig.AgentConfigWriter
-	safeModeMachineAgentFactory safeModeMachineAgentFactoryFnType
-	ctx                         *cmd.Context
+	agentInitializer        AgentInitializer
+	currentConfig           agentconfig.AgentConfigWriter
+	replMachineAgentFactory dbReplMachineAgentFactoryFnType
+	ctx                     *cmd.Context
 
 	isCaas   bool
 	agentTag names.Tag
@@ -73,7 +71,7 @@ type safeModeAgentCommand struct {
 
 // Init is called by the cmd system to initialize the structure for
 // running.
-func (a *safeModeAgentCommand) Init(args []string) error {
+func (a *dbReplAgentCommand) Init(args []string) error {
 	if a.machineId == "" && a.controllerId == "" {
 		return errors.New("either machine-id or controller-id must be set")
 	}
@@ -111,21 +109,13 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 }
 
 // Run instantiates a MachineAgent and runs it.
-func (a *safeModeAgentCommand) Run(c *cmd.Context) error {
-	if err := ensuringJujudNotRunning(a.agentTag); err != nil {
-		if errors.Is(err, errors.AlreadyExists) {
-			fmt.Fprint(os.Stderr, safeModeJujudWarning)
-			return nil
-		}
-		return err
+func (a *dbReplAgentCommand) Run(c *cmd.Context) error {
+	// Force the writing of the repl header to os.Stderr.
+	if !c.Quiet() {
+		fmt.Fprint(os.Stderr, replWarningHeader)
 	}
 
-	// Force the writing of the safemode header to os.Stderr, so it can't be
-	// bypassed with a flag (obviously, this is not a security measure, but
-	// it's better than nothing).
-	fmt.Fprint(os.Stderr, safeModeWarningHeader)
-
-	machineAgent, err := a.safeModeMachineAgentFactory(a.agentTag, a.isCaas)
+	machineAgent, err := a.replMachineAgentFactory(a.agentTag, a.isCaas)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -133,50 +123,42 @@ func (a *safeModeAgentCommand) Run(c *cmd.Context) error {
 }
 
 // SetFlags adds the requisite flags to run this command.
-func (a *safeModeAgentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (a *dbReplAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 }
 
 // Info returns usage information for the command.
-func (a *safeModeAgentCommand) Info() *cmd.Info {
+func (a *dbReplAgentCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "safe-mode",
-		Purpose: "run a juju in safe mode",
+		Name:    "db-repl",
+		Purpose: "run a juju in db repl",
 	})
 }
 
 const (
-	safeModeWarningHeader = `
-Running in safe mode. 
----------------------
+	replWarningHeader = `
+Running DB REPL.
+----------------
 
-This is a special mode of operation that allows you to have single node
-only access to the database. This is useful if you have a database that is
-corrupt and you want to recover data from it.
+This is a DB REPL (Read-Eval-Print Loop) environment.
 
-This will only stand up the minimum set of services required to allow
-you to connect to the database and perform recovery operations.
-
-Use at your own risk.
-`
-	safeModeJujudWarning = `
-Running in safe mode while jujud is running is dangerous. Please stop jujud
-before running in safe mode.
+You can run arbitrary code here, including code that can modify the
+state of the system. Be careful!
 `
 )
 
-type safeModeMachineAgentFactoryFnType func(names.Tag, bool) (*SafeModeMachineAgent, error)
+type dbReplMachineAgentFactoryFnType func(names.Tag, bool) (*replMachineAgent, error)
 
-// SafeModeMachineAgentFactoryFn returns a function which instantiates a
-// SafeModeMachineAgent given a machineId.
-func SafeModeMachineAgentFactoryFn(
+// DBReplMachineAgentFactoryFn returns a function which instantiates a
+// replMachineAgent given a machineId.
+func DBReplMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-) safeModeMachineAgentFactoryFnType {
-	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeMachineAgent, error) {
-		return NewSafeModeMachineAgent(
+	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
+) dbReplMachineAgentFactoryFnType {
+	return func(agentTag names.Tag, isCaasAgent bool) (*replMachineAgent, error) {
+		return NewREPLMachineAgent(
 			agentTag,
 			agentConfWriter,
 			worker.NewRunner(worker.RunnerParams{
@@ -185,36 +167,35 @@ func SafeModeMachineAgentFactoryFn(
 				RestartDelay:  jworker.RestartDelay,
 				Logger:        logger,
 			}),
-			newDBWorkerFunc,
+			newDBReplWorkerFunc,
 			isCaasAgent,
 		)
 	}
 }
 
-// NewSafeModeMachineAgent instantiates a new SafeModeMachineAgent.
-func NewSafeModeMachineAgent(
+// NewREPLMachineAgent instantiates a new replMachineAgent.
+func NewREPLMachineAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
+	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 	isCaasAgent bool,
-) (*SafeModeMachineAgent, error) {
-	a := &SafeModeMachineAgent{
-		agentTag:          agentTag,
-		AgentConfigWriter: agentConfWriter,
-		configChangedVal:  voyeur.NewValue(true),
-		workersStarted:    make(chan struct{}),
-		dead:              make(chan struct{}),
-		runner:            runner,
-		newDBWorkerFunc:   newDBWorkerFunc,
-		isCaasAgent:       isCaasAgent,
+) (*replMachineAgent, error) {
+	a := &replMachineAgent{
+		agentTag:            agentTag,
+		AgentConfigWriter:   agentConfWriter,
+		configChangedVal:    voyeur.NewValue(true),
+		dead:                make(chan struct{}),
+		runner:              runner,
+		newDBReplWorkerFunc: newDBReplWorkerFunc,
+		isCaasAgent:         isCaasAgent,
 	}
 	return a, nil
 }
 
-// SafeModeMachineAgent is responsible for tying together all functionality
+// replMachineAgent is responsible for tying together all functionality
 // needed to orchestrate a Jujud instance which controls a machine.
-type SafeModeMachineAgent struct {
+type replMachineAgent struct {
 	agentconfig.AgentConfigWriter
 
 	dead             chan struct{}
@@ -223,33 +204,31 @@ type SafeModeMachineAgent struct {
 	runner           *worker.Runner
 	configChangedVal *voyeur.Value
 
-	workersStarted chan struct{}
-
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
+	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
 	isCaasAgent bool
 }
 
-// Wait waits for the safe mode machine agent to finish.
-func (a *SafeModeMachineAgent) Wait() error {
+// Wait waits for the repl machine agent to finish.
+func (a *replMachineAgent) Wait() error {
 	<-a.dead
 	return a.errReason
 }
 
-// Stop stops the safe mode machine agent.
-func (a *SafeModeMachineAgent) Stop() error {
+// Stop stops the repl machine agent.
+func (a *replMachineAgent) Stop() error {
 	a.runner.Kill()
 	return a.Wait()
 }
 
-// Done signals the safe mode machine agent is finished
-func (a *SafeModeMachineAgent) Done(err error) {
+// Done signals the repl machine agent is finished
+func (a *replMachineAgent) Done(err error) {
 	a.errReason = err
 	close(a.dead)
 }
 
-// Run runs a safe mode machine agent.
-func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
+// Run runs a repl machine agent.
+func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -257,15 +236,13 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	}
 
 	agentConfig := a.CurrentConfig()
-	agentName := a.Tag().String()
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
+	createEngine := a.makeEngineCreator(ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker("engine", createEngine)
 
 	// At this point, all workers will have been configured to start
-	close(a.workersStarted)
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrRebootMachine:
@@ -278,18 +255,20 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *SafeModeMachineAgent) Tag() names.Tag {
+func (a *replMachineAgent) Tag() names.Tag {
 	return a.agentTag
 }
 
-func (a *SafeModeMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+func (a *replMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(true)
 	return errors.Trace(err)
 }
 
-func (a *SafeModeMachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion version.Number,
+func (a *replMachineAgent) makeEngineCreator(
+	stdout io.Writer,
+	stderr io.Writer,
+	stdin io.Reader,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
@@ -300,19 +279,22 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			return nil, err
 		}
 
-		manifoldsCfg := safemode.ManifoldsConfig{
-			Agent:              agent.APIHostPortsSetter{Agent: a},
-			AgentConfigChanged: a.configChangedVal,
-			NewDBWorkerFunc:    a.newDBWorkerFunc,
-			Clock:              clock.WallClock,
-			IsCaasConfig:       a.isCaasAgent,
+		manifoldsCfg := dbrepl.ManifoldsConfig{
+			Agent:               agent.APIHostPortsSetter{Agent: a},
+			AgentConfigChanged:  a.configChangedVal,
+			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
+			Clock:               clock.WallClock,
+
+			Stdout: stdout,
+			Stderr: stderr,
+			Stdin:  stdin,
 		}
 
 		var manifolds dependency.Manifolds
 		if a.isCaasAgent {
-			manifolds = safemode.CAASManifolds(manifoldsCfg)
+			manifolds = dbrepl.CAASManifolds(manifoldsCfg)
 		} else {
-			manifolds = safemode.IAASManifolds(manifoldsCfg)
+			manifolds = dbrepl.IAASManifolds(manifoldsCfg)
 		}
 
 		if err := dependency.Install(eng, manifolds); err != nil {
@@ -325,7 +307,7 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 	}
 }
 
-func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
+func (a *replMachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
 	// block until all units/containers are ready, and reboot/shutdown
 	finalize, err := reboot.NewRebootWaiter(a.CurrentConfig())
 	if err != nil {
@@ -341,21 +323,4 @@ func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootActio
 	// We return ErrRebootMachine so the agent will simply exit without error
 	// pending reboot/shutdown.
 	return jworker.ErrRebootMachine
-}
-
-func ensuringJujudNotRunning(tag names.Tag) error {
-	cmd := exec.Command("systemctl", "check", fmt.Sprintf("jujud-machine-%s.service", tag.Id()))
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Exit code of 3 is ESRCH, which means no such process.
-		// See: https://man7.org/linux/man-pages/man3/errno.3.html
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 3 {
-			return nil
-		}
-		return errors.Annotatef(err, "systemctrl check failed")
-	}
-	if strings.TrimSpace(string(output)) != "active" {
-		return nil
-	}
-	return errors.AlreadyExistsf("jujud is running")
 }

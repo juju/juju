@@ -4,25 +4,20 @@
 package safemode
 
 import (
-	"context"
 	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
-	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/cmd/jujud-controller/util"
-	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/terminationworker"
@@ -30,12 +25,6 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
-	// AgentName is the name of the machine agent, like "machine-12".
-	// This will never change during the execution of an agent, and
-	// is used to provide this as config into a worker rather than
-	// making the worker get it from the agent worker itself.
-	AgentName string
-
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -44,31 +33,14 @@ type ManifoldsConfig struct {
 	// is updated.
 	AgentConfigChanged *voyeur.Value
 
-	// RootDir is the root directory that any worker that needs to
-	// access local filesystems should use as a base. In actual use it
-	// will be "" but it may be overridden in tests.
-	RootDir string
-
-	// PreviousAgentVersion passes through the version the machine
-	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
-
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
-
-	// LogSource defines the channel type used to send log message
-	// structs within the machine agent.
-	LogSource logsender.LogRecordCh
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
 
 	// IsCaasConfig is true if this config is for a caas agent.
 	IsCaasConfig bool
-
-	// SetupLogging is used by the deployer to initialize the logging
-	// context for the unit.
-	SetupLogging func(corelogger.LoggerContext, coreagent.Config)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -91,8 +63,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// be Very Wrong Indeed to use SetCanUninstall in conjunction
 		// with this code.
 		terminationName: terminationworker.Manifold(),
-
-		clockName: clockManifold(config.Clock),
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
@@ -118,19 +88,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
 
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:                 agentName,
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			Clock:                     config.Clock,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			LogDir:                    agentConfig.LogDir(),
-			PrometheusRegisterer:      noopPrometheusRegisterer{},
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		})),
-
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
 			Clock:  config.Clock,
@@ -144,22 +101,53 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return commonManifolds(config)
+	agentConfig := config.Agent.CurrentConfig()
+
+	return mergeManifolds(config, dependency.Manifolds{
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewNodeManager:            dbaccessor.IAASNodeManager,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+		})),
+	})
 }
 
 // CAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return commonManifolds(config)
+	agentConfig := config.Agent.CurrentConfig()
+
+	return mergeManifolds(config, dependency.Manifolds{
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewNodeManager:            dbaccessor.CAASNodeManager,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+		})),
+	})
 }
 
-func clockManifold(clock clock.Clock) dependency.Manifold {
-	return dependency.Manifold{
-		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-			return engine.NewValueWorker(clock)
-		},
-		Output: engine.ValueWorkerOutput,
+func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
+	result := commonManifolds(config)
+	for name, manifold := range manifolds {
+		result[name] = manifold
 	}
+	return result
 }
 
 var ifController = engine.Housing{
@@ -172,7 +160,6 @@ const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
-	clockName              = "clock"
 
 	isControllerFlagName      = "is-controller-flag"
 	controllerAgentConfigName = "controller-agent-config"
