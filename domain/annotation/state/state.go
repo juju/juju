@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -33,25 +34,15 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // from the database.
 // If no annotations are found, an empty map is returned.
 func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[string]string, error) {
-	getAnnotationsQuery, err := getAnnotationQueryForID(id)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	annotationUUIDParam := annotationUUID{}
-	getAnnotationsStmt, err := st.Prepare(getAnnotationsQuery, Annotation{}, annotationUUIDParam)
-	if err != nil {
-		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
-	}
 
 	if id.Kind == annotations.KindModel {
-		return st.getAnnotationsForModel(ctx, id, getAnnotationsStmt)
+		return st.getAnnotationsForModel(ctx, id)
 	}
-	return st.getAnnotationsForID(ctx, id, getAnnotationsStmt, annotationUUIDParam)
+	return st.getAnnotationsForID(ctx, id)
 }
 
-// GetAnnotations will retrieve all the annotations associated with the given ID
-// from the database.
+// GetCharmAnnotations will retrieve all the annotations associated with the
+// given ID from the database.
 // If no annotations are found, an empty map is returned.
 func (st *State) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
 	db, err := st.DB()
@@ -99,10 +90,17 @@ WHERE c.name = $charmArgs.name AND c.revision = $charmArgs.revision;
 // This method is specialized to Models as opposed to the other Kinds because we
 // keep annotations per model, so we don't need to try to find the UUID of the
 // given ID (the model).
-func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID, getAnnotationsStmt *sqlair.Statement) (map[string]string, error) {
+func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID) (map[string]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	getAnnotationsStmt, err := st.Prepare(`
+SELECT (key, value) AS (&Annotation.*) 
+FROM   annotation_model`, Annotation{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
 	}
 
 	var annotationsResults []Annotation
@@ -122,22 +120,37 @@ func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID, 
 	return annotations, nil
 }
 
-// getAnnotationsForID retrieves all annotations associated with the given id
-// from the database.
+// getAnnotationsForID retrieves all annotations associated with the given id,
+// except IDs of kind ModelKind, from the database.
 // If no annotations are found, an empty map is returned.
 // This is separate from the getAnnotationsForModel because for non-model ID
 // Kinds we need to find the UUID of the ID before we retrieve annotations from
 // the corresponding annotation table.
-func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID, getAnnotationsStmt *sqlair.Statement, annotationUUIDParam annotationUUID) (map[string]string, error) {
+func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID) (map[string]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	kindName, err := kindNameFromID(id)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	getAnnotationsQuery := fmt.Sprintf(`
+SELECT (key, value) AS (&Annotation.*)
+FROM annotation_%s
+WHERE uuid = $annotationUUID.uuid`, kindName)
+
+	getAnnotationsStmt, err := st.Prepare(getAnnotationsQuery, Annotation{}, annotationUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
 	}
 
 	kindQuery, kindQueryParam, err := uuidQueryForID(id)
 	if err != nil {
 		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
 	}
+	annotationUUIDParam := annotationUUID{UUID: id.String()}
 	kindQueryStmt, err := st.Prepare(kindQuery, kindQueryParam, annotationUUIDParam)
 	if err != nil {
 		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
@@ -179,28 +192,11 @@ func (st *State) SetAnnotations(
 	id annotations.ID,
 	values map[string]string,
 ) error {
-	insertQuery, err := setAnnotationQueryForID(id)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	deleteQuery, err := deleteAnnotationsQueryForID(id)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	insertStmt, err := st.Prepare(insertQuery, Annotation{}, annotationUUID{})
-	if err != nil {
-		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
-	}
-	deleteStmt, err := st.Prepare(deleteQuery, annotationUUID{})
-	if err != nil {
-		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
-	}
-
 	if id.Kind == annotations.KindModel {
-		return st.setAnnotationsForModel(ctx, id, values, insertStmt, deleteStmt)
+		return st.setAnnotationsForModel(ctx, id, values)
 	}
-	return st.setAnnotationsForID(ctx, id, values, insertStmt, deleteStmt)
+	return st.setAnnotationsForID(ctx, id, values)
+
 }
 
 // setAnnotationsForID associates key/value pairs with the given ID.
@@ -209,12 +205,33 @@ func (st *State) SetAnnotations(
 // corresponding annotation table.
 func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
 	toInsert map[string]string,
-	setAnnotationsStmt *sqlair.Statement,
-	deleteAnnotationsStmt *sqlair.Statement,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	kindName, err := kindNameFromID(id)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertQuery := fmt.Sprintf(`
+INSERT INTO annotation_%s (uuid, key, value)
+VALUES ($annotationUUID.uuid, $Annotation.key, $Annotation.value)
+	ON CONFLICT(uuid, key) DO UPDATE SET value=$Annotation.value`, kindName)
+
+	setAnnotationsStmt, err := st.Prepare(insertQuery, Annotation{}, annotationUUID{})
+	if err != nil {
+		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
+	}
+
+	deleteQuery := fmt.Sprintf(`
+DELETE FROM annotation_%s
+WHERE uuid = $annotationUUID.uuid`, kindName)
+
+	deleteAnnotationsStmt, err := st.Prepare(deleteQuery, annotationUUID{})
+	if err != nil {
+		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
 	}
 
 	kindQuery, kindQueryParam, err := uuidQueryForID(id)
@@ -263,12 +280,23 @@ func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
 // id (the model).
 func (st *State) setAnnotationsForModel(ctx context.Context, id annotations.ID,
 	toInsert map[string]string,
-	setAnnotationsStmt *sqlair.Statement,
-	deleteAnnotationsStmt *sqlair.Statement,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	setAnnotationsStmt, err := st.Prepare(`
+INSERT INTO annotation_model (key, value)
+VALUES ($Annotation.*)
+	ON CONFLICT(key) DO UPDATE SET value=$Annotation.value`, Annotation{})
+	if err != nil {
+		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
+	}
+	deleteAnnotationsStmt, err := st.Prepare(`
+DELETE FROM annotation_model`)
+	if err != nil {
+		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -362,4 +390,57 @@ VALUES ($annotationUUID.*, $Annotation.*)
 		return errors.Errorf("setting charm annotations for ID: %q: %w", id.Name, err)
 	}
 	return nil
+}
+
+// uuidQueryForID generates a query and parameters for getting the uuid for a
+// given annotation ID.
+//
+// We keep different fields to reference different IDs in separate tables, as
+// follows:
+//
+//	machine: TABLE machine, reference field: name
+//	unit: TABLE unit, reference field: name
+//	application: TABLE application, reference field: name
+func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
+	kindName, err := kindNameFromID(id)
+	if err != nil {
+		return "", sqlair.M{}, errors.Capture(err)
+	}
+
+	var selector string
+	switch id.Kind {
+	case annotations.KindMachine:
+		selector = "name"
+	case annotations.KindUnit:
+		selector = "name"
+	case annotations.KindApplication:
+		selector = "name"
+	case annotations.KindStorage:
+		selector = "name"
+	}
+
+	query := fmt.Sprintf(`SELECT &annotationUUID.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)
+	return query, sqlair.M{"entity_id": id.Name}, nil
+}
+
+// kindNameFromID keeps the field names that's used for different ID.Kinds in
+// the database. Used in deducing the table name (e.g. annotation_<ID.Kind>),
+// as well as fields like <ID.Kind>_uuid in the corresponding table.
+func kindNameFromID(id annotations.ID) (string, error) {
+	var kindName string
+	switch id.Kind {
+	case annotations.KindMachine:
+		kindName = "machine"
+	case annotations.KindUnit:
+		kindName = "unit"
+	case annotations.KindApplication:
+		kindName = "application"
+	case annotations.KindStorage:
+		kindName = "storage_instance"
+	case annotations.KindModel:
+		kindName = "model"
+	default:
+		return "", errors.Errorf("%q: %w", id.Kind, annotationerrors.UnknownKind)
+	}
+	return kindName, nil
 }
