@@ -15,15 +15,19 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/database/txn"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type transactionRunnerSuite struct {
 	testing.DqliteSuite
+
+	clock *MockClock
 }
 
 var _ = gc.Suite(&transactionRunnerSuite{})
@@ -243,7 +247,16 @@ func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
-	runner := txn.NewRetryingTxnRunner()
+	defer s.setupMocks(c).Finish()
+
+	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
+		ch := make(chan time.Time)
+		close(ch)
+		return ch
+	}).AnyTimes()
+
+	runner := txn.NewRetryingTxnRunner(txn.WithRetryStrategy(txn.DefaultRetryStrategy(s.clock, loggertesting.WrapCheckLog(c))))
 
 	var count int
 	err := runner.Retry(context.Background(), func() error {
@@ -257,4 +270,12 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
 func (s *transactionRunnerSuite) createTable(c *gc.C) {
 	_, err := s.DB().Exec("CREATE TEMP TABLE foo (id INT PRIMARY KEY, name VARCHAR(255))")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *transactionRunnerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.clock = NewMockClock(ctrl)
+
+	return ctrl
 }
