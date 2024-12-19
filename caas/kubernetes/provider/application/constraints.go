@@ -343,19 +343,15 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 				continue
 			}
 			if key == topologySpreadMinDomains {
-				domains, ok := strconv.Atoi(tags[topologySpreadMinDomains])
-				if ok != nil || domains < 2 {
-					minDomains = 2
-				} else {
+				domains, err := strconv.Atoi(tags[topologySpreadMinDomains])
+				if err == nil && domains > minDomains {
 					minDomains = domains
 				}
 				continue
 			}
 			if key == topologySpreadMaxSkew {
-				skew, ok := strconv.Atoi(tags[topologySpreadMaxSkew])
-				if ok != nil || skew < 1 {
-					maxSkew = 1
-				} else {
+				skew, err := strconv.Atoi(tags[topologySpreadMaxSkew])
+				if err == nil && skew >= maxSkew {
 					maxSkew = skew
 				}
 				continue

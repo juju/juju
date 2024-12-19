@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
 	caasApplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
