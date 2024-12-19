@@ -20,6 +20,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
@@ -50,6 +51,7 @@ type WorkerConfig struct {
 	ModelMetadataServiceGetter MetadataServiceGetter
 	ModelClaimGetter           ModelClaimGetter
 	AllowDraining              bool
+	APIRemoteCallers           apiremotecaller.APIRemoteCallers
 }
 
 // Validate ensures that the config values are valid.
@@ -83,6 +85,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ModelClaimGetter == nil {
 		return errors.NotValidf("nil ModelClaimGetter")
+	}
+	if c.APIRemoteCallers == nil {
+		return errors.NotValidf("nil APIRemoteCallers")
 	}
 	return nil
 }
@@ -295,6 +300,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			internalobjectstore.WithClaimer(claimer),
 			internalobjectstore.WithLogger(w.cfg.Logger),
 			internalobjectstore.WithAllowDraining(w.cfg.AllowDraining),
+			internalobjectstore.WithAPIRemoveCallers(w.cfg.APIRemoteCallers),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

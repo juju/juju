@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/clock"
 	"gopkg.in/tomb.v2"
@@ -21,11 +22,22 @@ import (
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/objectstore/remote"
 )
 
 const (
 	defaultFileDirectory = "objectstore"
+
+	// defaultRemoteTimeout is the default timeout for retrieving blobs from
+	// remote API servers.
+	defaultRemoteTimeout = time.Second * 30
 )
+
+// BlobRetriever is the interface for retrieving blobs from remote API servers.
+type BlobRetriever interface {
+	// GetBySHA256 returns a reader for the blob with the given SHA256.
+	RetrieveBlobFromRemote(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
+}
 
 // FileObjectStoreConfig is the configuration for the file object store.
 type FileObjectStoreConfig struct {
@@ -40,8 +52,16 @@ type FileObjectStoreConfig struct {
 	// Claimer is the claimer for the file object store.
 	Claimer Claimer
 
+	// BlobRetriever is the blob retriever for retrieving blobs from remote
+	// API servers. This is useful if the current object store doesn't have
+	// the blob.
+	BlobRetriever BlobRetriever
+
+	// Logger is the logger for the file object store.
 	Logger logger.Logger
-	Clock  clock.Clock
+
+	// Clock is the clock for the file object store.
+	Clock clock.Clock
 }
 
 type fileObjectStore struct {
@@ -49,6 +69,8 @@ type fileObjectStore struct {
 	fs        fs.FS
 	namespace string
 	requests  chan request
+
+	blobRetriever BlobRetriever
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
@@ -64,8 +86,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
-		fs:        os.DirFS(path),
-		namespace: cfg.Namespace,
+		fs:            os.DirFS(path),
+		namespace:     cfg.Namespace,
+		blobRetriever: cfg.BlobRetriever,
 
 		requests: make(chan request),
 	}
@@ -84,7 +107,7 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.get(ctx, path); err == nil {
+	if reader, size, err := t.get(ctx, path, noFileFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -123,7 +146,7 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix); err == nil {
+	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix, noFileFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -273,7 +296,7 @@ func (t *fileObjectStore) loop() error {
 		case req := <-t.requests:
 			switch req.op {
 			case opGet:
-				reader, size, err := t.get(ctx, req.path)
+				reader, size, err := t.get(ctx, req.path, useRemoteAccessor)
 
 				select {
 				case <-t.tomb.Dying():
@@ -287,7 +310,7 @@ func (t *fileObjectStore) loop() error {
 				}
 
 			case opGetByHash:
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix)
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix, useRemoteAccessor)
 
 				select {
 				case <-t.tomb.Dying():
@@ -341,42 +364,46 @@ func (t *fileObjectStore) loop() error {
 	}
 }
 
-func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) get(ctx context.Context, path string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
 	t.logger.Debugf("getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	return t.getWithMetadata(ctx, metadata, useAccessor)
 }
 
-func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
 	t.logger.Debugf("getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	return t.getWithMetadata(ctx, metadata, useAccessor)
 }
 
-func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
 	hash := selectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, -1, objectstoreerrors.ObjectNotFound
-	}
-	if err != nil {
+		if useAccessor != useRemoteAccessor {
+			return nil, -1, objectstoreerrors.ObjectNotFound
+		}
+
+		// We probably want to set a timeout here, as we don't want to wait
+		// indefinitely for the blob to be retrieved from the remote API
+		// server.
+		return t.fetchFromRemote(ctx, metadata)
+	} else if err != nil {
 		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
@@ -393,6 +420,50 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 	}
 
 	return file, size, nil
+}
+
+func (t *fileObjectStore) fetchFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultRemoteTimeout)
+	defer cancel()
+
+	reader, size, err := t.blobRetriever.RetrieveBlobFromRemote(ctx, metadata.SHA256)
+	if err != nil && !errors.Is(err, remote.BlobNotFound) {
+		return nil, -1, errors.Capture(err)
+	} else if errors.Is(err, remote.BlobNotFound) {
+		return nil, -1, objectstoreerrors.ObjectNotFound
+	}
+
+	if size != metadata.Size {
+		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
+	}
+
+	// We need to now put the blob into the file store, so that we can
+	// retrieve it from the file store next time.
+	// Annoyingly we need to read it to a temp file so that we can seek back
+	// to the beginning of the file.
+	// We need to write this to a temp file, because if the client retries
+	// then we need seek back to the beginning of the file.
+	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, reader, size)
+	if err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+	defer func() {
+		_ = tmpFileCleanup()
+	}()
+
+	if err := t.withLock(ctx, metadata.SHA384, func(ctx context.Context) error {
+		return t.persistTmpFile(ctx, tmpFileName, metadata.SHA384, size)
+	}); err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	filePath := t.filePath(metadata.SHA384)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, metadata.SHA384, err)
+	}
+
+	return file, metadata.Size, nil
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {

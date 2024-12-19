@@ -5,6 +5,7 @@ package apiremotecaller
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,7 +23,7 @@ type RemoteConnection interface {
 	// Connection returns a channel that will be populated with the connection
 	// to the remote API server. If the connection is lost or the remote server
 	// is unreachable, the channel will be closed.
-	Connection() chan api.Connection
+	Connection() (api.Connection, bool)
 
 	// Tag returns the tag of the remote API server.
 	Tag() names.Tag
@@ -56,9 +57,10 @@ type remoteServer struct {
 	clock  clock.Clock
 
 	changes            chan []string
-	connections        chan api.Connection
 	monitorConnections chan api.Connection
-	currentConnection  api.Connection
+
+	mu                sync.Mutex
+	currentConnection api.Connection
 }
 
 // NewRemoteServer creates a new RemoteServer that will connect to the remote
@@ -69,7 +71,6 @@ func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
 		logger:             config.Logger,
 		clock:              config.Clock,
 		changes:            make(chan []string),
-		connections:        make(chan api.Connection),
 		monitorConnections: make(chan api.Connection),
 	}
 	w.tomb.Go(w.loop)
@@ -79,8 +80,11 @@ func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
 // Connection returns a channel that will be populated with the connection to
 // the remote API server. If the connection is lost or the remote server is
 // unreachable, the channel will be closed.
-func (w *remoteServer) Connection() chan api.Connection {
-	return w.connections
+func (w *remoteServer) Connection() (api.Connection, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.currentConnection, w.currentConnection != nil
 }
 
 // Tag returns the tag of the remote API server.
@@ -110,7 +114,6 @@ func (w *remoteServer) Wait() error {
 func (w *remoteServer) loop() error {
 	defer func() {
 		// Close the current connection to ensure that we message
-		close(w.connections)
 		close(w.monitorConnections)
 		w.closeCurrentConnection()
 	}()
@@ -149,8 +152,7 @@ func (w *remoteServer) loop() error {
 
 			// If the connection becomes broken, we need to reconnect.
 			w.logger.Infof("connection to %q is broken, reconnecting", w.info.Tag)
-			w.closeCurrentConnection()
-			if err := w.reconnect(ctx); err != nil {
+			if err := w.connect(ctx, w.info.Addrs); err != nil {
 				return err
 			}
 		}
@@ -200,8 +202,10 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
 		return err
 	}
 
+	w.mu.Lock()
 	w.closeCurrentConnection()
 	w.currentConnection = connection
+	w.mu.Unlock()
 
 	// Monitor connection will monitor the connection to see if the connection
 	// becomes broken. If it does we can close the connection and try to
@@ -215,24 +219,15 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
 	case w.monitorConnections <- connection:
 	}
 
-	// Notify the worker that a new connection is available.
-	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case w.connections <- connection:
-	}
-
 	return nil
-}
-
-func (w *remoteServer) reconnect(ctx context.Context) error {
-	// We're already in a loop, so we can just call connect.
-	return w.connect(ctx, w.info.Addrs)
 }
 
 // closeCurrentConnection will close the current connection if it exists.
 // This is best effort and will not return an error.
 func (w *remoteServer) closeCurrentConnection() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if w.currentConnection == nil {
 		return
 	}
