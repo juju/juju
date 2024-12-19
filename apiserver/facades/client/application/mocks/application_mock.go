@@ -27,6 +27,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
 	config0 "github.com/juju/juju/environs/config"
+	context "github.com/juju/juju/environs/context"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
 	names "github.com/juju/names/v5"
@@ -954,6 +955,21 @@ func NewMockCaasBrokerInterface(ctrl *gomock.Controller) *MockCaasBrokerInterfac
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCaasBrokerInterface) EXPECT() *MockCaasBrokerInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ConstraintsValidator mocks base method.
+func (m *MockCaasBrokerInterface) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
+	ret0, _ := ret[0].(constraints.Validator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConstraintsValidator indicates an expected call of ConstraintsValidator.
+func (mr *MockCaasBrokerInterfaceMockRecorder) ConstraintsValidator(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsValidator", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ConstraintsValidator), arg0)
 }
 
 // ValidateStorageClass mocks base method.
