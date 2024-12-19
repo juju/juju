@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -78,25 +78,6 @@ type S3ObjectStoreConfig struct {
 	Clock  clock.Clock
 }
 
-// getAccessorPattern is the type of fallback to use when getting a file.
-type getAccessorPattern int
-
-const (
-	// useFileAccessor denotes that it's possible to go look in the file
-	// system accessor for a file if it's not found in the s3 object store.
-	// This can occur when draining files from the file backed object store to
-	// the s3 object store.
-	useFileAccessor getAccessorPattern = 0
-
-	// noFileFallback denotes that we should not look in the file system
-	// accessor for a file if it's not found in the s3 object store.
-	noFileFallback getAccessorPattern = 1
-
-	// useRemoteAccessor denotes that it's possible to go look in the remote
-	// API accessor for a file if it's not found in the s3 object store.
-	useRemoteAccessor getAccessorPattern = 0
-)
-
 const (
 	// States which report the state of the worker.
 	stateStarted     = "started"
@@ -148,7 +129,12 @@ func newS3ObjectStore(cfg S3ObjectStoreConfig, internalStates chan string) (*s3O
 		drainRequests: make(chan drainRequest),
 	}
 
-	s.tomb.Go(s.loop)
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &s.catacomb,
+		Work: s.loop,
+	}); err != nil {
+		return nil, errors.Errorf("starting file object store: %w", err)
+	}
 
 	return s, nil
 }
@@ -162,7 +148,7 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.get(ctx, path, noFileFallback); err == nil {
+	if reader, size, err := t.get(ctx, path, noFallbackStrategy); err == nil {
 		return reader, size, nil
 	}
 
@@ -171,8 +157,8 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGet,
 		path:     path,
@@ -183,8 +169,8 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
@@ -201,7 +187,7 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix, noFileFallback); err == nil {
+	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix, noFallbackStrategy); err == nil {
 		return reader, size, nil
 	}
 
@@ -210,8 +196,8 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:           opGetByHash,
 		sha256Prefix: sha256Prefix,
@@ -222,8 +208,8 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
@@ -238,8 +224,8 @@ func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size 
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:            opPut,
 		path:          path,
@@ -253,8 +239,8 @@ func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size 
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return "", errors.Errorf("putting blob: %w", resp.err)
@@ -270,8 +256,8 @@ func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.R
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:            opPut,
 		path:          path,
@@ -285,8 +271,8 @@ func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.R
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return "", errors.Errorf("putting blob and check hash: %w", resp.err)
@@ -301,8 +287,8 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.tomb.Dying():
-		return tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opRemove,
 		path:     path,
@@ -313,8 +299,8 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.tomb.Dying():
-		return tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return errors.Errorf("removing blob: %w", resp.err)
@@ -357,7 +343,7 @@ func (t *s3ObjectStore) loop() error {
 	// This will locate any files from the metadata service that are not
 	// present in the s3 object store and copy them over.
 	// Once done it will terminate the goroutine.
-	fileFallback := noFileFallback
+	strategy := noFallbackStrategy
 	if t.allowDraining {
 		// Drain any files from the file object store to the s3 object store.
 		// This will locate any files from the metadata service that are not
@@ -368,10 +354,17 @@ func (t *s3ObjectStore) loop() error {
 			return errors.Errorf("listing metadata for draining: %w", err)
 		}
 
-		t.tomb.Go(t.drainFiles(metadata))
+		// It would be nice to use a worker here, but it makes this very
+		// complicated. For now just use a goroutine (there is no catacomb.Go
+		// which would be nice).
+		go func() {
+			if err := t.drainFiles(metadata); err != nil {
+				t.catacomb.Kill(err)
+			}
+		}()
 
 		// If we allow draining, then we can attempt to use the file accessor.
-		fileFallback = useFileAccessor
+		strategy = fileStrategy
 	}
 
 	// Report the initial started state.
@@ -380,8 +373,8 @@ func (t *s3ObjectStore) loop() error {
 	// Sequence the get request with the put, remove requests.
 	for {
 		select {
-		case <-t.tomb.Dying():
-			return tomb.ErrDying
+		case <-t.catacomb.Dying():
+			return t.catacomb.ErrDying()
 
 		case req := <-t.requests:
 			switch req.op {
@@ -391,11 +384,11 @@ func (t *s3ObjectStore) loop() error {
 				// during the drain process. As these requests are sequenced
 				// with the drain requests we can at least attempt to get the
 				// file from the file accessor for intermediate content.
-				reader, size, err := t.get(ctx, req.path, fileFallback)
+				reader, size, err := t.get(ctx, req.path, strategy)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					reader: reader,
@@ -410,11 +403,11 @@ func (t *s3ObjectStore) loop() error {
 				// during the drain process. As these requests are sequenced
 				// with the drain requests we can at least attempt to get the
 				// file from the file accessor for intermediate content.
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix, fileFallback)
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix, strategy)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					reader: reader,
@@ -427,8 +420,8 @@ func (t *s3ObjectStore) loop() error {
 				uuid, err := t.put(ctx, req.path, req.reader, req.size, req.hashValidator)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					uuid: uuid,
@@ -438,8 +431,8 @@ func (t *s3ObjectStore) loop() error {
 
 			case opRemove:
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					err: t.remove(ctx, req.path),
@@ -465,20 +458,20 @@ func (t *s3ObjectStore) loop() error {
 			if !ok {
 				// File draining has completed, so we can stop processing
 				// requests to the file backed object store.
-				fileFallback = noFileFallback
+				strategy = noFallbackStrategy
 				continue
 			}
 
 			select {
-			case <-t.tomb.Dying():
-				return tomb.ErrDying
+			case <-t.catacomb.Dying():
+				return t.catacomb.ErrDying()
 			case req.response <- t.drainFile(ctx, req.path, req.hash, req.size):
 			}
 		}
 	}
 }
 
-func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
+func (t *s3ObjectStore) get(ctx context.Context, path string, strategy accessStrategy) (io.ReadCloser, int64, error) {
 	t.logger.Debugf("getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
@@ -489,10 +482,10 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata, useAccessor)
+	return t.getWithMetadata(ctx, metadata, strategy)
 }
 
-func (t *s3ObjectStore) getBySHA256Prefix(ctx context.Context, sha256Prefix string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
+func (t *s3ObjectStore) getBySHA256Prefix(ctx context.Context, sha256Prefix string, strategy accessStrategy) (io.ReadCloser, int64, error) {
 	t.logger.Debugf("getting object with SHA256 prefix %q from file storage", sha256Prefix)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256Prefix)
@@ -503,10 +496,10 @@ func (t *s3ObjectStore) getBySHA256Prefix(ctx context.Context, sha256Prefix stri
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata, useAccessor)
+	return t.getWithMetadata(ctx, metadata, strategy)
 }
 
-func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
+func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, strategy accessStrategy) (io.ReadCloser, int64, error) {
 	hash := selectFileHash(metadata)
 
 	var reader io.ReadCloser
@@ -520,7 +513,7 @@ func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstor
 	} else if errors.Is(err, jujuerrors.NotFound) {
 		// If we're not allowed to use the file accessor, then we can't
 		// attempt to get the file from the file backed object store.
-		if useAccessor != useFileAccessor {
+		if strategy != fileStrategy {
 			return nil, -1, objectstoreerrors.ObjectNotFound
 		}
 
@@ -721,67 +714,62 @@ type drainRequest struct {
 // The drainFiles method will drain the files from the file object store to the
 // s3 object store. This will locate any files from the metadata service that
 // are not present in the s3 object store and copy them over.
-func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error {
-	// We require the capture closure to ensure that the metadata is captured
-	// at the time of the call, rather than at the time of the execution. This
-	// prevents any data races.
-	return func() error {
-		ctx, cancel := t.scopedContext()
-		defer cancel()
+func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) error {
+	ctx, cancel := t.scopedContext()
+	defer cancel()
 
-		t.logger.Infof("draining started for %q, processing %d", t.namespace, len(metadata))
+	t.logger.Infof("draining started for %q, processing %d", t.namespace, len(metadata))
 
-		// Process each file in the metadata service, and drain it to the s3 object
-		// store.
-		// Note: we could do this in parallel, but everything is sequenced with
-		// the requests channel, so we don't need to worry about it.
-		for _, m := range metadata {
-			result := make(chan error)
+	// Process each file in the metadata service, and drain it to the s3 object
+	// store.
+	// Note: we could do this in parallel, but everything is sequenced with
+	// the requests channel, so we don't need to worry about it.
+	for _, m := range metadata {
+		result := make(chan error)
 
-			hash := selectFileHash(m)
+		hash := selectFileHash(m)
 
-			t.logger.Debugf("draining file %q to s3 object store %q", m.Path, hash)
+		t.logger.Debugf("draining file %q to s3 object store %q", m.Path, hash)
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-t.tomb.Dying():
-				return tomb.ErrDying
-			case t.drainRequests <- drainRequest{
-				path:     m.Path,
-				hash:     hash,
-				size:     m.Size,
-				response: result,
-			}:
-			}
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-t.tomb.Dying():
-				return tomb.ErrDying
-			case err := <-result:
-				t.reportInternalState(fmt.Sprintf(stateFileDrained, hash))
-				// This will crash the s3ObjectStore worker if this is a fatal
-				// error. We don't want to continue processing if we can't drain
-				// the files to the s3 object store.
-				if err != nil {
-					return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
-				}
-			}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.catacomb.Dying():
+			return t.catacomb.ErrDying()
+		case t.drainRequests <- drainRequest{
+			path:     m.Path,
+			hash:     hash,
+			size:     m.Size,
+			response: result,
+		}:
 		}
 
-		// Ensure we close the drain requests channel, so that we can prevent
-		// any further requests to the local file system.
-		close(t.drainRequests)
-
-		t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
-
-		// Report the drained state completed.
-		t.reportInternalState(stateDrained)
-
-		return nil
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.catacomb.Dying():
+			return t.catacomb.ErrDying()
+		case err := <-result:
+			t.reportInternalState(fmt.Sprintf(stateFileDrained, hash))
+			// This will crash the s3ObjectStore worker if this is a fatal
+			// error. We don't want to continue processing if we can't drain
+			// the files to the s3 object store.
+			if err != nil {
+				return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
+			}
+		}
 	}
+
+	// Ensure we close the drain requests channel, so that we can prevent
+	// any further requests to the local file system.
+	close(t.drainRequests)
+
+	t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
+
+	// Report the drained state completed.
+	t.reportInternalState(stateDrained)
+
+	return nil
 }
 
 func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metadataSize int64) error {
@@ -920,7 +908,7 @@ func (t *s3ObjectStore) reportInternalState(state string) {
 		return
 	}
 	select {
-	case <-t.tomb.Dying():
+	case <-t.catacomb.Dying():
 	case t.internalStates <- state:
 	}
 }
