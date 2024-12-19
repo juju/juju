@@ -41,7 +41,6 @@ import (
 type MockBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockBackendMockRecorder
-	isgomock struct{}
 }
 
 // MockBackendMockRecorder is the mock recorder for MockBackend.
@@ -77,18 +76,18 @@ func (mr *MockBackendMockRecorder) AddApplication(arg0 any) *gomock.Call {
 }
 
 // AddCharmMetadata mocks base method.
-func (m *MockBackend) AddCharmMetadata(info state.CharmInfo) (application.Charm, error) {
+func (m *MockBackend) AddCharmMetadata(arg0 state.CharmInfo) (application.Charm, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmMetadata", info)
+	ret := m.ctrl.Call(m, "AddCharmMetadata", arg0)
 	ret0, _ := ret[0].(application.Charm)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddCharmMetadata indicates an expected call of AddCharmMetadata.
-func (mr *MockBackendMockRecorder) AddCharmMetadata(info any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddCharmMetadata(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockBackend)(nil).AddCharmMetadata), info)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockBackend)(nil).AddCharmMetadata), arg0)
 }
 
 // AddPendingResource mocks base method.
@@ -186,18 +185,18 @@ func (mr *MockBackendMockRecorder) Application(arg0 any) *gomock.Call {
 }
 
 // ApplicationOfferForUUID mocks base method.
-func (m *MockBackend) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+func (m *MockBackend) ApplicationOfferForUUID(arg0 string) (*crossmodel.ApplicationOffer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationOfferForUUID", offerUUID)
+	ret := m.ctrl.Call(m, "ApplicationOfferForUUID", arg0)
 	ret0, _ := ret[0].(*crossmodel.ApplicationOffer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationOfferForUUID indicates an expected call of ApplicationOfferForUUID.
-func (mr *MockBackendMockRecorder) ApplicationOfferForUUID(offerUUID any) *gomock.Call {
+func (mr *MockBackendMockRecorder) ApplicationOfferForUUID(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationOfferForUUID", reflect.TypeOf((*MockBackend)(nil).ApplicationOfferForUUID), offerUUID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationOfferForUUID", reflect.TypeOf((*MockBackend)(nil).ApplicationOfferForUUID), arg0)
 }
 
 // ApplyOperation mocks base method.
@@ -401,18 +400,18 @@ func (mr *MockBackendMockRecorder) OfferConnectionForRelation(arg0 any) *gomock.
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockBackend) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
+func (m *MockBackend) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareCharmUpload", curl)
+	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareCharmUpload indicates an expected call of PrepareCharmUpload.
-func (mr *MockBackendMockRecorder) PrepareCharmUpload(curl any) *gomock.Call {
+func (mr *MockBackendMockRecorder) PrepareCharmUpload(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockBackend)(nil).PrepareCharmUpload), curl)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockBackend)(nil).PrepareCharmUpload), arg0)
 }
 
 // Relation mocks base method.
@@ -446,17 +445,17 @@ func (mr *MockBackendMockRecorder) RemoteApplication(arg0 any) *gomock.Call {
 }
 
 // RemovePendingResources mocks base method.
-func (m *MockBackend) RemovePendingResources(applicationID string, pendingIDs map[string]string) error {
+func (m *MockBackend) RemovePendingResources(arg0 string, arg1 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemovePendingResources", applicationID, pendingIDs)
+	ret := m.ctrl.Call(m, "RemovePendingResources", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemovePendingResources indicates an expected call of RemovePendingResources.
-func (mr *MockBackendMockRecorder) RemovePendingResources(applicationID, pendingIDs any) *gomock.Call {
+func (mr *MockBackendMockRecorder) RemovePendingResources(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockBackend)(nil).RemovePendingResources), applicationID, pendingIDs)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockBackend)(nil).RemovePendingResources), arg0, arg1)
 }
 
 // Resources mocks base method.
@@ -474,48 +473,48 @@ func (mr *MockBackendMockRecorder) Resources() *gomock.Call {
 }
 
 // SaveController mocks base method.
-func (m *MockBackend) SaveController(info crossmodel.ControllerInfo, modelUUID string) (application.ExternalController, error) {
+func (m *MockBackend) SaveController(arg0 crossmodel.ControllerInfo, arg1 string) (application.ExternalController, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveController", info, modelUUID)
+	ret := m.ctrl.Call(m, "SaveController", arg0, arg1)
 	ret0, _ := ret[0].(application.ExternalController)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SaveController indicates an expected call of SaveController.
-func (mr *MockBackendMockRecorder) SaveController(info, modelUUID any) *gomock.Call {
+func (mr *MockBackendMockRecorder) SaveController(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveController", reflect.TypeOf((*MockBackend)(nil).SaveController), info, modelUUID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveController", reflect.TypeOf((*MockBackend)(nil).SaveController), arg0, arg1)
 }
 
 // SaveEgressNetworks mocks base method.
-func (m *MockBackend) SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
+func (m *MockBackend) SaveEgressNetworks(arg0 string, arg1 []string) (state.RelationNetworks, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveEgressNetworks", relationKey, cidrs)
+	ret := m.ctrl.Call(m, "SaveEgressNetworks", arg0, arg1)
 	ret0, _ := ret[0].(state.RelationNetworks)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SaveEgressNetworks indicates an expected call of SaveEgressNetworks.
-func (mr *MockBackendMockRecorder) SaveEgressNetworks(relationKey, cidrs any) *gomock.Call {
+func (mr *MockBackendMockRecorder) SaveEgressNetworks(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveEgressNetworks", reflect.TypeOf((*MockBackend)(nil).SaveEgressNetworks), relationKey, cidrs)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveEgressNetworks", reflect.TypeOf((*MockBackend)(nil).SaveEgressNetworks), arg0, arg1)
 }
 
 // Space mocks base method.
-func (m *MockBackend) Space(id string) (*state.Space, error) {
+func (m *MockBackend) Space(arg0 string) (*state.Space, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space", id)
+	ret := m.ctrl.Call(m, "Space", arg0)
 	ret0, _ := ret[0].(*state.Space)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Space indicates an expected call of Space.
-func (mr *MockBackendMockRecorder) Space(id any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Space(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockBackend)(nil).Space), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockBackend)(nil).Space), arg0)
 }
 
 // Unit mocks base method.
@@ -549,25 +548,24 @@ func (mr *MockBackendMockRecorder) UnitsInError() *gomock.Call {
 }
 
 // UpdateUploadedCharm mocks base method.
-func (m *MockBackend) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
+func (m *MockBackend) UpdateUploadedCharm(arg0 state.CharmInfo) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUploadedCharm", info)
+	ret := m.ctrl.Call(m, "UpdateUploadedCharm", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateUploadedCharm indicates an expected call of UpdateUploadedCharm.
-func (mr *MockBackendMockRecorder) UpdateUploadedCharm(info any) *gomock.Call {
+func (mr *MockBackendMockRecorder) UpdateUploadedCharm(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockBackend)(nil).UpdateUploadedCharm), info)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockBackend)(nil).UpdateUploadedCharm), arg0)
 }
 
 // MockStorageInterface is a mock of StorageInterface interface.
 type MockStorageInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockStorageInterfaceMockRecorder
-	isgomock struct{}
 }
 
 // MockStorageInterfaceMockRecorder is the mock recorder for MockStorageInterface.
@@ -649,7 +647,6 @@ func (mr *MockStorageInterfaceMockRecorder) VolumeAccess() *gomock.Call {
 type MockBlockChecker struct {
 	ctrl     *gomock.Controller
 	recorder *MockBlockCheckerMockRecorder
-	isgomock struct{}
 }
 
 // MockBlockCheckerMockRecorder is the mock recorder for MockBlockChecker.
@@ -701,7 +698,6 @@ func (mr *MockBlockCheckerMockRecorder) RemoveAllowed() *gomock.Call {
 type MockModel struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelMockRecorder
-	isgomock struct{}
 }
 
 // MockModelMockRecorder is the mock recorder for MockModel.
@@ -942,7 +938,6 @@ func (mr *MockModelMockRecorder) UUID() *gomock.Call {
 type MockCaasBrokerInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockCaasBrokerInterfaceMockRecorder
-	isgomock struct{}
 }
 
 // MockCaasBrokerInterfaceMockRecorder is the mock recorder for MockCaasBrokerInterface.
@@ -963,32 +958,32 @@ func (m *MockCaasBrokerInterface) EXPECT() *MockCaasBrokerInterfaceMockRecorder 
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockCaasBrokerInterface) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockCaasBrokerInterface) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConstraintsValidator", ctx)
+	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConstraintsValidator indicates an expected call of ConstraintsValidator.
-func (mr *MockCaasBrokerInterfaceMockRecorder) ConstraintsValidator(ctx any) *gomock.Call {
+func (mr *MockCaasBrokerInterfaceMockRecorder) ConstraintsValidator(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsValidator", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ConstraintsValidator), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsValidator", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ConstraintsValidator), arg0)
 }
 
 // ValidateStorageClass mocks base method.
-func (m *MockCaasBrokerInterface) ValidateStorageClass(config map[string]any) error {
+func (m *MockCaasBrokerInterface) ValidateStorageClass(arg0 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateStorageClass", config)
+	ret := m.ctrl.Call(m, "ValidateStorageClass", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateStorageClass indicates an expected call of ValidateStorageClass.
-func (mr *MockCaasBrokerInterfaceMockRecorder) ValidateStorageClass(config any) *gomock.Call {
+func (mr *MockCaasBrokerInterfaceMockRecorder) ValidateStorageClass(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateStorageClass", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ValidateStorageClass), config)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateStorageClass", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ValidateStorageClass), arg0)
 }
 
 // Version mocks base method.
@@ -1010,7 +1005,6 @@ func (mr *MockCaasBrokerInterfaceMockRecorder) Version() *gomock.Call {
 type MockApplication struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationMockRecorder
-	isgomock struct{}
 }
 
 // MockApplicationMockRecorder is the mock recorder for MockApplication.
@@ -1523,7 +1517,6 @@ func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 any) *gomock
 type MockRemoteApplication struct {
 	ctrl     *gomock.Controller
 	recorder *MockRemoteApplicationMockRecorder
-	isgomock struct{}
 }
 
 // MockRemoteApplicationMockRecorder is the mock recorder for MockRemoteApplication.
@@ -1544,17 +1537,17 @@ func (m *MockRemoteApplication) EXPECT() *MockRemoteApplicationMockRecorder {
 }
 
 // AddEndpoints mocks base method.
-func (m *MockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
+func (m *MockRemoteApplication) AddEndpoints(arg0 []charm.Relation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddEndpoints", eps)
+	ret := m.ctrl.Call(m, "AddEndpoints", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddEndpoints indicates an expected call of AddEndpoints.
-func (mr *MockRemoteApplicationMockRecorder) AddEndpoints(eps any) *gomock.Call {
+func (mr *MockRemoteApplicationMockRecorder) AddEndpoints(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEndpoints", reflect.TypeOf((*MockRemoteApplication)(nil).AddEndpoints), eps)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEndpoints", reflect.TypeOf((*MockRemoteApplication)(nil).AddEndpoints), arg0)
 }
 
 // Bindings mocks base method.
@@ -1586,17 +1579,17 @@ func (mr *MockRemoteApplicationMockRecorder) Destroy() *gomock.Call {
 }
 
 // DestroyOperation mocks base method.
-func (m *MockRemoteApplication) DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation {
+func (m *MockRemoteApplication) DestroyOperation(arg0 bool) *state.DestroyRemoteApplicationOperation {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyOperation", force)
+	ret := m.ctrl.Call(m, "DestroyOperation", arg0)
 	ret0, _ := ret[0].(*state.DestroyRemoteApplicationOperation)
 	return ret0
 }
 
 // DestroyOperation indicates an expected call of DestroyOperation.
-func (mr *MockRemoteApplicationMockRecorder) DestroyOperation(force any) *gomock.Call {
+func (mr *MockRemoteApplicationMockRecorder) DestroyOperation(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockRemoteApplication)(nil).DestroyOperation), force)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockRemoteApplication)(nil).DestroyOperation), arg0)
 }
 
 // Endpoints mocks base method.
@@ -1689,7 +1682,6 @@ func (mr *MockRemoteApplicationMockRecorder) Status() *gomock.Call {
 type MockCharm struct {
 	ctrl     *gomock.Controller
 	recorder *MockCharmMockRecorder
-	isgomock struct{}
 }
 
 // MockCharmMockRecorder is the mock recorder for MockCharm.
@@ -1811,7 +1803,6 @@ func (mr *MockCharmMockRecorder) Revision() *gomock.Call {
 type MockRelation struct {
 	ctrl     *gomock.Controller
 	recorder *MockRelationMockRecorder
-	isgomock struct{}
 }
 
 // MockRelationMockRecorder is the mock recorder for MockRelation.
@@ -1832,33 +1823,33 @@ func (m *MockRelation) EXPECT() *MockRelationMockRecorder {
 }
 
 // AllRemoteUnits mocks base method.
-func (m *MockRelation) AllRemoteUnits(appName string) ([]application.RelationUnit, error) {
+func (m *MockRelation) AllRemoteUnits(arg0 string) ([]application.RelationUnit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllRemoteUnits", appName)
+	ret := m.ctrl.Call(m, "AllRemoteUnits", arg0)
 	ret0, _ := ret[0].([]application.RelationUnit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AllRemoteUnits indicates an expected call of AllRemoteUnits.
-func (mr *MockRelationMockRecorder) AllRemoteUnits(appName any) *gomock.Call {
+func (mr *MockRelationMockRecorder) AllRemoteUnits(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRemoteUnits", reflect.TypeOf((*MockRelation)(nil).AllRemoteUnits), appName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRemoteUnits", reflect.TypeOf((*MockRelation)(nil).AllRemoteUnits), arg0)
 }
 
 // ApplicationSettings mocks base method.
-func (m *MockRelation) ApplicationSettings(appName string) (map[string]any, error) {
+func (m *MockRelation) ApplicationSettings(arg0 string) (map[string]any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationSettings", appName)
+	ret := m.ctrl.Call(m, "ApplicationSettings", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationSettings indicates an expected call of ApplicationSettings.
-func (mr *MockRelationMockRecorder) ApplicationSettings(appName any) *gomock.Call {
+func (mr *MockRelationMockRecorder) ApplicationSettings(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationSettings", reflect.TypeOf((*MockRelation)(nil).ApplicationSettings), appName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationSettings", reflect.TypeOf((*MockRelation)(nil).ApplicationSettings), arg0)
 }
 
 // Destroy mocks base method.
@@ -1934,18 +1925,18 @@ func (mr *MockRelationMockRecorder) Id() *gomock.Call {
 }
 
 // RelatedEndpoints mocks base method.
-func (m *MockRelation) RelatedEndpoints(applicationname string) ([]state.Endpoint, error) {
+func (m *MockRelation) RelatedEndpoints(arg0 string) ([]state.Endpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelatedEndpoints", applicationname)
+	ret := m.ctrl.Call(m, "RelatedEndpoints", arg0)
 	ret0, _ := ret[0].([]state.Endpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RelatedEndpoints indicates an expected call of RelatedEndpoints.
-func (mr *MockRelationMockRecorder) RelatedEndpoints(applicationname any) *gomock.Call {
+func (mr *MockRelationMockRecorder) RelatedEndpoints(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelatedEndpoints", reflect.TypeOf((*MockRelation)(nil).RelatedEndpoints), applicationname)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelatedEndpoints", reflect.TypeOf((*MockRelation)(nil).RelatedEndpoints), arg0)
 }
 
 // SetStatus mocks base method.
@@ -2037,7 +2028,6 @@ func (mr *MockRelationMockRecorder) Unit(arg0 any) *gomock.Call {
 type MockUnit struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnitMockRecorder
-	isgomock struct{}
 }
 
 // MockUnitMockRecorder is the mock recorder for MockUnit.
@@ -2215,17 +2205,17 @@ func (mr *MockUnitMockRecorder) Name() *gomock.Call {
 }
 
 // Resolve mocks base method.
-func (m *MockUnit) Resolve(retryHooks bool) error {
+func (m *MockUnit) Resolve(arg0 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Resolve", retryHooks)
+	ret := m.ctrl.Call(m, "Resolve", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Resolve indicates an expected call of Resolve.
-func (mr *MockUnitMockRecorder) Resolve(retryHooks any) *gomock.Call {
+func (mr *MockUnitMockRecorder) Resolve(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolve", reflect.TypeOf((*MockUnit)(nil).Resolve), retryHooks)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolve", reflect.TypeOf((*MockUnit)(nil).Resolve), arg0)
 }
 
 // Tag mocks base method.
@@ -2275,7 +2265,6 @@ func (mr *MockUnitMockRecorder) WorkloadVersion() *gomock.Call {
 type MockRelationUnit struct {
 	ctrl     *gomock.Controller
 	recorder *MockRelationUnitMockRecorder
-	isgomock struct{}
 }
 
 // MockRelationUnitMockRecorder is the mock recorder for MockRelationUnit.
@@ -2343,7 +2332,6 @@ func (mr *MockRelationUnitMockRecorder) UnitName() *gomock.Call {
 type MockMachine struct {
 	ctrl     *gomock.Controller
 	recorder *MockMachineMockRecorder
-	isgomock struct{}
 }
 
 // MockMachineMockRecorder is the mock recorder for MockMachine.
@@ -2455,7 +2443,6 @@ func (mr *MockMachineMockRecorder) PublicAddress() *gomock.Call {
 type MockGeneration struct {
 	ctrl     *gomock.Controller
 	recorder *MockGenerationMockRecorder
-	isgomock struct{}
 }
 
 // MockGenerationMockRecorder is the mock recorder for MockGeneration.
@@ -2493,7 +2480,6 @@ func (mr *MockGenerationMockRecorder) AssignApplication(arg0 any) *gomock.Call {
 type MockBindings struct {
 	ctrl     *gomock.Controller
 	recorder *MockBindingsMockRecorder
-	isgomock struct{}
 }
 
 // MockBindingsMockRecorder is the mock recorder for MockBindings.
@@ -2546,7 +2532,6 @@ func (mr *MockBindingsMockRecorder) MapWithSpaceNames(arg0 any) *gomock.Call {
 type MockResources struct {
 	ctrl     *gomock.Controller
 	recorder *MockResourcesMockRecorder
-	isgomock struct{}
 }
 
 // MockResourcesMockRecorder is the mock recorder for MockResources.

@@ -35,7 +35,8 @@ type constraintsValidator struct {
 	constraints.Validator
 }
 
-func validateTopologyKeyTagFunc(key string, topologySpreadKey string, tagList []string) error {
+// validateTopologyKeyTag checks if the topologyKeyTag is the same as the topologySpreadKey
+func validateTopologyKeyTag(key string, topologySpreadKey string, tagList []string) error {
 	var topologySpreadValue, otherValue *string
 	// Search for the topologySpreadValue for topologyKeyTag
 	for tag := range tagList {
@@ -59,7 +60,7 @@ func validateTopologyKeyTagFunc(key string, topologySpreadKey string, tagList []
 	}
 
 	if otherValue != nil && *topologySpreadValue == *otherValue {
-		return errors.New("podAffinity/antiPodAffinity's topology-key and topologySpread's cannot have the same value")
+		return errors.New("If both are specified, the topology-key for (anti) pod affinity and topology-spread cannot have the same value")
 	}
 	return nil
 }
@@ -67,6 +68,10 @@ func validateTopologyKeyTagFunc(key string, topologySpreadKey string, tagList []
 // Validate returns an error if the given constraints are not valid, and also
 // any unsupported attributes.
 func (v *constraintsValidator) Validate(cons constraints.Value) ([]string, error) {
+	validated, err := v.Validator.Validate(cons)
+	if err != nil {
+		return nil, err
+	}
 	if cons.Tags == nil {
 		return nil, nil
 	}
@@ -75,16 +80,16 @@ func (v *constraintsValidator) Validate(cons constraints.Value) ([]string, error
 
 	topologySpreadKey := caasApplication.TopologySpreadPrefix + caasApplication.TopologyKeyTag
 	podKey := caasApplication.PodPrefix + caasApplication.TopologyKeyTag
-	if err := validateTopologyKeyTagFunc(podKey, topologySpreadKey, elements); err != nil {
+	if err := validateTopologyKeyTag(podKey, topologySpreadKey, elements); err != nil {
 		return nil, err
 	}
 
 	antiPodKey := caasApplication.AntiPodPrefix + caasApplication.TopologyKeyTag
-	if err := validateTopologyKeyTagFunc(antiPodKey, topologySpreadKey, elements); err != nil {
+	if err := validateTopologyKeyTag(antiPodKey, topologySpreadKey, elements); err != nil {
 		return nil, err
 	}
 
-	return v.Validator.Validate(cons)
+	return validated, nil
 }
 
 // parseDelimitedValues parses a slice of raw values coming from tag constraints

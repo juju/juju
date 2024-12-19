@@ -17,6 +17,8 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+
+	caasConstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 // ConstraintApplier defines the function type for configuring constraint for a pod.
@@ -319,9 +321,7 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		return errors.Errorf("topology-key not set for topology spread constraints: %v", affinityLabels)
 	}
 
-	var appNameLabel string = "app.kubernetes.io/name"
-
-	updateTopologyTerm := func(topologyTerms *core.TopologySpreadConstraint, tags map[string]string) {
+	updateTopologyTerm := func(topologyTerms *core.TopologySpreadConstraint, tags map[string]string) error {
 		// Sort for stable ordering.
 		var keys []string
 		for k := range tags {
@@ -343,18 +343,26 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 				topologyKey = tags[TopologyKeyTag]
 			case topologySpreadMinDomains:
 				domains, err := strconv.Atoi(tags[topologySpreadMinDomains])
-				if err == nil && domains > minDomains {
-					minDomains = domains
+				if err != nil {
+					return errors.Errorf("invalid value %q for topology spread min domains, %v", tags[topologySpreadMinDomains], err)
 				}
+				if domains < minDomains {
+					return errors.Errorf("invalid value, minDomains must be equal or greater than %d", minDomains)
+				}
+				minDomains = domains
 			case topologySpreadMaxSkew:
 				skew, err := strconv.Atoi(tags[topologySpreadMaxSkew])
-				if err == nil && skew >= maxSkew {
-					maxSkew = skew
+				if err != nil {
+					return errors.Errorf("invalid value %q for topology spread max skew, %v", tags[topologySpreadMaxSkew], err)
 				}
+				if skew < maxSkew {
+					return errors.Errorf("invalid value, maxSkew must be equal or greater than %d", maxSkew)
+				}
+				maxSkew = skew
 			case topologySpreadNodeTaintPolicy:
 				taintPolicy, err := strconv.ParseBool(tags[key])
 				if err != nil {
-					taintPolicy = true
+					return errors.Errorf("invalid value %q for topology spread node taint policy, %v", tags[key], err)
 				}
 				if taintPolicy {
 					honorPolicy := core.NodeInclusionPolicy("Honor")
@@ -363,22 +371,22 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 					ignorePolicy := core.NodeInclusionPolicy("Ignore")
 					nodeTaintsPolicy = &ignorePolicy
 				}
+			default:
+				allValues := strings.Split(tags[key], "|")
+				for i, v := range allValues {
+					allValues[i] = strings.Trim(v, " ")
+				}
+				op := v1.LabelSelectorOpIn
+				if strings.HasPrefix(key, "^") {
+					key = key[1:]
+					op = v1.LabelSelectorOpNotIn
+				}
+				labelSelector.MatchExpressions = append(labelSelector.MatchExpressions, v1.LabelSelectorRequirement{
+					Key:      key,
+					Operator: op,
+					Values:   allValues,
+				})
 			}
-
-			allValues := strings.Split(tags[key], "|")
-			for i, v := range allValues {
-				allValues[i] = strings.Trim(v, " ")
-			}
-			op := v1.LabelSelectorOpIn
-			if strings.HasPrefix(key, "^") {
-				key = key[1:]
-				op = v1.LabelSelectorOpNotIn
-			}
-			labelSelector.MatchExpressions = append(labelSelector.MatchExpressions, v1.LabelSelectorRequirement{
-				Key:      key,
-				Operator: op,
-				Values:   allValues,
-			})
 		}
 		if topologyKey != "" {
 			topologyTerms.TopologyKey = topologyKey
@@ -396,13 +404,17 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		}
 		topologyTerms.NodeAffinityPolicy = &honorPolicy
 		topologyTerms.LabelSelector = &labelSelector
+
+		return nil
 	}
 
 	var topologyTerm core.TopologySpreadConstraint
-	updateTopologyTerm(&topologyTerm, topologySpreadValues)
+	if err := updateTopologyTerm(&topologyTerm, topologySpreadValues); err != nil {
+		return err
+	}
 
 	topologyTerm.LabelSelector.MatchExpressions = append(topologyTerm.LabelSelector.MatchExpressions, v1.LabelSelectorRequirement{
-		Key:      appNameLabel,
+		Key:      caasConstants.LabelKubernetesAppName,
 		Operator: v1.LabelSelectorOpIn,
 		Values:   []string{appName},
 	})
