@@ -1,7 +1,8 @@
 (list-controllers.md)=
 # `list-controllers`
 > See also: [models](#models), [show-controller](#show-controller)
-**Alias:** controllers
+
+**Aliases:** list-controllers
 
 ## Summary
 Lists all controllers.

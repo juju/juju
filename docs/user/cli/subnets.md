@@ -1,5 +1,6 @@
 (subnets.md)=
 # `subnets`
+**Aliases:** list-subnets
 
 ## Summary
 List subnets known to Juju.

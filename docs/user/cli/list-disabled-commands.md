@@ -1,7 +1,8 @@
 (list-disabled-commands.md)=
 # `list-disabled-commands`
 > See also: [disable-command](#disable-command), [enable-command](#enable-command)
-**Alias:** disabled-commands
+
+**Aliases:** list-disabled-commands
 
 ## Summary
 List disabled commands.

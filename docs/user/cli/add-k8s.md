@@ -73,10 +73,10 @@ or
 Region is strictly necessary only when adding a k8s cluster to a JAAS controller.
 When using a standalone Juju controller, usually just --cloud is required.
 
-Once Juju is aware of the underlying cloud type, it looks for a suitably configured
-storage class to provide operator and workload storage. If none is found, use
-of the --storage option is required so that Juju will create a storage class
-with the specified name.
+Once Juju is aware of the underlying cloud type, it looks for a suitably
+configured storage class to provide workload storage. If none is found, use of
+the --storage option is required so that Juju will select (or create if not
+already present) a storage class with the specified name.
 
 If the cluster does not have a storage provisioning capability, use the
 --skip-storage option to add the cluster without any workload storage configured.

@@ -18,7 +18,7 @@ Update storage pool attributes.
 
 Update the storage-pool named iops with new configuration details:
 
-      juju update-storage-pool operator-storage volume-type=provisioned-iops iops=40
+      juju update-storage-pool workload-storage volume-type=provisioned-iops iops=40
 
 Update which provider the pool is for:
 

@@ -1,6 +1,5 @@
 (enable-ha.md)=
 # `enable-ha`
-
 ## Summary
 Ensure that sufficient controllers exist to provide redundancy.
 

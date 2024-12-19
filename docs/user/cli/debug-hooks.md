@@ -2,6 +2,8 @@
 # `debug-hooks`
 > See also: [ssh](#ssh), [debug-code](#debug-code)
 
+**Aliases:** debug-hook
+
 ## Summary
 Launch a tmux session to debug hooks and/or actions.
 

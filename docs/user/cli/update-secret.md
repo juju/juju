@@ -1,6 +1,5 @@
 (update-secret.md)=
 # `update-secret`
-
 ## Summary
 Update an existing secret.
 

@@ -1,13 +1,14 @@
 (list-storage.md)=
 # `list-storage`
 > See also: [show-storage](#show-storage), [add-storage](#add-storage), [remove-storage](#remove-storage)
-**Alias:** storage
+
+**Aliases:** list-storage
 
 ## Summary
 Lists storage details.
 
 ## Usage
-```juju list-storage [options] <filesystem|volume> ...```
+```juju storage [options] <filesystem|volume> ...```
 
 ### Options
 | Flag | Default | Usage |

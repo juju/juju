@@ -1,6 +1,5 @@
 (revoke-secret.md)=
 # `revoke-secret`
-
 ## Summary
 Revoke access to a secret.
 

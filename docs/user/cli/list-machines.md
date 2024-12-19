@@ -1,7 +1,8 @@
 (list-machines.md)=
 # `list-machines`
 > See also: [status](#status)
-**Alias:** machines
+
+**Aliases:** list-machines
 
 ## Summary
 Lists machines in a model.

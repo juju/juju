@@ -1,6 +1,5 @@
 (add-secret.md)=
 # `add-secret`
-
 ## Summary
 Add a new secret.
 

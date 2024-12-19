@@ -1,7 +1,8 @@
 (list-secrets.md)=
 # `list-secrets`
 > See also: [add-secret](#add-secret), [remove-secret](#remove-secret), [show-secret](#show-secret), [update-secret](#update-secret)
-**Alias:** secrets
+
+**Aliases:** list-secrets
 
 ## Summary
 Lists secrets available in the model.

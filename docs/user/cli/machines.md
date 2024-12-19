@@ -2,6 +2,8 @@
 # `machines`
 > See also: [status](#status)
 
+**Aliases:** list-machines
+
 ## Summary
 Lists machines in a model.
 

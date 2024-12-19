@@ -1,5 +1,6 @@
 (payloads.md)=
 # `payloads`
+**Aliases:** list-payloads
 
 ## Summary
 Display status information about known payloads.

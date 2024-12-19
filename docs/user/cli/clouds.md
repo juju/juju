@@ -2,6 +2,8 @@
 # `clouds`
 > See also: [add-cloud](#add-cloud), [credentials](#credentials), [controllers](#controllers), [regions](#regions), [default-credential](#default-credential), [default-region](#default-region), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
 
+**Aliases:** list-clouds
+
 ## Summary
 Lists all clouds available to Juju.
 

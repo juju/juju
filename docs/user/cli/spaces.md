@@ -2,6 +2,8 @@
 # `spaces`
 > See also: [add-space](#add-space), [reload-spaces](#reload-spaces)
 
+**Aliases:** list-spaces
+
 ## Summary
 List known spaces, including associated subnets.
 

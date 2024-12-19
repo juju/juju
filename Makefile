@@ -779,8 +779,8 @@ docs:
 .PHONY: docs-help
 docs-help: docs
 
+# Build the sphinx documentation
 docs-%:
-## Build the sphinx documentation
 	cd docs && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
 
 

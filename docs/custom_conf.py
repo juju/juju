@@ -9,8 +9,7 @@ if os.path.exists(cli_dir):
     shutil.rmtree(cli_dir)
 
 # Generate the docs using "juju documentation" command.
-subprocess.run(["juju", 'documentation', '--split', '--no-index', '--out', cli_dir],
-                   check=True)
+subprocess.run(["juju", 'documentation', '--split', '--no-index', '--out', cli_dir], check=True)
 
 titles = []
 
