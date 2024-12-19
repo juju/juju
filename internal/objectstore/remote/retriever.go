@@ -56,10 +56,11 @@ type BlobRetriever struct {
 }
 
 // NewBlobRetriever creates a new BlobRetriever.
-func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, newObjectClient NewObjectClientFunc, logger logger.Logger) *BlobRetriever {
+func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *BlobRetriever {
 	w := &BlobRetriever{
 		apiRemoteCallers: apiRemoteCallers,
 		newObjectClient:  newObjectClient,
+		clock:            clock,
 		logger:           logger,
 	}
 

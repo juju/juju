@@ -834,6 +834,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ObjectStoreServicesName:    objectStoreServicesName,
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
+			APIRemoteCallerName:        apiRemoteCallerName,
 			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
