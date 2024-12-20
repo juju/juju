@@ -7,9 +7,11 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 
 	"github.com/juju/juju/internal/database/dqlite"
+	"github.com/juju/juju/internal/errors"
 )
 
 type Client struct{}
@@ -23,8 +25,7 @@ func (c *Client) Leader(ctx context.Context) (*dqlite.NodeInfo, error) {
 	return nil, nil
 }
 
-type YamlNodeStore struct {
-}
+type YamlNodeStore struct{}
 
 func NewYamlNodeStore(_ string) (*YamlNodeStore, error) {
 	return &YamlNodeStore{}, nil
@@ -36,6 +37,11 @@ func (s *YamlNodeStore) Get(context.Context) ([]dqlite.NodeInfo, error) {
 
 func (s *YamlNodeStore) Set(context.Context, []dqlite.NodeInfo) error {
 	return nil
+}
+
+type NodeStore interface {
+	Get(context.Context) ([]dqlite.NodeInfo, error)
+	Set(context.Context, []dqlite.NodeInfo) error
 }
 
 // LogFunc is a function that can be used for logging.
@@ -69,3 +75,17 @@ func (l LogLevel) String() string {
 }
 
 type DialFunc func(context.Context, string) (net.Conn, error)
+
+// DefaultDialFunc is the default dial function, which can handle plain TCP and
+// Unix socket endpoints. You can customize it with WithDialFunc()
+func DefaultDialFunc(ctx context.Context, address string) (net.Conn, error) {
+	return nil, errors.Errorf("dqlite is not available")
+}
+
+// DialFuncWithTLS returns a dial function that uses TLS encryption.
+//
+// The given dial function will be used to establish the network connection,
+// and the given TLS config will be used for encryption.
+func DialFuncWithTLS(dial DialFunc, config *tls.Config) DialFunc {
+	return nil
+}

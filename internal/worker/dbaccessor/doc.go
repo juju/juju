@@ -1,9 +1,11 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package DBAccessor is a worker that provides access to the Juju database.
-// It is responsible for accessing the individual databases. One database per
-// model and an additional model for a controller.
+// Package dbaccessor is a worker that provides access to the SQLite database
+// via the Dqlite cluster. It is responsible for coordinating the Dqlite
+// cluster, managing the lifecycle of the database connections, and providing
+// access to the individual databases. One database per model and an additional
+// model for a global database.
 //
 //	┌─────────────────┐
 //	│                 │
