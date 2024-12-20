@@ -26,6 +26,7 @@ type statusBaseSuite struct {
 }
 
 func (s *statusBaseSuite) SetUpTest(c *gc.C) {
+	c.Skip("skipping factory based tests. TODO: Re-write without factories")
 	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
 	s.leadershipChecker = &fakeLeadershipChecker{true}
