@@ -22,8 +22,8 @@ build:
 
     # Build juju
     - git fetch --unshallow || true
-    - mkdir $HOME/_juju_builds
-    - GOBIN=$HOME/_juju_builds make juju
+    - mkdir $HOME/_rtd_juju_build
+    - GOBIN=$HOME/_rtd_juju_build make juju
 
     # Install build requirements
     - python -mvirtualenv $READTHEDOCS_VIRTUALENV_PATH
@@ -34,7 +34,7 @@ build:
     - cat docs/conf.py
 
     # Build sphinx with juju on the PATH.
-    - cd docs && PATH=$PATH:$HOME/_juju_builds python -m sphinx -T --keep-going -b dirhtml -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
+    - cd docs && PATH=$PATH:$HOME/_rtd_juju_build python -m sphinx -T --keep-going -b dirhtml -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
