@@ -63,7 +63,7 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, locator, err := service.GetCharm(context.Background(), id)
+	_, locator, _, err := service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(locator.Architecture, gc.Equals, architecture.ARM64)
@@ -99,7 +99,7 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, locator, err := service.GetCharm(context.Background(), id)
+	_, locator, _, err := service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(locator.Architecture, gc.Equals, architecture.Unknown)

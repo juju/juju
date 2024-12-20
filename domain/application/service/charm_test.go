@@ -195,8 +195,9 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 			// allowed.
 			RunAs: "default",
 		},
-		Source:   charm.LocalSource,
-		Revision: 42,
+		Source:    charm.LocalSource,
+		Revision:  42,
+		Available: true,
 	}, nil, nil)
 
 	metadata, locator, isAvailable, err := s.service.GetCharm(context.Background(), id)

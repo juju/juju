@@ -17,6 +17,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
 	charm "github.com/juju/juju/internal/charm"
+	environschema "github.com/juju/juju/internal/environschema"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
