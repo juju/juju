@@ -200,8 +200,9 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
 		return err
 	}
 
-	w.mu.Lock()
 	w.closeCurrentConnection()
+
+	w.mu.Lock()
 	w.currentConnection = connection
 	w.mu.Unlock()
 

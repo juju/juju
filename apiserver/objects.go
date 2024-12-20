@@ -111,8 +111,7 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 	reader, err := applicationService.GetCharmArchiveBySHA256Prefix(r.Context(), charmSha256Prefix)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return jujuerrors.NotFoundf("charm")
-	}
-	if err != nil {
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 
@@ -321,10 +320,11 @@ func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	reader, _, err := service.GetBySHA256(r.Context(), sha256)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return jujuerrors.NotFoundf("object")
-	}
-	if err != nil {
+	} else if err != nil {
 		return errors.Capture(err)
 	}
+
+	defer reader.Close()
 
 	_, err = io.Copy(w, reader)
 	if err != nil {
@@ -352,7 +352,6 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Capture(sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,

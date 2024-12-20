@@ -139,7 +139,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Clock:           opts.clock,
 
 			// TODO (stickupkid): Wire this up as configured in the options.
-			BlobRetriever: remote.NewBlobRetriever(opts.apiRemoteCallers, remote.NewObjectClient, opts.clock, opts.logger),
+			BlobRetriever: remote.NewBlobRetriever(opts.apiRemoteCallers, namespace, remote.NewObjectClient, opts.clock, opts.logger),
 		})
 	case objectstore.S3Backend:
 		return NewS3ObjectStore(S3ObjectStoreConfig{
