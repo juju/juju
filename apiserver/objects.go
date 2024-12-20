@@ -58,7 +58,7 @@ type ApplicationService interface {
 	// GetCharm returns the charm metadata for the given charm ID.
 	// It returns an error.CharmNotFound if the charm can not be found by the
 	// ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.

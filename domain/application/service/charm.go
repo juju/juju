@@ -259,41 +259,41 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error) {
+func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, bool, error) {
 	if err := id.Validate(); err != nil {
-		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
+		return nil, charm.CharmLocator{}, false, fmt.Errorf("charm id: %w", err)
 	}
 
 	ch, _, err := s.st.GetCharm(ctx, id)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
 	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
 	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
 	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
 	locator := charm.CharmLocator{
@@ -312,7 +312,7 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 	)
 	charmBase.SetVersion(ch.Version)
 
-	return charmBase, locator, nil
+	return charmBase, locator, ch.Available, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.

@@ -390,7 +390,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) state.CharmRefFu
 		}
 		charmID, _, err := factory.applicationService.SetCharm(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
-		ch, _, err := factory.applicationService.GetCharm(context.TODO(), charmID)
+		ch, _, _, err := factory.applicationService.GetCharm(context.TODO(), charmID)
 		c.Assert(err, jc.ErrorIsNil)
 		return fromInternalCharm(ch, params.URL)
 	}

@@ -36,7 +36,7 @@ type CharmService interface {
 	// focused and specific methods. That's because this method is very expensive
 	// to call. This is implemented for the cases where all the charm data is
 	// needed; model migration, charm export, etc.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 	// GetCharmID returns a charm ID by name, source and revision. It returns an
 	// error if the charm can not be found.
 	// This can also be used as a cheap way to see if a charm exists without
@@ -787,7 +787,7 @@ func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get charm ID for URL %q", curl)
 	}
-	ch, _, err := charmService.GetCharm(context.TODO(), charmID)
+	ch, _, _, err := charmService.GetCharm(context.TODO(), charmID)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot retrieve charm with ID %q", charmID.String())
 	}

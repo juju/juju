@@ -900,7 +900,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		Source:   charmSource,
 	})
 	if err == nil {
-		deployedCharm, _, err := v.applicationService.GetCharm(ctx, deployedCharmId)
+		deployedCharm, _, _, err := v.applicationService.GetCharm(ctx, deployedCharmId)
 		if err != nil {
 			return charmResult{}, errors.Trace(err)
 		}

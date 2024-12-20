@@ -59,7 +59,7 @@ func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
 
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
 	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
-	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, nil)
+	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, true, nil)
 
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)
@@ -89,7 +89,7 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *gc.C) {
 
 	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
 	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
-	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, nil)
+	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, true, nil)
 
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)

@@ -26,7 +26,7 @@ import (
 // information.
 type CharmService interface {
 	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, error)
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
 // CharmInfoAPI implements the charms interface and is the concrete
@@ -84,7 +84,7 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	ch, locator, err := a.service.GetCharm(ctx, id)
+	ch, locator, _, err := a.service.GetCharm(ctx, id)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}

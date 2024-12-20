@@ -44,7 +44,7 @@ func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
 			c.Check(args.Source, gc.Equals, applicationcharm.CharmHubSource)
 			return "charm0", nil
 		})
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), charm.ID("charm0")).Return(nil, applicationcharm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), charm.ID("charm0")).Return(nil, applicationcharm.CharmLocator{}, false, nil)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,7 +61,7 @@ func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 			c.Check(args.Source, gc.Equals, applicationcharm.CharmHubSource)
 			return "charm0", nil
 		})
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), charm.ID("charm0")).Return(nil, applicationcharm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), charm.ID("charm0")).Return(nil, applicationcharm.CharmLocator{}, true, nil)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 
@@ -102,10 +102,6 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 
 	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 
-	// As the blob is already uploaded (to another path), we need to remove
-	// the duplicate we just uploaded from the store.
-	s.storageBackend.EXPECT().Remove(gomock.Any(), expStoreCharmPath).Return(nil)
-
 	_, err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error
 }
@@ -126,10 +122,6 @@ func (s *storageTestSuite) TestStoreCharmAlreadyStored(c *gc.C) {
 	}
 
 	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return("", nil)
-
-	// As the blob is already uploaded (to another path), we need to remove
-	// the duplicate we just uploaded from the store.
-	s.storageBackend.EXPECT().Remove(gomock.Any(), expStoreCharmPath).Return(nil)
 
 	_, err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error

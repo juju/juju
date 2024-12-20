@@ -67,9 +67,12 @@ func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, _, err = s.applicationService.GetCharm(context.Background(), charmID)
+	_, _, isAvailable, err := s.applicationService.GetCharm(context.Background(), charmID)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if isAvailable {
+		return charmdownloader.NewCharmAlreadyStoredError(charmURL)
 	}
 	return nil
 }

@@ -199,7 +199,7 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 		Revision: 42,
 	}, nil, nil)
 
-	metadata, locator, err := s.service.GetCharm(context.Background(), id)
+	metadata, locator, isAvailable, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
 		Name: "foo",
@@ -210,6 +210,7 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 		Source:   charm.LocalSource,
 		Revision: 42,
 	})
+	c.Check(isAvailable, gc.Equals, true)
 }
 
 func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
@@ -219,14 +220,14 @@ func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{}, nil, applicationerrors.CharmNotFound)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, _, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.GetCharm(context.Background(), "")
+	_, _, _, err := s.service.GetCharm(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
