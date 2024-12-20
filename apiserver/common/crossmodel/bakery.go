@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 
@@ -125,12 +126,24 @@ func (o *JaaSOfferBakery) RefreshDischargeURL(accessEndpoint string) (string, er
 	return accessEndpoint, errors.Trace(o.refreshBakery(accessEndpoint))
 }
 
+// cleanDischargeURL expects an address to JIMM's login-token-refresh-url,
+// and attempts to remove the .well-known/jwks.json path segments,
+// whilst preserving any pre-existing prefixes.
+//
+// For example:
+//   - jimm.com/.well-known/jwks.json -> jimm.com/macaroons
+//   - jimm.com/myprefix/.well-known/jwks.json -> jimm.com/myprefix/macaroons
 func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
 	refreshURL, err := url.Parse(addr)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	refreshURL.Path = "macaroons"
+	cleanedPath, ok := strings.CutSuffix(refreshURL.Path, "/.well-known/jwks.json")
+	if !ok {
+		return "", errors.Trace(errors.New("failed to cut .well-known"))
+	}
+	refreshURL.Path = path.Join(cleanedPath, "macaroons")
+
 	return refreshURL.String(), nil
 }
 
