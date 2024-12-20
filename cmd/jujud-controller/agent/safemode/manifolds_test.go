@@ -55,7 +55,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 		}),
 		[]string{
 			"agent",
-			"clock",
 			"controller-agent-config",
 			"db-accessor",
 			"is-controller-flag",
@@ -73,7 +72,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 		}),
 		[]string{
 			"agent",
-			"clock",
 			"controller-agent-config",
 			"db-accessor",
 			"is-controller-flag",
@@ -171,8 +169,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"agent": {},
 
-	"clock": {},
-
 	"controller-agent-config": {
 		"agent",
 		"is-controller-flag",
@@ -203,8 +199,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"agent": {},
-
-	"clock": {},
 
 	"controller-agent-config": {
 		"agent",
