@@ -808,6 +808,7 @@ to create a new model to deploy %sworkloads.
 
 	bootstrapCtx := environscmd.BootstrapContext(stdCtx, ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
+		AuthorizedKeys:   bootstrapCfg.bootstrap.AuthorizedKeys,
 		ModelConfig:      bootstrapCfg.bootstrapModel,
 		ControllerConfig: bootstrapCfg.controller,
 		ControllerName:   c.controllerName,
