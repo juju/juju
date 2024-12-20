@@ -101,6 +101,12 @@ type ReadObjectStore interface {
 	//
 	// If no object is found, an [objectstore.ObjectNotFound] error is returned.
 	GetBySHA256Prefix(context.Context, string) (io.ReadCloser, int64, error)
+
+	// GetBySHA256 returns an io.ReadCloser for the object with the given SHA256
+	// hash, namespaced to the model.
+	//
+	// If no object is found, an [objectstore.ObjectNotFound] error is returned.
+	GetBySHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // WriteObjectStore represents an object store that can only be written to.

@@ -24,7 +24,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -151,10 +150,6 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 	if err = validateCurrentControllers(st, cfg, controllerIds); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
-	}
-	// Check if the object store is backed by filesystem storage.
-	if cfg.ObjectStoreType() == objectstore.FileBackend {
-		return params.ControllersChanges{}, errors.NewNotSupported(nil, "cannot enable-ha with filesystem backed object store")
 	}
 
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)

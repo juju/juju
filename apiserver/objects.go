@@ -18,6 +18,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -110,8 +111,7 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 	reader, err := applicationService.GetCharmArchiveBySHA256Prefix(r.Context(), charmSha256Prefix)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return jujuerrors.NotFoundf("charm")
-	}
-	if err != nil {
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 
@@ -277,6 +277,63 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, a
 	return curl, nil
 }
 
+type objectsHTTPHandler struct {
+	ctxt              httpContext
+	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
+	objectStoreGetter func(context.Context) (objectstore.ObjectStore, error)
+}
+
+func (h *objectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	switch r.Method {
+	case "GET":
+		err = h.ServeGet(w, r)
+		if err != nil {
+			err = errors.Errorf("cannot retrieve object: %w", err)
+		}
+	default:
+		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
+		return
+	}
+
+	if err != nil {
+		if err := sendJSONError(w, r, errors.Capture(err)); err != nil {
+			logger.Errorf("%v", errors.Errorf("cannot return error to user: %w", err))
+		}
+	}
+}
+
+// ServeGet serves the GET method for the S3 API. This is the equivalent of the
+// `GetObject` method in the AWS S3 API.
+func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+	service, err := h.objectStoreGetter(r.Context())
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	query := r.URL.Query()
+	sha256 := query.Get(":object")
+	if sha256 == "" {
+		return jujuerrors.BadRequestf("missing object sha256")
+	}
+
+	reader, _, err := service.GetBySHA256(r.Context(), sha256)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return jujuerrors.NotFoundf("object")
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	defer reader.Close()
+
+	_, err = io.Copy(w, reader)
+	if err != nil {
+		return errors.Errorf("error processing charm archive download: %w", err)
+	}
+
+	return nil
+}
+
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 	charmObjectID := query.Get(":object")
 
@@ -295,7 +352,6 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Capture(sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
