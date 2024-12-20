@@ -22,6 +22,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
+const (
+	defaultBacklogVal = 10
+)
+
 // debugLogHandler takes requests to watch the debug log.
 //
 // It provides the underlying framework for the 2 debug-log
@@ -183,10 +187,9 @@ func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
 	startTime     time.Time
-	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
-	backlog       uint
+	initialLines  uint
 	filterLevel   loggo.Level
 	includeEntity []string
 	excludeEntity []string
@@ -198,13 +201,46 @@ type debugLogParams struct {
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	var params debugLogParams
+	var err error
+
+	var backLogVal uint64
+	var maxLinesVal uint64
+	var noTail bool
+
+	if value := queryMap.Get("backlog"); value != "" {
+		backLogVal, err = strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+		}
+		params.initialLines = uint(backLogVal)
+	}
 
 	if value := queryMap.Get("maxLines"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
+		maxLinesVal, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
-		params.maxLines = uint(num)
+		params.initialLines = uint(maxLinesVal)
+	}
+
+	if value := queryMap.Get("noTail"); value != "" {
+		noTail, err = strconv.ParseBool(value)
+		if err != nil {
+			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
+		}
+		params.noTail = noTail
+	}
+
+	if noTail && backLogVal != defaultBacklogVal {
+		return params, errors.Errorf("noTail not valid with backLog")
+	}
+
+	if !noTail && maxLinesVal != 0 {
+		return params, errors.Errorf("tail not valid with maxLines")
+	}
+
+	if maxLinesVal != 0 && backLogVal != defaultBacklogVal {
+		return params, errors.Errorf("maxLines not valid with backLog")
 	}
 
 	if value := queryMap.Get("replay"); value != "" {
@@ -213,22 +249,6 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
-	}
-
-	if value := queryMap.Get("noTail"); value != "" {
-		noTail, err := strconv.ParseBool(value)
-		if err != nil {
-			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
-		}
-		params.noTail = noTail
-	}
-
-	if value := queryMap.Get("backlog"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
-		}
-		params.backlog = uint(num)
 	}
 
 	if value := queryMap.Get("level"); value != "" {

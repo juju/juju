@@ -166,13 +166,13 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
 
-	f.UintVar(&c.params.Backlog, "n", defaultLineCount, "Show this many of the most recent (possibly filtered) lines, and continue to append")
-	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
-	f.UintVar(&c.params.Limit, "limit", 0, "Exit once this many of the most recent (possibly filtered) lines are shown")
-	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire (possibly filtered) log and continue to append")
+	f.UintVar(&c.params.Backlog, "n", 0, "Show this many of the most recent lines and continue to append new ones")
+	f.UintVar(&c.params.Backlog, "lines", 0, "")
+	f.UintVar(&c.params.Limit, "limit", 0, "Show this many of the most recent logs and then exit")
+	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire log and continue to append new ones")
 
-	f.BoolVar(&c.noTail, "no-tail", false, "Stop after returning existing log messages")
-	f.BoolVar(&c.tail, "tail", false, "Wait for new logs")
+	f.BoolVar(&c.noTail, "no-tail", false, "Show existing log messages and then exit")
+	f.BoolVar(&c.tail, "tail", false, "Show existing log messages and continue to append new ones")
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
@@ -199,8 +199,26 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.noTail && c.retry {
 		return errors.NotValidf("setting --no-tail and --retry")
 	}
+	if c.noTail && c.params.Backlog != 0 {
+		return errors.NotValidf("setting --no-tail and --lines")
+	}
+	if c.tail && c.params.Limit != 0 {
+		return errors.NotValidf("setting --tail and --limit")
+	}
+	if c.params.Limit != 0 && c.params.Backlog != 0 {
+		return errors.NotValidf("setting --limit and --lines")
+	}
 	if c.retryDelay < 0 {
 		return errors.NotValidf("negative retry delay")
+	}
+	if c.params.Limit != 0 {
+		c.noTail = true
+	}
+	if c.params.Backlog != 0 {
+		c.tail = true
+	}
+	if c.params.Backlog == 0 {
+		c.params.Backlog = defaultLineCount
 	}
 	if c.utc {
 		c.tz = time.UTC

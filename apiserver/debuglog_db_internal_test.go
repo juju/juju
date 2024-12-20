@@ -40,7 +40,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	reqParams := debugLogParams{
 		fromTheStart:  false,
 		noTail:        true,
-		backlog:       11,
+		initialLines:  11,
 		startTime:     t1,
 		filterLevel:   loggo.INFO,
 		includeEntity: []string{"foo"},
@@ -81,7 +81,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 	reqParams := debugLogParams{
 		fromTheStart: true,
-		backlog:      123,
+		initialLines: 123,
 	}
 
 	called := false
@@ -192,7 +192,7 @@ func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	c.Assert(tailer.stopped, jc.IsTrue)
 }
 
-func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
+func (s *debugLogDBIntSuite) TestLimit(c *gc.C) {
 	// Set up a fake log tailer with a 5 log records ready to send.
 	tailer := newFakeLogTailer()
 	for i := 0; i < 5; i++ {
@@ -209,7 +209,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 		return tailer, nil
 	})
 
-	done := s.runRequest(debugLogParams{maxLines: 3}, nil)
+	done := s.runRequest(debugLogParams{initialLines: 3, noTail: true}, nil)
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.
