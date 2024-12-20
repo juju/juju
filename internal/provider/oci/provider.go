@@ -17,7 +17,6 @@ import (
 	"github.com/juju/schema"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"gopkg.in/ini.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
@@ -25,6 +24,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/environschema"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/oci/common"
 )

@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/environschema.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/environschema"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

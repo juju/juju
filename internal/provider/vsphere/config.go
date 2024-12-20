@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
 )
 

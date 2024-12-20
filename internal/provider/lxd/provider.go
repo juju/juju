@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/environschema"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 )

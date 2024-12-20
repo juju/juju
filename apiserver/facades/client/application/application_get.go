@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
@@ -20,6 +19,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/rpc/params"
 )
 

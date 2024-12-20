@@ -18,7 +18,6 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
@@ -33,6 +32,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/environschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"

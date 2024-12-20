@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	"github.com/juju/juju/internal/environschema"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"

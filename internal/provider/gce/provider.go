@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/environschema"
 )
 
 const (

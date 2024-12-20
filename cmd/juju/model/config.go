@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/output"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/environschema"
 )
 
 const (
