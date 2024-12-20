@@ -251,10 +251,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Contr
 	return ctrl
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmShimNilInnerProfile(c *gc.C) {
-	c.Assert(instancemutater.NewEmptyCharmShim().LXDProfile(), gc.DeepEquals, lxdprofile.Profile{})
-}
-
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 

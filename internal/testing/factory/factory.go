@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -99,7 +100,7 @@ type MachineParams struct {
 // ApplicationParams is used when specifying parameters for a new application.
 type ApplicationParams struct {
 	Name                    string
-	Charm                   *state.Charm
+	Charm                   state.CharmRefFull
 	CharmURL                string
 	CharmOrigin             *state.CharmOrigin
 	Status                  *status.StatusInfo
@@ -293,6 +294,46 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	return machine, params.Password
 }
 
+type charmImpl struct {
+	charm.Charm
+	url string
+}
+
+func (c *charmImpl) Meta() *charm.Meta {
+	return c.Charm.Meta()
+}
+
+func (c *charmImpl) Manifest() *charm.Manifest {
+	return c.Charm.Manifest()
+}
+
+func (c *charmImpl) Actions() *charm.Actions {
+	return c.Charm.Actions()
+}
+
+func (c *charmImpl) Config() *charm.Config {
+	return c.Charm.Config()
+}
+
+func (c *charmImpl) Revision() int {
+	return c.Charm.Revision()
+}
+
+func (c *charmImpl) URL() string {
+	return c.url
+}
+
+func (c *charmImpl) Version() string {
+	return ""
+}
+
+func fromInternalCharm(ch charm.Charm, url string) state.CharmRefFull {
+	return &charmImpl{
+		Charm: ch,
+		url:   url,
+	}
+}
+
 // MakeCharm creates a charm with the values specified in params.
 // Sensible default values are substituted for missing ones.
 // Supported charms depend on the charm/testing package.
@@ -303,7 +344,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 //	varnish-alternative, wordpress.
 //
 // If params is not specified, defaults are used.
-func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
+func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) state.CharmRefFull {
 	if params == nil {
 		params = &CharmParams{}
 	}
@@ -329,53 +370,31 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	if params.URL == "" {
 		params.URL = fmt.Sprintf("ch:amd64/%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
+	rev, err := strconv.Atoi(params.Revision)
+	c.Assert(err, jc.ErrorIsNil)
 
-	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
+	charmDir := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
 
 	bundleSHA256 := uniqueString("bundlesha")
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          params.URL,
-		StoragePath: "fake-storage-path",
-		SHA256:      bundleSHA256,
+	if factory.applicationService != nil {
+		args := applicationcharm.SetCharmArgs{
+			Charm:         charmDir,
+			ReferenceName: params.Name,
+			Source:        corecharm.CharmHub,
+			Hash:          bundleSHA256,
+			Revision:      rev,
+			ArchivePath:   "fake-storage-path",
+			DownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance: applicationcharm.ProvenanceUpload,
+			},
+		}
+		charmID, _, err := factory.applicationService.SetCharm(context.Background(), args)
+		c.Assert(err, jc.ErrorIsNil)
+		ch, _, _, err := factory.applicationService.GetCharm(context.TODO(), charmID)
+		c.Assert(err, jc.ErrorIsNil)
+		return fromInternalCharm(ch, params.URL)
 	}
-	charm, err := factory.st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	return charm
-}
-
-func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
-	if params == nil {
-		params = &CharmParams{}
-	}
-	if params.Name == "" {
-		params.Name = "snappass-test"
-	}
-	if params.Series == "" {
-		params.Series = "quantal"
-	}
-	if params.Architecture == "" {
-		params.Architecture = "amd64"
-	}
-	if params.Revision == "" {
-		params.Revision = fmt.Sprintf("%d", uniqueInteger())
-	}
-	if params.URL == "" {
-		params.URL = fmt.Sprintf("ch:%s/%s/%s-%s", params.Architecture, params.Series, params.Name, params.Revision)
-	}
-
-	ch := testcharms.Hub.CharmDir(params.Name)
-
-	bundleSHA256 := uniqueString("bundlesha")
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          params.URL,
-		StoragePath: "fake-storage-path",
-		SHA256:      bundleSHA256,
-	}
-	charm, err := factory.st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	return charm
+	return nil
 }
 
 // MakeApplication creates an application with the specified parameters, substituting
@@ -578,6 +597,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 			Constraints: params.Constraints,
 		})
 	}
+
+	charmMeta := &charm.Meta{}
 	if factory.applicationService != nil {
 		chOrigin := params.Application.CharmOrigin()
 		cons, err := params.Application.StorageConstraints()
@@ -605,13 +626,16 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		if !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
+		charmMeta = ch.Meta()
 	}
 	if params.Password == "" {
 		var err error
 		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Application.AddUnit(state.AddUnitParams{})
+	unit, err := params.Application.AddUnit(state.AddUnitParams{
+		CharmMeta: charmMeta,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	if factory.applicationService != nil {
 		err = factory.applicationService.AddUnits(context.Background(), params.Application.Name(), applicationservice.AddUnitArg{

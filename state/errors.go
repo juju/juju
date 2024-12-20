@@ -13,9 +13,7 @@ import (
 var (
 	newProviderIDNotUniqueError     = stateerrors.NewProviderIDNotUniqueError
 	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
-	newErrCharmAlreadyUploaded      = stateerrors.NewErrCharmAlreadyUploaded
 
-	IsCharmAlreadyUploadedError    = stateerrors.IsCharmAlreadyUploadedError
 	IsProviderIDNotUniqueError     = stateerrors.IsProviderIDNotUniqueError
 	IsParentDeviceHasChildrenError = stateerrors.IsParentDeviceHasChildrenError
 	IsNotAlive                     = stateerrors.IsNotAlive

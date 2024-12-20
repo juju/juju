@@ -20,6 +20,7 @@ type Charm interface {
 	Config() *Config
 	Actions() *Actions
 	Revision() int
+	Version() string
 }
 
 // FormatSelectionReason represents the reason for a format version selection.

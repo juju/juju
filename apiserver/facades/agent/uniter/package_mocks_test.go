@@ -383,45 +383,6 @@ func (m *MockLXDProfileBackendV2) EXPECT() *MockLXDProfileBackendV2MockRecorder 
 	return m.recorder
 }
 
-// Charm mocks base method.
-func (m *MockLXDProfileBackendV2) Charm(arg0 string) (uniter.LXDProfileCharmV2, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Charm", arg0)
-	ret0, _ := ret[0].(uniter.LXDProfileCharmV2)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Charm indicates an expected call of Charm.
-func (mr *MockLXDProfileBackendV2MockRecorder) Charm(arg0 any) *MockLXDProfileBackendV2CharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockLXDProfileBackendV2)(nil).Charm), arg0)
-	return &MockLXDProfileBackendV2CharmCall{Call: call}
-}
-
-// MockLXDProfileBackendV2CharmCall wrap *gomock.Call
-type MockLXDProfileBackendV2CharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLXDProfileBackendV2CharmCall) Return(arg0 uniter.LXDProfileCharmV2, arg1 error) *MockLXDProfileBackendV2CharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLXDProfileBackendV2CharmCall) Do(f func(string) (uniter.LXDProfileCharmV2, error)) *MockLXDProfileBackendV2CharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLXDProfileBackendV2CharmCall) DoAndReturn(f func(string) (uniter.LXDProfileCharmV2, error)) *MockLXDProfileBackendV2CharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Machine mocks base method.
 func (m *MockLXDProfileBackendV2) Machine(arg0 string) (uniter.LXDProfileMachineV2, error) {
 	m.ctrl.T.Helper()

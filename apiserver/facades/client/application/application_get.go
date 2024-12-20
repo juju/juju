@@ -171,7 +171,7 @@ func (api *APIBase) getCharmName(ctx context.Context, charmID corecharm.ID) (str
 }
 
 func (api *APIBase) getCharm(ctx context.Context, charmID corecharm.ID) (Charm, error) {
-	charm, locator, err := api.applicationService.GetCharm(ctx, charmID)
+	charm, locator, _, err := api.applicationService.GetCharm(ctx, charmID)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm")
 	} else if err != nil {
@@ -365,6 +365,10 @@ func (c *domainCharm) URL() string {
 		Architecture: arch,
 	}
 	return curl.String()
+}
+
+func (c *domainCharm) Version() string {
+	return c.charm.Version()
 }
 
 func ptr[T any](v T) *T {

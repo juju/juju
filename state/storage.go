@@ -1027,7 +1027,7 @@ func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit nam
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(ch.st, si, u.UnitTag(), u.Base().OS, ch, u)
+		ops, err := sb.attachStorageOps(u.st, si, u.UnitTag(), u.Base().OS, ch.Meta(), u)
 		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1075,7 +1075,7 @@ func (sb *storageConfigBackend) attachStorageOps(
 	si *storageInstance,
 	unitTag names.UnitTag,
 	osName string,
-	ch *Charm,
+	charmMeta *charm.Meta,
 	maybeMachineAssignable machineAssignable,
 ) ([]txn.Op, error) {
 	if si.Life() != Alive {
@@ -1112,7 +1112,6 @@ func (sb *storageConfigBackend) attachStorageOps(
 
 	// Check that the unit's charm declares storage with the storage
 	// instance's storage name.
-	charmMeta := ch.Meta()
 	if _, ok := charmMeta.Storage[si.StorageName()]; !ok {
 		return nil, errors.Errorf(
 			"charm %s has no storage called %s",

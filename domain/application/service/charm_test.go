@@ -195,11 +195,12 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 			// allowed.
 			RunAs: "default",
 		},
-		Source:   charm.LocalSource,
-		Revision: 42,
+		Source:    charm.LocalSource,
+		Revision:  42,
+		Available: true,
 	}, nil, nil)
 
-	metadata, locator, err := s.service.GetCharm(context.Background(), id)
+	metadata, locator, isAvailable, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
 		Name: "foo",
@@ -210,6 +211,7 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 		Source:   charm.LocalSource,
 		Revision: 42,
 	})
+	c.Check(isAvailable, gc.Equals, true)
 }
 
 func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
@@ -219,14 +221,14 @@ func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{}, nil, applicationerrors.CharmNotFound)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, _, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.GetCharm(context.Background(), "")
+	_, _, _, err := s.service.GetCharm(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -508,6 +510,17 @@ func (s *charmServiceSuite) TestGetCharmArchiveBySHA256Prefix(c *gc.C) {
 	content, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(content), gc.Equals, "archive-content")
+}
+
+func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("", "", applicationerrors.CharmNotFound)
+
+	_, _, err := s.service.GetCharmArchive(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {

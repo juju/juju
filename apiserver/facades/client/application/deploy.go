@@ -206,6 +206,7 @@ func (api *APIBase) addUnits(
 	placement []*instance.Placement,
 	attachStorage []names.StorageTag,
 	assignUnits bool,
+	charmMeta *charm.Meta,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
 	policy := state.AssignNew
@@ -221,6 +222,7 @@ func (api *APIBase) addUnits(
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
 			AttachStorage: attachStorage,
+			CharmMeta:     charmMeta,
 		})
 		if err != nil {
 			return nil, internalerrors.Errorf("adding unit %d/%d to application %q: %w", i+1, n, appName, err)

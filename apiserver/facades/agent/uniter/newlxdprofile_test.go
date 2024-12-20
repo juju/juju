@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	machine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/registry"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -37,8 +37,9 @@ type newLxdProfileSuite struct {
 	machine *MockLXDProfileMachineV2
 	unit    *MockLXDProfileUnitV2
 
-	machineService   *MockMachineService
-	modelInfoService *MockModelInfoService
+	machineService     *MockMachineService
+	modelInfoService   *MockModelInfoService
+	applicationService *MockApplicationService
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -113,7 +114,18 @@ func (s *newLxdProfileSuite) TestLXDProfileName(c *gc.C) {
 
 func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectOneLXDProfileRequired()
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   applicationcharm.CharmHubSource,
+		Name:     "mysql",
+		Revision: ptr(1),
+	}).Return("0", nil)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   applicationcharm.CharmHubSource,
+		Name:     "testme",
+		Revision: ptr(3),
+	}).Return("", errors.NotFoundf("ch:testme-3"))
 
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{
@@ -123,11 +135,14 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.LXDProfileRequired(args)
+	results, err := api.LXDProfileRequired(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
-			{Result: true, Error: nil},
+			// TODO(nvinuesa): LXD Profiles are not yet implemented. In this case,
+			// we'll find the LXD profile for the given charm and return true if
+			// it's not empty.
+			{Result: false, Error: nil},
 			{Result: false, Error: &params.Error{Message: "ch:testme-3 not found", Code: "not found"}},
 		},
 	})
@@ -252,6 +267,7 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 		unitAuthFunc,
 		loggertesting.WrapCheckLog(c),
 		s.modelInfoService,
+		s.applicationService,
 	)
 	return api
 }
@@ -263,6 +279,7 @@ func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machine = NewMockLXDProfileMachineV2(ctrl)
 	s.unit = NewMockLXDProfileUnitV2(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
@@ -278,17 +295,14 @@ func (s *newLxdProfileSuite) expectOneLXDProfileName() {
 	s.unit.EXPECT().ApplicationName().Return("mysql")
 }
 
-func (s *newLxdProfileSuite) expectOneLXDProfileRequired() {
-	s.backend.EXPECT().Charm("ch:mysql-1").Return(s.charm, nil)
-	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{Config: map[string]string{"one": "two"}})
-
-	s.backend.EXPECT().Charm("ch:testme-3").Return(nil, errors.NotFoundf("ch:testme-3"))
-}
-
 func (s *newLxdProfileSuite) expectManual(manual bool) {
 	s.machine.EXPECT().IsManual().Return(manual, nil)
 }
 
 func (s *newLxdProfileSuite) expectContainerType(cType instance.ContainerType) {
 	s.machine.EXPECT().ContainerType().Return(cType)
+}
+
+func ptr[T any](i T) *T {
+	return &i
 }

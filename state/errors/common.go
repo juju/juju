@@ -36,37 +36,6 @@ const (
 	IncompatibleBaseError = errors.ConstError("incompatible base for charm")
 )
 
-// errCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
-// the given charm is already uploaded and marked as not pending in
-// state.
-type errCharmAlreadyUploaded struct {
-	curl string
-}
-
-func NewErrCharmAlreadyUploaded(curl string) error {
-	return &errCharmAlreadyUploaded{curl: curl}
-}
-
-func (e *errCharmAlreadyUploaded) Error() string {
-	return fmt.Sprintf("charm %q already uploaded", e.curl)
-}
-
-// IsCharmAlreadyUploadedError returns if the given error is
-// errCharmAlreadyUploaded.
-func IsCharmAlreadyUploadedError(err interface{}) bool {
-	if err == nil {
-		return false
-	}
-	// In case of a wrapped error, check the cause first.
-	value := err
-	cause := errors.Cause(err.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*errCharmAlreadyUploaded)
-	return ok
-}
-
 type notAliveError struct {
 	entity string
 }

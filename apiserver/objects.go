@@ -48,6 +48,17 @@ type ApplicationService interface {
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
 	SetCharm(ctx context.Context, args applicationcharm.SetCharmArgs) (corecharm.ID, []string, error)
+
+	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
+	// if the charm can not be found by the name.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+
+	// GetCharm returns the charm metadata for the given charm ID.
+	// It returns an error.CharmNotFound if the charm can not be found by the
+	// ID.
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
@@ -205,26 +216,17 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, a
 	}
 
 	source := charm.Schema(schema)
-	switch source {
-	case charm.Local:
+	if source == charm.Local {
 		curl, err = st.PrepareLocalCharmUpload(curl.String())
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-
-	case charm.CharmHub:
-		if _, err := st.PrepareCharmUpload(curl.String()); err != nil {
-			return nil, errors.Capture(err)
-		}
-
-	default:
-		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
-		Logger:       logger,
-		StateBackend: storageStateShim{State: st},
-		ObjectStore:  objectStore,
+		Logger:             logger,
+		ObjectStore:        objectStore,
+		ApplicationService: applicationService,
 	})
 
 	storagePath, err := charmStorage.Store(r.Context(), curl.String(), downloader.DownloadedCharm{
@@ -312,20 +314,6 @@ func modelIsImporting(st *state.State) (bool, error) {
 
 func emitUnsupportedMethodErr(method string) error {
 	return jujuerrors.MethodNotAllowedf("unsupported method: %q", method)
-}
-
-type storageStateShim struct {
-	*state.State
-}
-
-func (s storageStateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	ch, err := s.State.UpdateUploadedCharm(info)
-	return ch, err
-}
-
-func (s storageStateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	ch, err := s.State.PrepareCharmUpload(curl)
-	return ch, err
 }
 
 type applicationServiceGetter struct {

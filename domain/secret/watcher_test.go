@@ -971,3 +971,7 @@ func (m *stubCharm) Actions() *charm.Actions {
 func (m *stubCharm) Revision() int {
 	return 1
 }
+
+func (m *stubCharm) Version() string {
+	return ""
+}

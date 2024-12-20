@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	"github.com/juju/juju/internal/charm"
 	charmdownloader "github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // CharmStorageConfig encapsulates the information required for creating a
@@ -26,24 +26,24 @@ type CharmStorageConfig struct {
 	// A factory for accessing model-scoped storage for charm blobs.
 	ObjectStore Storage
 
-	StateBackend StateBackend
+	ApplicationService ApplicationService
 }
 
 // CharmStorage provides an abstraction for storing charm blobs.
 type CharmStorage struct {
-	logger        logger.Logger
-	stateBackend  StateBackend
-	objectStore   Storage
-	uuidGenerator func() (uuid.UUID, error)
+	logger             logger.Logger
+	objectStore        Storage
+	applicationService ApplicationService
+	uuidGenerator      func() (uuid.UUID, error)
 }
 
 // NewCharmStorage creates a new CharmStorage instance with the specified config.
 func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 	return &CharmStorage{
-		logger:        cfg.Logger,
-		stateBackend:  cfg.StateBackend,
-		objectStore:   cfg.ObjectStore,
-		uuidGenerator: uuid.NewUUID,
+		logger:             cfg.Logger,
+		objectStore:        cfg.ObjectStore,
+		uuidGenerator:      uuid.NewUUID,
+		applicationService: cfg.ApplicationService,
 	}
 }
 
@@ -51,15 +51,29 @@ func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 // charm URL. If the blob for the charm is already stored, the method returns
 // an error to indicate this.
 func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
-	ch, err := s.stateBackend.PrepareCharmUpload(charmURL)
+	parsedURL, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if ch.IsUploaded() {
+	parsedSource, err := applicationcharm.ParseCharmSchema(charm.Schema(parsedURL.Schema))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charmID, err := s.applicationService.GetCharmID(context.Background(), applicationcharm.GetCharmArgs{
+		Name:     parsedURL.Name,
+		Revision: &parsedURL.Revision,
+		Source:   parsedSource,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, _, isAvailable, err := s.applicationService.GetCharm(context.Background(), charmID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if isAvailable {
 		return charmdownloader.NewCharmAlreadyStoredError(charmURL)
 	}
-
 	return nil
 }
 
@@ -76,34 +90,6 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 		return "", errors.Annotate(err, "cannot add charm to storage")
 	}
 
-	info := state.CharmInfo{
-		StoragePath: storagePath,
-		Charm:       downloadedCharm.Charm,
-		ID:          charmURL,
-		SHA256:      downloadedCharm.SHA256,
-		Version:     downloadedCharm.CharmVersion,
-	}
-
-	// Now update the charm data in state and mark it as no longer pending.
-	_, err = s.stateBackend.UpdateUploadedCharm(info)
-	if err != nil {
-		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
-			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
-			stateerrors.IsCharmAlreadyUploadedError(err)
-		if err := s.objectStore.Remove(ctx, storagePath); err != nil {
-			if alreadyUploaded {
-				s.logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
-			} else {
-				s.logger.Errorf("cannot remove unsuccessfully recorded charm archive from storage: %v", err)
-			}
-		}
-		if alreadyUploaded {
-			// Somebody else managed to upload and update the charm in
-			// state before us. This is not an error.
-			return "", nil
-		}
-		return "", errors.Trace(err)
-	}
 	return storagePath, nil
 }
 

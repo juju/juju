@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -44,7 +43,6 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
-	services.StateBackend
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
 	// so that correctly matching units can be written to dqlite.
@@ -101,8 +99,8 @@ type Charm interface {
 	Config() *charm.Config
 	Actions() *charm.Actions
 	Revision() int
-	IsUploaded() bool
 	URL() string
+	Version() string
 }
 
 // CharmMeta describes methods that inform charm operation.
@@ -283,23 +281,7 @@ func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{Charm: c}, nil
-}
-
-func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	c, err := s.State.UpdateUploadedCharm(info)
-	if err != nil {
-		return nil, err
-	}
-	return stateCharmShim{Charm: c}, nil
-}
-
-func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	c, err := s.State.PrepareCharmUpload(curl)
-	if err != nil {
-		return nil, err
-	}
-	return stateCharmShim{Charm: c}, nil
+	return stateCharmShim{CharmRefFull: c}, nil
 }
 
 type remoteApplicationShim struct {
@@ -345,7 +327,7 @@ func (s stateShim) Charm(curl string) (Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateCharmShim{Charm: ch}, nil
+	return stateCharmShim{CharmRefFull: ch}, nil
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -475,7 +457,7 @@ func (a stateApplicationShim) SetCharm(
 }
 
 type stateCharmShim struct {
-	*state.Charm
+	state.CharmRefFull
 }
 
 type stateMachineShim struct {

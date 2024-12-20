@@ -52,7 +52,7 @@ type SystemState interface {
 	// AddApplication adds an application to the model.
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
 	// Charm returns the charm with the given name.
-	Charm(string) (bootstrap.Charm, error)
+	Charm(string) (charm.Charm, error)
 	// Unit returns the unit with the given id.
 	Unit(string) (bootstrap.Unit, error)
 	// Machine returns the machine with the given id.
@@ -60,11 +60,6 @@ type SystemState interface {
 	// PrepareLocalCharmUpload returns the charm URL that should be used to
 	// upload the charm.
 	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
-	// UpdateUploadedCharm updates the charm with the given info.
-	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
-	// PrepareCharmUpload returns the charm URL that should be used to upload
-	// the charm.
-	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	// ApplyOperation applies the given operation.
 	ApplyOperation(*state.UpdateUnitOperation) error
 	// CloudService returns the cloud service for the given cloud.
@@ -207,14 +202,6 @@ type stateShim struct {
 	*state.State
 }
 
-func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	return s.State.PrepareCharmUpload(curl)
-}
-
-func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	return s.State.UpdateUploadedCharm(info)
-}
-
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
 	a, err := s.State.AddApplication(args, objectStore)
 	if err != nil {
@@ -223,12 +210,8 @@ func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore ob
 	return &applicationShim{Application: a}, nil
 }
 
-func (s *stateShim) Charm(name string) (bootstrap.Charm, error) {
-	c, err := s.State.Charm(name)
-	if err != nil {
-		return nil, err
-	}
-	return &charmShim{Charm: c}, nil
+func (s *stateShim) Charm(name string) (charm.Charm, error) {
+	return s.State.Charm(name)
 }
 
 func (s *stateShim) Unit(tag string) (bootstrap.Unit, error) {
@@ -257,10 +240,6 @@ func (s *stateShim) CloudService(name string) (bootstrap.CloudService, error) {
 
 type applicationShim struct {
 	*state.Application
-}
-
-type charmShim struct {
-	*state.Charm
 }
 
 type unitShim struct {

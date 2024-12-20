@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -18,12 +19,30 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	coremodel "github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	mongoutils "github.com/juju/juju/internal/mongo/utils"
-	stateerrors "github.com/juju/juju/state/errors"
 )
+
+// CharmService represents a service for retrieving charms.
+type CharmService interface {
+	// GetCharm returns the charm using the charm ID.
+	// Calling this method will return all the data associated with the charm.
+	// It is not expected to call this method for all calls, instead use the move
+	// focused and specific methods. That's because this method is very expensive
+	// to call. This is implemented for the cases where all the charm data is
+	// needed; model migration, charm export, etc.
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
+	// GetCharmID returns a charm ID by name, source and revision. It returns an
+	// error if the charm can not be found.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+}
 
 // Channel identifies and describes completely a store channel.
 type Channel struct {
@@ -369,26 +388,6 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	return []txn.Op{op}, nil
 }
 
-// convertPlaceholderCharmOps returns the txn operations necessary to convert
-// the charm with the supplied docId from a placeholder to one marked for
-// pending upload.
-func convertPlaceholderCharmOps(docID string) ([]txn.Op, error) {
-	return []txn.Op{{
-		C:  charmsC,
-		Id: docID,
-		Assert: bson.D{
-			{"bundlesha256", ""},
-			{"pendingupload", false},
-			{"placeholder", true},
-		},
-		Update: bson.D{{"$set", bson.D{
-			{"pendingupload", true},
-			{"placeholder", false},
-		}}},
-	}}, nil
-
-}
-
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
 // records older than the specified charm URL.
 func deleteOldPlaceholderCharmsOps(mb modelBackend, charms mongo.Collection, curl *charm.URL) ([]txn.Op, error) {
@@ -553,11 +552,14 @@ func (c *Charm) Life() Life {
 // Refresh loads fresh charm data from the database. In practice, the
 // only observable change should be to its Life value.
 func (c *Charm) Refresh() error {
-	ch, err := c.st.Charm(c.URL())
+	_, err := c.st.Charm(c.URL())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.doc = ch.doc
+	// TODO(nvinuesa): We have broken refresh, until we fully implement
+	// the new charm service, this method is a no-op.
+	// See https://warthogs.atlassian.net/browse/JUJU-4767
+	// c.doc = ch.doc
 	return nil
 }
 
@@ -663,7 +665,7 @@ func (c *Charm) IsPlaceholder() bool {
 // TODO(achilleasa) Overwrite this implementation with the body of the
 // AddCharmMetadata method once the server-side bundle expansion work is
 // complete.
-func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
+func (st *State) AddCharm(info CharmInfo) (stch CharmRefFull, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
@@ -708,24 +710,52 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
 // are returned for Charmhub charms. Charm placeholders are never returned.
-func (st *State) Charm(curl string) (*Charm, error) {
+func (st *State) Charm(curl string) (CharmRefFull, error) {
 	parsedURL, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, err
 	}
-	ch, err := st.findCharm(parsedURL)
-	if err != nil {
-		return nil, err
+	return st.findCharm(parsedURL)
+}
+
+type charmImpl struct {
+	charm.Charm
+	url string
+}
+
+func (c *charmImpl) Meta() *charm.Meta {
+	return c.Charm.Meta()
+}
+
+func (c *charmImpl) Manifest() *charm.Manifest {
+	return c.Charm.Manifest()
+}
+
+func (c *charmImpl) Actions() *charm.Actions {
+	return c.Charm.Actions()
+}
+
+func (c *charmImpl) Config() *charm.Config {
+	return c.Charm.Config()
+}
+
+func (c *charmImpl) Revision() int {
+	return c.Charm.Revision()
+}
+
+func (c *charmImpl) URL() string {
+	return c.url
+}
+
+func (c *charmImpl) Version() string {
+	return c.Charm.Version()
+}
+
+func fromInternalCharm(ch charm.Charm, url string) CharmRefFull {
+	return &charmImpl{
+		Charm: ch,
+		url:   url,
 	}
-	// TODO - this is problematic because charmhub charms which are not downloaded are returned regardless.
-	// See - https://pad.lv/2058700 and https://pad.lv/2059990
-	// We could return not found here for any pending charm (not just local), but there's numerous call
-	// sites to consider. The safest approach to fix bug 2059990 is to add a sha == "" check.
-	// We need to take another look at the async deploy logic and fix some fundamental flaws.
-	if (!ch.IsUploaded() && !charm.CharmHub.Matches(parsedURL.Schema)) || ch.IsPlaceholder() {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	return ch, nil
 }
 
 // findCharm returns a charm matching the curl if it exists.  This method should
@@ -736,28 +766,32 @@ func (st *State) Charm(curl string) (*Charm, error) {
 // refreshing a charm can happen before a charm is actually downloaded. Therefore
 // it must be able to find placeholders and update them to allow for a download
 // to happen as part of refresh.
-func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
-	var cdoc charmDoc
-
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	what := bson.D{
-		{"_id", curl.String()},
+func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
+	var charmSource applicationcharm.CharmSource
+	// We must map the charm schema to the charm source. If the schema is
+	// not ch nor local, then it will fail retrieving the charm.
+	if curl.Schema == "ch" {
+		charmSource = applicationcharm.CharmHubSource
+	} else if curl.Schema == "local" {
+		charmSource = applicationcharm.LocalSource
 	}
-	what = append(what, nsLife.notDead()...)
-	err := charms.Find(what).One(&cdoc)
-	if err == mgo.ErrNotFound {
+	charmService := st.charmServiceGetter(coremodel.UUID(st.ModelUUID()))
+	charmID, err := charmService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+		Name:     curl.Name,
+		Revision: &curl.Revision,
+		Source:   charmSource,
+	})
+	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
+		return nil, errors.Annotatef(err, "cannot get charm ID for URL %q", curl)
 	}
-
-	if cdoc.PendingUpload && !charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.NotFoundf("charm %q", curl)
+	ch, _, _, err := charmService.GetCharm(context.TODO(), charmID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve charm with ID %q", charmID.String())
 	}
-	return newCharm(st, &cdoc), nil
+	return fromInternalCharm(ch, curl.String()), nil
 }
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
@@ -885,68 +919,6 @@ func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 	return charm.CharmHub.Matches(curl.Schema)
 }
 
-// PrepareCharmUpload must be called before a charm store charm is uploaded to
-// the provider storage in order to create a charm document in state. If a charm
-// with the same URL is already in state, it will be returned as a *state.Charm
-// (it can be still pending or already uploaded). Otherwise, a new charm
-// document is added in state with just the given charm URL and
-// PendingUpload=true, which is then returned as a *state.Charm.
-//
-// The url's schema must be charmhub ("ch") and it must
-// include a revision that isn't a negative value.
-//
-// TODO(achilleas): This call will be removed once the server-side bundle
-// deployment work lands.
-func (st *State) PrepareCharmUpload(curl string) (*Charm, error) {
-	// Perform a few sanity checks first.
-	parsedURL, err := charm.ParseURL(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !isValidPlaceholderCharmURL(parsedURL) {
-		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", curl)
-	}
-	if parsedURL.Revision < 0 {
-		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	var (
-		uploadedCharm charmDoc
-	)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(curl).One(&uploadedCharm)
-		switch {
-		case err == mgo.ErrNotFound:
-			uploadedCharm = charmDoc{
-				DocID:         st.docID(curl),
-				URL:           &curl,
-				PendingUpload: true,
-			}
-			return insertAnyCharmOps(st, &uploadedCharm)
-		case err != nil:
-			return nil, errors.Trace(err)
-		case uploadedCharm.Placeholder:
-			// Update the fields of the document we're returning.
-			uploadedCharm.PendingUpload = true
-			uploadedCharm.Placeholder = false
-			return convertPlaceholderCharmOps(uploadedCharm.DocID)
-		default:
-			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case,
-			// there's nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		}
-	}
-	if err = st.db().Run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm), nil
-	}
-	return nil, errors.Trace(err)
-}
-
 var (
 	stillPending     = bson.D{{"pendingupload", true}}
 	stillPlaceholder = bson.D{{"placeholder", true}}
@@ -993,37 +965,6 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 	return errors.Trace(st.db().Run(buildTxn))
 }
 
-// UpdateUploadedCharm marks the given charm URL as uploaded and
-// updates the rest of its data, returning it as *state.Charm.
-//
-// TODO(achilleas): This call will be removed once the server-side bundle
-// deployment work lands.
-func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	doc := &charmDoc{}
-	err := charms.FindId(info.ID).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", info.ID)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !doc.PendingUpload {
-		return nil, errors.Trace(newErrCharmAlreadyUploaded(info.ID))
-	}
-
-	ops, err := updateCharmOps(st, info, stillPending)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := st.db().RunTransaction(ops); err != nil {
-		return nil, onAbort(err, stateerrors.ErrCharmRevisionAlreadyModified)
-	}
-	return st.Charm(info.ID)
-}
-
 // AddCharmMetadata creates a charm document in state and populates it with the
 // provided charm metadata details. If the charm document already exists it
 // will be returned back as a *charm.Charm.
@@ -1037,7 +978,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 //
 // The charm URL must either have a charmhub ("ch") schema and it must include
 // a revision that isn't a negative value. Otherwise, an error will be returned.
-func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
+func (st *State) AddCharmMetadata(info CharmInfo) (CharmRefFull, error) {
 	// Perform a few sanity checks first.
 	curl, err := charm.ParseURL(info.ID)
 	if err != nil {
@@ -1052,17 +993,6 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if the charm doc already exists.
-		ch, err := st.findCharm(curl)
-		if errors.Is(err, errors.NotFound) {
-			return insertCharmOps(st, info)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !ch.IsPlaceholder() {
-			// The charm has already been downloaded, no need to
-			// so again.
-			return nil, jujutxn.ErrNoOperations
-		}
 		// This doc was inserted by the charm revision updater worker.
 		// Add the charm metadata and mark for download.
 		assert := bson.D{

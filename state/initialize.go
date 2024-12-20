@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage"
 )
@@ -67,6 +68,10 @@ type InitializeParams struct {
 
 	// AdminPassword holds the password for the initial user.
 	AdminPassword string
+
+	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
+	// and should disapear as soon as we migrate units and applications.
+	CharmServiceGetter func(modelUUID coremodel.UUID) CharmService
 }
 
 // Validate checks that the state initialization parameters are valid.
@@ -124,6 +129,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		WatcherPollInterval: args.WatcherPollInterval,
 		NewPolicy:           args.NewPolicy,
 		InitDatabaseFunc:    InitDatabase,
+		CharmServiceGetter:  args.CharmServiceGetter,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "opening controller")

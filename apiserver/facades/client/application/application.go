@@ -977,7 +977,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 func (api *APIBase) applicationSetCharm(
 	ctx context.Context,
 	params setCharmParams,
-	newCharm Charm,
+	newCharm state.CharmRefFull,
 	newOrigin *state.CharmOrigin,
 ) error {
 	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
@@ -1302,8 +1302,12 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	} else if charmName == bootstrap.ControllerCharmName {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
+	charm, err := api.getCharm(ctx, charmID)
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
 
-	units, err := api.addApplicationUnits(ctx, args)
+	units, err := api.addApplicationUnits(ctx, args, charm.Meta())
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1316,7 +1320,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 
 // addApplicationUnits adds a given number of units to an application.
 func (api *APIBase) addApplicationUnits(
-	ctx context.Context, args params.AddApplicationUnits,
+	ctx context.Context, args params.AddApplicationUnits, charmMeta *charm.Meta,
 ) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
@@ -1366,6 +1370,7 @@ func (api *APIBase) addApplicationUnits(
 		args.Placement,
 		attachStorage,
 		assignUnits,
+		charmMeta,
 	)
 }
 
