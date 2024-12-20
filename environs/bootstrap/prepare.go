@@ -4,6 +4,9 @@
 package bootstrap
 
 import (
+	"maps"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -34,6 +37,9 @@ const (
 // PrepareParams contains the parameters for preparing a controller Environ
 // for bootstrapping.
 type PrepareParams struct {
+	// AuthorizedKeys is a list of SSH authorized keys to add to the controller environment.
+	AuthorizedKeys []string
+
 	// ModelConfig contains the base configuration for the controller model.
 	//
 	// This includes the model name, cloud type, any user-supplied
@@ -184,7 +190,12 @@ func prepare(
 ) (*config.Config, prepareDetails, error) {
 	var details prepareDetails
 
-	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
+	completeConfig := map[string]any{
+		config.AuthorizedKeysKey: strings.Join(args.AuthorizedKeys, "\n"),
+	}
+	maps.Copy(completeConfig, args.ModelConfig)
+
+	cfg, err := config.New(config.NoDefaults, completeConfig)
 	if err != nil {
 		return cfg, details, errors.Trace(err)
 	}
