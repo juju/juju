@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resource"
@@ -141,16 +142,19 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.st.app = &mockApplication{
-		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "ch:gitlab",
-		},
+		life:                 state.Alive,
 		charmModifiedVersion: 10,
 		config: config.ConfigAttributes{
 			"trust": true,
 		},
+		charmURL: "ch:gitlab",
 	}
+
+	charmId := charmtesting.GenCharmID(c)
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), charmId).Return(true, nil)
+	s.applicationService.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmId).Return(map[string]charm.Storage{}, nil)
+
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
 
@@ -187,16 +191,16 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 	defer ctrl.Finish()
 
 	s.st.app = &mockApplication{
-		life:         state.Alive,
-		charmPending: true,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "ch:gitlab",
-		},
+		life: state.Alive,
 	}
+
+	charmId := charmtesting.GenCharmID(c)
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), charmId).Return(false, nil)
+
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm for application "gitlab" not provisioned`)
 }
 
 func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
@@ -211,11 +215,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
 	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
 	s.st.app = &mockApplication{
-		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "cs:gitlab",
-		},
+		life:    state.Alive,
 		watcher: watchertest.NewMockNotifyWatcher(appChanged),
 	}
 	appChanged <- struct{}{}
@@ -242,10 +242,6 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 
 	s.st.app = &mockApplication{
 		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "ch:gitlab",
-		},
 	}
 	result, err := s.api.SetOperatorStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
@@ -266,10 +262,6 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 
 	s.st.app = &mockApplication{
 		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "ch:gitlab",
-		},
 		units: []*mockUnit{
 			{
 				tag: names.NewUnitTag("gitlab/0"),
@@ -330,17 +322,6 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{
-				Resources: map[string]charmresource.Meta{
-					"gitlab-image": {
-						Name: "gitlab-image",
-						Type: charmresource.TypeContainerImage,
-					},
-				},
-			},
-			url: "ch:gitlab",
-		},
 	}
 	s.st.resource = &mockResources{
 		resource: &docker.DockerImageDetails{
@@ -353,6 +334,15 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 			},
 		},
 	}
+
+	charmId := charmtesting.GenCharmID(c)
+	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)
+	s.applicationService.EXPECT().GetCharmMetadataResources(gomock.Any(), charmId).Return(map[string]charmresource.Meta{
+		"gitlab-image": {
+			Name: "gitlab-image",
+			Type: charmresource.TypeContainerImage,
+		},
+	}, nil)
 
 	result, err := s.api.ApplicationOCIResources(context.Background(), params.Entities{
 		Entities: []params.Entity{{
@@ -379,22 +369,6 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			manifest: &charm.Manifest{
-				// charm.FormatV2.
-				Bases: []charm.Base{
-					{
-						Name: "ubuntu",
-						Channel: charm.Channel{
-							Risk:  "stable",
-							Track: "20.04",
-						},
-					},
-				},
-			},
-			url: "ch:gitlab",
-		},
 		units: []*mockUnit{
 			{
 				tag: names.NewUnitTag("gitlab/0"),
@@ -586,22 +560,6 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			manifest: &charm.Manifest{
-				// charm.FormatV2.
-				Bases: []charm.Base{
-					{
-						Name: "ubuntu",
-						Channel: charm.Channel{
-							Risk:  "stable",
-							Track: "20.04",
-						},
-					},
-				},
-			},
-			url: "ch:gitlab",
-		},
 		units: []*mockUnit{
 			{
 				tag: names.NewUnitTag("gitlab/0"),
@@ -702,10 +660,6 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C
 
 	s.st.app = &mockApplication{
 		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "ch:gitlab",
-		},
 	}
 
 	result, err := s.api.ClearApplicationsResources(context.Background(), params.Entities{
@@ -725,11 +679,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 
 	unitsChanges := make(chan []string, 1)
 	s.st.app = &mockApplication{
-		life: state.Alive,
-		charm: &mockCharm{
-			meta: &charm.Meta{},
-			url:  "ch:gitlab",
-		},
+		life:         state.Alive,
 		unitsChanges: unitsChanges,
 		unitsWatcher: watchertest.NewMockStringsWatcher(unitsChanges),
 	}

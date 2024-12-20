@@ -200,9 +200,9 @@ func (s *State) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, er
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT charm.available AS &charmAvailable.available
+SELECT &charmAvailable.*
 FROM charm
-WHERE uuid = $charmID.uuid;
+WHERE uuid = $charmID.uuid
 `
 	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
@@ -451,6 +451,52 @@ WHERE uuid = $charmID.uuid;`
 	}
 
 	return metadata.Description, nil
+}
+
+// GetCharmMetadataStorage returns the storage metadata for the charm using the
+// charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
+// returned.
+func (s *State) GetCharmMetadataStorage(ctx context.Context, id corecharm.ID) (map[string]charm.Storage, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	var storage []charmStorage
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		storage, err = s.getCharmStorage(ctx, tx, ident)
+		return internalerrors.Capture(err)
+	}); err != nil {
+		return nil, internalerrors.Errorf("getting charm storage: %w", err)
+	}
+
+	return decodeStorage(storage)
+}
+
+// GetCharmMetadataResources returns the resources metadata for the charm using
+// the charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
+// returned.
+func (s *State) GetCharmMetadataResources(ctx context.Context, id corecharm.ID) (map[string]charm.Resource, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	var resources []charmResource
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		resources, err = s.getCharmResources(ctx, tx, ident)
+		return internalerrors.Capture(err)
+	}); err != nil {
+		return nil, internalerrors.Errorf("getting charm resources: %w", err)
+	}
+
+	return decodeResources(resources)
 }
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.

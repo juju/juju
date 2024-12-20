@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -14,6 +15,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
+	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 )
 
 // ControllerConfigService provides the controller configuration.
@@ -49,6 +52,10 @@ type ApplicationService interface {
 	GetApplicationScale(ctx context.Context, name string) (int, error)
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
+	GetCharmIDByApplicationName(ctx context.Context, name string) (charm.ID, error)
+	GetCharmMetadataStorage(ctx context.Context, id charm.ID) (map[string]internalcharm.Storage, error)
+	GetCharmMetadataResources(ctx context.Context, id charm.ID) (map[string]resource.Meta, error)
+	IsCharmAvailable(ctx context.Context, id charm.ID) (bool, error)
 	DestroyUnit(context.Context, unit.Name) error
 	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error

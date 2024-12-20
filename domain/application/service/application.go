@@ -1035,7 +1035,8 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 // charm metadata.
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
-// and [applicationerrors.CharmNotFound] if the charm is not found.
+// [applicationerrors.ApplicationNotFound] if the application is not found, and
+// [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	if !isValidApplicationName(name) {
 		return "", applicationerrors.ApplicationNameNotValid

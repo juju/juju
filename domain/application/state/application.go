@@ -1741,7 +1741,8 @@ AND a.name = $applicationName.name
 // charm metadata.
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
-// and [applicationerrors.CharmNotFound] if the charm is not found.
+// [applicationerrors.ApplicationNotFound] if the application is not found, and
+// [applicationerrors.CharmNotFound] if the charm is not found.
 func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	db, err := st.DB()
 	if err != nil {

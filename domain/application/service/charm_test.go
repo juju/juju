@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/state/watcher/watchertest"
 )
 
@@ -370,6 +371,80 @@ func (s *charmServiceSuite) TestGetCharmMetadataDescriptionInvalidUUID(c *gc.C) 
 
 	_, err := s.service.GetCharmMetadataDescription(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *charmServiceSuite) TestGetCharmMetadataStorage(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), id).Return(map[string]charm.Storage{
+		"foo": {
+			Name:        "foo",
+			Description: "description",
+			Type:        charm.StorageBlock,
+			Location:    "/foo",
+		},
+	}, nil)
+
+	storage, err := s.service.GetCharmMetadataStorage(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(storage, gc.DeepEquals, map[string]internalcharm.Storage{
+		"foo": {
+			Name:        "foo",
+			Description: "description",
+			Type:        internalcharm.StorageBlock,
+			Location:    "/foo",
+		},
+	})
+}
+
+func (s *charmServiceSuite) TestGetCharmMetadataStorageCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), id).Return(nil, applicationerrors.CharmNotFound)
+
+	_, err := s.service.GetCharmMetadataStorage(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmServiceSuite) TestGetCharmMetadataResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmMetadataResources(gomock.Any(), id).Return(map[string]charm.Resource{
+		"foo": {
+			Name:        "foo",
+			Type:        charm.ResourceTypeFile,
+			Description: "description",
+			Path:        "/foo",
+		},
+	}, nil)
+
+	resources, err := s.service.GetCharmMetadataResources(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resources, gc.DeepEquals, map[string]resource.Meta{
+		"foo": {
+			Name:        "foo",
+			Type:        resource.TypeFile,
+			Description: "description",
+			Path:        "/foo",
+		},
+	})
+}
+
+func (s *charmServiceSuite) TestGetCharmMetadataResourcesCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmMetadataResources(gomock.Any(), id).Return(nil, applicationerrors.CharmNotFound)
+
+	_, err := s.service.GetCharmMetadataResources(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *charmServiceSuite) TestGetCharmArchivePath(c *gc.C) {

@@ -552,7 +552,9 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		insertCharmMetadata(ctx, c, tx, uuid)
+		if _, err := insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -863,36 +865,42 @@ INSERT INTO charm_storage (
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedStorage := map[string]charm.Storage{
+		"foo": {
+			Name:        "bar",
+			Type:        charm.StorageFilesystem,
+			Description: "description 1",
+			Shared:      true,
+			ReadOnly:    true,
+			CountMin:    1,
+			CountMax:    2,
+			MinimumSize: 3,
+			Location:    "/tmp",
+		},
+		"fred": {
+			Name:        "baz",
+			Type:        charm.StorageBlock,
+			Description: "description 2",
+			Shared:      false,
+			ReadOnly:    false,
+			CountMin:    4,
+			CountMax:    5,
+			MinimumSize: 6,
+			Location:    "/var/mount",
+		},
+	}
+
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.Storage = map[string]charm.Storage{
-			"foo": {
-				Name:        "bar",
-				Type:        charm.StorageFilesystem,
-				Description: "description 1",
-				Shared:      true,
-				ReadOnly:    true,
-				CountMin:    1,
-				CountMax:    2,
-				MinimumSize: 3,
-				Location:    "/tmp",
-			},
-			"fred": {
-				Name:        "baz",
-				Type:        charm.StorageBlock,
-				Description: "description 2",
-				Shared:      false,
-				ReadOnly:    false,
-				CountMin:    4,
-				CountMax:    5,
-				MinimumSize: 6,
-				Location:    "/var/mount",
-			},
-		}
+		expected.Storage = expectedStorage
 		return expected
 	})
+
+	storage, err := st.GetCharmMetadataStorage(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(storage, jc.DeepEquals, expectedStorage)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C) {
@@ -950,37 +958,43 @@ INSERT INTO charm_storage_property (
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedStorage := map[string]charm.Storage{
+		"foo": {
+			Name:        "bar",
+			Type:        charm.StorageFilesystem,
+			Description: "description 1",
+			Shared:      true,
+			ReadOnly:    true,
+			CountMin:    1,
+			CountMax:    2,
+			MinimumSize: 3,
+			Location:    "/tmp",
+			Properties:  []string{"alpha", "beta", "beta"},
+		},
+		"fred": {
+			Name:        "baz",
+			Type:        charm.StorageBlock,
+			Description: "description 2",
+			Shared:      false,
+			ReadOnly:    false,
+			CountMin:    4,
+			CountMax:    5,
+			MinimumSize: 6,
+			Location:    "/var/mount",
+		},
+	}
+
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.Storage = map[string]charm.Storage{
-			"foo": {
-				Name:        "bar",
-				Type:        charm.StorageFilesystem,
-				Description: "description 1",
-				Shared:      true,
-				ReadOnly:    true,
-				CountMin:    1,
-				CountMax:    2,
-				MinimumSize: 3,
-				Location:    "/tmp",
-				Properties:  []string{"alpha", "beta", "beta"},
-			},
-			"fred": {
-				Name:        "baz",
-				Type:        charm.StorageBlock,
-				Description: "description 2",
-				Shared:      false,
-				ReadOnly:    false,
-				CountMin:    4,
-				CountMax:    5,
-				MinimumSize: 6,
-				Location:    "/var/mount",
-			},
-		}
+		expected.Storage = expectedStorage
 		return expected
 	})
+
+	storage, err := st.GetCharmMetadataStorage(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(storage, jc.DeepEquals, expectedStorage)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
@@ -1122,26 +1136,32 @@ INSERT INTO charm_resource (
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedResources := map[string]charm.Resource{
+		"foo": {
+			Name:        "foo",
+			Type:        charm.ResourceTypeFile,
+			Path:        "/tmp/file.txt",
+			Description: "description 1",
+		},
+		"bar": {
+			Name:        "bar",
+			Type:        charm.ResourceTypeContainerImage,
+			Path:        "hub.docker.io/jujusolutions",
+			Description: "description 2",
+		},
+	}
+
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.Resources = map[string]charm.Resource{
-			"foo": {
-				Name:        "foo",
-				Type:        charm.ResourceTypeFile,
-				Path:        "/tmp/file.txt",
-				Description: "description 1",
-			},
-			"bar": {
-				Name:        "bar",
-				Type:        charm.ResourceTypeContainerImage,
-				Path:        "hub.docker.io/jujusolutions",
-				Description: "description 2",
-			},
-		}
+		expected.Resources = expectedResources
 		return expected
 	})
+
+	resources, err := st.GetCharmMetadataResources(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resources, jc.DeepEquals, expectedResources)
 }
 
 func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {

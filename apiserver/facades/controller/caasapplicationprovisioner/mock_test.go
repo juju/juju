@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -189,7 +188,7 @@ type mockApplication struct {
 	tag                  names.Tag
 	password             string
 	base                 state.Base
-	charm                caasapplicationprovisioner.Charm
+	charmURL             string
 	units                []*mockUnit
 	constraints          constraints.Value
 	storageConstraints   map[string]state.StorageConstraints
@@ -199,12 +198,6 @@ type mockApplication struct {
 	unitsWatcher         *watchertest.MockStringsWatcher
 	unitsChanges         chan []string
 	watcher              *watchertest.MockNotifyWatcher
-	charmPending         bool
-}
-
-func (a *mockApplication) CharmPendingToBeDownloaded() bool {
-	a.MethodCall(a, "CharmPendingToBeDownloaded")
-	return a.charmPending
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -224,14 +217,6 @@ func (a *mockApplication) SetPassword(password string) error {
 func (a *mockApplication) Life() state.Life {
 	a.MethodCall(a, "Life")
 	return a.life
-}
-
-func (a *mockApplication) Charm() (caasapplicationprovisioner.Charm, bool, error) {
-	a.MethodCall(a, "Charm")
-	if err := a.NextErr(); err != nil {
-		return nil, false, err
-	}
-	return a.charm, false, nil
 }
 
 func (a *mockApplication) AllUnits() ([]caasapplicationprovisioner.Unit, error) {
@@ -302,7 +287,7 @@ func (a *mockApplication) CharmModifiedVersion() int {
 
 func (a *mockApplication) CharmURL() (curl *string, force bool) {
 	a.MethodCall(a, "CharmURL")
-	cURL := a.charm.URL()
+	cURL := a.charmURL
 	return &cURL, false
 }
 
@@ -324,24 +309,6 @@ func (a *mockApplication) WatchUnits() state.StringsWatcher {
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
-}
-
-type mockCharm struct {
-	meta     *charm.Meta
-	manifest *charm.Manifest
-	url      string
-}
-
-func (ch *mockCharm) Meta() *charm.Meta {
-	return ch.meta
-}
-
-func (ch *mockCharm) Manifest() *charm.Manifest {
-	return ch.manifest
-}
-
-func (ch *mockCharm) URL() string {
-	return ch.url
 }
 
 type mockWatcher struct {
