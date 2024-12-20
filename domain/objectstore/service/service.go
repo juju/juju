@@ -17,12 +17,19 @@ import (
 
 const minHashPrefixLength = 7
 
-var hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]*$`)
+var (
+	hashRegexp       = regexp.MustCompile(`^[a-f0-9]*$`)
+	hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]*$`)
+)
 
 // State describes retrieval and persistence methods for the objectstore.
 type State interface {
 	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error)
+
+	// GetMetadataBySHA256 returns the persistence metadata for the object
+	// with SHA256.
+	GetMetadataBySHA256(ctx context.Context, sha256 string) (objectstore.Metadata, error)
 
 	// GetMetadataBySHA256Prefix returns the persistence metadata for the object
 	// with SHA256 starting with the provided prefix.
@@ -75,13 +82,31 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Met
 	}, nil
 }
 
+// GetMetadataBySHA256 returns the persistence metadata for the object
+// with SHA256 starting with the provided prefix.
+func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (objectstore.Metadata, error) {
+	if sha256 == "" || !hashRegexp.MatchString(sha256) {
+		return objectstore.Metadata{}, errors.Errorf("sha256 cannot be empty: %w", objectstoreerrors.ErrInvalidHash)
+	}
+
+	metadata, err := s.st.GetMetadataBySHA256(ctx, sha256)
+	if err != nil {
+		return objectstore.Metadata{}, errors.Errorf("retrieving metadata with sha256 %s: %w", sha256, err)
+	}
+	return objectstore.Metadata{
+		Path:   metadata.Path,
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   metadata.Size,
+	}, nil
+}
+
 // GetMetadataBySHA256Prefix returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
 func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (objectstore.Metadata, error) {
 	if len(sha256Prefix) < minHashPrefixLength {
 		return objectstore.Metadata{}, errors.Errorf("minimum has prefix length is %d: %w", minHashPrefixLength, objectstoreerrors.ErrHashPrefixTooShort)
-	}
-	if !hashPrefixRegexp.MatchString(sha256Prefix) {
+	} else if !hashPrefixRegexp.MatchString(sha256Prefix) {
 		return objectstore.Metadata{}, errors.Errorf("%s: %w", sha256Prefix, objectstoreerrors.ErrInvalidHashPrefix)
 	}
 

@@ -43,6 +43,8 @@ type RemoteServerConfig struct {
 	Clock  clock.Clock
 	Logger logger.Logger
 
+	Target names.Tag
+
 	// APIInfo is initially populated with the addresses of the target machine.
 	APIInfo *api.Info
 }
@@ -51,7 +53,8 @@ type RemoteServerConfig struct {
 type remoteServer struct {
 	tomb tomb.Tomb
 
-	info *api.Info
+	target names.Tag
+	info   *api.Info
 
 	logger logger.Logger
 	clock  clock.Clock
@@ -65,8 +68,9 @@ type remoteServer struct {
 
 // NewRemoteServer creates a new RemoteServer that will connect to the remote
 // apiserver and pass on messages to the pubsub endpoint of that apiserver.
-func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
+func NewRemoteServer(config RemoteServerConfig) RemoteServer {
 	w := &remoteServer{
+		target:             config.Target,
 		info:               config.APIInfo,
 		logger:             config.Logger,
 		clock:              config.Clock,
@@ -74,7 +78,7 @@ func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
 		monitorConnections: make(chan api.Connection),
 	}
 	w.tomb.Go(w.loop)
-	return w, nil
+	return w
 }
 
 // Connection returns a channel that will be populated with the connection to
@@ -89,7 +93,7 @@ func (w *remoteServer) Connection() (api.Connection, bool) {
 
 // Tag returns the tag of the remote API server.
 func (w *remoteServer) Tag() names.Tag {
-	return w.info.Tag
+	return w.target
 }
 
 // UpdateAddresses will update the addresses held for the target API server.
@@ -121,16 +125,18 @@ func (w *remoteServer) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	var broken <-chan struct{}
+	var connected bool
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 
 		case addresses := <-w.changes:
+			w.logger.Debugf("addresses for %q have changed: %v", w.target, addresses)
+
 			// If the addresses already exist, we don't need to do anything.
-			if w.addressesAlreadyExist(addresses) {
-				return nil
+			if connected && w.addressesAlreadyExist(addresses) {
+				continue
 			}
 
 			if err := w.connect(ctx, addresses); err != nil {
@@ -140,21 +146,7 @@ func (w *remoteServer) loop() error {
 			// We've successfully connected to the remote server, so update the
 			// addresses.
 			w.info.Addrs = addresses
-
-		case conn, ok := <-w.monitorConnections:
-			if !ok {
-				// The connection channel has been closed, so we should exit.
-				return nil
-			}
-			broken = conn.Broken()
-
-		case <-broken:
-
-			// If the connection becomes broken, we need to reconnect.
-			w.logger.Infof("connection to %q is broken, reconnecting", w.info.Tag)
-			if err := w.connect(ctx, w.info.Addrs); err != nil {
-				return err
-			}
+			connected = true
 		}
 	}
 }
@@ -174,6 +166,8 @@ func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
 }
 
 func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
+	w.logger.Debugf("connecting to %s with addresses: %v", w.target, addresses)
+
 	// Use temporary info until we're sure we can connect. If the addresses
 	// are invalid, but the existing connection is still valid, we don't want
 	// to close it.
@@ -191,6 +185,10 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
 
 			connection = conn
 			return nil
+		},
+		NotifyFunc: func(err error, attempt int) {
+			// This is normal behavior, so we don't need to log it as an error.
+			w.logger.Debugf("failed to connect to %s attempt %d, with addresses %v: %v", w.target, attempt, info.Addrs, err)
 		},
 		Attempts:    retry.UnlimitedAttempts,
 		Delay:       1 * time.Second,
@@ -234,7 +232,7 @@ func (w *remoteServer) closeCurrentConnection() {
 
 	err := w.currentConnection.Close()
 	if err != nil {
-		w.logger.Errorf("failed to close connection %q: %v", w.info.Tag, err)
+		w.logger.Errorf("failed to close connection %q: %v", w.target, err)
 	}
 
 	w.currentConnection = nil

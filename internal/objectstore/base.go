@@ -73,7 +73,8 @@ type opType int
 
 const (
 	opGet opType = iota
-	opGetByHash
+	opGetBySHA256
+	opGetBySHA256Prefix
 	opPut
 	opRemove
 )
@@ -81,7 +82,7 @@ const (
 type request struct {
 	op            opType
 	path          string
-	sha256Prefix  string
+	sha256        string
 	reader        io.Reader
 	size          int64
 	hashValidator hashValidator
