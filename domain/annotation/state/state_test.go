@@ -271,43 +271,43 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 func (s *stateSuite) TestUUIDQueryForIDMachine(c *gc.C) {
 	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_id`)
-	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "my-machine"})
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_name`)
+	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_name": "my-machine"})
 }
 
 func (s *stateSuite) TestUUIDQueryForIDApplication(c *gc.C) {
 	kindQuery, kindQueryParam, err := uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_id`)
-	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "appname"})
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_name`)
+	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_name": "appname"})
 }
 
 // TestKindNameFromID asserts the mapping of annotation.Kind -> actual table
 // names
 // Keeping these explicit here should ensure we quickly detect any changes in
 // the future.
-func (s *stateSuite) TestKindNameFromID(c *gc.C) {
-	t1, err := kindNameFromID(annotations.ID{Kind: annotations.KindMachine, Name: "foo"})
+func (s *stateSuite) TestAnnotationTableNameFromID(c *gc.C) {
+	t1, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindMachine, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(t1, gc.Equals, "machine")
+	c.Check(t1, gc.Equals, "annotation_machine")
 
-	t2, err := kindNameFromID(annotations.ID{Kind: annotations.KindUnit, Name: "foo"})
+	t2, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindUnit, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(t2, gc.Equals, "unit")
+	c.Check(t2, gc.Equals, "annotation_unit")
 
-	t3, err := kindNameFromID(annotations.ID{Kind: annotations.KindApplication, Name: "foo"})
+	t3, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindApplication, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(t3, gc.Equals, "application")
+	c.Check(t3, gc.Equals, "annotation_application")
 
-	t4, err := kindNameFromID(annotations.ID{Kind: annotations.KindStorage, Name: "foo"})
+	t4, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindStorage, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(t4, gc.Equals, "storage_instance")
+	c.Check(t4, gc.Equals, "annotation_storage_instance")
 
-	t6, err := kindNameFromID(annotations.ID{Kind: annotations.KindModel, Name: "foo"})
+	t6, err := annotationTableNameFromID(annotations.ID{Kind: annotations.KindModel, Name: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(t6, gc.Equals, "model")
+	c.Check(t6, gc.Equals, "annotation_model")
 
-	_, err = kindNameFromID(annotations.ID{Kind: 12, Name: "foo"})
+	_, err = annotationTableNameFromID(annotations.ID{Kind: 12, Name: "foo"})
 	c.Assert(err, jc.ErrorIs, annotationerrors.UnknownKind)
 
 }
