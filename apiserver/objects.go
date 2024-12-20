@@ -252,7 +252,7 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 		return "", "", jujuerrors.BadRequestf("%q is not a valid charm object path", charmObjectID)
 	}
 	name, sha := charmObjectID[:splitIndex], charmObjectID[splitIndex+1:]
-	if len(sha) != 7 {
+	if len(sha) < corecharm.MinSHA256PrefixLength {
 		return "", "", jujuerrors.BadRequestf("invalid sha length: %q", sha)
 	}
 	return name, sha, nil
