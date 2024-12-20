@@ -15,6 +15,7 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
@@ -47,7 +48,10 @@ type NewObjectClientFunc func(url string, client s3client.HTTPClient, logger log
 
 // BlobRetriever is responsible for retrieving blobs from remote API servers.
 type BlobRetriever struct {
-	tomb             tomb.Tomb
+	tomb tomb.Tomb
+
+	namespace string
+
 	apiRemoteCallers apiremotecaller.APIRemoteCallers
 	newObjectClient  NewObjectClientFunc
 
@@ -56,8 +60,9 @@ type BlobRetriever struct {
 }
 
 // NewBlobRetriever creates a new BlobRetriever.
-func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *BlobRetriever {
+func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *BlobRetriever {
 	w := &BlobRetriever{
+		namespace:        namespace,
 		apiRemoteCallers: apiRemoteCallers,
 		newObjectClient:  newObjectClient,
 		clock:            clock,
@@ -83,7 +88,6 @@ func (r *BlobRetriever) RetrieveBlobFromRemote(ctx context.Context, sha256 strin
 	}
 
 	result := make(chan retrievalResult, len(conns))
-	defer close(result)
 
 	// This will cancel the context when the tomb is dying, or when the passed
 	// context is cancelled.
@@ -101,22 +105,30 @@ func (r *BlobRetriever) RetrieveBlobFromRemote(ctx context.Context, sha256 strin
 		}()
 	}
 
-	for res := range result {
+	// We want to run it like this so we can return the first successful result
+	// and close the other readers. If we use for range over the channel, we
+	// have no way to close the result.
+	for i := 0; i < len(conns); i++ {
 		select {
 		case <-ctx.Done():
 			return nil, -1, ctx.Err()
-		default:
-		}
+		case <-r.tomb.Dying():
+			return nil, -1, tomb.ErrDying
+		case res := <-result:
+			// If the blob is not found on that remote, continue to the next one
+			// until it is exhausted. This is a race to find it first.
+			if err := res.err; errors.Is(err, BlobNotFound) {
+				continue
+			} else if err != nil {
+				return nil, -1, err
+			}
 
-		// If the blob is not found on that remote, continue to the next one
-		// until it is exhausted.
-		if err := res.err; errors.Is(err, BlobNotFound) {
-			continue
-		} else if err != nil {
-			return nil, -1, err
-		}
+			// Cancel the other goroutines to prevent them from doing
+			// unnecessary work.
+			cancel()
 
-		return res.reader, res.size, nil
+			return res.reader, res.size, nil
+		}
 	}
 
 	return nil, -1, BlobNotFound
@@ -161,12 +173,20 @@ func (r *BlobRetriever) retrieveBlobFromRemote(ctx context.Context, remote apire
 				return err
 			}
 
-			modelTag, _ := conn.ModelTag()
-			reader, size, err = client.GetObject(ctx, modelTag.Id(), sha256)
+			namespace := r.namespace
+			if r.namespace == database.ControllerNS {
+				tag, _ := conn.ModelTag()
+				namespace = tag.Id()
+			}
+
+			reader, size, err = client.GetObject(ctx, namespace, sha256)
 			return err
 		},
 		IsFatalError: func(err error) bool {
 			return !errors.Is(err, NoRemoteConnection)
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			r.logger.Infof("Failed to retrieve blob from remote: %v (attempt %d)", lastError, attempt)
 		},
 		Clock:       r.clock,
 		Stop:        ctx.Done(),

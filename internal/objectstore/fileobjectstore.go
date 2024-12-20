@@ -72,12 +72,7 @@ type fileObjectStore struct {
 	namespace string
 	requests  chan request
 
-	// progressMarkers is a map of files that have been marked for download, but
-	// haven't been downloaded yet, but are in the process of being downloaded.
-	// This will prevent Remote API requests from being made for the same file
-	// multiple times.
-	progressMarkers map[string]struct{}
-	blobRetriever   BlobRetriever
+	blobRetriever BlobRetriever
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
@@ -93,10 +88,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
-		fs:              os.DirFS(path),
-		namespace:       cfg.Namespace,
-		blobRetriever:   cfg.BlobRetriever,
-		progressMarkers: make(map[string]struct{}),
+		fs:            os.DirFS(path),
+		namespace:     cfg.Namespace,
+		blobRetriever: cfg.BlobRetriever,
 
 		requests: make(chan request),
 	}
@@ -195,13 +189,17 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 
 // GetBySHA256 returns an io.ReadCloser for any object with the a SHA256
 // hash, namespaced to the model.
+// This will not attempt to retrieve the object from a remote API server. This
+// only looks in the local file store. The other methods will attempt to
+// retrieve the object from a remote API server if it's not found. This prevents
+// an infinite loop of trying to retrieve the object from the remote API server.
 //
 // If no object is found, an [objectstore.ObjectNotFound] error is returned.
 func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.getBySHA256(ctx, sha256, noFallbackStrategy); err == nil {
+	if reader, size, err := t.getBySHA256(ctx, sha256); err == nil {
 		return reader, size, nil
 	}
 
@@ -375,7 +373,7 @@ func (t *fileObjectStore) loop() error {
 				}
 
 			case opGetBySHA256:
-				reader, size, err := t.getBySHA256(ctx, req.sha256, remoteStrategy)
+				reader, size, err := t.getBySHA256(ctx, req.sha256)
 
 				select {
 				case <-t.catacomb.Dying():
@@ -474,7 +472,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string, strategy accessS
 	return t.getWithMetadata(ctx, metadata, strategy)
 }
 
-func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string, strategy accessStrategy) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
 	t.logger.Debugf("getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
@@ -484,7 +482,7 @@ func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string, strate
 		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata, strategy)
+	return t.getWithMetadata(ctx, metadata, noFallbackStrategy)
 }
 
 func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, strategy accessStrategy) (io.ReadCloser, int64, error) {
@@ -686,13 +684,6 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 }
 
 func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
-	// If we're already in the process of downloading the file, then we don't
-	// need to download it again. In this case, we'll return an error so that
-	// the client can retry the request.
-	if _, ok := t.progressMarkers[metadata.SHA384]; ok {
-		return nil, -1, errors.Errorf("get from remote: %w", objectstoreerrors.ObjectNotFound)
-	}
-
 	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
 	if err != nil {
 		return nil, -1, errors.Errorf("fetching blob from remote: %w", err)
@@ -747,21 +738,6 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 		return errors.Errorf("getting metadata for path %q: %w", path, err)
 	}
 
-	// Handle existing requests for the same underlying hash.
-	if _, ok := t.progressMarkers[metadata.SHA384]; ok {
-		// We're already in the process of downloading the file, so we don't
-		// need to do anything.
-		return nil
-	}
-	// Mark the file for download, so that we don't download it multiple times.
-	t.progressMarkers[metadata.SHA384] = struct{}{}
-	defer func() {
-		// Remove the progress marker, as we've either successfully downloaded
-		// the file, or we've failed to download the file which will allow it
-		// to be retried.
-		delete(t.progressMarkers, metadata.SHA384)
-	}()
-
 	// If the file already exists for the hash, we don't need to do anything,
 	// we've already written the file.
 	hash := selectFileHash(metadata)
@@ -803,7 +779,7 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 }
 
 func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("fetching object %q from remote", metadata.Path)
+	t.logger.Criticalf("fetching object %q from remote", metadata.Path)
 
 	ctx, cancel := context.WithTimeout(ctx, defaultRemoteTimeout)
 	defer cancel()
