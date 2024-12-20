@@ -26,6 +26,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -429,19 +430,29 @@ func (a *API) ProvisioningInfo(ctx context.Context, args params.Entities) (param
 	return result, nil
 }
 
-func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
-	app, err := a.state.Application(appName.Id())
+func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+	appName := appTag.Id()
+	app, err := a.state.Application(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	charmURL, _ := app.CharmURL()
-	if charmURL == nil {
-		return nil, errors.NotValidf("application charm url nil")
+	charmId, err := a.applicationService.GetCharmIDByApplicationName(ctx, appName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %s", appName)
+	} else if errors.Is(err, applicationerrors.CharmNotFound) {
+		return nil, errors.NotFoundf("charm for application %s", appName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	if app.CharmPendingToBeDownloaded() {
-		return nil, errors.NotProvisionedf("charm %q pending", *charmURL)
+	isAvailable, err := a.applicationService.IsCharmAvailable(ctx, charmId)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return nil, errors.NotFoundf("charm %s", charmId)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if !isAvailable {
+		return nil, errors.NotProvisionedf("charm for application %q", appName)
 	}
 
 	cfg, err := a.controllerConfigService.ControllerConfig(ctx)
@@ -459,7 +470,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		return nil, errors.Trace(err)
 	}
 
-	filesystemParams, err := a.applicationFilesystemParams(ctx, app, cfg, modelConfig, modelInfo.UUID)
+	filesystemParams, err := a.applicationFilesystemParams(ctx, app, appName, charmId, cfg, modelConfig, modelInfo.UUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -510,7 +521,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application config")
 	}
-	scale, err := a.applicationService.GetApplicationScale(ctx, appName.Id())
+	scale, err := a.applicationService.GetApplicationScale(ctx, appName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application scale")
 	}
@@ -518,6 +529,10 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
+	charmURL, _ := app.CharmURL()
+	if charmURL == nil {
+		return nil, errors.NotValidf("application charm url nil")
 	}
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
@@ -711,6 +726,8 @@ func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGette
 func (a *API) applicationFilesystemParams(
 	ctx context.Context,
 	app Application,
+	appName string,
+	charmId charm.ID,
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 	modelUUID model.UUID,
@@ -720,8 +737,10 @@ func (a *API) applicationFilesystemParams(
 		return nil, errors.Trace(err)
 	}
 
-	ch, _, err := app.Charm()
-	if err != nil {
+	charmStorage, err := a.applicationService.GetCharmMetadataStorage(ctx, charmId)
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		return nil, errors.NotFoundf("charm %s", charmId)
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -736,7 +755,7 @@ func (a *API) applicationFilesystemParams(
 		cons := storageConstraints[name]
 		fsParams, err := filesystemParams(
 			ctx,
-			app, cons, name,
+			appName, cons, name,
 			controllerConfig.ControllerUUID(),
 			modelConfig,
 			modelUUID,
@@ -746,17 +765,17 @@ func (a *API) applicationFilesystemParams(
 			return nil, errors.Annotatef(err, "getting filesystem %q parameters", name)
 		}
 		for i := 0; i < int(cons.Count); i++ {
-			charmStorage := ch.Meta().Storage[name]
+			storage := charmStorage[name]
 			id := fmt.Sprintf("%s/%v", name, i)
 			tag := names.NewStorageTag(id)
-			location, err := state.FilesystemMountPoint(charmStorage, tag, "ubuntu")
+			location, err := state.FilesystemMountPoint(storage, tag, "ubuntu")
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			filesystemAttachmentParams := params.KubernetesFilesystemAttachmentParams{
 				Provider:   fsParams.Provider,
 				MountPoint: location,
-				ReadOnly:   charmStorage.ReadOnly,
+				ReadOnly:   storage.ReadOnly,
 			}
 			fsParams.Attachment = &filesystemAttachmentParams
 			allFilesystemParams = append(allFilesystemParams, *fsParams)
@@ -767,7 +786,7 @@ func (a *API) applicationFilesystemParams(
 
 func filesystemParams(
 	ctx context.Context,
-	app Application,
+	appName string,
 	cons state.StorageConstraints,
 	storageName string,
 	controllerUUID string,
@@ -779,7 +798,7 @@ func filesystemParams(
 	if err != nil {
 		return nil, errors.Annotate(err, "computing storage tags")
 	}
-	filesystemTags[tags.JujuStorageOwner] = app.Name()
+	filesystemTags[tags.JujuStorageOwner] = appName
 
 	storageClassName, _ := modelConfig.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
 	if cons.Pool == "" && storageClassName == "" {
@@ -824,17 +843,32 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		app, err := a.state.Application(appTag.Id())
-		if err != nil {
+		appName := appTag.Id()
+		charmId, err := a.applicationService.GetCharmIDByApplicationName(ctx, appName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			err = errors.NotFoundf("application %s", appName)
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if errors.Is(err, applicationerrors.CharmNotFound) {
+			err = errors.NotFoundf("charm for application %s", appName)
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if err != nil {
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		ch, _, err := app.Charm()
-		if err != nil {
+
+		charmResources, err := a.applicationService.GetCharmMetadataResources(ctx, charmId)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			err = errors.NotFoundf("charm %s", charmId)
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if err != nil {
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		resourceClient, err := a.newResourceOpener(app.Name())
+
+		resourceClient, err := a.newResourceOpener(appName)
 		if err != nil {
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -842,7 +876,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 		imageResources := params.CAASApplicationOCIResources{
 			Images: make(map[string]params.DockerImageInfo),
 		}
-		for _, v := range ch.Meta().Resources {
+		for _, v := range charmResources {
 			if v.Type != charmresource.TypeContainerImage {
 				continue
 			}

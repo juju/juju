@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 
@@ -46,8 +45,6 @@ type Model interface {
 }
 
 type Application interface {
-	Charm() (ch Charm, force bool, err error)
-	CharmPendingToBeDownloaded() bool
 	SetOperatorStatus(status.StatusInfo) error
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
@@ -64,11 +61,6 @@ type Application interface {
 	ClearResources() error
 	Watch() state.NotifyWatcher
 	WatchUnits() state.StringsWatcher
-}
-
-type Charm interface {
-	Meta() *charm.Meta
-	URL() string
 }
 
 type Unit interface {
@@ -115,10 +107,6 @@ func (s stateShim) Unit(unitTag string) (Unit, error) {
 
 type applicationShim struct {
 	*state.Application
-}
-
-func (a *applicationShim) Charm() (Charm, bool, error) {
-	return a.Application.Charm()
 }
 
 func (a *applicationShim) ClearResources() error {

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	charm "github.com/juju/juju/core/charm"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
@@ -21,6 +22,8 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
+	charm0 "github.com/juju/juju/internal/charm"
+	resource "github.com/juju/juju/internal/charm/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -250,6 +253,51 @@ func (mr *MockApplicationServiceMockRecorder) GetApplicationScalingState(arg0, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScalingState", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationScalingState), arg0, arg1)
 }
 
+// GetCharmIDByApplicationName mocks base method.
+func (m *MockApplicationService) GetCharmIDByApplicationName(arg0 context.Context, arg1 string) (charm.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmIDByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(charm.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmIDByApplicationName indicates an expected call of GetCharmIDByApplicationName.
+func (mr *MockApplicationServiceMockRecorder) GetCharmIDByApplicationName(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmIDByApplicationName", reflect.TypeOf((*MockApplicationService)(nil).GetCharmIDByApplicationName), arg0, arg1)
+}
+
+// GetCharmMetadataResources mocks base method.
+func (m *MockApplicationService) GetCharmMetadataResources(arg0 context.Context, arg1 charm.ID) (map[string]resource.Meta, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmMetadataResources", arg0, arg1)
+	ret0, _ := ret[0].(map[string]resource.Meta)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmMetadataResources indicates an expected call of GetCharmMetadataResources.
+func (mr *MockApplicationServiceMockRecorder) GetCharmMetadataResources(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmMetadataResources", reflect.TypeOf((*MockApplicationService)(nil).GetCharmMetadataResources), arg0, arg1)
+}
+
+// GetCharmMetadataStorage mocks base method.
+func (m *MockApplicationService) GetCharmMetadataStorage(arg0 context.Context, arg1 charm.ID) (map[string]charm0.Storage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmMetadataStorage", arg0, arg1)
+	ret0, _ := ret[0].(map[string]charm0.Storage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmMetadataStorage indicates an expected call of GetCharmMetadataStorage.
+func (mr *MockApplicationServiceMockRecorder) GetCharmMetadataStorage(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmMetadataStorage", reflect.TypeOf((*MockApplicationService)(nil).GetCharmMetadataStorage), arg0, arg1)
+}
+
 // GetUnitLife mocks base method.
 func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
@@ -263,6 +311,21 @@ func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Nam
 func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
+}
+
+// IsCharmAvailable mocks base method.
+func (m *MockApplicationService) IsCharmAvailable(arg0 context.Context, arg1 charm.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCharmAvailable", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsCharmAvailable indicates an expected call of IsCharmAvailable.
+func (mr *MockApplicationServiceMockRecorder) IsCharmAvailable(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCharmAvailable", reflect.TypeOf((*MockApplicationService)(nil).IsCharmAvailable), arg0, arg1)
 }
 
 // RemoveUnit mocks base method.

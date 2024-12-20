@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -71,36 +72,44 @@ type CharmState interface {
 	// GetCharmMetadata returns the metadata for the charm using the charm ID.
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmMetadata(ctx context.Context, charmID corecharm.ID) (charm.Metadata, error)
+	GetCharmMetadata(context.Context, corecharm.ID) (charm.Metadata, error)
+
+	// GetCharmMetadataName returns the name for the charm using the charm ID.
+	GetCharmMetadataName(context.Context, corecharm.ID) (string, error)
+
+	// GetCharmMetadataDescription returns the description for the charm using
+	// the charm ID.
+	GetCharmMetadataDescription(context.Context, corecharm.ID) (string, error)
+
+	// GetCharmMetadataStorage returns the storage specification for the charm
+	// using the charm ID.
+	GetCharmMetadataStorage(context.Context, corecharm.ID) (map[string]charm.Storage, error)
+
+	// GetCharmMetadataResources returns the specifications for the resources for
+	// the charm using the charm ID.
+	GetCharmMetadataResources(ctx context.Context, id corecharm.ID) (map[string]charm.Resource, error)
 
 	// GetCharmManifest returns the manifest for the charm using the charm ID.
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmManifest(ctx context.Context, charmID corecharm.ID) (charm.Manifest, error)
-
-	// GetCharmMetadataName returns the name for the charm using the charm ID.
-	GetCharmMetadataName(ctx context.Context, charmID corecharm.ID) (string, error)
-
-	// GetCharmMetadataDescription returns the description for the charm using
-	// the charm ID.
-	GetCharmMetadataDescription(ctx context.Context, charmID corecharm.ID) (string, error)
+	GetCharmManifest(context.Context, corecharm.ID) (charm.Manifest, error)
 
 	// GetCharmActions returns the actions for the charm using the charm ID. If
 	// the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmActions(ctx context.Context, charmID corecharm.ID) (charm.Actions, error)
+	GetCharmActions(context.Context, corecharm.ID) (charm.Actions, error)
 
 	// GetCharmConfig returns the config for the charm using the charm ID. If
 	// the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmConfig(ctx context.Context, charmID corecharm.ID) (charm.Config, error)
+	GetCharmConfig(context.Context, corecharm.ID) (charm.Config, error)
 
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm ID. The revision
 	//
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, charm.Revision, error)
+	GetCharmLXDProfile(context.Context, corecharm.ID) ([]byte, charm.Revision, error)
 
 	// GetCharmArchivePath returns the archive storage path for the charm using
 	// the charm ID. If the charm does not exist, a
@@ -355,6 +364,50 @@ func (s *Service) GetCharmMetadataDescription(ctx context.Context, id corecharm.
 		return "", errors.Trace(err)
 	}
 	return description, nil
+}
+
+// GetCharmMetadataStorage returns the storage specification for the charm using
+// the charm ID.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *Service) GetCharmMetadataStorage(ctx context.Context, id corecharm.ID) (map[string]internalcharm.Storage, error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("charm id: %w", err)
+	}
+
+	storage, err := s.st.GetCharmMetadataStorage(ctx, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	decoded, err := decodeMetadataStorage(storage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decoded, nil
+}
+
+// GetCharmMetadataResources returns the specifications for the resources for the
+// charm using the charm ID.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *Service) GetCharmMetadataResources(ctx context.Context, id corecharm.ID) (map[string]resource.Meta, error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("charm id: %w", err)
+	}
+
+	resources, err := s.st.GetCharmMetadataResources(ctx, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	decoded, err := decodeMetadataResources(resources)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decoded, nil
 }
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.
