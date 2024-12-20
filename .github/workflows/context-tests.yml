@@ -23,6 +23,7 @@ jobs:
       check-terraform: ${{ steps.filter-files.outputs.check-terraform }}
       check-snap: ${{ steps.filter-files.outputs.check-snap }}
       check-generate: ${{ steps.filter-files.outputs.check-generate }}
+      check-docs: ${{ steps.filter-files.outputs.check-docs }}
     steps:
       - name: Filter Files
         id: filter-files
@@ -76,6 +77,10 @@ jobs:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/gen.yml'
+            check-docs:
+              - '**.go'
+              - 'go.mod'
+              - '.github/workflows/docs.yml'
 
   build:
     needs: [changed-files]
@@ -94,6 +99,12 @@ jobs:
     name: Generate
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-generate == 'true'
     uses: ./.github/workflows/gen.yml
+
+  docs:
+    needs: [changed-files]
+    name: Documentation
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-docs == 'true'
+    uses: ./.github/workflows/docs.yml
 
   client:
     needs: [changed-files]
@@ -121,7 +132,7 @@ jobs:
     uses: ./.github/workflows/upgrade.yml
 
   result-check:
-    needs: [build,snap,generate,client,terraform,migrate,upgrade]
+    needs: [build,snap,generate,docs,client,terraform,migrate,upgrade]
     runs-on: ubuntu-latest
     name: Check Tests Passed
     if: always() && !cancelled()
@@ -133,6 +144,7 @@ jobs:
             if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
                 && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
                 && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
+                && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
                 && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
                 && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
                 && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \

@@ -1,5 +1,3 @@
-/user/reference/juju-cli/list-of-juju-cli-commands/*
-
 # Starter pack rules start here
 /*env*/
 .sphinx/venv/
