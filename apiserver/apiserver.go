@@ -846,8 +846,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "units")
 
 	objectsHTTPHandler := srv.monitoredHandler(&objectsHTTPHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		ctxt:              httpCtxt,
+		stateAuthFunc:     httpCtxt.stateForMigrationImporting,
+		objectStoreGetter: httpCtxt.objectStoreForRequest,
 	}, "objects")
 
 	controllerAdminAuthorizer := controllerAdminAuthorizer{

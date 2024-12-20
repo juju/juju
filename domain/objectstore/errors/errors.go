@@ -28,4 +28,7 @@ const (
 	// ErrInvalidHashPrefix is returned when the hash prefix is invalid for a reason
 	// other than being too short.
 	ErrInvalidHashPrefix = errors.ConstError("hash prefix invalid")
+
+	// ErrInvalidHash is returned when the hash is invalid.
+	ErrInvalidHash = errors.ConstError("invalid hash")
 )

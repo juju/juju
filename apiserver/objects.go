@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -281,23 +282,7 @@ func CharmURLFromLocatorDuringMigration(locator applicationcharm.CharmLocator, i
 type objectsHTTPHandler struct {
 	ctxt              httpContext
 	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
-	objectStoreGetter ObjectStoreServiceGetter
-}
-
-// ObjectStoreService is an interface for the object store domain service.
-type ObjectStoreService interface {
-	// GetObjectBySHA256 returns a ReadCloser stream for the object.
-	//
-	// If the object does not exist, a [objectstoreerrors.NotFound] error is
-	// returned.
-	GetObjectBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, error)
-}
-
-// ObjectStoreServiceGetter is an interface for getting an ApplicationService.
-type ObjectStoreServiceGetter interface {
-
-	// ObjectStore returns the model's application service.
-	ObjectStore(context.Context) (ObjectStoreService, error)
+	objectStoreGetter func(context.Context) (objectstore.ObjectStore, error)
 }
 
 func (h *objectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -323,7 +308,7 @@ func (h *objectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
 func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	service, err := h.objectStoreGetter.ObjectStore(r.Context())
+	service, err := h.objectStoreGetter(r.Context())
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -334,7 +319,7 @@ func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 		return jujuerrors.BadRequestf("missing object sha256")
 	}
 
-	reader, err := service.GetObjectBySHA256(r.Context(), sha256)
+	reader, _, err := service.GetBySHA256(r.Context(), sha256)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return jujuerrors.NotFoundf("object")
 	}

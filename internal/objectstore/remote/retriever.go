@@ -133,11 +133,9 @@ func (r *BlobRetriever) Wait() error {
 }
 
 func (r *BlobRetriever) loop() error {
-	for {
-		select {
-		case <-r.tomb.Dying():
-			return tomb.ErrDying
-		}
+	select {
+	case <-r.tomb.Dying():
+		return tomb.ErrDying
 	}
 }
 
@@ -172,9 +170,9 @@ func (r *BlobRetriever) retrieveBlobFromRemote(ctx context.Context, remote apire
 		},
 		Clock:       r.clock,
 		Stop:        ctx.Done(),
-		Attempts:    10,
-		Delay:       time.Millisecond * 100,
-		MaxDelay:    time.Second,
+		Attempts:    20,
+		Delay:       time.Millisecond * 500,
+		MaxDelay:    time.Second * 5,
 		MaxDuration: time.Minute,
 	}); err != nil {
 		return nil, -1, err

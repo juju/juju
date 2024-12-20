@@ -29,7 +29,7 @@ type WorkerConfig struct {
 	Logger logger.Logger
 
 	APIInfo   *api.Info
-	NewRemote func(RemoteServerConfig) (RemoteServer, error)
+	NewRemote func(RemoteServerConfig) RemoteServer
 }
 
 // Validate checks that all the values have been set.
@@ -159,10 +159,8 @@ func (w *remoteWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case change, ok := <-w.changes:
-			if !ok {
-				return nil
-			}
+		case change := <-w.changes:
+			w.cfg.Logger.Debugf("remoteWorker API server change: %v", change)
 
 			// Locate the current workers, so we can remove any workers that are
 			// no longer required.
@@ -173,6 +171,7 @@ func (w *remoteWorker) loop() error {
 
 				server, err := w.newRemoteServer(target, addresses)
 				if err != nil {
+					w.cfg.Logger.Errorf("failed to start remote worker for %q: %v", target, err)
 					return errors.Trace(err)
 				}
 
@@ -191,6 +190,7 @@ func (w *remoteWorker) loop() error {
 				if err != nil {
 					// This really should never happen, but if it does, bounce
 					// the worker and start again.
+					w.cfg.Logger.Errorf("failed to parse tag %q: %v", s, err)
 					return errors.Trace(err)
 				}
 
@@ -198,6 +198,7 @@ func (w *remoteWorker) loop() error {
 					continue
 				}
 
+				w.cfg.Logger.Debugf("remote worker %q no longer required", target)
 				w.stopRemoteServer(ctx, target)
 			}
 
@@ -258,16 +259,19 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 	// We must dispatch every time we get a change, as the API server might
 	// actually be moving from HA to non-HA and we need to update the workers
 	// accordingly. This involves the clearing out of the old workers.
-	w.changes <- serverChanges{
+	select {
+	case <-w.catacomb.Dying():
+		return
+	case w.changes <- serverChanges{
 		servers: changes,
 		origin:  origin,
+	}:
 	}
 }
 
 func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (RemoteServer, error) {
 	// Create a new remote server APIInfo with the target and addresses.
 	apiInfo := *w.cfg.APIInfo
-	apiInfo.Tag = target
 	apiInfo.Addrs = addresses
 
 	// Start a new worker with the target and addresses.
@@ -276,8 +280,9 @@ func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (Re
 		return w.cfg.NewRemote(RemoteServerConfig{
 			Clock:   w.cfg.Clock,
 			Logger:  w.cfg.Logger,
+			Target:  target,
 			APIInfo: &apiInfo,
-		})
+		}), nil
 	})
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Trace(err)

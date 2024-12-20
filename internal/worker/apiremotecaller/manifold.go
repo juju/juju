@@ -62,12 +62,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				Origin:    agentConfig.Tag(),
-				Clock:     config.Clock,
 				Hub:       hub,
 				APIInfo:   apiInfo,
+				Origin:    agentConfig.Tag(),
 				NewRemote: NewRemoteServer,
 				Logger:    config.Logger,
+				Clock:     config.Clock,
 			}
 
 			w, err := config.NewWorker(cfg)
