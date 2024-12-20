@@ -597,6 +597,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 			Constraints: params.Constraints,
 		})
 	}
+
+	charmMeta := &charm.Meta{}
 	if factory.applicationService != nil {
 		chOrigin := params.Application.CharmOrigin()
 		cons, err := params.Application.StorageConstraints()
@@ -624,13 +626,16 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		if !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
+		charmMeta = ch.Meta()
 	}
 	if params.Password == "" {
 		var err error
 		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Application.AddUnit(state.AddUnitParams{})
+	unit, err := params.Application.AddUnit(state.AddUnitParams{
+		CharmMeta: charmMeta,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	if factory.applicationService != nil {
 		err = factory.applicationService.AddUnits(context.Background(), params.Application.Name(), applicationservice.AddUnitArg{

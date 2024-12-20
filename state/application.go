@@ -2017,6 +2017,7 @@ func (a *Application) addUnitOps(
 			ports:              args.Ports,
 			unitName:           args.UnitName,
 			passwordHash:       args.PasswordHash,
+			charmMeta:          args.CharmMeta,
 		},
 	)
 	if err != nil {
@@ -2360,6 +2361,10 @@ type AddUnitParams struct {
 
 	// PasswordHash is only passed for CAAS sidecar units on creation.
 	PasswordHash *string
+
+	// We need charm Meta to add the unit storage and we can't retrieve it
+	// from the legacy state so we must pass it here.
+	CharmMeta *charm.Meta
 }
 
 // AddUnit adds a new principal unit to the application.
