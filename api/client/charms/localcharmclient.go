@@ -19,6 +19,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
@@ -179,5 +180,5 @@ func hashArchive(archive *os.File) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
+	return hex.EncodeToString(hash.Sum(nil))[0:corecharm.MinSHA256PrefixLength], nil
 }

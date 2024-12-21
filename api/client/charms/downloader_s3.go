@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/downloader"
 )
@@ -51,10 +52,10 @@ type s3charmOpener struct {
 
 func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error) {
 	// Retrieve first 8 characters of the charm archive sha256
-	if len(req.ArchiveSha256) < 8 {
+	if len(req.ArchiveSha256) < corecharm.MinSHA256PrefixLength {
 		return nil, errors.NotValidf("download request with archiveSha256 length %d", len(req.ArchiveSha256))
 	}
-	shortSha256 := req.ArchiveSha256[0:8]
+	shortSha256 := req.ArchiveSha256[0:corecharm.MinSHA256PrefixLength]
 	// Retrieve charms name
 	curl, err := charm.ParseURL(req.URL.String())
 	if err != nil {
