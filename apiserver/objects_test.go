@@ -75,7 +75,7 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *gc.C) {
 
 	s.expectApplicationService()
 
-	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "0abcdef").Return(io.NopCloser(strings.NewReader("charm-content")), nil)
+	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").Return(io.NopCloser(strings.NewReader("charm-content")), nil)
 
 	handlers := &objectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
@@ -85,7 +85,7 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *gc.C) {
 	defer s.mux.RemoveHandler("GET", charmsObjectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hashPrefix := "0abcdef"
+	hashPrefix := "01abcdef"
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Get(url)
@@ -102,7 +102,7 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *gc.C) {
 
 	s.expectApplicationService()
 
-	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "0abcdef").Return(nil, applicationerrors.CharmNotFound)
+	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").Return(nil, applicationerrors.CharmNotFound)
 
 	handlers := &objectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
@@ -112,7 +112,7 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *gc.C) {
 	defer s.mux.RemoveHandler("GET", charmsObjectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hashPrefix := "0abcdef"
+	hashPrefix := "01abcdef"
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	resp, err := http.Get(url)
@@ -132,7 +132,7 @@ func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *gc.C) {
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hashPrefix := "0abcdef"
+	hashPrefix := "01abcdef"
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
@@ -161,7 +161,7 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *gc.C) {
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hashPrefix := "0abcdef"
+	hashPrefix := "01abcdef"
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
@@ -220,7 +220,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *gc.C) {
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hashPrefix := "0abcdef"
+	hashPrefix := "01abcdef"
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm_%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))
@@ -251,7 +251,7 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hashPrefix := "0abcdef"
+	hashPrefix := "01abcdef"
 
 	url := fmt.Sprintf("%s/model-%s/charms/testcharm-%s", s.srv.URL, modelUUID, hashPrefix)
 	req, err := http.NewRequest("PUT", url, strings.NewReader("charm-content"))

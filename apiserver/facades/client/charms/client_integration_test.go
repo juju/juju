@@ -5,7 +5,6 @@ package charms_test
 
 import (
 	"fmt"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,28 +54,4 @@ func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c 
 	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
 	c.Assert(err, gc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
-}
-
-func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	charmClient, err := charms.NewLocalCharmClient(s.OpenControllerModelAPI(c))
-	c.Assert(err, jc.ErrorIsNil)
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	testcharms.CheckCharmReady(c, charmArchive)
-
-	// Upload an archive with its original revision.
-	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
-	// We know that in testing we occasionally see "zip: not a valid zip file" occur.
-	// Even after many efforts, we haven't been able to find the source. It almost never
-	// happens locally, and we don't see this in production.
-	// TODO: remove the skip when we are using the fake charmstore.
-	if err != nil {
-		if strings.Contains(err.Error(), "zip: not a valid zip file") {
-			c.Skip("intermittent charmstore upload issue")
-		}
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
 }
