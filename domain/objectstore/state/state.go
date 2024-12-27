@@ -198,6 +198,12 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 			} else if err != nil {
 				return errors.Annotatef(err, "inserting metadata")
 			}
+			// At this point we need to update the uuid that we'll
+			// return back to be the one that was already in the db.
+			uuid, err = coreobjectstore.ParseUUID(dbMetadataPath.UUID)
+			if err != nil {
+				return errors.Annotatef(err, "parsing present uuid in metadata")
+			}
 		}
 
 		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)

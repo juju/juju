@@ -191,11 +191,13 @@ func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *gc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(context.Background(), metadata1)
+	uuid1, err := st.PutMetadata(context.Background(), metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.PutMetadata(context.Background(), metadata2)
+	uuid2, err := st.PutMetadata(context.Background(), metadata2)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(uuid1, gc.Equals, uuid2)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *gc.C) {
@@ -214,11 +216,13 @@ func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *gc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(context.Background(), metadata1)
+	uuid1, err := st.PutMetadata(context.Background(), metadata1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.PutMetadata(context.Background(), metadata2)
+	uuid2, err := st.PutMetadata(context.Background(), metadata2)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(uuid1, gc.Equals, uuid2)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
