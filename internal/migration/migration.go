@@ -386,7 +386,7 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 		}
 		defer func() { _ = reader.Close() }()
 
-		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:7])
+		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:8])
 		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
 		} else if usedCurl != charmURL {

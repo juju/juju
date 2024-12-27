@@ -16,6 +16,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -68,7 +69,7 @@ type ApplicationService interface {
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
 type ApplicationServiceGetter interface {
 	// Application returns the model's application service.
-	Application(context.Context) (ApplicationService, error)
+	Application(*http.Request) (ApplicationService, error)
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +100,7 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
 func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	applicationService, err := h.applicationServiceGetter.Application(r.Context())
+	applicationService, err := h.applicationServiceGetter.Application(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -147,7 +148,7 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	ctx, cancel := context.WithTimeout(r.Context(), uploadTimeout)
 	defer cancel()
 
-	applicationService, err := h.applicationServiceGetter.Application(ctx)
+	applicationService, err := h.applicationServiceGetter.Application(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -217,6 +218,7 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		Importing: isImporting,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
+		logger.Criticalf("charm not found on object store")
 		return nil, jujuerrors.NotFoundf("charm")
 	} else if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		return nil, jujuerrors.AlreadyExistsf("charm")
@@ -322,8 +324,8 @@ type applicationServiceGetter struct {
 	ctxt httpContext
 }
 
-func (a *applicationServiceGetter) Application(ctx context.Context) (ApplicationService, error) {
-	domainServices, err := a.ctxt.domainServicesForRequest(ctx)
+func (a *applicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesForRequest(r.Context())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -331,6 +333,19 @@ func (a *applicationServiceGetter) Application(ctx context.Context) (Application
 	return domainServices.Application(), nil
 }
 
+type migratingApplicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *migratingApplicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
+	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
+	if err := model.UUID(modelUUID).Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	domainServices := a.ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID))
+	return domainServices.Application(), nil
+}
 func convertSource(source applicationcharm.CharmSource) (string, error) {
 	switch source {
 	case applicationcharm.CharmHubSource:

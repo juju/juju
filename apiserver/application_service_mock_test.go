@@ -44,7 +44,7 @@ func (m *MockApplicationServiceGetter) EXPECT() *MockApplicationServiceGetterMoc
 }
 
 // Application mocks base method.
-func (m *MockApplicationServiceGetter) Application(arg0 context.Context) (ApplicationService, error) {
+func (m *MockApplicationServiceGetter) Application(arg0 *http.Request) (ApplicationService, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
 	ret0, _ := ret[0].(ApplicationService)
@@ -71,13 +71,13 @@ func (c *MockApplicationServiceGetterApplicationCall) Return(arg0 ApplicationSer
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetterApplicationCall) Do(f func(context.Context) (ApplicationService, error)) *MockApplicationServiceGetterApplicationCall {
+func (c *MockApplicationServiceGetterApplicationCall) Do(f func(*http.Request) (ApplicationService, error)) *MockApplicationServiceGetterApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetterApplicationCall) DoAndReturn(f func(context.Context) (ApplicationService, error)) *MockApplicationServiceGetterApplicationCall {
+func (c *MockApplicationServiceGetterApplicationCall) DoAndReturn(f func(*http.Request) (ApplicationService, error)) *MockApplicationServiceGetterApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
