@@ -33,9 +33,9 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 		{
 			name: "invalid ArchiveSha256 in request",
 			req: downloader.Request{
-				ArchiveSha256: "abcd012",
+				ArchiveSha256: "abcd01",
 			},
-			expectedErrPattern: "download request with archiveSha256 length 7 not valid",
+			expectedErrPattern: "download request with archiveSha256 length 6 not valid",
 		},
 		{
 			name: "invalid URL in request",
@@ -58,7 +58,7 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 
 				modelTag := names.NewModelTag("testmodel")
 				mockCaller.EXPECT().ModelTag().Return(modelTag, true)
-				mockGetter.EXPECT().GetCharm(gomock.Any(), "testmodel", "mycharm-abcd0123").MinTimes(1).Return(nil, nil)
+				mockGetter.EXPECT().GetCharm(gomock.Any(), "testmodel", "mycharm-abcd012").MinTimes(1).Return(nil, nil)
 			},
 		},
 	}

@@ -31,7 +31,7 @@ const (
 	CharmHub Source = "charm-hub"
 )
 
-const MinSHA256PrefixLength = 8
+const MinSHA256PrefixLength = 7
 
 // Origin holds the original source of a charm. Information about where the
 // charm was installed from (charm-hub, local) and any additional
