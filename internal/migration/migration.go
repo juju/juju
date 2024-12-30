@@ -389,7 +389,16 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:8])
 		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
-		} else if usedCurl != charmURL {
+		} else if usedCurl != charmURL && charmSource != domaincharm.LocalSource {
+			// NOTE(nvinuesa): This check is no longer possible for
+			// local charms because the returned URL from the
+			// Upload endpoint contains the architecture and the
+			// URL from the deserialized application does not.
+			// Once the full application is serialized from the
+			// domain, we will be able to reinstate this (i.e.
+			// remove the charmSource != domaincharm.LocalSource
+			// check).
+
 			// The target controller shouldn't assign a different charm URL.
 			return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
 		}
