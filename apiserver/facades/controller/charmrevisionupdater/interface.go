@@ -12,14 +12,12 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/state"
 )
 
 // State is the subset of *state.State that we need.
 type State interface {
-	AddCharmPlaceholder(curl *charm.URL) error
 	AllApplications() ([]Application, error)
 	Charm(curl string) (state.CharmRefFull, error)
 	ControllerUUID() string

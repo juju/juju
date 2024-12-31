@@ -45,45 +45,6 @@ func (m *MockBackendState) EXPECT() *MockBackendStateMockRecorder {
 	return m.recorder
 }
 
-// AddCharmMetadata mocks base method.
-func (m *MockBackendState) AddCharmMetadata(arg0 state.CharmInfo) (state.CharmRefFull, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmMetadata", arg0)
-	ret0, _ := ret[0].(state.CharmRefFull)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddCharmMetadata indicates an expected call of AddCharmMetadata.
-func (mr *MockBackendStateMockRecorder) AddCharmMetadata(arg0 any) *MockBackendStateAddCharmMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockBackendState)(nil).AddCharmMetadata), arg0)
-	return &MockBackendStateAddCharmMetadataCall{Call: call}
-}
-
-// MockBackendStateAddCharmMetadataCall wrap *gomock.Call
-type MockBackendStateAddCharmMetadataCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendStateAddCharmMetadataCall) Return(arg0 state.CharmRefFull, arg1 error) *MockBackendStateAddCharmMetadataCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendStateAddCharmMetadataCall) Do(f func(state.CharmInfo) (state.CharmRefFull, error)) *MockBackendStateAddCharmMetadataCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendStateAddCharmMetadataCall) DoAndReturn(f func(state.CharmInfo) (state.CharmRefFull, error)) *MockBackendStateAddCharmMetadataCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Application mocks base method.
 func (m *MockBackendState) Application(arg0 string) (interfaces.Application, error) {
 	m.ctrl.T.Helper()

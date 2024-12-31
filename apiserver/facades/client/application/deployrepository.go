@@ -55,7 +55,6 @@ type DeployFromRepository interface {
 // objects.
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
 

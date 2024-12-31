@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type charmsMockSuite struct {
@@ -239,18 +238,6 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			ResolvedOrigin: resolvedOrigin,
 		},
 	}, nil)
-
-	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
-		func(ci state.CharmInfo) (state.CharmRefFull, error) {
-			c.Check(ci.ID, gc.DeepEquals, curl.String())
-			// Check that the essential metadata matches what
-			// the repository returned. We use pointer checks here.
-			c.Check(ci.Charm.Meta(), gc.Equals, expMeta)
-			c.Check(ci.Charm.Manifest(), gc.Equals, expManifest)
-			c.Check(ci.Charm.Config(), gc.Equals, expConfig)
-			return nil, nil
-		},
-	)
 
 	s.applicationService.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.SetCharmArgs) (corecharm.ID, []string, error) {
 		c.Check(args.Charm.Meta(), gc.Equals, expMeta)

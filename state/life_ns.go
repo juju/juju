@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
@@ -23,20 +22,6 @@ type nsLife_ struct{}
 // Both the namespacing and the explicit Collection->op approach seem
 // to be good ideas, and should ideally be extended as we continue.
 var nsLife = nsLife_{}
-
-// aliveOp returns errNotAlive if the identified entity is not Alive; or
-// a txn.Op that will fail if the condition no longer holds.
-func (nsLife_) aliveOp(entities mongo.Collection, docID string) (txn.Op, error) {
-	op, err := nsLife.checkOp(entities, docID, nsLife.alive())
-	switch errors.Cause(err) {
-	case nil:
-	case errCheckFailed:
-		return txn.Op{}, notAliveErr
-	default:
-		return txn.Op{}, errors.Trace(err)
-	}
-	return op, nil
-}
 
 // notDeadOp returns errDeadOrGone if the identified entity is not Alive
 // or Dying, or a txn.Op that will fail if the condition no longer
@@ -68,27 +53,6 @@ func (nsLife_) checkOp(entities mongo.Collection, docID string, check bson.D) (t
 		Id:     docID,
 		Assert: check,
 	}, nil
-}
-
-func (nsLife_) read(entities mongo.Collection, docID string) (Life, error) {
-	var doc struct {
-		Life Life `bson:"life"`
-	}
-	err := entities.FindId(docID).One(&doc)
-	switch errors.Cause(err) {
-	case nil:
-	case mgo.ErrNotFound:
-		return Dead, errors.NotFoundf("entity")
-	default:
-		return Dead, errors.Trace(err)
-	}
-	return doc.Life, nil
-}
-
-// alive returns a selector that matches only documents whose life
-// field is set to Alive.
-func (nsLife_) alive() bson.D {
-	return bson.D{{"life", Alive}}
 }
 
 // notDead returns a selector that matches only documents whose life

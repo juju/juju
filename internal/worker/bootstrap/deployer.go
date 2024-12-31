@@ -57,9 +57,6 @@ type SystemState interface {
 	Unit(string) (bootstrap.Unit, error)
 	// Machine returns the machine with the given id.
 	Machine(string) (bootstrap.Machine, error)
-	// PrepareLocalCharmUpload returns the charm URL that should be used to
-	// upload the charm.
-	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
 	// ApplyOperation applies the given operation.
 	ApplyOperation(*state.UpdateUnitOperation) error
 	// CloudService returns the cloud service for the given cloud.
