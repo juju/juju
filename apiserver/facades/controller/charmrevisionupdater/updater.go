@@ -87,10 +87,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions(ctx context.Context) e
 	resources := api.state.Resources(api.store)
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
-		if err := api.state.AddCharmPlaceholder(info.url); err != nil {
-			return errors.Trace(err)
-		}
-
+		// TODO(nvinuesa): We don't have any placeholder written on the legacy state anymore, this will be reinstated in the charm domain.
 		// Then save the resources
 		err := resources.SetCharmStoreResources(info.appID, info.resources, info.timestamp)
 		if err != nil {

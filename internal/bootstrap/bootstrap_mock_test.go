@@ -1535,45 +1535,6 @@ func (c *MockCharmUploaderModelUUIDCall) DoAndReturn(f func() string) *MockCharm
 	return c
 }
 
-// PrepareLocalCharmUpload mocks base method.
-func (m *MockCharmUploader) PrepareLocalCharmUpload(arg0 string) (*charm0.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareLocalCharmUpload", arg0)
-	ret0, _ := ret[0].(*charm0.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareLocalCharmUpload indicates an expected call of PrepareLocalCharmUpload.
-func (mr *MockCharmUploaderMockRecorder) PrepareLocalCharmUpload(arg0 any) *MockCharmUploaderPrepareLocalCharmUploadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareLocalCharmUpload", reflect.TypeOf((*MockCharmUploader)(nil).PrepareLocalCharmUpload), arg0)
-	return &MockCharmUploaderPrepareLocalCharmUploadCall{Call: call}
-}
-
-// MockCharmUploaderPrepareLocalCharmUploadCall wrap *gomock.Call
-type MockCharmUploaderPrepareLocalCharmUploadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCharmUploaderPrepareLocalCharmUploadCall) Return(arg0 *charm0.URL, arg1 error) *MockCharmUploaderPrepareLocalCharmUploadCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCharmUploaderPrepareLocalCharmUploadCall) Do(f func(string) (*charm0.URL, error)) *MockCharmUploaderPrepareLocalCharmUploadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmUploaderPrepareLocalCharmUploadCall) DoAndReturn(f func(string) (*charm0.URL, error)) *MockCharmUploaderPrepareLocalCharmUploadCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockApplicationService is a mock of ApplicationService interface.
 type MockApplicationService struct {
 	ctrl     *gomock.Controller

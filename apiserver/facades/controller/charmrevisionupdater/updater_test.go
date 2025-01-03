@@ -23,7 +23,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -99,8 +98,6 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 		makeApplication(ctrl, "ch", "mysql", "charm-1", "app-1", 22),
 		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 41),
 	}, nil).AnyTimes()
-	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
-	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
 	result, err := s.api(c).UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,8 +168,6 @@ func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controlle
 		makeApplication(ctrl, "ch", "mysql", "charm-1", "app-1", 22),
 		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 41),
 	}, nil).AnyTimes()
-	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
-	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
 	result, err := s.api(c).UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -285,8 +280,6 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 		makeApplication(ctrl, "ch", "resourcey", "charm-3", "app-1", 1),
 	}, nil).AnyTimes()
 
-	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:resourcey-1")).Return(nil)
-
 	result, err := s.api(c).UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -311,7 +304,6 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
 		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 42),
 	}, nil).AnyTimes()
-	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
 	result, err := s.api(c).UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

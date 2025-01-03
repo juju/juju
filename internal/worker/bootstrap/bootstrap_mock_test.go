@@ -478,45 +478,6 @@ func (c *MockSystemStateMachineCall) DoAndReturn(f func(string) (bootstrap.Machi
 	return c
 }
 
-// PrepareLocalCharmUpload mocks base method.
-func (m *MockSystemState) PrepareLocalCharmUpload(arg0 string) (*charm0.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareLocalCharmUpload", arg0)
-	ret0, _ := ret[0].(*charm0.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareLocalCharmUpload indicates an expected call of PrepareLocalCharmUpload.
-func (mr *MockSystemStateMockRecorder) PrepareLocalCharmUpload(arg0 any) *MockSystemStatePrepareLocalCharmUploadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareLocalCharmUpload", reflect.TypeOf((*MockSystemState)(nil).PrepareLocalCharmUpload), arg0)
-	return &MockSystemStatePrepareLocalCharmUploadCall{Call: call}
-}
-
-// MockSystemStatePrepareLocalCharmUploadCall wrap *gomock.Call
-type MockSystemStatePrepareLocalCharmUploadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStatePrepareLocalCharmUploadCall) Return(arg0 *charm0.URL, arg1 error) *MockSystemStatePrepareLocalCharmUploadCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStatePrepareLocalCharmUploadCall) Do(f func(string) (*charm0.URL, error)) *MockSystemStatePrepareLocalCharmUploadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStatePrepareLocalCharmUploadCall) DoAndReturn(f func(string) (*charm0.URL, error)) *MockSystemStatePrepareLocalCharmUploadCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SaveCloudService mocks base method.
 func (m *MockSystemState) SaveCloudService(arg0 state.SaveCloudServiceArgs) (*state.CloudService, error) {
 	m.ctrl.T.Helper()

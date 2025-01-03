@@ -11,7 +11,6 @@ import (
 )
 
 type BackendState interface {
-	AddCharmMetadata(state.CharmInfo) (state.CharmRefFull, error)
 	Application(string) (Application, error)
 	Charm(curl string) (state.CharmRefFull, error)
 	ControllerTag() names.ControllerTag

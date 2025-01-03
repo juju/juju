@@ -128,7 +128,6 @@ type HTTPClient interface {
 // CharmUploader is an interface that is used to update the charm in
 // state and upload it to the object store.
 type CharmUploader interface {
-	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
 	ModelUUID() string
 }
 
@@ -468,13 +467,6 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 
 	stateOrigin.Hash = ""
 	stateOrigin.ID = ""
-
-	if info.URL.Schema == charm.Local.String() {
-		_, err = b.charmUploader.PrepareLocalCharmUpload(info.URL.String())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 
 	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,

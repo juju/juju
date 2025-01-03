@@ -24,7 +24,6 @@ var (
 	machineNotAliveErr     = stateerrors.NewNotAliveError("machine")
 	applicationNotAliveErr = stateerrors.NewNotAliveError("application")
 	unitNotAliveErr        = stateerrors.NewNotAliveError("unit")
-	notAliveErr            = stateerrors.NewNotAliveError("")
 )
 
 func onAbort(txnErr, err error) error {

@@ -276,14 +276,6 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectsto
 	}, nil
 }
 
-func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
-	c, err := s.State.AddCharmMetadata(info)
-	if err != nil {
-		return nil, err
-	}
-	return stateCharmShim{CharmRefFull: c}, nil
-}
-
 type remoteApplicationShim struct {
 	*state.RemoteApplication
 }

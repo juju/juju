@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // APIv7 provides the Charms API facade for version 7.
@@ -251,15 +250,6 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 	}
 
 	essentialMetadata := resolved.EssentialMetadata
-
-	// Dual write this to state, this will be removed soon.
-	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm: corecharm.NewCharmInfoAdaptor(essentialMetadata),
-		ID:    args.URL,
-	})
-	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
-	}
 
 	revision, err := makeCharmRevision(essentialMetadata.ResolvedOrigin, args.URL)
 	if err != nil {

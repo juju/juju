@@ -216,12 +216,6 @@ func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, a
 	}
 
 	source := charm.Schema(schema)
-	if source == charm.Local {
-		curl, err = st.PrepareLocalCharmUpload(curl.String())
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-	}
 
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:             logger,

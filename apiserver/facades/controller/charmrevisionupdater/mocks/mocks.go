@@ -18,7 +18,6 @@ import (
 	metrics "github.com/juju/juju/core/charm/metrics"
 	objectstore "github.com/juju/juju/core/objectstore"
 	config "github.com/juju/juju/environs/config"
-	charm "github.com/juju/juju/internal/charm"
 	resource "github.com/juju/juju/internal/charm/resource"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
@@ -538,44 +537,6 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
-}
-
-// AddCharmPlaceholder mocks base method.
-func (m *MockState) AddCharmPlaceholder(arg0 *charm.URL) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmPlaceholder", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddCharmPlaceholder indicates an expected call of AddCharmPlaceholder.
-func (mr *MockStateMockRecorder) AddCharmPlaceholder(arg0 any) *MockStateAddCharmPlaceholderCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmPlaceholder", reflect.TypeOf((*MockState)(nil).AddCharmPlaceholder), arg0)
-	return &MockStateAddCharmPlaceholderCall{Call: call}
-}
-
-// MockStateAddCharmPlaceholderCall wrap *gomock.Call
-type MockStateAddCharmPlaceholderCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAddCharmPlaceholderCall) Return(arg0 error) *MockStateAddCharmPlaceholderCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAddCharmPlaceholderCall) Do(f func(*charm.URL) error) *MockStateAddCharmPlaceholderCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddCharmPlaceholderCall) DoAndReturn(f func(*charm.URL) error) *MockStateAddCharmPlaceholderCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // AliveRelationKeys mocks base method.
