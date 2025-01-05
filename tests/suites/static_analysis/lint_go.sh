@@ -27,8 +27,33 @@ run_go_tidy() {
 	fi
 }
 
+join() {
+	local IFS="$1"
+	shift
+	echo "$*"
+}
+
 run_govulncheck() {
-	govulncheck "github.com/juju/juju/..."
+	ignore=(
+		# false positive vulnerability in github.com/canonical/lxd. This is resolved in lxd-5.21.2.
+		# Anyway, it does not affect as we only use client-side lxc code, but the vulnerability is
+		# server-side.
+		# https://pkg.go.dev/vuln/GO-2024-3312
+		# https://pkg.go.dev/vuln/GO-2024-3313
+		"GO-2024-3312"
+		"GO-2024-3313"
+	)
+	ignoreMatcher=$(join "|" "${ignore[@]}")
+
+	echo "Ignoring vulnerabilities: ${ignoreMatcher}"
+
+	allVulns=$(govulncheck -format openvex "github.com/juju/juju/...")
+	filteredVulns=$(echo ${allVulns} | jq -r '.statements[] | select(.status == "affected") | .vulnerability.name' | grep -vE "${ignoreMatcher}")
+
+	if [[ -n ${filteredVulns} ]]; then
+		(echo >&2 -e "\\nError: govulncheck has issues:\\n\\n${filteredVulns}")
+		exit 1
+	fi
 }
 
 test_static_analysis_go() {
