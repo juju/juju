@@ -122,8 +122,8 @@ func (t *Tracker) WaitMinion() leadership.Ticket {
 	return t.submit(t.waitMinionTickets)
 }
 
-// WithoutLeadershipChange is part of the leadership.Tracker interface.
-func (t *Tracker) WithoutLeadershipChange(
+// WithStableLeadership is part of the leadership.Tracker interface.
+func (t *Tracker) WithStableLeadership(
 	ctx context.Context, fn func(context.Context) error,
 ) error {
 	// Check that the context has not been not cancelled

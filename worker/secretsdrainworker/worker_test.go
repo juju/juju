@@ -87,7 +87,7 @@ func (s *workerSuite) TestNothingToDrain(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})
@@ -106,7 +106,7 @@ func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})
@@ -137,7 +137,7 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})
@@ -189,7 +189,7 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})
@@ -233,7 +233,7 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})
@@ -283,7 +283,7 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})
@@ -353,11 +353,11 @@ func (s *workerSuite) TestDrainLeadershipChange(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return leadership.ErrLeadershipChanged
 		})
-	s.leadershipTracker.EXPECT().WithoutLeadershipChange(gomock.Any(), gomock.Any()).
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
 			return fn(ctx)
 		})

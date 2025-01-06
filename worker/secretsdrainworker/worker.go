@@ -148,7 +148,7 @@ func (w *Worker) drainSecrets() error {
 	defer cancel()
 
 	leadershipTracker := w.config.LeadershipTrackerFunc()
-	drainErr := leadershipTracker.WithoutLeadershipChange(ctx, func(ctx context.Context) error {
+	drainErr := leadershipTracker.WithStableLeadership(ctx, func(ctx context.Context) error {
 		secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain()
 		if err != nil {
 			return errors.Trace(err)

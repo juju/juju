@@ -420,7 +420,7 @@ func (s *TrackerSuite) finishLeadershipFunc(ctx context.Context, started, finish
 	return nil
 }
 
-func (s *TrackerSuite) TestWithoutLeadershipChange(c *gc.C) {
+func (s *TrackerSuite) TestWithStableLeadership(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -434,9 +434,9 @@ func (s *TrackerSuite) TestWithoutLeadershipChange(c *gc.C) {
 	defer cancel()
 
 	started := make(chan struct{})
-	finishWithoutLeadershipChange := make(chan struct{})
+	finishWithStableLeadership := make(chan struct{})
 	go func(c *gc.C) {
-		err := s.finishLeadershipFunc(ctx, started, finishWithoutLeadershipChange)
+		err := s.finishLeadershipFunc(ctx, started, finishWithStableLeadership)
 		c.Assert(err, jc.ErrorIsNil)
 	}(c)
 
@@ -444,11 +444,11 @@ func (s *TrackerSuite) TestWithoutLeadershipChange(c *gc.C) {
 	s.refreshes(1)
 
 	called := false
-	err := tracker.WithoutLeadershipChange(ctx, func(ctx context.Context) error {
+	err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
 		close(started)
 		called = true
 		select {
-		case <-finishWithoutLeadershipChange:
+		case <-finishWithStableLeadership:
 		case <-ctx.Done():
 		case <-time.After(coretesting.LongWait):
 			return errors.New("trying to finish leadership func")
@@ -460,7 +460,7 @@ func (s *TrackerSuite) TestWithoutLeadershipChange(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWithoutLeadershipChangeLeadershipChanged(c *gc.C) {
+func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -477,7 +477,7 @@ func (s *TrackerSuite) TestWithoutLeadershipChangeLeadershipChanged(c *gc.C) {
 	called := false
 	waitErr := make(chan error, 1)
 	go func() {
-		err := tracker.WithoutLeadershipChange(ctx, func(ctx context.Context) error {
+		err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
 			called = true
 			select {
 			case <-ctx.Done():
@@ -505,7 +505,7 @@ func (s *TrackerSuite) TestWithoutLeadershipChangeLeadershipChanged(c *gc.C) {
 	workertest.CleanKill(c, tracker)
 }
 
-func (s *TrackerSuite) TestWithoutLeadershipChangeFuncError(c *gc.C) {
+func (s *TrackerSuite) TestWithStableLeadershipFuncError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -518,7 +518,7 @@ func (s *TrackerSuite) TestWithoutLeadershipChangeFuncError(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := tracker.WithoutLeadershipChange(ctx, func(ctx context.Context) error {
+	err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
 		return errors.New("boom")
 	})
 	c.Assert(err, gc.ErrorMatches, "executing leadership func: boom")

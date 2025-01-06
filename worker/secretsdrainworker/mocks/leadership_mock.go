@@ -137,16 +137,16 @@ func (mr *MockTrackerWorkerMockRecorder) WaitMinion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitMinion", reflect.TypeOf((*MockTrackerWorker)(nil).WaitMinion))
 }
 
-// WithoutLeadershipChange mocks base method.
-func (m *MockTrackerWorker) WithoutLeadershipChange(arg0 context.Context, arg1 func(context.Context) error) error {
+// WithStableLeadership mocks base method.
+func (m *MockTrackerWorker) WithStableLeadership(arg0 context.Context, arg1 func(context.Context) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithoutLeadershipChange", arg0, arg1)
+	ret := m.ctrl.Call(m, "WithStableLeadership", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WithoutLeadershipChange indicates an expected call of WithoutLeadershipChange.
-func (mr *MockTrackerWorkerMockRecorder) WithoutLeadershipChange(arg0, arg1 any) *gomock.Call {
+// WithStableLeadership indicates an expected call of WithStableLeadership.
+func (mr *MockTrackerWorkerMockRecorder) WithStableLeadership(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithoutLeadershipChange", reflect.TypeOf((*MockTrackerWorker)(nil).WithoutLeadershipChange), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithStableLeadership", reflect.TypeOf((*MockTrackerWorker)(nil).WithStableLeadership), arg0, arg1)
 }

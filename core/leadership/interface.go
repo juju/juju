@@ -162,13 +162,13 @@ const ErrLeadershipChanged = errors.ConstError("leadership changed")
 // ChangeTracker allows clients to run a function ensuring that leadership is
 // unchanged during the function execution.
 type ChangeTracker interface {
-	// WithoutLeadershipChange executes the closure function so long as the state
+	// WithStableLeadership executes the closure function so long as the state
 	// of leadership remains unchanged.
 	// As soon as that isn't the case, the context is cancelled and the function
 	// returns an error satisfying [ErrLeadershipChanged].
 	// The context must be passed to the closure function to ensure that the
 	// cancellation is propagated to the closure.
-	WithoutLeadershipChange(ctx context.Context, fn func(context.Context) error) error
+	WithStableLeadership(ctx context.Context, fn func(context.Context) error) error
 }
 
 // TrackerWorker represents a leadership tracker worker.

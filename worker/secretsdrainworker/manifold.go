@@ -127,6 +127,6 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 
 type passThroughLeadershipTracker struct{}
 
-func (passThroughLeadershipTracker) WithoutLeadershipChange(ctx context.Context, fn func(context.Context) error) error {
+func (passThroughLeadershipTracker) WithStableLeadership(ctx context.Context, fn func(context.Context) error) error {
 	return fn(ctx)
 }
