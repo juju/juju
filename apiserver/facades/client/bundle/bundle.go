@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/version"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
@@ -46,6 +48,19 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
+// ApplicationService is an interface for the application domain service.
+type ApplicationService interface {
+	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
+	// if the charm can not be found by the name.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+	// GetCharm returns the charm metadata for the given charm ID.
+	// It returns an error.CharmNotFound if the charm can not be found by the
+	// ID.
+	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
+}
+
 // APIv8 provides the Bundle API facade for version 8. It drops IncludeSeries
 // from ExportBundle params, and drops series entirely from ExportBundle output
 type APIv8 struct {
@@ -55,12 +70,13 @@ type APIv8 struct {
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
-	backend        Backend
-	store          objectstore.ObjectStore
-	authorizer     facade.Authorizer
-	modelTag       names.ModelTag
-	networkService NetworkService
-	logger         corelogger.Logger
+	backend            Backend
+	store              objectstore.ObjectStore
+	authorizer         facade.Authorizer
+	modelTag           names.ModelTag
+	networkService     NetworkService
+	applicationService ApplicationService
+	logger             corelogger.Logger
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -74,6 +90,7 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 		authorizer,
 		names.NewModelTag(st.ModelUUID()),
 		ctx.DomainServices().Network(),
+		ctx.DomainServices().Application(),
 		ctx.Logger().Child("bundlechanges"),
 	)
 }
@@ -85,6 +102,7 @@ func NewBundleAPI(
 	auth facade.Authorizer,
 	tag names.ModelTag,
 	networkService NetworkService,
+	applicationService ApplicationService,
 	logger corelogger.Logger,
 ) (*BundleAPI, error) {
 	if !auth.AuthClient() {
@@ -92,12 +110,13 @@ func NewBundleAPI(
 	}
 
 	return &BundleAPI{
-		backend:        st,
-		store:          store,
-		authorizer:     auth,
-		modelTag:       tag,
-		networkService: networkService,
-		logger:         logger,
+		backend:            st,
+		store:              store,
+		authorizer:         auth,
+		modelTag:           tag,
+		networkService:     networkService,
+		applicationService: applicationService,
+		logger:             logger,
 	}, nil
 }
 
@@ -478,7 +497,22 @@ func (b *BundleAPI) bundleDataApplications(
 			// from the charm config metadata.
 			cfgInfo, ok := charmConfigCache[charmURL]
 			if !ok {
-				ch, err := backend.Charm(curl.String())
+				source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+				if err != nil {
+					return nil, nil, nil, errors.Trace(err)
+				}
+				charmID, err := b.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+					Source:   source,
+					Name:     curl.Name,
+					Revision: revision,
+				})
+				if errors.Is(err, applicationerrors.CharmNotFound) {
+					return nil, nil, nil, errors.NotFoundf("charm %q", curl)
+				} else if err != nil {
+					return nil, nil, nil, errors.Trace(err)
+				}
+
+				ch, _, _, err := b.applicationService.GetCharm(ctx, charmID)
 				if err != nil {
 					return nil, nil, nil, errors.Trace(err)
 				}

@@ -18,8 +18,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -29,12 +31,13 @@ import (
 
 type bundleSuite struct {
 	coretesting.BaseSuite
-	auth           *apiservertesting.FakeAuthorizer
-	facade         *bundle.APIv8
-	st             *mockState
-	store          *mockObjectStore
-	modelTag       names.ModelTag
-	networkService *MockNetworkService
+	auth               *apiservertesting.FakeAuthorizer
+	facade             *bundle.APIv8
+	st                 *mockState
+	store              *mockObjectStore
+	modelTag           names.ModelTag
+	networkService     *MockNetworkService
+	applicationService *MockApplicationService
 }
 
 var _ = gc.Suite(&bundleSuite{})
@@ -42,6 +45,7 @@ var _ = gc.Suite(&bundleSuite{})
 func (s *bundleSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 	return ctrl
 }
 
@@ -63,6 +67,7 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		s.auth,
 		s.modelTag,
 		s.networkService,
+		s.applicationService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1175,7 +1180,9 @@ relations:
 }
 
 func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
 	s.facade = s.makeAPI(c)
 
 	model := s.newModel("iaas", "wordpress", "mysql")
@@ -1191,6 +1198,39 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
 	s.assertGetSpaces(c)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Name:   "wordpress",
+		Source: applicationcharm.CharmHubSource,
+	}).Return("abcd0001", nil)
+	wordpressCharm := NewMockCharm(ctrl)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("abcd0001")).Return(wordpressCharm, applicationcharm.CharmLocator{}, true, nil)
+	wordpressCharm.EXPECT().Config().Return(&charm.Config{
+		Options: map[string]charm.Option{
+			"foo": {Default: "bar"},
+		},
+	})
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Name:   "mysql",
+		Source: applicationcharm.CharmHubSource,
+	}).Return("abcd0002", nil)
+	mysqlCharm := NewMockCharm(ctrl)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("abcd0002")).Return(mysqlCharm, applicationcharm.CharmLocator{}, true, nil)
+	mysqlCharm.EXPECT().Config().Return(&charm.Config{
+		Options: map[string]charm.Option{
+			"foo": {Default: "bar"},
+		},
+	})
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Name:   "mariadb",
+		Source: applicationcharm.CharmHubSource,
+	}).Return("abcd0003", nil)
+	mariadbCharm := NewMockCharm(ctrl)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("abcd0003")).Return(mariadbCharm, applicationcharm.CharmLocator{}, true, nil)
+	mariadbCharm.EXPECT().Config().Return(&charm.Config{})
+
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeCharmDefaults: true})
 	c.Assert(err, jc.ErrorIsNil)
 
