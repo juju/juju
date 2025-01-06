@@ -169,6 +169,14 @@ func (w *Worker) drainSecrets() error {
 		}
 		return nil
 	})
+	if errors.Is(drainErr, context.Canceled) ||
+		errors.Is(drainErr, context.DeadlineExceeded) {
+		select {
+		case <-w.catacomb.Dying():
+			drainErr = w.catacomb.ErrDying()
+		default:
+		}
+	}
 	return drainErr
 }
 
