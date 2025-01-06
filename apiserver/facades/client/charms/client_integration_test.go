@@ -44,6 +44,12 @@ func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.Local
 	return charmClient
 }
 
+func (s *clientMacaroonIntegrationSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Deploying a local charm using a macaroon
+`)
+}
+
 func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 	charmClient := s.createTestClient(c)
 	s.DischargerLogin = func() string { return "" }
