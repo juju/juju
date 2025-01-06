@@ -63,7 +63,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	readonlyVal, err := svc.GetModelInfo(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(readonlyVal, gc.Equals, coremodel.ReadOnlyModel{
 		UUID:           id,
 		ControllerUUID: s.controllerUUID,
@@ -95,7 +95,7 @@ func (s *modelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	readonlyVal, err := svc.GetModelMetrics(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(readonlyVal, gc.Equals, coremodel.ModelMetrics{
 		Model: coremodel.ReadOnlyModel{
 			UUID:           id,
@@ -148,10 +148,10 @@ func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
 	now := svc.clock.Now()
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Status, gc.Equals, corestatus.Suspended)
-	c.Assert(status.Message, gc.Equals, "suspended since cloud credential is not valid")
-	c.Assert(status.Reason, gc.Equals, "invalid credential")
-	c.Assert(status.Since, jc.Almost, now)
+	c.Check(status.Status, gc.Equals, corestatus.Suspended)
+	c.Check(status.Message, gc.Equals, "suspended since cloud credential is not valid")
+	c.Check(status.Reason, gc.Equals, "invalid credential")
+	c.Check(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
@@ -171,9 +171,9 @@ func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
 	now := svc.clock.Now()
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Status, gc.Equals, corestatus.Destroying)
-	c.Assert(status.Message, gc.Equals, "the model is being destroyed")
-	c.Assert(status.Since, jc.Almost, now)
+	c.Check(status.Status, gc.Equals, corestatus.Destroying)
+	c.Check(status.Message, gc.Equals, "the model is being destroyed")
+	c.Check(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
@@ -193,9 +193,9 @@ func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
 	now := svc.clock.Now()
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Status, gc.Equals, corestatus.Busy)
-	c.Assert(status.Message, gc.Equals, "the model is being migrated")
-	c.Assert(status.Since, jc.Almost, now)
+	c.Check(status.Status, gc.Equals, corestatus.Busy)
+	c.Check(status.Message, gc.Equals, "the model is being migrated")
+	c.Check(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatus(c *gc.C) {
@@ -213,8 +213,8 @@ func (s *modelServiceSuite) TestStatus(c *gc.C) {
 	now := svc.clock.Now()
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Status, gc.Equals, corestatus.Available)
-	c.Assert(status.Since, jc.Almost, now)
+	c.Check(status.Status, gc.Equals, corestatus.Available)
+	c.Check(status.Since, jc.Almost, now)
 }
 
 func (s *modelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
