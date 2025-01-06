@@ -7,22 +7,16 @@ import (
 	"github.com/juju/description/v8"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 	GetExportConfig() state.ExportConfig
-	Charm(url string) (charm.Charm, error)
 }
 
 type stateShim struct {
 	*state.State
-}
-
-func (m *stateShim) Charm(url string) (charm.Charm, error) {
-	return m.State.Charm(url)
 }
 
 // GetExportConfig implements Backend.GetExportConfig.
