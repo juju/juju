@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -75,15 +74,12 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 				return nil, fmt.Errorf("getting model config %w", err)
 			}
 			chURL, _ := modelCfg.CharmHubURL()
-			chClient, err := charmhub.NewClient(charmhub.Config{
-				URL:        chURL,
-				HTTPClient: httpClient,
-				Logger:     logger,
+
+			return repository.NewCharmHubRepository(repository.CharmHubRepositoryConfig{
+				CharmhubHTTPClient: httpClient,
+				CharmhubURL:        chURL,
+				Logger:             logger,
 			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return repository.NewCharmHubRepository(logger.Child("charmhub", corelogger.CHARMHUB), chClient), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil

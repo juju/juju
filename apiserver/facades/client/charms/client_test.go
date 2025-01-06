@@ -23,15 +23,17 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/repository"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type charmsMockSuite struct {
 	state        *mocks.MockBackendState
 	authorizer   *apiservermocks.MockAuthorizer
-	repoFactory  *mocks.MockRepositoryFactory
 	repository   *mocks.MockRepository
 	charmArchive *mocks.MockCharmArchive
 	application  *mocks.MockApplication
@@ -220,8 +222,6 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Channel: "20.04",
 		},
 	}
-
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
 
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
@@ -439,7 +439,7 @@ func NewCharmsAPI(
 	applicationService ApplicationService,
 	machineService MachineService,
 	modelTag names.ModelTag,
-	repoFactory corecharm.RepositoryFactory,
+	repo corecharm.Repository,
 	logger corelogger.Logger,
 ) (*API, error) {
 	return &API{
@@ -450,8 +450,10 @@ func NewCharmsAPI(
 		machineService:     machineService,
 		tag:                modelTag,
 		requestRecorder:    noopRequestRecorder{},
-		repoFactory:        repoFactory,
-		logger:             logger,
+		newCharmHubRepository: func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
+			return repo, nil
+		},
+		logger: logger,
 	}, nil
 }
 
@@ -463,7 +465,7 @@ func (s *charmsMockSuite) api(c *gc.C) *API {
 		s.applicationService,
 		s.machineService,
 		names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"),
-		s.repoFactory,
+		s.repository,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -479,7 +481,6 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.state = mocks.NewMockBackendState(ctrl)
 	s.state.EXPECT().ControllerTag().Return(names.NewControllerTag("deadbeef-abcd-dead-beef-db9663db7b42")).AnyTimes()
 
-	s.repoFactory = mocks.NewMockRepositoryFactory(ctrl)
 	s.repository = mocks.NewMockRepository(ctrl)
 	s.charmArchive = mocks.NewMockCharmArchive(ctrl)
 
@@ -490,6 +491,16 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machine2 = mocks.NewMockMachine(ctrl)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	uuid := testing.ModelTag.Id()
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":         "model",
+		"type":         "type",
+		"uuid":         uuid,
+		"charmhub-url": "https://api.staging.charmhub.io",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
+
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 
@@ -497,7 +508,6 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error) {
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil).Times(times)
 	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(""),

@@ -33,8 +33,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -211,7 +211,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 		resources = append(resources, r)
 	}
 
-	repo, err := v.getCharmRepository(ctx, origin.Source)
+	repo, err := v.getCharmRepository(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -264,8 +264,8 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		applicationService: cfg.applicationService,
 		machineService:     cfg.machineService,
 		state:              cfg.state,
-		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
-			return services.NewCharmRepoFactory(cfg)
+		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
+			return repository.NewCharmHubRepository(cfg)
 		},
 		newStateBindings: func(st any, givenMap map[string]string) (Bindings, error) {
 			return state.NewBindings(st, givenMap)
@@ -309,8 +309,8 @@ type deployFromRepositoryValidator struct {
 	state              DeployFromRepositoryState
 
 	// For testing using mocks.
-	newRepoFactory     func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
-	charmhubHTTPClient facade.HTTPClient
+	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
+	charmhubHTTPClient    facade.HTTPClient
 
 	// For testing using mocks.
 	newStateBindings func(st any, givenMap map[string]string) (Bindings, error)
@@ -760,7 +760,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 }
 
 func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *charm.URL, requestedOrigin corecharm.Origin, force, usedModelDefaultBase bool, cons constraints.Value) (corecharm.ResolvedDataForDeploy, error) {
-	repo, err := v.getCharmRepository(ctx, requestedOrigin.Source)
+	repo, err := v.getCharmRepository(ctx)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
@@ -940,12 +940,16 @@ func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust b
 	return appConfig, charmSettings, err
 }
 
-func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context, src corecharm.Source) (corecharm.Repository, error) {
-	repoFactory := v.newRepoFactory(services.CharmRepoFactoryConfig{
+func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context) (corecharm.Repository, error) {
+	modelCfg, err := v.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmhubURL, _ := modelCfg.CharmHubURL()
+
+	return v.newCharmHubRepository(repository.CharmHubRepositoryConfig{
 		Logger:             v.logger,
 		CharmhubHTTPClient: v.charmhubHTTPClient,
-		ModelConfigService: v.modelConfigService,
+		CharmhubURL:        charmhubURL,
 	})
-
-	return repoFactory.GetCharmRepository(ctx, src)
 }

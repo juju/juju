@@ -15,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
@@ -40,19 +41,39 @@ type CharmHubClient interface {
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
-// CharmHubRepository provides an API for charm-related operations using charmhub.
-type CharmHubRepository struct {
-	logger logger.Logger
-	client CharmHubClient
+// CharmHubRepositoryConfig holds the config options require to construct a
+// CharmHubRepository.
+type CharmHubRepositoryConfig struct {
+	// An HTTP client that is injected when making Charmhub API calls.
+	CharmhubHTTPClient charmhub.HTTPClient
+
+	// CharmHubURL is the URL to use for CharmHub API calls.
+	CharmhubURL string
+
+	Logger logger.Logger
 }
 
 // NewCharmHubRepository returns a new repository instance using the provided
 // charmhub client.
-func NewCharmHubRepository(logger logger.Logger, chClient CharmHubClient) *CharmHubRepository {
-	return &CharmHubRepository{
-		logger: logger,
-		client: chClient,
+func NewCharmHubRepository(cfg CharmHubRepositoryConfig) (*CharmHubRepository, error) {
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        cfg.CharmhubURL,
+		HTTPClient: cfg.CharmhubHTTPClient,
+		Logger:     cfg.Logger.Child("charmhub"),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	return &CharmHubRepository{
+		logger: cfg.Logger.Child("charmhubrepo", corelogger.CHARMHUB),
+		client: chClient,
+	}, nil
+}
+
+// CharmHubRepository provides an API for charm-related operations using charmhub.
+type CharmHubRepository struct {
+	logger logger.Logger
+	client CharmHubClient
 }
 
 // ResolveWithPreferredChannel defines a way using the given charm name and

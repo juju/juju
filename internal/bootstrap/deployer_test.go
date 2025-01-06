@@ -29,9 +29,11 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -74,7 +76,7 @@ func (s *deployerSuite) TestValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.NewCharmRepo = nil
+	cfg.NewCharmHubRepo = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
@@ -417,6 +419,16 @@ func (s *deployerSuite) newBaseDeployer(c *gc.C, cfg BaseDeployerConfig) baseDep
 }
 
 func (s *deployerSuite) expectDownloadAndResolve(c *gc.C, name string) {
+	uuid := testing.ModelTag.Id()
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":         "model",
+		"type":         "type",
+		"uuid":         uuid,
+		"charmhub-url": "https://api.staging.charmhub.io",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+
 	curl := &charm.URL{
 		Schema:       string(charm.CharmHub),
 		Name:         name,

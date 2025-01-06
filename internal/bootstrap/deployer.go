@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
-	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/environschema"
 	"github.com/juju/juju/state"
 )
@@ -131,8 +131,8 @@ type CharmUploader interface {
 	ModelUUID() string
 }
 
-// CharmRepoFunc is the function that is used to create a charm repository.
-type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, error)
+// CharmHubRepoFunc is the function that is used to create a charm repository.
+type CharmHubRepoFunc func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
@@ -188,7 +188,7 @@ type BaseDeployerConfig struct {
 	ObjectStore         objectstore.ObjectStore
 	Constraints         constraints.Value
 	ControllerConfig    controller.Config
-	NewCharmRepo        CharmRepoFunc
+	NewCharmHubRepo     CharmHubRepoFunc
 	NewCharmDownloader  CharmDownloaderFunc
 	CharmhubHTTPClient  HTTPClient
 	ControllerCharmName string
@@ -219,8 +219,8 @@ func (c BaseDeployerConfig) Validate() error {
 	if c.ControllerConfig == nil {
 		return errors.NotValidf("ControllerConfig")
 	}
-	if c.NewCharmRepo == nil {
-		return errors.NotValidf("NewCharmRepo")
+	if c.NewCharmHubRepo == nil {
+		return errors.NotValidf("NewCharmHubRepo")
 	}
 	if c.NewCharmDownloader == nil {
 		return errors.NotValidf("NewCharmDownloader")
@@ -243,7 +243,7 @@ type baseDeployer struct {
 	objectStore         objectstore.ObjectStore
 	constraints         constraints.Value
 	controllerConfig    controller.Config
-	newCharmRepo        CharmRepoFunc
+	newCharmHubRepo     CharmHubRepoFunc
 	charmhubHTTPClient  HTTPClient
 	charmDownloader     CharmDownloaderFunc
 	controllerCharmName string
@@ -261,7 +261,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
-		newCharmRepo:        config.NewCharmRepo,
+		newCharmHubRepo:     config.NewCharmHubRepo,
 		charmhubHTTPClient:  config.CharmhubHTTPClient,
 		charmDownloader:     config.NewCharmDownloader,
 		controllerCharmName: config.ControllerCharmName,
@@ -340,10 +340,16 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 
 // DeployCharmhubCharm deploys the controller charm from charm hub.
 func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (DeployCharmInfo, error) {
-	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
+	modelCfg, err := b.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return DeployCharmInfo{}, errors.Trace(err)
+	}
+	charmhubURL, _ := modelCfg.CharmHubURL()
+
+	charmRepo, err := b.newCharmHubRepo(repository.CharmHubRepositoryConfig{
 		Logger:             b.logger,
+		CharmhubURL:        charmhubURL,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
-		ModelConfigService: b.modelConfigService,
 	})
 	if err != nil {
 		return DeployCharmInfo{}, errors.Trace(err)
