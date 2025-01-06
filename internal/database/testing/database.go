@@ -48,6 +48,7 @@ func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
 			for _, val := range vals {
 				fmt.Fprintf(writer, "%v\t", *val.(*any))
 			}
+			fmt.Fprintln(writer)
 		}
 		err = rows.Err()
 		c.Assert(err, jc.ErrorIsNil)

@@ -244,5 +244,4 @@ type RevisionUpdaterApplication struct {
 	CharmLocator domaincharm.CharmLocator
 	Origin       Origin
 	NumUnits     int
-	Relations    []string
 }

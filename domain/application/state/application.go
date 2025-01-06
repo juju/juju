@@ -2088,3 +2088,134 @@ WHERE uuid = $charmID.uuid;`
 	}
 	return nil
 }
+
+// GetApplicationsForRevisionUpdater returns all the applications for the
+// revision updater. This will only return charmhub charms, for applications
+// that are alive.
+// This will return an empty slice if there are no applications.
+func (st *State) GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	revUpdaterAppQuery := `
+SELECT &revisionUpdaterApplication.*
+FROM v_revision_updater_application
+`
+
+	revUpdaterAppStmt, err := st.Prepare(revUpdaterAppQuery, revisionUpdaterApplication{})
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for revision updater applications: %w", err)
+	}
+
+	numUnitsQuery := `
+SELECT &revisionUpdaterApplicationNumUnits.*
+FROM v_revision_updater_application_unit
+`
+
+	numUnitsStmt, err := st.Prepare(numUnitsQuery, revisionUpdaterApplicationNumUnits{})
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for number of units: %w", err)
+	}
+
+	var apps []revisionUpdaterApplication
+	var appUnitCounts []revisionUpdaterApplicationNumUnits
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, revUpdaterAppStmt).GetAll(&apps)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+
+		err = tx.Query(ctx, numUnitsStmt).GetAll(&appUnitCounts)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+	if err != nil {
+		return nil, internalerrors.Errorf("querying revision updater applications: %w", err)
+	}
+
+	unitCounts := make(map[string]int)
+	for _, app := range appUnitCounts {
+		unitCounts[app.UUID] = app.NumUnits
+	}
+
+	return transform.SliceOrErr(apps, func(r revisionUpdaterApplication) (application.RevisionUpdaterApplication, error) {
+		// The following architecture IDs should never diverge, as we only
+		// support homogenous architectures. Yet we have two sources of truth.
+		charmArch, err := decodeArchitecture(r.CharmArchitectureID)
+		if err != nil {
+			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding architecture: %w", err)
+		}
+
+		appArch, err := decodeArchitecture(r.PlatformArchitectureID)
+		if err != nil {
+			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding architecture: %w", err)
+		}
+
+		risk, err := decodeRisk(r.ChannelRisk)
+		if err != nil {
+			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding risk: %w", err)
+		}
+
+		osType, err := decodeOSType(r.PlatformOSID)
+		if err != nil {
+			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding os type: %w", err)
+		}
+
+		return application.RevisionUpdaterApplication{
+			Name: r.Name,
+			CharmLocator: charm.CharmLocator{
+				Name:         r.ReferenceName,
+				Revision:     r.Revision,
+				Source:       charm.CharmHubSource,
+				Architecture: charmArch,
+			},
+			Origin: application.Origin{
+				Revision: r.Revision,
+				Channel: application.Channel{
+					Track:  r.ChannelTrack,
+					Risk:   risk,
+					Branch: r.ChannelBranch,
+				},
+				Platform: application.Platform{
+					Channel:      r.PlatformChannel,
+					OSType:       osType,
+					Architecture: appArch,
+				},
+			},
+			NumUnits: unitCounts[r.UUID],
+		}, nil
+	})
+}
+
+func decodeRisk(risk string) (application.ChannelRisk, error) {
+	switch risk {
+	case "stable":
+		return application.RiskStable, nil
+	case "candidate":
+		return application.RiskCandidate, nil
+	case "beta":
+		return application.RiskBeta, nil
+	case "edge":
+		return application.RiskEdge, nil
+	default:
+		return "", internalerrors.Errorf("unknown risk %q", risk)
+	}
+}
+
+func decodeOSType(osType sql.NullInt64) (application.OSType, error) {
+	if !osType.Valid {
+		return 0, internalerrors.Errorf("os type is null")
+	}
+
+	switch osType.Int64 {
+	case 0:
+		return application.Ubuntu, nil
+	default:
+		return -1, internalerrors.Errorf("unknown os type %v", osType)
+	}
+}

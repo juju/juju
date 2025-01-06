@@ -231,6 +231,12 @@ type ApplicationState interface {
 	// ResolveCharmDownload resolves the charm download for the specified
 	// application, updating the charm with the specified charm information.
 	ResolveCharmDownload(ctx context.Context, charmID corecharm.ID, info application.ResolvedCharmDownload) error
+
+	// GetApplicationsForRevisionUpdater returns all the applications for the
+	// revision updater. This will only return charmhub charms, for applications
+	// that are alive.
+	// This will return an empty slice if there are no applications.
+	GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error)
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.

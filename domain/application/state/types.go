@@ -648,3 +648,22 @@ type sequenceCharmsLocal struct {
 type sequence struct {
 	Sequence int `db:"sequence"`
 }
+
+type revisionUpdaterApplication struct {
+	UUID                   string        `db:"uuid"`
+	Name                   string        `db:"name"`
+	ReferenceName          string        `db:"reference_name"`
+	Revision               int           `db:"revision"`
+	CharmArchitectureID    sql.NullInt64 `db:"charm_architecture_id"`
+	ChannelTrack           string        `db:"channel_track"`
+	ChannelRisk            string        `db:"channel_risk"`
+	ChannelBranch          string        `db:"channel_branch"`
+	PlatformOSID           sql.NullInt64 `db:"platform_os_id"`
+	PlatformChannel        string        `db:"platform_channel"`
+	PlatformArchitectureID sql.NullInt64 `db:"platform_architecture_id"`
+}
+
+type revisionUpdaterApplicationNumUnits struct {
+	UUID     string `db:"uuid"`
+	NumUnits int    `db:"num_units"`
+}

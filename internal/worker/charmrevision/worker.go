@@ -286,8 +286,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 
 		if buildTelemetry {
 			charmhubID.metrics = map[charmmetrics.MetricValueKey]string{
-				charmmetrics.NumUnits:  strconv.Itoa(app.NumUnits),
-				charmmetrics.Relations: strings.Join(app.Relations, ","),
+				charmmetrics.NumUnits: strconv.Itoa(app.NumUnits),
 			}
 		}
 

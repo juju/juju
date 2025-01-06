@@ -455,6 +455,45 @@ func (c *MockStateGetApplicationUnitLifeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetApplicationsForRevisionUpdater mocks base method.
+func (m *MockState) GetApplicationsForRevisionUpdater(arg0 context.Context) ([]application0.RevisionUpdaterApplication, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationsForRevisionUpdater", arg0)
+	ret0, _ := ret[0].([]application0.RevisionUpdaterApplication)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationsForRevisionUpdater indicates an expected call of GetApplicationsForRevisionUpdater.
+func (mr *MockStateMockRecorder) GetApplicationsForRevisionUpdater(arg0 any) *MockStateGetApplicationsForRevisionUpdaterCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationsForRevisionUpdater", reflect.TypeOf((*MockState)(nil).GetApplicationsForRevisionUpdater), arg0)
+	return &MockStateGetApplicationsForRevisionUpdaterCall{Call: call}
+}
+
+// MockStateGetApplicationsForRevisionUpdaterCall wrap *gomock.Call
+type MockStateGetApplicationsForRevisionUpdaterCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationsForRevisionUpdaterCall) Return(arg0 []application0.RevisionUpdaterApplication, arg1 error) *MockStateGetApplicationsForRevisionUpdaterCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationsForRevisionUpdaterCall) Do(f func(context.Context) ([]application0.RevisionUpdaterApplication, error)) *MockStateGetApplicationsForRevisionUpdaterCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationsForRevisionUpdaterCall) DoAndReturn(f func(context.Context) ([]application0.RevisionUpdaterApplication, error)) *MockStateGetApplicationsForRevisionUpdaterCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationsWithPendingCharmsFromUUIDs mocks base method.
 func (m *MockState) GetApplicationsWithPendingCharmsFromUUIDs(arg0 context.Context, arg1 []application.ID) ([]application.ID, error) {
 	m.ctrl.T.Helper()
