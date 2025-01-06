@@ -541,22 +541,6 @@ func ModelStatusInvalidCredential(reason string) status.StatusInfo {
 	}
 }
 
-// Status returns the status of the model.
-func (m *Model) Status() (status.StatusInfo, error) {
-	// If model credential is invalid, model is suspended.
-	if _, hasCredential := m.CloudCredentialTag(); hasCredential {
-		if m.doc.InvalidCredential {
-			return ModelStatusInvalidCredential(m.doc.InvalidCredentialReason), nil
-		}
-	}
-
-	modelStatus, err := getStatus(m.st.db(), m.globalKey(), "model")
-	if err != nil {
-		return modelStatus, err
-	}
-	return modelStatus, nil
-}
-
 // localID returns the local id value by stripping off the model uuid prefix
 // if it is there.
 func (m *Model) localID(id string) string {
@@ -565,36 +549,6 @@ func (m *Model) localID(id string) string {
 		return id
 	}
 	return localID
-}
-
-// SetStatus sets the status of the model.
-func (m *Model) SetStatus(sInfo status.StatusInfo) error {
-	if !status.ValidModelStatus(sInfo.Status) {
-		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
-	}
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "model",
-		statusKind: m.Kind(),
-		statusId:   modelGlobalKey,
-		globalKey:  m.globalKey(),
-		status:     sInfo.Status,
-		message:    sInfo.Message,
-		rawData:    sInfo.Data,
-		updated:    timeOrNow(sInfo.Since, m.st.clock()),
-	})
-}
-
-// StatusHistory returns a slice of at most filter.Size StatusInfo items
-// or items as old as filter.Date or items newer than now - filter.Delta time
-// representing past statuses for this application.
-func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        m.st.db(),
-		globalKey: m.globalKey(),
-		filter:    filter,
-		clock:     m.st.clock(),
-	}
-	return statusHistory(args)
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of

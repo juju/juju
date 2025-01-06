@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
@@ -66,7 +65,6 @@ type Model interface {
 	Life() state.Life
 	ModelTag() names.ModelTag
 	Owner() names.UserTag
-	Status() (status.StatusInfo, error)
 	CloudName() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string

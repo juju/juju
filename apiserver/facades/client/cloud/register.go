@@ -27,9 +27,7 @@ func newFacadeV7(stdCtx stdcontext.Context, context facade.ModelContext) (*Cloud
 		return nil, errors.Trace(err)
 	}
 	credentialService := domainServices.Credential().
-		WithLegacyUpdater(systemState.CloudCredentialUpdated).
 		WithLegacyRemover(systemState.RemoveModelsCredential)
-
 	controllerInfo, err := systemState.ControllerInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
