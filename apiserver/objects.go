@@ -16,7 +16,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -338,14 +337,13 @@ type migratingApplicationServiceGetter struct {
 }
 
 func (a *migratingApplicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
-	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
-	if err := model.UUID(modelUUID).Validate(); err != nil {
+	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	domainServices := a.ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID))
 	return domainServices.Application(), nil
 }
+
 func convertSource(source applicationcharm.CharmSource) (string, error) {
 	switch source {
 	case applicationcharm.CharmHubSource:
