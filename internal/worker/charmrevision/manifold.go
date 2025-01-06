@@ -66,10 +66,16 @@ func (cfg ManifoldConfig) Validate() error {
 		return jujuerrors.NotValidf("nil NewWorker")
 	}
 	if cfg.NewHTTPClient == nil {
-		return jujuerrors.NotValidf("empty NewHTTPClient")
+		return jujuerrors.NotValidf("nil NewHTTPClient")
 	}
 	if cfg.NewCharmhubClient == nil {
 		return jujuerrors.NotValidf("nil NewCharmhubClient")
+	}
+	if cfg.Period <= 0 {
+		return jujuerrors.NotValidf("invalid Period")
+	}
+	if !names.IsValidModel(cfg.ModelTag.Id()) {
+		return jujuerrors.NotValidf("invalid ModelTag")
 	}
 	if cfg.Logger == nil {
 		return jujuerrors.NotValidf("nil Logger")
@@ -121,4 +127,19 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			return worker, nil
 		},
 	}
+}
+
+// NewHTTPClient creates a new HTTP client.
+func NewHTTPClient(ctx context.Context, getter corehttp.HTTPClientGetter) (corehttp.HTTPClient, error) {
+	return getter.GetHTTPClient(ctx, corehttp.CharmhubPurpose)
+}
+
+// NewCharmhubClient creates a new CharmhubClient.
+func NewCharmhubClient(httpClient charmhub.HTTPClient, url string, logger corelogger.Logger) (CharmhubClient, error) {
+	return charmhub.NewClient(charmhub.Config{
+		URL:        url,
+		Logger:     logger,
+		HTTPClient: httpClient,
+		FileSystem: charmhub.DefaultFileSystem(),
+	})
 }

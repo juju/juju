@@ -39,6 +39,11 @@ import (
 )
 
 const (
+	// States which report the state of the worker.
+	stateStarted = "started"
+)
+
+const (
 	// ErrFailedToSendMetrics is the error returned when sending metrics to the
 	// charmhub fails.
 	ErrFailedToSendMetrics = internalerrors.ConstError("sending metrics failed")
@@ -134,19 +139,28 @@ func (config Config) Validate() error {
 }
 
 type revisionUpdateWorker struct {
-	catacomb catacomb.Catacomb
-	config   Config
+	internalStates chan string
+	catacomb       catacomb.Catacomb
+	config         Config
 }
 
 // NewWorker returns a worker that calls UpdateLatestRevisions on the
 // configured RevisionUpdater, once when started and subsequently every
 // Period.
 func NewWorker(config Config) (worker.Worker, error) {
+	return newWorker(config, nil)
+}
+
+// NewWorker returns a worker that calls UpdateLatestRevisions on the
+// configured RevisionUpdater, once when started and subsequently every
+// Period.
+func newWorker(config Config, internalState chan string) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 	w := &revisionUpdateWorker{
-		config: config,
+		internalStates: internalState,
+		config:         config,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -195,6 +209,9 @@ func (w *revisionUpdateWorker) loop() error {
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
+
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
 
 	for {
 		select {
@@ -413,7 +430,7 @@ func (w *revisionUpdateWorker) getCharmhubClient(ctx context.Context) (CharmhubC
 // buildMetricsMetadata returns a map containing metadata key/value pairs to
 // send to the charmhub for tracking metrics.
 func (w *revisionUpdateWorker) buildMetricsMetadata(ctx context.Context, buildTelemetry bool) (charmhub.Metrics, error) {
-	if buildTelemetry {
+	if !buildTelemetry {
 		return nil, nil
 	}
 
@@ -494,6 +511,14 @@ func (w *revisionUpdateWorker) refreshResponseToCharmhubResult(response transpor
 
 func (w *revisionUpdateWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func (w *revisionUpdateWorker) reportInternalState(state string) {
+	select {
+	case <-w.catacomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }
 
 func encodeCharmURL(app application.RevisionUpdaterApplication) (*charm.URL, error) {

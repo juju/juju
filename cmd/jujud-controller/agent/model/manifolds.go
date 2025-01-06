@@ -294,6 +294,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		charmRevisionUpdaterName: ifResponsible(charmrevision.Manifold(charmrevision.ManifoldConfig{
 			DomainServicesName: domainServicesName,
+			HTTPClientName:     httpClientName,
+			NewHTTPClient:      charmrevision.NewHTTPClient,
+			NewCharmhubClient:  charmrevision.NewCharmhubClient,
 			Period:             config.CharmRevisionUpdateInterval,
 			NewWorker:          charmrevision.NewWorker,
 			ModelTag:           modelTag,

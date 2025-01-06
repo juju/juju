@@ -63,6 +63,7 @@ type Config struct {
 
 	// FileSystem represents the file system operations for downloading.
 	// If nil, use the real OS file system.
+	// This is only required for downloading of charms or bundles.
 	FileSystem FileSystem
 }
 
