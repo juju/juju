@@ -9,8 +9,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package services -destination interface_mocks_test.go github.com/juju/juju/internal/charm/services Storage
-//go:generate go run go.uber.org/mock/mockgen -typed -package services -destination service_mock_test.go github.com/juju/juju/internal/charm/services ModelConfigService,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package services -destination service_mock_test.go github.com/juju/juju/internal/charm/services ModelConfigService
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
