@@ -152,6 +152,7 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *gc.C) {
 	handlers := &objectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
+		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
@@ -181,6 +182,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *gc.C) {
 	handlers := &objectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
+		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
@@ -211,6 +213,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *gc.C) {
 	handlers := &objectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
+		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
@@ -241,6 +244,7 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 	handlers := &objectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
+		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
@@ -279,6 +283,50 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
 	c.Check(resp.Header.Get(params.JujuCharmURLHeader), gc.Equals, "ch:amd64/testcharm-2")
+}
+
+func (s *objectsCharmHandlerSuite) TestCharmURLFromLocator(c *gc.C) {
+	locator := applicationcharm.CharmLocator{
+		Name:         "testcharm",
+		Revision:     1,
+		Source:       applicationcharm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+
+	for _, includeArch := range []bool{true, false} {
+		url, err := CharmURLFromLocator(locator, includeArch)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(url.String(), gc.Equals, "ch:amd64/testcharm-1")
+	}
+}
+
+func (s *objectsCharmHandlerSuite) TestCharmURLFromLocatorDuringMigration(c *gc.C) {
+	locator := applicationcharm.CharmLocator{
+		Name:         "testcharm",
+		Revision:     1,
+		Source:       applicationcharm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+
+	tests := []struct {
+		includeArch bool
+		result      string
+	}{
+		{
+			includeArch: true,
+			result:      "ch:amd64/testcharm-1",
+		},
+		{
+			includeArch: false,
+			result:      "ch:testcharm-1",
+		},
+	}
+
+	for _, test := range tests {
+		url, err := CharmURLFromLocatorDuringMigration(locator, test.includeArch)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(url.String(), gc.Equals, test.result)
+	}
 }
 
 func (s *objectsCharmHandlerSuite) expectApplicationService() {

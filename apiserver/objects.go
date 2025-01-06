@@ -50,6 +50,7 @@ type StateGetter interface {
 type objectsCharmHTTPHandler struct {
 	stateGetter              StateGetter
 	applicationServiceGetter ApplicationServiceGetter
+	makeCharmURL             func(locator applicationcharm.CharmLocator, includeArchitecture bool) (*charm.URL, error)
 }
 
 // ApplicationService is an interface for the application domain service.
@@ -225,6 +226,12 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		return nil, errors.Capture(err)
 	}
 
+	return h.makeCharmURL(locator, curl.Architecture != "")
+}
+
+// CharmURLFromLocator returns a charm URL from a charm locator.
+// This will always include the architecture.
+func CharmURLFromLocator(locator applicationcharm.CharmLocator, _ bool) (*charm.URL, error) {
 	schema, err := convertSource(locator.Source)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -233,6 +240,33 @@ func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 	architecture, err := convertApplication(locator.Architecture)
 	if err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	return &charm.URL{
+		Schema:       schema,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}, nil
+}
+
+// CharmURLFromLocatorDuringMigration returns a charm URL from a charm locator
+// during model migration.
+// By including the architecture only when it's passed in, will allow us to
+// move forward with prior versions (3.x) not passing in the architecture and
+// current versions (4.x) passing in the architecture.
+func CharmURLFromLocatorDuringMigration(locator applicationcharm.CharmLocator, includeArchitecture bool) (*charm.URL, error) {
+	schema, err := convertSource(locator.Source)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var architecture string
+	if includeArchitecture {
+		architecture, err = convertApplication(locator.Architecture)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
 	}
 
 	return &charm.URL{
