@@ -761,9 +761,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 
 	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		ctxt:                     httpCtxt,
-		stateAuthFunc:            httpCtxt.stateForRequestAuthenticatedUser,
+		stateGetter:              &stateGetter{authFunc: httpCtxt.stateForRequestAuthenticatedUser},
 		applicationServiceGetter: &applicationServiceGetter{ctxt: httpCtxt},
+		makeCharmURL:             CharmURLFromLocator,
 	}, "charms")
 
 	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
@@ -839,9 +839,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: systemState.ControllerTag(),
 	}
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		ctxt:                     httpCtxt,
-		stateAuthFunc:            httpCtxt.stateForMigrationImporting,
-		applicationServiceGetter: &applicationServiceGetter{ctxt: httpCtxt},
+		stateGetter:              &stateGetter{authFunc: httpCtxt.stateForMigrationImporting},
+		applicationServiceGetter: &migratingApplicationServiceGetter{ctxt: httpCtxt},
+		makeCharmURL:             CharmURLFromLocatorDuringMigration,
 	}, "charms")
 	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,

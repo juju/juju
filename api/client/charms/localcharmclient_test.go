@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -52,7 +53,7 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 		Header:     make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
-	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
+	resp.Header.Add(params.JujuCharmURLHeader, "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
 		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
@@ -70,13 +71,13 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
-	resp.Header.Set("Juju-Curl", "local:quantal/dummy-42")
+	resp.Header.Set(params.JujuCharmURLHeader, "local:quantal/dummy-42")
 	savedURL, err = client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
-	resp.Header.Set("Juju-Curl", "local:quantal/dummy-43")
+	resp.Header.Set(params.JujuCharmURLHeader, "local:quantal/dummy-43")
 	savedURL, err = client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
@@ -118,7 +119,7 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 		Header:     make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
-	resp.Header.Add("Juju-Curl", "local:quantal/lxd-profile-0")
+	resp.Header.Add(params.JujuCharmURLHeader, "local:quantal/lxd-profile-0")
 	mockHttpDoer.EXPECT().Do(
 		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/lxd-profile-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
@@ -188,7 +189,7 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.C)
 		Header:     make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
-	resp.Header.Add("Juju-Curl", "local:quantal/lxd-profile-0")
+	resp.Header.Add(params.JujuCharmURLHeader, "local:quantal/lxd-profile-0")
 	mockHttpDoer.EXPECT().Do(
 		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/lxd-profile-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
@@ -251,7 +252,7 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 		Header:     make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
-	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
+	resp.Header.Add(params.JujuCharmURLHeader, "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
 		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
@@ -296,7 +297,7 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *gc.C) {
 		Header:     make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
-	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
+	resp.Header.Add(params.JujuCharmURLHeader, "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
 		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(nil, errors.New("boom")).MinTimes(1)
@@ -363,7 +364,7 @@ func testMinVer(t minverTest, c *gc.C) {
 		Header:     make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
-	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
+	resp.Header.Add(params.JujuCharmURLHeader, "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
 		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).AnyTimes()

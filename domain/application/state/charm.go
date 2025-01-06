@@ -622,35 +622,73 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
+	// This check is defensive, as the service layer should not allow this to
+	// happen, but it causes confusion if it does happen.
+	if ch.Revision >= 0 && requiresSequencing {
+		return "", charm.CharmLocator{}, internalerrors.Errorf("setting charm with revision %d and requires sequencing", ch.Revision)
+	}
+
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", charm.CharmLocator{}, internalerrors.Capture(err)
 	}
 
 	id, err := corecharm.NewID()
 	if err != nil {
-		return "", internalerrors.Errorf("setting charm: %w", err)
+		return "", charm.CharmLocator{}, internalerrors.Errorf("setting charm: %w", err)
+	}
+
+	charmUUID := charmID{UUID: id.String()}
+
+	var locator charmLocator
+	locatorQuery := `
+SELECT &charmLocator.*
+FROM v_charm_locator
+WHERE uuid = $charmID.uuid;
+	`
+	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
+	if err != nil {
+		return "", charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check the charm doesn't already exist, if it does, return an already
 		// exists error. Also doing this early, prevents the moving straight
 		// to a write transaction.
-		if _, err := s.checkCharmReferenceExists(ctx, tx, charm.ReferenceName, charm.Revision); err != nil {
+		if _, err := s.checkCharmReferenceExists(ctx, tx, ch.ReferenceName, ch.Revision); err != nil {
 			return internalerrors.Capture(err)
 		}
 
-		if err := s.setCharm(ctx, tx, id, charm, downloadInfo); err != nil {
+		// If the charm requires sequencing, get the next revision from
+		// the reference name.
+		if requiresSequencing {
+			ch.Revision, err = s.sequence(ctx, tx, ch.ReferenceName)
+			if err != nil {
+				return fmt.Errorf("getting next charm revision: %w", err)
+			}
+		}
+
+		if err := s.setCharm(ctx, tx, id, ch, downloadInfo); err != nil {
 			return internalerrors.Capture(err)
 		}
 
+		// The charm will be set, so we can use the new charmUUID to get the
+		// locator.
+		if err := tx.Query(ctx, locatorStmt, charmUUID).Get(&locator); err != nil {
+			return internalerrors.Errorf("getting charm locator: %w", err)
+		}
 		return nil
 	}); err != nil {
-		return "", internalerrors.Errorf("setting charm: %w", err)
+		return "", charm.CharmLocator{}, internalerrors.Errorf("setting charm: %w", err)
 	}
 
-	return id, nil
+	chLocator, err := decodeCharmLocator(locator)
+	if err != nil {
+		return "", charm.CharmLocator{}, internalerrors.Errorf("decoding charm locator: %w", err)
+	}
+
+	return id, chLocator, nil
 }
 
 // ListCharmLocatorsByNames returns a list of charm locators.
@@ -794,25 +832,111 @@ WHERE charm.uuid = $charmID.uuid;
 	return sha256, nil
 }
 
-func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
-	return transform.SliceOrErr(results, func(c charmLocator) (charm.CharmLocator, error) {
-		source, err := decodeCharmSource(c.SourceID)
-		if err != nil {
-			return charm.CharmLocator{}, err
+// ResolveMigratingUploadedCharm resolves the charm that is migrating from
+// the uploaded state to the available state. If the charm is not found, a
+// [applicationerrors.CharmNotFound] error is returned.
+func (s *State) ResolveMigratingUploadedCharm(ctx context.Context, id corecharm.ID, info charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Capture(err)
+	}
+
+	charmUUID := charmID{UUID: id.String()}
+
+	resolvedQuery := `
+SELECT &charmAvailable.*
+FROM charm
+WHERE uuid = $charmID.uuid
+`
+	resolvedStmt, err := s.Prepare(resolvedQuery, charmUUID, charmAvailable{})
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query for charm %q: %w", id, err)
+	}
+
+	chState := resolveCharmState{
+		ArchivePath:     info.ArchivePath,
+		ObjectStoreUUID: info.ObjectStoreUUID.String(),
+	}
+
+	charmQuery := `
+UPDATE charm
+SET
+	archive_path = $resolveCharmState.archive_path,
+	object_store_uuid = $resolveCharmState.object_store_uuid,
+	available = TRUE
+WHERE uuid = $charmID.uuid;`
+	charmStmt, err := s.Prepare(charmQuery, charmUUID, chState)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	var locator charmLocator
+	locatorQuery := `
+SELECT &charmLocator.*
+FROM v_charm_locator
+WHERE uuid = $charmID.uuid;
+	`
+	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var available charmAvailable
+		err := tx.Query(ctx, resolvedStmt, charmUUID).Get(&available)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		} else if available.Available {
+			// If the charm has already been processed, then we don't need to do
+			// anything. Handle the error on the other side.
+			return applicationerrors.CharmAlreadyAvailable
 		}
 
-		architecture, err := decodeArchitecture(c.ArchitectureID)
-		if err != nil {
-			return charm.CharmLocator{}, err
+		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {
+			return internalerrors.Errorf("updating charm state: %w", err)
 		}
 
-		return charm.CharmLocator{
-			Name:         c.Name,
-			Revision:     c.Revision,
-			Source:       source,
-			Architecture: architecture,
-		}, nil
+		// Insert the charm download info.
+		if err := s.setCharmDownloadInfo(ctx, tx, id, info.DownloadInfo); err != nil {
+			return internalerrors.Errorf("setting charm download info: %w", err)
+		}
+
+		if err := tx.Query(ctx, locatorStmt, charmUUID).Get(&locator); err != nil {
+			return internalerrors.Errorf("getting charm locator: %w", err)
+		}
+
+		return nil
 	})
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("resolving migrating uploaded charm: %w", err)
+	}
+
+	return decodeCharmLocator(locator)
+}
+
+func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
+	return transform.SliceOrErr(results, decodeCharmLocator)
+}
+
+func decodeCharmLocator(c charmLocator) (charm.CharmLocator, error) {
+	source, err := decodeCharmSource(c.SourceID)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("decoding charm source: %w", err)
+	}
+
+	architecture, err := decodeArchitecture(c.ArchitectureID)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("decoding architecture: %w", err)
+	}
+
+	return charm.CharmLocator{
+		Name:         c.Name,
+		Revision:     c.Revision,
+		Source:       source,
+		Architecture: architecture,
+	}, nil
 }
 
 var tablesToDeleteFrom = []string{

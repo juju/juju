@@ -4,34 +4,53 @@
 package apiserver
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	jujuerrors "github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/downloader"
-	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+const (
+	// maxUploadSize is the maximum size of a charm that can be uploaded.
+	// TODO (stickupkid): This should be configurable either by a model config
+	// or a controller config.
+	// This number was derived from the max size of a charm in the charmhub.
+	// There are a few larger charms, but they're corrupted (charms within
+	// charms - inception!) and should be considered outliers.
+	// It's better to have an upper limit rather than no limit at all.
+	maxUploadSize = 500 * 1024 * 1024 // 500MB
+
+	// uploadTimeout is the maximum time allowed for a single charm upload.
+	// TODO (stickupkid): This should be configurable either by a model config
+	// or a controller config.
+	uploadTimeout = time.Minute * 5
+)
+
+// StateGetter is an interface for getting the model state.
+type StateGetter interface {
+	GetState(*http.Request) (ModelState, error)
+}
+
 type objectsCharmHTTPHandler struct {
-	ctxt                     httpContext
-	stateAuthFunc            func(*http.Request) (*state.PooledState, error)
+	stateGetter              StateGetter
 	applicationServiceGetter ApplicationServiceGetter
+	makeCharmURL             func(locator applicationcharm.CharmLocator, includeArchitecture bool) (*charm.URL, error)
 }
 
 // ApplicationService is an interface for the application domain service.
@@ -43,29 +62,14 @@ type ApplicationService interface {
 	// returned.
 	GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 
-	// SetCharm persists the charm metadata, actions, config and manifest to
-	// state.
-	// If there are any non-blocking issues with the charm metadata, actions,
-	// config or manifest, a set of warnings will be returned.
-	SetCharm(ctx context.Context, args applicationcharm.SetCharmArgs) (corecharm.ID, []string, error)
-
-	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
-	// if the charm can not be found by the name.
-	// This can also be used as a cheap way to see if a charm exists without
-	// needing to load the charm metadata.
-	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
-
-	// GetCharm returns the charm metadata for the given charm ID.
-	// It returns an error.CharmNotFound if the charm can not be found by the
-	// ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
+	// ResolveUploadCharm resolves the upload of a charm archive.
+	ResolveUploadCharm(context.Context, applicationcharm.ResolveUploadCharm) (applicationcharm.CharmLocator, error)
 }
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
 type ApplicationServiceGetter interface {
-
 	// Application returns the model's application service.
-	Application(context.Context) (ApplicationService, error)
+	Application(*http.Request) (ApplicationService, error)
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +100,7 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
 func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	applicationService, err := h.applicationServiceGetter.Application(r.Context())
+	applicationService, err := h.applicationServiceGetter.Application(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -129,146 +133,148 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 // rewrite the http request for it to be correctly processed by the legacy
 // '/charms' handler.
 func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "PUT" {
-		return errors.Capture(emitUnsupportedMethodErr(r.Method))
-	}
-
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
 		return jujuerrors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
-	st, err := h.stateAuthFunc(r)
+	st, err := h.stateGetter.GetState(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	defer st.Release()
 
-	applicationService, err := h.applicationServiceGetter.Application(r.Context())
+	ctx, cancel := context.WithTimeout(r.Context(), uploadTimeout)
+	defer cancel()
+
+	applicationService, err := h.applicationServiceGetter.Application(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Add a charm to the store provider.
-	charmURL, err := h.processPut(r, st.State, applicationService)
+	charmURL, err := h.processPut(ctx, r, st, applicationService)
 	if err != nil {
 		return jujuerrors.NewBadRequest(err, "")
 	}
-	return errors.Capture(sendStatusAndHeadersAndJSON(w, http.StatusOK, map[string]string{"Juju-Curl": charmURL.String()}, &params.CharmsResponse{CharmURL: charmURL.String()}))
+	headers := map[string]string{
+		params.JujuCharmURLHeader: charmURL.String(),
+	}
+	return errors.Capture(sendStatusAndHeadersAndJSON(w, http.StatusOK, headers, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *objectsCharmHTTPHandler) processPut(r *http.Request, st *state.State, applicationService ApplicationService) (*charm.URL, error) {
-	query := r.URL.Query()
-	name, shaFromQuery, err := splitNameAndSHAFromQuery(query)
+func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st ModelState, applicationService ApplicationService) (*charm.URL, error) {
+	name, shaFromQuery, err := splitNameAndSHAFromQuery(r.URL.Query())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	curlStr := r.Header.Get("Juju-Curl")
+	curlStr := r.Header.Get(params.JujuCharmURLHeader)
+	if curlStr == "" {
+		return nil, jujuerrors.BadRequestf("missing %q header", params.JujuCharmURLHeader)
+	}
 	curl, err := charm.ParseURL(curlStr)
 	if err != nil {
 		return nil, jujuerrors.BadRequestf("%q is not a valid charm url", curlStr)
 	}
 	curl.Name = name
 
-	schema := curl.Schema
-	if schema != "local" {
-		// charmhub charms may only be uploaded into models
-		// which are being imported during model migrations.
-		// There's currently no other time where it makes sense
-		// to accept repository charms through this endpoint.
-		if isImporting, err := modelIsImporting(st); err != nil {
+	// charmhub charms may only be uploaded into models which are being
+	// imported during model migrations. There's currently no other time
+	// where it makes sense to accept repository charms through this
+	// endpoint.
+	// TODO (stickupkid): This should be moved to the application service once
+	// model migration is complete.
+	isImporting, err := modelIsImporting(st)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var source corecharm.Source
+	switch curl.Schema {
+	case charm.CharmHub.String():
+		source = corecharm.CharmHub
+	case charm.Local.String():
+		source = corecharm.Local
+	default:
+		return nil, jujuerrors.BadRequestf("unsupported charm source %q", curl.Schema)
+	}
+
+	locator, err := applicationService.ResolveUploadCharm(ctx, applicationcharm.ResolveUploadCharm{
+		Name:         curl.Name,
+		Revision:     curl.Revision,
+		Source:       source,
+		Architecture: curl.Architecture,
+		SHA256Prefix: shaFromQuery,
+
+		// Prevent an upload starvation attack by limiting the size of the
+		// charm that can be uploaded.
+		Reader: io.LimitReader(r.Body, maxUploadSize),
+
+		// Importing indicates that the charm is being uploaded during model
+		// migration import. This is useful to set the provenance of the charm
+		// correctly.
+		Importing: isImporting,
+	})
+	if errors.Is(err, applicationerrors.CharmNotFound) {
+		logger.Criticalf("charm not found on object store")
+		return nil, jujuerrors.NotFoundf("charm")
+	} else if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
+		return nil, jujuerrors.AlreadyExistsf("charm")
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return h.makeCharmURL(locator, curl.Architecture != "")
+}
+
+// CharmURLFromLocator returns a charm URL from a charm locator.
+// This will always include the architecture.
+func CharmURLFromLocator(locator applicationcharm.CharmLocator, _ bool) (*charm.URL, error) {
+	schema, err := convertSource(locator.Source)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	architecture, err := convertApplication(locator.Architecture)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return &charm.URL{
+		Schema:       schema,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}, nil
+}
+
+// CharmURLFromLocatorDuringMigration returns a charm URL from a charm locator
+// during model migration.
+// By including the architecture only when it's passed in, will allow us to
+// move forward with prior versions (3.x) not passing in the architecture and
+// current versions (4.x) passing in the architecture.
+func CharmURLFromLocatorDuringMigration(locator applicationcharm.CharmLocator, includeArchitecture bool) (*charm.URL, error) {
+	schema, err := convertSource(locator.Source)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var architecture string
+	if includeArchitecture {
+		architecture, err = convertApplication(locator.Architecture)
+		if err != nil {
 			return nil, errors.Capture(err)
-		} else if !isImporting {
-			return nil, errors.New("non-local charms may only be uploaded during model migration import")
 		}
 	}
 
-	// Attempt to get the object store early, so we're not unnecessarily
-	// creating a parsing/reading if we can't get the object store.
-	objectStore, err := h.ctxt.objectStoreForRequest(r.Context())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	hash := sha256.New()
-	var charmArchiveBuf bytes.Buffer
-	_, err = io.Copy(io.MultiWriter(hash, &charmArchiveBuf), r.Body)
-	if err != nil {
-		return nil, errors.Errorf("reading charm archive upload: %w", err)
-	}
-
-	charmSHA := hex.EncodeToString(hash.Sum(nil))
-
-	// Charm refs only use the first 7 chars. So truncate the sha to match
-	if sha := charmSHA[0:7]; sha != shaFromQuery {
-		return nil, jujuerrors.BadRequestf("Uploaded charm sha256 (%v) does not match sha in url (%v)", sha, shaFromQuery)
-	}
-
-	archive, err := charm.ReadCharmArchiveBytes(charmArchiveBuf.Bytes())
-	if err != nil {
-		return nil, jujuerrors.BadRequestf("invalid charm archive: %v", err)
-	}
-
-	if curl.Revision == -1 {
-		curl.Revision = archive.Revision()
-	}
-
-	source := charm.Schema(schema)
-
-	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
-		Logger:             logger,
-		ObjectStore:        objectStore,
-		ApplicationService: applicationService,
-	})
-
-	storagePath, err := charmStorage.Store(r.Context(), curl.String(), downloader.DownloadedCharm{
-		Charm:        archive,
-		CharmData:    &charmArchiveBuf,
-		CharmVersion: archive.Version(),
-		Size:         int64(charmArchiveBuf.Len()),
-		SHA256:       charmSHA,
-		LXDProfile:   archive.LXDProfile(),
-	})
-
-	if err != nil {
-		return nil, errors.Errorf("cannot store charm: %w", err)
-	}
-
-	// Dual write the charm to the service.
-	// TODO(stickupkid): There should be a SetCharm method on a charm
-	// service, which increments the charm revision and uploads the charm to
-	// the object store.
-	// This can be done, once all the charm service methods are being used,
-	// instead of the state methods.
-	csSource := corecharm.CharmHub
-	provenance := applicationcharm.ProvenanceMigration
-	if source == charm.Local {
-		csSource = corecharm.Local
-		provenance = applicationcharm.ProvenanceUpload
-	}
-
-	if _, _, err := applicationService.SetCharm(r.Context(), applicationcharm.SetCharmArgs{
-		Charm:         archive,
-		Source:        csSource,
-		ReferenceName: curl.Name,
-		Revision:      curl.Revision,
-		Hash:          charmSHA,
-		ArchivePath:   storagePath,
-		Version:       archive.Version(),
-		Architecture:  curl.Architecture,
-		// If this is a charmhub charm, this will be coming from a migration.
-		// We can not re-download this charm from the charm store again, without
-		// another call directly to the charm store.
-		DownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance: provenance,
-		},
-	}); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return curl, nil
+	return &charm.URL{
+		Schema:       schema,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}, nil
 }
 
 func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
@@ -281,6 +287,9 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 		return "", "", jujuerrors.BadRequestf("%q is not a valid charm object path", charmObjectID)
 	}
 	name, sha := charmObjectID[:splitIndex], charmObjectID[splitIndex+1:]
+	if len(sha) < corecharm.MinSHA256PrefixLength {
+		return "", "", jujuerrors.BadRequestf("invalid sha length: %q", sha)
+	}
 	return name, sha, nil
 }
 
@@ -289,7 +298,6 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Capture(sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
@@ -298,7 +306,18 @@ func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
 	}))
 }
 
-func modelIsImporting(st *state.State) (bool, error) {
+// ModelState is an interface for getting the model state.
+type ModelState interface {
+	Model() (Model, error)
+	Release() bool
+}
+
+// Model is an interface for getting the model migration mode.
+type Model interface {
+	MigrationMode() state.MigrationMode
+}
+
+func modelIsImporting(st ModelState) (bool, error) {
 	model, err := st.Model()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -306,19 +325,88 @@ func modelIsImporting(st *state.State) (bool, error) {
 	return model.MigrationMode() == state.MigrationModeImporting, nil
 }
 
-func emitUnsupportedMethodErr(method string) error {
-	return jujuerrors.MethodNotAllowedf("unsupported method: %q", method)
+type stateGetter struct {
+	authFunc func(*http.Request) (*state.PooledState, error)
+}
+
+func (s *stateGetter) GetState(r *http.Request) (ModelState, error) {
+	st, err := s.authFunc(r)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &stateGetterModel{
+		pooledState: st,
+		st:          st.State,
+	}, nil
+}
+
+type stateGetterModel struct {
+	pooledState *state.PooledState
+	st          *state.State
+}
+
+func (s *stateGetterModel) Model() (Model, error) {
+	return s.st.Model()
+}
+
+func (s *stateGetterModel) Release() bool {
+	return s.pooledState.Release()
 }
 
 type applicationServiceGetter struct {
 	ctxt httpContext
 }
 
-func (a *applicationServiceGetter) Application(ctx context.Context) (ApplicationService, error) {
-	domainServices, err := a.ctxt.domainServicesForRequest(ctx)
+func (a *applicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesForRequest(r.Context())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	return domainServices.Application(), nil
+}
+
+type migratingApplicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *migratingApplicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return domainServices.Application(), nil
+}
+
+func convertSource(source applicationcharm.CharmSource) (string, error) {
+	switch source {
+	case applicationcharm.CharmHubSource:
+		return "ch", nil
+	case applicationcharm.LocalSource:
+		return "local", nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
+func convertApplication(arch application.Architecture) (string, error) {
+	switch arch {
+	case architecture.AMD64:
+		return "amd64", nil
+	case architecture.ARM64:
+		return "arm64", nil
+	case architecture.PPC64EL:
+		return "ppc64el", nil
+	case architecture.S390X:
+		return "s390x", nil
+	case architecture.RISV64:
+		return "riscv64", nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", arch)
+	}
 }

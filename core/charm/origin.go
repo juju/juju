@@ -31,6 +31,12 @@ const (
 	CharmHub Source = "charm-hub"
 )
 
+// MinSHA256PrefixLength is the minimum length of a SHA256 prefix. This value
+// is the minimum length of a SHA256 hash prefix that can be used to identify
+// a charm. Ideally, this value should be increased to reduce the risk of
+// collisions.
+const MinSHA256PrefixLength = 7
+
 // Origin holds the original source of a charm. Information about where the
 // charm was installed from (charm-hub, local) and any additional
 // information we can utilise when making modelling decisions for upgrading or

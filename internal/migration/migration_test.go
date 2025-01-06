@@ -276,9 +276,9 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(uploader.curls, jc.DeepEquals, expectedCurls)
 
 	expectedRefs := []string{
-		"postgresql-hash012",
-		"magic-hash012",
-		"magic-hash012",
+		"postgresql-hash0123",
+		"magic-hash0123",
+		"magic-hash0123",
 	}
 	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
 
@@ -307,7 +307,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 	}
 
 	config := migration.UploadBinariesConfig{
-		Charms:             []string{"local:foo/bar-2"},
+		Charms:             []string{"ch:foo/bar-2"},
 		CharmService:       charmService,
 		CharmUploader:      uploader,
 		ToolsDownloader:    downloader,
@@ -317,7 +317,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 	}
 	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches,
-		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-100")
+		"cannot upload charms: charm ch:foo/bar-2 unexpectedly assigned ch:foo/bar-100")
 }
 
 type fakeImporter struct {
@@ -356,7 +356,7 @@ func (s *fakeCharmService) GetCharmArchive(_ context.Context, id corecharm.ID) (
 	if !ok {
 		return nil, "", applicationerrors.CharmNotFound
 	}
-	return io.NopCloser(bytes.NewReader([]byte(ch.Name + " content"))), "hash012", nil
+	return io.NopCloser(bytes.NewReader([]byte(ch.Name + " content"))), "hash0123", nil
 }
 
 type fakeDownloader struct {

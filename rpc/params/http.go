@@ -8,6 +8,12 @@ import (
 	"fmt"
 )
 
+const (
+	// JujuCharmURLHeader is the header used to specify the charm URL in a
+	// request.
+	JujuCharmURLHeader = "Juju-Curl"
+)
+
 // DigestAlgorithm is one of the values in the IANA registry. See
 // RFC 3230 and 5843.
 type DigestAlgorithm string

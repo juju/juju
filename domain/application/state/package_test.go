@@ -4,10 +4,15 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -79,4 +84,23 @@ func (s *baseSuite) addApplicationArgForResources(c *gc.C,
 		Channel:   channel,
 		Resources: addResourcesArgs,
 	}
+}
+
+func (s *baseSuite) createObjectStoreBlob(c *gc.C, path string) objectstore.UUID {
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)
+`, uuid.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
+`, path, uuid.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return uuid
 }

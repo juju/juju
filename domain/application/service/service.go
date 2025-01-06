@@ -708,3 +708,7 @@ func encodeArchitecture(a string) application.Architecture {
 		return architecture.Unknown
 	}
 }
+
+func ptr[T any](v T) *T {
+	return &v
+}

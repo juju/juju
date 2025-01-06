@@ -199,6 +199,16 @@ func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds 
 	return st, entity, nil
 }
 
+// domainServicesDuringMigrationForRequest returns the domain services for the
+// model being migrated, as indicated by the request header.
+func (ctxt *httpContext) domainServicesDuringMigrationForRequest(r *http.Request) (services.DomainServices, error) {
+	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
+	if modelUUID == "" {
+		return nil, errors.Trace(apiservererrors.ErrPerm)
+	}
+	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID)), nil
+}
+
 // stop returns a channel which will be closed when a handler should
 // exit.
 func (ctxt *httpContext) stop() <-chan struct{} {
