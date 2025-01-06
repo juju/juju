@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -43,8 +44,12 @@ type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehtt
 // available to deployed charms in an environment.
 type ManifoldConfig struct {
 	DomainServicesName string
+	HTTPClientName     string
 	Period             time.Duration
 	NewWorker          func(Config) (worker.Worker, error)
+	ModelTag           names.ModelTag
+	NewHTTPClient      NewHTTPClientFunc
+	NewCharmhubClient  NewCharmhubClientFunc
 	Logger             logger.Logger
 	Clock              clock.Clock
 }
@@ -54,8 +59,17 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.DomainServicesName == "" {
 		return jujuerrors.NotValidf("empty DomainServicesName")
 	}
+	if cfg.HTTPClientName == "" {
+		return jujuerrors.NotValidf("empty HTTPClientName")
+	}
 	if cfg.NewWorker == nil {
 		return jujuerrors.NotValidf("nil NewWorker")
+	}
+	if cfg.NewHTTPClient == nil {
+		return jujuerrors.NotValidf("empty NewHTTPClient")
+	}
+	if cfg.NewCharmhubClient == nil {
+		return jujuerrors.NotValidf("nil NewCharmhubClient")
 	}
 	if cfg.Logger == nil {
 		return jujuerrors.NotValidf("nil Logger")
@@ -72,6 +86,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			cfg.DomainServicesName,
+			cfg.HTTPClientName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := cfg.Validate(); err != nil {
@@ -83,10 +98,19 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
+			var httpClientGetter corehttp.HTTPClientGetter
+			if err := getter.Get(cfg.HTTPClientName, &httpClientGetter); err != nil {
+				return nil, errors.Capture(err)
+			}
+
 			worker, err := cfg.NewWorker(Config{
 				ModelConfigService: domainServices.Config(),
 				ApplicationService: domainServices.Application(),
 				ModelService:       domainServices.ModelInfo(),
+				ModelTag:           cfg.ModelTag,
+				HTTPClientGetter:   httpClientGetter,
+				NewHTTPClient:      cfg.NewHTTPClient,
+				NewCharmhubClient:  cfg.NewCharmhubClient,
 				Clock:              cfg.Clock,
 				Period:             cfg.Period,
 				Logger:             cfg.Logger,

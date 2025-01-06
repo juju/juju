@@ -294,9 +294,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		charmRevisionUpdaterName: ifResponsible(charmrevision.Manifold(charmrevision.ManifoldConfig{
 			DomainServicesName: domainServicesName,
-			Clock:              config.Clock,
 			Period:             config.CharmRevisionUpdateInterval,
 			NewWorker:          charmrevision.NewWorker,
+			ModelTag:           modelTag,
+			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevision"),
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{

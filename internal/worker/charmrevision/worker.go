@@ -11,19 +11,26 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
@@ -71,6 +78,18 @@ type Config struct {
 	// ModelService is the service used to access the model.
 	ModelService ModelService
 
+	// ModelTag is the tag of the model the worker is running in.
+	ModelTag names.ModelTag
+
+	// HTTPClientGetter is the getter used to create HTTP clients.
+	HTTPClientGetter corehttp.HTTPClientGetter
+
+	// NewHTTPClient is the function used to create a new HTTP client.
+	NewHTTPClient NewHTTPClientFunc
+
+	// NewCharmhubClient is the function used to create a new CharmhubClient.
+	NewCharmhubClient NewCharmhubClientFunc
+
 	// Clock is the worker's view of time.
 	Clock clock.Clock
 
@@ -89,6 +108,18 @@ func (config Config) Validate() error {
 	}
 	if config.ApplicationService == nil {
 		return errors.NotValidf("nil ApplicationService")
+	}
+	if config.ModelService == nil {
+		return errors.NotValidf("nil ModelService")
+	}
+	if config.HTTPClientGetter == nil {
+		return errors.NotValidf("nil HTTPClientGetter")
+	}
+	if config.NewHTTPClient == nil {
+		return errors.NotValidf("nil NewHTTPClient")
+	}
+	if config.NewCharmhubClient == nil {
+		return errors.NotValidf("nil NewCharmhubClient")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -241,37 +272,28 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 	charmhubApps := make([]appInfo, len(applications))
 
 	for i, app := range applications {
-		charmURL, err := buildCharmURL(app)
+		charmURL, err := encodeCharmURL(app)
 		if err != nil {
-			w.config.Logger.Infof("skipping application %q: %v", app.Name, err)
+			w.config.Logger.Infof("encoding charm URL for %q: %v", app.Name, err)
 			continue
 		}
 
-		origin := app.Origin
-		channel, err := charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
+		charmhubID, err := encodeCharmhubID(app, w.config.ModelTag)
 		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-
-		charmhubIDs[i] = charmhubID{
-			id:          origin.ID,
-			revision:    *origin.Revision,
-			channel:     channel.String(),
-			osType:      strings.ToLower(origin.Platform.OS),
-			osChannel:   origin.Platform.Channel,
-			arch:        origin.Platform.Architecture,
-			instanceKey: charmhub.CreateInstanceKey(app.Name, app.ModelTag),
+			w.config.Logger.Infof("encoding charmhub ID for %q: %v", app.Name, err)
+			continue
 		}
 
 		if buildTelemetry {
-			charmhubIDs[i].metrics = map[charmmetrics.MetricValueKey]string{
-				charmmetrics.NumUnits:  strconv.Itoa(app.UnitCount),
+			charmhubID.metrics = map[charmmetrics.MetricValueKey]string{
+				charmmetrics.NumUnits:  strconv.Itoa(app.NumUnits),
 				charmmetrics.Relations: strings.Join(app.Relations, ","),
 			}
 		}
 
+		charmhubIDs[i] = charmhubID
 		charmhubApps[i] = appInfo{
-			id:       app.ApplicationTag.Id(),
+			id:       app.Name,
 			charmURL: charmURL,
 		}
 	}
@@ -372,7 +394,7 @@ func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClien
 	return results, nil
 }
 
-func (w *revisionUpdateWorker) getCharmhubClient(ctx context.Context) (Downloader, error) {
+func (w *revisionUpdateWorker) getCharmhubClient(ctx context.Context) (CharmhubClient, error) {
 	// Get a new downloader, this ensures that we've got a fresh
 	// connection to the charm store.
 	httpClient, err := w.config.NewHTTPClient(ctx, w.config.HTTPClientGetter)
@@ -475,12 +497,106 @@ func (w *revisionUpdateWorker) scopedContext() (context.Context, context.CancelF
 	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
-func buildCharmURL(app application.RevisionUpdaterApplication) (*charm.URL, error) {
-	return nil, nil
+func encodeCharmURL(app application.RevisionUpdaterApplication) (*charm.URL, error) {
+	// We only support charmhub charms, anything else is an error.
+	if app.CharmLocator.Source != applicationcharm.CharmHubSource {
+		return nil, internalerrors.Errorf("unsupported charm source %v", app.CharmLocator.Source)
+	}
+
+	arch, err := encodeArchitecture(app.CharmLocator.Architecture)
+	if err != nil {
+		return nil, internalerrors.Errorf("encoding architecture: %w", err)
+	}
+
+	return &charm.URL{
+		Schema:       charm.CharmHub.String(),
+		Name:         app.CharmLocator.Name,
+		Revision:     app.CharmLocator.Revision,
+		Architecture: arch,
+	}, nil
 }
 
 func jitter(period time.Duration) time.Duration {
 	return retry.ExpBackoff(period, period*2, 2, true)(0, 1)
+}
+
+func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names.ModelTag) (charmhubID, error) {
+	appTag, err := names.ParseApplicationTag(app.Name)
+	if err != nil {
+		return charmhubID{}, internalerrors.Errorf("parsing application tag: %w", err)
+	}
+
+	origin := app.Origin
+	risk, err := encodeRisk(origin.Channel.Risk)
+	if err != nil {
+		return charmhubID{}, internalerrors.Errorf("encoding channel risk: %w", err)
+	}
+
+	channel, err := charm.MakeChannel(origin.Channel.Track, risk, origin.Channel.Branch)
+	if err != nil {
+		return charmhubID{}, internalerrors.Errorf("making channel: %w", err)
+	}
+
+	arch, err := encodeArchitecture(origin.Platform.Architecture)
+	if err != nil {
+		return charmhubID{}, internalerrors.Errorf("encoding architecture: %w", err)
+	}
+
+	osType, err := encodeOSType(origin.Platform.OSType)
+	if err != nil {
+		return charmhubID{}, internalerrors.Errorf("encoding os type: %w", err)
+	}
+
+	return charmhubID{
+		id:          origin.ID,
+		revision:    origin.Revision,
+		channel:     channel.String(),
+		osType:      osType,
+		osChannel:   origin.Platform.Channel,
+		arch:        arch,
+		instanceKey: charmhub.CreateInstanceKey(appTag, modelTag),
+	}, nil
+}
+
+func encodeArchitecture(a architecture.Architecture) (string, error) {
+	switch a {
+	case architecture.AMD64:
+		return arch.AMD64, nil
+	case architecture.ARM64:
+		return arch.ARM64, nil
+	case architecture.PPC64EL:
+		return arch.PPC64EL, nil
+	case architecture.S390X:
+		return arch.S390X, nil
+	case architecture.RISCV64:
+		return arch.RISCV64, nil
+	default:
+		return "", internalerrors.Errorf("unsupported architecture %v", a)
+	}
+}
+
+func encodeOSType(t application.OSType) (string, error) {
+	switch t {
+	case application.Ubuntu:
+		return strings.ToLower(ostype.Ubuntu.String()), nil
+	default:
+		return "", internalerrors.Errorf("unsupported OS type %v", t)
+	}
+}
+
+func encodeRisk(r application.ChannelRisk) (string, error) {
+	switch r {
+	case application.RiskStable:
+		return internalcharm.Stable.String(), nil
+	case application.RiskCandidate:
+		return internalcharm.Candidate.String(), nil
+	case application.RiskBeta:
+		return internalcharm.Beta.String(), nil
+	case application.RiskEdge:
+		return internalcharm.Edge.String(), nil
+	default:
+		return "", internalerrors.Errorf("unsupported risk %v", r)
+	}
 }
 
 type appInfo struct {

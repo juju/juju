@@ -1468,3 +1468,11 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 		ArchivePath: result.UniqueName,
 	}, nil
 }
+
+// GetApplicationsForRevisionUpdater returns all the applications for the
+// revision updater. This will only return charmhub charms, for applications
+// that are alive.
+// This will return an empty slice if there are no applications.
+func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error) {
+	return s.st.GetApplicationsForRevisionUpdater(ctx)
+}
