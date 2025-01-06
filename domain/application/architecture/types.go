@@ -13,5 +13,5 @@ const (
 	ARM64
 	PPC64EL
 	S390X
-	RISV64
+	RISCV64
 )

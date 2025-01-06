@@ -1372,7 +1372,7 @@ func decodeArchitecture(arch sql.NullInt64) (application.Architecture, error) {
 	case 3:
 		return architecture.S390X, nil
 	case 4:
-		return architecture.RISV64, nil
+		return architecture.RISCV64, nil
 	default:
 		return -1, fmt.Errorf("unsupported architecture: %d", arch.Int64)
 	}
@@ -1403,7 +1403,7 @@ func encodeArchitecture(a architecture.Architecture) (int, error) {
 		return 2, nil
 	case architecture.S390X:
 		return 3, nil
-	case architecture.RISV64:
+	case architecture.RISCV64:
 		return 4, nil
 	default:
 		return 0, internalerrors.Errorf("unsupported architecture: %d", a)
