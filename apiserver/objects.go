@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -119,6 +120,7 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 	} else if err != nil {
 		return errors.Capture(err)
 	}
+	defer reader.Close()
 
 	_, err = io.Copy(w, reader)
 	if err != nil {
@@ -318,18 +320,26 @@ func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 		return jujuerrors.BadRequestf("missing object sha256")
 	}
 
-	reader, _, err := service.GetBySHA256(r.Context(), sha256)
+	reader, readerSize, err := service.GetBySHA256(r.Context(), sha256)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return jujuerrors.NotFoundf("object")
 	} else if err != nil {
 		return errors.Capture(err)
 	}
-
 	defer reader.Close()
 
-	_, err = io.Copy(w, reader)
+	// Set the content-length before the copy, so the client knows how much to
+	// expect.
+	w.Header().Set("Content-Length", strconv.FormatInt(readerSize, 10))
+
+	size, err := io.Copy(w, reader)
 	if err != nil {
 		return errors.Errorf("error processing charm archive download: %w", err)
+	}
+
+	// There isn't much we can do if the size doesn't match, but we can log it.
+	if readerSize != size {
+		logger.Warningf("expected size %d, got %d when reading %v", readerSize, size, sha256)
 	}
 
 	return nil

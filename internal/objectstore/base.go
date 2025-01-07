@@ -138,7 +138,7 @@ func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (
 	written, err := io.Copy(tmpFile, r)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", nopCloser, errors.Trace(err)
+		return "", nopCloser, errors.Errorf("sourcing file: %w", err)
 	}
 
 	// Ensure that we write all the data.

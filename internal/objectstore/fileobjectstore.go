@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -29,9 +30,13 @@ import (
 const (
 	defaultFileDirectory = "objectstore"
 
-	// defaultRemoteTimeout is the default timeout for retrieving blobs from
-	// remote API servers.
-	defaultRemoteTimeout = time.Second * 30
+	// shortRemoteTimeout is the default timeout for retrieving blobs from
+	// remote API servers when it's from a get request.
+	shortRemoteTimeout = time.Second * 30
+
+	// longRemoteTimeout is the default timeout for retrieving blobs from
+	// remote API servers when it's from a change request.
+	longRemoteTimeout = time.Minute * 5
 )
 
 // BlobRetriever is the interface for retrieving blobs from remote API servers.
@@ -684,6 +689,9 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 }
 
 func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, shortRemoteTimeout)
+	defer cancel()
+
 	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
 	if err != nil {
 		return nil, -1, errors.Errorf("fetching blob from remote: %w", err)
@@ -748,6 +756,9 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 		return errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, longRemoteTimeout)
+	defer cancel()
+
 	// Fetch the file from a remote API server, if it doesn't exist return
 	// not found.
 	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
@@ -757,10 +768,12 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 	} else if err != nil {
 		return errors.Errorf("fetching blob from remote: %w", err)
 	}
+	defer reader.Close()
 
 	// We need to now put the blob into the file store, so that we can
 	// retrieve it from the file store next time.
 	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, reader, size)
+	loggo.GetLogger("***").Criticalf("tmpFileName: %s %s %v", t.path, tmpFileName, err)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -770,19 +783,18 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 
 	// Persist the temporary file to the final location.
 	if err := t.withLock(ctx, metadata.SHA384, func(ctx context.Context) error {
+		loggo.GetLogger("***").Criticalf("PERSIST: %s %s %v", tmpFileName, err)
 		return t.persistTmpFile(ctx, tmpFileName, metadata.SHA384, size)
 	}); err != nil {
 		return errors.Capture(err)
 	}
+	loggo.GetLogger("***").Criticalf("DONE!!")
 
 	return nil
 }
 
 func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
-	t.logger.Criticalf("fetching object %q from remote", metadata.Path)
-
-	ctx, cancel := context.WithTimeout(ctx, defaultRemoteTimeout)
-	defer cancel()
+	t.logger.Debugf("fetching object %q from remote", metadata.Path)
 
 	reader, size, err := t.blobRetriever.RetrieveBlobFromRemote(ctx, metadata.SHA256)
 	if errors.Is(err, remote.NoRemoteConnection) ||

@@ -92,6 +92,8 @@ func (r *BlobRetriever) RetrieveBlobFromRemote(ctx context.Context, sha256 strin
 	// This will cancel the context when the tomb is dying, or when the passed
 	// context is cancelled.
 	ctx, cancel := r.scopedContext(ctx)
+
+	// This cancel is cancelling the reader.
 	defer cancel()
 
 	for _, conn := range conns {
@@ -122,11 +124,6 @@ func (r *BlobRetriever) RetrieveBlobFromRemote(ctx context.Context, sha256 strin
 			} else if err != nil {
 				return nil, -1, err
 			}
-
-			// Cancel the other goroutines to prevent them from doing
-			// unnecessary work.
-			cancel()
-
 			return res.reader, res.size, nil
 		}
 	}
