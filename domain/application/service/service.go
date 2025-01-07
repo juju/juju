@@ -703,7 +703,7 @@ func encodeArchitecture(a string) application.Architecture {
 	case arch.S390X:
 		return architecture.S390X
 	case arch.RISCV64:
-		return architecture.RISV64
+		return architecture.RISCV64
 	default:
 		return architecture.Unknown
 	}

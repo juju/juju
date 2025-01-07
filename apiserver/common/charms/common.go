@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application"
@@ -155,33 +156,33 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 func convertSource(source applicationcharm.CharmSource) (string, error) {
 	switch source {
 	case applicationcharm.CharmHubSource:
-		return "ch", nil
+		return charm.CharmHub.String(), nil
 	case applicationcharm.LocalSource:
-		return "local", nil
+		return charm.Local.String(), nil
 	default:
 		return "", errors.Errorf("unsupported source %q", source)
 	}
 }
 
-func convertApplication(arch application.Architecture) (string, error) {
-	switch arch {
+func convertApplication(a application.Architecture) (string, error) {
+	switch a {
 	case architecture.AMD64:
-		return "amd64", nil
+		return arch.AMD64, nil
 	case architecture.ARM64:
-		return "arm64", nil
+		return arch.ARM64, nil
 	case architecture.PPC64EL:
-		return "ppc64el", nil
+		return arch.PPC64EL, nil
 	case architecture.S390X:
-		return "s390x", nil
-	case architecture.RISV64:
-		return "riscv64", nil
+		return arch.S390X, nil
+	case architecture.RISCV64:
+		return arch.RISCV64, nil
 
 	// This is a valid case if we're uploading charms and the value isn't
 	// supplied.
 	case architecture.Unknown:
 		return "", nil
 	default:
-		return "", errors.Errorf("unsupported architecture %q", arch)
+		return "", errors.Errorf("unsupported architecture %q", a)
 	}
 }
 

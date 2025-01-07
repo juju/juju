@@ -11,6 +11,7 @@ import (
 	"github.com/juju/schema"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -332,9 +333,9 @@ func (c *domainCharm) IsUploaded() bool {
 }
 
 func (c *domainCharm) URL() string {
-	schema := "local"
+	schema := charm.Local.String()
 	if c.locator.Source == applicationcharm.CharmHubSource {
-		schema = "ch"
+		schema = charm.CharmHub.String()
 	}
 
 	name := c.charm.Meta().Name
@@ -342,18 +343,18 @@ func (c *domainCharm) URL() string {
 		panic(fmt.Sprintf("charm name is empty %+v", c.charm))
 	}
 
-	var arch string
+	var a string
 	switch c.locator.Architecture {
 	case architecture.AMD64:
-		arch = "amd64"
+		a = arch.AMD64
 	case architecture.ARM64:
-		arch = "arm64"
+		a = arch.ARM64
 	case architecture.PPC64EL:
-		arch = "ppc64el"
+		a = arch.PPC64EL
 	case architecture.S390X:
-		arch = "s390x"
-	case architecture.RISV64:
-		arch = "risv64"
+		a = arch.S390X
+	case architecture.RISCV64:
+		a = arch.RISCV64
 	default:
 		// If there is no architecture set, we should ignore it.
 	}
@@ -362,7 +363,7 @@ func (c *domainCharm) URL() string {
 		Schema:       schema,
 		Name:         name,
 		Revision:     c.locator.Revision,
-		Architecture: arch,
+		Architecture: a,
 	}
 	return curl.String()
 }
