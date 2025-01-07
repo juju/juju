@@ -6,6 +6,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,6 +69,19 @@ The filtering options combine as follows:
   --include-label and --exclude-label selections are logically ANDed to form
   the complete filter.
 
+The '--tail' option waits for and continuously prints new log lines after displaying the most recent log lines.
+
+The '--notail' option displays the most recent log lines and then exits immediately.
+
+The '--lines' and '--limit' options control the number of log lines displayed:
+* --lines option prints the specified number of the most recent lines and then waits for new lines. This implies --tail.
+* --limit option prints up to the specified number of the most recent lines and exits. This implies --notail.
+
+Given the above, the following flag combinations are incompatible and cannot be specified together:
+* --tail and --notail
+* --tail and --limit
+* --notail and --lines (-n)
+* --limit and --lines (-n)
 `
 
 const usageDebugLogExamples = `
@@ -141,9 +155,10 @@ type debugLogCommand struct {
 	date     bool
 	ms       bool
 
-	tail   bool
-	noTail bool
-	color  bool
+	backLogFlag *intValue
+	tail        bool
+	noTail      bool
+	color       bool
 
 	retry      bool
 	retryDelay time.Duration
@@ -166,13 +181,15 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
 
-	f.UintVar(&c.params.Backlog, "n", defaultLineCount, "Show this many of the most recent (possibly filtered) lines, and continue to append")
-	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
-	f.UintVar(&c.params.Limit, "limit", 0, "Exit once this many of the most recent (possibly filtered) lines are shown")
-	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire (possibly filtered) log and continue to append")
+	c.backLogFlag = newIntValue(&c.params.Backlog)
+	f.Var(c.backLogFlag, "n", "Show this many of the most recent lines and continue to append new ones")
+	f.Var(c.backLogFlag, "lines", "")
 
-	f.BoolVar(&c.noTail, "no-tail", false, "Stop after returning existing log messages")
-	f.BoolVar(&c.tail, "tail", false, "Wait for new logs")
+	f.UintVar(&c.params.Limit, "limit", 0, "Show this many of the most recent logs and then exit")
+	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire log and continue to append new ones")
+
+	f.BoolVar(&c.noTail, "no-tail", false, "Show existing log messages and then exit")
+	f.BoolVar(&c.tail, "tail", false, "Show existing log messages and continue to append new ones")
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
@@ -199,8 +216,23 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.noTail && c.retry {
 		return errors.NotValidf("setting --no-tail and --retry")
 	}
+	if c.noTail && c.backLogFlag.IsSet() {
+		return errors.NotValidf("setting --no-tail and --lines")
+	}
+	if c.tail && c.params.Limit != 0 {
+		return errors.NotValidf("setting --tail and --limit")
+	}
+	if c.params.Limit != 0 && c.backLogFlag.IsSet() {
+		return errors.NotValidf("setting --limit and --lines")
+	}
 	if c.retryDelay < 0 {
 		return errors.NotValidf("negative retry delay")
+	}
+	if c.params.Limit != 0 {
+		c.noTail = true
+	}
+	if c.backLogFlag.IsSet() {
+		c.tail = true
 	}
 	if c.utc {
 		c.tz = time.UTC
@@ -352,4 +384,43 @@ func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage
 		fmt.Fprintf(w, "%v ", strings.Join(r.Labels, ","))
 	}
 	fmt.Fprintln(w, r.Message)
+}
+
+// intValue implements gnuflag.Value for an int value that can be set
+// to differentiate user input value from default value.
+type intValue struct {
+	value *uint
+	isSet bool
+}
+
+func newIntValue(val *uint) *intValue {
+	*val = defaultLineCount
+	return &intValue{
+		value: val,
+	}
+}
+
+// Implements gnuflag.Value Set.
+func (v *intValue) Set(s string) error {
+	val, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid value %q for uint flag", s)
+	}
+	// Check if val > max value of uint
+	if val > uint64(^uint(0)) {
+		return fmt.Errorf("value %q exceeds maximum value", s)
+	}
+	*v.value = uint(val) // Convert to uint
+	v.isSet = true
+	return nil
+}
+
+// Implements gnuflag.Value String.
+func (v *intValue) String() string {
+	return fmt.Sprint(v.value)
+}
+
+// Returns true if the value has been set.
+func (v *intValue) IsSet() bool {
+	return v.isSet
 }
