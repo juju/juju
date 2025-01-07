@@ -240,13 +240,13 @@ func (w *revisionUpdateWorker) loop() error {
 
 			// TODO (stickupkid): Insert charms with the latest revisions.
 
-		case change, ok := <-configWatcher.Changes():
+		case changes, ok := <-configWatcher.Changes():
 			if !ok {
 				return errors.New("model config watcher closed")
 			}
 
 			var refresh bool
-			for _, key := range change {
+			for _, key := range changes {
 				if key == config.CharmHubURLKey {
 					refresh = true
 					break
@@ -289,7 +289,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 	charmhubApps := make([]appInfo, len(applications))
 
 	for i, app := range applications {
-		charmURL, err := encodeCharmURL(app)
+		charmURL, err := encodeCharmURL(app.CharmLocator)
 		if err != nil {
 			w.config.Logger.Infof("encoding charm URL for %q: %v", app.Name, err)
 			continue
@@ -521,21 +521,21 @@ func (w *revisionUpdateWorker) reportInternalState(state string) {
 	}
 }
 
-func encodeCharmURL(app application.RevisionUpdaterApplication) (*charm.URL, error) {
+func encodeCharmURL(locator applicationcharm.CharmLocator) (*charm.URL, error) {
 	// We only support charmhub charms, anything else is an error.
-	if app.CharmLocator.Source != applicationcharm.CharmHubSource {
-		return nil, internalerrors.Errorf("unsupported charm source %v", app.CharmLocator.Source)
+	if locator.Source != applicationcharm.CharmHubSource {
+		return nil, internalerrors.Errorf("unsupported charm source %q", locator.Source)
 	}
 
-	arch, err := encodeArchitecture(app.CharmLocator.Architecture)
+	arch, err := encodeArchitecture(locator.Architecture)
 	if err != nil {
 		return nil, internalerrors.Errorf("encoding architecture: %w", err)
 	}
 
 	return &charm.URL{
 		Schema:       charm.CharmHub.String(),
-		Name:         app.CharmLocator.Name,
-		Revision:     app.CharmLocator.Revision,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
 		Architecture: arch,
 	}, nil
 }
@@ -558,6 +558,8 @@ func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names
 
 	channel, err := charm.MakeChannel(origin.Channel.Track, risk, origin.Channel.Branch)
 	if err != nil {
+		// It's actually impossible to get to the error here, as we've encoded
+		// the risk above. Yet, it's better to be safe.
 		return charmhubID{}, internalerrors.Errorf("making channel: %w", err)
 	}
 
