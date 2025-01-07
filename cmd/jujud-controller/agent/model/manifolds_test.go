@@ -301,10 +301,9 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"charm-revision-updater": {
 		"agent",
 		"api-caller",
+		"domain-services",
+		"http-client",
 		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
 	},
 
 	"clock": {},
@@ -426,10 +425,10 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"charm-revision-updater": {
 		"agent",
 		"api-caller",
+		"domain-services",
+		"http-client",
 		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag"},
+	},
 
 	"clock": {},
 

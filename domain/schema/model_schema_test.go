@@ -293,9 +293,12 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_storage",
 		"v_endpoint",
 		"v_hardware_characteristics",
+		"v_model_metrics",
 		"v_object_store_metadata",
 		"v_port_range",
 		"v_resource",
+		"v_revision_updater_application_unit",
+		"v_revision_updater_application",
 		"v_secret_permission",
 		"v_space_subnet",
 	)
