@@ -440,10 +440,6 @@ func (a stateApplicationShim) SetCharm(
 	return a.Application.SetCharm(config, objStore)
 }
 
-type stateCharmShim struct {
-	state.CharmRefFull
-}
-
 type stateMachineShim struct {
 	*state.Machine
 }

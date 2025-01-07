@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -48,12 +47,6 @@ type Unit interface {
 	PrincipalName() (string, bool)
 	AssignedMachineId() (string, error)
 	CharmURL() *string
-}
-
-// Charm represents point of use methods from the state Charm object.
-type Charm interface {
-	LXDProfile() lxdprofile.Profile
-	Revision() int
 }
 
 // Application represents point of use methods from the state Application object.
