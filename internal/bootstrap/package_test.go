@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/charm/repository"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -89,7 +89,7 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 			controller.PublicDNSAddress:  "obscura.com",
 			controller.APIPort:           1234,
 		},
-		NewCharmRepo: func(services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
+		NewCharmHubRepo: func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return s.charmRepo, nil
 		},
 		NewCharmDownloader: func(h HTTPClient, l logger.Logger) Downloader {

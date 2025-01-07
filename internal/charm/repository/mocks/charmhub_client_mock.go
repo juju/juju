@@ -14,7 +14,6 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
 	gomock "go.uber.org/mock/gomock"
@@ -83,51 +82,6 @@ func (c *MockCharmHubClientDownloadCall) Do(f func(context.Context, *url.URL, st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCharmHubClientDownloadCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charmhub.Digest, error)) *MockCharmHubClientDownloadCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// DownloadAndRead mocks base method.
-func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "DownloadAndRead", varargs...)
-	ret0, _ := ret[0].(*charm.CharmArchive)
-	ret1, _ := ret[1].(*charmhub.Digest)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// DownloadAndRead indicates an expected call of DownloadAndRead.
-func (mr *MockCharmHubClientMockRecorder) DownloadAndRead(arg0, arg1, arg2 any, arg3 ...any) *MockCharmHubClientDownloadAndReadCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndRead", reflect.TypeOf((*MockCharmHubClient)(nil).DownloadAndRead), varargs...)
-	return &MockCharmHubClientDownloadAndReadCall{Call: call}
-}
-
-// MockCharmHubClientDownloadAndReadCall wrap *gomock.Call
-type MockCharmHubClientDownloadAndReadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCharmHubClientDownloadAndReadCall) Return(arg0 *charm.CharmArchive, arg1 *charmhub.Digest, arg2 error) *MockCharmHubClientDownloadAndReadCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCharmHubClientDownloadAndReadCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)) *MockCharmHubClientDownloadAndReadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmHubClientDownloadAndReadCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)) *MockCharmHubClientDownloadAndReadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

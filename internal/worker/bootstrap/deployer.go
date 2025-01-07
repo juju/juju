@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
-	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -176,9 +176,8 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		Channel:             cfg.ControllerCharmChannel,
 		CharmhubHTTPClient:  cfg.CharmhubHTTPClient,
 		ControllerCharmName: cfg.ControllerCharmName,
-		NewCharmRepo: func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
-			charmRepoFactory := services.NewCharmRepoFactory(cfg)
-			return charmRepoFactory.GetCharmRepository(context.TODO(), corecharm.CharmHub)
+		NewCharmHubRepo: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
+			return repository.NewCharmHubRepository(cfg)
 		},
 		NewCharmDownloader: func(client bootstrap.HTTPClient, logger logger.Logger) bootstrap.Downloader {
 			charmhubClient := charmhub.NewDownloadClient(client, charmhub.DefaultFileSystem(), logger)

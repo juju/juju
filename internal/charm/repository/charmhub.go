@@ -15,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
@@ -30,29 +31,46 @@ type CharmHubClient interface {
 
 	// ListResourceRevisions returns a list of resources associated with a given
 	// charm.
-	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)
+	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
 
 	// Refresh retrieves the specified charm from the store and returns the
 	// metadata and configuration.
-	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
-
-	// Deprecated: Use Download instead.
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
+// CharmHubRepositoryConfig holds the config options require to construct a
+// CharmHubRepository.
+type CharmHubRepositoryConfig struct {
+	// An HTTP client that is injected when making Charmhub API calls.
+	CharmhubHTTPClient charmhub.HTTPClient
+
+	// CharmHubURL is the URL to use for CharmHub API calls.
+	CharmhubURL string
+
+	Logger logger.Logger
+}
+
+// NewCharmHubRepository returns a new repository instance using the provided
+// charmhub client.
+func NewCharmHubRepository(cfg CharmHubRepositoryConfig) (*CharmHubRepository, error) {
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        cfg.CharmhubURL,
+		HTTPClient: cfg.CharmhubHTTPClient,
+		Logger:     cfg.Logger.Child("charmhub"),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &CharmHubRepository{
+		logger: cfg.Logger.Child("charmhubrepo", corelogger.CHARMHUB),
+		client: chClient,
+	}, nil
 }
 
 // CharmHubRepository provides an API for charm-related operations using charmhub.
 type CharmHubRepository struct {
 	logger logger.Logger
 	client CharmHubClient
-}
-
-// NewCharmHubRepository returns a new repository instance using the provided
-// charmhub client.
-func NewCharmHubRepository(logger logger.Logger, chClient CharmHubClient) *CharmHubRepository {
-	return &CharmHubRepository{
-		logger: logger,
-		client: chClient,
-	}
 }
 
 // ResolveWithPreferredChannel defines a way using the given charm name and
@@ -443,34 +461,6 @@ func (c *CharmHubRepository) Download(ctx context.Context, name string, requeste
 	}
 
 	return actualOrigin, digest, nil
-}
-
-// DownloadCharm retrieves specified charm from the store and saves its contents
-// to the specified path.
-//
-// Deprecated: use Download instead.
-func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error) {
-	c.logger.Tracef("DownloadCharm %q, origin: %q", charmName, requestedOrigin)
-
-	// Resolve charm URL to a link to the charm blob and keep track of the
-	// actual resolved origin which may be different from the requested one.
-	resURL, actualOrigin, err := c.GetDownloadURL(ctx, charmName, requestedOrigin)
-	if err != nil {
-		return nil, corecharm.Origin{}, nil, errors.Trace(err)
-	}
-
-	// Force the sha256 digest to be calculated on download.
-	charmArchive, digest, err := c.client.DownloadAndRead(ctx, resURL, archivePath)
-	if err != nil {
-		return nil, corecharm.Origin{}, nil, errors.Trace(err)
-	}
-
-	// Verify the hash if the requested origin has supplied one.
-	if digest != nil && requestedOrigin.Hash != "" && digest.SHA256 != requestedOrigin.Hash {
-		return nil, corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.SHA256, requestedOrigin.Hash)
-	}
-
-	return charmArchive, actualOrigin, digest, nil
 }
 
 // GetDownloadURL returns the url from which to download the CharmHub

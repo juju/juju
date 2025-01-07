@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
-	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/charm/repository"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -70,8 +70,8 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		modelConfigService: domainServices.Config(),
 		applicationService: applicationService,
 		charmhubHTTPClient: charmhubHTTPClient,
-		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
-			return services.NewCharmRepoFactory(cfg)
+		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
+			return repository.NewCharmHubRepository(cfg)
 		},
 		tag:             names.NewModelTag(modelInfo.UUID.String()),
 		requestRecorder: ctx.RequestRecorder(),

@@ -18,7 +18,6 @@ import (
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/charm"
 )
 
 // FileSystem defines a file system for modifying files on a users system.
@@ -125,36 +124,6 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 		digest, err = c.download(ctx, resourceURL, archivePath, options...)
 	})
 	return
-}
-
-// DownloadAndRead returns a charm archive retrieved from the given URL.
-func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, *Digest, error) {
-	digest, err := c.Download(ctx, resourceURL, archivePath, options...)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	archive, err := charm.ReadCharmArchive(archivePath)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return archive, digest, nil
-}
-
-// DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
-func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, *Digest, error) {
-	digest, err := c.Download(ctx, resourceURL, archivePath, options...)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	archive, err := charm.ReadBundleArchive(archivePath)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return archive, digest, nil
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.

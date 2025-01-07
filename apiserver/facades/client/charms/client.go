@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -34,7 +33,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -54,10 +53,7 @@ type API struct {
 	tag             names.ModelTag
 	requestRecorder facade.RequestRecorder
 
-	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
-
-	mu          sync.Mutex
-	repoFactory corecharm.RepositoryFactory
+	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
 
 	logger corelogger.Logger
 
@@ -157,7 +153,7 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	repo, err := a.getCharmRepository(ctx, corecharm.Source(charmOrigin.Source))
+	repo, err := a.getCharmRepository(ctx)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -233,7 +229,7 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
-	repo, err := a.getCharmRepository(ctx, requestedOrigin.Source)
+	repo, err := a.getCharmRepository(ctx)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -331,7 +327,7 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 		return result
 	}
 
-	repo, err := a.getCharmRepository(ctx, corecharm.Source(arg.Origin.Source))
+	repo, err := a.getCharmRepository(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -397,23 +393,18 @@ func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) 
 	return origin.Validate()
 }
 
-func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (corecharm.Repository, error) {
-	// The following is only required for testing, as we generate a new http
-	// client here for production.
-	a.mu.Lock()
-	if a.repoFactory != nil {
-		defer a.mu.Unlock()
-		return a.repoFactory.GetCharmRepository(ctx, src)
+func (a *API) getCharmRepository(ctx context.Context) (corecharm.Repository, error) {
+	modelCfg, err := a.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	a.mu.Unlock()
+	charmhubURL, _ := modelCfg.CharmHubURL()
 
-	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
+	return a.newCharmHubRepository(repository.CharmHubRepositoryConfig{
 		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
-		ModelConfigService: a.modelConfigService,
+		CharmhubURL:        charmhubURL,
 	})
-
-	return repoFactory.GetCharmRepository(ctx, src)
 }
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
@@ -604,7 +595,7 @@ func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndO
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-	repo, err := a.getCharmRepository(ctx, corecharm.Source(charmOrigin.Source))
+	repo, err := a.getCharmRepository(ctx)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

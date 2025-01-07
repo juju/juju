@@ -466,7 +466,10 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		},
 	}
 
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), s.client)
+	repo := &CharmHubRepository{
+		client: s.client,
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	_, err := repo.ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64/ubuntu/18.04"
@@ -521,62 +524,6 @@ func (s *charmHubRepositorySuite) TestDownload(c *gc.C) {
 
 	gotOrigin, digest, err := client.Download(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
-	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
-		SHA256: hash,
-		SHA384: "sha-384",
-		Size:   10,
-	})
-}
-
-func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hash := uuid.MustNewUUID().String()
-
-	requestedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-		Channel: &charm.Channel{
-			Track: "latest",
-			Risk:  "stable",
-		},
-	}
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		ID:     "charmCHARMcharmCHARMcharmCHARM01",
-		Hash:   hash,
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-		Channel: &charm.Channel{
-			Track: "latest",
-			Risk:  "stable",
-		},
-	}
-
-	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
-	c.Assert(err, jc.ErrorIsNil)
-	resolvedArchive := new(charm.CharmArchive)
-
-	s.expectCharmRefreshInstallOneFromChannel(c, hash)
-	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(resolvedArchive, &charmhub.Digest{
-		SHA256: hash,
-		SHA384: "sha-384",
-		Size:   10,
-	}, nil)
-
-	client := s.newClient(c)
-
-	gotArchive, gotOrigin, digest, err := client.DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
 	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
 		SHA256: hash,
@@ -960,7 +907,10 @@ func (s *charmHubRepositorySuite) expectedCURL(curl *charm.URL, revision int, ar
 }
 
 func (s *charmHubRepositorySuite) newClient(c *gc.C) *CharmHubRepository {
-	return NewCharmHubRepository(loggertesting.WrapCheckLog(c), s.client)
+	return &CharmHubRepository{
+		client: s.client,
+		logger: loggertesting.WrapCheckLog(c),
+	}
 }
 
 func (s *charmHubRepositorySuite) expectRefresh(id bool) {
@@ -1256,7 +1206,9 @@ func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 
 	channel := corecharm.MustParseChannel("stable")
 	err := repo.handleRevisionNotFound([]transport.Release{{
@@ -1273,7 +1225,9 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	err := repo.handleRevisionNotFound([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1299,13 +1253,17 @@ type composeSuggestionsSuite struct {
 var _ = gc.Suite(&composeSuggestionsSuite{})
 
 func (s *composeSuggestionsSuite) TestNoReleases(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	suggestions := repo.composeSuggestions([]transport.Release{}, corecharm.Origin{})
 	c.Assert(suggestions, gc.DeepEquals, []string(nil))
 }
 
 func (s *composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "os",
@@ -1318,7 +1276,9 @@ func (s *composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1337,7 +1297,9 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1356,7 +1318,9 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1397,7 +1361,9 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 }
 
 func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
-	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
+	repo := &CharmHubRepository{
+		logger: loggertesting.WrapCheckLog(c),
+	}
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "centos",
