@@ -24,11 +24,6 @@ type Repository interface {
 	// contents to the specified path.
 	Download(ctx context.Context, name string, origin Origin, path string) (Origin, *charmhub.Digest, error)
 
-	// DownloadCharm retrieves specified charm from the store and saves its
-	// contents to the specified path.
-	// Deprecated: use Download instead.
-	DownloadCharm(ctx context.Context, charmName string, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, *charmhub.Digest, error)
-
 	// ResolveWithPreferredChannel verified that the charm with the requested
 	// channel exists.  If no channel is specified, the latests, most stable is
 	// used. It returns a charm URL which includes the most current revision,

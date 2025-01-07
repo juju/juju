@@ -173,9 +173,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, late
 			{Id: "1", Name: "sp1"},
 		},
 	}
-	s.downloadBundleClient = mockDownloadBundleClient{
-		bundle: nil,
-	}
+	s.downloadBundleClient = mockDownloadBundleClient{}
 }
 
 func schemaToOriginSource(schema string) commoncharm.OriginSource {
@@ -1340,10 +1338,9 @@ func (m *mockSpacesClient) ListSpaces(ctx context.Context) ([]params.Space, erro
 
 type mockDownloadBundleClient struct {
 	testing.Stub
-	bundle charm.Bundle
 }
 
-func (m *mockDownloadBundleClient) DownloadAndReadBundle(_ context.Context, resourceURL *url.URL, archivePath string, _ ...charmhub.DownloadOption) (charm.Bundle, *charmhub.Digest, error) {
+func (m *mockDownloadBundleClient) Download(_ context.Context, resourceURL *url.URL, archivePath string, _ ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 	m.MethodCall(m, "DownloadAndReadBundle", resourceURL, archivePath)
-	return m.bundle, &charmhub.Digest{}, m.NextErr()
+	return &charmhub.Digest{}, m.NextErr()
 }

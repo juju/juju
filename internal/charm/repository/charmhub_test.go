@@ -532,62 +532,6 @@ func (s *charmHubRepositorySuite) TestDownload(c *gc.C) {
 	})
 }
 
-func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hash := uuid.MustNewUUID().String()
-
-	requestedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-		Channel: &charm.Channel{
-			Track: "latest",
-			Risk:  "stable",
-		},
-	}
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-hub",
-		ID:     "charmCHARMcharmCHARMcharmCHARM01",
-		Hash:   hash,
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "20.04",
-		},
-		Channel: &charm.Channel{
-			Track: "latest",
-			Risk:  "stable",
-		},
-	}
-
-	resolvedURL, err := url.Parse("http://example.com/wordpress-42")
-	c.Assert(err, jc.ErrorIsNil)
-	resolvedArchive := new(charm.CharmArchive)
-
-	s.expectCharmRefreshInstallOneFromChannel(c, hash)
-	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo", gomock.Any()).Return(resolvedArchive, &charmhub.Digest{
-		SHA256: hash,
-		SHA384: "sha-384",
-		Size:   10,
-	}, nil)
-
-	client := s.newClient(c)
-
-	gotArchive, gotOrigin, digest, err := client.DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
-	c.Check(gotOrigin, gc.DeepEquals, resolvedOrigin)
-	c.Check(digest, gc.DeepEquals, &charmhub.Digest{
-		SHA256: hash,
-		SHA384: "sha-384",
-		Size:   10,
-	})
-}
-
 func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

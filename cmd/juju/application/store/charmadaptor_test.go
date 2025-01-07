@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package store_test
+package store
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/charm"
@@ -25,6 +24,7 @@ type resolveSuite struct {
 	charmsAPI      *mocks.MockCharmsAPI
 	downloadClient *mocks.MockDownloadBundleClient
 	bundle         *mocks.MockBundle
+	charmReader    *mocks.MockCharmReader
 }
 
 var _ = gc.Suite(&resolveSuite{})
@@ -40,9 +40,7 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "beta",
 	}
-	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func(ctx context.Context) (store.DownloadBundleClient, error) {
-		return s.downloadClient, nil
-	})
+	charmAdaptor := s.newCharmAdaptor()
 	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, "edge")
@@ -64,9 +62,7 @@ func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "beta",
 	}
-	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func(ctx context.Context) (store.DownloadBundleClient, error) {
-		return s.downloadClient, nil
-	})
+	charmAdaptor := s.newCharmAdaptor()
 	_, _, _, err = charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
@@ -79,9 +75,7 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 		Source: commoncharm.OriginLocal,
 		Risk:   "beta",
 	}
-	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func(ctx context.Context) (store.DownloadBundleClient, error) {
-		return s.downloadClient, nil
-	})
+	charmAdaptor := s.newCharmAdaptor()
 	_, obtainedOrigin, _, err := charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, "")
@@ -99,9 +93,7 @@ func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 		Risk:   "edge",
 		Type:   "bundle",
 	}
-	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func(ctx context.Context) (store.DownloadBundleClient, error) {
-		return s.downloadClient, nil
-	})
+	charmAdaptor := s.newCharmAdaptor()
 	obtainedURL, obtainedChannel, err := charmAdaptor.ResolveBundleURL(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedChannel.Risk, gc.Equals, "edge")
@@ -119,9 +111,7 @@ func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "edge",
 	}
-	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func(ctx context.Context) (store.DownloadBundleClient, error) {
-		return s.downloadClient, nil
-	})
+	charmAdaptor := s.newCharmAdaptor()
 	_, _, err = charmAdaptor.ResolveBundleURL(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -139,10 +129,8 @@ func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
 	}
 	s.expectedCharmHubGetBundle(c, curl, origin)
 
-	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func(ctx context.Context) (store.DownloadBundleClient, error) {
-		return s.downloadClient, nil
-	})
-	bundle, err := charmAdaptor.GetBundle(context.Background(), curl, origin, "/tmp/")
+	charmAdaptor := s.newCharmAdaptor()
+	bundle, err := charmAdaptor.GetBundle(context.Background(), curl, origin, "/tmp/bundle.bundle")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bundle, gc.DeepEquals, s.bundle)
 }
@@ -152,7 +140,23 @@ func (s *resolveSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.charmsAPI = mocks.NewMockCharmsAPI(ctrl)
 	s.downloadClient = mocks.NewMockDownloadBundleClient(ctrl)
 	s.bundle = mocks.NewMockBundle(ctrl)
+	s.charmReader = mocks.NewMockCharmReader(ctrl)
 	return ctrl
+}
+
+func (s *resolveSuite) newCharmAdaptor() *CharmAdaptor {
+	return &CharmAdaptor{
+		charmsAPI: s.charmsAPI,
+		bundleRepoFn: func(curl *charm.URL) (BundleFactory, error) {
+			return chBundleFactory{
+				charmsAPI:   s.charmsAPI,
+				charmReader: s.charmReader,
+				downloadBundleClientFunc: func(ctx context.Context) (DownloadBundleClient, error) {
+					return s.downloadClient, nil
+				},
+			}, nil
+		},
+	}
 }
 
 func (s *resolveSuite) expectBundleResolutionCall(curl *charm.URL, out string, err error) {
@@ -214,5 +218,6 @@ func (s *resolveSuite) expectedCharmHubGetBundle(c *gc.C, curl *charm.URL, origi
 	}, nil)
 	url, err := url.Parse(surl)
 	c.Assert(err, jc.ErrorIsNil)
-	s.downloadClient.EXPECT().DownloadAndReadBundle(gomock.Any(), url, "/tmp/", gomock.Any()).Return(s.bundle, &charmhub.Digest{}, nil)
+	s.downloadClient.EXPECT().Download(gomock.Any(), url, "/tmp/bundle.bundle", gomock.Any()).Return(&charmhub.Digest{}, nil)
+	s.charmReader.EXPECT().ReadBundleArchive("/tmp/bundle.bundle").Return(s.bundle, nil)
 }

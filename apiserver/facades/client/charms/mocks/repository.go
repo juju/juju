@@ -84,47 +84,6 @@ func (c *MockRepositoryDownloadCall) DoAndReturn(f func(context.Context, string,
 	return c
 }
 
-// DownloadCharm mocks base method.
-func (m *MockRepository) DownloadCharm(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(charm.CharmArchive)
-	ret1, _ := ret[1].(charm.Origin)
-	ret2, _ := ret[2].(*charmhub.Digest)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
-}
-
-// DownloadCharm indicates an expected call of DownloadCharm.
-func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2, arg3 any) *MockRepositoryDownloadCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockRepository)(nil).DownloadCharm), arg0, arg1, arg2, arg3)
-	return &MockRepositoryDownloadCharmCall{Call: call}
-}
-
-// MockRepositoryDownloadCharmCall wrap *gomock.Call
-type MockRepositoryDownloadCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRepositoryDownloadCharmCall) Return(arg0 charm.CharmArchive, arg1 charm.Origin, arg2 *charmhub.Digest, arg3 error) *MockRepositoryDownloadCharmCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRepositoryDownloadCharmCall) Do(f func(context.Context, string, charm.Origin, string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error)) *MockRepositoryDownloadCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRepositoryDownloadCharmCall) DoAndReturn(f func(context.Context, string, charm.Origin, string) (charm.CharmArchive, charm.Origin, *charmhub.Digest, error)) *MockRepositoryDownloadCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetDownloadURL mocks base method.
 func (m *MockRepository) GetDownloadURL(arg0 context.Context, arg1 string, arg2 charm.Origin) (*url.URL, charm.Origin, error) {
 	m.ctrl.T.Helper()

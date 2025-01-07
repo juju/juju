@@ -31,13 +31,10 @@ type CharmHubClient interface {
 
 	// ListResourceRevisions returns a list of resources associated with a given
 	// charm.
-	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, *charmhub.Digest, error)
+	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
 
 	// Refresh retrieves the specified charm from the store and returns the
 	// metadata and configuration.
-	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
-
-	// Deprecated: Use Download instead.
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
@@ -464,34 +461,6 @@ func (c *CharmHubRepository) Download(ctx context.Context, name string, requeste
 	}
 
 	return actualOrigin, digest, nil
-}
-
-// DownloadCharm retrieves specified charm from the store and saves its contents
-// to the specified path.
-//
-// Deprecated: use Download instead.
-func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, *charmhub.Digest, error) {
-	c.logger.Tracef("DownloadCharm %q, origin: %q", charmName, requestedOrigin)
-
-	// Resolve charm URL to a link to the charm blob and keep track of the
-	// actual resolved origin which may be different from the requested one.
-	resURL, actualOrigin, err := c.GetDownloadURL(ctx, charmName, requestedOrigin)
-	if err != nil {
-		return nil, corecharm.Origin{}, nil, errors.Trace(err)
-	}
-
-	// Force the sha256 digest to be calculated on download.
-	charmArchive, digest, err := c.client.DownloadAndRead(ctx, resURL, archivePath)
-	if err != nil {
-		return nil, corecharm.Origin{}, nil, errors.Trace(err)
-	}
-
-	// Verify the hash if the requested origin has supplied one.
-	if digest != nil && requestedOrigin.Hash != "" && digest.SHA256 != requestedOrigin.Hash {
-		return nil, corecharm.Origin{}, nil, errors.Errorf("downloaded charm hash %q does not match expected hash %q", digest.SHA256, requestedOrigin.Hash)
-	}
-
-	return charmArchive, actualOrigin, digest, nil
 }
 
 // GetDownloadURL returns the url from which to download the CharmHub

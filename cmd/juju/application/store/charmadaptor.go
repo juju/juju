@@ -20,7 +20,7 @@ import (
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
-	DownloadAndReadBundle(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, *charmhub.Digest, error)
+	Download(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charmhub.Digest, error)
 }
 
 // DownloadBundleClientFunc lazily construct a download bundle client.
@@ -29,6 +29,11 @@ type DownloadBundleClientFunc = func(ctx context.Context) (DownloadBundleClient,
 // BundleFactory represents a type for getting a bundle from a given url.
 type BundleFactory interface {
 	GetBundle(context.Context, *charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
+}
+
+// CharmReader represents a type for reading a bundle archive.
+type CharmReader interface {
+	ReadBundleArchive(path string) (charm.Bundle, error)
 }
 
 // BundleRepoFunc creates a bundle factory from a charm URL.
@@ -48,6 +53,7 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, downloadBundleClientFunc DownloadBundl
 		bundleRepoFn: func(url *charm.URL) (BundleFactory, error) {
 			return chBundleFactory{
 				charmsAPI:                charmsAPI,
+				charmReader:              charmReader{},
 				downloadBundleClientFunc: downloadBundleClientFunc,
 			}, nil
 		},
@@ -101,8 +107,15 @@ func (c *CharmAdaptor) GetBundle(ctx context.Context, url *charm.URL, origin com
 	return repo.GetBundle(ctx, url, origin, path)
 }
 
+type charmReader struct{}
+
+func (charmReader) ReadBundleArchive(path string) (charm.Bundle, error) {
+	return charm.ReadBundleArchive(path)
+}
+
 type chBundleFactory struct {
 	charmsAPI                CharmsAPI
+	charmReader              CharmReader
 	downloadBundleClientFunc DownloadBundleClientFunc
 }
 
@@ -120,7 +133,11 @@ func (ch chBundleFactory) GetBundle(ctx context.Context, curl *charm.URL, origin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, _, err := client.DownloadAndReadBundle(ctx, url, path)
+	_, err = client.Download(ctx, url, path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bundle, err := ch.charmReader.ReadBundleArchive(path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

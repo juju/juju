@@ -143,45 +143,7 @@ func (s *DownloadSuite) TestDownloadWithDigest(c *gc.C) {
 	})
 }
 
-func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	tmpFile, close := s.expectTmpFile(c)
-	defer close()
-
-	fileSystem := NewMockFileSystem(ctrl)
-	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
-
-	archiveBytes := s.createCharmAchieve(c)
-
-	httpClient := NewMockHTTPClient(ctrl)
-	httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode:    200,
-			Body:          io.NopCloser(bytes.NewBuffer(archiveBytes)),
-			ContentLength: int64(len(archiveBytes)),
-		}, nil
-	})
-
-	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
-
-	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	_, digest, err := client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedSHA256 := readSHA256(c, bytes.NewBuffer(archiveBytes))
-	expectedSHA384 := readSHA384(c, bytes.NewBuffer(archiveBytes))
-
-	c.Check(digest, gc.DeepEquals, &Digest{
-		SHA256: expectedSHA256,
-		SHA384: expectedSHA384,
-		Size:   int64(len(archiveBytes)),
-	})
-}
-
-func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -203,11 +165,11 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	_, _, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
+	_, err = client.Download(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
 
-func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -230,7 +192,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	_, _, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
+	_, err = client.Download(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 

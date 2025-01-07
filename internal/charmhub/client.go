@@ -28,7 +28,6 @@ import (
 
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/charm"
 	charmhubpath "github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -190,16 +189,6 @@ func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmme
 // Download defines a client for downloading charms directly.
 func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
 	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
-}
-
-// DownloadAndRead defines a client for downloading charms directly.
-func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, *Digest, error) {
-	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
-}
-
-// DownloadAndReadBundle defines a client for downloading bundles directly.
-func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, *Digest, error) {
-	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.
