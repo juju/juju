@@ -104,11 +104,6 @@ func (s LXDProfileStateV2) Unit(id string) (LXDProfileUnitV2, error) {
 	return s.st.Unit(id)
 }
 
-func (s LXDProfileStateV2) Charm(curl string) (LXDProfileCharmV2, error) {
-	c, err := s.st.Charm(curl)
-	return &lxdProfileCharmV2{c}, err
-}
-
 type lxdProfileMachineV2 struct {
 	*state.Machine
 }

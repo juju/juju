@@ -51,8 +51,6 @@ type SystemState interface {
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 	// AddApplication adds an application to the model.
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
-	// Charm returns the charm with the given name.
-	Charm(string) (charm.Charm, error)
 	// Unit returns the unit with the given id.
 	Unit(string) (bootstrap.Unit, error)
 	// Machine returns the machine with the given id.
@@ -205,10 +203,6 @@ func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore ob
 		return nil, err
 	}
 	return &applicationShim{Application: a}, nil
-}
-
-func (s *stateShim) Charm(name string) (charm.Charm, error) {
-	return s.State.Charm(name)
 }
 
 func (s *stateShim) Unit(tag string) (bootstrap.Unit, error) {

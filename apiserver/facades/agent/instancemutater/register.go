@@ -22,13 +22,16 @@ func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
 	machineService := ctx.DomainServices().Machine()
+	applicationService := ctx.DomainServices().Application()
 	watcher := &instanceMutatorWatcher{
-		st:             st,
-		machineService: machineService,
+		st:                 st,
+		machineService:     machineService,
+		applicationService: applicationService,
 	}
 	return NewInstanceMutaterAPI(
 		st,
 		machineService,
+		applicationService,
 		watcher,
 		ctx.Resources(),
 		ctx.Auth(),

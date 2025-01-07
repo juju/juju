@@ -44,16 +44,6 @@ func (s *instanceMutaterStateShim) Unit(unitName string) (Unit, error) {
 	}, nil
 }
 
-func (s *instanceMutaterStateShim) Charm(curl string) (Charm, error) {
-	ch, err := s.State.Charm(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &charmShim{
-		CharmRefFull: ch,
-	}, nil
-}
-
 func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
 	m, err := s.State.Machine(machineId)
 	if err != nil {

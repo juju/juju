@@ -18,7 +18,6 @@ type InstanceMutaterState interface {
 
 	ModelName() (string, error)
 	Application(appName string) (Application, error)
-	Charm(curl string) (Charm, error)
 	Machine(id string) (Machine, error)
 	Unit(unitName string) (Unit, error)
 	ControllerTimestamp() (*time.Time, error)
