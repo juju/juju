@@ -48,17 +48,6 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(ctx context.Context) (*s
 	return st, nil
 }
 
-// objectStoreForRequest returns an object store instance appropriate
-// for using for the model implicit in the given context supplied from
-// a request without checking any authentication information.
-func (ctxt *httpContext) objectStoreForRequest(ctx context.Context) (objectstore.ObjectStore, error) {
-	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
-	if !valid {
-		return nil, errors.Trace(apiservererrors.ErrPerm)
-	}
-	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID)
-}
-
 // controllerObjectStoreForRequest returns an object store instance
 // appropriate for using for the controller model without checking
 // any authentication information.

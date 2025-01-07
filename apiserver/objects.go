@@ -15,8 +15,10 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -65,6 +67,16 @@ type ApplicationService interface {
 
 	// ResolveUploadCharm resolves the upload of a charm archive.
 	ResolveUploadCharm(context.Context, applicationcharm.ResolveUploadCharm) (applicationcharm.CharmLocator, error)
+
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetApplicationIDByUnitName returns the application ID for the named unit.
+	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
