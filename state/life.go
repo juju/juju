@@ -62,7 +62,6 @@ var (
 	isDeadDoc  = bson.D{{"life", Dead}}
 	notDeadDoc = bson.D{{"life", bson.D{{"$ne", Dead}}}}
 
-	errDeadOrGone     = errors.New("neither alive nor dying")
 	errAlreadyDying   = errors.New("already dying")
 	errAlreadyRemoved = errors.New("already removed")
 )

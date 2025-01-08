@@ -2403,21 +2403,6 @@ func (d charmMetadataDevice) CountMax() int {
 	return d.countMax
 }
 
-type charmMetadataPayload struct {
-	name string
-	typ  string
-}
-
-// Name returns the name of the payload.
-func (p charmMetadataPayload) Name() string {
-	return p.name
-}
-
-// Type returns the type of the payload.
-func (p charmMetadataPayload) Type() string {
-	return p.typ
-}
-
 type charmMetadataResource struct {
 	name        string
 	typ         string

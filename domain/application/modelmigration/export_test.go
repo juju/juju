@@ -270,13 +270,6 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 	c.Check(device.CountMax(), gc.Equals, 2)
 	args.Devices = nil
 
-	payloads := args.Payloads
-	c.Assert(payloads, gc.HasLen, 1)
-	payload := payloads["foo"]
-	c.Check(payload.Name(), gc.Equals, "bar")
-	c.Check(payload.Type(), gc.Equals, "baz")
-	args.Payloads = nil
-
 	containers := args.Containers
 	c.Assert(containers, gc.HasLen, 1)
 	container := containers["foo"]

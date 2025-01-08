@@ -6,9 +6,7 @@ package payloadshookcontext
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v5"
 )
 
 // NewHookContextFacadeV1 returns a new payloads hook context facade for
@@ -93,19 +91,6 @@ func (uf UnitFacadeV1) Untrack(ctx context.Context, args params.Entities) (param
 		})
 	}
 	return r, nil
-}
-
-// parsePayloadTag converts the given payload tag string into a payload ID.
-// Example: "payload-foobar" -> "foobar"
-func parsePayloadTag(tagStr string) (string, error) {
-	if tagStr == "" {
-		return tagStr, nil
-	}
-	tag, err := names.ParsePayloadTag(tagStr)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return tag.Id(), nil
 }
 
 // NewHookContextFacadeV2 returns a new payloads hook context facade for

@@ -202,9 +202,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 	}
 
 	extraBindings := exportExtraBindings(metadata.ExtraBindings)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
 
 	storage, err := exportStorage(metadata.Storage)
 	if err != nil {
@@ -705,21 +702,6 @@ func (d deviceType) CountMin() int {
 // CountMax returns the maximum count of the device.
 func (d deviceType) CountMax() int {
 	return d.countMax
-}
-
-type payloadType struct {
-	name string
-	typ  string
-}
-
-// Name returns the name of the payload.
-func (p payloadType) Name() string {
-	return p.name
-}
-
-// Type returns the type of the payload.
-func (p payloadType) Type() string {
-	return p.typ
 }
 
 type containerType struct {
