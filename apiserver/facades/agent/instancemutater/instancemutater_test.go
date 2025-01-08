@@ -868,7 +868,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
@@ -879,14 +879,14 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Return(s.watcher, errors.New("watcher error"))
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, errors.New("watcher error"))
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine() {
@@ -895,7 +895,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(true, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Times(0)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Times(0)
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {

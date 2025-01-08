@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"context"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -55,13 +56,15 @@ func NewTestAPI(
 
 // NewTestLxdProfileWatcher is used by the lxd profile tests.
 func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState, machineService MachineService, applicationService ApplicationService) *machineLXDProfileWatcher {
-	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		backend:            backend,
-		machine:            machine,
-		logger:             loggertesting.WrapCheckLog(c),
-		machineService:     machineService,
-		applicationService: applicationService,
-	})
+	w, err := newMachineLXDProfileWatcher(
+		context.Background(),
+		MachineLXDProfileWatcherConfig{
+			backend:            backend,
+			machine:            machine,
+			logger:             loggertesting.WrapCheckLog(c),
+			machineService:     machineService,
+			applicationService: applicationService,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

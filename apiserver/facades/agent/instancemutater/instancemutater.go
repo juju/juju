@@ -90,7 +90,7 @@ type InstanceMutaterAPI struct {
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
 type InstanceMutatorWatcher interface {
-	WatchLXDProfileVerificationForMachine(Machine, logger.Logger) (state.NotifyWatcher, error)
+	WatchLXDProfileVerificationForMachine(context.Context, Machine, logger.Logger) (state.NotifyWatcher, error)
 }
 
 type instanceMutatorWatcher struct {
@@ -311,14 +311,14 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(ctx context.Con
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		entityResult, err := api.watchOneEntityApplication(canAccess, tag)
+		entityResult, err := api.watchOneEntityApplication(ctx, canAccess, tag)
 		result.Results[i] = entityResult
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
+func (api *InstanceMutaterAPI) watchOneEntityApplication(ctx context.Context, canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	machine, err := api.getMachine(canAccess, tag)
 	if err != nil {
@@ -331,7 +331,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	if isManual {
 		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
 	}
-	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(machine, api.logger)
+	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(ctx, machine, api.logger)
 	if err != nil {
 		return result, err
 	}
@@ -355,14 +355,17 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 //     gets updated once the download is complete.
 //  4. The machine's instanceId is changed, indicating it
 //     has been provisioned.
-func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
-	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		machine:            machine,
-		backend:            w.st,
-		machineService:     w.machineService,
-		applicationService: w.applicationService,
-		logger:             logger,
-	})
+func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(ctx context.Context, machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
+	return newMachineLXDProfileWatcher(
+		ctx,
+		MachineLXDProfileWatcherConfig{
+			machine:            machine,
+			backend:            w.st,
+			machineService:     w.machineService,
+			applicationService: w.applicationService,
+			logger:             logger,
+		},
+	)
 }
 
 func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
@@ -425,7 +428,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		if err != nil {
 			return empty, errors.Trace(err)
 		}
-		charmID, err := api.applicationService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+		charmID, err := api.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
 			Source:   source,
 			Name:     curl.Name,
 			Revision: &curl.Revision,
@@ -436,7 +439,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 			return empty, errors.Trace(err)
 		}
 
-		lxdProfile, _, err := api.applicationService.GetCharmLXDProfile(context.TODO(), charmID)
+		lxdProfile, _, err := api.applicationService.GetCharmLXDProfile(ctx, charmID)
 		if err != nil {
 			changeResults = append(changeResults, params.ProfileInfoResult{
 				Error: apiservererrors.ServerError(err)})
