@@ -57,18 +57,25 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		hdr.Set("Content-Sha384", opened.Fingerprint.String())
 
 		resp.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(resp, opened); err != nil {
+		if bytesWritten, err := io.Copy(resp, opened); err != nil {
 			// We cannot use SendHTTPError here, so we log the error
 			// and move on.
-			logger.Errorf("unable to complete stream for resource: %v", err)
+
+			// TODO(aflynn): Once we have tackled resource size and fingerprint,
+			// compare the bytes written to the size of the resource and show
+			// the percentage written below.
+			logger.Errorf("unable to complete stream for resource, %d bytes streamed: %v", bytesWritten, err)
 			return
 		}
-
 		// Mark the downloaded resource as in use on the unit.
 		err = opener.SetResourceUsed(req.Context(), name)
 		if err != nil {
 			logger.Errorf("setting resource %s as in use: %w", name, err)
 		}
+
+		// TODO(aflynn): Once resource size and fingerprint have been handled,
+		// check that the size that was copied matches the size that was copied
+		// matches the size that was expected.
 	default:
 		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
 			logger.Errorf("%v", err)

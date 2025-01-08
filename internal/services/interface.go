@@ -135,7 +135,7 @@ type ModelDomainServices interface {
 	Stub() *stubservice.StubService
 	// BlockCommand returns the service for blocking commands.
 	BlockCommand() *blockcommandservice.Service
-	// Resource returns the service for managing resources
+	// Resource returns the service for managing resources.
 	Resource() *resourceservice.Service
 }
 

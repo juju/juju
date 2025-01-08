@@ -4,10 +4,14 @@
 package apiserver_test
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +21,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -121,5 +126,31 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *UnitResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
-	checkHTTPResp(c, s.recorder, status, ctype, body)
+	c.Assert(s.recorder.Code, gc.Equals, status)
+	hdr := s.recorder.Header()
+	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
+	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
+
+	actualBody, err := io.ReadAll(s.recorder.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(actualBody), gc.Equals, body)
+}
+
+func apiFailure(msg, code string) (error, string) {
+	failure := errors.New(msg)
+	data := mustMarshalJSON(params.ErrorResult{
+		Error: &params.Error{
+			Message: msg,
+			Code:    code,
+		},
+	})
+	return failure, string(data)
+}
+
+func mustMarshalJSON(v interface{}) []byte {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

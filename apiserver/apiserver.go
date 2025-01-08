@@ -792,20 +792,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 	resourcesHandler := srv.monitoredHandler(&ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag,
-			error) {
-			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+		AuthFunc: func(req *http.Request, tagKinds ...string) (names.Tag, error) {
+			_, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 
-			// Temporarily disable until the resourceService is used here.
-			//store, err := httpCtxt.objectStoreForRequest(req.Context())
-			//if err != nil {
-			//	return nil, nil, nil, errors.Trace(err)
-			//}
-
-			return &noopResourceBackend{}, st, entity.Tag(), nil
+			return entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(ctx context.Context) error {
 			serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)
@@ -819,6 +812,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			}
 			return nil
 		},
+		ResourceServiceGetter: &resourceServiceGetter{ctxt: httpCtxt},
 	}, "applications")
 	unitResourcesHandler := srv.monitoredHandler(&UnitResourcesHandler{
 		NewOpener: func(req *http.Request, tagKinds ...string) (coreresource.Opener, state.PoolHelper, error) {

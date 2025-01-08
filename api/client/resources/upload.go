@@ -34,6 +34,7 @@ type UploadRequest struct {
 	Fingerprint charmresource.Fingerprint
 
 	// PendingID is the pending ID to associate with this upload, if any.
+	// Deprecated: The concept of pending resources is no longer used.
 	PendingID string
 
 	// Content is the content to upload.

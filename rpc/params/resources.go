@@ -93,7 +93,9 @@ type Resource struct {
 	// PendingID identifies that this resource is pending and
 	// distinguishes it from other pending resources with the same model
 	// ID (and from the active resource).
-	// Deprecated: it is not used anymore in 4.0.
+	//
+	// Deprecated: this concept is no longer used, this is only kept for
+	// compatibility with 3.x.
 	PendingID string `json:"pending-id"`
 
 	// ApplicationName identifies the application for the resource.

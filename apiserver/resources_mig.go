@@ -21,31 +21,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ResourceService defines operations related to managing application resources.
-type ResourceService interface {
-	// GetApplicationResourceID returns the ID of the application resource
-	// specified by natural key of application and resource name.
-	GetApplicationResourceID(ctx context.Context, args domainresource.GetApplicationResourceIDArgs) (resource.UUID, error)
-
-	// SetUnitResource sets the resource metadata for a specific unit.
-	SetUnitResource(ctx context.Context, resourceUUID resource.UUID, unitUUID coreunit.UUID) error
-
-	// StoreResource adds the application resource to blob storage and updates
-	// the metadata. It also sets the retrival information for the resource.
-	StoreResource(ctx context.Context, args domainresource.StoreResourceArgs) error
-
-	// GetResource returns the identified application resource.
-	GetResource(ctx context.Context, resourceUUID resource.UUID) (coreresource.Resource, error)
-}
-
-// ResourceServiceGetter is an interface for retrieving a ResourceService
-// instance.
-type ResourceServiceGetter interface {
-	// Resource retrieves a ResourceService for handling resource-related
-	// operations.
-	Resource(*http.Request) (ResourceService, error)
-}
-
 // Resources represents the methods required to migrate a
 // resource blob.
 type Resources interface {
