@@ -73,6 +73,8 @@ type ApplicationService interface {
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
 	GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (charm.LXDProfile, applicationcharm.Revision, error)
+	// WatchCharms returns a watcher that observes changes to charms.
+	WatchCharms() (watcher.StringsWatcher, error)
 }
 
 type InstanceMutaterAPI struct {

@@ -419,11 +419,6 @@ func (st *State) WatchMachines() StringsWatcher {
 	return newLifecycleWatcher(st, machinesC, nil, isLocalID(st), nil)
 }
 
-// WatchCharms notifies when charms change.
-func (st *State) WatchCharms() StringsWatcher {
-	return newCollectionWatcher(st, colWCfg{col: charmsC})
-}
-
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.

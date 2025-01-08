@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 
@@ -35,7 +34,6 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)
 	HAPrimaryMachine() (names.MachineTag, error)
-	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string

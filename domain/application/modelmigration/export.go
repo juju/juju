@@ -108,9 +108,14 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return fmt.Errorf("cannot parse charm URL %q: %v", app.CharmURL(), err)
 		}
 
+		source, err := charm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+		if err != nil {
+			return fmt.Errorf("cannot parse charm source %q: %v", curl.Schema, err)
+		}
 		charmID, err := e.service.GetCharmID(ctx, charm.GetCharmArgs{
 			Name:     curl.Name,
 			Revision: &curl.Revision,
+			Source:   source,
 		})
 		if err != nil {
 			return fmt.Errorf("cannot get charm ID for %q: %v", app.CharmURL(), err)

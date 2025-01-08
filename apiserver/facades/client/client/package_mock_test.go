@@ -15,7 +15,6 @@ import (
 
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	crossmodel "github.com/juju/juju/core/crossmodel"
-	charm "github.com/juju/juju/internal/charm"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -550,45 +549,6 @@ func (c *MockBackendHAPrimaryMachineCall) Do(f func() (names.MachineTag, error))
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendHAPrimaryMachineCall) DoAndReturn(f func() (names.MachineTag, error)) *MockBackendHAPrimaryMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// LatestPlaceholderCharm mocks base method.
-func (m *MockBackend) LatestPlaceholderCharm(arg0 *charm.URL) (*state.Charm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestPlaceholderCharm", arg0)
-	ret0, _ := ret[0].(*state.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LatestPlaceholderCharm indicates an expected call of LatestPlaceholderCharm.
-func (mr *MockBackendMockRecorder) LatestPlaceholderCharm(arg0 any) *MockBackendLatestPlaceholderCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestPlaceholderCharm", reflect.TypeOf((*MockBackend)(nil).LatestPlaceholderCharm), arg0)
-	return &MockBackendLatestPlaceholderCharmCall{Call: call}
-}
-
-// MockBackendLatestPlaceholderCharmCall wrap *gomock.Call
-type MockBackendLatestPlaceholderCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendLatestPlaceholderCharmCall) Return(arg0 *state.Charm, arg1 error) *MockBackendLatestPlaceholderCharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendLatestPlaceholderCharmCall) Do(f func(*charm.URL) (*state.Charm, error)) *MockBackendLatestPlaceholderCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendLatestPlaceholderCharmCall) DoAndReturn(f func(*charm.URL) (*state.Charm, error)) *MockBackendLatestPlaceholderCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

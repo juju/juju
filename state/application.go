@@ -1636,68 +1636,6 @@ func (a *Application) SetCharm(
 	return a.Refresh()
 }
 
-// SetDownloadedIDAndHash updates the applications charm origin with ID and
-// hash values. This should ONLY be done from the async downloader.
-// The hash cannot be updated if the charm origin has no ID, nor was one
-// provided as an argument. The ID cannot be changed.
-func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
-	if id == "" && hash == "" {
-		return errors.BadRequestf("ID, %q, and hash, %q, must have values", id, hash)
-	}
-	if id != "" && a.doc.CharmOrigin.ID != "" && a.doc.CharmOrigin.ID != id {
-		return errors.BadRequestf("application ID cannot be changed %q, %q", a.doc.CharmOrigin.ID, id)
-	}
-	if id != "" && hash == "" {
-		return errors.BadRequestf("programming error, SetDownloadedIDAndHash, cannot have an ID without a hash after downloading. See CharmHubRepository GetDownloadURL.")
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		if a.Life() != Alive {
-			return nil, errors.New("application is not alive")
-		}
-		ops := []txn.Op{{
-			C:      applicationsC,
-			Id:     a.doc.DocID,
-			Assert: isAliveDoc,
-		}}
-		if id != "" {
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.D{{Name: "$set", Value: bson.D{
-					{Name: "charm-origin.id", Value: id},
-				}}},
-			})
-		}
-		if hash != "" {
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.D{{Name: "$set", Value: bson.D{
-					{Name: "charm-origin.hash", Value: hash},
-				}}},
-			})
-		}
-		return ops, nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return err
-	}
-	if id != "" {
-		a.doc.CharmOrigin.ID = id
-	}
-	if hash != "" {
-		a.doc.CharmOrigin.Hash = hash
-	}
-	return nil
-}
-
 // preUpgradeRelationLimitCheck ensures that the already established relation
 // counts do not violate the max relation limits specified by the charm version
 // we are attempting to upgrade to.

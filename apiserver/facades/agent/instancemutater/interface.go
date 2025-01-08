@@ -24,7 +24,6 @@ type InstanceMutaterState interface {
 	WatchMachines() state.StringsWatcher
 	WatchModelMachines() state.StringsWatcher
 	WatchApplicationCharms() state.StringsWatcher
-	WatchCharms() state.StringsWatcher
 	WatchUnits() state.StringsWatcher
 }
 

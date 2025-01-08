@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -610,9 +609,6 @@ type applicationStatusInfo struct {
 	// allUnits: unit name -> unit
 	allUnits map[string]*state.Unit
 
-	// latestcharm: charm URL -> charm
-	latestCharms map[charm.URL]*state.Charm
-
 	// endpointpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
 
@@ -818,7 +814,6 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 	error) {
 	appMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
-	latestCharms := make(map[charm.URL]*state.Charm)
 	applications, err := st.AllApplications()
 	if err != nil {
 		return applicationStatusInfo{}, err
@@ -867,40 +862,15 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
-		cURL, _ := app.CharmURL()
-		charmURL, err := charm.ParseURL(*cURL)
-		if err != nil {
-			continue
-		}
 		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
-			// Record the base URL for the application's charm so that
-			// the latest store revision can be looked up.
-			switch {
-			case charm.CharmHub.Matches(charmURL.Schema):
-				latestCharms[*charmURL.WithRevision(-1)] = nil
-			default:
-				// Don't look up revision for local charms
-			}
 		}
-	}
-
-	for baseURL := range latestCharms {
-		ch, err := st.LatestPlaceholderCharm(&baseURL)
-		if errors.Is(err, errors.NotFound) {
-			continue
-		}
-		if err != nil {
-			return applicationStatusInfo{}, err
-		}
-		latestCharms[baseURL] = ch
 	}
 
 	return applicationStatusInfo{
 		applications:     appMap,
 		units:            unitMap,
 		allUnits:         allUnits,
-		latestCharms:     latestCharms,
 		endpointBindings: allBindingsByApp,
 		lxdProfiles:      lxdProfiles,
 	}, nil
@@ -1310,15 +1280,13 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		Life:             processLife(application),
 	}
 
-	curl, err := charm.ParseURL(applicationCharm.URL())
-	if err != nil {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-	}
-	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && latestCharm != nil {
-		if latestCharm.Revision() > curl.Revision {
-			processedStatus.CanUpgradeTo = latestCharm.URL()
-		}
-	}
+	// TODO(nvinuesa): This will be reinstated after SimonRichardson fixes
+	// charm revisions.
+	// if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && latestCharm != nil {
+	// 	if latestCharm.Revision() > curl.Revision {
+	// 		processedStatus.CanUpgradeTo = latestCharm.URL()
+	// 	}
+	// }
 
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(application)
 	if err != nil {
@@ -1795,21 +1763,3 @@ func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
 
 // Less implements sort.Interface.
 func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
-
-// lxdStateCharmProfiler massages a *state.Charm into a LXDProfiler
-// inside of the core package.
-type lxdStateCharmProfiler struct {
-	Charm *state.Charm
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p lxdStateCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
-	if p.Charm == nil {
-		return nil
-	}
-	profile := p.Charm.LXDProfile()
-	if profile == nil {
-		return nil
-	}
-	return profile
-}

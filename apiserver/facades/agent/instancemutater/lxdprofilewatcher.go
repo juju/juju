@@ -152,7 +152,10 @@ func (w *machineLXDProfileWatcher) loop() error {
 	if err := w.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	charmWatcher := w.backend.WatchCharms()
+	charmWatcher, err := w.applicationService.WatchCharms()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := w.catacomb.Add(charmWatcher); err != nil {
 		return errors.Trace(err)
 	}
