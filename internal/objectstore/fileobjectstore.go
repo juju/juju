@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
+	jujuerrors "github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -42,8 +44,8 @@ const (
 // BlobRetriever is the interface for retrieving blobs from remote API servers.
 type BlobRetriever interface {
 	worker.Worker
-	// GetBySHA256 returns a reader for the blob with the given SHA256.
-	RetrieveBlobFromRemote(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
+	// Retrieve returns a reader for the object with the given SHA256 hash.
+	Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
 }
 
 // FileObjectStoreConfig is the configuration for the file object store.
@@ -77,7 +79,8 @@ type fileObjectStore struct {
 	namespace string
 	requests  chan request
 
-	blobRetriever BlobRetriever
+	blobRetriever  BlobRetriever
+	blobSyncRunner *worker.Runner
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
@@ -98,6 +101,18 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 		blobRetriever: cfg.BlobRetriever,
 
 		requests: make(chan request),
+
+		blobSyncRunner: worker.NewRunner(worker.RunnerParams{
+			IsFatal: func(err error) bool {
+				return false
+			},
+			ShouldRestart: func(err error) bool {
+				return false
+			},
+			RestartDelay: time.Second * 10,
+			Logger:       cfg.Logger,
+			Clock:        cfg.Clock,
+		}),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -105,6 +120,7 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 		Work: s.loop,
 		Init: []worker.Worker{
 			cfg.BlobRetriever,
+			s.blobSyncRunner,
 		},
 	}); err != nil {
 		return nil, errors.Errorf("starting file object store: %w", err)
@@ -508,12 +524,11 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, -1, errors.Errorf("file %q encoded as %q: %w", metadata.Path, hash, objectstoreerrors.ObjectNotFound)
-		// if strategy != remoteStrategy {
-		// 	return nil, -1, errors.Errorf("file %q encoded as %q: %w", metadata.Path, hash, objectstoreerrors.ObjectNotFound)
-		// }
+		if strategy != remoteStrategy {
+			return nil, -1, errors.Errorf("file %q encoded as %q: %w", metadata.Path, hash, objectstoreerrors.ObjectNotFound)
+		}
 
-		// return t.getFromRemote(ctx, metadata)
+		return t.getFromRemote(ctx, metadata)
 	} else if err != nil {
 		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
@@ -689,6 +704,8 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	return nil
 }
 
+// getFromRemote fetches the object from the remote API server, writes it to
+// the file store, and then retrieves the object from the file store.
 func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, shortRemoteTimeout)
 	defer cancel()
@@ -758,37 +775,17 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 		return errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, longRemoteTimeout)
-	defer cancel()
-
-	// Fetch the file from a remote API server, if it doesn't exist return
-	// not found.
-	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
-	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
-		t.logger.Warningf("object %q not found remotely", metadata.Path)
+	// Spawn a worker to fetch the file from the remotes.
+	// We don't want to block the main loop, as we could potentially be
+	// fetching multiple files from the remote API servers.
+	err = t.blobSyncRunner.StartWorker(hash, func() (worker.Worker, error) {
+		return newSyncWorker(t, metadata), nil
+	})
+	if errors.Is(err, jujuerrors.AlreadyExists) {
 		return nil
 	} else if err != nil {
-		return errors.Errorf("fetching blob from remote: %w", err)
+		return errors.Errorf("starting block sync worker for %q: %w", hash, err)
 	}
-	defer reader.Close()
-
-	// We need to now put the blob into the file store, so that we can
-	// retrieve it from the file store next time.
-	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, reader, size)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer func() {
-		_ = tmpFileCleanup()
-	}()
-
-	// Persist the temporary file to the final location.
-	if err := t.withLock(ctx, metadata.SHA384, func(ctx context.Context) error {
-		return t.persistTmpFile(ctx, tmpFileName, metadata.SHA384, size)
-	}); err != nil {
-		return errors.Capture(err)
-	}
-	loggo.GetLogger("***").Criticalf("DONE!!")
 
 	return nil
 }
@@ -796,7 +793,7 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
 	t.logger.Criticalf("fetching object %q from remote", metadata.Path)
 
-	reader, size, err := t.blobRetriever.RetrieveBlobFromRemote(ctx, metadata.SHA256)
+	reader, size, err := t.blobRetriever.Retrieve(ctx, metadata.SHA256)
 	if errors.Is(err, remote.NoRemoteConnection) ||
 		errors.Is(err, remote.BlobNotFound) {
 		return nil, -1, objectstoreerrors.ObjectNotFound
@@ -815,4 +812,85 @@ func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata ob
 // typically: /var/lib/juju/objectstore/<namespace>
 func basePath(rootDir, namespace string) string {
 	return filepath.Join(rootDir, defaultFileDirectory, namespace)
+}
+
+type syncWorker struct {
+	tomb tomb.Tomb
+	t    *fileObjectStore
+	m    objectstore.Metadata
+}
+
+func newSyncWorker(t *fileObjectStore, m objectstore.Metadata) *syncWorker {
+	w := &syncWorker{
+		t: t,
+		m: m,
+	}
+
+	w.tomb.Go(w.loop)
+
+	return w
+}
+
+func (w *syncWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *syncWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *syncWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	var (
+		reader io.ReadCloser
+		size   int64
+	)
+	if err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			var err error
+			reader, size, err = w.t.fetchReaderFromRemote(ctx, w.m)
+			if err != nil {
+				return errors.Errorf("fetching blob from remote: %w", err)
+			}
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, remote.NoRemoteConnection)
+		},
+		Clock:       w.t.clock,
+		Stop:        ctx.Done(),
+		Attempts:    10,
+		Delay:       time.Second * 5,
+		MaxDelay:    time.Minute,
+		BackoffFunc: retry.DoubleDelay,
+	}); err != nil {
+		return errors.Errorf("retrieving blob from remote: %w", err)
+	}
+
+	tmpFileName, tmpFileCleanup, err := w.t.writeToTmpFile(w.t.path, reader, size)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	defer func() {
+		_ = tmpFileCleanup()
+	}()
+
+	// Persist the temporary file to the final location.
+	if err := w.t.withLock(ctx, w.m.SHA384, func(ctx context.Context) error {
+		return w.t.persistTmpFile(ctx, tmpFileName, w.m.SHA384, size)
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *syncWorker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.tomb.Context(ctx), cancel
 }

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/tomb.v2"
@@ -76,7 +75,7 @@ func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespa
 }
 
 // GetBySHA256 returns a reader for the blob with the given SHA256.
-func (r *BlobRetriever) RetrieveBlobFromRemote(ctx context.Context, sha256 string) (_ io.ReadCloser, _ int64, err error) {
+func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadCloser, _ int64, err error) {
 	remotes := r.apiRemoteCallers.GetAPIRemotes()
 	if len(remotes) == 0 {
 		return nil, -1, NoRemoteConnections
@@ -272,8 +271,6 @@ func newTask(index int, remote apiremotecaller.RemoteConnection, newObjectClient
 func (t *task) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
 	ctx = t.tomb.Context(ctx)
 
-	loggo.GetLogger("***").Criticalf("Retrieve %v %v", namespace, sha256)
-
 	var (
 		reader io.ReadCloser
 		size   int64
@@ -300,8 +297,6 @@ func (t *task) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadC
 				namespace = tag.Id()
 			}
 
-			loggo.GetLogger("***").Criticalf(">>> %v %v %v", httpClient.BaseURL, namespace, sha256)
-
 			reader, size, err = client.GetObject(ctx, namespace, sha256)
 			return err
 		},
@@ -313,10 +308,10 @@ func (t *task) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadC
 		},
 		Clock:       t.clock,
 		Stop:        ctx.Done(),
-		Attempts:    50,
-		Delay:       time.Second,
-		MaxDelay:    time.Minute,
-		BackoffFunc: retry.ExpBackoff(time.Second, time.Second*10, 1.5, true),
+		Attempts:    5,
+		Delay:       time.Millisecond * 500,
+		MaxDelay:    time.Second * 10,
+		BackoffFunc: retry.DoubleDelay,
 	}); err != nil {
 		return nil, -1, err
 	}
