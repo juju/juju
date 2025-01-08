@@ -216,11 +216,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		return description.CharmMetadataArgs{}, errors.Trace(err)
 	}
 
-	payloads, err := exportPayloads(metadata.PayloadClasses)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
 	containers, err := exportContainers(metadata.Containers)
 	if err != nil {
 		return description.CharmMetadataArgs{}, errors.Trace(err)
@@ -248,7 +243,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		ExtraBindings:  extraBindings,
 		Storage:        storage,
 		Devices:        devices,
-		Payloads:       payloads,
 		Containers:     containers,
 		Resources:      resources,
 		LXDProfile:     lxdProfile,
@@ -492,17 +486,6 @@ func exportDevices(devices map[string]internalcharm.Device) (map[string]descript
 			typ:         string(device.Type),
 			countMin:    int(device.CountMin),
 			countMax:    int(device.CountMax),
-		}
-	}
-	return result, nil
-}
-
-func exportPayloads(payloads map[string]internalcharm.PayloadClass) (map[string]description.CharmMetadataPayload, error) {
-	result := make(map[string]description.CharmMetadataPayload, len(payloads))
-	for name, payload := range payloads {
-		result[name] = payloadType{
-			name: payload.Name,
-			typ:  payload.Type,
 		}
 	}
 	return result, nil

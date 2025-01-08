@@ -29,7 +29,6 @@ import (
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
-	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
@@ -48,10 +47,9 @@ type ContextSuite struct {
 	contextFactory context.ContextFactory
 	membership     map[int][]string
 
-	uniter   *uniterapi.MockUniterClient
-	unit     *uniterapi.MockUnit
-	payloads *mocks.MockPayloadAPIClient
-	secrets  *runnertesting.SecretsContextAccessor
+	uniter  *uniterapi.MockUniterClient
+	unit    *uniterapi.MockUnit
+	secrets *runnertesting.SecretsContextAccessor
 
 	relunits map[int]*uniterapi.MockRelationUnit
 }
@@ -121,16 +119,12 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	cfg := coretesting.ModelConfig(c)
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
-	s.payloads = mocks.NewMockPayloadAPIClient(ctrl)
-	s.payloads.EXPECT().List(gomock.Any()).Return(nil, nil).AnyTimes()
-
 	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
-		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           internallogger.GetLogger("test"),
@@ -144,7 +138,6 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.contextFactory, err = context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
-		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,

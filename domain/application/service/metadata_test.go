@@ -241,28 +241,6 @@ var metadataTestCases = [...]struct {
 		},
 	},
 	{
-		name: "payload classes",
-		input: charm.Metadata{
-			Name:  "foo",
-			RunAs: charm.RunAsDefault,
-			PayloadClasses: map[string]charm.PayloadClass{
-				"payload": {
-					Name: "foo",
-					Type: "bar",
-				},
-			},
-		},
-		output: internalcharm.Meta{
-			Name: "foo",
-			PayloadClasses: map[string]internalcharm.PayloadClass{
-				"payload": {
-					Name: "foo",
-					Type: "bar",
-				},
-			},
-		},
-	},
-	{
 		name: "resources",
 		input: charm.Metadata{
 			Name:  "foo",

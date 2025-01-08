@@ -179,12 +179,6 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 				CountMax:    2,
 			},
 		},
-		PayloadClasses: map[string]internalcharm.PayloadClass{
-			"foo": {
-				Name: "bar",
-				Type: "baz",
-			},
-		},
 		Containers: map[string]internalcharm.Container{
 			"foo": {
 				Resource: "resource",

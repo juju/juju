@@ -93,12 +93,6 @@ var resourceCommands = map[string]creator{
 	"resource-get": NewResourceGetCmd,
 }
 
-var payloadCommands = map[string]creator{
-	"payload-register":   NewPayloadRegisterCmd,
-	"payload-unregister": NewPayloadUnregisterCmd,
-	"payload-status-set": NewPayloadStatusSetCmd,
-}
-
 func allEnabledCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
@@ -110,7 +104,6 @@ func allEnabledCommands() map[string]creator {
 	add(storageCommands)
 	add(leaderCommands)
 	add(resourceCommands)
-	add(payloadCommands)
 	add(secretCommands)
 	return all
 }

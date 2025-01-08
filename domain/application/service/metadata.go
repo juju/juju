@@ -49,11 +49,6 @@ func decodeMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 		return internalcharm.Meta{}, fmt.Errorf("decode devices: %w", err)
 	}
 
-	payloadClasses, err := decodeMetadataPayloadClasses(metadata.PayloadClasses)
-	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode payload classes: %w", err)
-	}
-
 	resources, err := decodeMetadataResources(metadata.Resources)
 	if err != nil {
 		return internalcharm.Meta{}, fmt.Errorf("decode resources: %w", err)
@@ -89,7 +84,6 @@ func decodeMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 		ExtraBindings:  decodeMetadataExtraBindings(metadata.ExtraBindings),
 		Storage:        storage,
 		Devices:        devices,
-		PayloadClasses: payloadClasses,
 		Resources:      resources,
 		Containers:     containers,
 		Assumes:        assumes,
@@ -216,21 +210,6 @@ func decodeMetadataDevices(devices map[string]charm.Device) (map[string]internal
 			Type:        internalcharm.DeviceType(v.Type),
 			CountMin:    v.CountMin,
 			CountMax:    v.CountMax,
-		}
-	}
-	return result, nil
-}
-
-func decodeMetadataPayloadClasses(payloadClasses map[string]charm.PayloadClass) (map[string]internalcharm.PayloadClass, error) {
-	if len(payloadClasses) == 0 {
-		return nil, nil
-	}
-
-	result := make(map[string]internalcharm.PayloadClass, len(payloadClasses))
-	for k, v := range payloadClasses {
-		result[k] = internalcharm.PayloadClass{
-			Name: v.Name,
-			Type: v.Type,
 		}
 	}
 	return result, nil
@@ -377,11 +356,6 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 		return charm.Metadata{}, fmt.Errorf("encode devices: %w", err)
 	}
 
-	payloadClasses, err := encodeMetadataPayloadClasses(metadata.PayloadClasses)
-	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode payload classes: %w", err)
-	}
-
 	resources, err := encodeMetadataResources(metadata.Resources)
 	if err != nil {
 		return charm.Metadata{}, fmt.Errorf("encode resources: %w", err)
@@ -417,7 +391,6 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 		ExtraBindings:  encodeMetadataExtraBindings(metadata.ExtraBindings),
 		Storage:        storage,
 		Devices:        devices,
-		PayloadClasses: payloadClasses,
 		Resources:      resources,
 		Containers:     containers,
 		Assumes:        assumes,
@@ -648,21 +621,6 @@ func encodeMetadataDevices(devices map[string]internalcharm.Device) (map[string]
 			Type:        charm.DeviceType(v.Type),
 			CountMin:    v.CountMin,
 			CountMax:    v.CountMax,
-		}
-	}
-	return result, nil
-}
-
-func encodeMetadataPayloadClasses(payloadClasses map[string]internalcharm.PayloadClass) (map[string]charm.PayloadClass, error) {
-	if len(payloadClasses) == 0 {
-		return nil, nil
-	}
-
-	result := make(map[string]charm.PayloadClass, len(payloadClasses))
-	for k, v := range payloadClasses {
-		result[k] = charm.PayloadClass{
-			Name: v.Name,
-			Type: v.Type,
 		}
 	}
 	return result, nil

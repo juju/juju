@@ -67,7 +67,6 @@ type Context struct {
 	ContextLeader
 	ContextStorage
 	ContextResources
-	ContextPayloads
 	ContextRelations
 	ContextRelationHook
 	ContextActionHook
@@ -92,7 +91,6 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextStorage.stub = stub
 	ctx.ContextStorage.info = &info.Storage
 	ctx.ContextResources.stub = stub
-	ctx.ContextPayloads.stub = stub
 	ctx.ContextRelations.stub = stub
 	ctx.ContextRelations.info = &info.Relations
 	ctx.ContextRelationHook.stub = stub

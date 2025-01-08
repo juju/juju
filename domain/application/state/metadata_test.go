@@ -330,37 +330,6 @@ var metadataDecodeTestCases = [...]struct {
 		},
 	},
 	{
-		name:  "payloads",
-		input: charmMetadata{},
-		inputArgs: decodeMetadataArgs{
-			payloads: []charmPayload{
-				{
-					Key:  "alpha",
-					Name: "foo",
-					Type: "type1",
-				},
-				{
-					Key:  "beta",
-					Name: "baz",
-					Type: "type2",
-				},
-			},
-		},
-		output: charm.Metadata{
-			RunAs: charm.RunAsDefault,
-			PayloadClasses: map[string]charm.PayloadClass{
-				"alpha": {
-					Name: "foo",
-					Type: "type1",
-				},
-				"beta": {
-					Name: "baz",
-					Type: "type2",
-				},
-			},
-		},
-	},
-	{
 		name:  "resources",
 		input: charmMetadata{},
 		inputArgs: decodeMetadataArgs{

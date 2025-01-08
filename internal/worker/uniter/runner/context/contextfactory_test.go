@@ -25,7 +25,6 @@ import (
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
-	contextmocks "github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -66,16 +65,12 @@ func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controll
 	cfg := coretesting.ModelConfig(c)
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
-	s.payloads = contextmocks.NewMockPayloadAPIClient(ctrl)
-	s.payloads.EXPECT().List(gomock.Any()).Return(nil, nil).AnyTimes()
-
 	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
-		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           loggertesting.WrapCheckLog(c),

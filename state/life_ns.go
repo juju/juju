@@ -14,10 +14,7 @@ import (
 // nsLife_ backs nsLife.
 type nsLife_ struct{}
 
-// nsLife namespaces low-level entity-life functionality. See the
-// discussion in nsPayloads: this exists not to be the one place for
-// life functionality (that would be a huge change), but to at least
-// represent the parts we need for payloads in a consistent fashion.
+// nsLife namespaces low-level entity-life functionality.
 //
 // Both the namespacing and the explicit Collection->op approach seem
 // to be good ideas, and should ideally be extended as we continue.

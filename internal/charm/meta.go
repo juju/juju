@@ -225,7 +225,6 @@ type Meta struct {
 	Tags           []string                 `bson:"tags,omitempty" json:"Tags,omitempty"`
 	Storage        map[string]Storage       `bson:"storage,omitempty" json:"Storage,omitempty"`
 	Devices        map[string]Device        `bson:"devices,omitempty" json:"Devices,omitempty"`
-	PayloadClasses map[string]PayloadClass  `bson:"payloadclasses,omitempty" json:"PayloadClasses,omitempty"`
 	Resources      map[string]resource.Meta `bson:"resources,omitempty" json:"Resources,omitempty"`
 	Terms          []string                 `bson:"terms,omitempty" json:"Terms,omitempty"`
 	MinJujuVersion version.Number           `bson:"min-juju-version,omitempty" json:"min-juju-version,omitempty"`
@@ -514,7 +513,6 @@ func parseMeta(m map[string]interface{}) (*Meta, error) {
 	if err != nil {
 		return nil, err
 	}
-	meta.PayloadClasses = parsePayloadClasses(m["payloads"])
 	meta.MinJujuVersion, err = parseMinJujuVersion(m["min-juju-version"])
 	if err != nil {
 		return nil, err
@@ -751,15 +749,6 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 			return errors.Errorf("charm %q device %q: duplicated device name", m.Name, name)
 		}
 		names[name] = true
-	}
-
-	for name, payloadClass := range m.PayloadClasses {
-		if payloadClass.Name != name {
-			return errors.Errorf("mismatch on payload class name (%q != %q)", payloadClass.Name, name)
-		}
-		if err := payloadClass.Validate(); err != nil {
-			return err
-		}
 	}
 
 	if err := validateMetaResources(m.Resources); err != nil {
@@ -1228,7 +1217,6 @@ var charmSchema = schema.FieldMap(
 		"tags":             schema.List(schema.String()),
 		"storage":          schema.StringMap(storageSchema),
 		"devices":          schema.StringMap(deviceSchema),
-		"payloads":         schema.StringMap(payloadClassSchema),
 		"resources":        schema.StringMap(resourceSchema),
 		"terms":            schema.List(schema.String()),
 		"min-juju-version": schema.String(),
@@ -1248,7 +1236,6 @@ var charmSchema = schema.FieldMap(
 		"tags":             schema.Omit,
 		"storage":          schema.Omit,
 		"devices":          schema.Omit,
-		"payloads":         schema.Omit,
 		"resources":        schema.Omit,
 		"terms":            schema.Omit,
 		"min-juju-version": schema.Omit,

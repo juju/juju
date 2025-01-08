@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
@@ -47,7 +46,6 @@ type HookContext interface {
 	ContextLeadership
 	ContextStorage
 	ContextResources
-	ContextPayloads
 	ContextRelations
 	ContextVersion
 	ContextSecrets
@@ -319,23 +317,6 @@ type ContextResources interface {
 	// DownloadResource downloads the named resource and returns
 	// the path to which it was downloaded.
 	DownloadResource(ctx context.Context, name string) (filePath string, _ error)
-}
-
-// ContextPayloads exposes the functionality needed by the
-// "payload-*" hook commands.
-type ContextPayloads interface {
-	// GetPayload returns the payload info corresponding to the given ID.
-	GetPayload(class, id string) (*payloads.Payload, error)
-	// TrackPayload records the payload info in the hook context.
-	TrackPayload(payload payloads.Payload) error
-	// UntrackPayload removes the payload from our list of payloads to track.
-	UntrackPayload(ctx context.Context, class, id string) error
-	// SetPayloadStatus sets the status of the payload.
-	SetPayloadStatus(ctx context.Context, class, id, status string) error
-	// ListPayloads returns the list of registered payload IDs.
-	ListPayloads() ([]string, error)
-	// FlushPayloads pushes the hook context data out to state.
-	FlushPayloads(context.Context) error
 }
 
 // ContextRelations exposes the relations associated with the unit.

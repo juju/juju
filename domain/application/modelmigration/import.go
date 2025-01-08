@@ -394,11 +394,6 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		return nil, fmt.Errorf("import devices: %w", err)
 	}
 
-	var payloadClasses map[string]internalcharm.PayloadClass
-	if payloadClasses, err = importPayloadClasses(data.Payloads()); err != nil {
-		return nil, fmt.Errorf("import payload classes: %w", err)
-	}
-
 	var containers map[string]internalcharm.Container
 	if containers, err = importContainers(data.Containers()); err != nil {
 		return nil, fmt.Errorf("import containers: %w", err)
@@ -426,7 +421,6 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		ExtraBindings:  importExtraBindings(data.ExtraBindings()),
 		Storage:        storage,
 		Devices:        devices,
-		PayloadClasses: payloadClasses,
 		Containers:     containers,
 		Resources:      resources,
 	}, nil
@@ -672,17 +666,6 @@ func importDevices(data map[string]description.CharmMetadataDevice) (map[string]
 		}
 	}
 	return devices, nil
-}
-
-func importPayloadClasses(data map[string]description.CharmMetadataPayload) (map[string]internalcharm.PayloadClass, error) {
-	payloadClasses := make(map[string]internalcharm.PayloadClass, len(data))
-	for name, p := range data {
-		payloadClasses[name] = internalcharm.PayloadClass{
-			Name: p.Name(),
-			Type: p.Type(),
-		}
-	}
-	return payloadClasses, nil
 }
 
 func importContainers(data map[string]description.CharmMetadataContainer) (map[string]internalcharm.Container, error) {

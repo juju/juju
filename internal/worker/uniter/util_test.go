@@ -80,7 +80,6 @@ type testContext struct {
 	// API clients.
 	api           *uniterapi.MockUniterClient
 	resources     *contextmocks.MockOpenedResourceClient
-	payloads      *contextmocks.MockPayloadAPIClient
 	leaderTracker *mockLeaderTracker
 	charmDirGuard *mockCharmDirGuard
 
@@ -256,7 +255,6 @@ func (ctx *testContext) sendRelationUnitChange(c *gc.C, msg string, ruc watcher.
 }
 
 func (ctx *testContext) expectHookContext(c *gc.C) {
-	ctx.payloads.EXPECT().List(gomock.Any()).Return(nil, nil).AnyTimes()
 	ctx.api.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.6.6.6"}, nil).AnyTimes()
 	ctx.api.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
@@ -938,9 +936,6 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 	if ctx.resources == nil {
 		panic("resources API connection not established")
 	}
-	if ctx.payloads == nil {
-		panic("payloads API connection not established")
-	}
 
 	if ctx.runner == nil {
 		panic("process runner not set up")
@@ -985,7 +980,6 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {
 			return ctx.leaderTracker
 		},
-		PayloadClient:        ctx.payloads,
 		ResourcesClient:      ctx.resources,
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,

@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/api"
-	"github.com/juju/juju/internal/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/juju/sockets"
@@ -128,7 +127,6 @@ type HookUnit interface {
 // HookContext is the implementation of runner.Context.
 type HookContext struct {
 	*resources.ResourcesHookContext
-	*payloads.PayloadsHookContext
 	unit HookUnit
 
 	// uniter is the handle to the uniter client so that HookContext can make

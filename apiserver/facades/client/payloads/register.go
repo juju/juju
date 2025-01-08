@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -16,19 +14,27 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Payloads", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacade(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+		return newFacadeV1(ctx)
+	}, reflect.TypeOf((*APIV1)(nil)))
+	registry.MustRegister("Payloads", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newFacadeV2(ctx)
+	}, reflect.TypeOf((*APIV2)(nil)))
 }
 
-// newFacade provides the signature required for facade registration.
-func newFacade(ctx facade.ModelContext) (*API, error) {
+// newFacadeV1 provides the signature required for facade registration.
+func newFacadeV1(ctx facade.ModelContext) (*APIV1, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	backend, err := ctx.State().ModelPayloads()
-	if err != nil {
-		return nil, errors.Trace(err)
+	return NewAPIV1(), nil
+}
+
+// newFacadeV2 provides the signature required for facade registration.
+func newFacadeV2(ctx facade.ModelContext) (*APIV2, error) {
+	authorizer := ctx.Auth()
+	if !authorizer.AuthClient() {
+		return nil, apiservererrors.ErrPerm
 	}
-	return NewAPI(backend), nil
+	return NewAPIV2(), nil
 }

@@ -4894,14 +4894,6 @@
                         "name": {
                             "type": "string"
                         },
-                        "payload-classes": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/CharmPayloadClass"
-                                }
-                            }
-                        },
                         "peers": {
                             "type": "object",
                             "patternProperties": {
@@ -5057,22 +5049,6 @@
                     "additionalProperties": false,
                     "required": [
                         "charm-origin"
-                    ]
-                },
-                "CharmPayloadClass": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "type"
                     ]
                 },
                 "CharmRelation": {
@@ -12142,96 +12118,12 @@
     {
         "Name": "Payloads",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "model-user"
         ],
         "Schema": {
-            "type": "object",
-            "properties": {
-                "List": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/PayloadListArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/PayloadListResults"
-                        }
-                    }
-                }
-            },
-            "definitions": {
-                "Payload": {
-                    "type": "object",
-                    "properties": {
-                        "class": {
-                            "type": "string"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "labels": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "machine": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "class",
-                        "type",
-                        "id",
-                        "status",
-                        "labels",
-                        "unit",
-                        "machine"
-                    ]
-                },
-                "PayloadListArgs": {
-                    "type": "object",
-                    "properties": {
-                        "patterns": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "patterns"
-                    ]
-                },
-                "PayloadListResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Payload"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                }
-            }
+            "type": "object"
         }
     },
     {

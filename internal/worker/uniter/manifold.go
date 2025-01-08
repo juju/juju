@@ -183,7 +183,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, err
 			}
-			payloadClient := uniter.NewPayloadFacadeClient(apiConn)
 
 			secretsBackendGetter := func() (uniterapi.SecretsBackend, error) {
 				return secrets.NewClient(jujuSecretsAPI)
@@ -195,7 +194,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					Client: uniter.NewClient(apiConn, unitTag, uniter.WithTracer(tracer)),
 				},
 				ResourcesClient:              resourcesClient,
-				PayloadClient:                payloadClient,
 				SecretsClient:                jujuSecretsAPI,
 				SecretsBackendGetter:         secretsBackendGetter,
 				UnitTag:                      unitTag,

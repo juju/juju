@@ -30,7 +30,6 @@ type decodeMetadataArgs struct {
 	extraBindings []charmExtraBinding
 	storage       []charmStorage
 	devices       []charmDevice
-	payloads      []charmPayload
 	resources     []charmResource
 	containers    []charmContainer
 }
@@ -89,7 +88,6 @@ func decodeMetadata(metadata charmMetadata, args decodeMetadataArgs) (charm.Meta
 		ExtraBindings:  decodeExtraBindings(args.extraBindings),
 		Storage:        storage,
 		Devices:        decodeDevices(args.devices),
-		PayloadClasses: decodePayloads(args.payloads),
 		Resources:      resources,
 		Containers:     containers,
 	}, nil
@@ -295,21 +293,6 @@ func decodeDevices(devices []charmDevice) map[string]charm.Device {
 			Type:        charm.DeviceType(device.DeviceType),
 			CountMin:    device.CountMin,
 			CountMax:    device.CountMax,
-		}
-	}
-	return result
-}
-
-func decodePayloads(payloads []charmPayload) map[string]charm.PayloadClass {
-	if len(payloads) == 0 {
-		return nil
-	}
-
-	result := make(map[string]charm.PayloadClass)
-	for _, payload := range payloads {
-		result[payload.Key] = charm.PayloadClass{
-			Name: payload.Name,
-			Type: payload.Type,
 		}
 	}
 	return result
@@ -647,19 +630,6 @@ func encodeDevices(id corecharm.ID, devices map[string]charm.Device) []setCharmD
 			DeviceType: string(device.Type),
 			CountMin:   device.CountMin,
 			CountMax:   device.CountMax,
-		})
-	}
-	return result
-}
-
-func encodePayloads(id corecharm.ID, payloads map[string]charm.PayloadClass) []setCharmPayload {
-	var result []setCharmPayload
-	for key, payload := range payloads {
-		result = append(result, setCharmPayload{
-			CharmUUID: id.String(),
-			Key:       key,
-			Name:      payload.Name,
-			Type:      payload.Type,
 		})
 	}
 	return result

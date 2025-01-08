@@ -444,20 +444,6 @@ CREATE TABLE charm_device (
 CREATE INDEX idx_charm_device_charm
 ON charm_device (charm_uuid);
 
-CREATE TABLE charm_payload (
-    charm_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    name TEXT,
-    type TEXT,
-    CONSTRAINT fk_charm_payload_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, "key")
-);
-
-CREATE INDEX idx_charm_payload_charm
-ON charm_payload (charm_uuid);
-
 CREATE TABLE charm_resource_kind (
     id INT PRIMARY KEY,
     name TEXT NOT NULL

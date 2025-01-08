@@ -125,7 +125,6 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		Tags:           meta.Tags,
 		Storage:        convertCharmStorageMap(meta.Storage),
 		Devices:        convertCharmDevices(meta.Devices),
-		PayloadClasses: convertCharmPayloadClassMap(meta.PayloadClasses),
 		Resources:      resources,
 		Terms:          meta.Terms,
 		MinJujuVersion: minVersion,
@@ -181,24 +180,6 @@ func convertCharmStorage(storage params.CharmStorage) charm.Storage {
 		MinimumSize: storage.MinimumSize,
 		Location:    storage.Location,
 		Properties:  storage.Properties,
-	}
-}
-
-func convertCharmPayloadClassMap(payload map[string]params.CharmPayloadClass) map[string]charm.PayloadClass {
-	if len(payload) == 0 {
-		return nil
-	}
-	result := make(map[string]charm.PayloadClass)
-	for key, value := range payload {
-		result[key] = convertCharmPayloadClass(value)
-	}
-	return result
-}
-
-func convertCharmPayloadClass(payload params.CharmPayloadClass) charm.PayloadClass {
-	return charm.PayloadClass{
-		Name: payload.Name,
-		Type: payload.Type,
 	}
 }
 

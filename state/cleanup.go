@@ -1275,15 +1275,6 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 		}
 	}
 
-	change := payloadCleanupChange{
-		Unit: unitId,
-	}
-	if err := Apply(st.database, change); err != nil {
-		if !force {
-			return errors.Trace(err)
-		}
-		logger.Warningf("could not cleanup payload for unit %v during cleanup of removed unit: %v", unitId, err)
-	}
 	return nil
 }
 

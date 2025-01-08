@@ -504,12 +504,6 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 				CountMax:    2,
 			},
 		},
-		PayloadClasses: map[string]internalcharm.PayloadClass{
-			"payload": {
-				Name: "baz",
-				Type: "tar",
-			},
-		},
 		Containers: map[string]internalcharm.Container{
 			"container": {
 				Resource: "baz",

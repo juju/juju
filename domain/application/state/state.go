@@ -135,10 +135,6 @@ func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 		return errors.Trace(err)
 	}
 
-	if err := s.setCharmPayloads(ctx, tx, uuid, ch.Metadata.PayloadClasses); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := s.setCharmResources(ctx, tx, uuid, ch.Metadata.Resources); err != nil {
 		return errors.Trace(err)
 	}
@@ -495,25 +491,6 @@ func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corecharm.ID, payloads map[string]charm.PayloadClass) error {
-	// If there are no payloads, we don't need to do anything.
-	if len(payloads) == 0 {
-		return nil
-	}
-
-	query := `INSERT INTO charm_payload (*) VALUES ($setCharmPayload.*);`
-	stmt, err := s.Prepare(query, setCharmPayload{})
-	if err != nil {
-		return fmt.Errorf("preparing query: %w", err)
-	}
-
-	if err := tx.Query(ctx, stmt, encodePayloads(id, payloads)).Run(); err != nil {
-		return fmt.Errorf("inserting charm payloads: %w", err)
-	}
-
-	return nil
-}
-
 func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
 	// If there are no resources, we don't need to do anything.
 	if len(resources) == 0 {
@@ -788,7 +765,6 @@ func (s *State) getMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (
 		extraBindings []charmExtraBinding
 		storage       []charmStorage
 		devices       []charmDevice
-		payloads      []charmPayload
 		resources     []charmResource
 		containers    []charmContainer
 	)
@@ -826,10 +802,6 @@ func (s *State) getMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (
 		return charm.Metadata{}, errors.Trace(err)
 	}
 
-	if payloads, err = s.getCharmPayloads(ctx, tx, ident); err != nil {
-		return charm.Metadata{}, errors.Trace(err)
-	}
-
 	if resources, err = s.getCharmResources(ctx, tx, ident); err != nil {
 		return charm.Metadata{}, errors.Trace(err)
 	}
@@ -846,7 +818,6 @@ func (s *State) getMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (
 		extraBindings: extraBindings,
 		storage:       storage,
 		devices:       devices,
-		payloads:      payloads,
 		resources:     resources,
 		containers:    containers,
 	})
@@ -1246,32 +1217,6 @@ WHERE charm_uuid = $charmID.uuid;
 	return result, nil
 }
 
-// getCharmPayloads returns the payloads for the charm using the charm ID.
-// If the charm does not exist, no error is returned. It is expected that
-// the caller will handle this case.
-func (s *State) getCharmPayloads(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmPayload, error) {
-	query := `
-SELECT &charmPayload.*
-FROM charm_payload
-WHERE charm_uuid = $charmID.uuid;
-`
-
-	stmt, err := s.Prepare(query, charmPayload{}, ident)
-	if err != nil {
-		return nil, fmt.Errorf("preparing query: %w", err)
-	}
-
-	var result []charmPayload
-	if err := tx.Query(ctx, stmt, ident).GetAll(&result); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return result, nil
-		}
-		return nil, fmt.Errorf("failed to select charm payload: %w", err)
-	}
-
-	return result, nil
-}
-
 // getCharmResources returns the resources for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
@@ -1292,7 +1237,7 @@ WHERE charm_uuid = $charmID.uuid;
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return result, nil
 		}
-		return nil, fmt.Errorf("failed to select charm payload: %w", err)
+		return nil, fmt.Errorf("failed to select charm resource: %w", err)
 	}
 
 	return result, nil

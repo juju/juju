@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runcommands"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
-	"github.com/juju/juju/internal/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/secrets"
@@ -70,7 +69,6 @@ type Uniter struct {
 	paths                        Paths
 	unit                         api.Unit
 	resources                    resources.OpenedResourceClient
-	payloads                     payloads.PayloadAPIClient
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
@@ -156,7 +154,6 @@ type Uniter struct {
 type UniterParams struct {
 	UniterClient            api.UniterClient
 	ResourcesClient         resources.OpenedResourceClient
-	PayloadClient           payloads.PayloadAPIClient
 	SecretsClient           api.SecretsClient
 	SecretsBackendGetter    context.SecretsBackendGetter
 	UnitTag                 names.UnitTag
@@ -215,7 +212,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		u := &Uniter{
 			client:                       uniterParams.UniterClient,
 			resources:                    uniterParams.ResourcesClient,
-			payloads:                     uniterParams.PayloadClient,
 			secretsClient:                uniterParams.SecretsClient,
 			secretsBackendGetter:         uniterParams.SecretsBackendGetter,
 			paths:                        NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
@@ -830,7 +826,6 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 		SecretsBackendGetter: u.secretsBackendGetter,
 		Unit:                 u.unit,
 		Resources:            u.resources,
-		Payloads:             u.payloads,
 		Tracker:              u.leadershipTracker,
 		GetRelationInfos:     u.relationStateTracker.GetInfo,
 		Paths:                u.paths,

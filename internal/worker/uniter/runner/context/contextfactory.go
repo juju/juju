@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
-	"github.com/juju/juju/internal/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/rpc/params"
@@ -78,7 +77,6 @@ type contextFactory struct {
 	unit                 api.Unit
 	client               api.UniterClient
 	resources            resources.OpenedResourceClient
-	payloads             payloads.PayloadAPIClient
 	secretsClient        api.SecretsAccessor
 	secretsBackendGetter SecretsBackendGetter
 	tracker              leadership.Tracker
@@ -108,7 +106,6 @@ type FactoryConfig struct {
 	SecretsBackendGetter SecretsBackendGetter
 	Unit                 api.Unit
 	Resources            resources.OpenedResourceClient
-	Payloads             payloads.PayloadAPIClient
 	Tracker              leadership.Tracker
 	GetRelationInfos     RelationsFunc
 	Paths                Paths
@@ -156,7 +153,6 @@ func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactor
 		unit:                 config.Unit,
 		client:               config.Uniter,
 		resources:            config.Resources,
-		payloads:             config.Payloads,
 		secretsClient:        config.SecretsClient,
 		secretsBackendGetter: config.SecretsBackendGetter,
 		tracker:              config.Tracker,
@@ -218,11 +214,6 @@ func (f *contextFactory) coreContext(stdCtx context.Context) (*HookContext, erro
 		},
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
-	payloadCtx, err := payloads.NewContext(stdCtx, f.payloads)
-	if err != nil {
-		return nil, err
-	}
-	ctx.PayloadsHookContext = payloadCtx
 	if err := f.updateContext(stdCtx, ctx); err != nil {
 		return nil, err
 	}

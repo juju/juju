@@ -1062,55 +1062,6 @@ INSERT INTO charm_device (
 	})
 }
 
-func (s *charmStateSuite) TestGetCharmMetadataWithPayloadClasses(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	id := charmtesting.GenCharmID(c)
-	uuid := id.String()
-
-	var expected charm.Metadata
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_payload (
-    charm_uuid,
-    key,
-    name,
-    type
-) VALUES
-    (?, 'foo', 'bar', 'docker'),
-    (?, 'fred', 'baz', 'kvm');`,
-			uuid, uuid)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.PayloadClasses = map[string]charm.PayloadClass{
-			"foo": {
-				Name: "bar",
-				Type: "docker",
-			},
-			"fred": {
-				Name: "baz",
-				Type: "kvm",
-			},
-		}
-		return expected
-	})
-}
-
 func (s *charmStateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -2235,52 +2186,6 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_device")
-}
-
-func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	expected := charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		PayloadClasses: map[string]charm.PayloadClass{
-			"foo": {
-				Name: "bar",
-				Type: "docker",
-			},
-			"fred": {
-				Name: "baz",
-				Type: "kvm",
-			},
-		},
-	}
-
-	id, _, err := st.SetCharm(context.Background(), charm.Charm{
-		Metadata:      expected,
-		Manifest:      s.minimalManifest(c),
-		Source:        charm.LocalSource,
-		Revision:      42,
-		ReferenceName: "ubuntu",
-		Hash:          "hash",
-		ArchivePath:   "archive",
-		Version:       "deadbeef",
-	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, expected)
-
-	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertTableEmpty(c, s.TxnRunner(), "charm")
-	assertTableEmpty(c, s.TxnRunner(), "charm_payload")
 }
 
 func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {

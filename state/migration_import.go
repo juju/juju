@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -871,11 +870,6 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 	if err := i.importUnitState(unit, u, ctrlCfg); err != nil {
 		return errors.Trace(err)
 	}
-	if i.dbModel.Type() == ModelTypeIAAS {
-		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }
 
@@ -904,29 +898,6 @@ func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg contr
 		MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
 		MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
 	})
-}
-
-func (i *importer) importUnitPayloads(unit *Unit, payloadInfo []description.Payload) error {
-	up, err := i.st.UnitPayloads(unit)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, p := range payloadInfo {
-		if err := up.Track(payloads.Payload{
-			PayloadClass: charm.PayloadClass{
-				Name: p.Name(),
-				Type: p.Type(),
-			},
-			ID:     p.RawID(),
-			Status: p.State(),
-			Labels: p.Labels(),
-		}); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	return nil
 }
 
 func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {

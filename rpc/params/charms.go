@@ -90,12 +90,6 @@ type CharmDevice struct {
 	CountMax    int64  `bson:"count-max"`
 }
 
-// CharmPayloadClass mirrors charm.PayloadClass.
-type CharmPayloadClass struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-}
-
 // CharmResourceMeta mirrors charm.ResourceMeta.
 type CharmResourceMeta struct {
 	Name        string `json:"name"`
@@ -118,7 +112,6 @@ type CharmMeta struct {
 	Tags           []string                     `json:"tags,omitempty"`
 	Storage        map[string]CharmStorage      `json:"storage,omitempty"`
 	Devices        map[string]CharmDevice       `json:"devices,omitempty"`
-	PayloadClasses map[string]CharmPayloadClass `json:"payload-classes,omitempty"`
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
