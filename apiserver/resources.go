@@ -40,7 +40,7 @@ func (noopResourceBackend) GetPendingResource(applicationID, name, pendingID str
 }
 
 func (noopResourceBackend) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error) {
-	return resource.Resource{}, errors.NotImplementedf("SetResource")
+	return resource.Resource{}, errors.NotImplementedf("SetResourceUsed")
 }
 
 func (noopResourceBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
@@ -143,7 +143,7 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 		return nil, errors.Trace(err)
 	}
 
-	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
+	// UpdatePendingResource does the same as SetResourceUsed (just calls setResource) except SetResouce just blanks PendingID.
 	var stored resource.Resource
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)

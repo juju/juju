@@ -65,7 +65,7 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		}
 
 		// Mark the downloaded resource as in use on the unit.
-		err = opener.SetResource(req.Context(), name)
+		err = opener.SetResourceUsed(req.Context(), name)
 		if err != nil {
 			logger.Errorf("setting resource %s as in use: %w", name, err)
 		}

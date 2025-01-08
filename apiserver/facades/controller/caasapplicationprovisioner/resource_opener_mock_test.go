@@ -55,16 +55,16 @@ func (mr *MockOpenerMockRecorder) OpenResource(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenResource", reflect.TypeOf((*MockOpener)(nil).OpenResource), arg0, arg1)
 }
 
-// SetResource mocks base method.
-func (m *MockOpener) SetResource(arg0 context.Context, arg1 string) error {
+// SetResourceUsed mocks base method.
+func (m *MockOpener) SetResourceUsed(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetResource", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetResourceUsed", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetResource indicates an expected call of SetResource.
+// SetResourceUsed indicates an expected call of SetResourceUsed.
 func (mr *MockOpenerMockRecorder) SetResource(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResource", reflect.TypeOf((*MockOpener)(nil).SetResource), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResourceUsed", reflect.TypeOf((*MockOpener)(nil).SetResourceUsed), arg0, arg1)
 }

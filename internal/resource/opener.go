@@ -137,6 +137,8 @@ func newResourceOpenerForApplication(
 	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener coreresource.Opener, err error) {
+	// TODO(aflynn): we still get the charm URL from state since functionality
+	// for this has not yet been implemented in the domain.
 	application, err := state.Application(applicationName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -358,8 +360,8 @@ func (ro ResourceOpener) store(ctx context.Context, resourceUUID coreresource.UU
 	return res, reader, nil
 }
 
-// SetResource records that the resource is currently in use.
-func (ro ResourceOpener) SetResource(ctx context.Context, resName string) error {
+// SetResourceUsed records that the resource is currently in use.
+func (ro ResourceOpener) SetResourceUsed(ctx context.Context, resName string) error {
 	resourceUUID, err := ro.resourceService.GetResourceUUID(ctx, resource.GetResourceUUIDArgs{
 		ApplicationID: ro.appID,
 		Name:          resName,

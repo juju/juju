@@ -895,7 +895,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 				break
 			}
 			imageResources.Images[v.Name] = rsc
-			err = resourceClient.SetResource(ctx, v.Name)
+			err = resourceClient.SetResourceUsed(ctx, v.Name)
 			if err != nil {
 				a.logger.Errorf("setting resource %s of application %s as in use: %w", v.Name, appName, err)
 				res.Results[i].Error = apiservererrors.ServerError(err)

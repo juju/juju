@@ -296,18 +296,18 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	c.Check(opened.ReadCloser, gc.IsNil)
 }
 
-func (s *OpenerSuite) TestSetResourceUnit(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedUnit(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil)
 	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), s.resourceUUID, s.unitUUID)
-	err := s.newUnitResourceOpener(c, 0).SetResource(context.TODO(), "wal-e")
+	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(context.TODO(), "wal-e")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) TestSetResourceUnitError(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
 		ApplicationID: s.appID,
@@ -317,11 +317,24 @@ func (s *OpenerSuite) TestSetResourceUnitError(c *gc.C) {
 	expectedErr := errors.New("boom")
 	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), s.resourceUUID, s.unitUUID).Return(expectedErr)
 
-	err := s.newUnitResourceOpener(c, 0).SetResource(context.TODO(), "wal-e")
+	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(context.TODO(), "wal-e")
 	c.Assert(err, jc.ErrorIs, expectedErr)
 }
 
-func (s *OpenerSuite) TestSetResourceApplication(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedApplication(c *gc.C) {
+	defer s.setupMocks(c, false).Finish()
+	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+		ApplicationID: s.appID,
+		Name:          "wal-e",
+	}).Return(s.resourceUUID, nil)
+
+	s.resourceService.EXPECT().SetApplicationResource(gomock.Any(), s.resourceUUID)
+
+	err := s.newApplicationResourceOpener(c).SetResourceUsed(context.TODO(), "wal-e")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
 	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
 		ApplicationID: s.appID,
@@ -331,7 +344,7 @@ func (s *OpenerSuite) TestSetResourceApplication(c *gc.C) {
 	expectedErr := errors.New("boom")
 	s.resourceService.EXPECT().SetApplicationResource(gomock.Any(), s.resourceUUID).Return(expectedErr)
 
-	err := s.newApplicationResourceOpener(c).SetResource(context.TODO(), "wal-e")
+	err := s.newApplicationResourceOpener(c).SetResourceUsed(context.TODO(), "wal-e")
 	c.Assert(err, jc.ErrorIs, expectedErr)
 }
 
