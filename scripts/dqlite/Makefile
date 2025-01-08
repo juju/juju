@@ -36,20 +36,3 @@ musl-install:
 
 musl-install-if-missing:
 	+@./scripts/dqlite/scripts/musl/install-if-missing.sh
-
-repl-install:
-	+@./scripts/dqlite/scripts/repl/install.sh
-
-repl:
-	+@./scripts/dqlite/scripts/repl/repl.sh
-
-repl-list-models:
-	+@./scripts/dqlite/scripts/repl/repl-list-models.sh
-
-ifeq (repl-model,$(firstword $(MAKECMDGOALS)))
-  REPL_MODEL_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-  $(eval $(REPL_MODEL_ARGS):;@:)
-endif
-
-repl-model:
-	+@./scripts/dqlite/scripts/repl/repl-model.sh $(REPL_MODEL_ARGS)
