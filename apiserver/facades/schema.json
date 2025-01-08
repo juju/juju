@@ -12116,17 +12116,6 @@
         }
     },
     {
-        "Name": "Payloads",
-        "Description": "",
-        "Version": 2,
-        "AvailableTo": [
-            "model-user"
-        ],
-        "Schema": {
-            "type": "object"
-        }
-    },
-    {
         "Name": "Pinger",
         "Description": "",
         "Version": 1,

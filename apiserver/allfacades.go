@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
-	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/pinger"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
 	"github.com/juju/juju/apiserver/facades/client/secrets"
@@ -223,7 +222,6 @@ func AllFacades() *facade.Registry {
 	modelconfig.Register(registry)
 	modelmanager.Register(registry)
 	modelupgrader.Register(registry)
-	payloads.Register(registry)
 	payloadshookcontext.Register(registry)
 	pinger.Register(registry)
 	provisioner.Register(registry)
