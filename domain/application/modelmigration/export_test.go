@@ -408,6 +408,7 @@ func (s *exportSuite) expectCharmID() {
 	s.exportService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
 		Name:     "prometheus",
 		Revision: ptr(1),
+		Source:   charm.CharmHubSource,
 	}).Return(corecharm.ID("deadbeef"), nil)
 }
 
