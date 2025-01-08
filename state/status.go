@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
-type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
-
 // ModelStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
 type ModelStatus struct {
@@ -346,7 +344,3 @@ func removeStatusOp(mb modelBackend, globalKey string) txn.Op {
 		Remove: true,
 	}
 }
-
-// globalKeyField must have the same value as the tag for
-// historicalStatusDoc.GlobalKey.
-const globalKeyField = "globalkey"

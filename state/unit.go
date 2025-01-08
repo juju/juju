@@ -184,11 +184,6 @@ func (u *Unit) unitWorkloadVersionKind() string {
 	return u.Kind() + "-version"
 }
 
-// cloudContainerKind returns the cloud container kind.
-func (u *Unit) cloudContainerKind() string {
-	return u.Kind() + "-container"
-}
-
 // globalWorkloadVersionKey returns the global database key for the
 // workload version status key for this unit.
 func globalWorkloadVersionKey(name string) string {

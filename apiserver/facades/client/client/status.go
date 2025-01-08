@@ -38,21 +38,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func agentStatusFromStatusInfo(s []status.StatusInfo, kind status.HistoryKind) []params.DetailedStatus {
-	result := []params.DetailedStatus{}
-	for _, v := range s {
-		result = append(result, params.DetailedStatus{
-			Status: string(v.Status),
-			Info:   v.Message,
-			Data:   v.Data,
-			Since:  v.Since,
-			Kind:   string(kind),
-		})
-	}
-	return result
-
-}
-
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
 	return params.StatusHistoryResults{}
