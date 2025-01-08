@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/keyvalues"
 )
@@ -27,28 +26,28 @@ const kubernetes = "kubernetes"
 type BundleData struct {
 	// Type is used to signify whether this bundle is for IAAS or Kubernetes deployments.
 	// Valid values are "Kubernetes" or "", with empty signifying an IAAS bundle.
-	Type string `bson:"bundle,omitempty" json:"bundle,omitempty" yaml:"bundle,omitempty"`
+	Type string `json:"bundle,omitempty" yaml:"bundle,omitempty"`
 
 	// Applications holds one entry for each application
 	// that the bundle will create, indexed by
 	// the application name.
-	Applications map[string]*ApplicationSpec `bson:"applications,omitempty" json:"applications,omitempty" yaml:"applications,omitempty"`
+	Applications map[string]*ApplicationSpec `json:"applications,omitempty" yaml:"applications,omitempty"`
 
 	// Machines holds one entry for each machine referred to
 	// by unit placements. These will be mapped onto actual
 	// machines at bundle deployment time.
 	// It is an error if a machine is specified but
 	// not referred to by a unit placement directive.
-	Machines map[string]*MachineSpec `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Machines map[string]*MachineSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Saas holds one entry for each software as a service (SAAS) for cross
 	// model relation (CMR). These will be mapped to the consuming side when
 	// deploying a bundle.
-	Saas map[string]*SaasSpec `bson:"saas,omitempty" json:"saas,omitempty" yaml:"saas,omitempty"`
+	Saas map[string]*SaasSpec `json:"saas,omitempty" yaml:"saas,omitempty"`
 
 	// Base holds the default base to use when the bundle deploys
 	// applications. A base defined for an application takes precedence.
-	DefaultBase string `bson:"default-base,omitempty" json:"default-base,omitempty" yaml:"default-base,omitempty"`
+	DefaultBase string `json:"default-base,omitempty" yaml:"default-base,omitempty"`
 
 	// Relations holds a slice of 2-element slices,
 	// each specifying a relation between two applications.
@@ -58,27 +57,27 @@ type BundleData struct {
 	// The relation is made between each. If the relation
 	// name is omitted, it will be inferred from the available
 	// relations defined in the applications' charms.
-	Relations [][]string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Relations [][]string `json:",omitempty" yaml:",omitempty"`
 
 	// White listed set of tags to categorize bundles as we do charms.
-	Tags []string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Tags []string `json:",omitempty" yaml:",omitempty"`
 
 	// Short paragraph explaining what the bundle is useful for.
-	Description string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Description string `json:",omitempty" yaml:",omitempty"`
 }
 
 // SaasSpec represents a single software as a service (SAAS) node.
 // This will be mapped to consuming of offers from a bundle deployment.
 type SaasSpec struct {
-	URL string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	URL string `json:",omitempty" yaml:",omitempty"`
 }
 
 // MachineSpec represents a notional machine that will be mapped
 // onto an actual machine at bundle deployment time.
 type MachineSpec struct {
-	Constraints string            `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
-	Annotations map[string]string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
-	Base        string            `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Constraints string            `json:",omitempty" yaml:",omitempty"`
+	Annotations map[string]string `json:",omitempty" yaml:",omitempty"`
+	Base        string            `json:",omitempty" yaml:",omitempty"`
 }
 
 // ApplicationSpec represents a single application that will
@@ -86,24 +85,24 @@ type MachineSpec struct {
 type ApplicationSpec struct {
 	// Charm holds the charm URL of the charm to
 	// use for the given application.
-	Charm string `bson:",omitempty" yaml:",omitempty" json:",omitempty"`
+	Charm string `yaml:",omitempty" json:",omitempty"`
 
 	// Channel describes the preferred channel to use when deploying a
 	// remote charm.
-	Channel string `bson:"channel,omitempty" yaml:"channel,omitempty" json:"channel,omitempty"`
+	Channel string `yaml:"channel,omitempty" json:"channel,omitempty"`
 
 	// Revision describes the revision of the charm to use when deploying.
-	Revision *int `bson:"revision,omitempty" yaml:"revision,omitempty" json:"revision,omitempty"`
+	Revision *int `yaml:"revision,omitempty" json:"revision,omitempty"`
 
 	// Base is the base to use when deploying the application.
-	Base string `bson:",omitempty" yaml:",omitempty" json:",omitempty"`
+	Base string `yaml:",omitempty" json:",omitempty"`
 
 	// Resources is the set of resource revisions to deploy for the
 	// application. Bundles only support charm store resources and not ones
 	// that were uploaded to the controller.
 	// A resource value can either be an integer revision number,
 	// or a string holding a path to a local resource file.
-	Resources map[string]interface{} `bson:",omitempty" yaml:",omitempty" json:",omitempty"`
+	Resources map[string]interface{} `yaml:",omitempty" json:",omitempty"`
 
 	// NumUnits holds the number of units of the
 	// application that will be deployed.
@@ -112,11 +111,11 @@ type ApplicationSpec struct {
 	// For a subordinate application, this actually represents
 	// an arbitrary number of units depending on
 	// the application it is related to.
-	NumUnits int `bson:",omitempty" yaml:"num_units,omitempty" json:",omitempty"`
+	NumUnits int `yaml:"num_units,omitempty" json:",omitempty"`
 
 	// Scale_ holds the number of pods required for the application.
 	// For IAAS bundles, this will be an alias for NumUnits.
-	Scale_ int `bson:"scale,omitempty" yaml:"scale,omitempty" json:"scale,omitempty"`
+	Scale_ int `yaml:"scale,omitempty" json:"scale,omitempty"`
 
 	// To is interpreted according to whether this is an
 	// IAAS or Kubernetes bundle.
@@ -170,15 +169,15 @@ type ApplicationSpec struct {
 	// The above example is the same as this:
 	//
 	//     wordpress wordpress lxc:0 kvm:new
-	To []string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	To []string `json:",omitempty" yaml:",omitempty"`
 
 	// Placement_ holds a model selector/affinity expression used to specify
 	// pod placement for Kubernetes applications.
 	// Not relevant for IAAS applications.
-	Placement_ string `bson:"placement,omitempty" json:"placement,omitempty" yaml:"placement,omitempty"`
+	Placement_ string `json:"placement,omitempty" yaml:"placement,omitempty"`
 
 	// Expose holds whether the application must be exposed.
-	Expose bool `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Expose bool `json:",omitempty" yaml:",omitempty"`
 
 	// ExposedEndpoints defines on a per-endpoint basis, the list of space
 	// names and/or CIDRs that should be able to access the ports opened
@@ -188,45 +187,45 @@ type ApplicationSpec struct {
 	//
 	// This attribute cannot be used in tandem with the 'expose: true'
 	// flag; a validation error will be raised if both fields are specified.
-	ExposedEndpoints map[string]ExposedEndpointSpec `bson:"exposed-endpoints,omitempty" json:"exposed-endpoints,omitempty" yaml:"exposed-endpoints,omitempty" source:"overlay-only"`
+	ExposedEndpoints map[string]ExposedEndpointSpec `json:"exposed-endpoints,omitempty" yaml:"exposed-endpoints,omitempty" source:"overlay-only"`
 
 	// Options holds the configuration values
 	// to apply to the new application. They should
 	// be compatible with the charm configuration.
-	Options map[string]interface{} `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Options map[string]interface{} `json:",omitempty" yaml:",omitempty"`
 
 	// Annotations holds any annotations to apply to the
 	// application when deployed.
-	Annotations map[string]string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Annotations map[string]string `json:",omitempty" yaml:",omitempty"`
 
 	// Constraints holds the default constraints to apply
 	// when creating new machines for units of the application.
 	// This is ignored for units with explicit placement directives.
-	Constraints string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Constraints string `json:",omitempty" yaml:",omitempty"`
 
 	// Storage holds the constraints for storage to assign
 	// to units of the application.
-	Storage map[string]string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Storage map[string]string `json:",omitempty" yaml:",omitempty"`
 
 	// Devices holds the constraints for devices to assign
 	// to units of the application.
-	Devices map[string]string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
+	Devices map[string]string `json:",omitempty" yaml:",omitempty"`
 
 	// EndpointBindings maps how endpoints are bound to spaces
-	EndpointBindings map[string]string `bson:"bindings,omitempty" json:"bindings,omitempty" yaml:"bindings,omitempty"`
+	EndpointBindings map[string]string `json:"bindings,omitempty" yaml:"bindings,omitempty"`
 
 	// Offers holds one entry for each exported offer for this application
 	// where the key is the offer name.
-	Offers map[string]*OfferSpec `bson:"offers,omitempty" json:"offers,omitempty" yaml:"offers,omitempty" source:"overlay-only"`
+	Offers map[string]*OfferSpec `json:"offers,omitempty" yaml:"offers,omitempty" source:"overlay-only"`
 
 	// Plan specifies the plan under which the application is to be deployed.
 	// If "default", the default plan will be used for the charm
-	Plan string `bson:"plan,omitempty" json:"plan,omitempty" yaml:"plan,omitempty"`
+	Plan string `json:"plan,omitempty" yaml:"plan,omitempty"`
 
 	// RequiresTrust indicates that the application requires access to
 	// cloud credentials and must therefore be explicitly trusted by the
 	// operator before it can be deployed.
-	RequiresTrust bool `bson:"trust,omitempty" json:"trust,omitempty" yaml:"trust,omitempty"`
+	RequiresTrust bool `json:"trust,omitempty" yaml:"trust,omitempty"`
 }
 
 // maskedBundleData and bundleData are here to perform a way to normalize the
@@ -243,7 +242,7 @@ type ApplicationSpec struct {
 type maskedBundleData BundleData
 
 type bundleData struct {
-	maskedBundleData `bson:",inline" yaml:",inline" json:",inline"`
+	maskedBundleData `yaml:",inline" json:",inline"`
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -261,21 +260,6 @@ func (bd *BundleData) UnmarshalYAML(f func(interface{}) error) error {
 	var in bundleData
 	if err := f(&in); err != nil {
 		return err
-	}
-	*bd = BundleData(in.maskedBundleData)
-	return bd.normalizeData()
-}
-
-// SetBSON implements the bson.Setter interface.
-func (bd *BundleData) SetBSON(raw bson.Raw) error {
-	// TODO(wallyworld) - bson deserialisation is not handling the inline directive,
-	// so we need to unmarshal the bundle data manually.
-	var in *bundleData
-	if err := raw.Unmarshal(&in); err != nil {
-		return err
-	}
-	if in == nil {
-		return bson.SetZero
 	}
 	*bd = BundleData(in.maskedBundleData)
 	return bd.normalizeData()
@@ -320,22 +304,22 @@ type ExposedEndpointSpec struct {
 	// ExposeToSpaces contains a list of spaces that should be able to
 	// access the application ports opened for an endpoint when the
 	// application is exposed.
-	ExposeToSpaces []string `bson:"expose-to-spaces,omitempty" json:"expose-to-spaces,omitempty" yaml:"expose-to-spaces,omitempty" source:"overlay-only"`
+	ExposeToSpaces []string `json:"expose-to-spaces,omitempty" yaml:"expose-to-spaces,omitempty" source:"overlay-only"`
 
 	// ExposeToCIDRs contains a list of CIDRs that should be able to access
 	// the application ports opened for an endpoint when the application is
 	// exposed.
-	ExposeToCIDRs []string `bson:"expose-to-cidrs,omitempty" json:"expose-to-cidrs,omitempty" yaml:"expose-to-cidrs,omitempty" source:"overlay-only"`
+	ExposeToCIDRs []string `json:"expose-to-cidrs,omitempty" yaml:"expose-to-cidrs,omitempty" source:"overlay-only"`
 }
 
 // OfferSpec describes an offer for a particular application.
 type OfferSpec struct {
 	// The list of endpoints exposed via the offer.
-	Endpoints []string `bson:"endpoints" json:"endpoints" yaml:"endpoints" source:"overlay-only"`
+	Endpoints []string `json:"endpoints" yaml:"endpoints" source:"overlay-only"`
 
 	// The access control list for this offer. The keys are users and the
 	// values are access permissions.
-	ACL map[string]string `bson:"acl,omitempty" json:"acl,omitempty" yaml:"acl,omitempty" source:"overlay-only"`
+	ACL map[string]string `json:"acl,omitempty" yaml:"acl,omitempty" source:"overlay-only"`
 }
 
 // ReadBundleData reads bundle data from the given reader.

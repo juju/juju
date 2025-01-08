@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -419,18 +418,6 @@ func (*bundleDataSuite) TestParseLocal(c *gc.C) {
 				NumUnits: 1,
 			},
 		}})
-}
-
-func (s *bundleDataSuite) TestBSONNilData(c *gc.C) {
-	bd := map[string]*charm.BundleData{
-		"test": nil,
-	}
-	data, err := bson.Marshal(bd)
-	c.Assert(err, jc.ErrorIsNil)
-	var result map[string]*charm.BundleData
-	err = bson.Unmarshal(data, &result)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result["test"], gc.IsNil)
 }
 
 var verifyErrorsTests = []struct {

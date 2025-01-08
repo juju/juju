@@ -13,7 +13,7 @@ import (
 
 // ExtraBinding represents an extra bindable endpoint that is not a relation.
 type ExtraBinding struct {
-	Name string `bson:"name" json:"Name"`
+	Name string `json:"Name"`
 }
 
 // When specified, the "extra-bindings" section in the metadata.yaml
