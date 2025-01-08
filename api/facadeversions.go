@@ -120,4 +120,9 @@ var facadeVersions = facades.FacadeVersions{
 	"UserManager":                  {3},
 	"VolumeAttachmentsWatcher":     {2},
 	"VolumeAttachmentPlansWatcher": {1},
+
+	// Technically we don't require this facade in the client, as it is only
+	// used by the agent. Yet the migration checks will use this to verify
+	// that the controller is capable of handling the migration.
+	"PayloadsHookContext": {1, 2},
 }
