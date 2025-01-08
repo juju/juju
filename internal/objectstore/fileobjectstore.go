@@ -508,11 +508,12 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
-		if strategy != remoteStrategy {
-			return nil, -1, errors.Errorf("file %q encoded as %q: %w", metadata.Path, hash, objectstoreerrors.ObjectNotFound)
-		}
+		return nil, -1, errors.Errorf("file %q encoded as %q: %w", metadata.Path, hash, objectstoreerrors.ObjectNotFound)
+		// if strategy != remoteStrategy {
+		// 	return nil, -1, errors.Errorf("file %q encoded as %q: %w", metadata.Path, hash, objectstoreerrors.ObjectNotFound)
+		// }
 
-		return t.getFromRemote(ctx, metadata)
+		// return t.getFromRemote(ctx, metadata)
 	} else if err != nil {
 		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
@@ -751,6 +752,7 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 	hash := selectFileHash(metadata)
 	_, err = os.Stat(t.filePath(hash))
 	if err == nil {
+		t.logger.Debugf("file for path %q already exists, nothing to do", path)
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
@@ -773,7 +775,6 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 	// We need to now put the blob into the file store, so that we can
 	// retrieve it from the file store next time.
 	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, reader, size)
-	loggo.GetLogger("***").Criticalf("tmpFileName: %s %s %v", t.path, tmpFileName, err)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -783,7 +784,6 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 
 	// Persist the temporary file to the final location.
 	if err := t.withLock(ctx, metadata.SHA384, func(ctx context.Context) error {
-		loggo.GetLogger("***").Criticalf("PERSIST: %s %s %v", tmpFileName, err)
 		return t.persistTmpFile(ctx, tmpFileName, metadata.SHA384, size)
 	}); err != nil {
 		return errors.Capture(err)
@@ -794,7 +794,7 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 }
 
 func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("fetching object %q from remote", metadata.Path)
+	t.logger.Criticalf("fetching object %q from remote", metadata.Path)
 
 	reader, size, err := t.blobRetriever.RetrieveBlobFromRemote(ctx, metadata.SHA256)
 	if errors.Is(err, remote.NoRemoteConnection) ||
