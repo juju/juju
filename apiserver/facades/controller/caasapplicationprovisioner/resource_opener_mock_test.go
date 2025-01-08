@@ -64,7 +64,7 @@ func (m *MockOpener) SetResourceUsed(arg0 context.Context, arg1 string) error {
 }
 
 // SetResourceUsed indicates an expected call of SetResourceUsed.
-func (mr *MockOpenerMockRecorder) SetResource(arg0, arg1 any) *gomock.Call {
+func (mr *MockOpenerMockRecorder) SetResourceUsed(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResourceUsed", reflect.TypeOf((*MockOpener)(nil).SetResourceUsed), arg0, arg1)
 }
