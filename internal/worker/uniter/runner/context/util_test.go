@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	runnercontext "github.com/juju/juju/internal/worker/uniter/runner/context"
-	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/juju/sockets"
@@ -109,7 +108,6 @@ type BaseHookContextSuite struct {
 	clock          *testclock.Clock
 
 	uniter   *uniterapi.MockUniterClient
-	payloads *mocks.MockPayloadAPIClient
 	unit     *uniterapi.MockUnit
 	relunits map[int]*uniterapi.MockRelationUnit
 

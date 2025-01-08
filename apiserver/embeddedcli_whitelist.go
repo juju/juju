@@ -46,7 +46,6 @@ var allowedEmbeddedCommands = []string{
 	"move-to-space",
 	"offer",
 	"offers",
-	"payloads",
 	"relate",
 	"reload-spaces",
 	"remove-application",

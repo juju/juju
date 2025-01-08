@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/featureflag"
@@ -431,11 +430,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	payloads, err := e.readAllPayloads()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	cloudServices, err := e.readAllCloudServices()
 	if err != nil {
 		return errors.Trace(err)
@@ -457,7 +451,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 			units:            applicationUnits,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
-			payloads:         payloads,
 			endpointBindings: bindings,
 			leader:           leaders[application.Name()],
 		}
@@ -505,23 +498,10 @@ func (e *exporter) storageDirectives(doc storageConstraintsDoc) map[string]descr
 	return result
 }
 
-func (e *exporter) readAllPayloads() (map[string][]payloads.FullPayloadInfo, error) {
-	result := make(map[string][]payloads.FullPayloadInfo)
-	all, err := ModelPayloads{db: e.st.database}.ListAll()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, pl := range all {
-		result[pl.Unit] = append(result[pl.Unit], pl)
-	}
-	return result, nil
-}
-
 type addApplicationContext struct {
 	application      *Application
 	units            []*Unit
 	leader           string
-	payloads         map[string][]payloads.FullPayloadInfo
 	endpointBindings map[string]bindingsMap
 
 	// CAAS
@@ -732,10 +712,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 		exUnit := exApplication.AddUnit(args)
 
-		if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
-			return errors.Trace(err)
-		}
-
 		// workload uses globalKey, agent uses globalAgentKey,
 		// workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
@@ -803,28 +779,6 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return info.Message, nil
-}
-
-func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payloads.FullPayloadInfo) error {
-	if len(payloads) == 0 {
-		return nil
-	}
-	unitID := exUnit.Tag().Id()
-	machineID := exUnit.Machine().Id()
-	for _, payload := range payloads {
-		if payload.Machine != machineID {
-			return errors.NotValidf("payload for unit %q reports wrong machine %q (should be %q)", unitID, payload.Machine, machineID)
-		}
-		args := description.PayloadArgs{
-			Name:   payload.Name,
-			Type:   payload.Type,
-			RawID:  payload.ID,
-			State:  payload.Status,
-			Labels: payload.Labels,
-		}
-		exUnit.AddPayload(args)
-	}
-	return nil
 }
 
 func (e *exporter) relations() error {
@@ -2157,7 +2111,6 @@ func (e *exporter) charmMetadata(ch CharmRefFull) (description.CharmMetadataArgs
 		ExtraBindings:  e.charmExtraBindings(meta.ExtraBindings),
 		Storage:        e.charmStorage(meta.Storage),
 		Devices:        e.charmDevices(meta.Devices),
-		Payloads:       e.charmPayloads(meta.PayloadClasses),
 		Resources:      e.charmResources(meta.Resources),
 		Containers:     e.charmContainers(meta.Containers),
 		LXDProfile:     "",
@@ -2277,17 +2230,6 @@ func (e *exporter) charmDevices(devices map[string]charm.Device) map[string]desc
 			typ:         string(device.Type),
 			countMin:    int(device.CountMin),
 			countMax:    int(device.CountMax),
-		}
-	}
-	return result
-}
-
-func (e *exporter) charmPayloads(payloads map[string]charm.PayloadClass) map[string]description.CharmMetadataPayload {
-	result := make(map[string]description.CharmMetadataPayload)
-	for name, payload := range payloads {
-		result[name] = charmMetadataPayload{
-			name: name,
-			typ:  payload.Type,
 		}
 	}
 	return result
@@ -2459,21 +2401,6 @@ func (d charmMetadataDevice) CountMin() int {
 // CountMax returns the maximum count of the device.
 func (d charmMetadataDevice) CountMax() int {
 	return d.countMax
-}
-
-type charmMetadataPayload struct {
-	name string
-	typ  string
-}
-
-// Name returns the name of the payload.
-func (p charmMetadataPayload) Name() string {
-	return p.name
-}
-
-// Type returns the type of the payload.
-func (p charmMetadataPayload) Type() string {
-	return p.typ
 }
 
 type charmMetadataResource struct {

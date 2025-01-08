@@ -274,7 +274,6 @@ type Metadata struct {
 	Tags           []string
 	Storage        map[string]Storage
 	Devices        map[string]Device
-	PayloadClasses map[string]PayloadClass
 	Resources      map[string]Resource
 	Terms          []string
 	MinJujuVersion version.Number
@@ -433,16 +432,6 @@ type Device struct {
 
 	// CountMax is the max number of devices that the charm requires.
 	CountMax int64
-}
-
-// PayloadClass holds the information about a payload class, as stored
-// in a charm's metadata.
-type PayloadClass struct {
-	// Name identifies the payload class.
-	Name string
-
-	// Type identifies the type of payload (e.g. kvm, docker).
-	Type string
 }
 
 // Type enumerates the recognized resource types.

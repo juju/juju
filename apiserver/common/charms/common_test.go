@@ -51,9 +51,6 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Devices: map[string]internalcharm.Device{
 			"bar": {Name: "bar", Description: "baz", Type: "gpu", CountMin: 1, CountMax: 2},
 		},
-		PayloadClasses: map[string]internalcharm.PayloadClass{
-			"baz": {Name: "baz", Type: "qux"},
-		},
 		Resources: map[string]resource.Meta{
 			"qux": {Name: "qux", Type: resource.TypeContainerImage, Description: "bar", Path: "/baz"},
 		},
@@ -147,7 +144,6 @@ func (s *exportSuite) TestExport(c *gc.C) {
 			Tags:           []string{"tag1", "tag2"},
 			Storage:        map[string]params.CharmStorage{"foo": {Name: "foo", Description: "bar", Shared: true, ReadOnly: true, CountMin: 1, CountMax: 2, MinimumSize: 1, Location: "/foo"}},
 			Devices:        map[string]params.CharmDevice{"bar": {Name: "bar", Description: "baz", Type: "gpu", CountMin: 1, CountMax: 2}},
-			PayloadClasses: map[string]params.CharmPayloadClass{"baz": {Name: "baz", Type: "qux"}},
 			Resources:      map[string]params.CharmResourceMeta{"qux": {Name: "qux", Type: "oci-image", Description: "bar", Path: "/baz"}},
 			Terms:          []string{"term1", "term2"},
 			MinJujuVersion: "4.0.0",

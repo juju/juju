@@ -326,17 +326,6 @@ func allCollections() CollectionSchema {
 
 		// -----
 
-		// This collection holds information associated with charm payloads.
-		payloadsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "unitid"},
-			}, {
-				Key: []string{"model-uuid", "name"},
-			}},
-		},
-
-		// -----
-
 		// The remaining non-global collections share the property of being
 		// relevant to multiple other kinds of entities, and are thus generally
 		// indexed by globalKey(). This is unhelpfully named in this context --
@@ -472,7 +461,6 @@ const (
 	modelsC                = "models"
 	modelEntityRefsC       = "modelEntityRefs"
 	operationsC            = "operations"
-	payloadsC              = "payloads"
 	providerIDsC           = "providerIDs"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"

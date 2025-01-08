@@ -17,7 +17,6 @@ import (
 	logger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	payloads "github.com/juju/juju/core/payloads"
 	secrets "github.com/juju/juju/core/secrets"
 	charm "github.com/juju/juju/internal/charm"
 	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -514,44 +513,6 @@ func (c *MockContextFlushCall) DoAndReturn(f func(context.Context, string, error
 	return c
 }
 
-// FlushPayloads mocks base method.
-func (m *MockContext) FlushPayloads(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FlushPayloads", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// FlushPayloads indicates an expected call of FlushPayloads.
-func (mr *MockContextMockRecorder) FlushPayloads(arg0 any) *MockContextFlushPayloadsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushPayloads", reflect.TypeOf((*MockContext)(nil).FlushPayloads), arg0)
-	return &MockContextFlushPayloadsCall{Call: call}
-}
-
-// MockContextFlushPayloadsCall wrap *gomock.Call
-type MockContextFlushPayloadsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextFlushPayloadsCall) Return(arg0 error) *MockContextFlushPayloadsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextFlushPayloadsCall) Do(f func(context.Context) error) *MockContextFlushPayloadsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextFlushPayloadsCall) DoAndReturn(f func(context.Context) error) *MockContextFlushPayloadsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetCharmState mocks base method.
 func (m *MockContext) GetCharmState(arg0 context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
@@ -664,45 +625,6 @@ func (c *MockContextGetLoggerByNameCall) Do(f func(string) logger.Logger) *MockC
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockContextGetLoggerByNameCall) DoAndReturn(f func(string) logger.Logger) *MockContextGetLoggerByNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetPayload mocks base method.
-func (m *MockContext) GetPayload(arg0, arg1 string) (*payloads.Payload, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPayload", arg0, arg1)
-	ret0, _ := ret[0].(*payloads.Payload)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetPayload indicates an expected call of GetPayload.
-func (mr *MockContextMockRecorder) GetPayload(arg0, arg1 any) *MockContextGetPayloadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPayload", reflect.TypeOf((*MockContext)(nil).GetPayload), arg0, arg1)
-	return &MockContextGetPayloadCall{Call: call}
-}
-
-// MockContextGetPayloadCall wrap *gomock.Call
-type MockContextGetPayloadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextGetPayloadCall) Return(arg0 *payloads.Payload, arg1 error) *MockContextGetPayloadCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextGetPayloadCall) Do(f func(string, string) (*payloads.Payload, error)) *MockContextGetPayloadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextGetPayloadCall) DoAndReturn(f func(string, string) (*payloads.Payload, error)) *MockContextGetPayloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1090,45 +1012,6 @@ func (c *MockContextLeaderSettingsCall) Do(f func(context.Context) (map[string]s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockContextLeaderSettingsCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockContextLeaderSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListPayloads mocks base method.
-func (m *MockContext) ListPayloads() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListPayloads")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListPayloads indicates an expected call of ListPayloads.
-func (mr *MockContextMockRecorder) ListPayloads() *MockContextListPayloadsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPayloads", reflect.TypeOf((*MockContext)(nil).ListPayloads))
-	return &MockContextListPayloadsCall{Call: call}
-}
-
-// MockContextListPayloadsCall wrap *gomock.Call
-type MockContextListPayloadsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextListPayloadsCall) Return(arg0 []string, arg1 error) *MockContextListPayloadsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextListPayloadsCall) Do(f func() ([]string, error)) *MockContextListPayloadsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextListPayloadsCall) DoAndReturn(f func() ([]string, error)) *MockContextListPayloadsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1937,44 +1820,6 @@ func (c *MockContextSetCharmStateValueCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
-// SetPayloadStatus mocks base method.
-func (m *MockContext) SetPayloadStatus(arg0 context.Context, arg1, arg2, arg3 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPayloadStatus", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetPayloadStatus indicates an expected call of SetPayloadStatus.
-func (mr *MockContextMockRecorder) SetPayloadStatus(arg0, arg1, arg2, arg3 any) *MockContextSetPayloadStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPayloadStatus", reflect.TypeOf((*MockContext)(nil).SetPayloadStatus), arg0, arg1, arg2, arg3)
-	return &MockContextSetPayloadStatusCall{Call: call}
-}
-
-// MockContextSetPayloadStatusCall wrap *gomock.Call
-type MockContextSetPayloadStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextSetPayloadStatusCall) Return(arg0 error) *MockContextSetPayloadStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextSetPayloadStatusCall) Do(f func(context.Context, string, string, string) error) *MockContextSetPayloadStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextSetPayloadStatusCall) DoAndReturn(f func(context.Context, string, string, string) error) *MockContextSetPayloadStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetProcess mocks base method.
 func (m *MockContext) SetProcess(arg0 context0.HookProcess) {
 	m.ctrl.T.Helper()
@@ -2165,44 +2010,6 @@ func (c *MockContextStorageTagsCall) DoAndReturn(f func(context.Context) ([]name
 	return c
 }
 
-// TrackPayload mocks base method.
-func (m *MockContext) TrackPayload(arg0 payloads.Payload) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TrackPayload", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// TrackPayload indicates an expected call of TrackPayload.
-func (mr *MockContextMockRecorder) TrackPayload(arg0 any) *MockContextTrackPayloadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrackPayload", reflect.TypeOf((*MockContext)(nil).TrackPayload), arg0)
-	return &MockContextTrackPayloadCall{Call: call}
-}
-
-// MockContextTrackPayloadCall wrap *gomock.Call
-type MockContextTrackPayloadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextTrackPayloadCall) Return(arg0 error) *MockContextTrackPayloadCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextTrackPayloadCall) Do(f func(payloads.Payload) error) *MockContextTrackPayloadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextTrackPayloadCall) DoAndReturn(f func(payloads.Payload) error) *MockContextTrackPayloadCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UnitName mocks base method.
 func (m *MockContext) UnitName() string {
 	m.ctrl.T.Helper()
@@ -2315,44 +2122,6 @@ func (c *MockContextUnitWorkloadVersionCall) Do(f func(context.Context) (string,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockContextUnitWorkloadVersionCall) DoAndReturn(f func(context.Context) (string, error)) *MockContextUnitWorkloadVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UntrackPayload mocks base method.
-func (m *MockContext) UntrackPayload(arg0 context.Context, arg1, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UntrackPayload", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UntrackPayload indicates an expected call of UntrackPayload.
-func (mr *MockContextMockRecorder) UntrackPayload(arg0, arg1, arg2 any) *MockContextUntrackPayloadCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntrackPayload", reflect.TypeOf((*MockContext)(nil).UntrackPayload), arg0, arg1, arg2)
-	return &MockContextUntrackPayloadCall{Call: call}
-}
-
-// MockContextUntrackPayloadCall wrap *gomock.Call
-type MockContextUntrackPayloadCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextUntrackPayloadCall) Return(arg0 error) *MockContextUntrackPayloadCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextUntrackPayloadCall) Do(f func(context.Context, string, string) error) *MockContextUntrackPayloadCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextUntrackPayloadCall) DoAndReturn(f func(context.Context, string, string) error) *MockContextUntrackPayloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

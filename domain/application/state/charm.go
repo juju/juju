@@ -950,7 +950,6 @@ var tablesToDeleteFrom = []string{
 	"charm_extra_binding",
 	"charm_hash",
 	"charm_manifest_base",
-	"charm_payload",
 	"charm_relation",
 	"charm_resource",
 	"charm_metadata",

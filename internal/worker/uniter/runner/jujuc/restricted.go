@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
@@ -159,36 +158,6 @@ func (*RestrictedContext) AddUnitStorage(map[string]params.StorageDirectives) er
 // DownloadResource implements hooks.Context.
 func (ctx *RestrictedContext) DownloadResource(_ context.Context, name string) (filePath string, _ error) {
 	return "", ErrRestrictedContext
-}
-
-// GetPayload implements hooks.Context.
-func (ctx *RestrictedContext) GetPayload(class, id string) (*payloads.Payload, error) {
-	return nil, ErrRestrictedContext
-}
-
-// TrackPayload implements hooks.Context.
-func (ctx *RestrictedContext) TrackPayload(payload payloads.Payload) error {
-	return ErrRestrictedContext
-}
-
-// UntrackPayload implements hooks.Context.
-func (ctx *RestrictedContext) UntrackPayload(_ context.Context, class, id string) error {
-	return ErrRestrictedContext
-}
-
-// SetPayloadStatus implements hooks.Context.
-func (ctx *RestrictedContext) SetPayloadStatus(_ context.Context, class, id, status string) error {
-	return ErrRestrictedContext
-}
-
-// ListPayloads implements hooks.Context.
-func (ctx *RestrictedContext) ListPayloads() ([]string, error) {
-	return nil, ErrRestrictedContext
-}
-
-// FlushPayloads pushes the hook context data out to state.
-func (ctx *RestrictedContext) FlushPayloads(_ context.Context) error {
-	return ErrRestrictedContext
 }
 
 // Relation implements hooks.Context.

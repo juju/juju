@@ -179,12 +179,6 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 				CountMax:    2,
 			},
 		},
-		PayloadClasses: map[string]internalcharm.PayloadClass{
-			"foo": {
-				Name: "bar",
-				Type: "baz",
-			},
-		},
 		Containers: map[string]internalcharm.Container{
 			"foo": {
 				Resource: "resource",
@@ -275,13 +269,6 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 	c.Check(device.CountMin(), gc.Equals, 1)
 	c.Check(device.CountMax(), gc.Equals, 2)
 	args.Devices = nil
-
-	payloads := args.Payloads
-	c.Assert(payloads, gc.HasLen, 1)
-	payload := payloads["foo"]
-	c.Check(payload.Name(), gc.Equals, "bar")
-	c.Check(payload.Type(), gc.Equals, "baz")
-	args.Payloads = nil
 
 	containers := args.Containers
 	c.Assert(containers, gc.HasLen, 1)

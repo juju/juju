@@ -1324,31 +1324,6 @@ extra-bindings:
 	c.Assert(meta, gc.IsNil)
 }
 
-func (s *MetaSuite) TestPayloadClasses(c *gc.C) {
-	meta, err := charm.ReadMeta(strings.NewReader(`
-name: a
-summary: b
-description: c
-payloads:
-    monitor:
-        type: docker
-    kvm-guest:
-        type: kvm
-`))
-	c.Assert(err, gc.IsNil)
-
-	c.Check(meta.PayloadClasses, jc.DeepEquals, map[string]charm.PayloadClass{
-		"monitor": {
-			Name: "monitor",
-			Type: "docker",
-		},
-		"kvm-guest": {
-			Name: "kvm-guest",
-			Type: "kvm",
-		},
-	})
-}
-
 func (s *MetaSuite) TestResources(c *gc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a

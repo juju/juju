@@ -202,9 +202,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 	}
 
 	extraBindings := exportExtraBindings(metadata.ExtraBindings)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
 
 	storage, err := exportStorage(metadata.Storage)
 	if err != nil {
@@ -212,11 +209,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 	}
 
 	devices, err := exportDevices(metadata.Devices)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	payloads, err := exportPayloads(metadata.PayloadClasses)
 	if err != nil {
 		return description.CharmMetadataArgs{}, errors.Trace(err)
 	}
@@ -248,7 +240,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		ExtraBindings:  extraBindings,
 		Storage:        storage,
 		Devices:        devices,
-		Payloads:       payloads,
 		Containers:     containers,
 		Resources:      resources,
 		LXDProfile:     lxdProfile,
@@ -497,17 +488,6 @@ func exportDevices(devices map[string]internalcharm.Device) (map[string]descript
 	return result, nil
 }
 
-func exportPayloads(payloads map[string]internalcharm.PayloadClass) (map[string]description.CharmMetadataPayload, error) {
-	result := make(map[string]description.CharmMetadataPayload, len(payloads))
-	for name, payload := range payloads {
-		result[name] = payloadType{
-			name: payload.Name,
-			typ:  payload.Type,
-		}
-	}
-	return result, nil
-}
-
 func exportContainers(containers map[string]internalcharm.Container) (map[string]description.CharmMetadataContainer, error) {
 	result := make(map[string]description.CharmMetadataContainer, len(containers))
 	for name, container := range containers {
@@ -722,21 +702,6 @@ func (d deviceType) CountMin() int {
 // CountMax returns the maximum count of the device.
 func (d deviceType) CountMax() int {
 	return d.countMax
-}
-
-type payloadType struct {
-	name string
-	typ  string
-}
-
-// Name returns the name of the payload.
-func (p payloadType) Name() string {
-	return p.name
-}
-
-// Type returns the type of the payload.
-func (p payloadType) Type() string {
-	return p.typ
 }
 
 type containerType struct {

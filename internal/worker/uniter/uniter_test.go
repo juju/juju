@@ -104,7 +104,6 @@ func (s *UniterSuite) newContext(c *gc.C) (*testContext, *gomock.Controller) {
 	}
 	ctx.runner.ctx = ctx
 	ctx.api = uniterapi.NewMockUniterClient(ctx.ctrl)
-	ctx.payloads = contextmocks.NewMockPayloadAPIClient(ctx.ctrl)
 	ctx.resources = contextmocks.NewMockOpenedResourceClient(ctx.ctrl)
 	ctx.secretsClient = uniterapi.NewMockSecretsClient(ctx.ctrl)
 	ctx.secretBackends = uniterapi.NewMockSecretsBackend(ctx.ctrl)

@@ -37,7 +37,6 @@ type importSuite struct {
 	charmPeers     *MockCharmMetadataRelation
 	storage        *MockCharmMetadataStorage
 	device         *MockCharmMetadataDevice
-	payload        *MockCharmMetadataPayload
 	container      *MockCharmMetadataContainer
 	containerMount *MockCharmMetadataContainerMount
 	resources      *MockCharmMetadataResource
@@ -329,7 +328,6 @@ func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
 	s.expectPeersRelation()
 	s.expectStorage()
 	s.expectDevice()
-	s.expectPayload()
 	s.expectContainer()
 
 	exp := s.resources.EXPECT()
@@ -355,9 +353,6 @@ func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
 	metaExp.Devices().Return(map[string]description.CharmMetadataDevice{
 		"device": s.device,
 	})
-	metaExp.Payloads().Return(map[string]description.CharmMetadataPayload{
-		"payload": s.payload,
-	})
 	metaExp.Containers().Return(map[string]description.CharmMetadataContainer{
 		"container": s.container,
 	})
@@ -381,7 +376,6 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 	s.expectPeersRelation()
 	s.expectStorage()
 	s.expectDevice()
-	s.expectPayload()
 	s.expectContainer()
 	s.expectResource()
 
@@ -413,9 +407,6 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 	})
 	metaExp.Devices().Return(map[string]description.CharmMetadataDevice{
 		"device": s.device,
-	})
-	metaExp.Payloads().Return(map[string]description.CharmMetadataPayload{
-		"payload": s.payload,
 	})
 	metaExp.Containers().Return(map[string]description.CharmMetadataContainer{
 		"container": s.container,
@@ -502,12 +493,6 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 				Description: "baz device",
 				CountMin:    1,
 				CountMax:    2,
-			},
-		},
-		PayloadClasses: map[string]internalcharm.PayloadClass{
-			"payload": {
-				Name: "baz",
-				Type: "tar",
 			},
 		},
 		Containers: map[string]internalcharm.Container{
@@ -745,7 +730,6 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.charmPeers = NewMockCharmMetadataRelation(ctrl)
 	s.storage = NewMockCharmMetadataStorage(ctrl)
 	s.device = NewMockCharmMetadataDevice(ctrl)
-	s.payload = NewMockCharmMetadataPayload(ctrl)
 	s.container = NewMockCharmMetadataContainer(ctrl)
 	s.containerMount = NewMockCharmMetadataContainerMount(ctrl)
 	s.resources = NewMockCharmMetadataResource(ctrl)
@@ -813,12 +797,6 @@ func (s *importSuite) expectDevice() {
 	exp.Description().Return("baz device")
 	exp.CountMin().Return(1)
 	exp.CountMax().Return(2)
-}
-
-func (s *importSuite) expectPayload() {
-	exp := s.payload.EXPECT()
-	exp.Name().Return("baz")
-	exp.Type().Return("tar")
 }
 
 func (s *importSuite) expectContainer() {

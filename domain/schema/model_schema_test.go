@@ -157,7 +157,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"charm_hash",
 		"charm_manifest_base",
 		"charm_metadata",
-		"charm_payload",
 		"charm_provenance",
 		"charm_relation_kind",
 		"charm_relation_role",

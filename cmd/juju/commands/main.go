@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -555,9 +554,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(secretbackends.NewRemoveSecretBackendCommand())
 	r.Register(secretbackends.NewShowSecretBackendCommand())
 	r.Register(secretbackends.NewModelSecretBackendCommand())
-
-	// Payload commands.
-	r.Register(payload.NewListCommand())
 }
 
 type cloudToCommandAdaptor struct{}

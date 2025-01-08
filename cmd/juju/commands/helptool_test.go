@@ -65,9 +65,6 @@ Currently available charm hook tools are:
     network-get              Get network config.
     open-port                Register a request to open a port or port range.
     opened-ports             List all ports or port ranges opened by the unit.
-    payload-register         Register a charm payload with Juju.
-    payload-status-set       Update the status of a payload.
-    payload-unregister       Stop tracking a payload.
     relation-get             Get relation settings.
     relation-ids             List all relation IDs for the given endpoint.
     relation-list            List relation units.
@@ -121,9 +118,6 @@ var expectedCommands = []string{
 	"network-get",
 	"open-port",
 	"opened-ports",
-	"payload-register",
-	"payload-status-set",
-	"payload-unregister",
 	"relation-get",
 	"relation-ids",
 	"relation-list",

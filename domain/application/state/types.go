@@ -456,22 +456,6 @@ type setCharmDevice struct {
 	CountMax    int64  `db:"count_max"`
 }
 
-// charmPayload is used to get the payload of a charm.
-type charmPayload struct {
-	CharmUUID string `db:"charm_uuid"`
-	Key       string `db:"key"`
-	Name      string `db:"name"`
-	Type      string `db:"type"`
-}
-
-// setCharmPayload is used to set the payload of a charm.
-type setCharmPayload struct {
-	CharmUUID string `db:"charm_uuid"`
-	Key       string `db:"key"`
-	Name      string `db:"name"`
-	Type      string `db:"type"`
-}
-
 // charmResource is used to get the resources of a charm.
 type charmResource struct {
 	CharmUUID   string `db:"charm_uuid"`

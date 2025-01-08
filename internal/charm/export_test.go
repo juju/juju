@@ -8,7 +8,6 @@ package charm
 var (
 	IfaceExpander = ifaceExpander
 
-	ParsePayloadClass         = parsePayloadClass
 	ResourceSchema            = resourceSchema
 	ExtraBindingsSchema       = extraBindingsSchema
 	ValidateMetaExtraBindings = validateMetaExtraBindings
