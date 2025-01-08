@@ -149,19 +149,6 @@ func (a *RemoteApplication) Life() Life {
 	return a.doc.Life
 }
 
-// StatusHistory returns a slice of at most filter.Size StatusInfo items
-// or items as old as filter.Date or items newer than now - filter.Delta time
-// representing past statuses for this remote application.
-func (a *RemoteApplication) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        a.st.db(),
-		globalKey: a.globalKey(),
-		filter:    filter,
-		clock:     a.st.clock(),
-	}
-	return statusHistory(args)
-}
-
 // DestroyOperation returns a model operation to destroy remote application.
 func (a *RemoteApplication) DestroyOperation(force bool) *DestroyRemoteApplicationOperation {
 	return &DestroyRemoteApplicationOperation{
@@ -217,28 +204,11 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 		}
 		op.AddError(errors.Errorf("force destroy of saas application %v failed but proceeded despite encountering ERROR %v", op.app, err))
 	}
-	if err := op.eraseHistory(); err != nil {
-		if !op.Force {
-			logger.Errorf("cannot delete history for saas application %q: %v", op.app, err)
-		}
-		op.AddError(errors.Errorf("force erase saas application %q history proceeded despite encountering ERROR %v", op.app, err))
-	}
 
 	// Reimplement in dqlite.
 	//if err := op.deleteSecretReferences(); err != nil {
 	//	logger.Errorf("cannot delete secret references for saas application %q: %v", op.app, err)
 	//}
-	return nil
-}
-
-func (op *DestroyRemoteApplicationOperation) eraseHistory() error {
-	var stop <-chan struct{} // stop not used here yet.
-	if err := eraseStatusHistory(stop, op.app.st, op.app.globalKey()); err != nil {
-		one := errors.Annotate(err, "saas application")
-		if op.FatalError(one) {
-			return one
-		}
-	}
 	return nil
 }
 
@@ -500,8 +470,6 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 	if err != nil {
 		return errors.Annotatef(err, "terminating saas application %q", op.app.Name())
 	}
-	_, _ = probablyUpdateStatusHistory(op.app.st.db(),
-		op.app.Kind(), op.app.Name(), op.app.globalKey(), op.doc)
 	// Set the life to Dead so that the lifecycle watcher will trigger to inform the
 	// relevant workers that this application is gone.
 	ops := []txn.Op{{

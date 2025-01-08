@@ -8,7 +8,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -50,12 +49,6 @@ func (l Life) Value() life.Value {
 	}
 }
 
-// LifeFromValue converts a life.Value into it's corresponding
-// state.Life
-func LifeFromValue(value life.Value) Life {
-	return valueMap[value]
-}
-
 var (
 	isAliveDoc = bson.D{{"life", Alive}}
 	isDyingDoc = bson.D{{"life", Dying}}
@@ -65,30 +58,6 @@ var (
 	errAlreadyDying   = errors.New("already dying")
 	errAlreadyRemoved = errors.New("already removed")
 )
-
-var valueMap = map[life.Value]Life{
-	life.Alive: Alive,
-	life.Dying: Dying,
-	life.Dead:  Dead,
-}
-
-// Living describes state entities with a lifecycle.
-type Living interface {
-	LifeRefresher
-	Destroy(objectstore.ObjectStore) error
-}
-
-type LifeRefresher interface {
-	Life() Life
-	Refresh() error
-}
-
-// AgentLiving describes state entities with a lifecycle and an agent that
-// manages it.
-type AgentLiving interface {
-	Living
-	EnsureDead() error
-}
 
 func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {
 	coll, closer := mb.db().GetCollection(collName)

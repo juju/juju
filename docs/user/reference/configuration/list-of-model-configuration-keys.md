@@ -712,27 +712,6 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 
 **Default value:** 5G
 
-## `max-status-history-age`
-
-`max-status-history-age` the maximum age for status history entries before they are pruned, in human-readable time format.
-
-**Type:** string
-
-**Default value:** 336h
-
-**Valid values:** 72h, etc.
-
-
-## `max-status-history-size`
-
-`max-status-history-size` is the maximum size for the status history collection, in human-readable memory format.
-
-**Type:** string
-
-**Default value:** 5G
-
-**Valid values:** 400M, 5G, etc.
-
 
 ## `net-bond-reconfigure-delay`
 

@@ -48,8 +48,6 @@ import (
 // gaps are missing. In the future the integration tests should be replaced with
 // the new shell tests to ensure a full end to end test is performed.
 
-const maxStatusHistoryEntries = 20
-
 // ExportConfig allows certain aspects of the model to be skipped
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
@@ -62,7 +60,6 @@ type ExportConfig struct {
 	SkipIPAddresses          bool
 	SkipSettings             bool
 	SkipSSHHostKeys          bool
-	SkipStatusHistory        bool
 	SkipLinkLayerDevices     bool
 	SkipUnitAgentBinaries    bool
 	SkipMachineAgentBinaries bool
@@ -98,9 +95,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	}
 	if err := export.readAllStatuses(); err != nil {
 		return nil, errors.Annotate(err, "reading statuses")
-	}
-	if err := export.readAllStatusHistory(); err != nil {
-		return nil, errors.Trace(err)
 	}
 	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
@@ -235,7 +229,6 @@ type exporter struct {
 	modelSettings           map[string]settingsDoc
 	modelStorageConstraints map[string]storageConstraintsDoc
 	status                  map[string]bson.M
-	statusHistory           map[string][]historicalStatusDoc
 	// Map of application name to units. Populated as part
 	// of the applications export.
 	units map[string][]*Unit
@@ -260,7 +253,6 @@ func (e *exporter) modelStatus() error {
 	}
 
 	e.model.SetStatus(statusArgs)
-	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
 	return nil
 }
 
@@ -361,7 +353,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, bl
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
 	exMachine.SetStatus(statusArgs)
-	exMachine.SetStatusHistory(e.statusHistoryArgs(globalKey))
 
 	if !e.cfg.SkipMachineAgentBinaries {
 		tools, err := machine.AgentTools()
@@ -625,7 +616,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	exApplication.SetStatus(statusArgs)
-	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
 	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
@@ -635,7 +625,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 	}
 	exApplication.SetOperatorStatus(operatorStatusArgs)
-	e.statusHistoryArgs(globalAppWorkloadKey)
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
@@ -707,17 +696,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
 		}
 		exUnit.SetWorkloadStatus(statusArgs)
-		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
 
 		statusArgs, err = e.statusArgs(agentKey)
 		if err != nil {
 			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
 		}
 		exUnit.SetAgentStatus(statusArgs)
-		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
-
-		workloadVersionKey := unit.globalWorkloadVersionKey()
-		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
 		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
 			tools, err := unit.AgentTools()
@@ -744,7 +728,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 					return errors.Annotatef(err, "cloud container workload status for unit %s", unit.Name())
 				}
 			}
-			e.statusHistoryArgs(globalCCKey)
 		}
 
 		constraintsArgs, err := e.constraintsArgs(agentKey)
@@ -1384,36 +1367,6 @@ func (e *exporter) readAllStatuses() error {
 	return nil
 }
 
-func (e *exporter) readAllStatusHistory() error {
-	statuses, closer := e.st.db().GetCollection(statusesHistoryC)
-	defer closer()
-
-	count := 0
-	e.statusHistory = make(map[string][]historicalStatusDoc)
-	if e.cfg.SkipStatusHistory {
-		return nil
-	}
-	var doc historicalStatusDoc
-	// In tests, sorting by time can leave the results
-	// underconstrained - include document id for deterministic
-	// ordering in those cases.
-	iter := statuses.Find(nil).Sort("-updated", "-_id").Iter()
-	defer func() { _ = iter.Close() }()
-	for iter.Next(&doc) {
-		history := e.statusHistory[doc.GlobalKey]
-		e.statusHistory[doc.GlobalKey] = append(history, doc)
-		count++
-	}
-
-	if err := iter.Close(); err != nil {
-		return errors.Annotate(err, "failed to read status history collection")
-	}
-
-	e.logger.Debugf("read %d status history documents", count)
-
-	return nil
-}
-
 func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) {
 	result := description.StatusArgs{}
 	statusDoc, found := e.status[globalKey]
@@ -1447,25 +1400,6 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
 	return result, nil
-}
-
-func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
-	history := e.statusHistory[globalKey]
-	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
-	if len(history) > maxStatusHistoryEntries {
-		history = history[:maxStatusHistoryEntries]
-	}
-	result := make([]description.StatusArgs, len(history))
-	for i, doc := range history {
-		result[i] = description.StatusArgs{
-			Value:   string(doc.Status),
-			Message: doc.StatusInfo,
-			Data:    doc.StatusData,
-			Updated: time.Unix(0, doc.Updated),
-		}
-	}
-	delete(e.statusHistory, globalKey)
-	return result
 }
 
 func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArgs, error) {
@@ -1568,12 +1502,6 @@ func (e *exporter) checkUnexportedValues() error {
 	for key := range e.status {
 		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
 			missing = append(missing, fmt.Sprintf("unexported status for %s", key))
-		}
-	}
-
-	for key := range e.statusHistory {
-		if !e.cfg.SkipInstanceData && !(strings.HasSuffix(key, "#instance") || strings.HasSuffix(key, "#modification")) {
-			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
 		}
 	}
 
@@ -1736,7 +1664,6 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 
 	exVolume := e.model.AddVolume(args)
 	exVolume.SetStatus(statusArgs)
-	exVolume.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	if count := len(volAttachments); count != vol.doc.AttachmentCount {
 		return errors.Errorf("volume attachment count mismatch, have %d, expected %d",
 			count, vol.doc.AttachmentCount)
@@ -1895,7 +1822,6 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 
 	exFilesystem := e.model.AddFilesystem(args)
 	exFilesystem.SetStatus(statusArgs)
-	exFilesystem.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	if count := len(fsAttachments); count != fs.doc.AttachmentCount {
 		return errors.Errorf("filesystem attachment count mismatch, have %d, expected %d",
 			count, fs.doc.AttachmentCount)

@@ -317,7 +317,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args)
+	modelOps, _, err := newSt.modelSetupOps(st.controllerTag.Id(), args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -360,9 +360,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	newModel, err := newSt.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
-	}
-	if args.MigrationMode != MigrationModeImporting {
-		_, _ = probablyUpdateStatusHistory(newSt.db(), newModel.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc)
 	}
 
 	// TODO(storage) - we need to add the default storage pools using the new dqlite model service

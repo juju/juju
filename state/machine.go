@@ -970,21 +970,6 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 	})
 }
 
-// InstanceStatusHistory returns a slice of at most filter.Size StatusInfo items
-// or items as old as filter.Date or items newer than now - filter.Delta time
-// representing past statuses for this machine instance.
-// Instance represents the provider underlying [v]hardware or container where
-// this juju machine is deployed.
-func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        m.st.db(),
-		globalKey: m.globalInstanceKey(),
-		filter:    filter,
-		clock:     m.st.clock(),
-	}
-	return statusHistory(args)
-}
-
 // ModificationStatus returns the provider specific modification status for
 // this machine or NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
@@ -1569,19 +1554,6 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 		rawData:    statusInfo.Data,
 		updated:    timeOrNow(statusInfo.Since, m.st.clock()),
 	})
-}
-
-// StatusHistory returns a slice of at most filter.Size StatusInfo items
-// or items as old as filter.Date or items newer than now - filter.Delta time
-// representing past statuses for this machine.
-func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        m.st.db(),
-		globalKey: m.globalKey(),
-		filter:    filter,
-		clock:     m.st.clock(),
-	}
-	return statusHistory(args)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.

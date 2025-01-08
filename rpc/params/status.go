@@ -281,13 +281,6 @@ type StatusHistoryResults struct {
 	Results []StatusHistoryResult `json:"results"`
 }
 
-// StatusHistoryPruneArgs holds arguments for status history
-// prunning process.
-type StatusHistoryPruneArgs struct {
-	MaxHistoryTime time.Duration `json:"max-history-time"`
-	MaxHistoryMB   int           `json:"max-history-mb"`
-}
-
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {

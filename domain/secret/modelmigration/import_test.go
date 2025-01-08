@@ -109,9 +109,6 @@ status:
   status:
     updated: 2017-02-21T19:47:23.691434191Z
     value: active
-status-history:
-  version: 2
-  history: []
 actions:
   version: 4
   actions: []

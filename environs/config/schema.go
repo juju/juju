@@ -355,16 +355,6 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	MaxStatusHistoryAge: {
-		Description: "The maximum age for status history entries before they are pruned, in human-readable time format",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	MaxStatusHistorySize: {
-		Description: "The maximum size for the status history collection, in human-readable memory format",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	MaxActionResultsAge: {
 		Description: "The maximum age for action entries before they are pruned, in human-readable time format",
 		Type:        environschema.Tstring,

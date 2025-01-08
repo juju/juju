@@ -214,9 +214,6 @@ func (i *importer) modelExtras() error {
 		}
 	}
 
-	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -334,14 +331,6 @@ func (i *importer) machine(m description.Machine, arch string) error {
 	ops := append(prereqOps, machineOp)
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-
-	machine := newMachine(i.st, mdoc)
-	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
-		return errors.Trace(err)
-	}
-	if err := i.importStatusHistory(machine.globalInstanceKey(), instance.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -653,10 +642,6 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		}
 	}
 
-	if err := i.importStatusHistory(app.globalKey(), a.StatusHistory()); err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit, ctrlCfg); err != nil {
 			return errors.Trace(err)
@@ -849,18 +834,10 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 	udoc.DocID = ensureModelUUID(udoc.ModelUUID, udoc.Name)
 
 	unit := newUnit(i.st, model.Type(), udoc)
-	if err := i.importStatusHistory(unit.globalKey(), u.WorkloadStatusHistory()); err != nil {
-		return errors.Trace(err)
-	}
-	if err := i.importStatusHistory(unit.globalAgentKey(), u.AgentStatusHistory()); err != nil {
-		return errors.Trace(err)
-	}
-	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
-		return errors.Trace(err)
-	}
 	if err := i.importUnitState(unit, u, ctrlCfg); err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
@@ -1595,30 +1572,6 @@ func (i *importer) countActionTasksForOperation(op description.Operation) int {
 	return count
 }
 
-func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {
-	docs := make([]interface{}, len(history))
-	for i, statusVal := range history {
-		docs[i] = historicalStatusDoc{
-			GlobalKey:  globalKey,
-			Status:     status.Status(statusVal.Value()),
-			StatusInfo: statusVal.Message(),
-			StatusData: statusVal.Data(),
-			Updated:    statusVal.Updated().UnixNano(),
-		}
-	}
-	if len(docs) == 0 {
-		return nil
-	}
-
-	statusHistory, closer := i.st.db().GetCollection(statusesHistoryC)
-	defer closer()
-
-	if err := statusHistory.Writeable().Insert(docs...); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	var result constraints.Value
 	if cons == nil {
@@ -1876,9 +1829,6 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 		return errors.Trace(err)
 	}
 
-	if err := i.importStatusHistory(volumeGlobalKey(tag.Id()), volume.StatusHistory()); err != nil {
-		return errors.Annotate(err, "status history")
-	}
 	return nil
 }
 
@@ -2025,9 +1975,6 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageB
 		return errors.Trace(err)
 	}
 
-	if err := i.importStatusHistory(filesystemGlobalKey(tag.Id()), filesystem.StatusHistory()); err != nil {
-		return errors.Annotate(err, "status history")
-	}
 	return nil
 }
 

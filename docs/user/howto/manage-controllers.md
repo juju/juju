@@ -637,7 +637,6 @@ juju ssh 0
 The `juju-restore` tool also provides several options, among which:
 
 * `--yes`:  answer "yes" to confirmation prompts (for non-interactive mode)
-* `--include-status-history`: restore the status history collection for machines and units (which can be large, and usually isn't needed)
 * `--username`, `--password`, and related options: override the defaults for connecting to MongoDB
 * `--allow-downgrade`: restore from a backup created with an earlier `juju` version
 * `--manual-agent-control`: (in the case of restoring backups to high availability controllers) stop and restart `juju` agents and Mongo daemons on the secondary controller machines manually

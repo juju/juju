@@ -160,7 +160,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, modelStatusDoc, err := st.modelSetupOps(
+	modelOps, _, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
 	)
@@ -209,7 +209,6 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, _ = probablyUpdateStatusHistory(st.db(), modelTag.Kind(), modelGlobalKey, modelGlobalKey, modelStatusDoc)
 	return ctlr, nil
 }
 
