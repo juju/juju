@@ -12,22 +12,28 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/state"
 )
+
+var resourceLogger = internallogger.GetLogger("juju.resource")
 
 // ResourceOpenerArgs are common arguments for the 2
 // types of ResourceOpeners: for unit and for application.
 type ResourceOpenerArgs struct {
-	State              *state.State
-	ResourceService    ResourceService
-	ModelConfigService ModelConfigService
-	ApplicationService ApplicationService
+	State                *state.State
+	ResourceService      ResourceService
+	ModelConfigService   ModelConfigService
+	ApplicationService   ApplicationService
+	CharmhubClientGetter ResourceClientGetter
 }
 
 // NewResourceOpener returns a new resource.Opener for the given unit.
@@ -36,6 +42,22 @@ type ResourceOpenerArgs struct {
 // responsibility to close it.
 func NewResourceOpener(
 	ctx context.Context,
+	args ResourceOpenerArgs,
+	resourceDownloadLimiterFunc func() ResourceDownloadLock,
+	unitName coreunit.Name,
+) (opener coreresource.Opener, err error) {
+	return newResourceOpener(
+		ctx,
+		stateShim{args.State},
+		args,
+		resourceDownloadLimiterFunc,
+		unitName,
+	)
+}
+
+func newResourceOpener(
+	ctx context.Context,
+	state DeprecatedState,
 	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName coreunit.Name,
@@ -54,13 +76,13 @@ func NewResourceOpener(
 	// for this has not yet been implemented in the domain. When it has, we need
 	// to get the charm specifically for the unit here, not the application, as
 	// it could be on an older version.
-	unit, err := args.State.Unit(unitName.String())
+	unit, err := state.Unit(unitName.String())
 	if err != nil {
 		return nil, errors.Errorf("loading unit from state: %w", err)
 	}
 
 	applicationName := unit.ApplicationName()
-	application, err := args.State.Application(applicationName)
+	application, err := state.Application(applicationName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -77,8 +99,8 @@ func NewResourceOpener(
 
 	return &ResourceOpener{
 		resourceService:      args.ResourceService,
-		modelUUID:            args.State.ModelUUID(),
-		resourceClientGetter: newClientGetter(charmURL, args.ModelConfigService),
+		modelUUID:            state.ModelUUID(),
+		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
 		retrievedBy:          unitName.String(),
 		retrievedByType:      resource.Unit,
 		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
@@ -101,7 +123,21 @@ func NewResourceOpenerForApplication(
 	args ResourceOpenerArgs,
 	applicationName string,
 ) (opener coreresource.Opener, err error) {
-	application, err := args.State.Application(applicationName)
+	return newResourceOpenerForApplication(
+		ctx,
+		stateShim{args.State},
+		args,
+		applicationName,
+	)
+}
+
+func newResourceOpenerForApplication(
+	ctx context.Context,
+	state DeprecatedState,
+	args ResourceOpenerArgs,
+	applicationName string,
+) (opener coreresource.Opener, err error) {
+	application, err := state.Application(applicationName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -123,8 +159,8 @@ func NewResourceOpenerForApplication(
 
 	return &ResourceOpener{
 		resourceService:      args.ResourceService,
-		modelUUID:            args.State.ModelUUID(),
-		resourceClientGetter: newClientGetter(charmURL, args.ModelConfigService),
+		modelUUID:            state.ModelUUID(),
+		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
 		retrievedBy:          applicationName,
 		retrievedByType:      resource.Application,
 		setResourceFunc:      args.ResourceService.SetApplicationResource,
@@ -138,19 +174,20 @@ func NewResourceOpenerForApplication(
 	}, nil
 }
 
-func newClientGetter(charmURL *charm.URL, modelConfigService ModelConfigService) resourceClientGetterFunc {
-	var clientGetter resourceClientGetterFunc
+func newClientGetter(
+	charmURL *charm.URL,
+	charmhubClientGetter ResourceClientGetter,
+) ResourceClientGetter {
+	var clientGetter ResourceClientGetter
 	switch {
 	case charm.CharmHub.Matches(charmURL.Schema):
-		clientGetter = newCharmHubOpener(modelConfigService)
+		clientGetter = charmhubClientGetter
 	default:
 		// Use the no-op opener that returns a not-found error when called.
 		clientGetter = newNoopOpener()
 	}
 	return clientGetter
 }
-
-type resourceClientGetterFunc func(ctx context.Context) (*ResourceRetryClient, error)
 
 // noopDownloadResourceLocker is a no-op download resource locker.
 type noopDownloadResourceLocker struct{}
@@ -176,7 +213,7 @@ type ResourceOpener struct {
 	appName         string
 	appID           coreapplication.ID
 
-	resourceClientGetter        resourceClientGetterFunc
+	resourceClientGetter        ResourceClientGetter
 	resourceDownloadLimiterFunc func() ResourceDownloadLock
 }
 
@@ -249,17 +286,20 @@ func (ro ResourceOpener) getResource(
 		return coreresource.Opened{}, errors.Capture(err)
 	}
 
-	id := CharmID{
+	id := charmhub.CharmID{
 		URL:    ro.charmURL,
 		Origin: ro.charmOrigin,
 	}
-	req := ResourceRequest{
+	req := charmhub.ResourceRequest{
 		CharmID:  id,
 		Name:     res.Name,
 		Revision: res.Revision,
 	}
 
-	client, err := ro.resourceClientGetter(ctx)
+	client, err := ro.resourceClientGetter.GetResourceClient(ctx, resourceLogger)
+	if err != nil {
+		return coreresource.Opened{}, errors.Capture(err)
+	}
 	data, err := client.GetResource(req)
 	if errors.Is(err, jujuerrors.NotFound) {
 		// A NotFound error might not be detectable from some clients as the
@@ -348,45 +388,26 @@ func (r *resourceAccess) Close() error {
 	return r.ReadCloser.Close()
 }
 
-type ResourceRequest struct {
-	// Channel is the channel from which to request the resource info.
-	CharmID CharmID
-
-	// Name is the name of the resource we're asking about.
-	Name string
-
-	// Revision is the specific revision of the resource we're asking about.
-	Revision int
-}
-
-// CharmID represents the underlying charm for a given application. This
-// includes both the URL and the origin.
-type CharmID struct {
-
-	// URL of the given charm, includes the reference name and a revision.
-	// Old style charm URLs are also supported i.e. charmstore.
-	URL *charm.URL
-
-	// Origin holds the origin of a charm. This includes the source of the
-	// charm, along with the revision and channel to identify where the charm
-	// originated from.
-	Origin state.CharmOrigin
-}
-
 // noopOpener is a type for creating no resource requests for accessing local
 // charm resources.
 type noopOpener struct{}
 
+type noopResourceClientGetter func(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error)
+
+func (rcg noopResourceClientGetter) GetResourceClient(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error) {
+	return rcg(ctx, logger)
+}
+
 // newNoopOpener creates a new noopOpener that creates a new resourceClient. The new
 // noopClient performs no operations for getting resources.
-func newNoopOpener() resourceClientGetterFunc {
+func newNoopOpener() noopResourceClientGetter {
 	no := &noopOpener{}
 	return no.NewClient
 }
 
 // NewClient opens a new charmhub resourceClient.
-func (o *noopOpener) NewClient(context.Context) (*ResourceRetryClient, error) {
-	return newRetryClient(noopClient{}), nil
+func (o *noopOpener) NewClient(_ context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error) {
+	return charmhub.NewRetryClient(noopClient{}, logger), nil
 }
 
 // noopClient implements a resourceClient for accessing resources from a given store,
@@ -398,6 +419,38 @@ type noopClient struct{}
 // GetResource is a no-op resourceClient implementation of a ResourceGetter. The
 // implementation expects to never call the underlying resourceClient and instead
 // returns a not-found error straight away.
-func (noopClient) GetResource(req ResourceRequest) (ResourceData, error) {
-	return ResourceData{}, jujuerrors.NotFoundf("resource %q", req.Name)
+func (noopClient) GetResource(req charmhub.ResourceRequest) (charmhub.ResourceData, error) {
+	return charmhub.ResourceData{}, jujuerrors.NotFoundf("resource %q", req.Name)
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) Unit(name string) (DeprecatedStateUnit, error) {
+	u, err := s.State.Unit(name)
+	if err != nil {
+		return nil, err
+	}
+	return &unitShim{Unit: u}, nil
+}
+
+func (s stateShim) ModelUUID() string {
+	return s.State.ModelUUID()
+}
+
+func (s stateShim) Application(name string) (DeprecatedStateApplication, error) {
+	a, err := s.State.Application(name)
+	if err != nil {
+		return nil, err
+	}
+	return &applicationShim{Application: a}, nil
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+type unitShim struct {
+	*state.Unit
 }

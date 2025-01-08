@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/resource"
+	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -119,10 +120,10 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 
 	newResourceOpener := func(appName string) (coreresource.Opener, error) {
 		args := resource.ResourceOpenerArgs{
-			State:              st,
-			ModelConfigService: modelConfigService,
-			ResourceService:    resourceService,
-			ApplicationService: applicationService,
+			State:                st,
+			ResourceService:      resourceService,
+			ApplicationService:   applicationService,
+			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(modelConfigService),
 		}
 		return resource.NewResourceOpenerForApplication(stdCtx, args, appName)
 	}

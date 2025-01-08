@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource
+package charmhub
 
 import (
 	"context"
@@ -20,25 +20,31 @@ type charmHubOpener struct {
 	modelConfigService ModelConfigService
 }
 
-func newCharmHubOpener(modelConfigService ModelConfigService) resourceClientGetterFunc {
+type resourceClientGetter func(ctx context.Context, logger corelogger.Logger) (ResourceGetter, error)
+
+func (rcg resourceClientGetter) GetResourceClient(ctx context.Context, logger corelogger.Logger) (ResourceGetter, error) {
+	return rcg(ctx, logger)
+}
+
+func NewCharmHubOpener(modelConfigService ModelConfigService) resourceClientGetter {
 	ch := &charmHubOpener{modelConfigService: modelConfigService}
 	return ch.NewClient
 }
 
-func (ch *charmHubOpener) NewClient(ctx context.Context) (*ResourceRetryClient, error) {
+func (ch *charmHubOpener) NewClient(ctx context.Context, logger corelogger.Logger) (ResourceGetter, error) {
 	config, err := ch.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	charmhubURL, _ := config.CharmHubURL()
-	client, err := newCharmHubClient(charmhubURL)
+	client, err := newCharmHubClient(charmhubURL, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newRetryClient(client), nil
+	return NewRetryClient(client, logger), nil
 }
 
-func newCharmHubClient(charmhubURL string) (ResourceGetter, error) {
+func newCharmHubClient(charmhubURL string, logger corelogger.Logger) (*CharmHubClient, error) {
 	chClient, err := charmhub.NewClient(charmhub.Config{
 		URL:    charmhubURL,
 		Logger: logger,

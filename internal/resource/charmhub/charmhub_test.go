@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package charmhub_test
 
 import (
 	"bytes"
@@ -15,13 +15,12 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/resource"
-	"github.com/juju/juju/internal/resource/mocks"
+	"github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/state"
 )
 
 type CharmHubSuite struct {
-	client *mocks.MockCharmHub
+	client *MockCharmHub
 }
 
 var _ = gc.Suite(&CharmHubSuite{})
@@ -29,15 +28,15 @@ var _ = gc.Suite(&CharmHubSuite{})
 func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	s.client = mocks.NewMockCharmHub(ctrl)
+	s.client = NewMockCharmHub(ctrl)
 	s.expectRefresh()
 	s.expectDownloadResource()
 
 	cl := s.newCharmHubClient(c)
 	curl, _ := charm.ParseURL("ch:postgresql")
 	rev := 42
-	result, err := cl.GetResource(resource.ResourceRequest{
-		CharmID: resource.CharmID{
+	result, err := cl.GetResource(charmhub.ResourceRequest{
+		CharmID: charmhub.CharmID{
 			URL: curl,
 			Origin: state.CharmOrigin{
 				ID:       "mycharmhubid",
@@ -68,8 +67,8 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	})
 }
 
-func (s *CharmHubSuite) newCharmHubClient(c *gc.C) *resource.CharmHubClient {
-	return resource.NewCharmHubClientForTest(s.client, loggertesting.WrapCheckLog(c))
+func (s *CharmHubSuite) newCharmHubClient(c *gc.C) *charmhub.CharmHubClient {
+	return charmhub.NewCharmHubClientForTest(s.client, loggertesting.WrapCheckLog(c))
 }
 
 func (s *CharmHubSuite) expectDownloadResource() {

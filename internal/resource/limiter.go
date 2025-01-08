@@ -46,7 +46,7 @@ func (r *resourceDownloadLimiter) Acquire(appName string) {
 	if r.globalLock != nil {
 		start := time.Now()
 		r.globalLock <- struct{}{}
-		logger.Debugf("acquire global resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
+		resourceLogger.Debugf("acquire global resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
 	}
 	if r.applicationLimit <= 0 {
 		return
@@ -61,7 +61,7 @@ func (r *resourceDownloadLimiter) Acquire(appName string) {
 	r.mu.Unlock()
 	start := time.Now()
 	lock <- struct{}{}
-	logger.Debugf("acquire app resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
+	resourceLogger.Debugf("acquire app resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
 }
 
 // Release implements ResourceDownloadLock.

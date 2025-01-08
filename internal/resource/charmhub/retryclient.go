@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource
+package charmhub
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -18,10 +19,11 @@ import (
 // retries GetResource() calls.
 type ResourceRetryClient struct {
 	ResourceGetter
-	retryArgs retry.CallArgs
+	RetryArgs retry.CallArgs
+	logger    logger.Logger
 }
 
-func newRetryClient(client ResourceGetter) *ResourceRetryClient {
+func NewRetryClient(client ResourceGetter, logger logger.Logger) *ResourceRetryClient {
 	retryArgs := retry.CallArgs{
 		// (anastasiamac 2017-05-25) This might not work as the error types
 		// may be lost after a call to some clients.
@@ -40,13 +42,14 @@ func newRetryClient(client ResourceGetter) *ResourceRetryClient {
 	}
 	return &ResourceRetryClient{
 		ResourceGetter: client,
-		retryArgs:      retryArgs,
+		RetryArgs:      retryArgs,
+		logger:         logger,
 	}
 }
 
 // GetResource returns a reader for the resource's data.
 func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData, error) {
-	args := client.retryArgs // a copy
+	args := client.RetryArgs // a copy
 
 	var data ResourceData
 	args.Func = func() error {
@@ -72,9 +75,9 @@ func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
-		logger.Warningf("attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
-			i, client.retryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
-		logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
+		client.logger.Warningf("attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
+			i, client.RetryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
+		client.logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}
 

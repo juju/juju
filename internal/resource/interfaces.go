@@ -6,18 +6,38 @@ package resource
 import (
 	"context"
 	"io"
-	"net/url"
+
+	"github.com/juju/names/v5"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/charmhub/transport"
+	"github.com/juju/juju/internal/resource/charmhub"
+	"github.com/juju/juju/state"
 )
+
+type DeprecatedState interface {
+	Unit(name string) (DeprecatedStateUnit, error)
+	Application(name string) (DeprecatedStateApplication, error)
+	ModelUUID() string
+}
+
+type DeprecatedStateUnit interface {
+	ApplicationName() string
+	CharmURL() *string
+	Tag() names.Tag
+}
+
+type DeprecatedStateApplication interface {
+	CharmOrigin() *state.CharmOrigin
+	CharmURL() (*string, bool)
+	Tag() names.Tag
+}
 
 // ModelConfigService provides access to the model configuration.
 type ModelConfigService interface {
@@ -35,7 +55,7 @@ type ResourceGetter interface {
 	// But if you write any code that assumes a NotFound error returned
 	// from this method means that the resource was not found, you fail
 	// basic logic.
-	GetResource(ResourceRequest) (ResourceData, error)
+	GetResource(charmhub.ResourceRequest) (charmhub.ResourceData, error)
 }
 
 type ApplicationService interface {
@@ -88,9 +108,8 @@ type ResourceService interface {
 	) error
 }
 
-// CharmHub represents methods required from a charmhub client talking to the
-// charmhub api used by the local CharmHubClient
-type CharmHub interface {
-	DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error)
-	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+// ResourceClientGetter gets a client for getting resources.
+type ResourceClientGetter interface {
+	// GetResourceClient returns a ResourceGetter.
+	GetResourceClient(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error)
 }

@@ -55,6 +55,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
+	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
@@ -824,10 +825,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 			}
 			args := resource.ResourceOpenerArgs{
-				State:              st.State,
-				ModelConfigService: domainServices.Config(),
-				ResourceService:    domainServices.Resource(),
-				ApplicationService: domainServices.Application(),
+				State:                st.State,
+				ApplicationService:   domainServices.Application(),
+				ResourceService:      domainServices.Resource(),
+				CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(domainServices.Config()),
 			}
 
 			opener, err := resource.NewResourceOpener(
