@@ -88,7 +88,7 @@ type API struct {
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, error) {
+func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 
 	st := ctx.State()
@@ -99,6 +99,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	modelInfoService := domainServices.ModelInfo()
 	storageService := domainServices.Storage()
 	applicationService := domainServices.Application()
+	resourceService := domainServices.Resource()
 
 	sb, err := state.NewStorageBackend(st)
 	if err != nil {
@@ -120,9 +121,10 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		args := resource.ResourceOpenerArgs{
 			State:              st,
 			ModelConfigService: modelConfigService,
-			Store:              ctx.ObjectStore(),
+			ResourceService:    resourceService,
+			ApplicationService: applicationService,
 		}
-		return resource.NewResourceOpenerForApplication(args, appName)
+		return resource.NewResourceOpenerForApplication(stdCtx, args, appName)
 	}
 
 	systemState, err := ctx.StatePool().SystemState()
@@ -892,6 +894,12 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 				break
 			}
 			imageResources.Images[v.Name] = rsc
+			err = resourceClient.SetResource(ctx, v.Name)
+			if err != nil {
+				a.logger.Errorf("setting resource %s of application %s as in use: %w", v.Name, appName, err)
+				res.Results[i].Error = apiservererrors.ServerError(err)
+				break
+			}
 		}
 		if res.Results[i].Error != nil {
 			continue

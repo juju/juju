@@ -4,7 +4,10 @@
 package caasapplicationprovisioner_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/juju/clock"
@@ -55,6 +58,7 @@ type CAASApplicationProvisionerSuite struct {
 	modelInfoService        *MockModelInfoService
 	applicationService      *MockApplicationService
 	leadershipRevoker       *MockRevoker
+	resourceOpener          *MockOpener
 	registry                *mockStorageRegistry
 	store                   *mockObjectStore
 }
@@ -92,9 +96,9 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.leadershipRevoker = NewMockRevoker(ctrl)
-
+	s.resourceOpener = NewMockOpener(ctrl)
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
-		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
+		return s.resourceOpener, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.st, s.st,
@@ -323,17 +327,29 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
 	}
-	s.st.resource = &mockResources{
-		resource: &docker.DockerImageDetails{
-			RegistryPath: "gitlab:latest",
-			ImageRepoDetails: docker.ImageRepoDetails{
-				BasicAuthConfig: docker.BasicAuthConfig{
-					Username: "jujuqa",
-					Password: "pwd",
-				},
+	res := &docker.DockerImageDetails{
+		RegistryPath: "gitlab:latest",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "jujuqa",
+				Password: "pwd",
 			},
 		},
 	}
+	s.st.resource = &mockResources{
+		resource: res,
+	}
+
+	// Return the marshalled resource.
+	out, err := json.Marshal(res)
+	c.Assert(err, jc.ErrorIsNil)
+	s.resourceOpener.EXPECT().OpenResource(gomock.Any(), "gitlab-image").Return(
+		jujuresource.Opened{
+			ReadCloser: io.NopCloser(bytes.NewBuffer(out)),
+		},
+		nil,
+	)
+	s.resourceOpener.EXPECT().SetResource(gomock.Any(), "gitlab-image")
 
 	charmId := charmtesting.GenCharmID(c)
 	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)

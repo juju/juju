@@ -11,12 +11,18 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
+	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	coreresource "github.com/juju/juju/core/resource"
+	coreresourcetesting "github.com/juju/juju/core/resource/testing"
+	coreunit "github.com/juju/juju/core/unit"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
+	domainresource "github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/resource"
@@ -26,13 +32,17 @@ import (
 )
 
 type OpenerSuite struct {
-	appName        string
-	unitName       string
-	charmURL       *charm.URL
-	charmOrigin    state.CharmOrigin
-	resources      *mocks.MockDeprecatedResourcesState
-	resourceGetter *mocks.MockResourceGetter
-	limiter        *mocks.MockResourceDownloadLock
+	appName            string
+	appID              coreapplication.ID
+	unitName           coreunit.Name
+	unitUUID           coreunit.UUID
+	resourceUUID       coreresource.UUID
+	charmURL           *charm.URL
+	charmOrigin        state.CharmOrigin
+	resourceGetter     *mocks.MockResourceGetter
+	resourceService    *mocks.MockResourceService
+	applicationService *mocks.MockApplicationService
+	limiter            *mocks.MockResourceDownloadLock
 
 	unleash sync.Mutex
 }
@@ -42,7 +52,7 @@ var _ = gc.Suite(&OpenerSuite{})
 func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := domainresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -55,7 +65,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.expectCacheMethods(res, 1)
+	s.expectServiceMethods(res, 1)
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
@@ -71,7 +81,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := domainresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -88,7 +98,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 		numConcurrentRequests = 10
 		maxConcurrentRequests = 5
 	)
-	s.expectCacheMethods(res, numConcurrentRequests)
+	s.expectServiceMethods(res, numConcurrentRequests)
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
@@ -129,7 +139,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := domainresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -142,7 +152,7 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.expectCacheMethods(res, 1)
+	s.expectServiceMethods(res, 1)
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
@@ -160,11 +170,19 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	if includeUnit {
 		s.unitName = "postgresql/0"
+		s.unitUUID = coreunittesting.GenUnitUUID(c)
+	} else {
+		s.unitName = ""
+		s.unitUUID = ""
 	}
 	s.appName = "postgresql"
+	s.appID = coreapplicationtesting.GenApplicationUUID(c)
+	s.resourceUUID = coreresourcetesting.GenResourceUUID(c)
 	s.resourceGetter = mocks.NewMockResourceGetter(ctrl)
-	s.resources = mocks.NewMockDeprecatedResourcesState(ctrl)
 	s.limiter = mocks.NewMockResourceDownloadLock(ctrl)
+
+	s.resourceService = mocks.NewMockResourceService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 
 	s.charmURL, _ = charm.ParseURL("postgresql")
 	rev := 0
@@ -182,32 +200,36 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	return ctrl
 }
 
-func (s *OpenerSuite) expectCacheMethods(res coreresource.Resource, numConcurrentRequests int) {
+func (s *OpenerSuite) expectServiceMethods(res domainresource.Resource, numConcurrentRequests int) {
+	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+		ApplicationID: s.appID,
+		Name:          "wal-e",
+	}).Return(s.resourceUUID, nil).AnyTimes()
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+		s.resourceService.EXPECT().OpenResource(gomock.Any(), s.resourceUUID).DoAndReturn(func(_ context.Context, _ coreresource.UUID) (domainresource.Resource, io.ReadCloser, error) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
-			return coreresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+			return domainresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound
 		})
 	} else {
-		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(coreresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
+		s.resourceService.EXPECT().OpenResource(gomock.Any(), s.resourceUUID).Return(domainresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound)
 	}
-	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
-	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), false).Return(res, nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(res, nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any())
 
 	other := res
 	other.ApplicationID = "postgreql"
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").Return(other, io.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
+		s.resourceService.EXPECT().OpenResource(gomock.Any(), s.resourceUUID).Return(other, io.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
 	} else {
-		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(other, io.NopCloser(bytes.NewBuffer([]byte{})), nil)
+		s.resourceService.EXPECT().OpenResource(gomock.Any(), s.resourceUUID).Return(other, io.NopCloser(bytes.NewBuffer([]byte{})), nil)
 	}
 }
 
 func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := coreresource.Resource{
+	res := domainresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -220,12 +242,16 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (coreresource.Resource, io.ReadCloser, error) {
+	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+		ApplicationID: s.appID,
+		Name:          "wal-e",
+	}).Return(s.resourceUUID, nil)
+	s.resourceService.EXPECT().OpenResource(gomock.Any(), s.resourceUUID).DoAndReturn(func(_ context.Context, _ coreresource.UUID) (domainresource.Resource, io.ReadCloser, error) {
 		s.unleash.Lock()
 		defer s.unleash.Unlock()
-		return coreresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+		return domainresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound
 	})
-	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(res, nil)
 	const retryCount = 3
 	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(resource.ResourceData{}, errors.New("boom")).Times(retryCount)
 	s.limiter.EXPECT().Acquire("uuid:postgresql")
@@ -237,8 +263,46 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	c.Check(opened.ReadCloser, gc.IsNil)
 }
 
-func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
-	tag, _ := names.ParseUnitTag("postgresql/0")
+func (s *OpenerSuite) TestSetResourceUnit(c *gc.C) {
+	defer s.setupMocks(c, true).Finish()
+	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+		ApplicationID: s.appID,
+		Name:          "wal-e",
+	}).Return(s.resourceUUID, nil)
+	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), s.resourceUUID, s.unitUUID)
+	err := s.newOpener(0).SetResource(context.TODO(), "wal-e")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpenerSuite) TestSetResourceUnitError(c *gc.C) {
+	defer s.setupMocks(c, true).Finish()
+	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+		ApplicationID: s.appID,
+		Name:          "wal-e",
+	}).Return(s.resourceUUID, nil)
+
+	expectedErr := errors.New("boom")
+	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), s.resourceUUID, s.unitUUID).Return(expectedErr)
+
+	err := s.newOpener(0).SetResource(context.TODO(), "wal-e")
+	c.Assert(err, jc.ErrorIs, expectedErr)
+}
+
+func (s *OpenerSuite) TestSetResourceApplication(c *gc.C) {
+	defer s.setupMocks(c, false).Finish()
+	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+		ApplicationID: s.appID,
+		Name:          "wal-e",
+	}).Return(s.resourceUUID, nil)
+
+	expectedErr := errors.New("boom")
+	s.resourceService.EXPECT().SetApplicationResource(gomock.Any(), s.resourceUUID).Return(expectedErr)
+
+	err := s.newOpener(0).SetResource(context.TODO(), "wal-e")
+	c.Assert(err, jc.ErrorIs, expectedErr)
+}
+
+func (s *OpenerSuite) newOpener(maxRequests int) coreresource.Opener {
 	var limiter resource.ResourceDownloadLock = resource.NewResourceDownloadLimiter(maxRequests, 0)
 	if maxRequests < 0 {
 		limiter = s.limiter
@@ -247,10 +311,11 @@ func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
 		return resource.NewResourceRetryClientForTest(s.resourceGetter), nil
 	}
 	return resource.NewResourceOpenerForTest(
-		s.resources,
-		tag,
 		s.unitName,
+		s.unitUUID,
 		s.appName,
+		s.appID,
+		s.resourceService,
 		s.charmURL,
 		s.charmOrigin,
 		resourceFunc,

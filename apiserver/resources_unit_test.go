@@ -130,6 +130,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
 		{"OpenResource", []interface{}{"blob"}},
+		{"SetResource", []interface{}{"blob"}},
 		{"Close", nil},
 	})
 }
@@ -148,4 +149,12 @@ func (s *stubResourceOpener) OpenResource(_ context.Context, name string) (resou
 		return resource.Opened{}, err
 	}
 	return s.ReturnOpenResource, nil
+}
+
+func (s *stubResourceOpener) SetResource(_ context.Context, name string) error {
+	s.AddCall("SetResource", name)
+	if err := s.NextErr(); err != nil {
+		return err
+	}
+	return nil
 }

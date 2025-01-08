@@ -63,6 +63,12 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 			logger.Errorf("unable to complete stream for resource: %v", err)
 			return
 		}
+
+		// Mark the downloaded resource as in use on the unit.
+		err = opener.SetResource(req.Context(), name)
+		if err != nil {
+			logger.Errorf("setting resource %s as in use: %w", name, err)
+		}
 	default:
 		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
 			logger.Errorf("%v", err)

@@ -14,5 +14,5 @@ func Test(t *testing.T) {
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/charmhub_mock.go github.com/juju/juju/internal/resource CharmHub
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/cache_mock.go github.com/juju/juju/internal/resource DeprecatedResourcesState
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/opener_mock.go github.com/juju/juju/internal/resource ResourceGetter,ResourceDownloadLock
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service_mock.go github.com/juju/juju/internal/resource ResourceService,ApplicationService

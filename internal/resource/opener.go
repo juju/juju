@@ -10,12 +10,13 @@ import (
 
 	"github.com/im7mortal/kmutex"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/resource"
+	coreapplication "github.com/juju/juju/core/application"
+	coreresource "github.com/juju/juju/core/resource"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/state"
 )
@@ -24,8 +25,9 @@ import (
 // types of ResourceOpeners: for unit and for application.
 type ResourceOpenerArgs struct {
 	State              *state.State
+	ResourceService    ResourceService
 	ModelConfigService ModelConfigService
-	Store              objectstore.ObjectStore
+	ApplicationService ApplicationService
 }
 
 // NewResourceOpener returns a new resource.Opener for the given unit.
@@ -33,26 +35,28 @@ type ResourceOpenerArgs struct {
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpener(
+	ctx context.Context,
 	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
-	unitName string,
-) (opener resource.Opener, err error) {
-	// Disable opening resources while the new resource service is
-	// being wired up. The old state methods have been removed.
-	// TODO: replace error return with newResourceOpener.
-	return nil, jujuerrors.NotImplementedf("not implemented")
-}
-
-var _ = newResourceOpener
-
-func newResourceOpener(
-	args ResourceOpenerArgs,
-	resourceDownloadLimiterFunc func() ResourceDownloadLock,
-	unitName string,
-) (opener resource.Opener, err error) {
-	unit, err := args.State.Unit(unitName)
+	unitName coreunit.Name,
+) (opener coreresource.Opener, err error) {
+	applicationID, err := args.ApplicationService.GetApplicationIDByUnitName(ctx, unitName)
 	if err != nil {
-		return nil, errors.Errorf("loading unit: %w", err)
+		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
+	}
+
+	unitUUID, err := args.ApplicationService.GetUnitUUID(ctx, unitName)
+	if err != nil {
+		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
+	}
+
+	// TODO(aflynn): we still get the charm URL from state since functionality
+	// for this has not yet been implemented in the domain. When it has, we need
+	// to get the charm specifically for the unit here, not the application, as
+	// it could be on an older version.
+	unit, err := args.State.Unit(unitName.String())
+	if err != nil {
+		return nil, errors.Errorf("loading unit from state: %w", err)
 	}
 
 	applicationName := unit.ApplicationName()
@@ -63,7 +67,7 @@ func newResourceOpener(
 
 	chURLStr := unit.CharmURL()
 	if chURLStr == nil {
-		return nil, errors.Errorf("missing charm URL for %q", applicationName)
+		return nil, errors.Errorf("missing charm URL for %q", unitName)
 	}
 
 	charmURL, err := charm.ParseURL(*chURLStr)
@@ -72,14 +76,18 @@ func newResourceOpener(
 	}
 
 	return &ResourceOpener{
-		state:                       nil, // TODO: provide resource service
-		modelUUID:                   args.State.ModelUUID(),
-		resourceClientGetter:        newClientGetter(charmURL, args.ModelConfigService),
-		retrievedBy:                 unit.Tag(),
+		resourceService:      args.ResourceService,
+		modelUUID:            args.State.ModelUUID(),
+		resourceClientGetter: newClientGetter(charmURL, args.ModelConfigService),
+		retrievedBy:          unitName.String(),
+		retrievedByType:      resource.Unit,
+		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
+			return args.ResourceService.SetUnitResource(ctx, resourceUUID, unitUUID)
+		},
 		charmURL:                    charmURL,
 		charmOrigin:                 *application.CharmOrigin(),
 		appName:                     applicationName,
-		unitName:                    unitName,
+		appID:                       applicationID,
 		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
 	}, nil
 }
@@ -89,21 +97,10 @@ func newResourceOpener(
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpenerForApplication(
+	ctx context.Context,
 	args ResourceOpenerArgs,
 	applicationName string,
-) (opener resource.Opener, err error) {
-	// Disable opening resources while the new resource service is
-	// being wired up. The old state methods have been removed.
-	// TODO: replace error return with newResourceOpenerForApplication.
-	return nil, jujuerrors.NotImplementedf("not implemented")
-}
-
-var _ = newResourceOpenerForApplication
-
-func newResourceOpenerForApplication(
-	args ResourceOpenerArgs,
-	applicationName string,
-) (opener resource.Opener, err error) {
+) (opener coreresource.Opener, err error) {
 	application, err := args.State.Application(applicationName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -119,15 +116,22 @@ func newResourceOpenerForApplication(
 		return nil, errors.Capture(err)
 	}
 
+	applicationID, err := args.ApplicationService.GetApplicationIDByName(ctx, applicationName)
+	if err != nil {
+		return nil, errors.Errorf("getting ID of application %s: %w", applicationName, err)
+	}
+
 	return &ResourceOpener{
-		state:                nil, // TODO: provide resource service
+		resourceService:      args.ResourceService,
 		modelUUID:            args.State.ModelUUID(),
 		resourceClientGetter: newClientGetter(charmURL, args.ModelConfigService),
-		retrievedBy:          application.Tag(),
+		retrievedBy:          applicationName,
+		retrievedByType:      resource.Application,
+		setResourceFunc:      args.ResourceService.SetApplicationResource,
 		charmURL:             charmURL,
 		charmOrigin:          *application.CharmOrigin(),
 		appName:              applicationName,
-		unitName:             "",
+		appID:                applicationID,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
 			return noopDownloadResourceLocker{}
 		},
@@ -146,6 +150,8 @@ func newClientGetter(charmURL *charm.URL, modelConfigService ModelConfigService)
 	return clientGetter
 }
 
+type resourceClientGetterFunc func(ctx context.Context) (*ResourceRetryClient, error)
+
 // noopDownloadResourceLocker is a no-op download resource locker.
 type noopDownloadResourceLocker struct{}
 
@@ -157,25 +163,25 @@ func (noopDownloadResourceLocker) Acquire(string) {}
 // Release releases the lock for the given application.
 func (noopDownloadResourceLocker) Release(appName string) {}
 
-type resourceClientGetterFunc func(ctx context.Context) (*ResourceRetryClient, error)
-
 // ResourceOpener is a ResourceOpener for charmhub. It will first look on the
 // controller for the requested resource.
 type ResourceOpener struct {
-	modelUUID   string
-	state       DeprecatedResourcesState
-	retrievedBy names.Tag
-	charmURL    *charm.URL
-	charmOrigin state.CharmOrigin
-	appName     string
-	unitName    string
+	modelUUID       string
+	resourceService ResourceService
+	retrievedBy     string
+	retrievedByType resource.RetrievedByType
+	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
+	charmURL        *charm.URL
+	charmOrigin     state.CharmOrigin
+	appName         string
+	appID           coreapplication.ID
 
 	resourceClientGetter        resourceClientGetterFunc
 	resourceDownloadLimiterFunc func() ResourceDownloadLock
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro ResourceOpener) OpenResource(ctx context.Context, name string) (opener resource.Opened, err error) {
+func (ro ResourceOpener) OpenResource(ctx context.Context, name string) (opener coreresource.Opened, err error) {
 	appKey := fmt.Sprintf("%s:%s", ro.modelUUID, ro.appName)
 	lock := ro.resourceDownloadLimiterFunc()
 	lock.Acquire(appKey)
@@ -195,7 +201,11 @@ var resourceMutex = kmutex.New()
 // read from there. Otherwise, it is downloaded from charmhub and saved on the
 // controller. If the resource cannot be found by name then [errors.NotFound] is
 // returned.
-func (ro ResourceOpener) getResource(ctx context.Context, resName string, done func()) (opened resource.Opened, err error) {
+func (ro ResourceOpener) getResource(
+	ctx context.Context,
+	resName string,
+	done func(),
+) (opened coreresource.Opened, err error) {
 	defer func() {
 		// Call done if not returning a ReadCloser that calls done on Close.
 		if err != nil {
@@ -208,14 +218,23 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 	locker.Lock()
 	defer locker.Unlock()
 
-	// Try and open the resource.
-	res, reader, err := ro.open(resName)
-	if err != nil && !errors.Is(err, jujuerrors.NotFound) {
-		return resource.Opened{}, errors.Capture(err)
+	resourceUUID, err := ro.resourceService.GetResourceUUID(ctx, resource.GetResourceUUIDArgs{
+		ApplicationID: ro.appID,
+		Name:          resName,
+	})
+	if err != nil {
+		return coreresource.Opened{}, errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appName, err)
+	}
+
+	res, reader, err := ro.resourceService.OpenResource(ctx, resourceUUID)
+	if err != nil && !errors.Is(err, resourceerrors.StoredResourceNotFound) {
+		return coreresource.Opened{}, errors.Capture(err)
 	} else if err == nil {
 		// If the resource was stored on the controller, return immediately.
-		return resource.Opened{
-			Resource: res,
+		return coreresource.Opened{
+			Resource: coreresource.Resource{
+				Resource: res.Resource,
+			},
 			ReadCloser: &resourceAccess{
 				ReadCloser: reader,
 				done:       done,
@@ -225,9 +244,9 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 
 	// The resource could not be opened, so may not be stored on the controller,
 	// get the resource info and download from charmhub.
-	res, err = ro.state.GetResource(ro.appName, resName)
+	res, err = ro.resourceService.GetResource(ctx, resourceUUID)
 	if err != nil {
-		return resource.Opened{}, errors.Capture(err)
+		return coreresource.Opened{}, errors.Capture(err)
 	}
 
 	id := CharmID{
@@ -246,18 +265,20 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 		// A NotFound error might not be detectable from some clients as the
 		// error types may be lost after call, for example http. For these
 		// cases, the next block will return un-annotated error.
-		return resource.Opened{}, errors.Errorf("getting resource from charmhub: %w", err)
+		return coreresource.Opened{}, errors.Errorf("getting resource from charmhub: %w", err)
 	}
 	if err != nil {
-		return resource.Opened{}, errors.Capture(err)
+		return coreresource.Opened{}, errors.Capture(err)
 	}
-	res, reader, err = ro.set(data.Resource, data)
+	res, reader, err = ro.store(ctx, resourceUUID, data)
 	if err != nil {
-		return resource.Opened{}, errors.Capture(err)
+		return coreresource.Opened{}, errors.Capture(err)
 	}
 
-	return resource.Opened{
-		Resource: res,
+	return coreresource.Opened{
+		Resource: coreresource.Resource{
+			Resource: res.Resource,
+		},
 		ReadCloser: &resourceAccess{
 			ReadCloser: reader,
 			done:       done,
@@ -265,17 +286,10 @@ func (ro ResourceOpener) getResource(ctx context.Context, resName string, done f
 	}, nil
 }
 
-func (ro ResourceOpener) open(resName string) (resource.Resource, io.ReadCloser, error) {
-	if ro.unitName == "" {
-		return ro.state.OpenResource(ro.appName, resName)
-	}
-	return ro.state.OpenResourceForUniter(ro.unitName, resName)
-}
-
-// set stores the resource info and data on the controller.
+// store stores the resource info and data on the controller.
 // Note that the returned reader may or may not be the same one that was passed
 // in.
-func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser) (_ resource.Resource, _ io.ReadCloser, err error) {
+func (ro ResourceOpener) store(ctx context.Context, resourceUUID coreresource.UUID, reader io.ReadCloser) (_ resource.Resource, _ io.ReadCloser, err error) {
 	defer func() {
 		if err != nil {
 			// With no err, the reader was closed down in unitSetter Read().
@@ -284,13 +298,19 @@ func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser)
 			_ = reader.Close()
 		}
 	}()
-	res, err := ro.state.SetResource(ro.appName, ro.retrievedBy.Id(), chRes, reader, false)
+
+	err = ro.resourceService.StoreResource(ctx, resource.StoreResourceArgs{
+		ResourceUUID:    resourceUUID,
+		Reader:          reader,
+		RetrievedBy:     ro.retrievedBy,
+		RetrievedByType: ro.retrievedByType,
+	})
 	if err != nil {
 		return resource.Resource{}, nil, errors.Capture(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
-	res, reader, err = ro.open(res.Name)
+	res, reader, err := ro.resourceService.OpenResource(ctx, resourceUUID)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Capture(err)
 	}
@@ -298,6 +318,26 @@ func (ro ResourceOpener) set(chRes charmresource.Resource, reader io.ReadCloser)
 	return res, reader, nil
 }
 
+// SetResource records that the resource is currently in use.
+func (ro ResourceOpener) SetResource(ctx context.Context, resName string) error {
+	resourceUUID, err := ro.resourceService.GetResourceUUID(ctx, resource.GetResourceUUIDArgs{
+		ApplicationID: ro.appID,
+		Name:          resName,
+	})
+	if err != nil {
+		return errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appName, err)
+	}
+
+	err = ro.setResourceFunc(ctx, resourceUUID)
+	if err != nil {
+		return errors.Errorf("setting resource %s on application %s: %w", resName, ro.appName, err)
+	}
+
+	return nil
+}
+
+// resourceAccess wraps the reader for the resource calling the done function on
+// Close.
 type resourceAccess struct {
 	io.ReadCloser
 	done func()

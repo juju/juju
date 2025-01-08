@@ -4,11 +4,14 @@
 package resource
 
 import (
+	"context"
 	"time"
 
-	"github.com/juju/names/v5"
-
+	coreapplication "github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"
+	coreresource "github.com/juju/juju/core/resource"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
@@ -27,26 +30,46 @@ func NewResourceRetryClientForTest(cl ResourceGetter) *ResourceRetryClient {
 }
 
 func NewResourceOpenerForTest(
-	res DeprecatedResourcesState,
-	tag names.Tag,
-	unitName string,
+	unitName coreunit.Name,
+	unitUUID coreunit.UUID,
 	appName string,
+	appID coreapplication.ID,
+	resourceService ResourceService,
 	charmURL *charm.URL,
 	charmOrigin state.CharmOrigin,
 	resourceClientGetter resourceClientGetterFunc,
 	resourceDownloadLimiter ResourceDownloadLock,
 ) *ResourceOpener {
+	var (
+		retrievedBy     string
+		retrievedByType resource.RetrievedByType
+		setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
+	)
+	if unitName.String() != "" {
+		retrievedBy = unitName.String()
+		retrievedByType = resource.Unit
+		setResourceFunc = func(ctx context.Context, resourceUUID coreresource.UUID) error {
+			return resourceService.SetUnitResource(ctx, resourceUUID, unitUUID)
+		}
+	} else {
+		retrievedBy = appName
+		retrievedByType = resource.Application
+		setResourceFunc = resourceService.SetApplicationResource
+	}
 	return &ResourceOpener{
 		modelUUID:            "uuid",
-		state:                res,
-		retrievedBy:          tag,
+		resourceService:      resourceService,
+		retrievedBy:          retrievedBy,
+		retrievedByType:      retrievedByType,
 		unitName:             unitName,
 		appName:              appName,
+		appID:                appID,
 		charmURL:             charmURL,
 		charmOrigin:          charmOrigin,
 		resourceClientGetter: resourceClientGetter,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
 			return resourceDownloadLimiter
 		},
+		setResourceFunc: setResourceFunc,
 	}
 }
