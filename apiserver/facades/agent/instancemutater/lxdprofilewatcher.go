@@ -278,6 +278,10 @@ func (w *machineLXDProfileWatcher) init(ctx context.Context) error {
 		}
 
 		charmURLStr := app.CharmURL()
+		// Defensive check, shouldn't be nil.
+		if charmURLStr == nil {
+			continue
+		}
 		info := appInfo{
 			charmURL: *charmURLStr,
 			units:    set.NewStrings(unitName),
@@ -344,8 +348,9 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 	info, ok := w.applications[appName]
 	if ok {
 		charmURLStr := app.CharmURL()
+		// Defensive check, shouldn't be nil.
 		// Have we already seen this charm URL change?
-		if info.charmURL == *charmURLStr {
+		if charmURLStr == nil || info.charmURL == *charmURLStr {
 			return nil
 		}
 		curl, err := charm.ParseURL(*charmURLStr)

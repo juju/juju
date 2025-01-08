@@ -419,7 +419,10 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 			continue
 		}
 		charmURLStr := app.CharmURL()
-
+		// Defensive check, shouldn't be nil.
+		if charmURLStr == nil {
+			continue
+		}
 		curl, err := charm.ParseURL(*charmURLStr)
 		if err != nil {
 			return empty, errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
