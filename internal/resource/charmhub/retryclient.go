@@ -19,10 +19,13 @@ import (
 // retries GetResource() calls.
 type ResourceRetryClient struct {
 	ResourceGetter
+	// RetryArgs defines the behaviour of the Call function.
 	RetryArgs retry.CallArgs
 	logger    logger.Logger
 }
 
+// NewRetryClient creates a new retry client for getting the resources with the
+// resource getter.
 func NewRetryClient(client ResourceGetter, logger logger.Logger) *ResourceRetryClient {
 	retryArgs := retry.CallArgs{
 		// (anastasiamac 2017-05-25) This might not work as the error types

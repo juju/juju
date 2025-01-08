@@ -21,18 +21,24 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// DeprecatedState is the deprecated backend soon to be replaced with the
+// resource and application domains.
 type DeprecatedState interface {
 	Unit(name string) (DeprecatedStateUnit, error)
 	Application(name string) (DeprecatedStateApplication, error)
 	ModelUUID() string
 }
 
+// DeprecatedStateUnit is the deprecated unit state, soon to be replaced with
+// the application domain.
 type DeprecatedStateUnit interface {
 	ApplicationName() string
 	CharmURL() *string
 	Tag() names.Tag
 }
 
+// DeprecatedStateApplication is the deprecated application state, soon to be
+// replaced with the application domain.
 type DeprecatedStateApplication interface {
 	CharmOrigin() *state.CharmOrigin
 	CharmURL() (*string, bool)
