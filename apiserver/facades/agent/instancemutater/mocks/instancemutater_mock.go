@@ -385,44 +385,6 @@ func (c *MockInstanceMutaterStateWatchApplicationCharmsCall) DoAndReturn(f func(
 	return c
 }
 
-// WatchCharms mocks base method.
-func (m *MockInstanceMutaterState) WatchCharms() state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchCharms")
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchCharms indicates an expected call of WatchCharms.
-func (mr *MockInstanceMutaterStateMockRecorder) WatchCharms() *MockInstanceMutaterStateWatchCharmsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCharms", reflect.TypeOf((*MockInstanceMutaterState)(nil).WatchCharms))
-	return &MockInstanceMutaterStateWatchCharmsCall{Call: call}
-}
-
-// MockInstanceMutaterStateWatchCharmsCall wrap *gomock.Call
-type MockInstanceMutaterStateWatchCharmsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockInstanceMutaterStateWatchCharmsCall) Return(arg0 state.StringsWatcher) *MockInstanceMutaterStateWatchCharmsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockInstanceMutaterStateWatchCharmsCall) Do(f func() state.StringsWatcher) *MockInstanceMutaterStateWatchCharmsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceMutaterStateWatchCharmsCall) DoAndReturn(f func() state.StringsWatcher) *MockInstanceMutaterStateWatchCharmsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchMachines mocks base method.
 func (m *MockInstanceMutaterState) WatchMachines() state.StringsWatcher {
 	m.ctrl.T.Helper()
@@ -1458,6 +1420,45 @@ func (c *MockApplicationServiceGetCharmLXDProfileCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetCharmLXDProfileCall) DoAndReturn(f func(context.Context, charm.ID) (charm1.LXDProfile, int, error)) *MockApplicationServiceGetCharmLXDProfileCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchCharms mocks base method.
+func (m *MockApplicationService) WatchCharms() (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchCharms")
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchCharms indicates an expected call of WatchCharms.
+func (mr *MockApplicationServiceMockRecorder) WatchCharms() *MockApplicationServiceWatchCharmsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCharms", reflect.TypeOf((*MockApplicationService)(nil).WatchCharms))
+	return &MockApplicationServiceWatchCharmsCall{Call: call}
+}
+
+// MockApplicationServiceWatchCharmsCall wrap *gomock.Call
+type MockApplicationServiceWatchCharmsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceWatchCharmsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockApplicationServiceWatchCharmsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceWatchCharmsCall) Do(f func() (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchCharmsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceWatchCharmsCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchCharmsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

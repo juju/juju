@@ -728,9 +728,6 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.ActionTag:
 		coll = actionsC
 		id = tag.Id()
-	case names.CharmTag:
-		coll = charmsC
-		id = tag.Id()
 	default:
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}

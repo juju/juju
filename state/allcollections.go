@@ -160,13 +160,6 @@ func allCollections() CollectionSchema {
 		// -----
 
 		// These collections hold information associated with applications.
-		charmsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}, {
-				Key: []string{"bundlesha256"},
-			}},
-		},
 		applicationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "name"},
@@ -438,7 +431,6 @@ const (
 	assignUnitC            = "assignUnits"
 	bakeryStorageItemsC    = "bakeryStorageItems"
 	blocksC                = "blocks"
-	charmsC                = "charms"
 	cleanupsC              = "cleanups"
 	cloudContainersC       = "cloudcontainers"
 	cloudServicesC         = "cloudservices"
