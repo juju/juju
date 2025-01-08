@@ -349,7 +349,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 		},
 		nil,
 	)
-	s.resourceOpener.EXPECT().SetResource(gomock.Any(), "gitlab-image")
+	s.resourceOpener.EXPECT().SetResourceUsed(gomock.Any(), "gitlab-image")
 
 	charmId := charmtesting.GenCharmID(c)
 	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)

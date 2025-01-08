@@ -20,9 +20,9 @@ type charmHubOpener struct {
 	modelConfigService ModelConfigService
 }
 
-type resourceClientGetter func(ctx context.Context, logger corelogger.Logger) (ResourceGetter, error)
+type resourceClientGetter func(ctx context.Context, logger corelogger.Logger) (ResourceClient, error)
 
-func (rcg resourceClientGetter) GetResourceClient(ctx context.Context, logger corelogger.Logger) (ResourceGetter, error) {
+func (rcg resourceClientGetter) GetResourceClient(ctx context.Context, logger corelogger.Logger) (ResourceClient, error) {
 	return rcg(ctx, logger)
 }
 
@@ -31,7 +31,7 @@ func NewCharmHubOpener(modelConfigService ModelConfigService) resourceClientGett
 	return ch.NewClient
 }
 
-func (ch *charmHubOpener) NewClient(ctx context.Context, logger corelogger.Logger) (ResourceGetter, error) {
+func (ch *charmHubOpener) NewClient(ctx context.Context, logger corelogger.Logger) (ResourceClient, error) {
 	config, err := ch.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -19,8 +19,8 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 }
 
-// ResourceGetter provides the functionality for getting a resource file.
-type ResourceGetter interface {
+// ResourceClient provides the functionality for getting a resource file.
+type ResourceClient interface {
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
 	// is ignored.

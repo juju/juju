@@ -39,7 +39,7 @@ type OpenerSuite struct {
 	resourceUUID         coreresource.UUID
 	charmURL             *charm.URL
 	charmOrigin          state.CharmOrigin
-	resourceGetter       *MockResourceGetter
+	resourceClient       *MockResourceClient
 	resourceClientGetter *MockResourceClientGetter
 	resourceService      *MockResourceService
 	state                *MockDeprecatedState
@@ -73,10 +73,10 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	s.resourceClientGetter.EXPECT().GetResourceClient(
 		gomock.Any(), gomock.Any(),
 	).Return(
-		newResourceRetryClientForTest(c, s.resourceGetter),
+		newResourceRetryClientForTest(c, s.resourceClient),
 		nil,
 	)
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{
+	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
 	}, nil)
@@ -112,10 +112,10 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	s.resourceClientGetter.EXPECT().GetResourceClient(
 		gomock.Any(), gomock.Any(),
 	).Return(
-		newResourceRetryClientForTest(c, s.resourceGetter),
+		newResourceRetryClientForTest(c, s.resourceClient),
 		nil,
 	)
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{
+	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
 	}, nil)
@@ -169,14 +169,14 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 		ApplicationID: "postgreql",
 	}
 	s.expectServiceMethods(res, 1)
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{
+	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{
 		ReadCloser: nil,
 		Resource:   res.Resource,
 	}, nil)
 	s.resourceClientGetter.EXPECT().GetResourceClient(
 		gomock.Any(), gomock.Any(),
 	).Return(
-		newResourceRetryClientForTest(c, s.resourceGetter),
+		newResourceRetryClientForTest(c, s.resourceClient),
 		nil,
 	)
 
@@ -200,7 +200,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	s.appName = "postgresql"
 	s.appID = coreapplicationtesting.GenApplicationUUID(c)
 	s.resourceUUID = coreresourcetesting.GenResourceUUID(c)
-	s.resourceGetter = NewMockResourceGetter(ctrl)
+	s.resourceClient = NewMockResourceClient(ctrl)
 	s.resourceClientGetter = NewMockResourceClientGetter(ctrl)
 	s.limiter = NewMockResourceDownloadLock(ctrl)
 
@@ -281,12 +281,12 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	s.resourceClientGetter.EXPECT().GetResourceClient(
 		gomock.Any(), gomock.Any(),
 	).Return(
-		newResourceRetryClientForTest(c, s.resourceGetter),
+		newResourceRetryClientForTest(c, s.resourceClient),
 		nil,
 	)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(res, nil)
 	const retryCount = 3
-	s.resourceGetter.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{}, errors.New("boom")).Times(retryCount)
+	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(charmhub.ResourceData{}, errors.New("boom")).Times(retryCount)
 	s.limiter.EXPECT().Acquire("uuid:postgresql")
 	s.limiter.EXPECT().Release("uuid:postgresql")
 
@@ -406,7 +406,7 @@ func (s *OpenerSuite) newApplicationResourceOpener(c *gc.C) coreresource.Opener 
 	return opener
 }
 
-func newResourceRetryClientForTest(c *gc.C, cl charmhub.ResourceGetter) *charmhub.ResourceRetryClient {
+func newResourceRetryClientForTest(c *gc.C, cl charmhub.ResourceClient) *charmhub.ResourceRetryClient {
 	client := charmhub.NewRetryClient(cl, testing.WrapCheckLog(c))
 	client.RetryArgs.Delay = time.Millisecond
 	return client

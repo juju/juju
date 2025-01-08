@@ -18,7 +18,7 @@ import (
 // ResourceRetryClient is a wrapper around a Juju repository client that
 // retries GetResource() calls.
 type ResourceRetryClient struct {
-	ResourceGetter
+	ResourceClient
 	// RetryArgs defines the behaviour of the Call function.
 	RetryArgs retry.CallArgs
 	logger    logger.Logger
@@ -26,7 +26,7 @@ type ResourceRetryClient struct {
 
 // NewRetryClient creates a new retry client for getting the resources with the
 // resource getter.
-func NewRetryClient(client ResourceGetter, logger logger.Logger) *ResourceRetryClient {
+func NewRetryClient(client ResourceClient, logger logger.Logger) *ResourceRetryClient {
 	retryArgs := retry.CallArgs{
 		// (anastasiamac 2017-05-25) This might not work as the error types
 		// may be lost after a call to some clients.
@@ -44,7 +44,7 @@ func NewRetryClient(client ResourceGetter, logger logger.Logger) *ResourceRetryC
 		Clock: clock.WallClock,
 	}
 	return &ResourceRetryClient{
-		ResourceGetter: client,
+		ResourceClient: client,
 		RetryArgs:      retryArgs,
 		logger:         logger,
 	}
@@ -57,7 +57,7 @@ func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData
 	var data ResourceData
 	args.Func = func() error {
 		var err error
-		data, err = client.ResourceGetter.GetResource(req)
+		data, err = client.ResourceClient.GetResource(req)
 		if err != nil {
 			return errors.Trace(err)
 		}

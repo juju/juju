@@ -995,10 +995,10 @@ func (m *MockResourceClientGetter) EXPECT() *MockResourceClientGetterMockRecorde
 }
 
 // GetResourceClient mocks base method.
-func (m *MockResourceClientGetter) GetResourceClient(arg0 context.Context, arg1 logger.Logger) (charmhub.ResourceGetter, error) {
+func (m *MockResourceClientGetter) GetResourceClient(arg0 context.Context, arg1 logger.Logger) (charmhub.ResourceClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceClient", arg0, arg1)
-	ret0, _ := ret[0].(charmhub.ResourceGetter)
+	ret0, _ := ret[0].(charmhub.ResourceClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1016,19 +1016,19 @@ type MockResourceClientGetterGetResourceClientCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceClientGetterGetResourceClientCall) Return(arg0 charmhub.ResourceGetter, arg1 error) *MockResourceClientGetterGetResourceClientCall {
+func (c *MockResourceClientGetterGetResourceClientCall) Return(arg0 charmhub.ResourceClient, arg1 error) *MockResourceClientGetterGetResourceClientCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceClientGetterGetResourceClientCall) Do(f func(context.Context, logger.Logger) (charmhub.ResourceGetter, error)) *MockResourceClientGetterGetResourceClientCall {
+func (c *MockResourceClientGetterGetResourceClientCall) Do(f func(context.Context, logger.Logger) (charmhub.ResourceClient, error)) *MockResourceClientGetterGetResourceClientCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceClientGetterGetResourceClientCall) DoAndReturn(f func(context.Context, logger.Logger) (charmhub.ResourceGetter, error)) *MockResourceClientGetterGetResourceClientCall {
+func (c *MockResourceClientGetterGetResourceClientCall) DoAndReturn(f func(context.Context, logger.Logger) (charmhub.ResourceClient, error)) *MockResourceClientGetterGetResourceClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

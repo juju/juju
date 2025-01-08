@@ -112,5 +112,5 @@ type ResourceService interface {
 // ResourceClientGetter gets a client for getting resources.
 type ResourceClientGetter interface {
 	// GetResourceClient returns a ResourceGetter.
-	GetResourceClient(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error)
+	GetResourceClient(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceClient, error)
 }

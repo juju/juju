@@ -394,9 +394,9 @@ func (r *resourceAccess) Close() error {
 // charm resources.
 type noopOpener struct{}
 
-type noopResourceClientGetter func(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error)
+type noopResourceClientGetter func(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceClient, error)
 
-func (rcg noopResourceClientGetter) GetResourceClient(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error) {
+func (rcg noopResourceClientGetter) GetResourceClient(ctx context.Context, logger corelogger.Logger) (charmhub.ResourceClient, error) {
 	return rcg(ctx, logger)
 }
 
@@ -408,7 +408,7 @@ func newNoopOpener() noopResourceClientGetter {
 }
 
 // NewClient opens a new charmhub resourceClient.
-func (o *noopOpener) NewClient(_ context.Context, logger corelogger.Logger) (charmhub.ResourceGetter, error) {
+func (o *noopOpener) NewClient(_ context.Context, logger corelogger.Logger) (charmhub.ResourceClient, error) {
 	return charmhub.NewRetryClient(noopClient{}, logger), nil
 }
 
