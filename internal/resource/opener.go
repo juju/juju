@@ -257,7 +257,7 @@ func (ro ResourceOpener) getResource(
 	locker.Lock()
 	defer locker.Unlock()
 
-	resourceUUID, err := ro.resourceService.GetResourceUUID(ctx, resource.GetResourceUUIDArgs{
+	resourceUUID, err := ro.resourceService.GetApplicationResourceID(ctx, resource.GetApplicationResourceIDArgs{
 		ApplicationID: ro.appID,
 		Name:          resName,
 	})
@@ -362,7 +362,7 @@ func (ro ResourceOpener) store(ctx context.Context, resourceUUID coreresource.UU
 
 // SetResourceUsed records that the resource is currently in use.
 func (ro ResourceOpener) SetResourceUsed(ctx context.Context, resName string) error {
-	resourceUUID, err := ro.resourceService.GetResourceUUID(ctx, resource.GetResourceUUIDArgs{
+	resourceUUID, err := ro.resourceService.GetApplicationResourceID(ctx, resource.GetApplicationResourceIDArgs{
 		ApplicationID: ro.appID,
 		Name:          resName,
 	})

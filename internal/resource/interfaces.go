@@ -75,9 +75,9 @@ type ApplicationService interface {
 }
 
 type ResourceService interface {
-	// GetResourceUUID returns the UUID of the resource specified by natural key
+	// GetApplicationResourceID returns the UUID of the resource specified by natural key
 	// of application and resource name.
-	GetResourceUUID(ctx context.Context, args resource.GetResourceUUIDArgs) (coreresource.UUID, error)
+	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
 	// GetResource returns the identified application resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)

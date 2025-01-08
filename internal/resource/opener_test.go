@@ -228,7 +228,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 }
 
 func (s *OpenerSuite) expectServiceMethods(res domainresource.Resource, numConcurrentRequests int) {
-	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil).AnyTimes()
@@ -269,7 +269,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		},
 		ApplicationID: "postgreql",
 	}
-	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil)
@@ -298,7 +298,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 
 func (s *OpenerSuite) TestSetResourceUsedUnit(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
-	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil)
@@ -309,7 +309,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnit(c *gc.C) {
 
 func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
-	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil)
@@ -323,7 +323,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
 
 func (s *OpenerSuite) TestSetResourceUsedApplication(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
-	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil)
@@ -336,7 +336,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplication(c *gc.C) {
 
 func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
-	s.resourceService.EXPECT().GetResourceUUID(gomock.Any(), domainresource.GetResourceUUIDArgs{
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
 		ApplicationID: s.appID,
 		Name:          "wal-e",
 	}).Return(s.resourceUUID, nil)

@@ -50,6 +50,45 @@ func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 	return m.recorder
 }
 
+// GetApplicationResourceID mocks base method.
+func (m *MockResourceService) GetApplicationResourceID(arg0 context.Context, arg1 resource0.GetApplicationResourceIDArgs) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationResourceID", arg0, arg1)
+	ret0, _ := ret[0].(resource.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationResourceID indicates an expected call of GetApplicationResourceID.
+func (mr *MockResourceServiceMockRecorder) GetApplicationResourceID(arg0, arg1 any) *MockResourceServiceGetApplicationResourceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationResourceID", reflect.TypeOf((*MockResourceService)(nil).GetApplicationResourceID), arg0, arg1)
+	return &MockResourceServiceGetApplicationResourceIDCall{Call: call}
+}
+
+// MockResourceServiceGetApplicationResourceIDCall wrap *gomock.Call
+type MockResourceServiceGetApplicationResourceIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResourceServiceGetApplicationResourceIDCall) Return(arg0 resource.UUID, arg1 error) *MockResourceServiceGetApplicationResourceIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResourceServiceGetApplicationResourceIDCall) Do(f func(context.Context, resource0.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockResourceServiceGetApplicationResourceIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResourceServiceGetApplicationResourceIDCall) DoAndReturn(f func(context.Context, resource0.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockResourceServiceGetApplicationResourceIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetResource mocks base method.
 func (m *MockResourceService) GetResource(arg0 context.Context, arg1 resource.UUID) (resource0.Resource, error) {
 	m.ctrl.T.Helper()
@@ -85,45 +124,6 @@ func (c *MockResourceServiceGetResourceCall) Do(f func(context.Context, resource
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockResourceServiceGetResourceCall) DoAndReturn(f func(context.Context, resource.UUID) (resource0.Resource, error)) *MockResourceServiceGetResourceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetResourceUUID mocks base method.
-func (m *MockResourceService) GetResourceUUID(arg0 context.Context, arg1 resource0.GetResourceUUIDArgs) (resource.UUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetResourceUUID", arg0, arg1)
-	ret0, _ := ret[0].(resource.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetResourceUUID indicates an expected call of GetResourceUUID.
-func (mr *MockResourceServiceMockRecorder) GetResourceUUID(arg0, arg1 any) *MockResourceServiceGetResourceUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceUUID", reflect.TypeOf((*MockResourceService)(nil).GetResourceUUID), arg0, arg1)
-	return &MockResourceServiceGetResourceUUIDCall{Call: call}
-}
-
-// MockResourceServiceGetResourceUUIDCall wrap *gomock.Call
-type MockResourceServiceGetResourceUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockResourceServiceGetResourceUUIDCall) Return(arg0 resource.UUID, arg1 error) *MockResourceServiceGetResourceUUIDCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockResourceServiceGetResourceUUIDCall) Do(f func(context.Context, resource0.GetResourceUUIDArgs) (resource.UUID, error)) *MockResourceServiceGetResourceUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceServiceGetResourceUUIDCall) DoAndReturn(f func(context.Context, resource0.GetResourceUUIDArgs) (resource.UUID, error)) *MockResourceServiceGetResourceUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
