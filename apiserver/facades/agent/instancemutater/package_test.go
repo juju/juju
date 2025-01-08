@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"context"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +16,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,Charm,MachineService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,MachineService,ApplicationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
 
@@ -29,6 +30,7 @@ func NewTestAPI(
 	c *gc.C,
 	st InstanceMutaterState,
 	machineService MachineService,
+	applicationService ApplicationService,
 	mutatorWatcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -40,25 +42,29 @@ func NewTestAPI(
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 
 	return &InstanceMutaterAPI{
-		LifeGetter:     common.NewLifeGetter(st, getAuthFunc),
-		st:             st,
-		machineService: machineService,
-		watcher:        mutatorWatcher,
-		resources:      resources,
-		authorizer:     authorizer,
-		getAuthFunc:    getAuthFunc,
-		logger:         loggertesting.WrapCheckLog(c),
+		LifeGetter:         common.NewLifeGetter(st, getAuthFunc),
+		st:                 st,
+		machineService:     machineService,
+		applicationService: applicationService,
+		watcher:            mutatorWatcher,
+		resources:          resources,
+		authorizer:         authorizer,
+		getAuthFunc:        getAuthFunc,
+		logger:             loggertesting.WrapCheckLog(c),
 	}, nil
 }
 
 // NewTestLxdProfileWatcher is used by the lxd profile tests.
-func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState, machineService MachineService) *machineLXDProfileWatcher {
-	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		backend:        backend,
-		machine:        machine,
-		logger:         loggertesting.WrapCheckLog(c),
-		machineService: machineService,
-	})
+func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState, machineService MachineService, applicationService ApplicationService) *machineLXDProfileWatcher {
+	w, err := newMachineLXDProfileWatcher(
+		context.Background(),
+		MachineLXDProfileWatcherConfig{
+			backend:            backend,
+			machine:            machine,
+			logger:             loggertesting.WrapCheckLog(c),
+			machineService:     machineService,
+			applicationService: applicationService,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

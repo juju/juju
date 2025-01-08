@@ -361,45 +361,6 @@ func (c *MockSystemStateApplyOperationCall) DoAndReturn(f func(*state.UpdateUnit
 	return c
 }
 
-// Charm mocks base method.
-func (m *MockSystemState) Charm(arg0 string) (charm0.Charm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Charm", arg0)
-	ret0, _ := ret[0].(charm0.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Charm indicates an expected call of Charm.
-func (mr *MockSystemStateMockRecorder) Charm(arg0 any) *MockSystemStateCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockSystemState)(nil).Charm), arg0)
-	return &MockSystemStateCharmCall{Call: call}
-}
-
-// MockSystemStateCharmCall wrap *gomock.Call
-type MockSystemStateCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateCharmCall) Return(arg0 charm0.Charm, arg1 error) *MockSystemStateCharmCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateCharmCall) Do(f func(string) (charm0.Charm, error)) *MockSystemStateCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateCharmCall) DoAndReturn(f func(string) (charm0.Charm, error)) *MockSystemStateCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CloudService mocks base method.
 func (m *MockSystemState) CloudService(arg0 string) (bootstrap.CloudService, error) {
 	m.ctrl.T.Helper()

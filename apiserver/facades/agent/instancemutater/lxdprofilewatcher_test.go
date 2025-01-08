@@ -5,6 +5,7 @@ package instancemutater_test
 
 import (
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -12,9 +13,12 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
-	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher/watchertest"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 
@@ -24,13 +28,13 @@ type lxdProfileWatcherSuite struct {
 	unit      *mocks.MockUnit
 	principal *mocks.MockUnit
 	app       *mocks.MockApplication
-	charm     *mocks.MockCharm
 
-	charmsWatcher   *mocks.MockStringsWatcher
-	appWatcher      *mocks.MockStringsWatcher
-	unitsWatcher    *mocks.MockStringsWatcher
-	instanceWatcher *mocks.MockNotifyWatcher
-	machineService  *mocks.MockMachineService
+	charmsWatcher      *mocks.MockStringsWatcher
+	appWatcher         *mocks.MockStringsWatcher
+	unitsWatcher       *mocks.MockStringsWatcher
+	instanceWatcher    *mocks.MockNotifyWatcher
+	machineService     *mocks.MockMachineService
+	applicationService *mocks.MockApplicationService
 
 	charmChanges    chan []string
 	appChanges      chan []string
@@ -49,7 +53,6 @@ func (s *lxdProfileWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	s.unit = mocks.NewMockUnit(ctrl)
 	s.principal = mocks.NewMockUnit(ctrl)
 	s.app = mocks.NewMockApplication(ctrl)
-	s.charm = mocks.NewMockCharm(ctrl)
 	s.machine0 = mocks.NewMockMachine(ctrl)
 
 	s.charmsWatcher = mocks.NewMockStringsWatcher(ctrl)
@@ -57,6 +60,7 @@ func (s *lxdProfileWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	s.unitsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.instanceWatcher = mocks.NewMockNotifyWatcher(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 
 	s.charmChanges = make(chan []string, 1)
 	s.appChanges = make(chan []string, 1)
@@ -69,14 +73,14 @@ func (s *lxdProfileWatcherSuite) setup(c *gc.C) *gomock.Controller {
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherStartStop(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioWithProfile()
+	s.setupScenarioWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNoProfile(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioNoProfile()
+	s.setupScenarioNoProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.setupPrincipalUnit()
@@ -87,7 +91,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNoProfile(c *gc.C) 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherProfile(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioNoExistingUnitsWithProfile()
+	s.setupScenarioNoExistingUnitsWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.setupPrincipalUnit()
@@ -100,40 +104,40 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherProfile(c *gc.C) {
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNewCharmRev(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioWithProfile()
+	s.setupScenarioWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	// Start with a charm having a profile so change the charm's profile
 	// from existing to not, should be notified to remove the profile.
-	s.updateCharmForMachineLXDProfileWatcher("2", false)
+	s.updateCharmForMachineLXDProfileWatcherWithoutProfile(c, "2")
 	s.wc0.AssertOneChange()
 
 	// Changing the charm url, and the profile stays empty,
 	// should not be notified to remove the profile.
-	s.updateCharmForMachineLXDProfileWatcher("3", false)
+	s.updateCharmForMachineLXDProfileWatcherWithoutProfile(c, "3")
 	s.wc0.AssertNoChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherCharmMetadataChange(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioWithProfile()
+	s.setupScenarioWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	// Start with a charm not having a profile.
-	s.updateCharmForMachineLXDProfileWatcher("2", false)
+	s.updateCharmForMachineLXDProfileWatcherWithoutProfile(c, "2")
 	s.wc0.AssertOneChange()
 
 	// Simulate an asynchronous charm download scenario where the downloaded
 	// charm specifies an LXD profile. This should trigger a change.
-	s.updateCharmForMachineLXDProfileWatcher("2", true)
+	s.updateCharmForMachineLXDProfileWatcherWithProfile(c, "2")
 	s.wc0.AssertOneChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnit(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioNoExistingUnitsWithProfile()
+	s.setupScenarioNoExistingUnitsWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	// New unit added to existing machine doesn't have a charm url yet.
@@ -177,7 +181,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnitWrongMachine
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfile(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioNoExistingUnitsWithProfile()
+	s.setupScenarioNoExistingUnitsWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.assertAddSubordinate()
@@ -201,7 +205,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.setupScenarioNoExistingUnitsWithProfile()
+	s.setupScenarioNoExistingUnitsWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.assertAddSubordinate()
@@ -235,9 +239,8 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfil
 	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
 
 	curl := "ch:name-me"
-	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
 	s.machine0.EXPECT().Units().Return(nil, nil)
-	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{})
+	s.assertCharmWithoutLXDProfile(c, curl)
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
@@ -249,7 +252,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfi
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.setupScenarioWithProfile()
+	s.setupScenarioWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.state.EXPECT().Unit("foo/0").Return(s.unit, nil)
@@ -277,7 +280,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveOnlyUnit(c *g
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.setupScenarioNoExistingUnitsWithProfile()
+	s.setupScenarioNoExistingUnitsWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.wc0.AssertNoChange()
@@ -316,16 +319,16 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWrongMach
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAppChangeCharmURLNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioWithProfile()
+	s.setupScenarioWithProfile(c)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
-	s.updateCharmForMachineLXDProfileWatcher("2", false)
+	s.updateCharmForMachineLXDProfileWatcherWithoutProfile(c, "2")
 	s.wc0.AssertOneChange()
 
 	s.state.EXPECT().Application("foo").Return(s.app, nil)
 	curl := "ch:name-me-3"
 	s.app.EXPECT().CharmURL().Return(&curl)
-	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf(""))
+	s.assertCharmNotFound(c, curl)
 
 	s.appChanges <- []string{"foo"}
 	s.wc0.AssertNoChange()
@@ -358,7 +361,11 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 	s.setupPrincipalUnit()
 	curl := "ch:name-me"
 	s.unit.EXPECT().CharmURL().Return(&curl)
-	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf(""))
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   applicationcharm.CharmHubSource,
+		Name:     "name-me",
+		Revision: ptr(-1),
+	}).Return(charm.ID(""), applicationerrors.CharmNotFound)
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
@@ -369,7 +376,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.setupScenarioWithProfile()
+	s.setupScenarioWithProfile(c)
 	s.machine0.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
@@ -379,22 +386,23 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(
 	s.wc0.AssertOneChange()
 }
 
-func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev string, profile bool) {
+func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcherWithProfile(c *gc.C, rev string) {
 	curl := "ch:name-me-" + rev
-	if profile {
-		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{
-			Config: map[string]string{"key1": "value1"},
-		})
-	} else {
-		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{})
-	}
 	s.state.EXPECT().Application("foo").Return(s.app, nil)
 	s.app.EXPECT().CharmURL().Return(&curl)
-	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
+	s.assertCharmWithLXDProfile(c, curl)
 	s.charmChanges <- []string{curl}
 	s.appChanges <- []string{"foo"}
 }
 
+func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcherWithoutProfile(c *gc.C, rev string) {
+	curl := "ch:name-me-" + rev
+	s.state.EXPECT().Application("foo").Return(s.app, nil)
+	s.app.EXPECT().CharmURL().Return(&curl)
+	s.assertCharmWithoutLXDProfile(c, curl)
+	s.charmChanges <- []string{curl}
+	s.appChanges <- []string{"foo"}
+}
 func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
 	s.state.EXPECT().WatchCharms().Return(s.charmsWatcher)
 	s.state.EXPECT().WatchApplicationCharms().Return(s.appWatcher)
@@ -418,7 +426,7 @@ func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Wo
 
 	s.machine0.EXPECT().Id().AnyTimes().Return("0")
 
-	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state, s.machineService)
+	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state, s.machineService, s.applicationService)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
@@ -426,39 +434,77 @@ func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Wo
 	return w
 }
 
-func (s *lxdProfileWatcherSuite) setupScenarioNoProfile() {
-	s.setupScenario(false, false)
+func (s *lxdProfileWatcherSuite) assertCharmNotFound(c *gc.C, chURLStr string) {
+	curl, err := internalcharm.ParseURL(chURLStr)
+	c.Assert(err, jc.ErrorIsNil)
+	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   source,
+		Name:     "name-me",
+		Revision: ptr(curl.Revision),
+	}).Return(charm.ID(""), applicationerrors.CharmNotFound)
 }
 
-func (s *lxdProfileWatcherSuite) setupScenarioWithProfile() {
-	s.setupScenario(false, true)
+func (s *lxdProfileWatcherSuite) assertCharmWithLXDProfile(c *gc.C, chURLStr string) {
+	curl, err := internalcharm.ParseURL(chURLStr)
+	c.Assert(err, jc.ErrorIsNil)
+	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   source,
+		Name:     curl.Name,
+		Revision: ptr(curl.Revision),
+	}).Return(charm.ID("foo"), nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
+		Return(internalcharm.LXDProfile{
+			Config: map[string]string{"key1": "value1"},
+		}, 0, nil)
 }
 
-func (s *lxdProfileWatcherSuite) setupScenarioNoExistingUnitsWithProfile() {
-	s.setupScenario(true, true)
+func (s *lxdProfileWatcherSuite) assertCharmWithoutLXDProfile(c *gc.C, chURLStr string) {
+	curl, err := internalcharm.ParseURL(chURLStr)
+	c.Assert(err, jc.ErrorIsNil)
+	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   source,
+		Name:     curl.Name,
+		Revision: ptr(curl.Revision),
+	}).Return(charm.ID("foo"), nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
+		Return(internalcharm.LXDProfile{}, 0, nil)
 }
 
-func (s *lxdProfileWatcherSuite) setupScenario(startEmpty, withProfile bool) {
+func (s *lxdProfileWatcherSuite) setupScenarioNoProfile(c *gc.C) {
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
 	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
-
 	curl := "ch:name-me"
-	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
-	if startEmpty {
-		s.machine0.EXPECT().Units().Return(nil, nil)
-	} else {
-		s.machine0.EXPECT().Units().Return([]instancemutater.Unit{s.unit}, nil)
-		s.unit.EXPECT().Application().Return(s.app, nil)
-		s.app.EXPECT().CharmURL().Return(&curl)
-	}
+	s.machine0.EXPECT().Units().Return([]instancemutater.Unit{s.unit}, nil)
+	s.unit.EXPECT().Application().Return(s.app, nil)
+	s.app.EXPECT().CharmURL().Return(&curl)
+	s.assertCharmWithoutLXDProfile(c, curl)
+}
 
-	if withProfile {
-		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{
-			Config: map[string]string{"key1": "value1"},
-		})
-	} else {
-		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{})
-	}
+func (s *lxdProfileWatcherSuite) setupScenarioWithProfile(c *gc.C) {
+	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
+	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
+	curl := "ch:name-me"
+	s.machine0.EXPECT().Units().Return([]instancemutater.Unit{s.unit}, nil)
+	s.unit.EXPECT().Application().Return(s.app, nil)
+	s.app.EXPECT().CharmURL().Return(&curl)
+	s.assertCharmWithLXDProfile(c, curl)
+}
+
+func (s *lxdProfileWatcherSuite) setupScenarioNoExistingUnitsWithProfile(c *gc.C) {
+	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
+	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
+	s.machine0.EXPECT().Units().Return(nil, nil)
+	curl := "ch:name-me"
+	s.assertCharmWithLXDProfile(c, curl)
 }
 
 func (s *lxdProfileWatcherSuite) setupPrincipalUnit() {

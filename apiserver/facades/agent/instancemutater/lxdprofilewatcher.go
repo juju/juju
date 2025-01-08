@@ -13,8 +13,10 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 
@@ -23,11 +25,12 @@ type machineLXDProfileWatcher struct {
 	changes chan struct{}
 	closed  bool
 
-	initialized    chan struct{}
-	applications   map[string]appInfo // unit names for each application
-	provisioned    bool
-	machine        Machine
-	machineService MachineService
+	initialized        chan struct{}
+	applications       map[string]appInfo // unit names for each application
+	provisioned        bool
+	machine            Machine
+	machineService     MachineService
+	applicationService ApplicationService
 
 	backend InstanceMutaterState
 
@@ -93,30 +96,32 @@ func (w *machineLXDProfileWatcher) notify() {
 
 type appInfo struct {
 	charmURL     string
-	charmProfile lxdprofile.Profile
+	charmProfile charm.LXDProfile
 	units        set.Strings
 }
 
 type MachineLXDProfileWatcherConfig struct {
-	machine        Machine
-	backend        InstanceMutaterState
-	machineService MachineService
-	logger         logger.Logger
+	machine            Machine
+	backend            InstanceMutaterState
+	machineService     MachineService
+	applicationService ApplicationService
+	logger             logger.Logger
 }
 
-func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*machineLXDProfileWatcher, error) {
+func newMachineLXDProfileWatcher(ctx context.Context, config MachineLXDProfileWatcherConfig) (*machineLXDProfileWatcher, error) {
 	w := &machineLXDProfileWatcher{
 		// We use a single entry buffered channel for the changes.
 		// This allows the config changed handler to send a value when there
 		// is a change, but if that value hasn't been consumed before the
 		// next change, the second change is discarded.
-		changes:        make(chan struct{}, 1),
-		initialized:    make(chan struct{}),
-		applications:   make(map[string]appInfo),
-		machine:        config.machine,
-		machineService: config.machineService,
-		backend:        config.backend,
-		logger:         config.logger,
+		changes:            make(chan struct{}, 1),
+		initialized:        make(chan struct{}),
+		applications:       make(map[string]appInfo),
+		machine:            config.machine,
+		machineService:     config.machineService,
+		applicationService: config.applicationService,
+		backend:            config.backend,
+		logger:             config.logger,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -130,7 +135,7 @@ func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*machin
 	// execute immediately because it is a buffered channel.
 	w.changes <- struct{}{}
 
-	if err := w.init(); err != nil {
+	if err := w.init(ctx); err != nil {
 		return nil, errors.Annotate(err, "seeding the lxd profile watcher cache")
 	}
 	close(w.initialized)
@@ -140,6 +145,9 @@ func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*machin
 }
 
 func (w *machineLXDProfileWatcher) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	appWatcher := w.backend.WatchApplicationCharms()
 	if err := w.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
@@ -152,11 +160,11 @@ func (w *machineLXDProfileWatcher) loop() error {
 	if err := w.catacomb.Add(unitWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	machineUUID, err := w.machineService.GetMachineUUID(context.TODO(), coremachine.Name(w.machine.Id()))
+	machineUUID, err := w.machineService.GetMachineUUID(ctx, coremachine.Name(w.machine.Id()))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instanceWatcher, err := w.machineService.WatchLXDProfiles(context.TODO(), machineUUID)
+	instanceWatcher, err := w.machineService.WatchLXDProfiles(ctx, machineUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +179,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 		case apps := <-appWatcher.Changes():
 			w.logger.Tracef("application charm changes: %v", apps)
 			for _, appName := range apps {
-				if err := w.applicationCharmURLChange(appName); err != nil {
+				if err := w.applicationCharmURLChange(ctx, appName); err != nil {
 					return errors.Annotatef(err, "processing change for application %q", appName)
 				}
 			}
@@ -208,7 +216,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 		case <-instanceWatcher.Changes():
 			id := w.machine.Id()
 			w.logger.Tracef("instance changes machine-%s", id)
-			if err := w.provisionedChange(); err != nil {
+			if err := w.provisionedChange(ctx); err != nil {
 				return errors.Annotatef(err, "processing change for machine-%s", id)
 			}
 		}
@@ -240,7 +248,7 @@ func (w *machineLXDProfileWatcher) unitMachineID(u Unit) (string, error) {
 }
 
 // init sets up the initial data used to determine when a notify occurs.
-func (w *machineLXDProfileWatcher) init() error {
+func (w *machineLXDProfileWatcher) init(ctx context.Context) error {
 	units, err := w.machine.Units()
 	if err != nil {
 		return errors.Annotatef(err, "failed to get units to start machineLXDProfileWatcher")
@@ -269,17 +277,39 @@ func (w *machineLXDProfileWatcher) init() error {
 			}
 		}
 
-		cURL := app.CharmURL()
+		charmURLStr := app.CharmURL()
+		// Defensive check, shouldn't be nil.
+		if charmURLStr == nil {
+			continue
+		}
 		info := appInfo{
-			charmURL: *cURL,
+			charmURL: *charmURLStr,
 			units:    set.NewStrings(unitName),
 		}
 
-		ch, err := w.backend.Charm(*cURL)
+		curl, err := charm.ParseURL(*charmURLStr)
+		if err != nil {
+			return errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
+		}
+		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmID, err := w.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+			Source:   source,
+			Name:     curl.Name,
+			Revision: &curl.Revision,
+		})
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			return errors.NotFoundf("charm %q", curl)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, charmID)
 		if err != nil {
 			return err
 		}
-		lxdProfile := ch.LXDProfile()
 		if !lxdProfile.Empty() {
 			info.charmProfile = lxdProfile
 		}
@@ -292,7 +322,7 @@ func (w *machineLXDProfileWatcher) init() error {
 // applicationCharmURLChange sends a notification if what is saved for its
 // charm lxdprofile changes.  No notification is sent if the profile pointer
 // begins and ends as nil.
-func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) error {
+func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context, appName string) error {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -317,23 +347,43 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 
 	info, ok := w.applications[appName]
 	if ok {
-		cURL := app.CharmURL()
+		charmURLStr := app.CharmURL()
+		// Defensive check, shouldn't be nil.
 		// Have we already seen this charm URL change?
-		if info.charmURL == *cURL {
+		if charmURLStr == nil || info.charmURL == *charmURLStr {
 			return nil
 		}
-		ch, err := w.backend.Charm(*cURL)
-		if errors.Is(err, errors.NotFound) {
-			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *cURL, w.machine.Id())
+		curl, err := charm.ParseURL(*charmURLStr)
+		if err != nil {
+			return errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
+		}
+		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmID, err := w.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+			Source:   source,
+			Name:     curl.Name,
+			Revision: &curl.Revision,
+		})
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
 			return nil
 		} else if err != nil {
-			return errors.Annotatef(err, "error getting charm %s to evaluate for lxd profile notification", *cURL)
+			return errors.Trace(err)
+		}
+
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, charmID)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
+			return nil
+		} else if err != nil {
+			return errors.Annotatef(err, "error getting charm %s to evaluate for lxd profile notification", *charmURLStr)
 		}
 
 		// notify if:
 		// 1. the prior charm had a profile and the new one does not.
 		// 2. the new profile is not empty.
-		lxdProfile := ch.LXDProfile()
 		if (!info.charmProfile.Empty() && lxdProfile.Empty()) || !lxdProfile.Empty() {
 			w.logger.Debugf("notifying due to change of charm lxd profile for app %s, machine-%s", appName, w.machine.Id())
 			notify = true
@@ -342,7 +392,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 		}
 
 		info.charmProfile = lxdProfile
-		info.charmURL = *cURL
+		info.charmURL = *charmURLStr
 		w.applications[appName] = info
 	} else {
 		w.logger.Tracef("not watching %s on machine-%s", appName, w.machine.Id())
@@ -379,15 +429,32 @@ func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
 		if info.charmURL != chURL {
 			continue
 		}
+		curl, err := charm.ParseURL(chURL)
+		if err != nil {
+			return errors.Annotatef(err, "parsing charm URL %q", chURL)
+		}
+		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmID, err := w.applicationService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+			Source:   source,
+			Name:     curl.Name,
+			Revision: &curl.Revision,
+		})
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			return errors.NotFoundf("charm %q", curl)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
 
-		ch, err := w.backend.Charm(chURL)
-		if errors.Is(err, errors.NotFound) {
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), charmID)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
 			continue
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		lxdProfile := ch.LXDProfile()
 		// notify if:
 		// 1. the prior charm had a profile and the new one does not.
 		// 2. the new profile is not empty.
@@ -452,8 +519,8 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 
 	_, ok := w.applications[appName]
 	if !ok {
-		curl := unit.CharmURL()
-		if curl == nil {
+		charmURLStr := unit.CharmURL()
+		if charmURLStr == nil {
 			// this happens for new units to existing machines.
 			app, err := unit.Application()
 			if errors.Is(err, errors.NotFound) {
@@ -462,24 +529,43 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			} else if err != nil {
 				return false, errors.Annotatef(err, "failed to get application %s for machine-%s", appName, w.machine.Id())
 			}
-			curl = app.CharmURL()
+			charmURLStr = app.CharmURL()
 		}
 
-		ch, err := w.backend.Charm(*curl)
-		if errors.Is(err, errors.NotFound) {
+		curl, err := charm.ParseURL(*charmURLStr)
+		if err != nil {
+			return false, errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
+		}
+		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		charmID, err := w.applicationService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+			Source:   source,
+			Name:     curl.Name,
+			Revision: &curl.Revision,
+		})
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			w.logger.Debugf("charm %s removed for %s on machine-%s", *curl, unitName, w.machine.Id())
+			return false, nil
+		} else if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), charmID)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", *curl, unitName, w.machine.Id())
 			return false, nil
 		} else if err != nil {
 			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", *curl, appName, w.machine.Id())
 		}
 		info := appInfo{
-			charmURL: *curl,
+			charmURL: *charmURLStr,
 			units:    set.NewStrings(unitName),
 		}
 
-		lxdProfile := ch.LXDProfile()
 		if !lxdProfile.Empty() {
-			info.charmProfile = lxdprofile.Profile{
+			info.charmProfile = charm.LXDProfile{
 				Config:      lxdProfile.Config,
 				Description: lxdProfile.Description,
 				Devices:     lxdProfile.Devices,
@@ -492,7 +578,8 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 		}
 		w.applications[appName].units.Add(unitName)
 	}
-	if !w.applications[appName].charmProfile.Empty() {
+	charmProfile := w.applications[appName].charmProfile
+	if !charmProfile.Empty() {
 		return true, nil
 	}
 	return false, nil
@@ -550,7 +637,7 @@ func (w *machineLXDProfileWatcher) removeUnit(unitName string) error {
 
 // provisionedChanged notifies when called.  Topic subscribed to is specific to
 // this machine.
-func (w *machineLXDProfileWatcher) provisionedChange() error {
+func (w *machineLXDProfileWatcher) provisionedChange(ctx context.Context) error {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -562,11 +649,11 @@ func (w *machineLXDProfileWatcher) provisionedChange() error {
 		return nil
 	}
 
-	machineUUID, err := w.machineService.GetMachineUUID(context.TODO(), coremachine.Name(w.machine.Id()))
+	machineUUID, err := w.machineService.GetMachineUUID(ctx, coremachine.Name(w.machine.Id()))
 	if err != nil {
 		return err
 	}
-	_, err = w.machineService.InstanceID(context.TODO(), machineUUID)
+	_, err = w.machineService.InstanceID(ctx, machineUUID)
 	if errors.Is(err, errors.NotProvisioned) {
 		w.logger.Debugf("machine-%s not provisioned yet", w.machine.Id())
 		return nil
@@ -578,4 +665,11 @@ func (w *machineLXDProfileWatcher) provisionedChange() error {
 	w.logger.Debugf("notifying due to machine-%s now provisioned", w.machine.Id())
 	w.notify()
 	return nil
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *machineLXDProfileWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	coretesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -18,13 +19,14 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -33,13 +35,14 @@ import (
 type instanceMutaterAPISuite struct {
 	coretesting.IsolationSuite
 
-	authorizer     *facademocks.MockAuthorizer
-	entity         *mocks.MockEntity
-	lifer          *mocks.MockLifer
-	state          *mocks.MockInstanceMutaterState
-	machineService *mocks.MockMachineService
-	mutatorWatcher *mocks.MockInstanceMutatorWatcher
-	resources      *facademocks.MockResources
+	authorizer         *facademocks.MockAuthorizer
+	entity             *mocks.MockEntity
+	lifer              *mocks.MockLifer
+	state              *mocks.MockInstanceMutaterState
+	machineService     *mocks.MockMachineService
+	applicationService *mocks.MockApplicationService
+	mutatorWatcher     *mocks.MockInstanceMutatorWatcher
+	resources          *facademocks.MockResources
 
 	machineTag  names.Tag
 	notifyDone  chan struct{}
@@ -64,12 +67,13 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	s.mutatorWatcher = mocks.NewMockInstanceMutatorWatcher(ctrl)
 	s.resources = facademocks.NewMockResources(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 
 	return ctrl
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewTestAPI(c, s.state, s.machineService, s.mutatorWatcher, s.resources, s.authorizer)
+	facade, err := instancemutater.NewTestAPI(c, s.state, s.machineService, s.applicationService, s.mutatorWatcher, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -235,7 +239,6 @@ type InstanceMutaterAPICharmProfilingInfoSuite struct {
 	machine     *mocks.MockMachine
 	unit        *mocks.MockUnit
 	application *mocks.MockApplication
-	charm       *mocks.MockCharm
 }
 
 var _ = gc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
@@ -246,7 +249,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Contr
 	s.machine = mocks.NewMockMachine(ctrl)
 	s.unit = mocks.NewMockUnit(ctrl)
 	s.application = mocks.NewMockApplication(ctrl)
-	s.charm = mocks.NewMockCharm(ctrl)
 
 	return ctrl
 }
@@ -258,7 +260,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	s.expectLife(s.machineTag)
 	s.expectMachine(s.machineTag, s.machine)
 	s.expectUnits(state.Alive)
-	s.expectProfileExtraction()
+	s.expectProfileExtraction(c)
 	s.expectName()
 	facade := s.facadeAPIForScenario(c)
 
@@ -303,8 +305,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	s.expectLife(s.machineTag)
 	s.expectMachine(s.machineTag, s.machine)
 	s.expectUnits(state.Alive, state.Alive, state.Dead)
-	s.expectProfileExtraction()
-	s.expectProfileExtractionWithEmpty()
+	s.expectProfileExtraction(c)
+	s.expectProfileExtractionWithEmpty(c)
 	s.expectName()
 	facade := s.facadeAPIForScenario(c)
 
@@ -392,9 +394,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUnits(lives ...state.L
 	machineExp.Units().Return(units, nil)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *gc.C) {
 	appExp := s.application.EXPECT()
-	charmExp := s.charm.EXPECT()
 	stateExp := s.state.EXPECT()
 	unitExp := s.unit.EXPECT()
 
@@ -402,25 +403,37 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
 	stateExp.Application("foo").Return(s.application, nil)
 	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
-	stateExp.Charm(chURLStr).Return(s.charm, nil)
-	chURL := charm.MustParseURL(chURLStr)
-	charmExp.Revision().Return(chURL.Revision)
-	charmExp.LXDProfile().Return(lxdprofile.Profile{
-		Config: map[string]string{
-			"security.nesting": "true",
-		},
-		Description: "dummy profile description",
-		Devices: map[string]map[string]string{
-			"tun": {
-				"path": "/dev/net/tun",
-			},
-		},
-	})
+	s.assertCharmWithLXDProfile(c, chURLStr)
+
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty() {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithLXDProfile(c *gc.C, chURLStr string) {
+	curl, err := internalcharm.ParseURL(chURLStr)
+	c.Assert(err, jc.ErrorIsNil)
+	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   source,
+		Name:     curl.Name,
+		Revision: ptr(curl.Revision),
+	}).Return(charm.ID("foo"), nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
+		Return(internalcharm.LXDProfile{
+			Config: map[string]string{
+				"security.nesting": "true",
+			},
+			Description: "dummy profile description",
+			Devices: map[string]map[string]string{
+				"tun": {
+					"path": "/dev/net/tun",
+				},
+			},
+		}, 0, nil)
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty(c *gc.C) {
 	appExp := s.application.EXPECT()
-	charmExp := s.charm.EXPECT()
 	stateExp := s.state.EXPECT()
 	unitExp := s.unit.EXPECT()
 
@@ -428,10 +441,22 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 	stateExp.Application("foo").Return(s.application, nil)
 	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
-	stateExp.Charm(chURLStr).Return(s.charm, nil)
-	chURL := charm.MustParseURL(chURLStr)
-	charmExp.Revision().Return(chURL.Revision)
-	charmExp.LXDProfile().Return(lxdprofile.Profile{})
+	s.assertCharmWithoutLXDProfile(c, chURLStr)
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithoutLXDProfile(c *gc.C, chURLStr string) {
+	curl, err := internalcharm.ParseURL(chURLStr)
+	c.Assert(err, jc.ErrorIsNil)
+	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+		Source:   source,
+		Name:     curl.Name,
+		Revision: ptr(curl.Revision),
+	}).Return(charm.ID("foo"), nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
+		Return(internalcharm.LXDProfile{}, 0, nil)
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectName() {
@@ -843,7 +868,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
@@ -854,14 +879,14 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Return(s.watcher, errors.New("watcher error"))
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, errors.New("watcher error"))
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine() {
@@ -870,7 +895,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(true, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, gomock.Any()).Times(0)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Times(0)
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {
@@ -957,4 +982,8 @@ func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithClosed
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().WatchContainers(instance.LXD).Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

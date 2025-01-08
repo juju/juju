@@ -6,7 +6,6 @@ package instancemutater
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
 
@@ -44,16 +43,6 @@ func (s *instanceMutaterStateShim) Unit(unitName string) (Unit, error) {
 	}, nil
 }
 
-func (s *instanceMutaterStateShim) Charm(curl string) (Charm, error) {
-	ch, err := s.State.Charm(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &charmShim{
-		CharmRefFull: ch,
-	}, nil
-}
-
 func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
 	m, err := s.State.Machine(machineId)
 	if err != nil {
@@ -62,27 +51,6 @@ func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
 	return &machineShim{
 		Machine: m,
 	}, nil
-}
-
-// charmShim is used as a shim for a state Charm to enable better
-// mock testing.
-type charmShim struct {
-	state.CharmRefFull
-}
-
-func (s *charmShim) LXDProfile() lxdprofile.Profile {
-	// TODO(nvinuesa): LXDProfile is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-7076
-	// profile := s.CharmRefFull.LXDProfile()
-	// if profile == nil {
-	// 	return lxdprofile.Profile{}
-	// }
-	// return lxdprofile.Profile{
-	// 	Config:      profile.Config,
-	// 	Description: profile.Description,
-	// 	Devices:     profile.Devices,
-	// }
-	return lxdprofile.Profile{}
 }
 
 // unitShim is used as a shim for a state Unit to enable better

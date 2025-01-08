@@ -12,12 +12,16 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -56,32 +60,51 @@ type MachineService interface {
 	WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error)
 }
 
+// ApplicationService is an interface for the application domain service.
+type ApplicationService interface {
+	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
+	// if the charm can not be found by the name.
+	// This can also be used as a cheap way to see if a charm exists without
+	// needing to load the charm metadata.
+	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+	// GetCharmLXDProfile returns the LXD profile along with the revision of the
+	// charm using the charm ID. The revision
+	//
+	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+	// returned.
+	GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (charm.LXDProfile, applicationcharm.Revision, error)
+}
+
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
-	machineService MachineService
-	st             InstanceMutaterState
-	watcher        InstanceMutatorWatcher
-	resources      facade.Resources
-	authorizer     facade.Authorizer
-	getAuthFunc    common.GetAuthFunc
-	logger         logger.Logger
+	machineService     MachineService
+	applicationService ApplicationService
+	st                 InstanceMutaterState
+	watcher            InstanceMutatorWatcher
+	resources          facade.Resources
+	authorizer         facade.Authorizer
+	getAuthFunc        common.GetAuthFunc
+	logger             logger.Logger
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
 type InstanceMutatorWatcher interface {
-	WatchLXDProfileVerificationForMachine(Machine, logger.Logger) (state.NotifyWatcher, error)
+	WatchLXDProfileVerificationForMachine(context.Context, Machine, logger.Logger) (state.NotifyWatcher, error)
 }
 
 type instanceMutatorWatcher struct {
-	st             InstanceMutaterState
-	machineService MachineService
+	st                 InstanceMutaterState
+	machineService     MachineService
+	applicationService ApplicationService
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
-func NewInstanceMutaterAPI(st InstanceMutaterState,
+func NewInstanceMutaterAPI(
+	st InstanceMutaterState,
 	machineService MachineService,
+	applicationService ApplicationService,
 	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -93,13 +116,15 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
-		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
-		st:          st,
-		watcher:     watcher,
-		resources:   resources,
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
-		logger:      logger,
+		LifeGetter:         common.NewLifeGetter(st, getAuthFunc),
+		st:                 st,
+		watcher:            watcher,
+		resources:          resources,
+		authorizer:         authorizer,
+		getAuthFunc:        getAuthFunc,
+		machineService:     machineService,
+		applicationService: applicationService,
+		logger:             logger,
 	}, nil
 }
 
@@ -286,14 +311,14 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(ctx context.Con
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		entityResult, err := api.watchOneEntityApplication(canAccess, tag)
+		entityResult, err := api.watchOneEntityApplication(ctx, canAccess, tag)
 		result.Results[i] = entityResult
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
+func (api *InstanceMutaterAPI) watchOneEntityApplication(ctx context.Context, canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	machine, err := api.getMachine(canAccess, tag)
 	if err != nil {
@@ -306,7 +331,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	if isManual {
 		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
 	}
-	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(machine, api.logger)
+	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(ctx, machine, api.logger)
 	if err != nil {
 		return result, err
 	}
@@ -330,13 +355,17 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 //     gets updated once the download is complete.
 //  4. The machine's instanceId is changed, indicating it
 //     has been provisioned.
-func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
-	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		machine:        machine,
-		backend:        w.st,
-		machineService: w.machineService,
-		logger:         logger,
-	})
+func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(ctx context.Context, machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
+	return newMachineLXDProfileWatcher(
+		ctx,
+		MachineLXDProfileWatcherConfig{
+			machine:            machine,
+			backend:            w.st,
+			machineService:     w.machineService,
+			applicationService: w.applicationService,
+			logger:             logger,
+		},
+	)
 }
 
 func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
@@ -389,8 +418,31 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 				Error: apiservererrors.ServerError(err)})
 			continue
 		}
-		cURL := app.CharmURL()
-		ch, err := api.st.Charm(*cURL)
+		charmURLStr := app.CharmURL()
+		// Defensive check, shouldn't be nil.
+		if charmURLStr == nil {
+			continue
+		}
+		curl, err := charm.ParseURL(*charmURLStr)
+		if err != nil {
+			return empty, errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
+		}
+		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		if err != nil {
+			return empty, errors.Trace(err)
+		}
+		charmID, err := api.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+			Source:   source,
+			Name:     curl.Name,
+			Revision: &curl.Revision,
+		})
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			return empty, errors.NotFoundf("charm %q", curl)
+		} else if err != nil {
+			return empty, errors.Trace(err)
+		}
+
+		lxdProfile, _, err := api.applicationService.GetCharmLXDProfile(ctx, charmID)
 		if err != nil {
 			changeResults = append(changeResults, params.ProfileInfoResult{
 				Error: apiservererrors.ServerError(err)})
@@ -398,7 +450,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		}
 
 		var normalised *params.CharmLXDProfile
-		if profile := ch.LXDProfile(); !profile.Empty() {
+		if profile := lxdProfile; !profile.Empty() {
 			normalised = &params.CharmLXDProfile{
 				Config:      profile.Config,
 				Description: profile.Description,
@@ -407,7 +459,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		}
 		changeResults = append(changeResults, params.ProfileInfoResult{
 			ApplicationName: appName,
-			Revision:        ch.Revision(),
+			Revision:        curl.Revision,
 			Profile:         normalised,
 		})
 	}

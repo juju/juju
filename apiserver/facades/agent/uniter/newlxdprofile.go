@@ -104,31 +104,8 @@ func (s LXDProfileStateV2) Unit(id string) (LXDProfileUnitV2, error) {
 	return s.st.Unit(id)
 }
 
-func (s LXDProfileStateV2) Charm(curl string) (LXDProfileCharmV2, error) {
-	c, err := s.st.Charm(curl)
-	return &lxdProfileCharmV2{c}, err
-}
-
 type lxdProfileMachineV2 struct {
 	*state.Machine
-}
-
-type lxdProfileCharmV2 struct {
-	state.CharmRefFull
-}
-
-func (c *lxdProfileCharmV2) LXDProfile() lxdprofile.Profile {
-	// TODO(nvinuesa): IsUploaded is not implemented yet.
-	// See https://warthogs.atlassian.net/browse/JUJU-6845
-	// profile := c.Charm.LXDProfile()
-	// if profile == nil {
-	// 	return lxdprofile.Profile{}
-	// }
-	return lxdprofile.Profile{
-		// Config:      profile.Config,
-		// Description: profile.Description,
-		// Devices:     profile.Devices,
-	}
 }
 
 // NewExternalLXDProfileAPIv2 can be used for API registration.

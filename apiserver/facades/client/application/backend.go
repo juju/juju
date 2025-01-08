@@ -314,14 +314,6 @@ func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state
 	return api.Save(relationKey, false, cidrs)
 }
 
-func (s stateShim) Charm(curl string) (Charm, error) {
-	ch, err := s.State.Charm(curl)
-	if err != nil {
-		return nil, err
-	}
-	return stateCharmShim{CharmRefFull: ch}, nil
-}
-
 func (s stateShim) Model() (Model, error) {
 	m, err := s.State.Model()
 	if err != nil {
@@ -446,10 +438,6 @@ func (a stateApplicationShim) SetCharm(
 	objStore objectstore.ObjectStore,
 ) error {
 	return a.Application.SetCharm(config, objStore)
-}
-
-type stateCharmShim struct {
-	state.CharmRefFull
 }
 
 type stateMachineShim struct {
