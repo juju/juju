@@ -4,14 +4,13 @@
 package apiserver_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -24,17 +23,22 @@ import (
 type UnitResourcesHandlerSuite struct {
 	testing.IsolationSuite
 
-	stub     *testing.Stub
+	opener *MockOpener
+
 	urlStr   string
 	recorder *httptest.ResponseRecorder
 }
 
 var _ = gc.Suite(&UnitResourcesHandlerSuite{})
 
+func (s *UnitResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.opener = NewMockOpener(ctrl)
+	return ctrl
+}
+
 func (s *UnitResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	s.stub = new(testing.Stub)
 
 	args := url.Values{}
 	args.Add(":unit", "foo/0")
@@ -44,12 +48,8 @@ func (s *UnitResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.recorder = httptest.NewRecorder()
 }
 
-func (s *UnitResourcesHandlerSuite) closer() bool {
-	s.stub.AddCall("Close")
-	return false
-}
-
 func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	handler := &apiserver.UnitResourcesHandler{}
 
 	req, err := http.NewRequest("POST", s.urlStr, nil)
@@ -58,10 +58,10 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 	handler.ServeHTTP(s.recorder, req)
 
 	c.Assert(s.recorder.Code, gc.Equals, http.StatusMethodNotAllowed)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
 	handler := &apiserver.UnitResourcesHandler{
 		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
@@ -82,15 +82,12 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 }
 
 func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
-	opener := &stubResourceOpener{
-		Stub: s.stub,
-	}
+	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
-	s.stub.SetErrors(failure)
+	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(resource.Opened{}, failure)
 	handler := &apiserver.UnitResourcesHandler{
 		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
-			s.stub.AddCall("NewOpener", kinds)
-			return opener, apiservertesting.StubPoolHelper{StubRelease: s.closer}, nil
+			return s.opener, apiservertesting.StubPoolHelper{StubRelease: func() bool { return true }}, nil
 		},
 	}
 
@@ -100,26 +97,20 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 	handler.ServeHTTP(s.recorder, req)
 
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expectedBody)
-	s.stub.CheckCalls(c, []testing.StubCall{
-		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
-		{"OpenResource", []interface{}{"blob"}},
-		{"Close", nil},
-	})
 }
 
 func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	const body = "some data"
 	opened := resourcetesting.NewResource(c, new(testing.Stub), "blob", "app", body)
-	opener := &stubResourceOpener{
-		Stub:               s.stub,
-		ReturnOpenResource: opened,
-	}
 	handler := &apiserver.UnitResourcesHandler{
 		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
-			s.stub.AddCall("NewOpener", kinds)
-			return opener, apiservertesting.StubPoolHelper{StubRelease: s.closer}, nil
+			return s.opener, apiservertesting.StubPoolHelper{StubRelease: func() bool { return true }}, nil
 		},
 	}
+
+	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(opened, nil)
+	s.opener.EXPECT().SetResourceUsed(gomock.Any(), "blob").Return(nil)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,34 +118,8 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 	handler.ServeHTTP(s.recorder, req)
 
 	s.checkResp(c, http.StatusOK, "application/octet-stream", body)
-	s.stub.CheckCalls(c, []testing.StubCall{
-		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
-		{"OpenResource", []interface{}{"blob"}},
-		{"SetResourceUsed", []interface{}{"blob"}},
-		{"Close", nil},
-	})
 }
+
 func (s *UnitResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
 	checkHTTPResp(c, s.recorder, status, ctype, body)
-}
-
-type stubResourceOpener struct {
-	*testing.Stub
-	ReturnOpenResource resource.Opened
-}
-
-func (s *stubResourceOpener) OpenResource(_ context.Context, name string) (resource.Opened, error) {
-	s.AddCall("OpenResource", name)
-	if err := s.NextErr(); err != nil {
-		return resource.Opened{}, err
-	}
-	return s.ReturnOpenResource, nil
-}
-
-func (s *stubResourceOpener) SetResourceUsed(_ context.Context, name string) error {
-	s.AddCall("SetResourceUsed", name)
-	if err := s.NextErr(); err != nil {
-		return err
-	}
-	return nil
 }
