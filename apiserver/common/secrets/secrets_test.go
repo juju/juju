@@ -60,10 +60,11 @@ var (
 		BackendConfig: provider.BackendConfig{
 			BackendType: kubernetes.BackendType,
 			Config: provider.ConfigAttrs{
-				"endpoint":            "http://nowhere",
-				"ca-certs":            []string{"cert-data"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-				"is-controller-cloud": true,
+				"endpoint":                 "http://nowhere",
+				"ca-certs":                 []string{"cert-data"},
+				"namespace":                "fred",
+				"token":                    "bar",
+				"prefer-incluster-address": true,
 			},
 		},
 	}
@@ -183,8 +184,8 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 			IsControllerCloud: true,
 		}
 		cred := mocks.NewMockCredential(ctrl)
-		cred.EXPECT().AuthType().Return("access-key")
-		cred.EXPECT().Attributes().Return(map[string]string{"foo": "bar"})
+		cred.EXPECT().AuthType().Return("oauth2")
+		cred.EXPECT().Attributes().Return(map[string]string{"Token": "bar"})
 		model.EXPECT().Cloud().Return(cld, nil)
 		model.EXPECT().CloudCredential().Return(cred, nil)
 	}

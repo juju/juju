@@ -27,17 +27,16 @@ import (
 )
 
 var (
-	PrepareWorkloadSpec       = prepareWorkloadSpec
-	OperatorPod               = operatorPod
-	FindControllerNamespace   = findControllerNamespace
-	GetLocalMicroK8sConfig    = getLocalMicroK8sConfig
-	AttemptMicroK8sCloud      = attemptMicroK8sCloud
-	AttemptMicroK8sCredential = attemptMicroK8sCredential
-	EnsureMicroK8sSuitable    = ensureMicroK8sSuitable
-	NewK8sBroker              = newK8sBroker
-	ToYaml                    = toYaml
-	Indent                    = indent
-	ProcessSecretData         = processSecretData
+	PrepareWorkloadSpec     = prepareWorkloadSpec
+	OperatorPod             = operatorPod
+	FindControllerNamespace = findControllerNamespace
+	GetLocalMicroK8sConfig  = getLocalMicroK8sConfig
+	AttemptMicroK8sCloud    = attemptMicroK8sCloud
+	EnsureMicroK8sSuitable  = ensureMicroK8sSuitable
+	NewK8sBroker            = newK8sBroker
+	ToYaml                  = toYaml
+	Indent                  = indent
+	ProcessSecretData       = processSecretData
 
 	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
@@ -47,7 +46,6 @@ var (
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	UpdateStrategyForDaemonSet   = updateStrategyForDaemonSet
 	DecideKubeConfigDir          = decideKubeConfigDir
-	RulesForSecretAccess         = rulesForSecretAccess
 )
 
 type (
