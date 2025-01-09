@@ -64,7 +64,7 @@ func handleDebugLogDBRequest(
 			}
 
 			lineCount++
-			if reqParams.noTail && reqParams.initialLines > 0 && lineCount == reqParams.initialLines {
+			if reqParams.maxLines > 0 && lineCount == reqParams.maxLines {
 				return nil
 			}
 		}
@@ -76,7 +76,7 @@ func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		StartTime:     reqParams.startTime,
-		InitialLines:  int(reqParams.initialLines),
+		InitialLines:  int(reqParams.backlog),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,

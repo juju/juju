@@ -147,6 +147,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--include-module=juju.provisioner",
 		"--lines=500",
 		"--level=WARNING",
+		"--no-tail",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fake.params, gc.DeepEquals, common.DebugLogParams{
@@ -155,6 +156,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		ExcludeEntity: []string{"machine-1-lxd-1"},
 		Backlog:       500,
 		Level:         loggo.WARNING,
+		NoTail:        true,
 	})
 }
 
