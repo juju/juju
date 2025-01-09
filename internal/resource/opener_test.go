@@ -354,11 +354,11 @@ func (s *OpenerSuite) newUnitResourceOpener(c *gc.C, maxRequests int) coreresour
 		limiter = s.limiter
 	}
 
-	// Service calls in NewResourceOpener.
+	// Service calls in NewResourceOpenerForUnit.
 	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), s.unitName).Return(s.appID, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), s.unitName).Return(s.unitUUID, nil)
 
-	// State calls in NewResourceOpener.
+	// State calls in NewResourceOpenerForUnit.
 	s.state.EXPECT().Unit(s.unitName.String()).Return(s.stateUnit, nil)
 	s.stateUnit.EXPECT().ApplicationName().Return(s.appName)
 	s.state.EXPECT().Application(s.appName).Return(s.stateApplication, nil)
@@ -366,7 +366,7 @@ func (s *OpenerSuite) newUnitResourceOpener(c *gc.C, maxRequests int) coreresour
 	s.state.EXPECT().ModelUUID().Return("uuid")
 	s.stateApplication.EXPECT().CharmOrigin().Return(&s.charmOrigin)
 
-	opener, err := newResourceOpener(
+	opener, err := newResourceOpenerForUnit(
 		context.Background(),
 		s.state,
 		ResourceOpenerArgs{
@@ -384,10 +384,10 @@ func (s *OpenerSuite) newUnitResourceOpener(c *gc.C, maxRequests int) coreresour
 }
 
 func (s *OpenerSuite) newApplicationResourceOpener(c *gc.C) coreresource.Opener {
-	// Service calls in NewResourceOpener.
+	// Service calls in NewResourceOpenerForApplication.
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), s.appName).Return(s.appID, nil)
 
-	// State calls in NewResourceOpener.
+	// State calls in NewResourceOpenerForApplication.
 	s.state.EXPECT().Application(s.appName).Return(s.stateApplication, nil)
 	s.stateApplication.EXPECT().CharmURL().Return(ptr(s.charmURL.String()), false)
 	s.state.EXPECT().ModelUUID().Return("uuid")

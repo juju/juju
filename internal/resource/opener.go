@@ -36,17 +36,17 @@ type ResourceOpenerArgs struct {
 	CharmhubClientGetter ResourceClientGetter
 }
 
-// NewResourceOpener returns a new resource.Opener for the given unit.
+// NewResourceOpenerForUnit returns a new resource.Opener for the given unit.
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
-func NewResourceOpener(
+func NewResourceOpenerForUnit(
 	ctx context.Context,
 	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName coreunit.Name,
 ) (opener coreresource.Opener, err error) {
-	return newResourceOpener(
+	return newResourceOpenerForUnit(
 		ctx,
 		stateShim{args.State},
 		args,
@@ -55,7 +55,7 @@ func NewResourceOpener(
 	)
 }
 
-func newResourceOpener(
+func newResourceOpenerForUnit(
 	ctx context.Context,
 	state DeprecatedState,
 	args ResourceOpenerArgs,

@@ -831,7 +831,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(domainServices.Config()),
 			}
 
-			opener, err := resource.NewResourceOpener(
+			opener, err := resource.NewResourceOpenerForUnit(
 				req.Context(),
 				args,
 				srv.getResourceDownloadLimiter,
