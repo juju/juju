@@ -13,9 +13,11 @@ import (
 	context "context"
 	reflect "reflect"
 
+	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	application "github.com/juju/juju/domain/application"
+	charm0 "github.com/juju/juju/domain/application/charm"
 	config "github.com/juju/juju/environs/config"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
@@ -281,6 +283,46 @@ func (c *MockApplicationServiceGetApplicationsForRevisionUpdaterCall) Do(f func(
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetApplicationsForRevisionUpdaterCall) DoAndReturn(f func(context.Context) ([]application.RevisionUpdaterApplication, error)) *MockApplicationServiceGetApplicationsForRevisionUpdaterCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ReserveCharmRevision mocks base method.
+func (m *MockApplicationService) ReserveCharmRevision(arg0 context.Context, arg1 charm0.SetCharmArgs) (charm.ID, []string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReserveCharmRevision", arg0, arg1)
+	ret0, _ := ret[0].(charm.ID)
+	ret1, _ := ret[1].([]string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ReserveCharmRevision indicates an expected call of ReserveCharmRevision.
+func (mr *MockApplicationServiceMockRecorder) ReserveCharmRevision(arg0, arg1 any) *MockApplicationServiceReserveCharmRevisionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReserveCharmRevision", reflect.TypeOf((*MockApplicationService)(nil).ReserveCharmRevision), arg0, arg1)
+	return &MockApplicationServiceReserveCharmRevisionCall{Call: call}
+}
+
+// MockApplicationServiceReserveCharmRevisionCall wrap *gomock.Call
+type MockApplicationServiceReserveCharmRevisionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceReserveCharmRevisionCall) Return(arg0 charm.ID, arg1 []string, arg2 error) *MockApplicationServiceReserveCharmRevisionCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceReserveCharmRevisionCall) Do(f func(context.Context, charm0.SetCharmArgs) (charm.ID, []string, error)) *MockApplicationServiceReserveCharmRevisionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceReserveCharmRevisionCall) DoAndReturn(f func(context.Context, charm0.SetCharmArgs) (charm.ID, []string, error)) *MockApplicationServiceReserveCharmRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

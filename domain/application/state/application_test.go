@@ -2430,6 +2430,7 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
 				Architecture: architecture.ARM64,
 			},
 			Revision: 42,
+			ID:       "ident",
 		},
 		NumUnits: 0,
 	}, {
@@ -2452,6 +2453,7 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
 				Architecture: architecture.ARM64,
 			},
 			Revision: 42,
+			ID:       "ident",
 		},
 		NumUnits: 1,
 	}})

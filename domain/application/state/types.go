@@ -661,6 +661,7 @@ type revisionUpdaterApplication struct {
 	PlatformOSID           sql.NullInt64 `db:"platform_os_id"`
 	PlatformChannel        string        `db:"platform_channel"`
 	PlatformArchitectureID sql.NullInt64 `db:"platform_architecture_id"`
+	CharmhubIdentifier     string        `db:"charmhub_identifier"`
 }
 
 type revisionUpdaterApplicationNumUnits struct {

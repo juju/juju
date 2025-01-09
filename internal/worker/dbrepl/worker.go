@@ -246,14 +246,14 @@ func (w *dbReplWorker) loop() (err error) {
 
 func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 	if len(args) != 1 {
-		fmt.Fprintln(w.cfg.Stderr, "usage: .switch <name>")
+		fmt.Fprintln(w.cfg.Stderr, "usage: .switch model-<name> or .switch controller for global controller database")
 		return
 	}
 
 	argName := args[0]
 	if argName == "controller" {
 		w.currentDB = w.controllerDB
-		w.currentNamespace = "*"
+		w.currentNamespace = argName
 		return
 	}
 
@@ -426,15 +426,14 @@ func filterInput(r rune) (rune, bool) {
 const helpText = `
 The following commands are available:
 
-  .exit, .quit       Exit the REPL.
-  .help, .h          Show this help message.
-  .models            Show all models.
-  .switch <model>    Switch to a different model (or global database).
-  .tables            Show all standard tables in the current database.
-  .triggers          Show all trigger tables in the current database.
-  .views             Show all views in the current database.
-  .ddl <name>        Show the DDL for the specified table, trigger, or view.
+  .exit, .quit             Exit the REPL.
+  .help, .h                Show this help message.
+  .models                  Show all models.
+  .switch model-<model>    Switch to a different model.
+  .switch controller       Switch to the controller global database.
+  .tables                  Show all standard tables in the current database.
+  .triggers                Show all trigger tables in the current database.
+  .views                   Show all views in the current database.
+  .ddl <name>              Show the DDL for the specified table, trigger, or view.
 
-The global database can be accessed by using the '*' or 'global' keyword
-when switching databases. 
 `
