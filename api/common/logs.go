@@ -40,6 +40,7 @@ type DebugLogParams struct {
 	ExcludeModule []string
 	// ExcludeLabel lists logging labels to exclude from the response.
 	ExcludeLabel []string
+
 	// Limit defines the maximum number of lines to return. Once this many
 	// have been sent, the socket is closed.  If zero, all filtered lines are
 	// sent down the connection until the client closes the connection.
