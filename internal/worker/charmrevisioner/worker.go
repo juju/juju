@@ -68,7 +68,7 @@ type ApplicationService interface {
 	// ReserveCharmRevision reserves a charm revision for the given charm id.
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
-	ReserveCharmRevision(ctx context.Context, args applicationcharm.SetCharmArgs) (corecharm.ID, []string, error)
+	ReserveCharmRevision(ctx context.Context, args applicationcharm.ReserveCharmRevisionArgs) (corecharm.ID, []string, error)
 }
 
 // ModelService provides access to the model.
@@ -390,9 +390,9 @@ func (w *revisionUpdateWorker) fetchInfo(ctx context.Context, client CharmhubCli
 
 	var latest []latestCharmInfo
 	for i, result := range response {
-		// The platform can't change during the lifecycle of an application,
-		// with at least intervention from the user. We therefore must use
-		// the platform from the origin of the application.
+		// The application platform architecture can't change during the
+		// lifecycle of an application. We therefore must use the platform from
+		// the origin of the application.
 		origin := apps[i].origin
 		arch, err := encodeArchitecture(origin.Platform.Architecture)
 		if err != nil {
@@ -488,7 +488,7 @@ func (w *revisionUpdateWorker) storeNewRevision(ctx context.Context, info latest
 	downloadInfo := essentialMetadata.DownloadInfo
 	origin := essentialMetadata.ResolvedOrigin
 
-	_, warnings, err := service.ReserveCharmRevision(ctx, applicationcharm.SetCharmArgs{
+	_, warnings, err := service.ReserveCharmRevision(ctx, applicationcharm.ReserveCharmRevisionArgs{
 		Charm: internalcharm.NewCharmBase(
 			essentialMetadata.Meta,
 			essentialMetadata.Manifest,

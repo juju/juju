@@ -1659,6 +1659,54 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	metadata := &internalcharm.Meta{
+		Name: "foo",
+	}
+	manifest := &internalcharm.Manifest{
+		Bases: []internalcharm.Base{{
+			Name:          "ubuntu",
+			Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+			Architectures: []string{"arm64"},
+		}},
+	}
+	config := &internalcharm.Config{}
+	actions := &internalcharm.Actions{}
+	lxdProfile := &internalcharm.LXDProfile{}
+
+	downloadInfo := &charm.DownloadInfo{
+		Provenance:         charm.ProvenanceDownload,
+		CharmhubIdentifier: "foo",
+		DownloadURL:        "http://example.com/foo",
+		DownloadSize:       42,
+	}
+
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	ch, _, err := encodeCharm(charmBase)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch.Source = charm.CharmHubSource
+	ch.ReferenceName = "foo"
+	ch.Revision = 1
+	ch.Hash = "hash"
+	ch.Architecture = architecture.AMD64
+
+	s.state.EXPECT().SetCharm(gomock.Any(), ch, downloadInfo, false).Return(corecharm.ID("id"), charm.CharmLocator{}, nil)
+
+	_, _, err = s.service.ReserveCharmRevision(context.Background(), charm.ReserveCharmRevisionArgs{
+		Charm:         charmBase,
+		Source:        corecharm.CharmHub,
+		ReferenceName: "foo",
+		Revision:      1,
+		Hash:          "hash",
+		Architecture:  arch.AMD64,
+		DownloadInfo:  downloadInfo,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 

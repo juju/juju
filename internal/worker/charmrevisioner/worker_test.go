@@ -763,7 +763,7 @@ func (s *WorkerSuite) TestStoreNewRevisions(c *gc.C) {
 	}}
 	essentialMetadata := latestCharmInfos[0].essentialMetadata
 
-	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), applicationcharm.SetCharmArgs{
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), applicationcharm.ReserveCharmRevisionArgs{
 		Charm: internalcharm.NewCharmBase(
 			essentialMetadata.Meta,
 			essentialMetadata.Manifest,

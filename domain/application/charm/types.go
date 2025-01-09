@@ -97,6 +97,34 @@ type SetCharmArgs struct {
 	RequiresSequencing bool
 }
 
+// ReserveCharmRevisionArgs holds the arguments for the ReserveCharmRevision method.
+type ReserveCharmRevisionArgs struct {
+	// Charm is the charm to set.
+	Charm internalcharm.Charm
+	// Source is the source of the charm.
+	Source charm.Source
+	// ReferenceName is the given name of the charm that is stored in the
+	// persistent storage. The proxy name should either be the application name
+	// or the charm metadata name.
+	//
+	// The name of a charm can differ from the charm name stored in the metadata
+	// in the cases where the application name is selected by the user. In order
+	// to select that charm again via the name, we need to use the proxy name to
+	// locate it. You can't go via the application and select it via the
+	// application name, as no application might be referencing it at that
+	// specific revision. The only way to then locate the charm directly via the
+	// name is use the proxy name.
+	ReferenceName string
+	// Revision is the revision of the charm.
+	Revision int
+	// Hash is the sha256 of the charm.
+	Hash string
+	// Architecture is the architecture of the charm.
+	Architecture arch.Arch
+	// DownloadInfo holds the information needed to download a charmhub charm.
+	DownloadInfo *DownloadInfo
+}
+
 // ResolveUploadCharm holds the arguments for the ResolveUploadCharm method.
 type ResolveUploadCharm struct {
 	// Name is the name of the charm.
