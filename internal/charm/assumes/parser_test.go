@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -357,50 +356,4 @@ func (s *ParserSuite) TestMarshalToJSON(c *gc.C) {
 	err = enc.Encode(dst)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf.String(), gc.Equals, payload, gc.Commentf("serialized assumes block not matching original input"))
-}
-
-func (s *ParserSuite) TestMarshalToBSONAndBack(c *gc.C) {
-	payload := `
-{
-  "assumes": [
-    "chips",
-    {
-      "any-of": [
-        "guacamole",
-        "salsa",
-        {
-          "any-of": [
-            "good-weather",
-            "great-music"
-          ]
-        }
-      ]
-    },
-    {
-      "all-of": [
-        "table",
-        "lazy-suzan"
-      ]
-    }
-  ]
-}
-`[1:]
-
-	src := struct {
-		Assumes *ExpressionTree `json:"assumes,omitempty" bson:"assumes,omitempty"`
-	}{}
-	err := json.NewDecoder(strings.NewReader(payload)).Decode(&src)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Marshal to bson
-	marshaledBSON, err := bson.Marshal(src)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Unmarshal expression tree
-	dst := struct {
-		Assumes *ExpressionTree `json:"assumes,omitempty" bson:"assumes,omitempty"`
-	}{}
-	err = bson.Unmarshal(marshaledBSON, &dst)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(src, gc.DeepEquals, dst, gc.Commentf("serialized assumes block not matching original input"))
 }

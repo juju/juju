@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/arch"
 )
@@ -232,42 +231,6 @@ func (u *URL) Path() string {
 // String returns the string representation of the URL.
 func (u *URL) String() string {
 	return u.FullPath()
-}
-
-// GetBSON turns u into a bson.Getter so it can be saved directly
-// on a MongoDB database with mgo.
-//
-// TODO (stickupkid): This should not be here, as this is purely for mongo
-// data stores and that should be implemented at the site of data store, not
-// dependant on the library.
-func (u *URL) GetBSON() (interface{}, error) {
-	if u == nil {
-		return nil, nil
-	}
-	return u.String(), nil
-}
-
-// SetBSON turns u into a bson.Setter so it can be loaded directly
-// from a MongoDB database with mgo.
-//
-// TODO (stickupkid): This should not be here, as this is purely for mongo
-// data stores and that should be implemented at the site of data store, not
-// dependant on the library.
-func (u *URL) SetBSON(raw bson.Raw) error {
-	if raw.Kind == 10 {
-		return bson.SetZero
-	}
-	var s string
-	err := raw.Unmarshal(&s)
-	if err != nil {
-		return err
-	}
-	url, err := ParseURL(s)
-	if err != nil {
-		return err
-	}
-	*u = *url
-	return nil
 }
 
 // MarshalJSON will marshal the URL into a slice of bytes in a JSON

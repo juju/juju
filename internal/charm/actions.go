@@ -26,7 +26,7 @@ func GetActionNameRule() *regexp.Regexp {
 // Actions defines the available actions for the charm. Additional params
 // may be added as metadata at a future time (e.g. version.)
 type Actions struct {
-	ActionSpecs map[string]ActionSpec `yaml:"actions,omitempty" bson:",omitempty"`
+	ActionSpecs map[string]ActionSpec `yaml:"actions,omitempty"`
 }
 
 // Build this out further if it becomes necessary.

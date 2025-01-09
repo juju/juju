@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -214,10 +213,6 @@ var codecs = []struct {
 	Marshal   func(interface{}) ([]byte, error)
 	Unmarshal func([]byte, interface{}) error
 }{{
-	Name:      "bson",
-	Marshal:   bson.Marshal,
-	Unmarshal: bson.Unmarshal,
-}, {
 	Name:      "json",
 	Marshal:   json.Marshal,
 	Unmarshal: json.Unmarshal,
@@ -231,7 +226,7 @@ func (s *URLSuite) TestURLCodecs(c *gc.C) {
 	for i, codec := range codecs {
 		c.Logf("codec %d: %v", i, codec.Name)
 		type doc struct {
-			URL *charm.URL `json:",omitempty" bson:",omitempty" yaml:",omitempty"`
+			URL *charm.URL `json:",omitempty" yaml:",omitempty"`
 		}
 		url := charm.MustParseURL("ch:name")
 		v0 := doc{URL: url}

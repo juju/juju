@@ -15,9 +15,9 @@ import (
 // Base represents an OS/Channel.
 // Bases can also be converted to and from a series string.
 type Base struct {
-	Name          string   `bson:"name,omitempty" json:"name,omitempty"`
-	Channel       Channel  `bson:"channel,omitempty" json:"channel,omitempty"`
-	Architectures []string `bson:"architectures,omitempty" json:"architectures,omitempty"`
+	Name          string   `json:"name,omitempty"`
+	Channel       Channel  `json:"channel,omitempty"`
+	Architectures []string `json:"architectures,omitempty"`
 }
 
 // Validate returns with no error when the Base is valid.

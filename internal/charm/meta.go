@@ -57,45 +57,45 @@ type Storage struct {
 	// Name is the name of the store.
 	//
 	// Name has no default, and must be specified.
-	Name string `bson:"name"`
+	Name string
 
 	// Description is a description of the store.
 	//
 	// Description has no default, and is optional.
-	Description string `bson:"description"`
+	Description string
 
 	// Type is the storage type: filesystem or block-device.
 	//
 	// Type has no default, and must be specified.
-	Type StorageType `bson:"type"`
+	Type StorageType
 
 	// Shared indicates that the storage is shared between all units of
 	// an application deployed from the charm. It is an error to attempt to
 	// assign non-shareable storage to a "shared" storage requirement.
 	//
 	// Shared defaults to false.
-	Shared bool `bson:"shared"`
+	Shared bool
 
 	// ReadOnly indicates that the storage should be made read-only if
 	// possible. If the storage cannot be made read-only, Juju will warn
 	// the user.
 	//
 	// ReadOnly defaults to false.
-	ReadOnly bool `bson:"read-only"`
+	ReadOnly bool
 
 	// CountMin is the number of storage instances that must be attached
 	// to the charm for it to be useful; the charm will not install until
 	// this number has been satisfied. This must be a non-negative number.
 	//
 	// CountMin defaults to 1 for singleton stores.
-	CountMin int `bson:"countmin"`
+	CountMin int
 
 	// CountMax is the largest number of storage instances that can be
 	// attached to the charm. If CountMax is -1, then there is no upper
 	// bound.
 	//
 	// CountMax defaults to 1 for singleton stores.
-	CountMax int `bson:"countmax"`
+	CountMax int
 
 	// MinimumSize is the minimum size of store that the charm needs to
 	// work at all. This is not a recommended size or a comfortable size
@@ -105,14 +105,14 @@ type Storage struct {
 	//
 	// There is no default MinimumSize; if left unspecified, a provider
 	// specific default will be used, typically 1GB for block storage.
-	MinimumSize uint64 `bson:"minimum-size"`
+	MinimumSize uint64
 
 	// Location is the mount location for filesystem stores. For multi-
 	// stores, the location acts as the parent directory for each mounted
 	// store.
 	//
 	// Location has no default, and is optional.
-	Location string `bson:"location,omitempty"`
+	Location string
 
 	// Properties allow the charm author to characterise the relative storage
 	// performance requirements and sensitivities for each store.
@@ -120,7 +120,7 @@ type Storage struct {
 	// such as tmpfs or ephemeral instance disks.
 	//
 	// Properties has no default, and is optional.
-	Properties []string `bson:"properties,omitempty"`
+	Properties []string
 }
 
 // DeviceType defines a device type.
@@ -129,34 +129,34 @@ type DeviceType string
 // Device represents a charm's device requirement (GPU for example).
 type Device struct {
 	// Name is the name of the device.
-	Name string `bson:"name"`
+	Name string
 
 	// Description is a description of the device.
-	Description string `bson:"description"`
+	Description string
 
 	// Type is the device type.
 	// currently supported types are
 	// - gpu
 	// - nvidia.com/gpu
 	// - amd.com/gpu
-	Type DeviceType `bson:"type"`
+	Type DeviceType
 
 	// CountMin is the min number of devices that the charm requires.
-	CountMin int64 `bson:"countmin"`
+	CountMin int64
 
 	// CountMax is the max number of devices that the charm requires.
-	CountMax int64 `bson:"countmax"`
+	CountMax int64
 }
 
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
-	Name      string        `bson:"name"`
-	Role      RelationRole  `bson:"role"`
-	Interface string        `bson:"interface"`
-	Optional  bool          `bson:"optional"`
-	Limit     int           `bson:"limit"`
-	Scope     RelationScope `bson:"scope"`
+	Name      string
+	Role      RelationRole
+	Interface string
+	Optional  bool
+	Limit     int
+	Scope     RelationScope
 }
 
 // ImplementedBy returns whether the relation is implemented by the supplied charm.
@@ -213,40 +213,40 @@ const (
 // Meta represents all the known content that may be defined
 // within a charm's metadata.yaml file.
 type Meta struct {
-	Name           string                   `bson:"name" json:"Name"`
-	Summary        string                   `bson:"summary" json:"Summary"`
-	Description    string                   `bson:"description" json:"Description"`
-	Subordinate    bool                     `bson:"subordinate" json:"Subordinate"`
-	Provides       map[string]Relation      `bson:"provides,omitempty" json:"Provides,omitempty"`
-	Requires       map[string]Relation      `bson:"requires,omitempty" json:"Requires,omitempty"`
-	Peers          map[string]Relation      `bson:"peers,omitempty" json:"Peers,omitempty"`
-	ExtraBindings  map[string]ExtraBinding  `bson:"extra-bindings,omitempty" json:"ExtraBindings,omitempty"`
-	Categories     []string                 `bson:"categories,omitempty" json:"Categories,omitempty"`
-	Tags           []string                 `bson:"tags,omitempty" json:"Tags,omitempty"`
-	Storage        map[string]Storage       `bson:"storage,omitempty" json:"Storage,omitempty"`
-	Devices        map[string]Device        `bson:"devices,omitempty" json:"Devices,omitempty"`
-	Resources      map[string]resource.Meta `bson:"resources,omitempty" json:"Resources,omitempty"`
-	Terms          []string                 `bson:"terms,omitempty" json:"Terms,omitempty"`
-	MinJujuVersion version.Number           `bson:"min-juju-version,omitempty" json:"min-juju-version,omitempty"`
+	Name           string                   `json:"Name"`
+	Summary        string                   `json:"Summary"`
+	Description    string                   `json:"Description"`
+	Subordinate    bool                     `json:"Subordinate"`
+	Provides       map[string]Relation      `json:"Provides,omitempty"`
+	Requires       map[string]Relation      `json:"Requires,omitempty"`
+	Peers          map[string]Relation      `json:"Peers,omitempty"`
+	ExtraBindings  map[string]ExtraBinding  `json:"ExtraBindings,omitempty"`
+	Categories     []string                 `json:"Categories,omitempty"`
+	Tags           []string                 `json:"Tags,omitempty"`
+	Storage        map[string]Storage       `json:"Storage,omitempty"`
+	Devices        map[string]Device        `json:"Devices,omitempty"`
+	Resources      map[string]resource.Meta `json:"Resources,omitempty"`
+	Terms          []string                 `json:"Terms,omitempty"`
+	MinJujuVersion version.Number           `json:"min-juju-version,omitempty"`
 
 	// v2
-	Containers map[string]Container    `bson:"containers,omitempty" json:"containers,omitempty" yaml:"containers,omitempty"`
-	Assumes    *assumes.ExpressionTree `bson:"assumes,omitempty" json:"assumes,omitempty" yaml:"assumes,omitempty"`
-	CharmUser  RunAs                   `bson:"charm-user,omitempty" json:"charm-user,omitempty" yaml:"charm-user,omitempty"`
+	Containers map[string]Container    `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Assumes    *assumes.ExpressionTree `json:"assumes,omitempty" yaml:"assumes,omitempty"`
+	CharmUser  RunAs                   `json:"charm-user,omitempty" yaml:"charm-user,omitempty"`
 }
 
 // Container specifies the possible systems it supports and mounts it wants.
 type Container struct {
-	Resource string  `bson:"resource,omitempty" json:"resource,omitempty" yaml:"resource,omitempty"`
-	Mounts   []Mount `bson:"mounts,omitempty" json:"mounts,omitempty" yaml:"mounts,omitempty"`
-	Uid      *int    `bson:"uid,omitempty" json:"uid,omitempty" yaml:"uid,omitempty"`
-	Gid      *int    `bson:"gid,omitempty" json:"gid,omitempty" yaml:"gid,omitempty"`
+	Resource string  `json:"resource,omitempty" yaml:"resource,omitempty"`
+	Mounts   []Mount `json:"mounts,omitempty" yaml:"mounts,omitempty"`
+	Uid      *int    `json:"uid,omitempty" yaml:"uid,omitempty"`
+	Gid      *int    `json:"gid,omitempty" yaml:"gid,omitempty"`
 }
 
 // Mount allows a container to mount a storage filesystem from the storage top-level directive.
 type Mount struct {
-	Storage  string `bson:"storage,omitempty" json:"storage,omitempty" yaml:"storage,omitempty"`
-	Location string `bson:"location,omitempty" json:"location,omitempty" yaml:"location,omitempty"`
+	Storage  string `json:"storage,omitempty" yaml:"storage,omitempty"`
+	Location string `json:"location,omitempty" yaml:"location,omitempty"`
 }
 
 func generateRelationHooks(relName string, allHooks map[string]bool) {
