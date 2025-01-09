@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevision
+package charmrevisioner
 
 import (
 	"context"
@@ -371,8 +371,8 @@ func (w *revisionUpdateWorker) fetchInfo(ctx context.Context, client CharmhubCli
 	return latest, nil
 }
 
-// charmhubLatestCharmInfo fetches the latest information about the given
-// charms from charmhub's "charm_refresh" API.
+// request fetches the latest information about the given charms from charmhub's
+// "charm_refresh" API.
 func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClient, metrics charmhub.Metrics, ids []charmhubID) ([]charmhubResult, error) {
 	configs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
@@ -411,8 +411,6 @@ func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClien
 }
 
 func (w *revisionUpdateWorker) getCharmhubClient(ctx context.Context) (CharmhubClient, error) {
-	// Get a new downloader, this ensures that we've got a fresh
-	// connection to the charm store.
 	httpClient, err := w.config.NewHTTPClient(ctx, w.config.HTTPClientGetter)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
