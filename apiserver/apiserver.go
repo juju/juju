@@ -51,9 +51,11 @@ import (
 	"github.com/juju/juju/core/presence"
 	coreresource "github.com/juju/juju/core/resource"
 	coretrace "github.com/juju/juju/core/trace"
+	coreunit "github.com/juju/juju/core/unit"
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
+	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
@@ -807,27 +809,34 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			store, err := httpCtxt.objectStoreForRequest(req.Context())
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
 
 			tagStr := req.URL.Query().Get(":unit")
 			tag, err := names.ParseUnitTag(tagStr)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+			unitName, err := coreunit.NewName(tag.Id())
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+
 			domainServices, err := httpCtxt.domainServicesForRequest(req.Context())
 			if err != nil {
 				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 			}
-
 			args := resource.ResourceOpenerArgs{
-				State:              st.State,
-				ModelConfigService: domainServices.Config(),
-				Store:              store,
+				State:                st.State,
+				ApplicationService:   domainServices.Application(),
+				ResourceService:      domainServices.Resource(),
+				CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(domainServices.Config()),
 			}
-			opener, err := resource.NewResourceOpener(args, srv.getResourceDownloadLimiter, tag.Id())
+
+			opener, err := resource.NewResourceOpenerForUnit(
+				req.Context(),
+				args,
+				srv.getResourceDownloadLimiter,
+				unitName,
+			)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}

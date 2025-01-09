@@ -34,4 +34,7 @@ type Opener interface {
 	// OpenResource returns an opened resource with a reader that will
 	// stream the resource content.
 	OpenResource(ctx context.Context, name string) (Opened, error)
+
+	// SetResource records that the resource is currently in use.
+	SetResourceUsed(ctx context.Context, resName string) error
 }

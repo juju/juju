@@ -33,6 +33,7 @@ import (
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
+	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -135,6 +136,8 @@ type ModelDomainServices interface {
 	Stub() *stubservice.StubService
 	// BlockCommand returns the service for blocking commands.
 	BlockCommand() *blockcommandservice.Service
+	// Resource returns resource service.
+	Resource() *resourceservice.Service
 }
 
 // DomainServices provides access to the services required by the apiserver.

@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/resource"
+	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -88,7 +89,7 @@ type API struct {
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, error) {
+func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 
 	st := ctx.State()
@@ -99,6 +100,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	modelInfoService := domainServices.ModelInfo()
 	storageService := domainServices.Storage()
 	applicationService := domainServices.Application()
+	resourceService := domainServices.Resource()
 
 	sb, err := state.NewStorageBackend(st)
 	if err != nil {
@@ -118,11 +120,12 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 
 	newResourceOpener := func(appName string) (coreresource.Opener, error) {
 		args := resource.ResourceOpenerArgs{
-			State:              st,
-			ModelConfigService: modelConfigService,
-			Store:              ctx.ObjectStore(),
+			State:                st,
+			ResourceService:      resourceService,
+			ApplicationService:   applicationService,
+			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(modelConfigService),
 		}
-		return resource.NewResourceOpenerForApplication(args, appName)
+		return resource.NewResourceOpenerForApplication(stdCtx, args, appName)
 	}
 
 	systemState, err := ctx.StatePool().SystemState()
@@ -892,6 +895,12 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 				break
 			}
 			imageResources.Images[v.Name] = rsc
+			err = resourceClient.SetResourceUsed(ctx, v.Name)
+			if err != nil {
+				a.logger.Errorf("setting resource %s of application %s as in use: %w", v.Name, appName, err)
+				res.Results[i].Error = apiservererrors.ServerError(err)
+				break
+			}
 		}
 		if res.Results[i].Error != nil {
 			continue

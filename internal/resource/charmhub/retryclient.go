@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource
+package charmhub
 
 import (
 	"fmt"
@@ -11,17 +11,22 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
 )
 
 // ResourceRetryClient is a wrapper around a Juju repository client that
 // retries GetResource() calls.
 type ResourceRetryClient struct {
-	ResourceGetter
-	retryArgs retry.CallArgs
+	ResourceClient
+	// RetryArgs defines the behaviour of the Call function.
+	RetryArgs retry.CallArgs
+	logger    logger.Logger
 }
 
-func newRetryClient(client ResourceGetter) *ResourceRetryClient {
+// NewRetryClient creates a new retry client for getting the resources with the
+// resource getter.
+func NewRetryClient(client ResourceClient, logger logger.Logger) *ResourceRetryClient {
 	retryArgs := retry.CallArgs{
 		// (anastasiamac 2017-05-25) This might not work as the error types
 		// may be lost after a call to some clients.
@@ -39,19 +44,20 @@ func newRetryClient(client ResourceGetter) *ResourceRetryClient {
 		Clock: clock.WallClock,
 	}
 	return &ResourceRetryClient{
-		ResourceGetter: client,
-		retryArgs:      retryArgs,
+		ResourceClient: client,
+		RetryArgs:      retryArgs,
+		logger:         logger,
 	}
 }
 
 // GetResource returns a reader for the resource's data.
 func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData, error) {
-	args := client.retryArgs // a copy
+	args := client.RetryArgs // a copy
 
 	var data ResourceData
 	args.Func = func() error {
 		var err error
-		data, err = client.ResourceGetter.GetResource(req)
+		data, err = client.ResourceClient.GetResource(req)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -72,9 +78,9 @@ func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
-		logger.Warningf("attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
-			i, client.retryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
-		logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
+		client.logger.Warningf("attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
+			i, client.RetryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
+		client.logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}
 
