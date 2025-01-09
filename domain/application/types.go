@@ -98,6 +98,9 @@ type ServiceAddress struct {
 
 // Origin contains parameters for an application's origin.
 type Origin struct {
+	ID       string
+	Channel  Channel
+	Platform Platform
 	Revision int
 }
 
@@ -232,4 +235,13 @@ type ResolvedControllerCharmDownload struct {
 	Charm           internalcharm.Charm
 	ArchivePath     string
 	ObjectStoreUUID objectstore.UUID
+}
+
+// RevisionUpdaterApplication is responsible for updating the revision of an
+// application.
+type RevisionUpdaterApplication struct {
+	Name         string
+	CharmLocator domaincharm.CharmLocator
+	Origin       Origin
+	NumUnits     int
 }

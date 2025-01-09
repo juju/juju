@@ -54,7 +54,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that it was written correctly.
-	model, err := state.Model(context.Background())
+	model, err := state.GetModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, coremodel.ReadOnlyModel{
 		UUID:            id,
@@ -97,7 +97,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 
 	// Check that it was written correctly.
-	_, err = state.Model(context.Background())
+	_, err = state.GetModel(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -204,6 +204,66 @@ func (s *modelSuite) TestModelNotFound(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.Model(context.Background())
+	_, err := state.GetModel(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelSuite) TestGetModelMetrics(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	id := modeltesting.GenModelUUID(c)
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:            id,
+		AgentVersion:    jujuversion.Current,
+		ControllerUUID:  s.controllerUUID,
+		Name:            "my-awesome-model",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudType:       "ec2",
+		CloudRegion:     "myregion",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
+		CredentialName:  "mycredential",
+	}
+	err := state.Create(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(context.Background(), `
+		INSERT INTO charm (uuid, reference_name) VALUES ('456', 'foo');
+		`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(context.Background(), `
+		INSERT INTO application (uuid, name, life_id, charm_uuid) VALUES ('123', 'foo', 0, '456');
+		`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that it was written correctly.
+	model, err := state.GetModelMetrics(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(model, jc.DeepEquals, coremodel.ModelMetrics{
+		Model: coremodel.ReadOnlyModel{
+			UUID:            id,
+			AgentVersion:    jujuversion.Current,
+			ControllerUUID:  s.controllerUUID,
+			Name:            "my-awesome-model",
+			Type:            coremodel.IAAS,
+			Cloud:           "aws",
+			CloudType:       "ec2",
+			CloudRegion:     "myregion",
+			CredentialOwner: usertesting.GenNewName(c, "myowner"),
+			CredentialName:  "mycredential",
+		},
+		ApplicationCount: 1,
+		MachineCount:     0,
+		UnitCount:        0,
+	})
+}
+
+func (s *modelSuite) TestGetModelMetricsNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelMetrics(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }

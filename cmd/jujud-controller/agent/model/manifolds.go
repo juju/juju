@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
-	"github.com/juju/juju/internal/worker/charmrevision"
+	"github.com/juju/juju/internal/worker/charmrevisioner"
 	"github.com/juju/juju/internal/worker/cleaner"
 	"github.com/juju/juju/internal/worker/common"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
@@ -292,14 +292,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		charmRevisionUpdaterName: ifNotMigrating(charmrevision.Manifold(charmrevision.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Period:        config.CharmRevisionUpdateInterval,
-
-			NewFacade: charmrevision.NewAPIFacade,
-			NewWorker: charmrevision.NewWorker,
-			Logger:    config.LoggingContext.GetLogger("juju.worker.charmrevision"),
+		charmRevisionerName: ifResponsible(charmrevisioner.Manifold(charmrevisioner.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			HTTPClientName:     httpClientName,
+			NewHTTPClient:      charmrevisioner.NewHTTPClient,
+			NewCharmhubClient:  charmrevisioner.NewCharmhubClient,
+			Period:             config.CharmRevisionUpdateInterval,
+			NewWorker:          charmrevisioner.NewWorker,
+			ModelTag:           modelTag,
+			Clock:              config.Clock,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevisioner"),
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,
@@ -639,7 +641,7 @@ const (
 	actionPrunerName             = "action-pruner"
 	applicationScalerName        = "application-scaler"
 	asyncCharmDownloader         = "async-charm-downloader"
-	charmRevisionUpdaterName     = "charm-revision-updater"
+	charmRevisionerName          = "charm-revisioner"
 	computeProvisionerName       = "compute-provisioner"
 	domainServicesName           = "domain-services"
 	firewallerName               = "firewaller"

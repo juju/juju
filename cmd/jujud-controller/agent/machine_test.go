@@ -72,15 +72,6 @@ type MachineSuite struct {
 
 var _ = gc.Suite(&MachineSuite{})
 
-// noopRevisionUpdater creates a stub to prevent outbound requests to the
-// charmhub store and the charmstore. As these are meant to be unit tests, we
-// should strive to remove outbound calls to external services.
-type noopRevisionUpdater struct{}
-
-func (noopRevisionUpdater) UpdateLatestRevisions(context.Context) error {
-	return nil
-}
-
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'
 // for amd64 are returned if that is not the current host's architecture.

@@ -2400,6 +2400,63 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *gc.C)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmProvenanceNotValid)
 }
 
+func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
+	// Create a few applications.
+	s.createApplication(c, "foo", life.Alive)
+	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: "bar/0",
+	})
+
+	// Get the applications for the revision updater.
+	apps, err := s.state.GetApplicationsForRevisionUpdater(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(apps, jc.DeepEquals, []application.RevisionUpdaterApplication{{
+		Name: "foo",
+		CharmLocator: charm.CharmLocator{
+			Name:         "foo",
+			Revision:     42,
+			Source:       charm.CharmHubSource,
+			Architecture: architecture.AMD64,
+		},
+		Origin: application.Origin{
+			Channel: application.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Platform: application.Platform{
+				Channel:      "22.04/stable",
+				OSType:       application.Ubuntu,
+				Architecture: architecture.ARM64,
+			},
+			Revision: 42,
+		},
+		NumUnits: 0,
+	}, {
+		Name: "bar",
+		CharmLocator: charm.CharmLocator{
+			Name:         "bar",
+			Revision:     42,
+			Source:       charm.CharmHubSource,
+			Architecture: architecture.AMD64,
+		},
+		Origin: application.Origin{
+			Channel: application.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Platform: application.Platform{
+				Channel:      "22.04/stable",
+				OSType:       application.Ubuntu,
+				Architecture: architecture.ARM64,
+			},
+			Revision: 42,
+		},
+		NumUnits: 1,
+	}})
+}
+
 func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	platform := application.Platform{
 		Channel:      "22.04/stable",

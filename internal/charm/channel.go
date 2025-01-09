@@ -20,6 +20,11 @@ const (
 	Edge      Risk = "edge"
 )
 
+// String returns the string representation of the risk.
+func (r Risk) String() string {
+	return string(r)
+}
+
 // Risks is a list of the available channel risks.
 var Risks = []Risk{
 	Stable,

@@ -41,7 +41,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"api-config-watcher",
 		"application-scaler",
 		"async-charm-downloader",
-		"charm-revision-updater",
+		"charm-revisioner",
 		"clock",
 		"compute-provisioner",
 		"domain-services",
@@ -91,7 +91,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"caas-model-config-manager",
 		"caas-model-operator",
 		"caas-storage-provisioner",
-		"charm-revision-updater",
+		"charm-revisioner",
 		"clock",
 		"domain-services",
 		"http-client",
@@ -298,13 +298,12 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 	},
 
-	"charm-revision-updater": {
+	"charm-revisioner": {
 		"agent",
 		"api-caller",
+		"domain-services",
+		"http-client",
 		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
 	},
 
 	"clock": {},
@@ -423,13 +422,13 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 	},
 
-	"charm-revision-updater": {
+	"charm-revisioner": {
 		"agent",
 		"api-caller",
+		"domain-services",
+		"http-client",
 		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag"},
+	},
 
 	"clock": {},
 

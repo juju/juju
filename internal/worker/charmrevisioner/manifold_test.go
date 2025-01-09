@@ -1,16 +1,20 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package asynccharmdownloader
+package charmrevisioner
 
 import (
+	"time"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type ManifoldConfigSuite struct {
@@ -27,13 +31,15 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func validConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DomainServicesName:     "domain-services",
-		HTTPClientName:         "http-client",
-		NewDownloader:          NewDownloader,
-		NewHTTPClient:          NewHTTPClient,
-		NewAsyncDownloadWorker: NewAsyncDownloadWorker,
-		Logger:                 loggertesting.WrapCheckLog(c),
-		Clock:                  clock.WallClock,
+		DomainServicesName: "domain-services",
+		HTTPClientName:     "http-client",
+		NewHTTPClient:      NewHTTPClient,
+		NewCharmhubClient:  NewCharmhubClient,
+		NewWorker:          NewWorker,
+		Period:             time.Second,
+		ModelTag:           names.NewModelTag(uuid.MustNewUUID().String()),
+		Logger:             loggertesting.WrapCheckLog(c),
+		Clock:              clock.WallClock,
 	}
 }
 
@@ -51,19 +57,29 @@ func (s *ManifoldConfigSuite) TestMissingHTTPClientName(c *gc.C) {
 	s.checkNotValid(c, "empty HTTPClientName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewDownloader(c *gc.C) {
-	s.config.NewDownloader = nil
-	s.checkNotValid(c, "nil NewDownloader not valid")
-}
-
 func (s *ManifoldConfigSuite) TestMissingNewHTTPClient(c *gc.C) {
 	s.config.NewHTTPClient = nil
 	s.checkNotValid(c, "nil NewHTTPClient not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewAsyncDownloadWorker(c *gc.C) {
-	s.config.NewAsyncDownloadWorker = nil
-	s.checkNotValid(c, "nil NewAsyncDownloadWorker not valid")
+func (s *ManifoldConfigSuite) TestMissingNewCharmhubClient(c *gc.C) {
+	s.config.NewCharmhubClient = nil
+	s.checkNotValid(c, "nil NewCharmhubClient not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
+	s.config.NewWorker = nil
+	s.checkNotValid(c, "nil NewWorker not valid")
+}
+
+func (s *ManifoldConfigSuite) TestInvalidPeriod(c *gc.C) {
+	s.config.Period = 0
+	s.checkNotValid(c, "invalid Period not valid")
+}
+
+func (s *ManifoldConfigSuite) TestInvalidModelTag(c *gc.C) {
+	s.config.ModelTag = names.ModelTag{}
+	s.checkNotValid(c, "invalid ModelTag not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {

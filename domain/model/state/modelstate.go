@@ -105,10 +105,10 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// Model returns a read-only model information that has been set in the database.
-// If no model has been set then an error satisfying [modelerrors.NotFound] is
-// returned.
-func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+// GetModel returns a read-only model information that has been set in the
+// database. If no model has been set then an error satisfying
+// [modelerrors.NotFound] is returned.
+func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, error) {
 	db, err := s.DB()
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, errors.Capture(err)
@@ -178,6 +178,45 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 		)
 	}
 	return model, nil
+}
+
+// GetModelMetrics returns a read-only model information that has been set in the
+// database. If no model has been set then an error satisfying
+// [modelerrors.NotFound] is returned.
+func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetrics, error) {
+	readOnlyModel, err := s.GetModel(ctx)
+	if err != nil {
+		return coremodel.ModelMetrics{}, err
+	}
+
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.ModelMetrics{}, errors.Capture(err)
+	}
+
+	var modelMetrics dbModelMetrics
+	stmt, err := s.Prepare(`SELECT &dbModelMetrics.* FROM v_model_metrics;`, modelMetrics)
+	if err != nil {
+		return coremodel.ModelMetrics{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&modelMetrics)
+		if err != nil {
+			return errors.Errorf("getting model metrics: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return coremodel.ModelMetrics{}, err
+	}
+
+	return coremodel.ModelMetrics{
+		Model:            readOnlyModel,
+		ApplicationCount: modelMetrics.ApplicationCount,
+		MachineCount:     modelMetrics.MachineCount,
+		UnitCount:        modelMetrics.UnitCount,
+	}, nil
 }
 
 // CreateReadOnlyModel is responsible for creating a new model within the model

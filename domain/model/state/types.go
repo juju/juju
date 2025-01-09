@@ -322,6 +322,12 @@ type dbReadOnlyModel struct {
 	IsControllerModel  bool           `db:"is_controller_model"`
 }
 
+type dbModelMetrics struct {
+	ApplicationCount int `db:"application_count"`
+	MachineCount     int `db:"machine_count"`
+	UnitCount        int `db:"unit_count"`
+}
+
 type dbCloudType struct {
 	Type string `db:"type"`
 }

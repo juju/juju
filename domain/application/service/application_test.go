@@ -1528,6 +1528,22 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	apps := []application.RevisionUpdaterApplication{
+		{
+			Name: "foo",
+		},
+	}
+
+	s.state.EXPECT().GetApplicationsForRevisionUpdater(gomock.Any()).Return(apps, nil)
+
+	results, err := s.service.GetApplicationsForRevisionUpdater(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, apps)
+}
+
 type applicationWatcherServiceSuite struct {
 	testing.IsolationSuite
 
