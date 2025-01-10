@@ -67,23 +67,24 @@ func render(data map[string]*keyInfo) string {
 
 		if info.SetByJuju {
 			mainDoc += "*Note: This value is set by Juju.*\n\n"
-		}
-		if info.Immutable {
-			mainDoc += "*Note: This value cannot be changed after model creation.* \n\n"
-		}
-		if info.Mandatory {
-			mainDoc += "*Note: This value must be set.* \n\n"
+		} else {
+			// Only print these if the value can be set by a user, otherwise it is of no use.
+			if info.Immutable {
+				mainDoc += "*Note: This value cannot be changed after model creation.* \n\n"
+			}
+			if info.Mandatory {
+				mainDoc += "*Note: This value must be set.* \n\n"
+			}
 		}
 
-		if info.Doc != "" {
-			// Ensure doc has fullstop/newlines at end
-			mainDoc += strings.TrimRight(info.Doc, ".\n") + ".\n\n"
-		}
+		// Ensure doc has fullstop/newlines at end
+		mainDoc += strings.TrimRight(info.Doc, ".\n") + ".\n\n"
+
+		// Always print the default value
+		mainDoc += "**Default value:** " + info.Default + "\n\n"
+
 		if info.Type != "" {
 			mainDoc += "**Type:** " + info.Type + "\n\n"
-		}
-		if info.Default != "" {
-			mainDoc += "**Default value:** " + info.Default + "\n\n"
 		}
 		if len(info.ValidValues) > 0 {
 			mainDoc += "**Valid values:** " + strings.Join(info.ValidValues, ", ") + "\n\n"

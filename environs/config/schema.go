@@ -142,9 +142,19 @@ The apt-mirror option is often used to point to a local mirror.
 		Group:       configschema.EnvironGroup,
 	},
 	"disable-network-management": {
-		Description: "Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks",
-		Type:        configschema.Tbool,
-		Group:       configschema.EnvironGroup,
+		Description: `
+Whether the provider should control networks (on MAAS models, set to true for
+MAAS to control networks
+
+This key can only be used with MAAS models and should otherwise be set to
+‘false’ (default) unless you want to take over network control from Juju because
+you have unique and well-defined needs. Setting this to ‘true’ with MAAS gives
+you the same behaviour with containers as you already have with other providers:
+one machine-local address on a single network interface, bridged to the default
+bridge.
+`,
+		Type:  configschema.Tbool,
+		Group: configschema.EnvironGroup,
 	},
 	IgnoreMachineAddresses: {
 		Description: "Whether the machine worker should discover machine addresses on startup",
@@ -152,14 +162,50 @@ The apt-mirror option is often used to point to a local mirror.
 		Group:       configschema.EnvironGroup,
 	},
 	EnableOSRefreshUpdateKey: {
-		Description: `Whether newly provisioned instances should run their respective OS's update capability.`,
-		Type:        configschema.Tbool,
-		Group:       configschema.EnvironGroup,
+		Description: `
+Whether newly provisioned instances should run their respective OS's update
+capability.
+
+When Juju provisions a machine, its default behaviour is to upgrade existing
+packages to their latest version. If your OS images are fresh and/or your
+deployed applications do not require the latest package versions, you can
+disable upgrades in order to provision machines faster.
+
+Two boolean configuration options are available to disable APT updates and
+upgrades: enable-os-refresh-update (apt update) and enable-os-upgrade (apt
+upgrade), respectively.
+
+	enable-os-refresh-update: false
+	enable-os-upgrade: false
+
+You may also want to just update the package list to ensure a charm has the
+latest software available to it by disabling upgrades but enabling updates.
+`,
+		Type:  configschema.Tbool,
+		Group: configschema.EnvironGroup,
 	},
 	EnableOSUpgradeKey: {
-		Description: `Whether newly provisioned instances should run their respective OS's upgrade capability.`,
-		Type:        configschema.Tbool,
-		Group:       configschema.EnvironGroup,
+		Description: `
+Whether newly provisioned instances should run their respective OS's upgrade
+capability.
+
+When Juju provisions a machine, its default behaviour is to upgrade existing
+packages to their latest version. If your OS images are fresh and/or your
+deployed applications do not require the latest package versions, you can
+disable upgrades in order to provision machines faster.
+
+Two Boolean configuration options are available to disable APT updates and
+upgrades: enable-os-refresh-update (apt update) and enable-os-upgrade (apt
+upgrade), respectively.
+
+	enable-os-refresh-update: false
+	enable-os-upgrade: false
+
+You may also want to just update the package list to ensure a charm has the
+latest software available to it by disabling upgrades but enabling updates.
+`,
+		Type:  configschema.Tbool,
+		Group: configschema.EnvironGroup,
 	},
 	ExtraInfoKey: {
 		Description: "Arbitrary user specified string data that is stored against the model.",
@@ -168,7 +214,6 @@ The apt-mirror option is often used to point to a local mirror.
 	},
 	"firewall-mode": {
 		Description: `The mode to use for network firewalling.
-
 'instance' requests the use of an individual firewall per instance.
 
 'global' uses a single firewall for all instances (access
@@ -184,17 +229,17 @@ global or per instance security groups.`,
 		Group:     configschema.EnvironGroup,
 	},
 	FTPProxyKey: {
-		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY environment variable",
+		Description: "The FTP proxy value to configure on instances, in the `FTP_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
 	HTTPProxyKey: {
-		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable",
+		Description: "The HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
 	HTTPSProxyKey: {
-		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable",
+		Description: "The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
@@ -204,22 +249,22 @@ global or per instance security groups.`,
 		Group:       configschema.EnvironGroup,
 	},
 	JujuFTPProxyKey: {
-		Description: "The FTP proxy value to pass to charms in the JUJU_CHARM_FTP_PROXY environment variable",
+		Description: "The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
 	JujuHTTPProxyKey: {
-		Description: "The HTTP proxy value to pass to charms in the JUJU_CHARM_HTTP_PROXY environment variable",
+		Description: "The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
 	JujuHTTPSProxyKey: {
-		Description: "The HTTPS proxy value to pass to charms in the JUJU_CHARM_HTTPS_PROXY environment variable",
+		Description: "The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
 	JujuNoProxyKey: {
-		Description: "List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the JUJU_CHARM_NO_PROXY environment variable",
+		Description: "List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable",
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
@@ -254,9 +299,17 @@ global or per instance security groups.`,
 		Group:       configschema.EnvironGroup,
 	},
 	ImageStreamKey: {
-		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
-		Type:        configschema.Tstring,
-		Group:       configschema.EnvironGroup,
+		Description: `
+The simplestreams stream used to identify which image ids to search when
+starting an instance.
+
+Juju, by default, uses the slow-changing ‘released’ images when provisioning
+machines. However, the image-stream option can be set to ‘daily’ to use more
+up-to-date images, thus shortening the time it takes to perform APT package
+upgrades.
+`,
+		Type:  configschema.Tstring,
+		Group: configschema.EnvironGroup,
 	},
 	ImageMetadataDefaultsDisabledKey: {
 		Description: `Whether default simplestreams sources are used for image metadata.`,
@@ -279,9 +332,79 @@ global or per instance security groups.`,
 		Group:       configschema.EnvironGroup,
 	},
 	"logging-config": {
-		Description: `The configuration string to use when configuring Juju agent logging (see http://godoc.org/github.com/juju/loggo#ParseConfigurationString for details)`,
-		Type:        configschema.Tstring,
-		Group:       configschema.EnvironGroup,
+		Description: `
+The configuration string to use when configuring Juju agent logging (see
+http://godoc.org/github.com/juju/loggo#Parsefor details)
+
+The logging config can be set to a (list of semicolon-separated)
+<filter>=<verbosity level> pairs, where <filter> can be any of the following:
+ - <root> - matches all machine agent logs
+ - unit - matches all unit agent logs
+ - a module name, e.g. juju.worker.apiserver
+   A module represents a single component of Juju, e.g. a worker. Generally,
+   modules correspond one-to-one with Go packages in the Juju source tree. The
+   module name is the value passed to loggo.GetLogger or
+   loggo.GetLoggerWithLabels.
+
+   Modules have a nested tree structure - for example, the juju.api module
+   includes submodules juju.api.application, juju.api.cloud, etc. <root> is the
+   root of this module tree.
+
+ - a label, e.g. #charmhub
+    Labels cut across the module tree, grouping various modules which deal with
+    a certain feature or information flow. For example, the #charmhub label
+    includes all modules involved in making a request to Charmhub.
+
+The currently supported labels are:
+| Label | Description |
+|-|-|
+| #http | HTTP requests |
+| #metrics | Metric outputs - use as a fallback when Prometheus isn't available |
+| #charmhub | Charmhub client and callers. |
+| #cmr | Cross model relations |
+| #cmr-auth | Authentication for cross model relations |
+| #secrets | Juju secrets |
+
+and where <verbosity level> can be, in decreasing order of severity:
+
+| Level | Description |
+|-|-|
+| CRITICAL | Indicates a severe failure which could bring down the system. |
+| ERROR | Indicates failure to complete a routine operation.
+| WARNING | Indicates something is not as expected, but this is not necessarily going to cause an error.
+| INFO | A regular log message intended for the user.
+| DEBUG | Information intended to assist developers in debugging.
+| TRACE | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
+
+When you set logging-config to module=level, then Juju saves that module's logs
+for the given severity level **and above.** For example, setting logging-config
+to juju.worker.uniter=WARNING will capture all CRITICAL, ERROR and WARNING logs
+for the uniter, but discard logs for lower severity levels (INFO, DEBUG, TRACE).
+
+**Examples:**
+
+To collect debug logs for the dbaccessor worker:
+
+	juju model-config -m controller logging-config="juju.worker.dbaccessor=DEBUG"
+
+To collect debug logs for the mysql/0 unit:
+
+	juju model-config -m foo logging-config="unit.mysql/0=DEBUG"
+
+To collect trace logs for Charmhub requests:
+
+	juju model-config -m controller logging-config="#charmhub=TRACE"
+
+To see what API requests are being made:
+
+	juju model-config -m controller logging-config="juju.apiserver=DEBUG"
+
+To view details about each API request:
+
+	juju model-config -m controller logging-config="juju.apiserver=TRACE"
+`,
+		Type:  configschema.Tstring,
+		Group: configschema.EnvironGroup,
 	},
 	NameKey: {
 		Description: "The name of the current model",
@@ -292,10 +415,35 @@ global or per instance security groups.`,
 	},
 	ProvisionerHarvestModeKey: {
 		// default: destroyed, but also depends on current setting of ProvisionerSafeModeKey
-		Description: "What to do with unknown machines (default destroyed)",
-		Type:        configschema.Tstring,
-		Values:      []interface{}{"all", "none", "unknown", "destroyed"},
-		Group:       configschema.EnvironGroup,
+		Description: `
+What to do with unknown machines (default destroyed)
+
+Juju keeps state on the running model and it can harvest (remove) machines which it deems are no longer required. This can help reduce running costs and keep the model tidy. Harvesting is guided by what "harvesting mode" has been set.
+
+A Juju machine can be in one of four states:
+
+-   **Alive:** The machine is running and being used.
+-   **Dying:** The machine is in the process of being terminated by Juju, but hasn't yet finished.
+-   **Dead:** The machine has been successfully brought down by Juju, but is still being tracked for removal.
+-   **Unknown:** The machine exists, but Juju knows nothing about it.
+
+Juju can be in one of several harvesting modes, in order of most conservative to most aggressive:
+
+-   **none:** Machines will never be harvested. This is a good choice if machines are managed via a process outside of Juju.
+-   **destroyed:** Machines will be harvested if i) Juju "knows" about them and
+
+ii) they are 'Dead'. - **unknown:** Machines will be harvested if Juju does not "know" about them ('Unknown' state). Use with caution in a mixed environment or one which may contain multiple instances of Juju. - **all:** Machines will be harvested if Juju considers them to be 'destroyed' or 'unknown'.
+
+The default mode is **destroyed**.
+
+Below, the harvest mode key for the current model is set to 'none':
+
+	juju model-config provisioner-harvest-mode=none
+
+`,
+		Type:   configschema.Tstring,
+		Values: []interface{}{"all", "none", "unknown", "destroyed"},
+		Group:  configschema.EnvironGroup,
 	},
 	NumProvisionWorkersKey: {
 		Description: "The number of provisioning workers to use per model",
@@ -398,6 +546,7 @@ above, as with earlier versions of Juju.
 
 Even with the automatic retry enabled, it is still possible to use retry
 manually using:
+
 	juju resolved unit-name/# 
 `,
 		Type:  configschema.Tbool,
@@ -439,14 +588,114 @@ manually using:
 		Group:       configschema.EnvironGroup,
 	},
 	CloudInitUserDataKey: {
-		Description: "Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model",
-		Type:        configschema.Tstring,
-		Group:       configschema.EnvironGroup,
+		Description: `Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model
+
+The cloudinit-userdata allows the user to provide additional cloudinit data to
+be included in the cloudinit data created by Juju.
+
+Specifying a key will overwrite what juju puts in the cloudinit file with the
+following caveats:
+
+ 1. users and bootcmd keys will cause an error
+ 2. The packages key will be appended to the packages listed by juju
+ 3. The runcmds key will cause an error. You can specify preruncmd and
+    postruncmd keys to prepend and append the runcmd created by Juju.
+
+**Use cases**
+
+ - setting a default locale for deployments that wish to use their own locale settings
+ - adding custom CA certificates for models that are sitting behind an HTTPS proxy
+ - adding a private apt mirror to enable private packages to be installed
+ - add SSH fingerprints to a deny list to prevent them from being printed to the console for security-focused deployments
+
+**Background**
+
+Juju uses cloud-init to customise instances once they have been provisioned by
+the cloud. The cloudinit-userdata model configuration setting (model config)
+allows you to tweak what happens to machines when they are created up via the
+“user data” feature.
+
+From the website:
+
+> Cloud images are operating system templates and every instance starts out as
+  an identical clone of every other instance. It is the user data that gives
+  every cloud instance its personality and cloud-init is the tool that applies
+  user data to your instances automatically.
+
+**How to provide custom user data to cloudinit**
+
+Create a file, cloudinit-userdata.yaml, which starts with the cloudinit-userdata
+key and data you wish to include in the cloudinit file. Note: juju reads the
+value as a string, though formatted as YAML.
+
+Template cloudinit-userdata.yaml:
+
+	cloudinit-userdata: |
+		<key>: <value>
+		<key>: <value>
+
+Provide the path your file to the model-config command:
+
+	juju model-config --file cloudinit-userdata.yaml
+
+**How to read the current setting**
+
+To read the current value, provide the cloudinit-userdata key to the
+model-config command as a command-line parameter. Adding the --format yaml
+option ensures that it is properly formatted.
+
+	juju model-config cloudinit-userdata --format yaml
+
+Sample output:
+
+	cloudinit-userdata: |
+	  packages:
+		- 'python-keystoneclient'
+		- 'python-glanceclient'
+
+**How to clear the current custom user data**
+
+Use the --reset option to the model-config command to clear anything that has
+been previously set.
+
+	juju model-config --reset cloudinit-userdata
+
+**Known issues**
+
+- custom cloudinit-userdata must be passed via file, not as options on the command
+line (like the config command)
+`,
+		Type:  configschema.Tstring,
+		Group: configschema.EnvironGroup,
 	},
 	ContainerInheritPropertiesKey: {
-		Description: "List of properties to be copied from the host machine to new containers created in this model (comma-separated)",
-		Type:        configschema.Tstring,
-		Group:       configschema.EnvironGroup,
+		Description: `
+List of properties to be copied from the host machine to new containers created
+in this model (comma-separated)
+
+The container-inherit-properties key allows for a limited set of parameters
+enabled on a Juju machine to be inherited by any hosted containers (KVM guests
+or LXD containers). The machine and container must be running the same series.
+
+This key is only supported by the MAAS provider.
+
+The parameters are:
+ - apt-primary
+ - apt-security
+ - apt-sources
+ - ca-certs
+
+For MAAS v.2.5 or greater the parameters are:
+ - apt-sources
+ - ca-certs
+
+For example:
+
+	juju model-config container-inherit-properties="ca-certs, apt-sources"
+
+`,
+		Type:  configschema.Tstring,
+		Group: configschema.EnvironGroup,
 	},
 	BackupDirKey: {
 		Description: "Directory used to store the backup working directory",

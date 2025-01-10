@@ -7,6 +7,8 @@ This document gives a list of all the configuration keys that can be applied to 
 
 URL of private stream.
 
+**Default value:** 
+
 **Type:** string
 
 
@@ -44,18 +46,18 @@ can be targeted in this way:
 
 	juju bootstrap aws --auto-upgrade.
 
-**Type:** string
-
 **Default value:** released
+
+**Type:** string
 
 
 ## agent-version
 
 *Note: This value is set by Juju.*
 
-*Note: This value cannot be changed after model creation.* 
-
 The desired Juju agent version to use.
+
+**Default value:** 
 
 **Type:** string
 
@@ -64,6 +66,8 @@ The desired Juju agent version to use.
 
 The APT FTP proxy for the model.
 
+**Default value:** 
+
 **Type:** string
 
 
@@ -71,12 +75,16 @@ The APT FTP proxy for the model.
 
 The APT HTTP proxy for the model.
 
+**Default value:** 
+
 **Type:** string
 
 
 ## apt-https-proxy
 
 The APT HTTPS proxy for the model.
+
+**Default value:** 
 
 **Type:** string
 
@@ -98,12 +106,16 @@ To restore the default behaviour you would run:
 
 The apt-mirror option is often used to point to a local mirror.
 
+**Default value:** 
+
 **Type:** string
 
 
 ## apt-no-proxy
 
 List of domain addresses not to be proxied for APT (comma-separated).
+
+**Default value:** 
 
 **Type:** string
 
@@ -127,16 +139,19 @@ above, as with earlier versions of Juju.
 
 Even with the automatic retry enabled, it is still possible to use retry
 manually using:
+
 	juju resolved unit-name/# .
 
-**Type:** bool
-
 **Default value:** true
+
+**Type:** bool
 
 
 ## backup-dir
 
 Directory used to store the backup working directory.
+
+**Default value:** 
 
 **Type:** string
 
@@ -145,14 +160,91 @@ Directory used to store the backup working directory.
 
 The url for CharmHub API calls.
 
-**Type:** string
-
 **Default value:** https://api.charmhub.io
+
+**Type:** string
 
 
 ## cloudinit-userdata
 
-Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model.
+Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model
+
+The cloudinit-userdata allows the user to provide additional cloudinit data to
+be included in the cloudinit data created by Juju.
+
+Specifying a key will overwrite what juju puts in the cloudinit file with the
+following caveats:
+
+ 1. users and bootcmd keys will cause an error
+ 2. The packages key will be appended to the packages listed by juju
+ 3. The runcmds key will cause an error. You can specify preruncmd and
+    postruncmd keys to prepend and append the runcmd created by Juju.
+
+**Use cases**
+
+ - setting a default locale for deployments that wish to use their own locale settings
+ - adding custom CA certificates for models that are sitting behind an HTTPS proxy
+ - adding a private apt mirror to enable private packages to be installed
+ - add SSH fingerprints to a deny list to prevent them from being printed to the console for security-focused deployments
+
+**Background**
+
+Juju uses cloud-init to customise instances once they have been provisioned by
+the cloud. The cloudinit-userdata model configuration setting (model config)
+allows you to tweak what happens to machines when they are created up via the
+“user data” feature.
+
+From the website:
+
+> Cloud images are operating system templates and every instance starts out as
+  an identical clone of every other instance. It is the user data that gives
+  every cloud instance its personality and cloud-init is the tool that applies
+  user data to your instances automatically.
+
+**How to provide custom user data to cloudinit**
+
+Create a file, cloudinit-userdata.yaml, which starts with the cloudinit-userdata
+key and data you wish to include in the cloudinit file. Note: juju reads the
+value as a string, though formatted as YAML.
+
+Template cloudinit-userdata.yaml:
+
+	cloudinit-userdata: |
+		<key>: <value>
+		<key>: <value>
+
+Provide the path your file to the model-config command:
+
+	juju model-config --file cloudinit-userdata.yaml
+
+**How to read the current setting**
+
+To read the current value, provide the cloudinit-userdata key to the
+model-config command as a command-line parameter. Adding the --format yaml
+option ensures that it is properly formatted.
+
+	juju model-config cloudinit-userdata --format yaml
+
+Sample output:
+
+	cloudinit-userdata: |
+	  packages:
+		- 'python-keystoneclient'
+		- 'python-glanceclient'
+
+**How to clear the current custom user data**
+
+Use the --reset option to the model-config command to clear anything that has
+been previously set.
+
+	juju model-config --reset cloudinit-userdata
+
+**Known issues**
+
+- custom cloudinit-userdata must be passed via file, not as options on the command
+line (like the config command).
+
+**Default value:** 
 
 **Type:** string
 
@@ -161,14 +253,16 @@ Cloud-init user-data (in yaml format) to be added to userdata for new machines c
 
 Whether default simplestreams sources are used for image metadata with containers.
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## container-image-metadata-url
 
 The URL at which the metadata used to locate container OS image ids is located.
+
+**Default value:** 
 
 **Type:** string
 
@@ -177,14 +271,38 @@ The URL at which the metadata used to locate container OS image ids is located.
 
 The simplestreams stream used to identify which image ids to search when starting a container.
 
-**Type:** string
-
 **Default value:** released
+
+**Type:** string
 
 
 ## container-inherit-properties
 
-List of properties to be copied from the host machine to new containers created in this model (comma-separated).
+
+List of properties to be copied from the host machine to new containers created
+in this model (comma-separated)
+
+The container-inherit-properties key allows for a limited set of parameters
+enabled on a Juju machine to be inherited by any hosted containers (KVM guests
+or LXD containers). The machine and container must be running the same series.
+
+This key is only supported by the MAAS provider.
+
+The parameters are:
+ - apt-primary
+ - apt-security
+ - apt-sources
+ - ca-certs
+
+For MAAS v.2.5 or greater the parameters are:
+ - apt-sources
+ - ca-certs
+
+For example:
+
+	juju model-config container-inherit-properties="ca-certs, apt-sources".
+
+**Default value:** 
 
 **Type:** string
 
@@ -193,12 +311,16 @@ List of properties to be copied from the host machine to new containers created 
 
 Method of container networking setup - one of "provider", "local", or "" (auto-configure).
 
+**Default value:** 
+
 **Type:** string
 
 
 ## default-base
 
 The default base image to use for deploying charms, will act like --base when deploying charms.
+
+**Default value:** 
 
 **Type:** string
 
@@ -207,6 +329,8 @@ The default base image to use for deploying charms, will act like --base when de
 
 The default network space used for application endpoints in this model.
 
+**Default value:** 
+
 **Type:** string
 
 
@@ -214,57 +338,104 @@ The default network space used for application endpoints in this model.
 
 Whether the model is in development mode.
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## disable-network-management
 
-Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks.
 
-**Type:** bool
+Whether the provider should control networks (on MAAS models, set to true for
+MAAS to control networks
+
+This key can only be used with MAAS models and should otherwise be set to
+‘false’ (default) unless you want to take over network control from Juju because
+you have unique and well-defined needs. Setting this to ‘true’ with MAAS gives
+you the same behaviour with containers as you already have with other providers:
+one machine-local address on a single network interface, bridged to the default
+bridge.
 
 **Default value:** false
+
+**Type:** bool
 
 
 ## disable-telemetry
 
 Disable telemetry reporting of model information.
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## egress-subnets
 
 Source address(es) for traffic originating from this model.
 
+**Default value:** 
+
 **Type:** string
 
 
 ## enable-os-refresh-update
 
-Whether newly provisioned instances should run their respective OS's update capability.
 
-**Type:** bool
+Whether newly provisioned instances should run their respective OS's update
+capability.
+
+When Juju provisions a machine, its default behaviour is to upgrade existing
+packages to their latest version. If your OS images are fresh and/or your
+deployed applications do not require the latest package versions, you can
+disable upgrades in order to provision machines faster.
+
+Two boolean configuration options are available to disable APT updates and
+upgrades: enable-os-refresh-update (apt update) and enable-os-upgrade (apt
+upgrade), respectively.
+
+	enable-os-refresh-update: false
+	enable-os-upgrade: false
+
+You may also want to just update the package list to ensure a charm has the
+latest software available to it by disabling upgrades but enabling updates.
 
 **Default value:** true
+
+**Type:** bool
 
 
 ## enable-os-upgrade
 
-Whether newly provisioned instances should run their respective OS's upgrade capability.
 
-**Type:** bool
+Whether newly provisioned instances should run their respective OS's upgrade
+capability.
+
+When Juju provisions a machine, its default behaviour is to upgrade existing
+packages to their latest version. If your OS images are fresh and/or your
+deployed applications do not require the latest package versions, you can
+disable upgrades in order to provision machines faster.
+
+Two Boolean configuration options are available to disable APT updates and
+upgrades: enable-os-refresh-update (apt update) and enable-os-upgrade (apt
+upgrade), respectively.
+
+	enable-os-refresh-update: false
+	enable-os-upgrade: false
+
+You may also want to just update the package list to ensure a charm has the
+latest software available to it by disabling upgrades but enabling updates.
 
 **Default value:** true
+
+**Type:** bool
 
 
 ## extra-info
 
 Arbitrary user specified string data that is stored against the model.
+
+**Default value:** 
 
 **Type:** string
 
@@ -274,7 +445,6 @@ Arbitrary user specified string data that is stored against the model.
 *Note: This value cannot be changed after model creation.* 
 
 The mode to use for network firewalling.
-
 'instance' requests the use of an individual firewall per instance.
 
 'global' uses a single firewall for all instances (access
@@ -285,30 +455,36 @@ that port).
 inside the model. It's useful for clouds without support for either
 global or per instance security groups.
 
-**Type:** string
-
 **Default value:** instance
+
+**Type:** string
 
 **Valid values:** instance, global, none
 
 
 ## ftp-proxy
 
-The FTP proxy value to configure on instances, in the FTP_PROXY environment variable.
+The FTP proxy value to configure on instances, in the `FTP_PROXY` environment variable.
+
+**Default value:** 
 
 **Type:** string
 
 
 ## http-proxy
 
-The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable.
+The HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment variable.
+
+**Default value:** 
 
 **Type:** string
 
 
 ## https-proxy
 
-The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable.
+The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environment variable.
+
+**Default value:** 
 
 **Type:** string
 
@@ -317,69 +493,155 @@ The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment 
 
 Whether the machine worker should discover machine addresses on startup.
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## image-metadata-defaults-disabled
 
 Whether default simplestreams sources are used for image metadata.
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## image-metadata-url
 
 The URL at which the metadata used to locate OS image ids is located.
 
+**Default value:** 
+
 **Type:** string
 
 
 ## image-stream
 
-The simplestreams stream used to identify which image ids to search when starting an instance.
 
-**Type:** string
+The simplestreams stream used to identify which image ids to search when
+starting an instance.
+
+Juju, by default, uses the slow-changing ‘released’ images when provisioning
+machines. However, the image-stream option can be set to ‘daily’ to use more
+up-to-date images, thus shortening the time it takes to perform APT package
+upgrades.
 
 **Default value:** released
+
+**Type:** string
 
 
 ## juju-ftp-proxy
 
-The FTP proxy value to pass to charms in the JUJU_CHARM_FTP_PROXY environment variable.
+The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment variable.
+
+**Default value:** 
 
 **Type:** string
 
 
 ## juju-http-proxy
 
-The HTTP proxy value to pass to charms in the JUJU_CHARM_HTTP_PROXY environment variable.
+The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
+
+**Default value:** 
 
 **Type:** string
 
 
 ## juju-https-proxy
 
-The HTTPS proxy value to pass to charms in the JUJU_CHARM_HTTPS_PROXY environment variable.
+The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environment variable.
+
+**Default value:** 
 
 **Type:** string
 
 
 ## juju-no-proxy
 
-List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the JUJU_CHARM_NO_PROXY environment variable.
-
-**Type:** string
+List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable.
 
 **Default value:** 127.0.0.1,localhost,::1
+
+**Type:** string
 
 
 ## logging-config
 
-The configuration string to use when configuring Juju agent logging (see http://godoc.org/github.com/juju/loggo#ParseConfigurationString for details).
+
+The configuration string to use when configuring Juju agent logging (see
+http://godoc.org/github.com/juju/loggo#Parsefor details)
+
+The logging config can be set to a (list of semicolon-separated)
+<filter>=<verbosity level> pairs, where <filter> can be any of the following:
+ - <root> - matches all machine agent logs
+ - unit - matches all unit agent logs
+ - a module name, e.g. juju.worker.apiserver
+   A module represents a single component of Juju, e.g. a worker. Generally,
+   modules correspond one-to-one with Go packages in the Juju source tree. The
+   module name is the value passed to loggo.GetLogger or
+   loggo.GetLoggerWithLabels.
+
+   Modules have a nested tree structure - for example, the juju.api module
+   includes submodules juju.api.application, juju.api.cloud, etc. <root> is the
+   root of this module tree.
+
+ - a label, e.g. #charmhub
+    Labels cut across the module tree, grouping various modules which deal with
+    a certain feature or information flow. For example, the #charmhub label
+    includes all modules involved in making a request to Charmhub.
+
+The currently supported labels are:
+| Label | Description |
+|-|-|
+| #http | HTTP requests |
+| #metrics | Metric outputs - use as a fallback when Prometheus isn't available |
+| #charmhub | Charmhub client and callers. |
+| #cmr | Cross model relations |
+| #cmr-auth | Authentication for cross model relations |
+| #secrets | Juju secrets |
+
+and where <verbosity level> can be, in decreasing order of severity:
+
+| Level | Description |
+|-|-|
+| CRITICAL | Indicates a severe failure which could bring down the system. |
+| ERROR | Indicates failure to complete a routine operation.
+| WARNING | Indicates something is not as expected, but this is not necessarily going to cause an error.
+| INFO | A regular log message intended for the user.
+| DEBUG | Information intended to assist developers in debugging.
+| TRACE | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
+
+When you set logging-config to module=level, then Juju saves that module's logs
+for the given severity level **and above.** For example, setting logging-config
+to juju.worker.uniter=WARNING will capture all CRITICAL, ERROR and WARNING logs
+for the uniter, but discard logs for lower severity levels (INFO, DEBUG, TRACE).
+
+**Examples:**
+
+To collect debug logs for the dbaccessor worker:
+
+	juju model-config -m controller logging-config="juju.worker.dbaccessor=DEBUG"
+
+To collect debug logs for the mysql/0 unit:
+
+	juju model-config -m foo logging-config="unit.mysql/0=DEBUG"
+
+To collect trace logs for Charmhub requests:
+
+	juju model-config -m controller logging-config="#charmhub=TRACE"
+
+To see what API requests are being made:
+
+	juju model-config -m controller logging-config="juju.apiserver=DEBUG"
+
+To view details about each API request:
+
+	juju model-config -m controller logging-config="juju.apiserver=TRACE".
+
+**Default value:** 
 
 **Type:** string
 
@@ -388,44 +650,45 @@ The configuration string to use when configuring Juju agent logging (see http://
 
 The channel to use when installing LXD from a snap (cosmic and later).
 
-**Type:** string
-
 **Default value:** 5.0/stable
+
+**Type:** string
 
 
 ## max-action-results-age
 
 The maximum age for action entries before they are pruned, in human-readable time format.
 
-**Type:** string
-
 **Default value:** 336h
+
+**Type:** string
 
 
 ## max-action-results-size
 
 The maximum size for the action collection, in human-readable memory format.
 
-**Type:** string
-
 **Default value:** 5G
+
+**Type:** string
 
 
 ## max-status-history-age
 
 The maximum age for status history entries before they are pruned, in human-readable time format.
 
+**Default value:** 336h
+
 **Type:** string
 
-**Default value:** 336h
 
 ## max-status-history-size
 
 The maximum size for the status history collection, in human-readable memory format.
 
-**Type:** string
-
 **Default value:** 5G
+
+**Type:** string
 
 
 ## mode
@@ -436,9 +699,9 @@ mode the model should run in. So far only one is implemented
 potentially valuable resources.
 (default "").
 
-**Type:** string
-
 **Default value:** requires-prompts
+
+**Type:** string
 
 
 ## name
@@ -449,6 +712,8 @@ potentially valuable resources.
 
 The name of the current model.
 
+**Default value:** 
+
 **Type:** string
 
 
@@ -456,45 +721,68 @@ The name of the current model.
 
 The amount of time in seconds to sleep between ifdown and ifup when bridging.
 
-**Type:** int
-
 **Default value:** 17
+
+**Type:** int
 
 
 ## no-proxy
 
 List of domain addresses not to be proxied (comma-separated).
 
-**Type:** string
-
 **Default value:** 127.0.0.1,localhost,::1
+
+**Type:** string
 
 
 ## num-container-provision-workers
 
 The number of container provisioning workers to use per machine.
 
-**Type:** int
-
 **Default value:** 4
+
+**Type:** int
 
 
 ## num-provision-workers
 
 The number of provisioning workers to use per model.
 
-**Type:** int
-
 **Default value:** 16
+
+**Type:** int
 
 
 ## provisioner-harvest-mode
 
-What to do with unknown machines (default destroyed).
 
-**Type:** string
+What to do with unknown machines (default destroyed)
+
+Juju keeps state on the running model and it can harvest (remove) machines which it deems are no longer required. This can help reduce running costs and keep the model tidy. Harvesting is guided by what "harvesting mode" has been set.
+
+A Juju machine can be in one of four states:
+
+-   **Alive:** The machine is running and being used.
+-   **Dying:** The machine is in the process of being terminated by Juju, but hasn't yet finished.
+-   **Dead:** The machine has been successfully brought down by Juju, but is still being tracked for removal.
+-   **Unknown:** The machine exists, but Juju knows nothing about it.
+
+Juju can be in one of several harvesting modes, in order of most conservative to most aggressive:
+
+-   **none:** Machines will never be harvested. This is a good choice if machines are managed via a process outside of Juju.
+-   **destroyed:** Machines will be harvested if i) Juju "knows" about them and
+
+ii) they are 'Dead'. - **unknown:** Machines will be harvested if Juju does not "know" about them ('Unknown' state). Use with caution in a mixed environment or one which may contain multiple instances of Juju. - **all:** Machines will be harvested if Juju considers them to be 'destroyed' or 'unknown'.
+
+The default mode is **destroyed**.
+
+Below, the harvest mode key for the current model is set to 'none':
+
+	juju model-config provisioner-harvest-mode=none.
 
 **Default value:** destroyed
+
+**Type:** string
 
 **Valid values:** all, none, unknown, destroyed
 
@@ -503,14 +791,16 @@ What to do with unknown machines (default destroyed).
 
 Whether SSH commands should be proxied through the API server.
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## resource-tags
 
 resource tags.
+
+**Default value:** 
 
 **Type:** attrs
 
@@ -520,14 +810,16 @@ resource tags.
 Application-offer ingress allowlist is a comma-separated list of
 CIDRs specifying what ingress can be applied to offers in this model.
 
-**Type:** string
-
 **Default value:** 0.0.0.0/0,::/0
+
+**Type:** string
 
 
 ## snap-http-proxy
 
 The HTTP proxy value for installing snaps.
+
+**Default value:** 
 
 **Type:** string
 
@@ -536,12 +828,16 @@ The HTTP proxy value for installing snaps.
 
 The HTTPS proxy value for installing snaps.
 
+**Default value:** 
+
 **Type:** string
 
 
 ## snap-store-assertions
 
 The assertions for the defined snap store proxy.
+
+**Default value:** 
 
 **Type:** string
 
@@ -550,12 +846,16 @@ The assertions for the defined snap store proxy.
 
 The snap store proxy for installing snaps.
 
+**Default value:** 
+
 **Type:** string
 
 
 ## snap-store-proxy-url
 
 The URL for the defined snap store proxy.
+
+**Default value:** 
 
 **Type:** string
 
@@ -566,23 +866,25 @@ SSH allowlist is a comma-separated list of CIDRs from
 which machines in this model will accept connections to the SSH service.
 Currently only the aws & openstack providers support ssh-allow.
 
-**Type:** string
-
 **Default value:** 0.0.0.0/0,::/0
+
+**Type:** string
 
 
 ## ssl-hostname-verification
 
 Whether SSL hostname verification is enabled (default true).
 
-**Type:** bool
-
 **Default value:** true
+
+**Type:** bool
 
 
 ## storage-default-block-source
 
 The default block storage source for the model.
+
+**Default value:** 
 
 **Type:** string
 
@@ -590,6 +892,8 @@ The default block storage source for the model.
 ## storage-default-filesystem-source
 
 The default filesystem storage source for the model.
+
+**Default value:** 
 
 **Type:** string
 
@@ -600,18 +904,18 @@ Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false).
 
-**Type:** bool
-
 **Default value:** false
+
+**Type:** bool
 
 
 ## transmit-vendor-metrics
 
 Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics.
 
-**Type:** bool
-
 **Default value:** true
+
+**Type:** bool
 
 
 ## type
@@ -622,6 +926,8 @@ Determines whether metrics declared by charms deployed into this model are sent 
 
 Type of model, e.g. local, ec2.
 
+**Default value:** 
+
 **Type:** string
 
 
@@ -629,18 +935,18 @@ Type of model, e.g. local, ec2.
 
 How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m).
 
-**Type:** string
-
 **Default value:** 5m
+
+**Type:** string
 
 
 ## uuid
 
 *Note: This value is set by Juju.*
 
-*Note: This value cannot be changed after model creation.* 
-
 The UUID of the model.
+
+**Default value:** 
 
 **Type:** string
 
