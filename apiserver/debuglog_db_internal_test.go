@@ -89,7 +89,7 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
-		c.Assert(params.InitialLines, gc.Equals, 0)
+		c.Assert(params.InitialLines, gc.Equals, 123)
 
 		return newFakeLogTailer(), nil
 	})

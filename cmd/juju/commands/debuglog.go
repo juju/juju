@@ -71,17 +71,25 @@ The filtering options combine as follows:
 
 The '--tail' option waits for and continuously prints new log lines after displaying the most recent log lines.
 
-The '--notail' option displays the most recent log lines and then exits immediately.
+The '--no-tail' option displays the most recent log lines and then exits immediately.
 
 The '--lines' and '--limit' options control the number of log lines displayed:
 * --lines option prints the specified number of the most recent lines and then waits for new lines. This implies --tail.
-* --limit option prints up to the specified number of the most recent lines and exits. This implies --notail.
+* --limit option prints up to the specified number of the most recent lines and exits. This implies --no-tail.
+* setting --lines or --limit to 0 will print the maximum number of the most recent lines available.
+
+The '--replay' option displays log lines starting from the beginning.
+
+Behavior when combining --replay with other options:
+* --replay and --limit prints the specified number of lines from the beginning of the log. 
+* --replay and --lines is invalid as it causes confusion by skipping logs between the replayed lines and the current tailing point.
 
 Given the above, the following flag combinations are incompatible and cannot be specified together:
-* --tail and --notail
+* --tail and --no-tail
 * --tail and --limit
-* --notail and --lines (-n)
+* --no-tail and --lines (-n)
 * --limit and --lines (-n)
+* --replay and --lines (-n)
 `
 
 const usageDebugLogExamples = `
@@ -156,6 +164,7 @@ type debugLogCommand struct {
 	ms       bool
 
 	backLogFlag *intValue
+	limitFlag   *intValue
 	tail        bool
 	noTail      bool
 	color       bool
@@ -185,7 +194,9 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(c.backLogFlag, "n", "Show this many of the most recent lines and continue to append new ones")
 	f.Var(c.backLogFlag, "lines", "")
 
-	f.UintVar(&c.params.Limit, "limit", 0, "Show this many of the most recent logs and then exit")
+	c.limitFlag = newIntValue(&c.params.Limit)
+	f.Var(c.limitFlag, "limit", "Show this many of the most recent logs and then exit")
+
 	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire log and continue to append new ones")
 
 	f.BoolVar(&c.noTail, "no-tail", false, "Show existing log messages and then exit")
@@ -219,20 +230,26 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.noTail && c.backLogFlag.IsSet() {
 		return errors.NotValidf("setting --no-tail and --lines")
 	}
-	if c.tail && c.params.Limit != 0 {
+	if c.tail && c.limitFlag.IsSet() {
 		return errors.NotValidf("setting --tail and --limit")
 	}
-	if c.params.Limit != 0 && c.backLogFlag.IsSet() {
+	if c.limitFlag.IsSet() && c.backLogFlag.IsSet() {
 		return errors.NotValidf("setting --limit and --lines")
+	}
+	if c.params.Replay && c.backLogFlag.IsSet() {
+		return errors.NotValidf("setting --replay and --lines")
 	}
 	if c.retryDelay < 0 {
 		return errors.NotValidf("negative retry delay")
 	}
-	if c.params.Limit != 0 {
+	if c.limitFlag.IsSet() {
 		c.noTail = true
 	}
 	if c.backLogFlag.IsSet() {
 		c.tail = true
+	}
+	if !c.backLogFlag.IsSet() && !c.limitFlag.IsSet() && !c.params.Replay {
+		*c.backLogFlag.value = defaultLineCount
 	}
 	if c.utc {
 		c.tz = time.UTC
@@ -394,7 +411,6 @@ type intValue struct {
 }
 
 func newIntValue(val *uint) *intValue {
-	*val = defaultLineCount
 	return &intValue{
 		value: val,
 	}
