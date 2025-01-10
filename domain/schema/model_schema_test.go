@@ -64,9 +64,8 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Model
 		"model",
-
-		// Model config
 		"model_config",
+		"model_constraint",
 
 		// Object store metadata
 		"object_store_metadata",
