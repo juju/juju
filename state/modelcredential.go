@@ -124,26 +124,6 @@ func (st *State) updateModelCredentialInvalid(uuid, reason string, invalid bool)
 	return st.db().Run(buildTxn)
 }
 
-func (st *State) model(uuid string) (*Model, func() error, error) {
-	closer := func() error { return nil }
-	// We explicitly don't start the workers.
-	modelState, err := st.newStateNoWorkers(uuid)
-	if err != nil {
-		// This model could have been removed.
-		if errors.Is(err, errors.NotFound) {
-			return nil, closer, nil
-		}
-		return nil, closer, errors.Trace(err)
-	}
-
-	closer = func() error { return modelState.Close() }
-	m, err := modelState.Model()
-	if err != nil {
-		return nil, closer, errors.Trace(err)
-	}
-	return m, closer, nil
-}
-
 // SetCloudCredential sets new cloud credential for this model.
 // Returned bool indicates if model credential was set.
 func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
