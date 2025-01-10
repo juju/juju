@@ -1,6 +1,10 @@
 import os
-import subprocess
 import shutil
+import subprocess
+
+###################
+# Generate CLI docs
+###################
 
 cli_dir = "user/reference/juju-cli/list-of-juju-cli-commands/"
 
@@ -8,7 +12,7 @@ cli_dir = "user/reference/juju-cli/list-of-juju-cli-commands/"
 if os.path.exists(cli_dir):
     shutil.rmtree(cli_dir)
 
-# Generate the docs using "juju documentation" command.
+# Generate the CLI docs using "juju documentation" command.
 subprocess.run(["juju", 'documentation', '--split', '--no-index', '--out', cli_dir],
                    check=True)
 
@@ -29,3 +33,9 @@ for page in os.listdir(cli_dir):
 # Add the template for the index file containing the command list.
 if (not os.path.isfile(cli_dir + 'index.md')):
     os.system('cp ' + 'user/reference/juju-cli/cli_index.template ' + cli_dir + 'index.md')
+
+#################################
+# Generate controller config docs
+#################################
+
+

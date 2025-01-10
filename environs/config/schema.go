@@ -46,9 +46,40 @@ var configSchema = configschema.Fields{
 		Group:       configschema.EnvironGroup,
 	},
 	AgentStreamKey: {
-		Description: `Version of Juju to use for deploy/upgrades.`,
-		Type:        configschema.Tstring,
-		Group:       configschema.EnvironGroup,
+		Description: `Version of Juju to use for deploy/upgrades.
+
+The agent-stream key specifies the “stream” to use when a Juju agent is to be
+installed or upgraded. This setting reflects the general stability of the
+software and defaults to ‘released’, indicating that only the latest stable
+version is to be used.
+
+To run the upcoming stable release (before it has passed the normal QA process)
+you can set:
+
+	agent-stream: proposed
+
+For testing purposes, you can use the latest unstable version by setting:
+
+	agent-stream: devel
+
+The agent-version option specifies a “patch version” for the agent that is to be
+installed on a new controller relative to the Juju client’s current major.minor
+version (Juju uses a major.minor.patch numbering scheme).
+
+For example, Juju 3.6.2 means major version 3, minor version 6, and patch
+version 2. On a client system with this release of Juju installed, the machine
+agent’s version for a newly-created controller would be the same. To specify a
+patch version of 1 (instead of 2), the following would be run:
+
+	juju bootstrap aws --agent-version='3.6.1'
+
+If a patch version is available that is greater than that of the client then it
+can be targeted in this way:
+
+	juju bootstrap aws --auto-upgrade
+`,
+		Type:  configschema.Tstring,
+		Group: configschema.EnvironGroup,
 	},
 	AgentVersionKey: {
 		Description: "The desired Juju agent version to use",
@@ -81,9 +112,23 @@ var configSchema = configschema.Fields{
 	},
 	AptMirrorKey: {
 		// TODO document acceptable format
-		Description: "The APT mirror for the model",
-		Type:        configschema.Tstring,
-		Group:       configschema.EnvironGroup,
+		Description: `The APT mirror for the model
+
+The APT packaging system is used to install and upgrade software on machines
+provisioned in the model, and many charms also use APT to install software for
+the applications they deploy. It is possible to set a specific mirror for the
+APT packages to use, by setting ‘apt-mirror’:
+
+	juju model-config apt-mirror=http://archive.ubuntu.com/ubuntu/
+
+To restore the default behaviour you would run:
+
+	juju model-config --reset apt-mirror
+
+The apt-mirror option is often used to point to a local mirror.
+`,
+		Type:  configschema.Tstring,
+		Group: configschema.EnvironGroup,
 	},
 	DefaultBaseKey: {
 		Description: "The default base image to use for deploying charms, will act like --base when deploying charms",
@@ -336,9 +381,27 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Immutable:   true,
 	},
 	AutomaticallyRetryHooks: {
-		Description: "Determines whether the uniter should automatically retry failed hooks",
-		Type:        configschema.Tbool,
-		Group:       configschema.EnvironGroup,
+		Description: `Determines whether the uniter should automatically retry failed hooks
+
+Juju retries failed hooks automatically using an exponential backoff algorithm.
+They will be retried after 5, 10, 20, 40 seconds up to a period of 5 minutes,
+and then every 5 minutes. The logic behind this is that some hook errors are
+caused by timing issues or the temporary unavailability of other applications -
+automatic retry enables the Juju model to heal itself without troubling the
+user.
+
+However, in some circumstances, such as debugging charms, this behaviour can be
+distracting and unwelcome. For this reason, it is possible to set the
+automatically-retry-hooks option to ‘false’ to disable this behaviour. In this
+case, users will have to manually retry any hook which fails, using the command
+above, as with earlier versions of Juju.
+
+Even with the automatic retry enabled, it is still possible to use retry
+manually using:
+	juju resolved unit-name/# 
+`,
+		Type:  configschema.Tbool,
+		Group: configschema.EnvironGroup,
 	},
 	TransmitVendorMetricsKey: {
 		Description: "Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics",
