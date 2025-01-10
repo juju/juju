@@ -80,8 +80,11 @@ func render(data map[string]*keyInfo) string {
 		// Ensure doc has fullstop/newlines at end
 		mainDoc += strings.TrimRight(info.Doc, ".\n") + ".\n\n"
 
-		// Always print the default value
-		mainDoc += "**Default value:** " + info.Default + "\n\n"
+		if info.Default != "" {
+			mainDoc += "**Default value:** " + info.Default + "\n\n"
+		} else {
+			mainDoc += `**Default value: ""**` + "\n\n"
+		}
 
 		if info.Type != "" {
 			mainDoc += "**Type:** " + info.Type + "\n\n"
