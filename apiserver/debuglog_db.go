@@ -83,9 +83,7 @@ func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
 		ExcludeModule: reqParams.excludeModule,
 		IncludeLabel:  reqParams.includeLabel,
 		ExcludeLabel:  reqParams.excludeLabel,
-	}
-	if reqParams.fromTheStart {
-		tailerParams.InitialLines = 0
+		FromTheStart:  reqParams.fromTheStart,
 	}
 	return tailerParams
 }

@@ -22,10 +22,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-const (
-	defaultBacklogVal = 10
-)
-
 // debugLogHandler takes requests to watch the debug log.
 //
 // It provides the underlying framework for the 2 debug-log
@@ -206,6 +202,7 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 		backLogVal  uint64
 		maxLinesVal uint64
 		noTail      bool
+		replay      bool
 	)
 
 	if value := queryMap.Get("backlog"); value != "" {
@@ -232,24 +229,28 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 		params.noTail = noTail
 	}
 
-	if !noTail && maxLinesVal != 0 {
-		return params, errors.Errorf("tail not valid with maxLines")
-	}
-
-	if noTail && backLogVal != defaultBacklogVal && backLogVal != 0 {
-		return params, errors.Errorf("noTail not valid with backLog")
-	}
-
-	if maxLinesVal != 0 && backLogVal != defaultBacklogVal && backLogVal != 0 {
-		return params, errors.Errorf("maxLines not valid with backLog")
-	}
-
 	if value := queryMap.Get("replay"); value != "" {
-		replay, err := strconv.ParseBool(value)
+		replay, err = strconv.ParseBool(value)
 		if err != nil {
 			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
+	}
+
+	if !noTail && maxLinesVal != 0 {
+		return params, errors.Errorf("tail not valid with maxLines")
+	}
+
+	if noTail && backLogVal != 0 {
+		return params, errors.Errorf("noTail not valid with backLog")
+	}
+
+	if maxLinesVal != 0 && backLogVal != 0 {
+		return params, errors.Errorf("maxLines not valid with backLog")
+	}
+
+	if replay && backLogVal != 0 {
+		return params, errors.Errorf("replay not valid with backLog")
 	}
 
 	if value := queryMap.Get("level"); value != "" {
