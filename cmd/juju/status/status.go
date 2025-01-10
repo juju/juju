@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -16,8 +17,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/viddy"
-
 	"github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -381,7 +380,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 
 // statusCommandForViddy returns the full juju command including all args
 // except the '--watch' flag.
-func (c *statusCommand) statusCommandForViddy(args []string) []string {
+func (c *statusCommand) statusCommandForWatch(args []string) []string {
 	var jujuStatusArgsWithoutWatchFlag []string
 
 	for i := range args {
@@ -411,14 +410,28 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		jujuStatusArgs := c.statusCommandForViddy(os.Args)
+		// Collect all args except the watch flag
+		jujuStatusArgs := c.statusCommandForWatch(os.Args)
 
-		viddyArgs := append([]string{"--no-title", "--interval", c.watch.String()}, jujuStatusArgs...)
-
-		// Define tview styles and launch preconfiged Viddy watcher
-		app := viddy.NewPreconfigedViddy(viddyArgs)
-		if err := app.Run(); err != nil {
-			return errors.Annotate(err, "unable to run Viddy (watcher for status command)")
+		// Check what watch shell command is available. Using the following order:
+		// 1. `viddy`
+		// 2. `watch`
+		// 3. send error to output
+		var watchArgs []string
+		var watchableJujuCmd *exec.Cmd
+		if _, err := exec.LookPath("viddy"); err == nil {
+			watchArgs = append([]string{"--no-title", "--interval", c.watch.String()}, jujuStatusArgs...)
+			watchableJujuCmd = exec.Command("viddy", watchArgs...)
+		} else if _, err = exec.LookPath("watch"); err == nil {
+			watchArgs = append([]string{"-n", strconv.Itoa(int(c.watch.Seconds()))}, jujuStatusArgs...)
+			watchableJujuCmd = exec.Command("watch", watchArgs...)
+		} else {
+			return errors.Annotate(err, "there is no any watch shell command available")
+		}
+		watchableJujuCmd.Stdout = os.Stdout
+		watchableJujuCmd.Stderr = os.Stderr
+		if err := watchableJujuCmd.Run(); err != nil {
+			return errors.Annotate(err, "unable to run watch command")
 		}
 	} else {
 		err := c.runStatus(ctx)

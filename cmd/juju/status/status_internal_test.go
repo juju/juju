@@ -5563,9 +5563,9 @@ func (s *StatusSuite) TestStatusArgsWithoutWatch(c *gc.C) {
 
 	statusArgsGNUStyle := []string{"juju", "status", "--watch=1s", "--relations"}
 	expectedArgsGNUStyle := []string{"juju", "status", "--relations", "--color"}
-	c.Check(cmd.statusCommandForViddy(statusArgsGNUStyle), jc.SameContents, expectedArgsGNUStyle)
+	c.Check(cmd.statusCommandForWatch(statusArgsGNUStyle), jc.SameContents, expectedArgsGNUStyle)
 
 	statusArgsUnixStyle := []string{"juju", "status", "--watch", "1s", "--relations"}
 	expectedArgsUnixStyle := []string{"juju", "status", "--relations", "--color"}
-	c.Check(cmd.statusCommandForViddy(statusArgsUnixStyle), jc.SameContents, expectedArgsUnixStyle)
+	c.Check(cmd.statusCommandForWatch(statusArgsUnixStyle), jc.SameContents, expectedArgsUnixStyle)
 }
