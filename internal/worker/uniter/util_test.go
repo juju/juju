@@ -977,7 +977,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		UniterClient: ctx.api,
 		UnitTag:      tag,
 		ModelType:    model.IAAS,
-		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {
+		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.Tracker {
 			return ctx.leaderTracker
 		},
 		ResourcesClient:      ctx.resources,

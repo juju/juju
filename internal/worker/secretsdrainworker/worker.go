@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api/common/secretsdrain"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
@@ -29,7 +30,8 @@ type Config struct {
 	SecretsDrainFacade
 	Logger logger.Logger
 
-	SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
+	SecretsBackendGetter  func() (jujusecrets.BackendsClient, error)
+	LeadershipTrackerFunc func() leadership.ChangeTracker
 }
 
 // Validate returns an error if config cannot drive the Worker.
@@ -42,6 +44,9 @@ func (config Config) Validate() error {
 	}
 	if config.SecretsBackendGetter == nil {
 		return errors.NotValidf("nil SecretsBackendGetter")
+	}
+	if config.LeadershipTrackerFunc == nil {
+		return errors.NotValidf("nil LeadershipTrackerFunc")
 	}
 	return nil
 }
@@ -78,7 +83,7 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *Worker) loop() (err error) {
+func (w *Worker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
@@ -90,6 +95,7 @@ func (w *Worker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+waitforchanges:
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -99,22 +105,16 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret backend changed watch closed")
 			}
 			w.config.Logger.Debugf("got new secret backend")
-
-			secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain(ctx)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if len(secrets) == 0 {
-				w.config.Logger.Debugf("no secrets to drain")
-				continue
-			}
-			w.config.Logger.Debugf("got %d secrets to drain", len(secrets))
-			backends, err := w.config.SecretsBackendGetter()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, md := range secrets {
-				if err := w.drainSecret(ctx, md, backends); err != nil {
+			for {
+				switch err := w.drainSecrets(); {
+				case err == nil:
+					continue waitforchanges
+				case errors.Is(err, leadership.ErrLeadershipChanged):
+					// If leadership changes during the drain operation,
+					// we need to finish up and start again.
+					w.config.Logger.Warningf("leadership changed, restarting drain operation")
+					continue
+				default:
 					return errors.Trace(err)
 				}
 			}
@@ -122,7 +122,65 @@ func (w *Worker) loop() (err error) {
 	}
 }
 
-func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) (err error) {
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
+
+// drainSecrets queries the secrets owned by the unit and if the unit is
+// the leader, this will include any application owned secrets.
+// If leadership changes during the draining operation, an error satisfying
+// [leadershipworker.ErrLeadershipChanged] is returned.
+func (w *Worker) drainSecrets() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	leadershipTracker := w.config.LeadershipTrackerFunc()
+	drainErr := leadershipTracker.WithStableLeadership(ctx, func(ctx context.Context) error {
+		secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(secrets) == 0 {
+			w.config.Logger.Debugf("no secrets to drain")
+			return nil
+		}
+		w.config.Logger.Debugf("got %d secrets to drain", len(secrets))
+		backends, err := w.config.SecretsBackendGetter()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, md := range secrets {
+			if err := w.drainSecret(ctx, md, backends); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	})
+	if errors.Is(drainErr, context.Canceled) ||
+		errors.Is(drainErr, context.DeadlineExceeded) {
+		select {
+		case <-w.catacomb.Dying():
+			drainErr = w.catacomb.ErrDying()
+		default:
+		}
+	}
+	return drainErr
+}
+
+func (w *Worker) drainSecret(
+	ctx context.Context, md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient,
+) error {
+	// Exit early if we need to abort.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+
+	// Otherwise completely process the specified secret
+	// and its revisions.
 	var args []secretsdrain.ChangeSecretBackendArg
 	var cleanUpInExternalBackendFuncs []func() error
 	for _, revisionMeta := range md.Revisions {
@@ -224,8 +282,4 @@ func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataF
 		return errors.Errorf("failed to drain secret revisions for %q to the active backend", md.URI)
 	}
 	return nil
-}
-
-func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

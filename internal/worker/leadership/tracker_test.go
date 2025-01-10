@@ -4,14 +4,17 @@
 package leadership_test
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreleadership "github.com/juju/juju/core/leadership"
@@ -22,8 +25,12 @@ import (
 type TrackerSuite struct {
 	testing.IsolationSuite
 	unitTag names.UnitTag
-	claimer *StubClaimer
-	clock   *testclock.Clock
+
+	claimer *MockClaimer
+	clock   testclock.AdvanceableClock
+
+	claimLeaderErrors        []error
+	blockUntilReleasedErrors []error
 }
 
 var _ = gc.Suite(&TrackerSuite{})
@@ -49,22 +56,49 @@ func (s *TrackerSuite) refreshes(count int) {
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
-	s.clock = testclock.NewClock(time.Date(2016, 10, 9, 12, 0, 0, 0, time.UTC))
-	s.claimer = &StubClaimer{
-		Stub:     &testing.Stub{},
-		releases: make(chan struct{}),
-	}
+	s.clock = testclock.NewDilatedWallClock(coretesting.ShortWait)
 }
 
-func (s *TrackerSuite) unblockRelease(c *gc.C) {
+func (s *TrackerSuite) expectClaimLeadership() {
+	s.claimer.EXPECT().ClaimLeadership(gomock.Any(), "led-service", "led-service/123", leaseDuration).
+		DoAndReturn(func(ctx context.Context, appName, unitName string, leaseDuration time.Duration) error {
+			var next error
+			if len(s.claimLeaderErrors) > 0 {
+				next = s.claimLeaderErrors[0]
+				s.claimLeaderErrors = s.claimLeaderErrors[1:]
+			}
+			return next
+		}).AnyTimes()
+}
+
+func (s *TrackerSuite) maybeExpectBlockUntilLeadershipReleased(releases chan struct{}) {
+	s.claimer.EXPECT().BlockUntilLeadershipReleased(gomock.Any(), "led-service").
+		DoAndReturn(func(ctx context.Context, appName string) error {
+			select {
+			case <-ctx.Done():
+				return coreleadership.ErrBlockCancelled
+			case <-releases:
+			}
+			var next error
+			if len(s.blockUntilReleasedErrors) > 0 {
+				next = s.blockUntilReleasedErrors[0]
+				s.blockUntilReleasedErrors = s.blockUntilReleasedErrors[1:]
+			}
+			return next
+		}).AnyTimes()
+}
+
+func (s *TrackerSuite) unblockRelease(c *gc.C, releases chan struct{}) {
 	select {
-	case s.claimer.releases <- struct{}{}:
+	case releases <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
 	}
 }
 
 func (s *TrackerSuite) newTrackerInner() *leadership.Tracker {
+	s.expectClaimLeadership()
+
 	return leadership.NewTracker(s.unitTag, s.claimer, s.clock, trackerDuration)
 }
 
@@ -85,62 +119,59 @@ func (s *TrackerSuite) newTrackerDirtyKill() *leadership.Tracker {
 }
 
 func (s *TrackerSuite) TestApplicationName(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
 	tracker := s.newTracker()
 	c.Assert(tracker.ApplicationName(), gc.Equals, "led-service")
 }
 
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
 	tracker := s.newTracker()
 
 	// Check the ticket succeeds.
 	assertClaimLeader(c, tracker, true)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
-	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
 	// Check the ticket fails.
 	assertClaimLeader(c, tracker, false)
 
-	// wait for calls to stabilize before killing the worker and inspecting the calls.
-	timeout := time.After(testing.LongWait)
-	next := time.After(0)
-	for len(s.claimer.Stub.Calls()) < 2 {
-		select {
-		case <-next:
-			next = time.After(testing.ShortWait)
-		case <-timeout:
-			c.Fatalf("timed out waiting %s for 2 calls", testing.LongWait)
-		}
-	}
-	// Stop the tracker before trying to look at its mocks.
 	workertest.CleanKill(c, tracker)
-
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
-	s.claimer.Stub.SetErrors(errors.New("pow"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{errors.New("pow")}
 	tracker := s.newTrackerDirtyKill()
 
 	// Check the ticket fails.
@@ -149,16 +180,17 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 	// Stop the tracker before trying to look at its mocks.
 	err := worker.Stop(tracker)
 	c.Check(err, gc.ErrorMatches, "leadership failure: pow")
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
-	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{nil, coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
 	// Check the first ticket succeeds.
@@ -169,36 +201,26 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	s.refreshes(1)
 	assertClaimLeader(c, tracker, false)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
-	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied}
+
 	tracker := s.newTracker()
 
 	// Check initial ticket fails.
 	assertClaimLeader(c, tracker, false)
 
 	// Unblock the release goroutine...
-	s.unblockRelease(c)
+	s.unblockRelease(c, releases)
 
 	// advance the clock a small amount, but not enough to trigger a check
 	s.refreshes(0)
@@ -206,37 +228,25 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	// ...then check the next ticket succeeds.
 	assertClaimLeader(c, tracker, true)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
-	s.claimer.Stub.SetErrors(
-		coreleadership.ErrClaimDenied, nil, coreleadership.ErrClaimDenied, nil,
-	)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied, coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
 	// Check initial ticket fails.
 	assertClaimLeader(c, tracker, false)
 
 	// Unblock the release goroutine...
-	s.unblockRelease(c)
+	s.unblockRelease(c, releases)
 
 	// advance the clock a small amount, but not enough to trigger a check
 	s.refreshes(0)
@@ -250,55 +260,41 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 
 	// ...but it won't, because we Stop the tracker...
 	workertest.CleanKill(c, tracker)
-
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
 	tracker := s.newTracker()
 
 	// Check the ticket succeeds.
 	assertWaitLeader(c, tracker, true)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
-	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied}
+
 	tracker := s.newTracker()
 
 	// Check initial ticket fails.
 	assertWaitLeader(c, tracker, false)
 
 	// Unblock the release goroutine...
-	s.unblockRelease(c)
+	s.unblockRelease(c, releases)
 
 	// advance the clock a small amount, but not enough to trigger a check
 	s.refreshes(0)
@@ -306,28 +302,18 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 	// ...then check the next ticket succeeds.
 	assertWaitLeader(c, tracker, true)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
-	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
 	// Check initial ticket fails.
@@ -340,53 +326,52 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 	// Check the ticket got closed without sending true.
 	assertTicket(c, ticket, false)
 	assertTicket(c, ticket, false)
-
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
-	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
 	// Check initial ticket is closed immediately.
 	assertWaitLeader(c, tracker, false)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestWaitMinionClaimerFails(c *gc.C) {
-	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, errors.New("mein leben!"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{coreleadership.ErrClaimDenied}
+	s.blockUntilReleasedErrors = []error{errors.New("mein leben!")}
+
 	tracker := s.newTrackerDirtyKill()
-	s.unblockRelease(c)
+	s.unblockRelease(c, releases)
 
 	err := workertest.CheckKilled(c, tracker)
 	c.Assert(err, gc.ErrorMatches, "error while led-service/123 waiting for led-service leadership release: mein leben!")
 }
 
 func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
-	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{nil, coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
 	// Check the first ticket stays open.
@@ -397,28 +382,17 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 	s.refreshes(1)
 	assertWaitMinion(c, tracker, true)
 
-	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "BlockUntilLeadershipReleased",
-		Args: []interface{}{
-			"led-service",
-		},
-	}})
 }
 
 func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
 	tracker := s.newTracker()
 
 	ticket := tracker.WaitMinion()
@@ -430,23 +404,125 @@ func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
 	default:
 		// fallthrough
 	}
+}
 
-	s.claimer.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}, {
-		FuncName: "ClaimLeadership",
-		Args: []interface{}{
-			"led-service", "led-service/123", leaseDuration,
-		},
-	}})
+func (s *TrackerSuite) finishLeadershipFunc(ctx context.Context, started, finish chan struct{}) error {
+	select {
+	case <-ctx.Done():
+	case <-started:
+	}
+
+	select {
+	case finish <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		return errors.New("trying to finish leadership func")
+	}
+	return nil
+}
+
+func (s *TrackerSuite) TestWithStableLeadership(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	tracker := s.newTracker()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	started := make(chan struct{})
+	finishWithStableLeadership := make(chan struct{})
+	go func(c *gc.C) {
+		err := s.finishLeadershipFunc(ctx, started, finishWithStableLeadership)
+		c.Assert(err, jc.ErrorIsNil)
+	}(c)
+
+	// Wait long enough for a single refresh.
+	s.refreshes(1)
+
+	called := false
+	err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
+		close(started)
+		called = true
+		select {
+		case <-finishWithStableLeadership:
+		case <-ctx.Done():
+		case <-time.After(coretesting.LongWait):
+			return errors.New("trying to finish leadership func")
+		}
+		return ctx.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	workertest.CleanKill(c, tracker)
+}
+
+func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	s.claimLeaderErrors = []error{nil, coreleadership.ErrClaimDenied}
+	tracker := s.newTracker()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	called := false
+	waitErr := make(chan error, 1)
+	go func() {
+		err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
+			called = true
+			select {
+			case <-ctx.Done():
+			case <-time.After(coretesting.LongWait):
+				return errors.New("trying to finish leadership func")
+			}
+			return ctx.Err()
+		})
+		waitErr <- err
+	}()
+
+	// Wait long enough for a single refresh, to trigger ErrClaimDenied.
+	s.refreshes(1)
+
+	s.unblockRelease(c, releases)
+
+	var err error
+	select {
+	case err = <-waitErr:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for leader func")
+	}
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, coreleadership.ErrLeadershipChanged)
+	workertest.CleanKill(c, tracker)
+}
+
+func (s *TrackerSuite) TestWithStableLeadershipFuncError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.claimer = NewMockClaimer(ctrl)
+	releases := make(chan struct{})
+	s.maybeExpectBlockUntilLeadershipReleased(releases)
+
+	tracker := s.newTracker()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {
+		return errors.New("boom")
+	})
+	c.Assert(err, gc.ErrorMatches, "executing leadership func: boom")
+	workertest.CleanKill(c, tracker)
 }
 
 func assertClaimLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {

@@ -93,7 +93,7 @@ type Uniter struct {
 	newDeployer          charm.NewDeployerFunc
 	translateResolverErr func(error) error
 
-	leadershipTracker leadership.TrackerWorker
+	leadershipTracker leadership.Tracker
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
@@ -158,7 +158,7 @@ type UniterParams struct {
 	SecretsBackendGetter    context.SecretsBackendGetter
 	UnitTag                 names.UnitTag
 	ModelType               model.ModelType
-	LeadershipTrackerFunc   func(names.UnitTag) leadership.TrackerWorker
+	LeadershipTrackerFunc   func(names.UnitTag) leadership.Tracker
 	SecretRotateWatcherFunc remotestate.SecretTriggerWatcherFunc
 	SecretExpiryWatcherFunc remotestate.SecretTriggerWatcherFunc
 	DataDir                 string
