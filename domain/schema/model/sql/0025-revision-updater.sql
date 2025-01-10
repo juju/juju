@@ -10,11 +10,13 @@ SELECT
     ac.branch AS channel_branch,
     ap.os_id AS platform_os_id,
     ap.channel AS platform_channel,
-    ap.architecture_id AS platform_architecture_id
+    ap.architecture_id AS platform_architecture_id,
+    cdi.charmhub_identifier
 FROM application AS a
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
 LEFT JOIN application_channel AS ac ON a.uuid = ac.application_uuid
 LEFT JOIN application_platform AS ap ON a.uuid = ap.application_uuid
+LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
 WHERE a.life_id = 0 AND c.source_id = 1;
 
 CREATE VIEW v_revision_updater_application_unit AS

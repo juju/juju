@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -63,6 +64,11 @@ type ApplicationService interface {
 	// GetApplicationsForRevisionUpdater returns the applications that should be
 	// used by the revision updater.
 	GetApplicationsForRevisionUpdater(context.Context) ([]application.RevisionUpdaterApplication, error)
+
+	// ReserveCharmRevision reserves a charm revision for the given charm id.
+	// If there are any non-blocking issues with the charm metadata, actions,
+	// config or manifest, a set of warnings will be returned.
+	ReserveCharmRevision(ctx context.Context, args applicationcharm.ReserveCharmRevisionArgs) (corecharm.ID, []string, error)
 }
 
 // ModelService provides access to the model.
@@ -227,6 +233,7 @@ func (w *revisionUpdateWorker) loop() error {
 			// information.
 			// If the update fails, the worker will log an error and continue
 			// to the next application.
+
 			latestInfo, err := w.fetch(ctx, charmhubClient)
 			if errors.Is(err, ErrFailedToSendMetrics) {
 				logger.Warningf("failed to send metrics: %v", err)
@@ -234,11 +241,22 @@ func (w *revisionUpdateWorker) loop() error {
 			} else if err != nil {
 				logger.Errorf("failed to fetch revisions: %v", err)
 				continue
+			} else if len(latestInfo) == 0 {
+				if err := w.recordNoApplications(ctx, charmhubClient); err != nil {
+					logger.Warningf("failed to record no applications: %v", err)
+				}
+				logger.Debugf("no new application revisions")
+				continue
 			}
 
 			logger.Debugf("revisions fetched for %d applications", len(latestInfo))
 
-			// TODO (stickupkid): Insert charms with the latest revisions.
+			if err := w.storeNewRevisions(ctx, latestInfo); err != nil {
+				logger.Warningf("failed to store revisions: %v", err)
+				continue
+			}
+
+			logger.Debugf("revisions stored for %d applications", len(latestInfo))
 
 		case changes, ok := <-configWatcher.Changes():
 			if !ok {
@@ -274,27 +292,20 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 		return nil, internalerrors.Capture(err)
 	}
 
-	cfg, err := w.config.ModelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
+	if len(applications) == 0 {
+		return nil, nil
 	}
 
-	buildTelemetry := cfg.Telemetry()
-
-	if len(applications) == 0 {
-		return nil, w.sendEmptyModelMetrics(ctx, client, buildTelemetry)
+	buildTelemetry, err := w.shouldBuildTelemetry(ctx)
+	if err != nil {
+		w.config.Logger.Infof("checking telemetry config: %v", err)
+		buildTelemetry = false
 	}
 
 	charmhubIDs := make([]charmhubID, len(applications))
 	charmhubApps := make([]appInfo, len(applications))
 
 	for i, app := range applications {
-		charmURL, err := encodeCharmURL(app.CharmLocator)
-		if err != nil {
-			w.config.Logger.Infof("encoding charm URL for %q: %v", app.Name, err)
-			continue
-		}
-
 		charmhubID, err := encodeCharmhubID(app, w.config.ModelTag)
 		if err != nil {
 			w.config.Logger.Infof("encoding charmhub ID for %q: %v", app.Name, err)
@@ -309,12 +320,32 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 
 		charmhubIDs[i] = charmhubID
 		charmhubApps[i] = appInfo{
-			id:       app.Name,
-			charmURL: charmURL,
+			id:           app.Name,
+			charmLocator: app.CharmLocator,
+			origin:       app.Origin,
 		}
 	}
 
 	return w.fetchInfo(ctx, client, buildTelemetry, charmhubIDs, charmhubApps)
+}
+
+func (w *revisionUpdateWorker) recordNoApplications(ctx context.Context, client CharmhubClient) error {
+	buildTelemetry, err := w.shouldBuildTelemetry(ctx)
+	if err != nil {
+		w.config.Logger.Infof("checking telemetry config: %v", err)
+		buildTelemetry = false
+	}
+
+	return w.sendEmptyModelMetrics(ctx, client, buildTelemetry)
+}
+
+func (w *revisionUpdateWorker) shouldBuildTelemetry(ctx context.Context) (bool, error) {
+	cfg, err := w.config.ModelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return false, internalerrors.Capture(err)
+	}
+
+	return cfg.Telemetry(), nil
 }
 
 func (w *revisionUpdateWorker) sendEmptyModelMetrics(ctx context.Context, client CharmhubClient, buildTelemetry bool) error {
@@ -359,12 +390,34 @@ func (w *revisionUpdateWorker) fetchInfo(ctx context.Context, client CharmhubCli
 
 	var latest []latestCharmInfo
 	for i, result := range response {
+		// The application platform architecture can't change during the
+		// lifecycle of an application. We therefore must use the platform from
+		// the origin of the application.
+		origin := apps[i].origin
+		arch, err := encodeArchitecture(origin.Platform.Architecture)
+		if err != nil {
+			return nil, internalerrors.Errorf("encoding architecture: %w", err)
+		}
+
+		osType, err := encodeOSType(origin.Platform.OSType)
+		if err != nil {
+			return nil, internalerrors.Errorf("encoding os type: %w", err)
+		}
+
+		essentialMetadata := result.essentialMetadata
+		essentialMetadata.ResolvedOrigin.Platform = corecharm.Platform{
+			Architecture: arch,
+			OS:           osType,
+			Channel:      origin.Platform.Channel,
+		}
+
 		latest = append(latest, latestCharmInfo{
-			url:       apps[i].charmURL,
-			timestamp: result.timestamp,
-			revision:  result.revision,
-			resources: result.resources,
-			appID:     apps[i].id,
+			charmLocator:      apps[i].charmLocator,
+			essentialMetadata: essentialMetadata,
+			timestamp:         result.timestamp,
+			revision:          result.revision,
+			resources:         result.resources,
+			appID:             apps[i].id,
 		})
 	}
 
@@ -396,18 +449,77 @@ func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClien
 	ctx, cancel := context.WithTimeout(ctx, charmhub.RefreshTimeout)
 	defer cancel()
 
+	w.config.Logger.Debugf("refreshing %d charms", len(configs))
+
 	responses, err := client.RefreshWithRequestMetrics(ctx, config, metrics)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
+	if len(responses) != len(ids) {
+		return nil, internalerrors.Errorf("expected %d responses, got %d", len(ids), len(responses))
+	}
+
 	results := make([]charmhubResult, len(responses))
 	for i, response := range responses {
-		if results[i], err = w.refreshResponseToCharmhubResult(response); err != nil {
+		result, err := w.refreshResponseToCharmhubResult(response)
+		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
+		results[i] = result
 	}
 	return results, nil
+}
+
+func (w *revisionUpdateWorker) storeNewRevisions(ctx context.Context, latestInfo []latestCharmInfo) error {
+	for _, info := range latestInfo {
+		if err := w.storeNewRevision(ctx, info); err != nil {
+			return internalerrors.Capture(err)
+		}
+	}
+	return nil
+}
+
+func (w *revisionUpdateWorker) storeNewRevision(ctx context.Context, info latestCharmInfo) error {
+	// Insert the new charm revision into the model.
+	service := w.config.ApplicationService
+
+	essentialMetadata := info.essentialMetadata
+	downloadInfo := essentialMetadata.DownloadInfo
+	origin := essentialMetadata.ResolvedOrigin
+
+	_, warnings, err := service.ReserveCharmRevision(ctx, applicationcharm.ReserveCharmRevisionArgs{
+		Charm: internalcharm.NewCharmBase(
+			essentialMetadata.Meta,
+			essentialMetadata.Manifest,
+			essentialMetadata.Config,
+			// These will be filled in once we have all the data in the
+			// response from the charmhub.
+			nil, nil,
+		),
+		// This will always be a charmhub charm.
+		Source:        corecharm.CharmHub,
+		ReferenceName: info.charmLocator.Name,
+		// This is the new revision located from the fetch.
+		Revision: info.revision,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: downloadInfo.CharmhubIdentifier,
+			DownloadURL:        downloadInfo.DownloadURL,
+			DownloadSize:       downloadInfo.DownloadSize,
+		},
+		Hash:         origin.Hash,
+		Architecture: origin.Platform.Architecture,
+	})
+	if errors.Is(err, applicationerrors.CharmAlreadyExists) {
+		return nil
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	} else if len(warnings) > 0 {
+		w.config.Logger.Infof("reserving charm revision for %q: %v", info.appID, warnings)
+	}
+
+	return nil
 }
 
 func (w *revisionUpdateWorker) getCharmhubClient(ctx context.Context) (CharmhubClient, error) {
@@ -472,6 +584,23 @@ func (w *revisionUpdateWorker) refreshResponseToCharmhubResult(response transpor
 		return charmhubResult{}, internalerrors.Capture(err)
 	}
 
+	channel, err := internalcharm.ParseChannelNormalize(response.EffectiveChannel)
+	if err != nil {
+		return charmhubResult{}, internalerrors.Errorf("parsing effective channel %q: %w", response.EffectiveChannel, err)
+	}
+
+	// The charmhub origin is resolved from the response.
+	metadata.ResolvedOrigin = corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Hash:     response.Entity.Download.HashSHA256,
+		Type:     response.Entity.Type.String(),
+		ID:       response.Entity.ID,
+		Revision: &response.Entity.Revision,
+		Channel:  &channel,
+		// The platform is not filled in here, instead it's the same as the
+		// origin platform of the application.
+	}
+
 	var resources []resource.Resource
 	for _, r := range response.Entity.Resources {
 		fingerprint, err := resource.ParseFingerprint(r.Download.HashSHA384)
@@ -519,34 +648,16 @@ func (w *revisionUpdateWorker) reportInternalState(state string) {
 	}
 }
 
-func encodeCharmURL(locator applicationcharm.CharmLocator) (*charm.URL, error) {
-	// We only support charmhub charms, anything else is an error.
-	if locator.Source != applicationcharm.CharmHubSource {
-		return nil, internalerrors.Errorf("unsupported charm source %q", locator.Source)
-	}
-
-	arch, err := encodeArchitecture(locator.Architecture)
-	if err != nil {
-		return nil, internalerrors.Errorf("encoding architecture: %w", err)
-	}
-
-	return &charm.URL{
-		Schema:       charm.CharmHub.String(),
-		Name:         locator.Name,
-		Revision:     locator.Revision,
-		Architecture: arch,
-	}, nil
-}
-
 func jitter(period time.Duration) time.Duration {
 	return retry.ExpBackoff(period, period*2, 2, true)(0, 1)
 }
 
 func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names.ModelTag) (charmhubID, error) {
-	appTag, err := names.ParseApplicationTag(app.Name)
-	if err != nil {
-		return charmhubID{}, internalerrors.Errorf("parsing application tag: %w", err)
+	if !names.IsValidApplication(app.Name) {
+		return charmhubID{}, internalerrors.Errorf("invalid application name %q", app.Name)
 	}
+
+	appTag := names.NewApplicationTag(app.Name)
 
 	origin := app.Origin
 	risk, err := encodeRisk(origin.Channel.Risk)
@@ -624,8 +735,9 @@ func encodeRisk(r application.ChannelRisk) (string, error) {
 }
 
 type appInfo struct {
-	id       string
-	charmURL *charm.URL
+	id           string
+	charmLocator applicationcharm.CharmLocator
+	origin       application.Origin
 }
 
 // charmhubID holds identifying information for several charms for a
@@ -645,11 +757,12 @@ type charmhubID struct {
 }
 
 type latestCharmInfo struct {
-	url       *charm.URL
-	timestamp time.Time
-	revision  int
-	resources []resource.Resource
-	appID     string
+	charmLocator      applicationcharm.CharmLocator
+	essentialMetadata corecharm.EssentialMetadata
+	timestamp         time.Time
+	revision          int
+	resources         []resource.Resource
+	appID             string
 }
 
 // charmhubResult is the type charmhubLatestCharmInfo returns: information

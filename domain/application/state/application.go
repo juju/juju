@@ -2175,6 +2175,7 @@ FROM v_revision_updater_application_unit
 				Architecture: charmArch,
 			},
 			Origin: application.Origin{
+				ID:       r.CharmhubIdentifier,
 				Revision: r.Revision,
 				Channel: application.Channel{
 					Track:  r.ChannelTrack,

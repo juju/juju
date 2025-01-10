@@ -886,6 +886,31 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 	}, warnings, nil
 }
 
+// ReserveCharmRevision creates a new charm revision placeholder in state. This
+// includes all the metadata, actions, config and manifest for the charm. The
+// charm revision placeholder will include all the associated hash, and download
+// information for the charm. Once the new charm revision place holder is linked
+// to an application, the async charm downloader will download the charm archive
+// and set the charm as available.
+//
+// If there are any non-blocking issues with the charm metadata, actions, config
+// or manifest, a set of warnings will be returned.
+func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCharmRevisionArgs) (corecharm.ID, []string, error) {
+	result, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
+		Charm:         args.Charm,
+		Source:        args.Source,
+		ReferenceName: args.ReferenceName,
+		Hash:          args.Hash,
+		Revision:      args.Revision,
+		Architecture:  args.Architecture,
+		DownloadInfo:  args.DownloadInfo,
+	})
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return result.ID, warnings, nil
+}
+
 // WatchCharms returns a watcher that observes changes to charms.
 func (s *WatchableService) WatchCharms() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewUUIDsWatcher(

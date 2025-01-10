@@ -15,6 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/charm"
+	corecharm "github.com/juju/juju/core/charm"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	http "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -26,7 +28,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	config "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -47,6 +49,8 @@ type WorkerSuite struct {
 	httpClient         *MockHTTPClient
 	httpClientGetter   *MockHTTPClientGetter
 	clock              *MockClock
+
+	modelTag names.ModelTag
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -199,6 +203,91 @@ func (s *WorkerSuite) TestSendEmptyModelMetricsWithNoTelemetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *WorkerSuite) TestFetch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+	s.expectModelConfig(c)
+
+	charmLocator := applicationcharm.CharmLocator{
+		Source:       applicationcharm.CharmHubSource,
+		Name:         "foo",
+		Revision:     42,
+		Architecture: architecture.AMD64,
+	}
+
+	s.applicationService.EXPECT().GetApplicationsForRevisionUpdater(gomock.Any()).DoAndReturn(func(ctx context.Context) ([]application.RevisionUpdaterApplication, error) {
+		return []application.RevisionUpdaterApplication{{
+			Name:         "foo",
+			CharmLocator: charmLocator,
+			Origin: application.Origin{
+				ID:       "foo",
+				Revision: 42,
+				Channel: application.Channel{
+					Risk: "stable",
+				},
+				Platform: application.Platform{
+					Architecture: architecture.AMD64,
+					Channel:      "22.04",
+					OSType:       application.Ubuntu,
+				},
+			},
+		}}, nil
+	})
+
+	model := coremodel.ReadOnlyModel{
+		UUID:           modeltesting.GenModelUUID(c),
+		ControllerUUID: uuid.MustNewUUID(),
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "us-east-1",
+	}
+
+	s.modelService.EXPECT().GetModelMetrics(gomock.Any()).Return(coremodel.ModelMetrics{
+		Model:            model,
+		ApplicationCount: 1,
+		MachineCount:     2,
+		UnitCount:        3,
+	}, nil)
+
+	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{{
+		Name:             "foo",
+		EffectiveChannel: "latest/stable",
+		Entity: transport.RefreshEntity{
+			Revision: 666,
+		},
+	}}, nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	result, err := w.fetch(context.Background(), s.charmhubClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
+	c.Check(result, jc.DeepEquals, []latestCharmInfo{{
+		essentialMetadata: charm.EssentialMetadata{
+			ResolvedOrigin: charm.Origin{
+				Source:   charm.CharmHub,
+				Revision: ptr(666),
+				Channel:  &channel,
+				Platform: charm.Platform{
+					Architecture: "amd64",
+					OS:           "ubuntu",
+					Channel:      "22.04",
+				},
+			},
+		},
+		charmLocator: charmLocator,
+		timestamp:    s.now,
+		revision:     666,
+		appID:        "foo",
+	}})
+}
+
 func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -249,8 +338,13 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	id := ids[0]
 
 	apps := []appInfo{{
-		id:       "foo",
-		charmURL: charm.MustParseURL("ch:foo-42"),
+		id: "foo",
+		charmLocator: applicationcharm.CharmLocator{
+			Source:       applicationcharm.CharmHubSource,
+			Name:         "foo",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
 	}}
 
 	cfg, err := charmhub.RefreshOne(id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
@@ -263,7 +357,8 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
-		Name: id.id,
+		Name:             id.id,
+		EffectiveChannel: "latest/stable",
 		Entity: transport.RefreshEntity{
 			Revision: 666,
 		},
@@ -276,11 +371,24 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 
 	result, err := w.fetchInfo(context.Background(), s.charmhubClient, true, ids, apps)
 	c.Assert(err, jc.ErrorIsNil)
+
+	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
 	c.Check(result, jc.DeepEquals, []latestCharmInfo{{
-		url:       apps[0].charmURL,
-		timestamp: s.now,
-		revision:  666,
-		appID:     "foo",
+		essentialMetadata: charm.EssentialMetadata{
+			ResolvedOrigin: charm.Origin{
+				Source:   charm.CharmHub,
+				Revision: ptr(666),
+				Channel:  &channel,
+				Platform: charm.Platform{
+					Architecture: "amd64",
+					OS:           "ubuntu",
+				},
+			},
+		},
+		charmLocator: apps[0].charmLocator,
+		timestamp:    s.now,
+		revision:     666,
+		appID:        "foo",
 	}})
 }
 
@@ -345,7 +453,8 @@ func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
-		Name: id.id,
+		Name:             id.id,
+		EffectiveChannel: "latest/stable",
 		Entity: transport.RefreshEntity{
 			Revision: 666,
 		},
@@ -412,7 +521,11 @@ func (s *WorkerSuite) TestRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
-		Name: id.id,
+		Name:             id.id,
+		EffectiveChannel: "latest/stable",
+		Entity: transport.RefreshEntity{
+			Revision: 666,
+		},
 	}}, nil)
 
 	w := s.newWorker(c)
@@ -420,11 +533,20 @@ func (s *WorkerSuite) TestRequest(c *gc.C) {
 
 	s.ensureStartup(c)
 
+	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
 	result, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, []charmhubResult{{
 		name:      id.id,
 		timestamp: s.now,
+		essentialMetadata: charm.EssentialMetadata{
+			ResolvedOrigin: charm.Origin{
+				Source:   charm.CharmHub,
+				Revision: ptr(666),
+				Channel:  &channel,
+			},
+		},
+		revision: 666,
 	}})
 }
 
@@ -482,8 +604,10 @@ func (s *WorkerSuite) TestRequestWithResources(c *gc.C) {
 	hash384 := "e8e4d9727695438c7f5c91347e50e3d68eaab5fe3f856685de5a80fbaafb3c1700776dea0eb7db09c940466ba270a4e4"
 
 	s.charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), charmhub.RefreshMany(cfg), metrics).Return([]transport.RefreshResponse{{
-		Name: id.id,
+		Name:             id.id,
+		EffectiveChannel: "latest/stable",
 		Entity: transport.RefreshEntity{
+			Revision: 666,
 			Resources: []transport.ResourceRevision{{
 				Type:     "file",
 				Revision: 42,
@@ -502,6 +626,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *gc.C) {
 
 	s.ensureStartup(c)
 
+	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
 	result, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, []charmhubResult{{
@@ -515,6 +640,14 @@ func (s *WorkerSuite) TestRequestWithResources(c *gc.C) {
 			Fingerprint: fingerprint,
 			Revision:    42,
 		}},
+		essentialMetadata: charm.EssentialMetadata{
+			ResolvedOrigin: charm.Origin{
+				Source:   charm.CharmHub,
+				Revision: ptr(666),
+				Channel:  &channel,
+			},
+		},
+		revision: 666,
 	}})
 }
 
@@ -575,41 +708,121 @@ func (s *WorkerSuite) TestRequestWithError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "*api-error: boom")
 }
 
-func (s *WorkerSuite) TestEncodeCharmURL(c *gc.C) {
-	url, err := encodeCharmURL(applicationcharm.CharmLocator{
-		Source:       applicationcharm.CharmHubSource,
-		Name:         "foo",
-		Revision:     42,
-		Architecture: architecture.AMD64,
-	})
+func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{}
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url.String(), gc.Equals, "ch:amd64/foo-42")
 }
 
-func (s *WorkerSuite) TestEncodeCharmURLLocalCharmSource(c *gc.C) {
-	_, err := encodeCharmURL(applicationcharm.CharmLocator{
-		Source:       applicationcharm.LocalSource,
-		Name:         "foo",
-		Revision:     42,
-		Architecture: architecture.AMD64,
-	})
-	c.Assert(err, gc.ErrorMatches, `unsupported charm source "local"`)
+func (s *WorkerSuite) TestStoreNewRevisions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{{
+		charmLocator: applicationcharm.CharmLocator{
+			Source:       applicationcharm.CharmHubSource,
+			Name:         "foo",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+		essentialMetadata: charm.EssentialMetadata{
+			Meta: &internalcharm.Meta{
+				Name: "foo",
+			},
+			Manifest: &internalcharm.Manifest{
+				Bases: []internalcharm.Base{{
+					Name: "ubuntu",
+					Channel: internalcharm.Channel{
+						Risk: "stable",
+					},
+					Architectures: []string{"amd64"},
+				}},
+			},
+			DownloadInfo: corecharm.DownloadInfo{
+				CharmhubIdentifier: "abc123",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       123,
+			},
+		},
+		timestamp: s.now,
+		revision:  43,
+		appID:     "foo",
+	}}
+	essentialMetadata := latestCharmInfos[0].essentialMetadata
+
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), applicationcharm.ReserveCharmRevisionArgs{
+		Charm: internalcharm.NewCharmBase(
+			essentialMetadata.Meta,
+			essentialMetadata.Manifest,
+			essentialMetadata.Config,
+			// These will be filled in once we have all the data in the
+			// response from the charmhub.
+			nil, nil,
+		),
+
+		Source:        corecharm.CharmHub,
+		ReferenceName: "foo",
+		Revision:      43,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "abc123",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       123,
+		},
+	}).Return(charm.ID("foo"), nil, nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestEncodeCharmURLInvalidArchitecture(c *gc.C) {
-	_, err := encodeCharmURL(applicationcharm.CharmLocator{
-		Source:       applicationcharm.CharmHubSource,
-		Name:         "foo",
-		Revision:     42,
-		Architecture: architecture.Architecture(99),
-	})
-	c.Assert(err, gc.ErrorMatches, `.*unsupported architecture .*`)
+func (s *WorkerSuite) TestStoreNewRevisionsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{{
+		charmLocator: applicationcharm.CharmLocator{
+			Source:       applicationcharm.CharmHubSource,
+			Name:         "foo",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+	}}
+
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return(charm.ID("foo"), nil, errors.New("boom"))
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	id, err := encodeCharmhubID(application.RevisionUpdaterApplication{
-		Name: "application-foo",
+		Name: "foo",
 		CharmLocator: applicationcharm.CharmLocator{
 			Source:       applicationcharm.LocalSource,
 			Name:         "foo",
@@ -649,9 +862,9 @@ func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
 func (s *WorkerSuite) TestEncodeCharmIDInvalidApplicationTag(c *gc.C) {
 	modelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	_, err := encodeCharmhubID(application.RevisionUpdaterApplication{
-		Name: "app-foo",
+		Name: "!foo",
 	}, modelTag)
-	c.Assert(err, gc.ErrorMatches, `parsing application tag: "app-foo".*`)
+	c.Assert(err, gc.ErrorMatches, `invalid application name "!foo"`)
 }
 
 func (s *WorkerSuite) TestEncodeCharmIDInvalidRisk(c *gc.C) {
@@ -794,6 +1007,8 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.clock.EXPECT().Now().Return(s.now).AnyTimes()
 
+	s.modelTag = names.NewModelTag(uuid.MustNewUUID().String())
+
 	return ctrl
 }
 
@@ -802,7 +1017,7 @@ func (s *WorkerSuite) newWorker(c *gc.C) *revisionUpdateWorker {
 		ModelConfigService: s.modelConfigService,
 		ApplicationService: s.applicationService,
 		ModelService:       s.modelService,
-		ModelTag:           names.NewModelTag(uuid.MustNewUUID().String()),
+		ModelTag:           s.modelTag,
 		NewHTTPClient: func(context.Context, http.HTTPClientGetter) (http.HTTPClient, error) {
 			return s.httpClient, nil
 		},
