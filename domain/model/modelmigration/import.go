@@ -56,9 +56,9 @@ type ModelImportService interface {
 	DeleteModel(context.Context, coremodel.UUID, ...domainmodel.DeleteModelOption) error
 }
 
-// ReadOnlyModelService defines a service for interacting with the read only
+// ModelDetailService defines a service for interacting with the
 // model information found in a model database.
-type ReadOnlyModelService interface {
+type ModelDetailService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
 	CreateModel(context.Context, uuid.UUID) error
@@ -67,10 +67,10 @@ type ReadOnlyModelService interface {
 	DeleteModel(context.Context) error
 }
 
-// ReadOnlyModelServiceFunc is responsible for creating and returning a
-// [ReadOnlyModelService] for the specified model id. We use this func so that
+// ModelDetailServiceFunc is responsible for creating and returning a
+// [ModelDetailService] for the specified model id. We use this func so that
 // we can late bind the service during the import operation.
-type ReadOnlyModelServiceFunc = func(coremodel.UUID) ReadOnlyModelService
+type ModelDetailServiceFunc = func(coremodel.UUID) ModelDetailService
 
 // UserService defines the user service used for model migration.
 type UserService interface {
@@ -93,10 +93,10 @@ type ControllerConfigService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	modelImportService       ModelImportService
-	readOnlyModelServiceFunc ReadOnlyModelServiceFunc
-	userService              UserService
-	controllerConfigService  ControllerConfigService
+	modelImportService      ModelImportService
+	modelDetailServiceFunc  ModelDetailServiceFunc
+	userService             UserService
+	controllerConfigService ControllerConfigService
 
 	logger logger.Logger
 }
@@ -115,7 +115,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelservice.DefaultAgentBinaryFinder(),
 		i.logger,
 	)
-	i.readOnlyModelServiceFunc = func(id coremodel.UUID) ReadOnlyModelService {
+	i.modelDetailServiceFunc = func(id coremodel.UUID) ModelDetailService {
 		return modelservice.NewModelService(
 			id,
 			modelstate.NewState(scope.ControllerDB()),
@@ -234,7 +234,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	// We need to establish the read only model information in the model database.
-	err = i.readOnlyModelServiceFunc(modelID).CreateModel(ctx, controllerUUID)
+	err = i.modelDetailServiceFunc(modelID).CreateModel(ctx, controllerUUID)
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
@@ -256,7 +256,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 
 	// If the model is not found, or the underlying db is not found, we can
 	// ignore the error.
-	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil &&
+	if err := i.modelDetailServiceFunc(modelID).DeleteModel(ctx); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) &&
 		!errors.Is(err, coredatabase.ErrDBNotFound) {
 		return fmt.Errorf(

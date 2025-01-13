@@ -32,7 +32,7 @@ import (
 
 type importSuite struct {
 	modelImportService      *MockModelImportService
-	readOnlyModelService    *MockReadOnlyModelService
+	modelDetailService      *MockModelDetailService
 	userService             *MockUserService
 	controllerConfigService *MockControllerConfigService
 }
@@ -43,7 +43,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelImportService = NewMockModelImportService(ctrl)
-	s.readOnlyModelService = NewMockReadOnlyModelService(ctrl)
+	s.modelDetailService = NewMockModelDetailService(ctrl)
 	s.userService = NewMockUserService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
@@ -159,7 +159,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(nil)
+	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -180,10 +180,10 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	})
 
 	importOp := &importOperation{
-		userService:              i.userService,
-		modelImportService:       i.modelImportService,
-		controllerConfigService:  i.controllerConfigService,
-		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
+		userService:             i.userService,
+		modelImportService:      i.modelImportService,
+		controllerConfigService: i.controllerConfigService,
+		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
@@ -234,7 +234,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
+	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coremodel.UUID, options ...model.DeleteModelOption) error {
 		opts := model.DefaultDeleteModelOptions()
 		for _, fn := range options {
@@ -243,7 +243,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		c.Assert(opts.DeleteDB(), jc.IsTrue)
 		return nil
 	})
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
+	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -264,10 +264,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	})
 
 	importOp := &importOperation{
-		userService:              i.userService,
-		modelImportService:       i.modelImportService,
-		controllerConfigService:  i.controllerConfigService,
-		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
+		userService:             i.userService,
+		modelImportService:      i.modelImportService,
+		controllerConfigService: i.controllerConfigService,
+		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
@@ -321,9 +321,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
+	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(modelerrors.NotFound)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
+	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -344,10 +344,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	})
 
 	importOp := &importOperation{
-		userService:              i.userService,
-		modelImportService:       i.modelImportService,
-		controllerConfigService:  i.controllerConfigService,
-		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
+		userService:             i.userService,
+		modelImportService:      i.modelImportService,
+		controllerConfigService: i.controllerConfigService,
+		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
@@ -401,9 +401,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
+	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(nil)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
+	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -424,10 +424,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	})
 
 	importOp := &importOperation{
-		userService:              i.userService,
-		modelImportService:       i.modelImportService,
-		controllerConfigService:  i.controllerConfigService,
-		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
+		userService:             i.userService,
+		modelImportService:      i.modelImportService,
+		controllerConfigService: i.controllerConfigService,
+		modelDetailServiceFunc:  func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(
