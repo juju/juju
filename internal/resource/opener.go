@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -18,10 +19,16 @@ import (
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/state"
+)
+
+var (
+	MismatchedFingerprint = errors.New("fingerprint of downloaded resource does not match expected fingerprint from charmhub")
+	MismatchedSize        = errors.New("size of downloaded resource does not match expected size from charmhub")
 )
 
 var resourceLogger = internallogger.GetLogger("juju.resource")
@@ -312,7 +319,28 @@ func (ro ResourceOpener) getResource(
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
 	}
-	res, reader, err = ro.store(ctx, resourceUUID, data)
+
+	// Validate the blob from the resource client.
+	buffer := bytes.NewBuffer(nil)
+	defer data.Close()
+	fp, err := charmresource.GenerateFingerprint(io.TeeReader(data, buffer))
+	if err != nil {
+		return coreresource.Opened{}, errors.Errorf("generating fingerprint from downloaded resource: %w", err)
+	}
+	if fp.String() != data.Resource.Fingerprint.String() {
+		return coreresource.Opened{}, MismatchedFingerprint
+	}
+	if int64(buffer.Len()) != data.Resource.Size {
+		return coreresource.Opened{}, MismatchedSize
+	}
+
+	res, reader, err = ro.store(
+		ctx,
+		resourceUUID,
+		buffer,
+		data.Resource.Size,
+		data.Resource.Fingerprint,
+	)
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
 	}
@@ -331,33 +359,34 @@ func (ro ResourceOpener) getResource(
 // store stores the resource info and data on the controller.
 // Note that the returned reader may or may not be the same one that was passed
 // in.
-func (ro ResourceOpener) store(ctx context.Context, resourceUUID coreresource.UUID, reader io.ReadCloser) (_ resource.Resource, _ io.ReadCloser, err error) {
-	defer func() {
-		if err != nil {
-			// With no err, the reader was closed down in unitSetter Read().
-			// Closing here with no error leads to a panic in Read, and the
-			// unit's resource doc is never cleared of it's pending status.
-			_ = reader.Close()
-		}
-	}()
-
-	err = ro.resourceService.StoreResource(ctx, resource.StoreResourceArgs{
-		ResourceUUID:    resourceUUID,
-		Reader:          reader,
-		RetrievedBy:     ro.retrievedBy,
-		RetrievedByType: ro.retrievedByType,
-	})
+func (ro ResourceOpener) store(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+	reader io.Reader,
+	size int64,
+	fingerprint charmresource.Fingerprint,
+) (_ resource.Resource, _ io.ReadCloser, err error) {
+	err = ro.resourceService.StoreResource(
+		ctx, resource.StoreResourceArgs{
+			ResourceUUID:    resourceUUID,
+			Reader:          reader,
+			Size:            size,
+			Fingerprint:     fingerprint,
+			RetrievedBy:     ro.retrievedBy,
+			RetrievedByType: ro.retrievedByType,
+		},
+	)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Capture(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
-	res, reader, err := ro.resourceService.OpenResource(ctx, resourceUUID)
+	res, opened, err := ro.resourceService.OpenResource(ctx, resourceUUID)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Capture(err)
 	}
 
-	return res, reader, nil
+	return res, opened, nil
 }
 
 // SetResourceUsed records that the resource is currently in use.
