@@ -5,11 +5,11 @@
 // underlying models within a Juju controller. This includes the management of
 // models and the respective information for each model.
 //
-// # Model Status
+// # Model status
 //
-// We consider a model's status as purely a user interface value and not a
-// programmatic one that should be used for informing the operation of
-// the business logic of the controller.
+// Juju considers a model's status as purely a user interface value and not a
+// programmatic one that should be used for informing the operation of the
+// business logic of the controller.
 //
 // A model can be in one of the following states:
 // - Available: the model is fully operational.
