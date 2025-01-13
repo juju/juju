@@ -31,6 +31,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
+	github.com/fatih/color v1.16.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-delve/delve v1.23.1
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
@@ -48,7 +49,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v8 v8.0.0-20241008084620-2264674fda3f
+	github.com/juju/description/v8 v8.0.0-20250113103224-6c58309e0844
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
@@ -108,11 +109,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.32.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.5.0
-	golang.org/x/crypto v0.31.0
-	golang.org/x/net v0.33.0
+	golang.org/x/crypto v0.32.0
+	golang.org/x/net v0.34.0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sync v0.10.0
-	golang.org/x/sys v0.28.0
+	golang.org/x/sys v0.29.0
 	golang.org/x/time v0.8.0
 	golang.org/x/tools v0.28.0
 	google.golang.org/api v0.171.0
@@ -174,7 +175,6 @@ require (
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
-	github.com/fatih/color v1.16.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
@@ -306,7 +306,7 @@ require (
 	golang.org/x/arch v0.6.0 // indirect
 	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241206012308-a4fef0638583 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241206012308-a4fef0638583 // indirect
