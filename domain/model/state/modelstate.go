@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -103,6 +104,16 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	}
 
 	return nil
+}
+
+// ModelConstraints returns the current model constraints.
+func (s *ModelState) ModelConstraints(ctx context.Context) (constraints.Value, error) {
+	return constraints.Value{}, errors.Errorf("not implemented")
+}
+
+// SetModelConstraints replaces the current model constraints.
+func (s *ModelState) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
+	return errors.Errorf("not implemented")
 }
 
 // GetModel returns a read-only model information that has been set in the

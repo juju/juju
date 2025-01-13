@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -41,6 +42,28 @@ func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.controllerUUID = uuid.MustNewUUID()
+}
+
+func (s *modelServiceSuite) TestModelConstraints(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.controllerState, s.modelState)
+
+	cons := constraints.MustParse("mem=1G")
+	s.modelState.constraints = cons
+
+	readCons, err := svc.ModelConstraints(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(readCons, gc.DeepEquals, cons)
+}
+
+func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
+	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.controllerState, s.modelState)
+
+	cons := constraints.MustParse("mem=1G")
+	err := svc.SetModelConstraints(context.Background(), cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.modelState.constraints, gc.DeepEquals, cons)
 }
 
 func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
@@ -262,8 +285,18 @@ func (d *dummyControllerModelState) GetModelState(_ context.Context, modelUUID c
 }
 
 type dummyModelState struct {
-	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
-	setID  coremodel.UUID
+	models      map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+	setID       coremodel.UUID
+	constraints constraints.Value
+}
+
+func (d *dummyModelState) ModelConstraints(context.Context) (constraints.Value, error) {
+	return d.constraints, nil
+}
+
+func (d *dummyModelState) SetModelConstraints(_ context.Context, cons constraints.Value) error {
+	d.constraints = cons
+	return nil
 }
 
 func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {

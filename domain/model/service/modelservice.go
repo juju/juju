@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
@@ -30,6 +31,12 @@ type ModelState interface {
 	// GetModelMetrics returns the model metrics information set in the
 	// database.
 	GetModelMetrics(context.Context) (coremodel.ModelMetrics, error)
+
+	// ModelConstraints returns the current model constraints.
+	ModelConstraints(context.Context) (constraints.Value, error)
+
+	// SetModelConstraints replaces the current model constraints.
+	SetModelConstraints(ctx context.Context, cons constraints.Value) error
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -64,6 +71,16 @@ func NewModelService(
 		modelSt:      modelSt,
 		clock:        clock.WallClock,
 	}
+}
+
+// ModelConstraints returns the current model constraints.
+func (s *ModelService) ModelConstraints(ctx context.Context) (constraints.Value, error) {
+	return s.modelSt.ModelConstraints(ctx)
+}
+
+// SetModelConstraints replaces the current model constraints.
+func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
+	return s.modelSt.SetModelConstraints(ctx, cons)
 }
 
 // GetModelInfo returns the readonly model information for the model in
