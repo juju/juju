@@ -122,6 +122,55 @@ func (t *Tracker) WaitMinion() leadership.Ticket {
 	return t.submit(t.waitMinionTickets)
 }
 
+// WithStableLeadership is part of the leadership.Tracker interface.
+func (t *Tracker) WithStableLeadership(
+	ctx context.Context, fn func(context.Context) error,
+) error {
+	// Check that the context has not been not cancelled
+	// before we start the operation.
+	if err := ctx.Err(); err != nil {
+		return errors.Annotate(err, "context cancelled before executing leadership func")
+	}
+
+	// leadershipCtx is cancelled if leadership changes.
+	leadershipCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
+
+	// First get the correct channel to wait on, depending on if we are the leader or not.
+	var leadershipChanged <-chan struct{}
+	claimLeader := t.ClaimLeader()
+	ready := claimLeader.Ready()
+	select {
+	case <-leadershipCtx.Done():
+		return errors.Annotate(leadershipCtx.Err(), "context cancelled before executing leadership func")
+	case <-ready:
+		isLeader := claimLeader.Wait()
+		if isLeader {
+			leadershipChanged = t.WaitMinion().Ready()
+		} else {
+			leadershipChanged = t.WaitLeader().Ready()
+		}
+	}
+
+	// Cancel the leadershipCtx when leadership changes.
+	go func() {
+		select {
+		case <-leadershipCtx.Done():
+		case <-leadershipChanged:
+			cancel(leadership.ErrLeadershipChanged)
+		}
+	}()
+
+	// Run the func with the leadershipCtx.
+	err := fn(leadershipCtx)
+	if errors.Is(err, context.Canceled) {
+		return context.Cause(leadershipCtx)
+	} else if err != nil {
+		return errors.Annotate(err, "executing leadership func")
+	}
+	return leadershipCtx.Err()
+}
+
 func (t *Tracker) loop() error {
 	ctx, cancel := t.scopedContext()
 	defer cancel()

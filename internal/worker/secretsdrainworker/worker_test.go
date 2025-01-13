@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/secretsdrain"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -31,8 +32,9 @@ type workerSuite struct {
 
 	logger logger.Logger
 
-	facade        *mocks.MockSecretsDrainFacade
-	backendClient *mocks.MockBackendsClient
+	facade            *mocks.MockSecretsDrainFacade
+	backendClient     *mocks.MockBackendsClient
+	leadershipTracker *mocks.MockTrackerWorker
 
 	done                   chan struct{}
 	notifyBackendChangedCh chan struct{}
@@ -45,6 +47,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller)
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.facade = mocks.NewMockSecretsDrainFacade(ctrl)
 	s.backendClient = mocks.NewMockBackendsClient(ctrl)
+	s.leadershipTracker = mocks.NewMockTrackerWorker(ctrl)
 
 	s.notifyBackendChangedCh = make(chan struct{}, 1)
 	s.done = make(chan struct{})
@@ -57,6 +60,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller)
 			SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
 				return s.backendClient, nil
 			},
+			LeadershipTrackerFunc: func() leadership.ChangeTracker { return s.leadershipTracker },
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(w, gc.NotNil)
@@ -85,6 +89,11 @@ func (s *workerSuite) TestNothingToDrain(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
+
 	s.notifyBackendChangedCh <- struct{}{}
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain(gomock.Any()).DoAndReturn(func(context.Context) ([]coresecrets.SecretMetadataForDrain, error) {
@@ -98,6 +107,11 @@ func (s *workerSuite) TestNothingToDrain(c *gc.C) {
 func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
+
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
 
 	uri := coresecrets.NewURI()
 	s.notifyBackendChangedCh <- struct{}{}
@@ -124,6 +138,11 @@ func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
+
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
 
 	uri := coresecrets.NewURI()
 	s.notifyBackendChangedCh <- struct{}{}
@@ -173,6 +192,11 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
+
 	uri := coresecrets.NewURI()
 	s.notifyBackendChangedCh <- struct{}{}
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
@@ -212,6 +236,11 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
+
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
 
 	uri := coresecrets.NewURI()
 	s.notifyBackendChangedCh <- struct{}{}
@@ -258,6 +287,11 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 	// But the agent should be restarted to retry.
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
+
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
 
 	uri := coresecrets.NewURI()
 	s.notifyBackendChangedCh <- struct{}{}
@@ -319,6 +353,54 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 		}),
 	)
 	start(`failed to drain secret revisions for "secret:.*" to the active backend`)
+}
+
+func (s *workerSuite) TestDrainLeadershipChange(c *gc.C) {
+	start, ctrl := s.getWorkerNewer(c)
+	defer ctrl.Finish()
+
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return leadership.ErrLeadershipChanged
+		})
+	s.leadershipTracker.EXPECT().WithStableLeadership(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			return fn(ctx)
+		})
+
+	uri := coresecrets.NewURI()
+	s.notifyBackendChangedCh <- struct{}{}
+	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+
+	activeBackend := mocks.NewMockSecretsBackend(ctrl)
+
+	gomock.InOrder(
+		s.facade.EXPECT().GetSecretsToDrain(gomock.Any()).Return([]coresecrets.SecretMetadataForDrain{
+			{
+				URI:       uri,
+				Revisions: []coresecrets.SecretExternalRevision{{Revision: 1}},
+			},
+		}, nil),
+		s.backendClient.EXPECT().GetBackend(gomock.Any(), nil, true).Return(activeBackend, "backend-2", nil),
+		s.backendClient.EXPECT().GetRevisionContent(gomock.Any(), uri, 1).Return(secretValue, nil),
+		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("revision-1", nil),
+		s.facade.EXPECT().ChangeSecretBackend(gomock.Any(),
+			[]secretsdrain.ChangeSecretBackendArg{
+				{
+					URI:      uri,
+					Revision: 1,
+					ValueRef: &coresecrets.ValueRef{
+						BackendID:  "backend-2",
+						RevisionID: "revision-1",
+					},
+				},
+			},
+		).DoAndReturn(func(context.Context, []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error) {
+			close(s.done)
+			return secretsdrain.ChangeSecretBackendResult{Results: []error{nil}}, nil
+		}),
+	)
+	start("")
 }
 
 func ptr[T any](v T) *T {

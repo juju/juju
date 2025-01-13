@@ -80,10 +80,13 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	if inWorker == nil {
 		return errors.Errorf("expected *Tracker input; got %T", in)
 	}
-	outPointer, _ := out.(*coreleadership.TrackerWorker)
-	if outPointer == nil {
-		return errors.Errorf("expected *leadership.Tracker output; got %T", out)
+	switch outPointer := out.(type) {
+	case *coreleadership.Tracker:
+		*outPointer = inWorker
+	case *coreleadership.ChangeTracker:
+		*outPointer = inWorker
+	default:
+		return errors.Errorf("expected *leadership.[Change]Tracker output; got %T", out)
 	}
-	*outPointer = inWorker
 	return nil
 }
