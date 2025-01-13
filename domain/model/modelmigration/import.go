@@ -45,9 +45,9 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 	})
 }
 
-// ModelService defines the model service used to import models from another
-// controller to this one.
-type ModelService interface {
+// ModelImportService defines the model service used to import models from
+// another controller to this one.
+type ModelImportService interface {
 	// ImportModel is responsible for creating a new model that is being
 	// imported.
 	ImportModel(context.Context, domainmodel.ModelImportArgs) (func(context.Context) error, error)
@@ -93,7 +93,7 @@ type ControllerConfigService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	modelService             ModelService
+	modelImportService       ModelImportService
 	readOnlyModelServiceFunc ReadOnlyModelServiceFunc
 	userService              UserService
 	controllerConfigService  ControllerConfigService
@@ -109,7 +109,7 @@ func (i *importOperation) Name() string {
 // Setup is responsible for taking the model migration scope and creating the
 // needed services used during import.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.modelService = modelservice.NewService(
+	i.modelImportService = modelservice.NewService(
 		modelstate.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
 		modelservice.DefaultAgentBinaryFinder(),
@@ -204,7 +204,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// NOTE: Try to get all things that can fail before creating the model in
 	// the database.
-	activator, err := i.modelService.ImportModel(ctx, args)
+	activator, err := i.modelImportService.ImportModel(ctx, args)
 	if err != nil {
 		return fmt.Errorf(
 			"importing model %q with id %q during migration: %w",
@@ -266,7 +266,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	}
 
 	// If the model isn't found, we can simply ignore the error.
-	if err := i.modelService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil &&
+	if err := i.modelImportService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) &&
 		!errors.Is(err, coredatabase.ErrDBNotFound) {
 		return fmt.Errorf(
