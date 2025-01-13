@@ -125,6 +125,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	systemState, err := statePool.SystemState()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	w, err := config.NewWorker(Config{
