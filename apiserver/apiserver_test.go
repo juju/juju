@@ -537,7 +537,7 @@ func (s *apiserverSuite) TestModelRemoveClosesRPC(c *gc.C) {
 
 	removed, err := s.StatePool.Remove(model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsFalse)
+	c.Assert(removed, jc.IsTrue)
 
 	time.Sleep(testing.ShortWait)
 

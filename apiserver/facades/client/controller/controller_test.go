@@ -1174,8 +1174,8 @@ func (s *controllerSuite) makeBobsModel(c *gc.C) string {
 		Owner: bob.UserTag(),
 		Name:  "bobs-model"})
 	uuid := st.ModelUUID()
-	st.Close()
 	s.WaitForModelWatchersIdle(c, uuid)
+	st.Close()
 	return uuid
 }
 
