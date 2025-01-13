@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -672,7 +673,7 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundRetrievedBy, &foundRetrievedByType)
 // been stored.
 func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Arrange: Create file resource.
-	resID, storeID := s.createFileResourceAndBlob(c)
+	resID, storeID, size, fp := s.createFileResourceAndBlob(c)
 
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
@@ -685,16 +686,21 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
 			ResourceType:    charmresource.TypeFile,
+			Size:            size,
+			Fingerprint:     fp,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Assert: Check that the resource has been linked to the stored blob
-	var foundStoreUUID string
+	var (
+		foundStoreUUID, foundFingerprint string
+		foundSize                        int
+	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT store_uuid FROM resource_file_store
-WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
+SELECT store_uuid, size, fingerprint FROM resource_file_store
+WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID, &foundSize, &foundFingerprint)
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
 	objectStoreUUID, err := storeID.ObjectStoreUUID()
@@ -815,7 +821,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 
 func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource.
-	resID, storeID1 := s.createFileResourceAndBlob(c)
+	resID, storeID1, _, _ := s.createFileResourceAndBlob(c)
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
@@ -1491,7 +1497,7 @@ func (s *resourceSuite) addResource(c *gc.C, resType charmresource.Type) coreres
 	return resourceUUID
 }
 
-func (s *resourceSuite) createFileResourceAndBlob(c *gc.C) (coreresource.UUID, store.ID) {
+func (s *resourceSuite) createFileResourceAndBlob(c *gc.C) (coreresource.UUID, store.ID, int64, charmresource.Fingerprint) {
 	// Arrange: insert a resource.
 	resID := coreresourcetesting.GenResourceUUID(c)
 	input := resourceData{
@@ -1513,7 +1519,10 @@ func (s *resourceSuite) createFileResourceAndBlob(c *gc.C) (coreresource.UUID, s
 	err = s.addObjectStoreBlobMetadata(objectStoreUUID)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
-	return resID, storeID
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("blob"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return resID, storeID, 42, fp
 }
 
 func (s *resourceSuite) createContainerImageResourceAndBlob(c *gc.C) (coreresource.UUID, store.ID) {
@@ -1550,7 +1559,6 @@ VALUES      (?, 'testing@sha256:beef-deed')`, storageKey)
 }
 
 func (s *resourceSuite) addObjectStoreBlobMetadata(uuid objectstore.UUID) error {
-
 	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		// Use the uuid as the hash to avoid uniqueness issues while testing.
 		_, err := tx.ExecContext(ctx, `

@@ -21,6 +21,12 @@ type resourceIdentity struct {
 	Name            string `db:"name"`
 }
 
+type resourceSizeAndFingerprint struct {
+	UUID        string `db:"uuid"`
+	Size        int64  `db:"size"`
+	Fingerprint string `db:"fingerprint"`
+}
+
 // resourceUUID represents the unique identifier of a resource.
 type resourceUUID struct {
 	UUID string `db:"uuid"`
@@ -108,6 +114,8 @@ type kubernetesApplicationResource struct {
 type storedFileResource struct {
 	ObjectStoreUUID string `db:"store_uuid"`
 	ResourceUUID    string `db:"resource_uuid"`
+	Size            int64  `db:"size"`
+	Fingerprint     string `db:"fingerprint"`
 }
 
 type storedContainerImageResource struct {

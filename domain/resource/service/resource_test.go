@@ -240,8 +240,6 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 				Meta: charmresource.Meta{
 					Type: resourceType,
 				},
-				Fingerprint: fp,
-				Size:        size,
 			},
 		}, nil,
 	)
@@ -260,6 +258,8 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 		RetrievedByType:               retrievedByType,
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: false,
+		Size:                          size,
+		Fingerprint:                   fp,
 	})
 
 	err = s.service.StoreResource(
@@ -269,6 +269,8 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 			Reader:          reader,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
+			Size:            size,
+			Fingerprint:     fp,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,8 +297,6 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 				Meta: charmresource.Meta{
 					Type: resourceType,
 				},
-				Fingerprint: fp,
-				Size:        size,
 			},
 		}, nil,
 	)
@@ -318,6 +318,8 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 		RetrievedByType:               retrievedByType,
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: false,
+		Size:                          size,
+		Fingerprint:                   fp,
 	}).Return(expectedErr)
 
 	// Expect the removal of the resource.
@@ -330,6 +332,8 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 			Reader:          reader,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
+			Size:            size,
+			Fingerprint:     fp,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, expectedErr)
@@ -356,12 +360,41 @@ func (s *resourceServiceSuite) TestStoreResourceNilReader(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot have nil reader")
 }
 
-func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *gc.C) {
+func (s *resourceServiceSuite) TestStoreResourceZeroSize(c *gc.C) {
 	err := s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourcetesting.GenResourceUUID(c),
+			Reader:       bytes.NewBufferString("spam"),
+			Size:         0,
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "invalid size: 0")
+}
+
+func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *gc.C) {
+	err := s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourcetesting.GenResourceUUID(c),
+			Reader:       bytes.NewBufferString("spam"),
+			Size:         42,
+			Fingerprint:  charmresource.Fingerprint{},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "fingerprint is zero")
+}
+
+func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *gc.C) {
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.service.StoreResource(
 		context.Background(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
+			Size:            42,
+			Fingerprint:     fp,
 			RetrievedBy:     "bob",
 			RetrievedByType: resource.Unknown,
 		},
@@ -390,8 +423,6 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 				Meta: charmresource.Meta{
 					Type: resourceType,
 				},
-				Fingerprint: fp,
-				Size:        size,
 			},
 		}, nil,
 	)
@@ -410,6 +441,8 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		RetrievedByType:               retrievedByType,
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: true,
+		Size:                          size,
+		Fingerprint:                   fp,
 	})
 
 	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
@@ -417,6 +450,8 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
 			Reader:          reader,
+			Size:            size,
+			Fingerprint:     fp,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
 		},
@@ -445,12 +480,41 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	c.Assert(err, gc.ErrorMatches, "cannot have nil reader")
 }
 
-func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadRetrievedBy(c *gc.C) {
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionZeroSize(c *gc.C) {
 	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourcetesting.GenResourceUUID(c),
+			Reader:       bytes.NewBufferString("spam"),
+			Size:         0,
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "invalid size: 0")
+}
+
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionZeroFingerprint(c *gc.C) {
+	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourcetesting.GenResourceUUID(c),
+			Reader:       bytes.NewBufferString("spam"),
+			Size:         42,
+			Fingerprint:  charmresource.Fingerprint{},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "fingerprint is zero")
+}
+
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadRetrievedBy(c *gc.C) {
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		context.Background(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
+			Size:            42,
+			Fingerprint:     fp,
 			RetrievedBy:     "bob",
 			RetrievedByType: resource.Unknown,
 		},
