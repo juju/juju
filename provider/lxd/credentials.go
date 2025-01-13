@@ -32,6 +32,7 @@ const (
 	credAttrClientCert    = "client-cert"
 	credAttrClientKey     = "client-key"
 	credAttrTrustPassword = "trust-password"
+	credAttrTrustToken    = "trust-token"
 )
 
 // CertificateReadWriter groups methods that is required to read and write
@@ -89,10 +90,19 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			},
 		},
 		cloud.InteractiveAuthType: {
+			// deprecated in LXD 6.1, and only trust-token should
+			// be used. See https://documentation.ubuntu.com/lxd/en/stable-5.0/authentication/#adding-client-certificates-using-tokens
 			{
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
 					Description: "the LXD server trust password",
+					Hidden:      true,
+				},
+			},
+			{
+				Name: credAttrTrustToken,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "the LXD server trust token",
 					Hidden:      true,
 				},
 			},
@@ -278,9 +288,13 @@ func (p environProviderCredentials) FinalizeCredential(
 	switch authType := args.Credential.AuthType(); authType {
 	case cloud.InteractiveAuthType:
 		credAttrs := args.Credential.Attributes()
-		// We don't care if the password is empty, just that it exists. Empty
-		// passwords can be valid ones...
-		if _, ok := credAttrs[credAttrTrustPassword]; ok {
+		_, isTrustToken := credAttrs[credAttrTrustToken]
+		// We don't care if the password/token is empty, just that it
+		// exists. Empty passwords can be valid ones...
+		// Both trust password and trust tokens should create new client
+		// certs that will be passed to the server and store them.
+		_, isTrustPassword := credAttrs[credAttrTrustPassword]
+		if isTrustToken || isTrustPassword {
 			// check to see if the client cert, keys exist, if they do not,
 			// generate them for the user.
 			if _, ok := getClientCertificates(args.Credential); !ok {
@@ -399,10 +413,6 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	}
 
 	credAttrs := credentials.Attributes()
-	trustPassword, ok := credAttrs[credAttrTrustPassword]
-	if !ok {
-		return nil, errors.NotValidf("missing %q attribute", credAttrTrustPassword)
-	}
 
 	insecureCreds := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
 	server, err := p.serverFactory.InsecureRemoteServer(CloudSpec{
@@ -428,12 +438,22 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 
 	cert, _, err := server.GetCertificate(fingerprint)
 	if err != nil || cert == nil {
-		if err := server.CreateCertificate(api.CertificatesPost{
+		createCertArgs := api.CertificatesPost{
 			Name:        credentials.Label,
 			Type:        "client",
 			Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
-			Password:    trustPassword,
-		}); err != nil {
+		}
+
+		trustPassword, isTrustPasswordSet := credAttrs[credAttrTrustPassword]
+		trustToken, isTrustTokenSet := credAttrs[credAttrTrustToken]
+		if isTrustTokenSet {
+			createCertArgs.TrustToken = trustToken
+		} else if isTrustPasswordSet {
+			createCertArgs.Password = trustPassword
+		} else {
+			return nil, errors.NotValidf("missing %q and %q attributes", credAttrTrustPassword, credAttrTrustToken)
+		}
+		if err := server.CreateCertificate(createCertArgs); err != nil {
 			return nil, errors.Trace(err)
 		}
 		_, _ = fmt.Fprintln(output, "Uploaded certificate to LXD server.")

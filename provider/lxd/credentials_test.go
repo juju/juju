@@ -741,6 +741,73 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &expected)
 }
 
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	insecureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"trust-token": "token1",
+	})
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
+	}
+	secureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": coretesting.ServerCert,
+		"trust-token": "token1",
+	})
+	secureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &secureCred,
+		},
+	}
+	params := environs.FinalizeCredentialParams{
+		CloudEndpoint: "8.8.8.8",
+		Credential:    insecureCred,
+	}
+	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
+	clientX509Cert, err := clientCert.X509()
+	c.Assert(err, jc.ErrorIsNil)
+	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
+	fingerprint, err := clientCert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
+
+	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errNotFound)
+	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
+		Name:        insecureCred.Label,
+		Type:        "client",
+		Certificate: clientX509Base64,
+		TrustToken:  "token1",
+	}).Return(nil)
+	deps.server.EXPECT().GetServer().Return(&api.Server{
+		Environment: api.ServerEnvironment{
+			Certificate: coretesting.ServerCert,
+		},
+	}, "etag", nil)
+	deps.serverFactory.EXPECT().RemoteServer(secureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
+
+	expected := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": coretesting.ServerCert,
+	})
+
+	got, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, &expected)
+}
+
 func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -1010,6 +1077,36 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c 
 	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		Credential: cloud.NewCredential("interactive", map[string]string{
 			"trust-password": "password1",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": "server-cert",
+	})
+}
+
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustToken(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
+
+	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
+		Credential: cloud.NewCredential("interactive", map[string]string{
+			"trust-token": "token1",
 		}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
