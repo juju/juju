@@ -32,8 +32,8 @@ type ModelState interface {
 	// database.
 	GetModelMetrics(context.Context) (coremodel.ModelMetrics, error)
 
-	// ModelConstraints returns the current model constraints.
-	ModelConstraints(context.Context) (constraints.Value, error)
+	// GetModelConstraints returns the current model's constraints.
+	GetModelConstraints(context.Context) (constraints.Value, error)
 
 	// SetModelConstraints replaces the current model constraints.
 	SetModelConstraints(ctx context.Context, cons constraints.Value) error
@@ -73,9 +73,9 @@ func NewModelService(
 	}
 }
 
-// ModelConstraints returns the current model constraints.
-func (s *ModelService) ModelConstraints(ctx context.Context) (constraints.Value, error) {
-	return s.modelSt.ModelConstraints(ctx)
+// GetModelConstraints returns the current model constraints.
+func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+	return s.modelSt.GetModelConstraints(ctx)
 }
 
 // SetModelConstraints replaces the current model constraints.

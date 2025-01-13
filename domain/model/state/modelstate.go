@@ -106,14 +106,16 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// ModelConstraints returns the current model constraints.
-func (s *ModelState) ModelConstraints(ctx context.Context) (constraints.Value, error) {
-	return constraints.Value{}, errors.Errorf("not implemented")
+// GetModelConstraints returns the current model constraints.
+func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+	// TODO: Implement this method.
+	return constraints.Value{}, nil
 }
 
 // SetModelConstraints replaces the current model constraints.
 func (s *ModelState) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
-	return errors.Errorf("not implemented")
+	// TODO: Implement this method.
+	return nil
 }
 
 // GetModel returns a read-only model information that has been set in the

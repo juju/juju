@@ -62,8 +62,8 @@ type DeployFromRepositoryState interface {
 
 // ModelService provides a subset of the model domain service methods.
 type ModelService interface {
-	// ModelConstraints returns the current model constraints.
-	ModelConstraints(context.Context) (constraints.Value, error)
+	// GetModelConstraints returns the current model's constraints.
+	GetModelConstraints(context.Context) (constraints.Value, error)
 }
 
 // DeployFromRepositoryAPI provides the deploy from repository
@@ -619,7 +619,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	}
 	// Fallback to model defaults if set. DefaultArchitecture otherwise.
 	if platform.Architecture == "" {
-		mConst, err := v.modelService.ModelConstraints(ctx)
+		mConst, err := v.modelService.GetModelConstraints(ctx)
 		if err != nil {
 			return corecharm.Platform{}, usedModelDefaultBase, err
 		}
@@ -790,7 +790,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	}
 	resolvedOrigin := &resolvedData.EssentialMetadata.ResolvedOrigin
 
-	modelCons, err := v.modelService.ModelConstraints(ctx)
+	modelCons, err := v.modelService.GetModelConstraints(ctx)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}

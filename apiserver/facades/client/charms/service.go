@@ -7,6 +7,7 @@ import (
 	"context"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/charm"
@@ -17,6 +18,12 @@ import (
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// ModelService provides a subset of the model domain service methods.
+type ModelService interface {
+	// GetModelConstraints returns the current model's constraints.
+	GetModelConstraints(context.Context) (constraints.Value, error)
 }
 
 // ApplicationService provides access to application related operations, this

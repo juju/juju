@@ -44,14 +44,14 @@ func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = uuid.MustNewUUID()
 }
 
-func (s *modelServiceSuite) TestModelConstraints(c *gc.C) {
+func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState)
 
 	cons := constraints.MustParse("mem=1G")
 	s.modelState.constraints = cons
 
-	readCons, err := svc.ModelConstraints(context.Background())
+	readCons, err := svc.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(readCons, gc.DeepEquals, cons)
 }
@@ -290,7 +290,7 @@ type dummyModelState struct {
 	constraints constraints.Value
 }
 
-func (d *dummyModelState) ModelConstraints(context.Context) (constraints.Value, error) {
+func (d *dummyModelState) GetModelConstraints(context.Context) (constraints.Value, error) {
 	return d.constraints, nil
 }
 

@@ -69,6 +69,7 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		backendState:       newStateShim(ctx.State()),
 		modelConfigService: domainServices.Config(),
 		applicationService: applicationService,
+		modelService:       domainServices.ModelInfo(),
 		charmhubHTTPClient: charmhubHTTPClient,
 		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)

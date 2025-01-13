@@ -58,7 +58,7 @@ type API struct {
 	logger corelogger.Logger
 
 	modelConfigService ModelConfigService
-	modelSericve       ModelSericve
+	modelService       ModelService
 	applicationService ApplicationService
 	machineService     MachineService
 }
@@ -179,7 +179,7 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 }
 
 func (a *API) getDefaultArch(ctx context.Context) (string, error) {
-	cons, err := a.modelSericve.ModelConstraints(ctx)
+	cons, err := a.modelService.GetModelConstraints(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -356,7 +356,7 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 	// do get "all" we should see if there is a clean way to resolve it.
 	archOrigin := apiOrigin
 	if apiOrigin.Architecture == "all" {
-		cons, err := a.modelSericve.ModelConstraints(ctx)
+		cons, err := a.modelService.GetModelConstraints(ctx)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			return result

@@ -44,14 +44,15 @@ func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAP
 	modelSecretBackend := domainServices.ModelSecretBackend()
 
 	configService := domainServices.Config()
-	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
+	modelSericve := domainServices.ModelInfo()
+	modelInfo, err := modelSericve.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return NewModelConfigAPI(
 		modelInfo.UUID,
 		NewStateBackend(model),
-		modelSecretBackend, configService, auth,
+		modelSecretBackend, configService, modelSericve, auth,
 		domainServices.BlockCommand(),
 	)
 }

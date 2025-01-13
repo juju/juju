@@ -26,6 +26,7 @@ type ModelConfigAPI struct {
 	backend                   Backend
 	modelSecretBackendService ModelSecretBackendService
 	configService             ModelConfigService
+	modelSericve              ModelService
 	auth                      facade.Authorizer
 	check                     *common.BlockChecker
 
@@ -43,6 +44,7 @@ func NewModelConfigAPI(
 	backend Backend,
 	modelSecretBackendService ModelSecretBackendService,
 	configService ModelConfigService,
+	modelSericve ModelService,
 	authorizer facade.Authorizer,
 	blockCommandService common.BlockCommandService,
 ) (*ModelConfigAPI, error) {
@@ -55,6 +57,7 @@ func NewModelConfigAPI(
 		backend:                   backend,
 		modelSecretBackendService: modelSecretBackendService,
 		configService:             configService,
+		modelSericve:              modelSericve,
 		auth:                      authorizer,
 		check:                     common.NewBlockChecker(blockCommandService),
 	}, nil
@@ -253,7 +256,7 @@ func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetCon
 		return params.GetConstraintsResults{}, err
 	}
 
-	cons, err := c.backend.ModelConstraints()
+	cons, err := c.modelSericve.GetModelConstraints(ctx)
 	if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
@@ -269,7 +272,7 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	return c.backend.SetModelConstraints(args.Constraints)
+	return c.modelSericve.SetModelConstraints(ctx, args.Constraints)
 }
 
 // Sequences returns the model's sequence names and next values.

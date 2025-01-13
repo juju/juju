@@ -200,45 +200,6 @@ func (c *MockBackendStateMachineCall) DoAndReturn(f func(string) (interfaces.Mac
 	return c
 }
 
-// ModelConstraints mocks base method.
-func (m *MockBackendState) ModelConstraints() (constraints.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConstraints")
-	ret0, _ := ret[0].(constraints.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConstraints indicates an expected call of ModelConstraints.
-func (mr *MockBackendStateMockRecorder) ModelConstraints() *MockBackendStateModelConstraintsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConstraints", reflect.TypeOf((*MockBackendState)(nil).ModelConstraints))
-	return &MockBackendStateModelConstraintsCall{Call: call}
-}
-
-// MockBackendStateModelConstraintsCall wrap *gomock.Call
-type MockBackendStateModelConstraintsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendStateModelConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockBackendStateModelConstraintsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendStateModelConstraintsCall) Do(f func() (constraints.Value, error)) *MockBackendStateModelConstraintsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendStateModelConstraintsCall) DoAndReturn(f func() (constraints.Value, error)) *MockBackendStateModelConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller

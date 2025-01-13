@@ -6,7 +6,6 @@ package modelconfig
 import (
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
 )
 
@@ -15,8 +14,6 @@ import (
 type Backend interface {
 	ControllerTag() names.ControllerTag
 	Sequences() (map[string]int, error)
-	SetModelConstraints(value constraints.Value) error
-	ModelConstraints() (constraints.Value, error)
 }
 
 type stateShim struct {
