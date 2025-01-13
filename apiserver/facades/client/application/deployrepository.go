@@ -56,9 +56,14 @@ type DeployFromRepository interface {
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Machine(string) (Machine, error)
-	ModelConstraints() (constraints.Value, error)
 
 	ReadSequence(name string) (int, error)
+}
+
+// ModelService provides a subset of the model domain service methods.
+type ModelService interface {
+	// ModelConstraints returns the current model constraints.
+	ModelConstraints(context.Context) (constraints.Value, error)
 }
 
 // DeployFromRepositoryAPI provides the deploy from repository
@@ -247,6 +252,7 @@ type validatorConfig struct {
 	model              Model
 	modelInfo          model.ReadOnlyModel
 	modelConfigService ModelConfigService
+	modelService       ModelService
 	applicationService ApplicationService
 	machineService     MachineService
 	registry           storage.ProviderRegistry
@@ -261,6 +267,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		model:              cfg.model,
 		modelInfo:          cfg.modelInfo,
 		modelConfigService: cfg.modelConfigService,
+		modelService:       cfg.modelService,
 		applicationService: cfg.applicationService,
 		machineService:     cfg.machineService,
 		state:              cfg.state,
@@ -306,6 +313,7 @@ type deployFromRepositoryValidator struct {
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService
+	modelService       ModelService
 	state              DeployFromRepositoryState
 
 	// For testing using mocks.
@@ -611,7 +619,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	}
 	// Fallback to model defaults if set. DefaultArchitecture otherwise.
 	if platform.Architecture == "" {
-		mConst, err := v.state.ModelConstraints()
+		mConst, err := v.modelService.ModelConstraints(ctx)
 		if err != nil {
 			return corecharm.Platform{}, usedModelDefaultBase, err
 		}
@@ -782,7 +790,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	}
 	resolvedOrigin := &resolvedData.EssentialMetadata.ResolvedOrigin
 
-	modelCons, err := v.state.ModelConstraints()
+	modelCons, err := v.modelService.ModelConstraints(ctx)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}

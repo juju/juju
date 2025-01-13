@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ModelService provides access to the model state.
-type ModelService interface {
+// ApplicationCharmService is a subset of the ApplicationService interface.
+type ApplicationCharmService interface {
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
 	GetSupportedFeatures(ctx context.Context) (coreassumes.FeatureSet, error)
