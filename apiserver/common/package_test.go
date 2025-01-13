@@ -10,12 +10,11 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CredentialService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ModelConfigService,ToolsFinder,ToolsFindEntity,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,AgentTooler,ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService,MachineService,LeadershipPinningBackend,LeadershipMachine,UnitStateBackend,UnitStateUnit
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CredentialService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ModelConfigService,ToolsFinder,ToolsFindEntity,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,AgentTooler,ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService,MachineService,LeadershipPinningBackend,LeadershipMachine
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs BootstrapEnviron
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/objectstore_mock.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade WatcherRegistry
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modeloperation_mock.go github.com/juju/juju/state ModelOperation
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
