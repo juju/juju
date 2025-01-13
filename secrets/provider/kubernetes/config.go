@@ -86,6 +86,7 @@ var configSchema = environschema.Fields{
 var configDefaults = schema.Defaults{
 	usernameKey:               schema.Omit,
 	passwordKey:               schema.Omit,
+	tokenKey:                  schema.Omit,
 	caCertsKey:                schema.Omit,
 	caCertKey:                 schema.Omit,
 	clientCertKey:             schema.Omit,
@@ -158,7 +159,7 @@ func (c *backendConfig) skipTLSVerify() bool {
 	return v
 }
 
-func (c *backendConfig) useInClusterAddress() bool {
+func (c *backendConfig) preferInClusterAddress() bool {
 	v, _ := c.validAttrs[preferInClusterAddressKey].(bool)
 	return v
 }

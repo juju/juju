@@ -170,7 +170,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return nil, errors.Trace(err)
 	}
 
-	namespace, err := NamespaceForModel(args.Config.Name(), args.ControllerUUID, args.Cloud)
+	namespace, err := NamespaceForModel(args.Config.Name(), args.ControllerUUID, k8sRestConfig)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}
@@ -182,13 +182,9 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 }
 
 // NamespaceForModel returns the namespace which is associated with the specified model.
-func NamespaceForModel(modelName string, controllerUUID string, cloudSpec environscloudspec.CloudSpec) (string, error) {
+func NamespaceForModel(modelName string, controllerUUID string, k8sRestConfig *rest.Config) (string, error) {
 	if modelName != environsbootstrap.ControllerModelName {
 		return modelName, nil
-	}
-	k8sRestConfig, err := CloudSpecToK8sRestConfig(cloudSpec)
-	if err != nil {
-		return "", errors.Trace(err)
 	}
 	k8sClient, _, _, err := NewK8sClients(k8sRestConfig)
 	if err != nil {

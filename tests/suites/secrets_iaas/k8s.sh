@@ -37,17 +37,22 @@ prepare_k8s() {
 	if ! which "microk8s" >/dev/null 2>&1; then
 		sudo snap install microk8s --channel 1.32-strict
 		sudo microk8s.enable hostpath-storage
+		sudo microk8s.enable rbac
 		sudo microk8s status --wait-ready
 	fi
 
-	ip=$(hostname -I | awk '{print $1}')
+	endpoint=$(microk8s.config | yq ".clusters[0] .cluster .server")
 	cacert=$(microk8s.config | yq ".clusters[0] .cluster .certificate-authority-data" | base64 -d | sed 's/^/  /')
 	namespace=juju-secrets
 	microk8s.kubectl create ns ${namespace} --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	token=$(microk8s.kubectl create token default --namespace ${namespace})
+	microk8s.kubectl create --save-config clusterrole juju-secrets --verb='*' \
+		--resource=namespaces,secrets,serviceaccounts,serviceaccounts/token,clusterroles,clusterrolebindings --dry-run=client -o yaml | microk8s.kubectl apply -f -
+	microk8s.kubectl create --save-config clusterrolebinding juju-secrets --clusterrole=juju-secrets \
+		--serviceaccount=kube-system:default --dry-run=client -o yaml | microk8s.kubectl apply -f -
+	token=$(microk8s.kubectl create token default --namespace kube-system)
 
 	cat >"${TEST_DIR}/k8sconfig.yaml" <<EOF
-endpoint: https://${ip}:16443
+endpoint: ${endpoint}
 namespace: ${namespace}
 ca-certs:
 - |

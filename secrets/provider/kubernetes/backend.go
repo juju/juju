@@ -34,15 +34,17 @@ func (k *k8sBackend) Ping() error {
 	return errors.Annotate(err, "backend not reachable")
 }
 
-// getSecret return a secret resource.
-func (k *k8sBackend) getSecret(secretName string) (*core.Secret, error) {
+// getSecret returns a secret resource.
+func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Secret, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(context.TODO(), secretName, v1.GetOptions{})
+	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
+		} else if k8serrors.IsForbidden(err) {
+			return nil, errors.Unauthorizedf("cannot access %q", secretName)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -52,12 +54,9 @@ func (k *k8sBackend) getSecret(secretName string) (*core.Secret, error) {
 // GetContent implements SecretBackend.
 func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
 	// revisionId is the secret name.
-	secret, err := k.getSecret(revisionId)
-	if k8serrors.IsForbidden(err) {
-		logger.Tracef("getting secret %q: %v", revisionId, err)
-		return nil, errors.Unauthorizedf("cannot access %q", revisionId)
-	}
+	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
+		logger.Tracef("getting secret %q: %v", revisionId, err)
 		return nil, errors.Trace(err)
 	}
 	data := map[string]string{}
@@ -92,12 +91,9 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision
 // DeleteContent implements SecretBackend.
 func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
 	// revisionId is the secret name.
-	secret, err := k.getSecret(revisionId)
-	if k8serrors.IsForbidden(err) {
-		logger.Tracef("deleting secret %q: %v", revisionId, err)
-		return errors.Unauthorizedf("cannot access %q", revisionId)
-	}
+	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
+		logger.Tracef("deleting secret %q: %v", revisionId, err)
 		return errors.Trace(err)
 	}
 	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client)
