@@ -6,52 +6,78 @@ package resourceshookcontext
 import (
 	"context"
 
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreresources "github.com/juju/juju/core/resource"
+	coreapplication "github.com/juju/juju/core/application"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/resource"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-type Resources interface {
-	ListResources(string) (coreresources.ApplicationResources, error)
+// ResourceService provides methods for managing resource data related
+// to applications, units, and repositories.
+type ResourceService interface {
+	// ListResources returns the resource data for the given application including
+	// application, unit and repository resource data. Unit data is only included
+	// for machine units. Repository resource data is included if it exists.
+	ListResources(ctx context.Context, applicationID coreapplication.ID) (resource.ApplicationResources, error)
 }
 
-type Unit interface {
-	ApplicationName() string
+// ApplicationService defines operations to retrieve application IDs based
+// on application or unit names.
+type ApplicationService interface {
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetApplicationIDByUnitName returns the application ID for the named unit. It
+	// returns an error if the unit is not found by the name
+	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
 }
 
-// resourcesUnitDatastore is a shim to elide serviceName from
-// ListResources.
-type resourcesUnitDataStore struct {
-	resources Resources
-	unit      Unit
-}
-
-// ListResources implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) ListResources() (coreresources.ApplicationResources, error) {
-	return ds.resources.ListResources(ds.unit.ApplicationName())
-}
-
-// UnitDataStore exposes the data storage functionality needed here.
-// All functionality is tied to the unit's application.
-type UnitDataStore interface {
-	// ListResources lists all the resources for the application.
-	ListResources() (coreresources.ApplicationResources, error)
-}
+// applicationIDGetter is a function type used to retrieve a coreapplication.ID
+// based on the given context (from application name or unit name)
+// It returns an error if the ID retrieval fails.
+type applicationIDGetter func(ctx context.Context) (coreapplication.ID, error)
 
 // NewUnitFacade returns the resources portion of the uniter's API facade.
-func NewUnitFacade(dataStore UnitDataStore) *UnitFacade {
-	return &UnitFacade{
-		DataStore: dataStore,
+func NewUnitFacade(
+	appOrUnitTag names.Tag,
+	applicationService ApplicationService,
+	resourceService ResourceService,
+) (*UnitFacade, error) {
+	var applicationIDGetter applicationIDGetter
+	switch tag := appOrUnitTag.(type) {
+	case names.UnitTag:
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		applicationIDGetter = func(ctx context.Context) (coreapplication.ID, error) {
+			return applicationService.GetApplicationIDByUnitName(ctx, unitName)
+		}
+	case names.ApplicationTag:
+		applicationIDGetter = func(ctx context.Context) (coreapplication.ID, error) {
+			return applicationService.GetApplicationIDByName(ctx, tag.Id())
+		}
+	default:
+		return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 	}
+
+	return &UnitFacade{
+		resourceService:  resourceService,
+		getApplicationID: applicationIDGetter,
+	}, nil
 }
 
 // UnitFacade is the resources portion of the uniter's API facade.
 type UnitFacade struct {
-	//DataStore is the data store used by the facade.
-	DataStore UnitDataStore
+	resourceService  ResourceService
+	getApplicationID applicationIDGetter
 }
 
 // GetResourceInfo returns the resource info for each of the given
@@ -61,7 +87,12 @@ func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitRe
 	var r params.UnitResourcesResult
 	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 
-	foundResources, err := uf.DataStore.ListResources()
+	// Avoid to fetch resources if not required
+	if len(args.ResourceNames) == 0 {
+		return r, nil
+	}
+
+	foundResources, err := uf.listResources(ctx)
 	if err != nil {
 		r.Error = apiservererrors.ServerError(err)
 		return r, nil
@@ -70,20 +101,49 @@ func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitRe
 	for i, name := range args.ResourceNames {
 		res, ok := lookUpResource(name, foundResources.Resources)
 		if !ok {
-			r.Resources[i].Error = apiservererrors.ServerError(errors.NotFoundf("resource %q", name))
+			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
 			continue
 		}
 
-		r.Resources[i].Resource = resources.Resource2API(res)
+		r.Resources[i].Resource = domainResource2API(res)
 	}
 	return r, nil
 }
 
-func lookUpResource(name string, resources []coreresources.Resource) (coreresources.Resource, bool) {
+// listResources retrieves the application resources information through the
+// resource service using the application ID.
+func (uf UnitFacade) listResources(ctx context.Context) (resource.ApplicationResources, error) {
+	appID, err := uf.getApplicationID(ctx)
+	if err != nil {
+		return resource.ApplicationResources{}, errors.Errorf("cannot get application id: %w", err)
+	}
+	return uf.resourceService.ListResources(ctx, appID)
+}
+
+// lookUpResource searches for a resource by name in a list of resources and
+// returns the resource and a bool indicating success.
+func lookUpResource(name string, resources []resource.Resource) (resource.Resource, bool) {
 	for _, res := range resources {
 		if name == res.Name {
 			return res, true
 		}
 	}
-	return coreresources.Resource{}, false
+	return resource.Resource{}, false
+}
+
+// DomainResource2API converts a [domainresource.Resource] into
+// a [params.Resource] struct.
+func domainResource2API(res resource.Resource) params.Resource {
+	return params.Resource{
+		CharmResource: resources.CharmResource2API(res.Resource),
+		// TODO(gfouillet): Shouldn't be the UUID here, ID should just be deprecated
+		//   howevever, this code will disappear very soon. If we are in 2026
+		//   and you read this comment, well, something gets wrong. Please
+		//   at least deprecate the ID and not set it, or comply to whatever new
+		//   way of dealing with ID had arose in the meantime ;)
+		ID:            res.UUID.String(),
+		ApplicationID: res.ApplicationID.String(),
+		Username:      res.RetrievedBy,
+		Timestamp:     res.Timestamp,
+	}
 }
