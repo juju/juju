@@ -58,6 +58,7 @@ type API struct {
 	logger corelogger.Logger
 
 	modelConfigService ModelConfigService
+	modelSericve       ModelSericve
 	applicationService ApplicationService
 	machineService     MachineService
 }
@@ -143,7 +144,7 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	defaultArch, err := a.getDefaultArch()
+	defaultArch, err := a.getDefaultArch(ctx)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -177,8 +178,8 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 	}, nil
 }
 
-func (a *API) getDefaultArch() (string, error) {
-	cons, err := a.backendState.ModelConstraints()
+func (a *API) getDefaultArch(ctx context.Context) (string, error) {
+	cons, err := a.modelSericve.ModelConstraints(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -355,7 +356,7 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 	// do get "all" we should see if there is a clean way to resolve it.
 	archOrigin := apiOrigin
 	if apiOrigin.Architecture == "all" {
-		cons, err := a.backendState.ModelConstraints()
+		cons, err := a.modelSericve.ModelConstraints(ctx)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			return result
@@ -586,7 +587,7 @@ func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndO
 		return nil, apiservererrors.ServerError(errors.NotValidf("charm %q", curl.Name))
 	}
 
-	defaultArch, err := a.getDefaultArch()
+	defaultArch, err := a.getDefaultArch(ctx)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
