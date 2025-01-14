@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
-	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -250,7 +249,6 @@ func AllFacades() *facade.Registry {
 	unitassigner.Register(registry)
 	uniter.Register(registry)
 	upgrader.Register(registry)
-	upgradesteps.Register(registry)
 	usermanager.Register(registry)
 
 	registerWatchers(registry)

@@ -2699,11 +2699,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		return errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
@@ -2776,30 +2771,25 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 
+	/*
+		ctrlCfg, err := u.controllerConfigService.ControllerConfig(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	*/
+
 	if changes.SetUnitState != nil {
 		// Ensure the tag in the set state request matches the root unit name
 		if changes.SetUnitState.Tag != changes.Tag {
 			return apiservererrors.ErrPerm
 		}
 
-		newUS := state.NewUnitState()
-		if changes.SetUnitState.CharmState != nil {
-			newUS.SetCharmState(*changes.SetUnitState.CharmState)
-		}
-
-		modelOp := unit.SetStateOperation(
-			newUS,
-			state.UnitStateSizeLimits{
-				MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
-				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
-			},
-		)
-		modelOps = append(modelOps, modelOp)
-
 		// TODO (manadart 2024-10-12): Only charm state is ever set here.
 		// The full state is set in the call to SetState (apiserver/common).
-		// Integrate this into a transaction with other setters and delete the
-		// block above once we are also reading the state from Dqlite.
+		// Integrate this into a transaction with other setters once we are also
+		// reading the state from Dqlite.
+		// We also need to factor ctrlCfg.MaxCharmStateSize() into the service
+		// call.
 		if err := u.unitStateService.SetState(ctx, unitstate.UnitState{
 			Name:       unitTag.Id(),
 			CharmState: changes.SetUnitState.CharmState,
