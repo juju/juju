@@ -54,7 +54,7 @@ require (
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
 	github.com/juju/gomaasapi/v2 v2.2.0
-	github.com/juju/idmclient/v2 v2.0.0
+	github.com/juju/idmclient/v2 v2.0.1
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/loggo v1.0.0
 	github.com/juju/loggo/v2 v2.1.1-0.20240509163806-ebdeb290b961
@@ -121,7 +121,6 @@ require (
 	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.67.0
-	gopkg.in/juju/environschema.v1 v1.0.1
 	gopkg.in/macaroon-bakery.v2 v2.3.0
 	gopkg.in/macaroon.v2 v2.1.0
 	gopkg.in/retry.v1 v1.0.3
@@ -311,9 +310,10 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20241206012308-a4fef0638583 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241206012308-a4fef0638583 // indirect
 	google.golang.org/grpc v1.68.1 // indirect
-	google.golang.org/protobuf v1.35.2 // indirect
+	google.golang.org/protobuf v1.36.2 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/juju/environschema.v1 v1.0.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
