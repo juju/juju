@@ -59,6 +59,8 @@ apps:
       - home
       # Needed to that SSO via the web browser can work.
       - desktop
+      # Needed to watch juju status updates.
+      - watch
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
@@ -306,22 +308,6 @@ parts:
     stage-packages:
       - openssh-client
 
-  viddy:
-    after:
-      - juju
-    plugin: nil
-    source: .
-    build-packages:
-      - wget
-      - tar
-    override-build: |
-      set -ex
-  
-      wget -O viddy.tar.gz https://github.com/sachaos/viddy/releases/download/v1.3.0/viddy-v1.3.0-linux-x86_64.tar.gz
-      tar xvf viddy.tar.gz
-      mkdir -p ${CRAFT_PART_INSTALL}/bin
-      cp viddy ${CRAFT_PART_INSTALL}/bin/viddy
-
 hooks:
   connect-plug-peers: {}
   disconnect-plug-peers: {}
@@ -390,3 +376,7 @@ plugs:
     interface: personal-files
     read:
       - $HOME/.novarc
+
+  watch:
+    interface: content
+    target: $SNAP/watch
