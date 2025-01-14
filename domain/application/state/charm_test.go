@@ -3450,6 +3450,43 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 	c.Check(latest, gc.DeepEquals, id0)
 }
 
+func (s *charmStateSuite) TestGetCharmLocatorNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmLocatorByCharmID(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetCharmLocator(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(latest, gc.DeepEquals, id)
+
+	locator, err := st.GetCharmLocatorByCharmID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(locator, gc.DeepEquals, charm.CharmLocator{
+		Name:         "ubuntu",
+		Source:       charm.CharmHubSource,
+		Revision:     42,
+		Architecture: architecture.AMD64,
+	})
+}
+
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
 	return insertCharmStateWithRevision(ctx, c, tx, uuid, 42)
 }

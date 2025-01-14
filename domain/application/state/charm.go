@@ -973,6 +973,39 @@ ORDER BY charm.create_time DESC;
 	return id, nil
 }
 
+// GetCharmLocatorByCharmID returns the charm locator for the charm using
+// the charm ID. If the charm is not found, a
+// [applicationerrors.CharmNotFound] error is returned.
+func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `SELECT &charmLocator.* FROM v_charm_locator WHERE uuid = $charmID.uuid;`
+	stmt, err := s.Prepare(query, ident, charmLocator{})
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	var locator charmLocator
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&locator); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return applicationerrors.CharmNotFound
+			}
+			return err
+		}
+		return nil
+	}); err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("getting charm locator: %w", err)
+	}
+
+	return decodeCharmLocator(locator)
+}
+
 func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
 	return transform.SliceOrErr(results, decodeCharmLocator)
 }

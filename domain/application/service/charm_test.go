@@ -1726,6 +1726,32 @@ func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
+func (s *charmServiceSuite) TestGetCharmLocatorByCharmID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	locator := charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+
+	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(locator, nil)
+
+	result, err := s.service.GetCharmLocatorByCharmID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, locator)
+}
+
+func (s *charmServiceSuite) TestGetCharmLocatorByCharmIDInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmLocatorByCharmID(context.Background(), "!!!id")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 

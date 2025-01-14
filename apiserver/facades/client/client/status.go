@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
@@ -29,6 +30,10 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/port"
@@ -69,7 +74,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(c.stateAccessor, context.model, context.spaceInfos); err != nil {
+		fetchAllApplicationsAndUnits(ctx, c.applicationService, c.stateAccessor, context.model, context.spaceInfos); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if context.consumerRemoteApplications, err =
@@ -447,6 +452,9 @@ type applicationStatusInfo struct {
 	// endpointpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
 
+	// latestcharm: charm URL -> charm locator
+	latestCharms map[charm.URL]applicationcharm.CharmLocator
+
 	// lxdProfiles: lxd profile name -> lxd profile
 	lxdProfiles map[string]*charm.LXDProfile
 }
@@ -645,10 +653,13 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos network.SpaceInfos) (applicationStatusInfo,
-	error) {
-	appMap := make(map[string]*state.Application)
-	unitMap := make(map[string]map[string]*state.Unit)
+func fetchAllApplicationsAndUnits(ctx context.Context, applicationService ApplicationService, st Backend, model *state.Model, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
+	var (
+		appMap       = make(map[string]*state.Application)
+		unitMap      = make(map[string]map[string]*state.Unit)
+		latestCharms = make(map[charm.URL]applicationcharm.CharmLocator)
+	)
+
 	applications, err := st.AllApplications()
 	if err != nil {
 		return applicationStatusInfo{}, err
@@ -699,7 +710,42 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 		appUnits := allUnitsByApp[app.Name()]
 		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
+
+			// Record the base URL for the application's charm so that
+			// the latest store revision can be looked up.
+			cURL, _ := app.CharmURL()
+			charmURL, err := charm.ParseURL(*cURL)
+			if err != nil {
+				continue
+			}
+
+			// De-duplicate charms with the same name and architecture.
+			switch {
+			case charm.CharmHub.Matches(charmURL.Schema):
+				latestCharms[*charmURL.WithRevision(-1)] = applicationcharm.CharmLocator{}
+			default:
+				// Don't look up revision for local charms
+			}
 		}
+	}
+
+	// Latest charm lookup for all base URLs.
+	for baseURL := range latestCharms {
+		charmID, err := applicationService.GetLatestPendingCharmhubCharm(ctx, baseURL.Name, baseURL.Architecture)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			continue
+		} else if err != nil {
+			return applicationStatusInfo{}, err
+		}
+
+		locator, err := applicationService.GetCharmLocatorByCharmID(ctx, charmID)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			continue
+		} else if err != nil {
+			return applicationStatusInfo{}, err
+		}
+
+		latestCharms[baseURL] = locator
 	}
 
 	return applicationStatusInfo{
@@ -707,6 +753,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 		units:            unitMap,
 		allUnits:         allUnits,
 		endpointBindings: allBindingsByApp,
+		latestCharms:     latestCharms,
 		lxdProfiles:      lxdProfiles,
 	}, nil
 }
@@ -1115,13 +1162,16 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		Life:             processLife(application),
 	}
 
-	// TODO(nvinuesa): This will be reinstated after SimonRichardson fixes
-	// charm revisions.
-	// if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && latestCharm != nil {
-	// 	if latestCharm.Revision() > curl.Revision {
-	// 		processedStatus.CanUpgradeTo = latestCharm.URL()
-	// 	}
-	// }
+	curl, err := charm.ParseURL(applicationCharm.URL())
+	if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+	}
+	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && !latestCharm.IsZero() {
+		processedStatus.CanUpgradeTo, err = charmURLFromLocator(latestCharm)
+		if err != nil {
+			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+		}
+	}
 
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(application)
 	if err != nil {
@@ -1598,3 +1648,57 @@ func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
 
 // Less implements sort.Interface.
 func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
+
+// charmURLFromLocator returns the charm URL for the current model.
+func charmURLFromLocator(locator applicationcharm.CharmLocator) (string, error) {
+	schema, err := convertSource(locator.Source)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	architecture, err := convertApplication(locator.Architecture)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	url := charm.URL{
+		Schema:       schema,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}
+	return url.String(), nil
+}
+
+func convertSource(source applicationcharm.CharmSource) (string, error) {
+	switch source {
+	case applicationcharm.CharmHubSource:
+		return charm.CharmHub.String(), nil
+	case applicationcharm.LocalSource:
+		return charm.Local.String(), nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
+func convertApplication(a application.Architecture) (string, error) {
+	switch a {
+	case architecture.AMD64:
+		return arch.AMD64, nil
+	case architecture.ARM64:
+		return arch.ARM64, nil
+	case architecture.PPC64EL:
+		return arch.PPC64EL, nil
+	case architecture.S390X:
+		return arch.S390X, nil
+	case architecture.RISCV64:
+		return arch.RISCV64, nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", a)
+	}
+}

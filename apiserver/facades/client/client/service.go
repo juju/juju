@@ -6,12 +6,15 @@ package client
 import (
 	"context"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application/charm"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
 )
@@ -47,8 +50,8 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
 	// InstanceID returns the cloud specific instance id for this machine.
 	InstanceID(ctx context.Context, machineUUID string) (instance.Id, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
+	// InstanceIDAndName returns the cloud specific instance ID and display name
+	// for this machine.
 	InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
@@ -62,15 +65,27 @@ type MachineService interface {
 type ApplicationService interface {
 	// GetUnitUUID returns the UUID for the named unit
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
+
+	// GetLatestPendingCharmhubCharm returns the latest charm that is pending
+	// from the charmhub store. If there are no charms, returns is not found, as
+	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
+	// latest created at date is returned first.
+	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (corecharm.ID, error)
+
+	// GetCharmLocatorByCharmID returns the charm locator for the charm using
+	// the charm ID. If the charm is not found, a
+	// [applicationerrors.CharmNotFound] error is returned.
+	GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error)
 }
 
-// PortService defines the methods that the facade assumes from the Port service.
+// PortService defines the methods that the facade assumes from the Port
+// service.
 type PortService interface {
 	// GetAllOpenedPorts returns the opened ports in the model, grouped by unit
 	// name.
 	GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRanges, error)
 
-	// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped
-	// by endpoint.
+	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
+	// grouped by endpoint.
 	GetUnitOpenedPorts(context.Context, unit.UUID) (network.GroupedPortRanges, error)
 }
