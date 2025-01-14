@@ -45,9 +45,9 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 	})
 }
 
-// ModelService defines the model service used to import models from another
-// controller to this one.
-type ModelService interface {
+// ModelImportService defines the model service used to import models from
+// another controller to this one.
+type ModelImportService interface {
 	// ImportModel is responsible for creating a new model that is being
 	// imported.
 	ImportModel(context.Context, domainmodel.ModelImportArgs) (func(context.Context) error, error)
@@ -56,9 +56,9 @@ type ModelService interface {
 	DeleteModel(context.Context, coremodel.UUID, ...domainmodel.DeleteModelOption) error
 }
 
-// ReadOnlyModelService defines a service for interacting with the read only
+// ModelDetailService defines a service for interacting with the
 // model information found in a model database.
-type ReadOnlyModelService interface {
+type ModelDetailService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
 	CreateModel(context.Context, uuid.UUID) error
@@ -67,10 +67,10 @@ type ReadOnlyModelService interface {
 	DeleteModel(context.Context) error
 }
 
-// ReadOnlyModelServiceFunc is responsible for creating and returning a
-// [ReadOnlyModelService] for the specified model id. We use this func so that
+// ModelDetailServiceFunc is responsible for creating and returning a
+// [ModelDetailService] for the specified model id. We use this func so that
 // we can late bind the service during the import operation.
-type ReadOnlyModelServiceFunc = func(coremodel.UUID) ReadOnlyModelService
+type ModelDetailServiceFunc = func(coremodel.UUID) ModelDetailService
 
 // UserService defines the user service used for model migration.
 type UserService interface {
@@ -93,10 +93,10 @@ type ControllerConfigService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	modelService             ModelService
-	readOnlyModelServiceFunc ReadOnlyModelServiceFunc
-	userService              UserService
-	controllerConfigService  ControllerConfigService
+	modelImportService      ModelImportService
+	modelDetailServiceFunc  ModelDetailServiceFunc
+	userService             UserService
+	controllerConfigService ControllerConfigService
 
 	logger logger.Logger
 }
@@ -109,13 +109,13 @@ func (i *importOperation) Name() string {
 // Setup is responsible for taking the model migration scope and creating the
 // needed services used during import.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.modelService = modelservice.NewService(
+	i.modelImportService = modelservice.NewService(
 		modelstate.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
 		modelservice.DefaultAgentBinaryFinder(),
 		i.logger,
 	)
-	i.readOnlyModelServiceFunc = func(id coremodel.UUID) ReadOnlyModelService {
+	i.modelDetailServiceFunc = func(id coremodel.UUID) ModelDetailService {
 		return modelservice.NewModelService(
 			id,
 			modelstate.NewState(scope.ControllerDB()),
@@ -204,7 +204,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// NOTE: Try to get all things that can fail before creating the model in
 	// the database.
-	activator, err := i.modelService.ImportModel(ctx, args)
+	activator, err := i.modelImportService.ImportModel(ctx, args)
 	if err != nil {
 		return fmt.Errorf(
 			"importing model %q with id %q during migration: %w",
@@ -234,7 +234,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	// We need to establish the read only model information in the model database.
-	err = i.readOnlyModelServiceFunc(modelID).CreateModel(ctx, controllerUUID)
+	err = i.modelDetailServiceFunc(modelID).CreateModel(ctx, controllerUUID)
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
@@ -256,7 +256,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 
 	// If the model is not found, or the underlying db is not found, we can
 	// ignore the error.
-	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil &&
+	if err := i.modelDetailServiceFunc(modelID).DeleteModel(ctx); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) &&
 		!errors.Is(err, coredatabase.ErrDBNotFound) {
 		return fmt.Errorf(
@@ -266,7 +266,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	}
 
 	// If the model isn't found, we can simply ignore the error.
-	if err := i.modelService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil &&
+	if err := i.modelImportService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) &&
 		!errors.Is(err, coredatabase.ErrDBNotFound) {
 		return fmt.Errorf(
