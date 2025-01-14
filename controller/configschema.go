@@ -6,8 +6,9 @@ package controller
 import (
 	"fmt"
 
-	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/schema"
+
+	"github.com/juju/juju/internal/configschema"
 )
 
 var configChecker = schema.FieldMap(schema.Fields{
