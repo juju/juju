@@ -448,7 +448,7 @@ func (st *State) RecordStoredResource(
 				return errors.Errorf("inserting stored file resource information: %w", err)
 			}
 		case charmresource.TypeContainerImage:
-			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID)
+			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Fingerprint)
 			if err != nil {
 				return errors.Errorf("inserting stored container image resource information: %w", err)
 			}
@@ -606,6 +606,8 @@ func (st *State) insertImageResource(
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
+	size int64,
+	fingerprint charmresource.Fingerprint,
 ) error {
 	// Get the container image metadata storage key.
 	storageKey, err := storageID.ContainerImageMetadataStoreID()
@@ -617,6 +619,8 @@ func (st *State) insertImageResource(
 	storedResource := storedContainerImageResource{
 		ResourceUUID: resourceUUID.String(),
 		StorageKey:   storageKey,
+		Size:         size,
+		Fingerprint:  fingerprint.String(),
 	}
 	checkContainerImageStoreStmt, err := st.Prepare(`
 SELECT storage_key AS &storedContainerImageResource.store_storage_key

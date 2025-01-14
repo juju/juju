@@ -21,12 +21,6 @@ type resourceIdentity struct {
 	Name            string `db:"name"`
 }
 
-type resourceSizeAndFingerprint struct {
-	UUID        string `db:"uuid"`
-	Size        int64  `db:"size"`
-	Fingerprint string `db:"fingerprint"`
-}
-
 // resourceUUID represents the unique identifier of a resource.
 type resourceUUID struct {
 	UUID string `db:"uuid"`
@@ -121,4 +115,6 @@ type storedFileResource struct {
 type storedContainerImageResource struct {
 	StorageKey   string `db:"store_storage_key"`
 	ResourceUUID string `db:"resource_uuid"`
+	Size         int64  `db:"size"`
+	Fingerprint  string `db:"fingerprint"`
 }

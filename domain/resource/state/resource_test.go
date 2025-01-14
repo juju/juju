@@ -626,7 +626,7 @@ func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *gc.C) {
 // image resource has been stored.
 func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	// Arrange: Create a container image blob and resource record.
-	resID, storeID := s.createContainerImageResourceAndBlob(c)
+	resID, storeID, size, fp := s.createContainerImageResourceAndBlob(c)
 
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
@@ -639,16 +639,21 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
 			ResourceType:    charmresource.TypeContainerImage,
+			Size:            size,
+			Fingerprint:     fp,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	// Assert: Check that the resource has been linked to the stored blob
-	var foundStorageKey string
+	var (
+		foundStorageKey, foundFingerprint string
+		foundSize                         int64
+	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT store_storage_key FROM resource_image_store
-WHERE resource_uuid = ?`, resID).Scan(&foundStorageKey)
+SELECT store_storage_key, size, fingerprint FROM resource_image_store
+WHERE resource_uuid = ?`, resID).Scan(&foundStorageKey, &foundSize, &foundFingerprint)
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
 	storageKey, err := storeID.ContainerImageMetadataStoreID()
@@ -667,6 +672,8 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundRetrievedBy, &foundRetrievedByType)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(foundRetrievedByType, gc.Equals, string(retrievedByType))
 	c.Check(foundRetrievedBy, gc.Equals, retrievedBy)
+	c.Check(foundFingerprint, gc.Equals, fp.String())
+	c.Check(foundSize, gc.Equals, size)
 }
 
 // TestRecordStoredResourceWithFile tests recording that a file resource has
@@ -695,7 +702,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
 		foundStoreUUID, foundFingerprint string
-		foundSize                        int
+		foundSize                        int64
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -706,6 +713,8 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID, &foundSize, &foundFingerp
 	objectStoreUUID, err := storeID.ObjectStoreUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(foundStoreUUID, gc.Equals, objectStoreUUID.String())
+	c.Check(foundFingerprint, gc.Equals, fp.String())
+	c.Check(foundSize, gc.Equals, size)
 
 	// Assert: Check that retrieved by has been set.
 	var foundRetrievedByType, foundRetrievedBy string
@@ -727,8 +736,8 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundRetrievedBy, &foundRetrievedByType)
 func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c *gc.C) {
 	// Arrange: create two resources and  blobs storage and get the initial charm
 	// modified version.
-	resID, storeID := s.createContainerImageResourceAndBlob(c)
-	resID2, storeID2 := s.createContainerImageResourceAndBlob(c)
+	resID, storeID, size, fp := s.createContainerImageResourceAndBlob(c)
+	resID2, storeID2, size2, fp2 := s.createContainerImageResourceAndBlob(c)
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource and increment the CMV.
@@ -739,6 +748,8 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			StorageID:                     storeID,
 			ResourceType:                  charmresource.TypeContainerImage,
 			IncrementCharmModifiedVersion: true,
+			Fingerprint:                   fp,
+			Size:                          size,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -752,6 +763,8 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			StorageID:                     storeID2,
 			ResourceType:                  charmresource.TypeContainerImage,
 			IncrementCharmModifiedVersion: true,
+			Fingerprint:                   fp2,
+			Size:                          size2,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -768,7 +781,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 // is false.
 func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersion(c *gc.C) {
 	// Arrange: insert a resource and get charm modified version.
-	resID, storeID := s.createContainerImageResourceAndBlob(c)
+	resID, storeID, size, fp := s.createContainerImageResourceAndBlob(c)
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource.
@@ -778,6 +791,8 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 			ResourceUUID: resID,
 			StorageID:    storeID,
 			ResourceType: charmresource.TypeContainerImage,
+			Fingerprint:  fp,
+			Size:         size,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -789,7 +804,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 
 func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
-	resID, storeID1 := s.createContainerImageResourceAndBlob(c)
+	resID, storeID1, size, fp := s.createContainerImageResourceAndBlob(c)
 
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
@@ -803,6 +818,8 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			ResourceUUID: resID,
 			StorageID:    storeID1,
 			ResourceType: charmresource.TypeContainerImage,
+			Fingerprint:  fp,
+			Size:         size,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -814,6 +831,8 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			ResourceUUID: resID,
 			StorageID:    storeID2,
 			ResourceType: charmresource.TypeContainerImage,
+			Fingerprint:  fp,
+			Size:         size,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceAlreadyStored)
@@ -1525,7 +1544,7 @@ func (s *resourceSuite) createFileResourceAndBlob(c *gc.C) (coreresource.UUID, s
 	return resID, storeID, 42, fp
 }
 
-func (s *resourceSuite) createContainerImageResourceAndBlob(c *gc.C) (coreresource.UUID, store.ID) {
+func (s *resourceSuite) createContainerImageResourceAndBlob(c *gc.C) (coreresource.UUID, store.ID, int64, charmresource.Fingerprint) {
 	// Arrange: insert a resource.
 	resID := coreresourcetesting.GenResourceUUID(c)
 	input := resourceData{
@@ -1546,7 +1565,11 @@ func (s *resourceSuite) createContainerImageResourceAndBlob(c *gc.C) (coreresour
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey)
 	err = s.addContainerImage(storageKey)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
-	return resID, storeID
+
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("blob"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return resID, storeID, 24, fp
 }
 
 func (s *resourceSuite) addContainerImage(storageKey string) error {
