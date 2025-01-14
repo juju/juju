@@ -1707,6 +1707,25 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expected, nil)
+
+	result, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "foo", arch.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, expected)
+}
+
+func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "!!!foo", arch.AMD64)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 

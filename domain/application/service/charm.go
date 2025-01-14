@@ -11,10 +11,12 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -169,6 +171,12 @@ type CharmState interface {
 	// the uploaded state to the available state. If the charm is not found, a
 	// [applicationerrors.CharmNotFound] error is returned.
 	ResolveMigratingUploadedCharm(context.Context, corecharm.ID, charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error)
+
+	// GetLatestPendingCharmhubCharm returns the latest charm that is pending
+	// from the charmhub store. If there are no charms, returns is not found, as
+	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
+	// latest created at date is returned first.
+	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (corecharm.ID, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive
@@ -909,6 +917,20 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 		return "", nil, errors.Trace(err)
 	}
 	return result.ID, warnings, nil
+}
+
+// GetLatestPendingCharmhubCharm returns the latest charm that is pending from
+// the charmhub store. If there are no charms, returns is not found, as
+// [applicationerrors.CharmNotFound].
+// If there are multiple charms, then the latest created at date is returned
+// first.
+func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (corecharm.ID, error) {
+	if !isValidCharmName(name) {
+		return "", applicationerrors.CharmNameNotValid
+	}
+
+	a := encodeArchitecture(arch)
+	return s.st.GetLatestPendingCharmhubCharm(ctx, name, a)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.
