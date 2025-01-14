@@ -274,7 +274,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 
 	// If there is any constraint error then we should log it as an error.
 	if drivererrors.IsConstraintError(err) {
-		t.logger.Errorf("constraint error %v - running queries: %v", err, queryable.Queries())
+		t.logger.Errorf("constraint error %v - running queries:\n %v", err, queryable.Queries())
 	}
 
 	return errors.Trace(err)
@@ -381,6 +381,10 @@ func (d *logTracer) Start(ctx context.Context, name string, query string) (conte
 		d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
 	}
 
+	// This is less than ideal, it might be better to bulk create an array
+	// of strings (maybe 256) as a ballast and then wipe them out when preparing
+	// them. We could then just insert them into the array, rather than
+	// appending them.
 	d.queries = append(d.queries, query)
 
 	return ctx, d
@@ -388,6 +392,7 @@ func (d *logTracer) Start(ctx context.Context, name string, query string) (conte
 
 func (d *logTracer) End() {}
 
+// Queries returns the queries that have been run in the transaction.
 func (d *logTracer) Queries() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -442,11 +447,16 @@ func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (co
 	// should be done once the run has been completed.
 	dspan.span = span
 
+	// This is less than ideal, it might be better to bulk create an array
+	// of strings (maybe 256) as a ballast and then wipe them out when preparing
+	// them. We could then just insert them into the array, rather than
+	// appending them.
 	d.queries = append(d.queries, query)
 
 	return ctx, dspan
 }
 
+// Queries returns the queries that have been run in the transaction.
 func (d *dqliteTracer) Queries() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
