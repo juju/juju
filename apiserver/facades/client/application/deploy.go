@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -184,10 +185,21 @@ func DeployApplication(
 			}
 		}
 
+		charmResources := args.Charm.Meta().Resources
+		resolvedResources := make(applicationservice.ResolvedResources, 0,
+			len(charmResources))
+		for _, res := range charmResources {
+			resolvedResources = append(resolvedResources, applicationservice.ResolvedResource{
+				Name:   res.Name,
+				Origin: charmresource.OriginUpload,
+			})
+		}
+
 		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, args.Charm, args.CharmOrigin, applicationservice.AddApplicationArgs{
-			ReferenceName: chURL.Name,
-			Storage:       args.Storage,
-			DownloadInfo:  downloadInfo,
+			ReferenceName:     chURL.Name,
+			Storage:           args.Storage,
+			DownloadInfo:      downloadInfo,
+			ResolvedResources: resolvedResources,
 		}, unitArgs...)
 		if err != nil {
 			return nil, errors.Trace(err)

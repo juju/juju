@@ -26,6 +26,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer,Resources
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm,CharmMeta
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -51,6 +52,9 @@ type baseSuite struct {
 	leadershipReader *MockLeadership
 	deployFromRepo   *MockDeployFromRepository
 	objectStore      *MockObjectStore
+
+	charmRepository        *MockRepository
+	charmRepositoryFactory *MockRepositoryFactory
 
 	modelUUID model.UUID
 	modelInfo model.ReadOnlyModel
@@ -85,6 +89,9 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.backend = NewMockBackend(ctrl)
 	s.model = NewMockModel(ctrl)
 	s.providerRegistry = NewMockProviderRegistry(ctrl)
+
+	s.charmRepository = NewMockRepository(ctrl)
+	s.charmRepositoryFactory = NewMockRepositoryFactory(ctrl)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)
 
