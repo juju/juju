@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/testing"
 )
@@ -254,7 +254,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 
 func (s *configSuite) TestSchema(c *gc.C) {
 	fields := s.provider.(interface {
-		Schema() environschema.Fields
+		Schema() configschema.Fields
 	}).Schema()
 	// Check that all the fields defined in environs/config
 	// are in the returned schema.

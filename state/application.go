@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
@@ -2699,7 +2699,7 @@ func (a *Application) ApplicationConfig() (config.ConfigAttributes, error) {
 func (a *Application) UpdateApplicationConfig(
 	changes config.ConfigAttributes,
 	reset []string,
-	schema environschema.Fields,
+	schema configschema.Fields,
 	defaults schema.Defaults,
 ) error {
 	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())

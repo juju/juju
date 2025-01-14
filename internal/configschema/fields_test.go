@@ -1,13 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
-package environschema_test
+package configschema_test
 
 import (
 	"github.com/juju/schema"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 type fieldsSuite struct{}
@@ -23,30 +23,30 @@ type valueTest struct {
 
 var validationSchemaTests = []struct {
 	about       string
-	fields      environschema.Fields
+	fields      configschema.Fields
 	expectError string
 	tests       []valueTest
 }{{
 	about: "regular schema",
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"stringvalue": {
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		"mandatory-stringvalue": {
-			Type:      environschema.Tstring,
+			Type:      configschema.Tstring,
 			Mandatory: true,
 		},
 		"intvalue": {
-			Type: environschema.Tint,
+			Type: configschema.Tint,
 		},
 		"boolvalue": {
-			Type: environschema.Tbool,
+			Type: configschema.Tbool,
 		},
 		"attrvalue": {
-			Type: environschema.Tattrs,
+			Type: configschema.Tattrs,
 		},
 		"listvalue": {
-			Type: environschema.Tlist,
+			Type: configschema.Tlist,
 		},
 	},
 	tests: []valueTest{{
@@ -159,13 +159,13 @@ var validationSchemaTests = []struct {
 	}},
 }, {
 	about: "enumerated values",
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"enumstring": {
-			Type:   environschema.Tstring,
+			Type:   configschema.Tstring,
 			Values: []interface{}{"a", "b"},
 		},
 		"enumint": {
-			Type:   environschema.Tint,
+			Type:   configschema.Tint,
 			Values: []interface{}{10, "20"},
 		},
 	},
@@ -210,7 +210,7 @@ var validationSchemaTests = []struct {
 	}},
 }, {
 	about: "invalid value type",
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"stringvalue": {
 			Type: "nontype",
 		},

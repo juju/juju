@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
-package environschema_test
+package configschema_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 type sampleSuite struct{}
@@ -20,7 +20,7 @@ var sampleYAMLTests = []struct {
 	about  string
 	indent int
 	attrs  map[string]interface{}
-	fields environschema.Fields
+	fields configschema.Fields
 	expect string
 }{{
 	about: "simple values, all attributes specified", attrs: map[string]interface{}{
@@ -32,25 +32,25 @@ var sampleYAMLTests = []struct {
 			"hello": "goodbye",
 		},
 	},
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"foo": {
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 			Description: "foo is a string.",
 		},
 		"bar": {
-			Type:        environschema.Tint,
+			Type:        configschema.Tint,
 			Description: "bar is a number.\nWith a long description that contains newlines. And quite a bit more text that will be folded because it is longer than 80 characters.",
 		},
 		"baz": {
-			Type:        environschema.Tbool,
+			Type:        configschema.Tbool,
 			Description: "baz is a bool.",
 		},
 		"attrs": {
-			Type:        environschema.Tattrs,
+			Type:        configschema.Tattrs,
 			Description: "attrs is an attribute list",
 		},
 		"list": {
-			Type:        environschema.Tlist,
+			Type:        configschema.Tlist,
 			Description: "list is a slice",
 		},
 	},
@@ -84,13 +84,13 @@ var sampleYAMLTests = []struct {
 	attrs: map[string]interface{}{
 		"foo": "foovalue",
 	},
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"foo": {
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 			Description: "foo is a string.",
 		},
 		"bar": {
-			Type:        environschema.Tint,
+			Type:        configschema.Tint,
 			Description: "bar is a number.",
 			Example:     1243,
 		},
@@ -111,20 +111,20 @@ var sampleYAMLTests = []struct {
 		"baz": true,
 		"foo": "foovalue",
 	},
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"bar": {
-			Type:        environschema.Tint,
+			Type:        configschema.Tint,
 			Description: "bar is a number.",
 			EnvVars:     []string{"BAR_VAL", "ALT_BAR_VAL"},
 		},
 		"baz": {
-			Type:        environschema.Tbool,
+			Type:        configschema.Tbool,
 			Description: "baz is a bool.",
 			EnvVar:      "BAZ_VAL",
 			EnvVars:     []string{"ALT_BAZ_VAL", "ALT2_BAZ_VAL"},
 		},
 		"foo": {
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 			Description: "foo is a string.",
 			EnvVar:      "FOO_VAL",
 		},
@@ -150,40 +150,40 @@ var sampleYAMLTests = []struct {
 	`,
 }, {
 	about: "sorted by attribute group (provider, account, environ, other), then alphabetically",
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"baz": {
-			Type:        environschema.Tbool,
+			Type:        configschema.Tbool,
 			Description: "baz is a bool.",
-			Group:       environschema.ProviderGroup,
+			Group:       configschema.ProviderGroup,
 		},
 		"zaphod": {
-			Type:  environschema.Tstring,
-			Group: environschema.ProviderGroup,
+			Type:  configschema.Tstring,
+			Group: configschema.ProviderGroup,
 		},
 		"bar": {
-			Type:        environschema.Tint,
+			Type:        configschema.Tint,
 			Description: "bar is a number.",
-			Group:       environschema.AccountGroup,
+			Group:       configschema.AccountGroup,
 		},
 		"foo": {
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 			Description: "foo is a string.",
-			Group:       environschema.AccountGroup,
+			Group:       configschema.AccountGroup,
 		},
 		"alpha": {
-			Type:  environschema.Tstring,
-			Group: environschema.EnvironGroup,
+			Type:  configschema.Tstring,
+			Group: configschema.EnvironGroup,
 		},
 		"bravo": {
-			Type:  environschema.Tstring,
-			Group: environschema.EnvironGroup,
+			Type:  configschema.Tstring,
+			Group: configschema.EnvironGroup,
 		},
 		"charlie": {
-			Type:  environschema.Tstring,
+			Type:  configschema.Tstring,
 			Group: "unknown",
 		},
 		"delta": {
-			Type:  environschema.Tstring,
+			Type:  configschema.Tstring,
 			Group: "unknown",
 		},
 	},
@@ -212,22 +212,22 @@ var sampleYAMLTests = []struct {
 `,
 }, {
 	about: "example value is used when possible; zero value otherwise",
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"intval-with-example": {
-			Type:    environschema.Tint,
+			Type:    configschema.Tint,
 			Example: 999,
 		},
 		"intval": {
-			Type: environschema.Tint,
+			Type: configschema.Tint,
 		},
 		"boolval": {
-			Type: environschema.Tbool,
+			Type: configschema.Tbool,
 		},
 		"attrsval": {
-			Type: environschema.Tattrs,
+			Type: configschema.Tattrs,
 		},
 		"listval": {
-			Type: environschema.Tlist,
+			Type: configschema.Tlist,
 		},
 	},
 	expect: `
@@ -245,28 +245,28 @@ var sampleYAMLTests = []struct {
 	`,
 }, {
 	about: "secret values are marked as secret/immutable",
-	fields: environschema.Fields{
+	fields: configschema.Fields{
 		"a": {
-			Type:        environschema.Tbool,
+			Type:        configschema.Tbool,
 			Description: "With a description",
 			Secret:      true,
 		},
 		"b": {
-			Type:   environschema.Tstring,
+			Type:   configschema.Tstring,
 			Secret: true,
 		},
 		"c": {
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 			Secret:      true,
 			Description: "With a description",
 			EnvVar:      "VAR",
 		},
 		"d": {
-			Type:      environschema.Tstring,
+			Type:      configschema.Tstring,
 			Immutable: true,
 		},
 		"e": {
-			Type:      environschema.Tstring,
+			Type:      configschema.Tstring,
 			Immutable: true,
 			Secret:    true,
 		},
@@ -304,7 +304,7 @@ func (sampleSuite) TestSampleYAML(c *gc.C) {
 	for i, test := range sampleYAMLTests {
 		c.Logf("test %d. %s\n", i, test.about)
 		var buf bytes.Buffer
-		err := environschema.SampleYAML(&buf, 0, test.attrs, test.fields)
+		err := configschema.SampleYAML(&buf, 0, test.attrs, test.fields)
 		c.Assert(err, gc.IsNil)
 		diff(c, buf.String(), unbeautify(test.expect[1:]))
 	}

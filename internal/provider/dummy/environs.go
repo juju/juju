@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -166,18 +166,18 @@ func Listen(c chan<- Operation) {
 	}
 }
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	"somebool": {
 		Description: "Used to test config validation",
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 	},
 	"broken": {
 		Description: "Whitespace-separated Environ methods that should return an error when called",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	"secret": {
 		Description: "A secret",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 }
 
@@ -212,7 +212,7 @@ func (p *environProvider) newConfig(ctx context.Context, cfg *config.Config) (*e
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-func (p *environProvider) Schema() environschema.Fields {
+func (p *environProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

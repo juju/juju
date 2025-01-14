@@ -24,7 +24,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/oci/common"
 )
@@ -42,14 +42,14 @@ type environConfig struct {
 var _ config.ConfigSchemaSource = (*EnvironProvider)(nil)
 var _ environs.ProviderSchema = (*EnvironProvider)(nil)
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	"compartment-id": {
 		Description: "The OCID of the compartment in which juju has access to create resources.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	"address-space": {
 		Description: "The CIDR block to use when creating default subnets. The subnet must have at least a /16 size.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 }
 
@@ -143,7 +143,7 @@ func (c *environConfig) addressSpace() *string {
 }
 
 // Schema implements environs.ProviderSchema
-func (o *EnvironProvider) Schema() environschema.Fields {
+func (o *EnvironProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

@@ -20,7 +20,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -243,7 +243,7 @@ func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName stri
 
 func describeAppConfig(
 	appConfig config.ConfigAttributes,
-	schemaFields environschema.Fields,
+	schemaFields configschema.Fields,
 	defaults schema.Defaults,
 ) map[string]interface{} {
 	results := make(map[string]interface{})

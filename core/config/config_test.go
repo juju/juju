@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -20,31 +20,31 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-var testFields = environschema.Fields{
+var testFields = configschema.Fields{
 	"field1": {
 		Description: "field 1 description",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
+		Type:        configschema.Tstring,
+		Group:       configschema.EnvironGroup,
 	},
 	"field2": {
 		Description: "field 2 description",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
+		Type:        configschema.Tstring,
+		Group:       configschema.EnvironGroup,
 	},
 	"field3": {
 		Description: "field 3 description",
-		Type:        environschema.Tint,
-		Group:       environschema.EnvironGroup,
+		Type:        configschema.Tint,
+		Group:       configschema.EnvironGroup,
 	},
 	"field4": {
 		Description: "field 4 description",
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
+		Type:        configschema.Tbool,
+		Group:       configschema.EnvironGroup,
 	},
 	"field5": {
 		Description: "field 5 description",
-		Type:        environschema.Tattrs,
-		Group:       environschema.EnvironGroup,
+		Type:        configschema.Tattrs,
+		Group:       configschema.EnvironGroup,
 	},
 }
 

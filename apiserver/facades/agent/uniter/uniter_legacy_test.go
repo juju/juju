@@ -37,7 +37,7 @@ import (
 	stubservice "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
@@ -976,8 +976,8 @@ func (s *uniterLegacySuite) TestWatchConfigSettingsHash(c *gc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
-	schema := environschema.Fields{
-		"trust": environschema.Attr{Type: environschema.Tbool},
+	schema := configschema.Fields{
+		"trust": configschema.Attr{Type: configschema.Tbool},
 	}
 	err := s.wordpress.UpdateApplicationConfig(coreconfig.ConfigAttributes{
 		"trust": true,

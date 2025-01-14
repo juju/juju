@@ -6,9 +6,8 @@ package controller
 import (
 	"fmt"
 
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/schema"
-
-	"github.com/juju/juju/internal/environschema"
 )
 
 var configChecker = schema.FieldMap(schema.Fields{
@@ -131,56 +130,56 @@ var configChecker = schema.FieldMap(schema.Fields{
 
 // ConfigSchema holds information on all the fields defined by
 // the config package.
-var ConfigSchema = environschema.Fields{
+var ConfigSchema = configschema.Fields{
 	ApplicationResourceDownloadLimit: {
 		Description: "The maximum number of concurrent resources downloads per application",
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 	},
 	ControllerResourceDownloadLimit: {
 		Description: "The maximum number of concurrent resources downloads across all the applications on the controller",
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 	},
 	AgentRateLimitMax: {
 		Description: "The maximum size of the token bucket used to ratelimit agent connections",
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 	},
 	AgentRateLimitRate: {
 		Description: "The time taken to add a new token to the ratelimit bucket",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	AuditingEnabled: {
 		Description: "Determines if the controller records auditing information",
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 	},
 	AuditLogCaptureArgs: {
 		Description: `Determines if the audit log contains the arguments passed to API methods`,
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 	},
 	AuditLogMaxSize: {
 		Description: "The maximum size for the current controller audit log file",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	AuditLogMaxBackups: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: "The number of old audit log files to keep (compressed)",
 	},
 	AuditLogExcludeMethods: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: "A comma-delimited list of Facade.Method names that aren't interesting for audit logging purposes.",
 	},
 	APIPort: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: "The port used for api connections",
 	},
 	APIPortOpenDelay: {
-		Type: environschema.Tstring,
+		Type: configschema.Tstring,
 		Description: `The duration that the controller will wait 
 between when the controller has been deemed to be ready to open 
 the api-port and when the api-port is actually opened 
 (only used when a controller-api-port value is set).`,
 	},
 	ControllerAPIPort: {
-		Type: environschema.Tint,
+		Type: configschema.Tint,
 		Description: `An optional port that may be set for controllers
 that have a very heavy load. If this port is set, this port is used by
 the controllers to talk to each other - used for the local API connection
@@ -188,188 +187,188 @@ as well as the pubsub forwarders, and the raft workers. If this value is
 set, the api-port isn't opened until the controllers have started properly.`,
 	},
 	ControllerName: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The canonical name of the controller`,
 	},
 	StatePort: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: `The port used for mongo connections`,
 	},
 	LoginTokenRefreshURL: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The url of the jwt well known endpoint`,
 	},
 	IdentityURL: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The url of the identity manager`,
 	},
 	IdentityPublicKey: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The public key of the identity manager`,
 	},
 	SetNUMAControlPolicyKey: {
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 		Description: `Determines if the NUMA control policy is set`,
 	},
 	AutocertURLKey: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The URL used to obtain official TLS certificates when a client connects to the API`,
 	},
 	AutocertDNSNameKey: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The DNS name of the controller`,
 	},
 	AllowModelAccessKey: {
-		Type: environschema.Tbool,
+		Type: configschema.Tbool,
 		Description: `Determines if the controller allows users to 
 connect to models they have been authorized for even when 
 they don't have any access rights to the controller itself`,
 	},
 	MongoMemoryProfile: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `Sets mongo memory profile`,
 	},
 	JujuDBSnapChannel: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `Sets channel for installing mongo snaps when bootstrapping on focal or later`,
 	},
 	MaxDebugLogDuration: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The maximum duration that a debug-log session is allowed to run`,
 	},
 	MaxTxnLogSize: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The maximum size the of capped txn log collection`,
 	},
 	MaxPruneTxnBatchSize: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: `(deprecated) The maximum number of transactions evaluated in one go when pruning`,
 	},
 	MaxPruneTxnPasses: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: `(deprecated) The maximum number of batches processed when pruning`,
 	},
 	AgentLogfileMaxBackups: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: "The number of old agent log files to keep (compressed)",
 	},
 	AgentLogfileMaxSize: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The maximum size of the agent log file`,
 	},
 	ModelLogfileMaxBackups: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: "The number of old model log files to keep (compressed)",
 	},
 	ModelLogfileMaxSize: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The maximum size of the log file written out by the controller on behalf of workers running for a model`,
 	},
 	PruneTxnQueryCount: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: `The number of transactions to read in a single query`,
 	},
 	PruneTxnSleepTime: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The amount of time to sleep between processing each batch query`,
 	},
 	PublicDNSAddress: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `Public DNS address (with port) of the controller.`,
 	},
 	JujuHASpace: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The network space within which the MongoDB replica-set should communicate`,
 	},
 	JujuManagementSpace: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The network space that agents should use to communicate with controllers`,
 	},
 	CAASOperatorImagePath: {
-		Type: environschema.Tstring,
+		Type: configschema.Tstring,
 		Description: `(deprecated) The url of the docker image used for the application operator.
 Use "caas-image-repo" instead.`,
 	},
 	CAASImageRepo: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The docker repo to use for the jujud operator and mongo images`,
 	},
 	Features: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `A comma-delimited list of runtime changeable features to be updated`,
 	},
 	MaxCharmStateSize: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: `The maximum size (in bytes) of charm-specific state that units can store to the controller`,
 	},
 	MaxAgentStateSize: {
-		Type:        environschema.Tint,
+		Type:        configschema.Tint,
 		Description: `The maximum size (in bytes) of internal state data that agents can store to the controller`,
 	},
 	MigrationMinionWaitMax: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The maximum during model migrations that the migration worker will wait for agents to report on phases of the migration`,
 	},
 	QueryTracingEnabled: {
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 		Description: `Enable query tracing for the dqlite driver`,
 	},
 	QueryTracingThreshold: {
-		Type: environschema.Tstring,
+		Type: configschema.Tstring,
 		Description: `The minimum duration of a query for it to be traced. The lower the 
 threshold, the more queries will be output. A value of 0 means all queries 
 will be output if tracing is enabled.`,
 	},
 	OpenTelemetryEnabled: {
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 		Description: `Enable open telemetry tracing`,
 	},
 	OpenTelemetryEndpoint: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `Endpoint open telemetry tracing`,
 	},
 	OpenTelemetryInsecure: {
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 		Description: `Allows insecure endpoint for open telemetry tracing`,
 	},
 	OpenTelemetryStackTraces: {
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 		Description: `Allows stack traces open telemetry tracing per span`,
 	},
 	OpenTelemetrySampleRatio: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `Allows defining a sample ratio open telemetry tracing`,
 	},
 	OpenTelemetryTailSamplingThreshold: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: "Allows defining a tail sampling threshold open telemetry tracing",
 	},
 	ObjectStoreType: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The type of object store backend to use for storing blobs`,
 	},
 	ObjectStoreS3Endpoint: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The s3 endpoint for the object store backend`,
 	},
 	ObjectStoreS3StaticKey: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The s3 static key for the object store backend`,
 	},
 	ObjectStoreS3StaticSecret: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The s3 static secret for the object store backend`,
 	},
 	ObjectStoreS3StaticSession: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The s3 static session for the object store backend`,
 	},
 	SystemSSHKeys: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `Defines the system ssh keys`,
 	},
 	JujudControllerSnapSource: {
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Description: `The source for the jujud-controller snap.`,
 	},
 }

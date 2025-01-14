@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 const (
@@ -23,26 +23,26 @@ const (
 	UseOpenstackGBPKey    = "use-openstack-gbp"
 )
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	UseDefaultSecgroupKey: {
 		Description: `Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.`,
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 	},
 	NetworkKey: {
 		Description: "The network label or UUID to bring machines up on when multiple networks exist.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	ExternalNetworkKey: {
 		Description: "The network label or UUID to create floating IP addresses on when multiple external networks exist.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	UseOpenstackGBPKey: {
 		Description: "Whether to use Neutrons Group-Based Policy",
-		Type:        environschema.Tbool,
+		Type:        configschema.Tbool,
 	},
 	PolicyTargetGroupKey: {
 		Description: "The UUID of Policy Target Group to use for Policy Targets created.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 }
 
@@ -95,7 +95,7 @@ func (c *environConfig) policyTargetGroup() string {
 type AuthMode string
 
 // Schema returns the configuration schema for an environment.
-func (EnvironProvider) Schema() environschema.Fields {
+func (EnvironProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

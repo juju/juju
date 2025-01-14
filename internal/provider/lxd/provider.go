@@ -23,8 +23,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/container/lxd"
-	"github.com/juju/juju/internal/environschema"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 )
@@ -369,7 +369,7 @@ func (*environProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 // Schema returns the configuration schema for an environment.
-func (*environProvider) Schema() environschema.Fields {
+func (*environProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

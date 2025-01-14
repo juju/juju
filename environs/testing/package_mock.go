@@ -22,7 +22,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
-	environschema "github.com/juju/juju/internal/environschema"
+	configschema "github.com/juju/juju/internal/configschema"
 	storage "github.com/juju/juju/internal/storage"
 	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"
@@ -754,10 +754,10 @@ func (m *MockProviderSchema) EXPECT() *MockProviderSchemaMockRecorder {
 }
 
 // Schema mocks base method.
-func (m *MockProviderSchema) Schema() environschema.Fields {
+func (m *MockProviderSchema) Schema() configschema.Fields {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Schema")
-	ret0, _ := ret[0].(environschema.Fields)
+	ret0, _ := ret[0].(configschema.Fields)
 	return ret0
 }
 
@@ -774,19 +774,19 @@ type MockProviderSchemaSchemaCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockProviderSchemaSchemaCall) Return(arg0 environschema.Fields) *MockProviderSchemaSchemaCall {
+func (c *MockProviderSchemaSchemaCall) Return(arg0 configschema.Fields) *MockProviderSchemaSchemaCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderSchemaSchemaCall) Do(f func() environschema.Fields) *MockProviderSchemaSchemaCall {
+func (c *MockProviderSchemaSchemaCall) Do(f func() configschema.Fields) *MockProviderSchemaSchemaCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderSchemaSchemaCall) DoAndReturn(f func() environschema.Fields) *MockProviderSchemaSchemaCall {
+func (c *MockProviderSchemaSchemaCall) DoAndReturn(f func() configschema.Fields) *MockProviderSchemaSchemaCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

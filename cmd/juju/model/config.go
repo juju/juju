@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/output"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 const (
@@ -509,7 +509,7 @@ func ConfigDetails() (map[string]common.PrintConfigSchema, error) {
 	specifics := make(map[string]common.PrintConfigSchema, len(defaultSchema))
 	for key, attr := range defaultSchema {
 		if attr.Secret || isModelAttribute(key) ||
-			attr.Group != environschema.EnvironGroup {
+			attr.Group != configschema.EnvironGroup {
 			continue
 		}
 		specifics[key] = common.PrintConfigSchema{

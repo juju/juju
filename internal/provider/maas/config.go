@@ -9,10 +9,10 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
-var configSchema = environschema.Fields{}
+var configSchema = configschema.Fields{}
 
 var configFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -41,7 +41,7 @@ func (p EnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*ma
 }
 
 // Schema returns the configuration schema for an environment.
-func (EnvironProvider) Schema() environschema.Fields {
+func (EnvironProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

@@ -10,17 +10,17 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 const (
 	cfgBaseImagePath = "base-image-path"
 )
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	cfgBaseImagePath: {
 		Description: "Base path to look for machine disk images.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 }
 

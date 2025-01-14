@@ -14,7 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,7 +30,7 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 	// Update the application config for wordpress so that it is authorised to
 	// retrieve its cloud spec.
 	conf := map[string]any{coreapplication.TrustConfigOptionName: true}
-	fields := map[string]environschema.Attr{coreapplication.TrustConfigOptionName: {Type: environschema.Tbool}}
+	fields := map[string]configschema.Attr{coreapplication.TrustConfigOptionName: {Type: configschema.Tbool}}
 	defaults := map[string]any{coreapplication.TrustConfigOptionName: false}
 	err := s.wordpress.UpdateApplicationConfig(conf, nil, fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)

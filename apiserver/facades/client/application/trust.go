@@ -7,16 +7,16 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 const defaultTrustLevel = false
 
-var trustFields = environschema.Fields{
+var trustFields = configschema.Fields{
 	application.TrustConfigOptionName: {
 		Description: "Does this application have access to trusted credentials",
-		Type:        environschema.Tbool,
-		Group:       environschema.JujuGroup,
+		Type:        configschema.Tbool,
+		Group:       configschema.JujuGroup,
 	},
 }
 

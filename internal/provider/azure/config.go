@@ -14,7 +14,7 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 const (
@@ -37,20 +37,20 @@ const (
 	resourceNameLengthMax = 80
 )
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	configAttrLoadBalancerSkuName: {
 		Description: "mirrors the LoadBalancerSkuName type in the Azure SDK",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Mandatory:   true,
 	},
 	configAttrResourceGroupName: {
 		Description: "If set, use the specified resource group for all model artefacts instead of creating one based on the model UUID.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Immutable:   true,
 	},
 	configAttrNetwork: {
 		Description: "If set, use the specified virtual network for all model machines instead of creating one.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Immutable:   true,
 	},
 }
@@ -62,7 +62,7 @@ var configDefaults = schema.Defaults{
 }
 
 // Schema returns the configuration schema for an environment.
-func (azureEnvironProvider) Schema() environschema.Fields {
+func (azureEnvironProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)
