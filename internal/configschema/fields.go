@@ -66,6 +66,10 @@ type Attr struct {
 
 	// Values holds the set of all possible values of the attribute.
 	Values []interface{} `json:"values,omitempty"`
+
+	// Documentation holds the longform documentation for this option.
+	// This may include markdown.
+	Documentation string
 }
 
 // Checker returns a checker that can be used to coerce values into the

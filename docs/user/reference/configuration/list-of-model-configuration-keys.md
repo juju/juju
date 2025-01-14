@@ -91,7 +91,14 @@ The APT HTTPS proxy for the model.
 
 ## apt-mirror
 
-The APT mirror for the model
+The APT mirror for the model.
+
+**Default value: ""**
+
+**Type:** string
+
+**Description:**
+
 
 The APT packaging system is used to install and upgrade software on machines
 provisioned in the model, and many charms also use APT to install software for
@@ -106,9 +113,6 @@ To restore the default behaviour you would run:
 
 The apt-mirror option is often used to point to a local mirror.
 
-**Default value: ""**
-
-**Type:** string
 
 
 ## apt-no-proxy
@@ -122,7 +126,14 @@ List of domain addresses not to be proxied for APT (comma-separated).
 
 ## automatically-retry-hooks
 
-Determines whether the uniter should automatically retry failed hooks
+Determines whether the uniter should automatically retry failed hooks.
+
+**Default value:** true
+
+**Type:** bool
+
+**Description:**
+
 
 Juju retries failed hooks automatically using an exponential backoff algorithm.
 They will be retried after 5, 10, 20, 40 seconds up to a period of 5 minutes,
@@ -140,11 +151,8 @@ above, as with earlier versions of Juju.
 Even with the automatic retry enabled, it is still possible to use retry
 manually using:
 
-	juju resolved unit-name/# .
+	juju resolved unit-name/# 
 
-**Default value:** true
-
-**Type:** bool
 
 
 ## backup-dir
@@ -167,7 +175,14 @@ The url for CharmHub API calls.
 
 ## cloudinit-userdata
 
-Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model
+Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model.
+
+**Default value: ""**
+
+**Type:** string
+
+**Description:**
+
 
 The cloudinit-userdata allows the user to provide additional cloudinit data to
 be included in the cloudinit data created by Juju.
@@ -242,11 +257,8 @@ been previously set.
 **Known issues**
 
 - custom cloudinit-userdata must be passed via file, not as options on the command
-line (like the config command).
+line (like the config command)
 
-**Default value: ""**
-
-**Type:** string
 
 
 ## container-image-metadata-defaults-disabled
@@ -278,9 +290,15 @@ The simplestreams stream used to identify which image ids to search when startin
 
 ## container-inherit-properties
 
-
 List of properties to be copied from the host machine to new containers created
-in this model (comma-separated)
+in this model (comma-separated).
+
+**Default value: ""**
+
+**Type:** string
+
+**Description:**
+
 
 The container-inherit-properties key allows for a limited set of parameters
 enabled on a Juju machine to be inherited by any hosted containers (KVM guests
@@ -300,11 +318,8 @@ For MAAS v.2.5 or greater the parameters are:
 
 For example:
 
-	juju model-config container-inherit-properties="ca-certs, apt-sources".
+	juju model-config container-inherit-properties="ca-certs, apt-sources"
 
-**Default value: ""**
-
-**Type:** string
 
 
 ## container-networking-method
@@ -345,9 +360,15 @@ Whether the model is in development mode.
 
 ## disable-network-management
 
-
 Whether the provider should control networks (on MAAS models, set to true for
-MAAS to control networks
+MAAS to control networks.
+
+**Default value:** false
+
+**Type:** bool
+
+**Description:**
+
 
 This key can only be used with MAAS models and should otherwise be set to
 ‘false’ (default) unless you want to take over network control from Juju because
@@ -356,9 +377,6 @@ you the same behaviour with containers as you already have with other providers:
 one machine-local address on a single network interface, bridged to the default
 bridge.
 
-**Default value:** false
-
-**Type:** bool
 
 
 ## disable-telemetry
@@ -381,9 +399,15 @@ Source address(es) for traffic originating from this model.
 
 ## enable-os-refresh-update
 
-
 Whether newly provisioned instances should run their respective OS's update
 capability.
+
+**Default value:** true
+
+**Type:** bool
+
+**Description:**
+
 
 When Juju provisions a machine, its default behaviour is to upgrade existing
 packages to their latest version. If your OS images are fresh and/or your
@@ -400,9 +424,6 @@ upgrade), respectively.
 You may also want to just update the package list to ensure a charm has the
 latest software available to it by disabling upgrades but enabling updates.
 
-**Default value:** true
-
-**Type:** bool
 
 
 ## enable-os-upgrade
@@ -410,6 +431,13 @@ latest software available to it by disabling upgrades but enabling updates.
 
 Whether newly provisioned instances should run their respective OS's upgrade
 capability.
+
+**Default value:** true
+
+**Type:** bool
+
+**Description:**
+
 
 When Juju provisions a machine, its default behaviour is to upgrade existing
 packages to their latest version. If your OS images are fresh and/or your
@@ -426,9 +454,6 @@ upgrade), respectively.
 You may also want to just update the package list to ensure a charm has the
 latest software available to it by disabling upgrades but enabling updates.
 
-**Default value:** true
-
-**Type:** bool
 
 
 ## extra-info
@@ -445,21 +470,25 @@ Arbitrary user specified string data that is stored against the model.
 *Note: This value cannot be changed after model creation.* 
 
 The mode to use for network firewalling.
-'instance' requests the use of an individual firewall per instance.
-
-'global' uses a single firewall for all instances (access
-for a network port is enabled to one instance if any instance requires
-that port).
-
-'none' requests that no firewalling should be performed
-inside the model. It's useful for clouds without support for either
-global or per instance security groups.
 
 **Default value:** instance
 
 **Type:** string
 
 **Valid values:** instance, global, none
+
+**Description:**
+
+
+- 'instance' requests the use of an individual firewall per instance.
+
+- 'global' uses a single firewall for all instances (access
+for a network port is enabled to one instance if any instance requires
+that port).
+
+- 'none' requests that no firewalling should be performed
+inside the model. It's useful for clouds without support for either
+global or per instance security groups.
 
 
 ## ftp-proxy
@@ -522,14 +551,18 @@ The URL at which the metadata used to locate OS image ids is located.
 The simplestreams stream used to identify which image ids to search when
 starting an instance.
 
+**Default value:** released
+
+**Type:** string
+
+**Description:**
+
+
 Juju, by default, uses the slow-changing ‘released’ images when provisioning
 machines. However, the image-stream option can be set to ‘daily’ to use more
 up-to-date images, thus shortening the time it takes to perform APT package
 upgrades.
 
-**Default value:** released
-
-**Type:** string
 
 
 ## juju-ftp-proxy
@@ -570,54 +603,59 @@ List of domain addresses not to be proxied (comma-separated), may contain CIDRs.
 
 ## logging-config
 
+The configuration string to use when configuring Juju agent logging (see +
+http://godoc.org/github.com/juju/loggo#Parsefor details).
 
-The configuration string to use when configuring Juju agent logging (see
-http://godoc.org/github.com/juju/loggo#Parsefor details)
+**Default value: ""**
+
+**Type:** string
+
+**Description:**
 
 The logging config can be set to a (list of semicolon-separated)
-<filter>=<verbosity level> pairs, where <filter> can be any of the following:
- - <root> - matches all machine agent logs
- - unit - matches all unit agent logs
- - a module name, e.g. juju.worker.apiserver
+`<filter>=<verbosity level>` pairs, where `<filter>` can be any of the following:
+ - `<root>` - matches all machine agent logs
+ - `unit` - matches all unit agent logs
+ - a module name, e.g. `juju.worker.apiserver`
    A module represents a single component of Juju, e.g. a worker. Generally,
    modules correspond one-to-one with Go packages in the Juju source tree. The
-   module name is the value passed to loggo.GetLogger or
-   loggo.GetLoggerWithLabels.
+   module name is the value passed to `loggo.GetLogger` or
+   `loggo.GetLoggerWithLabels`.
 
-   Modules have a nested tree structure - for example, the juju.api module
-   includes submodules juju.api.application, juju.api.cloud, etc. <root> is the
+   Modules have a nested tree structure - for example, the `juju.api` module
+   includes submodules `juju.api.application`, `juju.api.cloud`, etc. `<root>` is the
    root of this module tree.
 
- - a label, e.g. #charmhub
+ - a label, e.g. `#charmhub`
     Labels cut across the module tree, grouping various modules which deal with
-    a certain feature or information flow. For example, the #charmhub label
+    a certain feature or information flow. For example, the `#charmhub` label
     includes all modules involved in making a request to Charmhub.
 
 The currently supported labels are:
 | Label | Description |
 |-|-|
-| #http | HTTP requests |
-| #metrics | Metric outputs - use as a fallback when Prometheus isn't available |
-| #charmhub | Charmhub client and callers. |
-| #cmr | Cross model relations |
-| #cmr-auth | Authentication for cross model relations |
-| #secrets | Juju secrets |
+| `#http` | HTTP requests |
+| `#metrics` | Metric outputs - use as a fallback when Prometheus isn't available |
+| `#charmhub` | Charmhub client and callers. |
+| `#cmr` | Cross model relations |
+| `#cmr-auth` | Authentication for cross model relations |
+| `#secrets` | Juju secrets |
 
 and where <verbosity level> can be, in decreasing order of severity:
 
 | Level | Description |
 |-|-|
-| CRITICAL | Indicates a severe failure which could bring down the system. |
-| ERROR | Indicates failure to complete a routine operation.
-| WARNING | Indicates something is not as expected, but this is not necessarily going to cause an error.
-| INFO | A regular log message intended for the user.
-| DEBUG | Information intended to assist developers in debugging.
-| TRACE | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
+| `CRITICAL` | Indicates a severe failure which could bring down the system. |
+| `ERROR` | Indicates failure to complete a routine operation.
+| `WARNING` | Indicates something is not as expected, but this is not necessarily going to cause an error.
+| `INFO` | A regular log message intended for the user.
+| `DEBUG` | Information intended to assist developers in debugging.
+| `TRACE` | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
 
-When you set logging-config to module=level, then Juju saves that module's logs
-for the given severity level **and above.** For example, setting logging-config
-to juju.worker.uniter=WARNING will capture all CRITICAL, ERROR and WARNING logs
-for the uniter, but discard logs for lower severity levels (INFO, DEBUG, TRACE).
+When you set `logging-config` to `module=level`, then Juju saves that module's logs
+for the given severity level **and above.** For example, setting `logging-config`
+to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs
+for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
 
 **Examples:**
 
@@ -639,11 +677,8 @@ To see what API requests are being made:
 
 To view details about each API request:
 
-	juju model-config -m controller logging-config="juju.apiserver=TRACE".
+	juju model-config -m controller logging-config="juju.apiserver=TRACE"
 
-**Default value: ""**
-
-**Type:** string
 
 
 ## lxd-snap-channel
@@ -756,7 +791,16 @@ The number of provisioning workers to use per model.
 ## provisioner-harvest-mode
 
 
-What to do with unknown machines (default destroyed)
+What to do with unknown machines (default destroyed).
+
+**Default value:** destroyed
+
+**Type:** string
+
+**Valid values:** all, none, unknown, destroyed
+
+**Description:**
+
 
 Juju keeps state on the running model and it can harvest (remove) machines which it deems are no longer required. This can help reduce running costs and keep the model tidy. Harvesting is guided by what "harvesting mode" has been set.
 
@@ -778,13 +822,9 @@ The default mode is **destroyed**.
 
 Below, the harvest mode key for the current model is set to 'none':
 
-	juju model-config provisioner-harvest-mode=none.
+	juju model-config provisioner-harvest-mode=none
 
-**Default value:** destroyed
 
-**Type:** string
-
-**Valid values:** all, none, unknown, destroyed
 
 
 ## proxy-ssh

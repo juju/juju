@@ -29,7 +29,8 @@ type keyInfo struct {
 	ConstantName string // e.g. "AgentRateLimitMax"
 	Type         string
 	Doc          string // from parsing comments in config.go
-	Immutable    bool   // from AllowedUpdateConfigAttributes
+	Summary      string
+	Immutable    bool // from AllowedUpdateConfigAttributes
 	Mandatory    bool
 	Deprecated   bool
 	Default      string // from instantiating NewConfig
@@ -78,19 +79,26 @@ func render(data map[string]*keyInfo) string {
 		}
 
 		// Ensure doc has fullstop/newlines at end
-		mainDoc += strings.TrimRight(info.Doc, ".\n") + ".\n\n"
+		mainDoc += strings.TrimRight(info.Summary, ".\n") + ".\n\n"
 
 		if info.Default != "" {
 			mainDoc += "**Default value:** " + info.Default + "\n\n"
 		} else {
-			mainDoc += `**Default value: ""**` + "\n\n"
+			mainDoc += `**Default value:** ""` + "\n\n"
 		}
 
 		if info.Type != "" {
 			mainDoc += "**Type:** " + info.Type + "\n\n"
 		}
 		if len(info.ValidValues) > 0 {
-			mainDoc += "**Valid values:** " + strings.Join(info.ValidValues, ", ") + "\n\n"
+			mainDoc += "**Valid values:** " + strings.Join(
+				info.ValidValues,
+				", ",
+			) + "\n\n"
+		}
+
+		if info.Doc != "" {
+			mainDoc += "**Description:**\n\n" + info.Doc + "\n\n"
 		}
 
 		mainDoc += "\n"
@@ -121,7 +129,9 @@ func fillFromSchema() map[string]*keyInfo {
 			data[key].SetByJuju = true
 		}
 
-		data[key].Doc = attr.Description
+		data[key].Summary = attr.Description
+		data[key].Doc = attr.Documentation
+		data[key].Mandatory = attr.Mandatory
 		data[key].Type = string(attr.Type)
 		data[key].Immutable = attr.Immutable
 		data[key].Mandatory = attr.Mandatory
@@ -130,7 +140,10 @@ func fillFromSchema() map[string]*keyInfo {
 		}
 
 		for _, val := range attr.Values {
-			data[key].ValidValues = append(data[key].ValidValues, fmt.Sprint(val))
+			data[key].ValidValues = append(
+				data[key].ValidValues,
+				fmt.Sprint(val),
+			)
 		}
 	}
 

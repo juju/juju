@@ -21,16 +21,25 @@ func Schema(extra configschema.Fields) (configschema.Fields, error) {
 			continue
 		}
 		if controller.ControllerOnlyAttribute(name) {
-			return nil, errors.Errorf("config field %q clashes with controller config", name)
+			return nil, errors.Errorf(
+				"config field %q clashes with controller config",
+				name,
+			)
 		}
 		fields[name] = field
 	}
 	for name, field := range extra {
 		if controller.ControllerOnlyAttribute(name) {
-			return nil, errors.Errorf("config field %q clashes with controller config", name)
+			return nil, errors.Errorf(
+				"config field %q clashes with controller config",
+				name,
+			)
 		}
 		if _, ok := fields[name]; ok {
-			return nil, errors.Errorf("config field %q clashes with global config", name)
+			return nil, errors.Errorf(
+				"config field %q clashes with global config",
+				name,
+			)
 		}
 		fields[name] = field
 	}
@@ -46,8 +55,8 @@ var configSchema = configschema.Fields{
 		Group:       configschema.EnvironGroup,
 	},
 	AgentStreamKey: {
-		Description: `Version of Juju to use for deploy/upgrades.
-
+		Description: `Version of Juju to use for deploy/upgrades.`,
+		Documentation: `
 The agent-stream key specifies the “stream” to use when a Juju agent is to be
 installed or upgraded. This setting reflects the general stability of the
 software and defaults to ‘released’, indicating that only the latest stable
@@ -111,9 +120,8 @@ can be targeted in this way:
 		Group:       configschema.EnvironGroup,
 	},
 	AptMirrorKey: {
-		// TODO document acceptable format
-		Description: `The APT mirror for the model
-
+		Description: "The APT mirror for the model",
+		Documentation: `
 The APT packaging system is used to install and upgrade software on machines
 provisioned in the model, and many charms also use APT to install software for
 the applications they deploy. It is possible to set a specific mirror for the
@@ -142,10 +150,9 @@ The apt-mirror option is often used to point to a local mirror.
 		Group:       configschema.EnvironGroup,
 	},
 	"disable-network-management": {
-		Description: `
-Whether the provider should control networks (on MAAS models, set to true for
-MAAS to control networks
-
+		Description: `Whether the provider should control networks (on MAAS models, set to true for
+MAAS to control networks`,
+		Documentation: `
 This key can only be used with MAAS models and should otherwise be set to
 ‘false’ (default) unless you want to take over network control from Juju because
 you have unique and well-defined needs. Setting this to ‘true’ with MAAS gives
@@ -162,10 +169,9 @@ bridge.
 		Group:       configschema.EnvironGroup,
 	},
 	EnableOSRefreshUpdateKey: {
-		Description: `
-Whether newly provisioned instances should run their respective OS's update
-capability.
-
+		Description: `Whether newly provisioned instances should run their respective OS's update
+capability.`,
+		Documentation: `
 When Juju provisions a machine, its default behaviour is to upgrade existing
 packages to their latest version. If your OS images are fresh and/or your
 deployed applications do not require the latest package versions, you can
@@ -187,8 +193,8 @@ latest software available to it by disabling upgrades but enabling updates.
 	EnableOSUpgradeKey: {
 		Description: `
 Whether newly provisioned instances should run their respective OS's upgrade
-capability.
-
+capability.`,
+		Documentation: `
 When Juju provisions a machine, its default behaviour is to upgrade existing
 packages to their latest version. If your OS images are fresh and/or your
 deployed applications do not require the latest package versions, you can
@@ -213,14 +219,15 @@ latest software available to it by disabling upgrades but enabling updates.
 		Group:       configschema.EnvironGroup,
 	},
 	"firewall-mode": {
-		Description: `The mode to use for network firewalling.
-'instance' requests the use of an individual firewall per instance.
+		Description: `The mode to use for network firewalling.`,
+		Documentation: `
+- 'instance' requests the use of an individual firewall per instance.
 
-'global' uses a single firewall for all instances (access
+- 'global' uses a single firewall for all instances (access
 for a network port is enabled to one instance if any instance requires
 that port).
 
-'none' requests that no firewalling should be performed
+- 'none' requests that no firewalling should be performed
 inside the model. It's useful for clouds without support for either
 global or per instance security groups.`,
 		Type:      configschema.Tstring,
@@ -301,8 +308,8 @@ global or per instance security groups.`,
 	ImageStreamKey: {
 		Description: `
 The simplestreams stream used to identify which image ids to search when
-starting an instance.
-
+starting an instance.`,
+		Documentation: `
 Juju, by default, uses the slow-changing ‘released’ images when provisioning
 machines. However, the image-stream option can be set to ‘daily’ to use more
 up-to-date images, thus shortening the time it takes to perform APT package
@@ -332,77 +339,73 @@ upgrades.
 		Group:       configschema.EnvironGroup,
 	},
 	"logging-config": {
-		Description: `
-The configuration string to use when configuring Juju agent logging (see
-http://godoc.org/github.com/juju/loggo#Parsefor details)
-
-The logging config can be set to a (list of semicolon-separated)
-<filter>=<verbosity level> pairs, where <filter> can be any of the following:
- - <root> - matches all machine agent logs
- - unit - matches all unit agent logs
- - a module name, e.g. juju.worker.apiserver
-   A module represents a single component of Juju, e.g. a worker. Generally,
-   modules correspond one-to-one with Go packages in the Juju source tree. The
-   module name is the value passed to loggo.GetLogger or
-   loggo.GetLoggerWithLabels.
-
-   Modules have a nested tree structure - for example, the juju.api module
-   includes submodules juju.api.application, juju.api.cloud, etc. <root> is the
-   root of this module tree.
-
- - a label, e.g. #charmhub
-    Labels cut across the module tree, grouping various modules which deal with
-    a certain feature or information flow. For example, the #charmhub label
-    includes all modules involved in making a request to Charmhub.
-
-The currently supported labels are:
-| Label | Description |
-|-|-|
-| #http | HTTP requests |
-| #metrics | Metric outputs - use as a fallback when Prometheus isn't available |
-| #charmhub | Charmhub client and callers. |
-| #cmr | Cross model relations |
-| #cmr-auth | Authentication for cross model relations |
-| #secrets | Juju secrets |
-
-and where <verbosity level> can be, in decreasing order of severity:
-
-| Level | Description |
-|-|-|
-| CRITICAL | Indicates a severe failure which could bring down the system. |
-| ERROR | Indicates failure to complete a routine operation.
-| WARNING | Indicates something is not as expected, but this is not necessarily going to cause an error.
-| INFO | A regular log message intended for the user.
-| DEBUG | Information intended to assist developers in debugging.
-| TRACE | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
-
-When you set logging-config to module=level, then Juju saves that module's logs
-for the given severity level **and above.** For example, setting logging-config
-to juju.worker.uniter=WARNING will capture all CRITICAL, ERROR and WARNING logs
-for the uniter, but discard logs for lower severity levels (INFO, DEBUG, TRACE).
-
-**Examples:**
-
-To collect debug logs for the dbaccessor worker:
-
-	juju model-config -m controller logging-config="juju.worker.dbaccessor=DEBUG"
-
-To collect debug logs for the mysql/0 unit:
-
-	juju model-config -m foo logging-config="unit.mysql/0=DEBUG"
-
-To collect trace logs for Charmhub requests:
-
-	juju model-config -m controller logging-config="#charmhub=TRACE"
-
-To see what API requests are being made:
-
-	juju model-config -m controller logging-config="juju.apiserver=DEBUG"
-
-To view details about each API request:
-
-	juju model-config -m controller logging-config="juju.apiserver=TRACE"
-`,
+		Description: `The configuration string to use when configuring Juju agent logging`,
+		Documentation: "The logging config can be set to a (list of semicolon-separated)\n" +
+			"`<filter>=<verbosity level>` pairs, where `<filter>` can be any of the following:\n" +
+			" - `<root>` - matches all machine agent logs\n" +
+			" - `unit` - matches all unit agent logs\n" +
+			" - a module name, e.g. `juju.worker.apiserver`\n" +
+			"   A module represents a single component of Juju, e.g. a worker. Generally,\n" +
+			"   modules correspond one-to-one with Go packages in the Juju source tree. The\n" +
+			"   module name is the value passed to `loggo.GetLogger` or\n" +
+			"   `loggo.GetLoggerWithLabels`.\n" +
+			"\n" +
+			"   Modules have a nested tree structure - for example, the `juju.api` module\n" +
+			"   includes submodules `juju.api.application`, `juju.api.cloud`, etc. `<root>` is the\n" +
+			"   root of this module tree.\n" +
+			"\n" +
+			" - a label, e.g. `#charmhub`\n" +
+			"    Labels cut across the module tree, grouping various modules which deal with\n" +
+			"    a certain feature or information flow. For example, the `#charmhub` label\n" +
+			"    includes all modules involved in making a request to Charmhub.\n" +
+			"\n" +
+			"The currently supported labels are:\n" +
+			"| Label | Description |\n" +
+			"|-|-|\n" +
+			"| `#http` | HTTP requests |\n" +
+			"| `#metrics` | Metric outputs - use as a fallback when Prometheus isn't available |\n" +
+			"| `#charmhub` | Charmhub client and callers. |\n" +
+			"| `#cmr` | Cross model relations |\n" +
+			"| `#cmr-auth` | Authentication for cross model relations |\n" +
+			"| `#secrets` | Juju secrets |\n" +
+			"\n" +
+			"and where <verbosity level> can be, in decreasing order of severity:\n" +
+			"\n" +
+			"| Level | Description |\n" +
+			"|-|-|\n" +
+			"| `CRITICAL` | Indicates a severe failure which could bring down the system. |\n" +
+			"| `ERROR` | Indicates failure to complete a routine operation.\n" +
+			"| `WARNING` | Indicates something is not as expected, but this is not necessarily going to cause an error.\n" +
+			"| `INFO` | A regular log message intended for the user.\n" +
+			"| `DEBUG` | Information intended to assist developers in debugging.\n" +
+			"| `TRACE` | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |\n" +
+			"\n" +
+			"When you set `logging-config` to `module=level`, then Juju saves that module's logs\n" +
+			"for the given severity level **and above.** For example, setting `logging-config`\n" +
+			"to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs\n" +
+			"for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).\n" +
+			"\n" +
+			"**Examples:**\n" +
+			"\n" +
+			"To collect debug logs for the dbaccessor worker:\n" +
+			"\n" +
+			"	juju model-config -m controller logging-config=\"juju.worker.dbaccessor=DEBUG\"\n" +
+			"\n" +
+			"To collect debug logs for the mysql/0 unit:\n" +
+			"\n" +
+			"	juju model-config -m foo logging-config=\"unit.mysql/0=DEBUG\"\n" +
+			"\n" +
+			"To collect trace logs for Charmhub requests:\n" +
+			"\n" +
+			"	juju model-config -m controller logging-config=\"#charmhub=TRACE\"\n" +
+			"\n" +
+			"To see what API requests are being made:\n" +
+			"\n" +
+			"	juju model-config -m controller logging-config=\"juju.apiserver=DEBUG\"\n" +
+			"\n" +
+			"To view details about each API request:\n" +
+			"\n" +
+			"	juju model-config -m controller logging-config=\"juju.apiserver=TRACE\"\n",
 		Type:  configschema.Tstring,
 		Group: configschema.EnvironGroup,
 	},
@@ -416,8 +419,8 @@ To view details about each API request:
 	ProvisionerHarvestModeKey: {
 		// default: destroyed, but also depends on current setting of ProvisionerSafeModeKey
 		Description: `
-What to do with unknown machines (default destroyed)
-
+What to do with unknown machines (default destroyed)`,
+		Documentation: `
 Juju keeps state on the running model and it can harvest (remove) machines which it deems are no longer required. This can help reduce running costs and keep the model tidy. Harvesting is guided by what "harvesting mode" has been set.
 
 A Juju machine can be in one of four states:
@@ -529,8 +532,8 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Immutable:   true,
 	},
 	AutomaticallyRetryHooks: {
-		Description: `Determines whether the uniter should automatically retry failed hooks
-
+		Description: `Determines whether the uniter should automatically retry failed hooks`,
+		Documentation: `
 Juju retries failed hooks automatically using an exponential backoff algorithm.
 They will be retried after 5, 10, 20, 40 seconds up to a period of 5 minutes,
 and then every 5 minutes. The logic behind this is that some hook errors are
@@ -588,8 +591,8 @@ manually using:
 		Group:       configschema.EnvironGroup,
 	},
 	CloudInitUserDataKey: {
-		Description: `Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model
-
+		Description: `Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model`,
+		Documentation: `
 The cloudinit-userdata allows the user to provide additional cloudinit data to
 be included in the cloudinit data created by Juju.
 
@@ -669,10 +672,9 @@ line (like the config command)
 		Group: configschema.EnvironGroup,
 	},
 	ContainerInheritPropertiesKey: {
-		Description: `
-List of properties to be copied from the host machine to new containers created
-in this model (comma-separated)
-
+		Description: `List of properties to be copied from the host machine to new containers created
+in this model (comma-separated)`,
+		Documentation: `
 The container-inherit-properties key allows for a limited set of parameters
 enabled on a Juju machine to be inherited by any hosted containers (KVM guests
 or LXD containers). The machine and container must be running the same series.
@@ -692,7 +694,6 @@ For MAAS v.2.5 or greater the parameters are:
 For example:
 
 	juju model-config container-inherit-properties="ca-certs, apt-sources"
-
 `,
 		Type:  configschema.Tstring,
 		Group: configschema.EnvironGroup,
