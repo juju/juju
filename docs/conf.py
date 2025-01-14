@@ -1,9 +1,8 @@
-import datetime
 import ast
+import datetime
 import sys
 
 sys.path.append('./')
-from custom_conf import *
 
 # Configuration for the Sphinx documentation builder.
 # All configuration specific to your project should be done in this file.
@@ -103,9 +102,9 @@ ogp_image = \
 
 html_context = {
     # Product page URL; can be different from product docs URL
-     "product_page": "juju.is",
+    "product_page": "juju.is",
     # Product tag image; the orange part of your logo, shown in the page header
-    'product_tag': '/docs/logos/juju-logo.png',
+    'product_tag': 'logos/juju-logo.png',
     # Your Discourse instance URL
     "discourse": "https://discourse.charmhub.com",
     # Your Mattermost channel URL
