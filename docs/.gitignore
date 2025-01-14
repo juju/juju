@@ -1,7 +1,3 @@
-user/reference/juju-cli/list-of-juju-cli-commands/*
-user/reference/configuration/list-of-controller-configuration-keys.md
-user/reference/configuration/list-of-model-configuration-keys.md
-
 # Starter pack rules start here
 /*env*/
 .sphinx/venv/
