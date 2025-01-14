@@ -178,29 +178,18 @@ The following keys are available:
       description: Arbitrary user specified string data that is stored against the model.
     firewall-mode:
       type: string
-      description: |-
-        The mode to use for network firewalling.
-    
-        'instance' requests the use of an individual firewall per instance.
-    
-        'global' uses a single firewall for all instances (access
-        for a network port is enabled to one instance if any instance requires
-        that port).
-    
-        'none' requests that no firewalling should be performed
-        inside the model. It's useful for clouds without support for either
-        global or per instance security groups.
+      description: The mode to use for network firewalling.
     ftp-proxy:
       type: string
-      description: The FTP proxy value to configure on instances, in the FTP_PROXY environment
+      description: The FTP proxy value to configure on instances, in the `FTP_PROXY` environment
         variable
     http-proxy:
       type: string
-      description: The HTTP proxy value to configure on instances, in the HTTP_PROXY environment
-        variable
+      description: The HTTP proxy value to configure on instances, in the `HTTP_PROXY`
+        environment variable
     https-proxy:
       type: string
-      description: The HTTPS proxy value to configure on instances, in the HTTPS_PROXY
+      description: The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY`
         environment variable
     ignore-machine-addresses:
       type: bool
@@ -217,24 +206,23 @@ The following keys are available:
         when starting an instance.
     juju-ftp-proxy:
       type: string
-      description: The FTP proxy value to pass to charms in the JUJU_CHARM_FTP_PROXY environment
-        variable
+      description: The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY`
+        environment variable
     juju-http-proxy:
       type: string
-      description: The HTTP proxy value to pass to charms in the JUJU_CHARM_HTTP_PROXY
+      description: The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY`
         environment variable
     juju-https-proxy:
       type: string
-      description: The HTTPS proxy value to pass to charms in the JUJU_CHARM_HTTPS_PROXY
+      description: The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY`
         environment variable
     juju-no-proxy:
       type: string
       description: List of domain addresses not to be proxied (comma-separated), may contain
-        CIDRs. Passed to charms in the JUJU_CHARM_NO_PROXY environment variable
+        CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable
     logging-config:
       type: string
       description: The configuration string to use when configuring Juju agent logging
-        (see http://godoc.org/github.com/juju/loggo#ParseConfigurationString for details)
     lxd-snap-channel:
       type: string
       description: The channel to use when installing LXD from a snap (cosmic and later)
@@ -246,6 +234,14 @@ The following keys are available:
       type: string
       description: The maximum size for the action collection, in human-readable memory
         format
+    max-status-history-age:
+      type: string
+      description: The maximum age for status history entries before they are pruned,
+        in human-readable time format
+    max-status-history-size:
+      type: string
+      description: The maximum size for the status history collection, in human-readable
+        memory format
     mode:
       type: string
       description: |-

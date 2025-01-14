@@ -294,8 +294,7 @@ The simplestreams stream used to identify which image ids to search when startin
 
 ## container-inherit-properties
 
-List of properties to be copied from the host machine to new containers created
-in this model (comma-separated).
+List of properties to be copied from the host machine to new containers created in this model (comma-separated).
 
 **Default value:** `""`
 
@@ -364,8 +363,7 @@ Whether the model is in development mode.
 
 ## disable-network-management
 
-Whether the provider should control networks (on MAAS models, set to true for
-MAAS to control networks.
+Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks.
 
 **Default value:** `false`
 
@@ -403,8 +401,7 @@ Source address(es) for traffic originating from this model.
 
 ## enable-os-refresh-update
 
-Whether newly provisioned instances should run their respective OS's update
-capability.
+Whether newly provisioned instances should run their respective OS's update capability.
 
 **Default value:** `true`
 
@@ -432,9 +429,7 @@ latest software available to it by disabling upgrades but enabling updates.
 
 ## enable-os-upgrade
 
-
-Whether newly provisioned instances should run their respective OS's upgrade
-capability.
+Whether newly provisioned instances should run their respective OS's upgrade capability.
 
 **Default value:** `true`
 
@@ -551,9 +546,7 @@ The URL at which the metadata used to locate OS image ids is located.
 
 ## image-stream
 
-
-The simplestreams stream used to identify which image ids to search when
-starting an instance.
+The simplestreams stream used to identify which image ids to search when starting an instance.
 
 **Default value:** `released`
 
@@ -792,7 +785,6 @@ The number of provisioning workers to use per model.
 
 
 ## provisioner-harvest-mode
-
 
 What to do with unknown machines (default destroyed).
 

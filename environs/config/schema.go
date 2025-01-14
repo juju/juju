@@ -150,8 +150,7 @@ The apt-mirror option is often used to point to a local mirror.
 		Group:       configschema.EnvironGroup,
 	},
 	"disable-network-management": {
-		Description: `Whether the provider should control networks (on MAAS models, set to true for
-MAAS to control networks`,
+		Description: `Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks`,
 		Documentation: `
 This key can only be used with MAAS models and should otherwise be set to
 ‘false’ (default) unless you want to take over network control from Juju because
@@ -169,8 +168,7 @@ bridge.
 		Group:       configschema.EnvironGroup,
 	},
 	EnableOSRefreshUpdateKey: {
-		Description: `Whether newly provisioned instances should run their respective OS's update
-capability.`,
+		Description: `Whether newly provisioned instances should run their respective OS's update capability.`,
 		Documentation: `
 When Juju provisions a machine, its default behaviour is to upgrade existing
 packages to their latest version. If your OS images are fresh and/or your
@@ -191,9 +189,7 @@ latest software available to it by disabling upgrades but enabling updates.
 		Group: configschema.EnvironGroup,
 	},
 	EnableOSUpgradeKey: {
-		Description: `
-Whether newly provisioned instances should run their respective OS's upgrade
-capability.`,
+		Description: `Whether newly provisioned instances should run their respective OS's upgrade capability.`,
 		Documentation: `
 When Juju provisions a machine, its default behaviour is to upgrade existing
 packages to their latest version. If your OS images are fresh and/or your
@@ -306,9 +302,7 @@ global or per instance security groups.`,
 		Group:       configschema.EnvironGroup,
 	},
 	ImageStreamKey: {
-		Description: `
-The simplestreams stream used to identify which image ids to search when
-starting an instance.`,
+		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
 		Documentation: `
 Juju, by default, uses the slow-changing ‘released’ images when provisioning
 machines. However, the image-stream option can be set to ‘daily’ to use more
@@ -418,8 +412,7 @@ upgrades.
 	},
 	ProvisionerHarvestModeKey: {
 		// default: destroyed, but also depends on current setting of ProvisionerSafeModeKey
-		Description: `
-What to do with unknown machines (default destroyed)`,
+		Description: `What to do with unknown machines (default destroyed)`,
 		Documentation: `
 Juju keeps state on the running model and it can harvest (remove) machines which it deems are no longer required. This can help reduce running costs and keep the model tidy. Harvesting is guided by what "harvesting mode" has been set.
 
@@ -672,8 +665,7 @@ line (like the config command)
 		Group: configschema.EnvironGroup,
 	},
 	ContainerInheritPropertiesKey: {
-		Description: `List of properties to be copied from the host machine to new containers created
-in this model (comma-separated)`,
+		Description: `List of properties to be copied from the host machine to new containers created in this model (comma-separated)`,
 		Documentation: `
 The container-inherit-properties key allows for a limited set of parameters
 enabled on a Juju machine to be inherited by any hosted containers (KVM guests
