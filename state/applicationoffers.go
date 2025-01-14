@@ -58,20 +58,6 @@ func NewApplicationOffers(st *State) crossmodel.ApplicationOffers {
 	return &applicationOffers{st: st}
 }
 
-// ApplicationOfferEndpoint returns from the specified offer, the relation endpoint
-// with the supplied name, if it exists.
-func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName string) (Endpoint, error) {
-	for _, ep := range offer.Endpoints {
-		if ep.Name == relationName {
-			return Endpoint{
-				ApplicationName: offer.ApplicationName,
-				Relation:        ep,
-			}, nil
-		}
-	}
-	return Endpoint{}, errors.NotFoundf("relation %q on application offer %q", relationName, offer.String())
-}
-
 func (s *applicationOffers) offerQuery(query bson.D) (*applicationOfferDoc, error) {
 	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
 	defer closer()

@@ -359,45 +359,6 @@ func (c *MockBackendAllRemoteApplicationsCall) DoAndReturn(f func() ([]*state.Re
 	return c
 }
 
-// Application mocks base method.
-func (m *MockBackend) Application(arg0 string) (client.Application, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application", arg0)
-	ret0, _ := ret[0].(client.Application)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Application indicates an expected call of Application.
-func (mr *MockBackendMockRecorder) Application(arg0 any) *MockBackendApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockBackend)(nil).Application), arg0)
-	return &MockBackendApplicationCall{Call: call}
-}
-
-// MockBackendApplicationCall wrap *gomock.Call
-type MockBackendApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendApplicationCall) Return(arg0 client.Application, arg1 error) *MockBackendApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendApplicationCall) Do(f func(string) (client.Application, error)) *MockBackendApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendApplicationCall) DoAndReturn(f func(string) (client.Application, error)) *MockBackendApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ControllerNodes mocks base method.
 func (m *MockBackend) ControllerNodes() ([]state.ControllerNode, error) {
 	m.ctrl.T.Helper()

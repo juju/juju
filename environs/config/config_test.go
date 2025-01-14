@@ -1428,21 +1428,6 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 
-func (s *ConfigSuite) TestStatusHistoryConfigDefaults(c *gc.C) {
-	cfg := newTestConfig(c, testing.Attrs{})
-	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 336*time.Hour)
-	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(5120))
-}
-
-func (s *ConfigSuite) TestStatusHistoryConfigValues(c *gc.C) {
-	cfg := newTestConfig(c, testing.Attrs{
-		"max-status-history-size": "8G",
-		"max-status-history-age":  "96h",
-	})
-	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 96*time.Hour)
-	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(8192))
-}
-
 func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigDefault(c *gc.C) {
 	cfg := newTestConfig(c, testing.Attrs{})
 	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 5*time.Minute)

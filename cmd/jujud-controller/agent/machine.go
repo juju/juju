@@ -981,8 +981,6 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		LoggingContext:              loggingContext,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
-		StatusHistoryPrunerInterval: 5 * time.Minute,
-		ActionPrunerInterval:        24 * time.Hour,
 		NewEnvironFunc:              newEnvirons,
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,

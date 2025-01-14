@@ -15,7 +15,6 @@ type UnitAgent struct {
 	st   *State
 	tag  names.Tag
 	name string
-	status.StatusHistoryGetter
 }
 
 func newUnitAgent(st *State, tag names.Tag, name string) *UnitAgent {
@@ -102,19 +101,6 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		rawData:    unitAgentStatus.Data,
 		updated:    timeOrNow(unitAgentStatus.Since, u.st.clock()),
 	})
-}
-
-// StatusHistory returns a slice of at most filter.Size StatusInfo items
-// or items as old as filter.Date or items newer than now - filter.Delta time
-// representing past statuses for this agent.
-func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        u.st.db(),
-		globalKey: u.globalKey(),
-		filter:    filter,
-		clock:     u.st.clock(),
-	}
-	return statusHistory(args)
 }
 
 // unitAgentGlobalKey returns the global database key for the named unit.

@@ -47,7 +47,6 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 		SkipCredentials:        true,
 		SkipIPAddresses:        true,
 		SkipSSHHostKeys:        true,
-		SkipStatusHistory:      true,
 		SkipLinkLayerDevices:   true,
 	}
 }

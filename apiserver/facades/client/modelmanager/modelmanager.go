@@ -657,7 +657,6 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		exportConfig.SkipIPAddresses = true
 		exportConfig.SkipSettings = true
 		exportConfig.SkipSSHHostKeys = true
-		exportConfig.SkipStatusHistory = true
 		exportConfig.SkipLinkLayerDevices = true
 	}
 

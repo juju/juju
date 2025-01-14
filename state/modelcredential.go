@@ -107,16 +107,6 @@ func (st *State) suspendCredentialModels(tag names.CloudCredentialTag, reason st
 	logger.Warningf("suspending these models:\n%s\n because their credential has become invalid:\n%s",
 		strings.Join(infos, " - "),
 		reason)
-	sts := ModelStatusInvalidCredential(reason)
-	doc := statusDoc{
-		Status:     sts.Status,
-		StatusInfo: sts.Message,
-		StatusData: sts.Data,
-		Updated:    timeOrNow(nil, st.clock()).UnixNano(),
-	}
-	for _, m := range models {
-		st.maybeSetModelStatusHistoryDoc(m.UUID, doc)
-	}
 	return nil
 }
 
@@ -134,42 +124,11 @@ func (st *State) updateModelCredentialInvalid(uuid, reason string, invalid bool)
 	return st.db().Run(buildTxn)
 }
 
-func (st *State) model(uuid string) (*Model, func() error, error) {
-	closer := func() error { return nil }
-	// We explicitly don't start the workers.
-	modelState, err := st.newStateNoWorkers(uuid)
-	if err != nil {
-		// This model could have been removed.
-		if errors.Is(err, errors.NotFound) {
-			return nil, closer, nil
-		}
-		return nil, closer, errors.Trace(err)
-	}
-
-	closer = func() error { return modelState.Close() }
-	m, err := modelState.Model()
-	if err != nil {
-		return nil, closer, errors.Trace(err)
-	}
-	return m, closer, nil
-}
-
-func (st *State) maybeSetModelStatusHistoryDoc(modelUUID string, doc statusDoc) {
-	one, closer, err := st.model(modelUUID)
-	defer func() { _ = closer() }()
-	if err != nil {
-		logger.Warningf("model %v error: %v", modelUUID, err)
-		return
-	}
-
-	if _, err = probablyUpdateStatusHistory(one.st.db(), one.Kind(), one.globalKey(), one.globalKey(), doc); err != nil {
-		logger.Warningf("%v", err)
-	}
-}
-
 // SetCloudCredential sets new cloud credential for this model.
 // Returned bool indicates if model credential was set.
 func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
+	// If model is suspended, after this call, it may be reverted since,
+	// if updated, model credential will be set to a valid credential.
 	updating := true
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {

@@ -42,11 +42,6 @@ func (f *StatusHistoryFilter) Validate() error {
 	return nil
 }
 
-// StatusHistoryGetter instances can fetch their status history.
-type StatusHistoryGetter interface {
-	StatusHistory(filter StatusHistoryFilter) ([]StatusInfo, error)
-}
-
 // InstanceStatusHistoryGetter instances can fetch their instance status history.
 type InstanceStatusHistoryGetter interface {
 	InstanceStatusHistory(filter StatusHistoryFilter) ([]StatusInfo, error)

@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 )
 
@@ -133,14 +131,4 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 	}
 	_, ok := value.(*errParentDeviceHasChildren)
 	return ok
-}
-
-func NewErrIncompatibleBase(supportedBases []base.Base, b base.Base, charmName string) error {
-	return errors.WithType(
-		fmt.Errorf("base %q not supported by charm %q, supported bases are: %s",
-			b.DisplayString(),
-			charmName,
-			strings.Join(transform.Slice(supportedBases, func(b base.Base) string { return b.DisplayString() }), ", ")),
-		IncompatibleBaseError,
-	)
 }

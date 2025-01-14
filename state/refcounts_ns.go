@@ -47,28 +47,6 @@ var nsRefcounts = nsRefcounts_{}
 // nsRefcounts_ backs nsRefcounts.
 type nsRefcounts_ struct{}
 
-// LazyCreateOp returns a txn.Op that creates a refcount document; or
-// false if the document already exists.
-func (ns nsRefcounts_) LazyCreateOp(coll mongo.Collection, key string) (txn.Op, bool, error) {
-	if exists, err := ns.exists(coll, key); err != nil {
-		return txn.Op{}, false, errors.Trace(err)
-	} else if exists {
-		return txn.Op{}, false, nil
-	}
-	return ns.JustCreateOp(coll.Name(), key, 0), true, nil
-}
-
-// StrictCreateOp returns a txn.Op that creates a refcount document as
-// configured, or an error if the document already exists.
-func (ns nsRefcounts_) StrictCreateOp(coll mongo.Collection, key string, value int) (txn.Op, error) {
-	if exists, err := ns.exists(coll, key); err != nil {
-		return txn.Op{}, errors.Trace(err)
-	} else if exists {
-		return txn.Op{}, errors.New("refcount already exists")
-	}
-	return ns.JustCreateOp(coll.Name(), key, value), nil
-}
-
 // CreateOrIncRefOp returns a txn.Op that creates a refcount document as
 // configured with a specified value; or increments any such refcount doc
 // that already exists.
@@ -79,29 +57,6 @@ func (ns nsRefcounts_) CreateOrIncRefOp(coll mongo.Collection, key string, n int
 		return ns.JustCreateOp(coll.Name(), key, n), nil
 	}
 	return ns.JustIncRefOp(coll.Name(), key, n), nil
-}
-
-// StrictIncRefOp returns a txn.Op that increments the value of a
-// refcount doc, or returns an error if it does not exist.
-func (ns nsRefcounts_) StrictIncRefOp(coll mongo.Collection, key string, n int) (txn.Op, error) {
-	if exists, err := ns.exists(coll, key); err != nil {
-		return txn.Op{}, errors.Trace(err)
-	} else if !exists {
-		return txn.Op{}, errors.New("does not exist")
-	}
-	return ns.JustIncRefOp(coll.Name(), key, n), nil
-}
-
-// AliveDecRefOp returns a txn.Op that decrements the value of a
-// refcount doc, or an error if the doc does not exist or the count
-// would go below 0.
-func (ns nsRefcounts_) AliveDecRefOp(coll mongo.Collection, key string) (txn.Op, error) {
-	if refcount, err := ns.read(coll, key); err != nil {
-		return txn.Op{}, errors.Trace(err)
-	} else if refcount < 1 {
-		return txn.Op{}, errors.Annotatef(errRefcountAlreadyZero, "%s(%s)", coll.Name(), key)
-	}
-	return ns.justDecRefOp(coll.Name(), key, 0), nil
 }
 
 // DyingDecRefOp returns a txn.Op that decrements the value of a

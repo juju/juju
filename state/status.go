@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,13 +15,9 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 )
-
-type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
@@ -156,20 +151,6 @@ func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 	return status.UnitDisplayStatus(info, containerInfo), nil
 }
 
-// caasHistoryRewriteDoc determines which status should be stored as history.
-func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
-	modifiedStatus := displayStatus(jujuStatus, caasStatus)
-	if modifiedStatus.Status == jujuStatus.Status && modifiedStatus.Message == jujuStatus.Message {
-		return nil, nil
-	}
-	return &statusDoc{
-		Status:     modifiedStatus.Status,
-		StatusInfo: modifiedStatus.Message,
-		StatusData: utils.EscapeKeys(modifiedStatus.Data),
-		Updated:    timeOrNow(modifiedStatus.Since, clock).UnixNano(),
-	}, nil
-}
-
 type statusDocWithID struct {
 	ID         string                 `bson:"_id"`
 	ModelUUID  string                 `bson:"model-uuid"`
@@ -290,13 +271,6 @@ type setStatusParams struct {
 
 	// updated, the time the status was set.
 	updated *time.Time
-
-	// historyOverwrite provides an optional ability to write a different
-	// version of status as history (vs. what status actually gets set.)
-	// Used only with caas models as there is currently no way for a charm
-	// to query its' workload and the cloud container status might contradict
-	// what it thinks it is.
-	historyOverwrite *statusDoc
 }
 
 func timeOrNow(t *time.Time, clock clock.Clock) *time.Time {
@@ -319,20 +293,6 @@ func setStatus(db Database, params setStatusParams) (err error) {
 		StatusInfo: params.message,
 		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    params.updated.UnixNano(),
-	}
-
-	historyDoc := &doc
-	if params.historyOverwrite != nil {
-		historyDoc = params.historyOverwrite
-	}
-
-	newStatus, historyErr := probablyUpdateStatusHistory(db,
-		params.statusKind, params.statusId, params.globalKey, *historyDoc)
-	if params.historyOverwrite == nil && (!newStatus && historyErr == nil) {
-		// If this status is not new (i.e. it is exactly the same as
-		// our last status), there is no need to update the record.
-		// Update here will only reset the 'Since' field.
-		return nil
 	}
 
 	// Set the authoritative status document, or fail trying.
@@ -383,215 +343,4 @@ func removeStatusOp(mb modelBackend, globalKey string) txn.Op {
 		Id:     mb.docID(globalKey),
 		Remove: true,
 	}
-}
-
-// globalKeyField must have the same value as the tag for
-// historicalStatusDoc.GlobalKey.
-const globalKeyField = "globalkey"
-
-type historicalStatusDoc struct {
-	ModelUUID  string                 `bson:"model-uuid"`
-	GlobalKey  string                 `bson:"globalkey"`
-	Status     status.Status          `bson:"status"`
-	StatusInfo string                 `bson:"statusinfo"`
-	StatusData map[string]interface{} `bson:"statusdata"`
-
-	// Updated might not be present on statuses copied by old
-	// versions of juju from yet older versions of juju.
-	Updated int64 `bson:"updated"`
-}
-
-type recordedHistoricalStatusDoc struct {
-	ID         bson.ObjectId          `bson:"_id"`
-	Status     status.Status          `bson:"status"`
-	StatusInfo string                 `bson:"statusinfo"`
-	StatusData map[string]interface{} `bson:"statusdata"`
-}
-
-// probablyUpdateStatusHistory inspects existing status-history
-// and determines if this status is new or the same as the last recorded.
-// If this is a new status, a new status history record will be added.
-// If this status is the same as the last status we've received,
-// we update that record to have a new timestamp.
-// Status messages are considered to be the same if they only differ in their timestamps.
-// The call returns true if a new status history record has been created.
-func probablyUpdateStatusHistory(db Database,
-	statusKind string, statusId string, globalKey string, doc statusDoc) (bool, error) {
-	historyDoc := &historicalStatusDoc{
-		Status:     doc.Status,
-		StatusInfo: doc.StatusInfo,
-		StatusData: doc.StatusData, // coming from a statusDoc, already escaped
-		Updated:    doc.Updated,
-		GlobalKey:  globalKey,
-	}
-
-	history, closer := db.GetCollection(statusesHistoryC)
-	defer closer()
-
-	exists, currentID := statusHistoryExists(db, historyDoc)
-	if exists {
-		// If the status values have not changed since the last run,
-		// update history record with this timestamp
-		// to keep correct track of when SetStatus ran.
-		historyW := history.Writeable()
-		err := historyW.Update(
-			bson.D{{"_id", currentID}},
-			bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
-		if err != nil {
-			logger.Errorf("failed to update status history: %v", err)
-			return false, err
-		}
-		return false, nil
-	}
-
-	historyW := history.Writeable()
-	err := historyW.Insert(historyDoc)
-	if err != nil {
-		logger.Errorf("failed to write status history: %v", err)
-		return false, err
-	}
-	return true, nil
-}
-
-func statusHistoryExists(db Database, historyDoc *historicalStatusDoc) (bool, bson.ObjectId) {
-	// Find the current value to see if it is worthwhile adding the new
-	// status value.
-	history, closer := db.GetCollection(statusesHistoryC)
-	defer closer()
-
-	var latest []recordedHistoricalStatusDoc
-	query := history.Find(bson.D{{globalKeyField, historyDoc.GlobalKey}})
-	query = query.Sort("-updated").Limit(1)
-	err := query.All(&latest)
-	if err == nil && len(latest) == 1 {
-		current := latest[0]
-		// Short circuit the writing to the DB if the status, message,
-		// and data match.
-		dataSame := func(left, right map[string]interface{}) bool {
-			// If they are both empty, then it is the same.
-			if len(left) == 0 && len(right) == 0 {
-				return true
-			}
-			// If either are now empty, they aren't the same.
-			if len(left) == 0 || len(right) == 0 {
-				return false
-			}
-			// Failing that, use reflect.
-			return reflect.DeepEqual(left, right)
-		}
-		// Check the data last as the short circuit evaluation may mean
-		// we rarely need to drop down into the reflect library.
-		if current.Status == historyDoc.Status &&
-			current.StatusInfo == historyDoc.StatusInfo &&
-			dataSame(current.StatusData, historyDoc.StatusData) {
-			return true, current.ID
-		}
-	}
-	return false, ""
-}
-
-// eraseStatusHistory removes all status history documents for
-// the given global key. The documents are removed in batches
-// to avoid locking the status history collection for extended
-// periods of time, preventing status history being recorded
-// for other entities.
-func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string) error {
-	// TODO(axw) restructure status history so we have one
-	// document per global key, and sub-documents per status
-	// recording. This method would then become a single
-	// Remove operation.
-
-	history, closer := mb.db().GetCollection(statusesHistoryC)
-	defer closer()
-
-	iter := history.Find(bson.D{{
-		globalKeyField, globalKey,
-	}}).Select(bson.M{"_id": 1}).Iter()
-	defer iter.Close()
-
-	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
-	deleted, err := deleteInBatches(
-		stop,
-		history.Writeable().Underlying(), nil, "", iter,
-		logFormat, corelogger.DEBUG,
-		noEarlyFinish,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if deleted > 0 {
-		logger.Debugf(logFormat, deleted)
-	}
-	return nil
-}
-
-// statusHistoryArgs hold the arguments to call statusHistory.
-type statusHistoryArgs struct {
-	db        Database
-	globalKey string
-	filter    status.StatusHistoryFilter
-	clock     clock.Clock
-}
-
-// fetchNStatusResults will return status for the given key filtered with the
-// given filter or error.
-func fetchNStatusResults(col mongo.Collection, clock clock.Clock,
-	key string, filter status.StatusHistoryFilter) ([]historicalStatusDoc, error) {
-	var (
-		docs  []historicalStatusDoc
-		query mongo.Query
-	)
-	baseQuery := bson.M{"globalkey": key}
-	if filter.Delta != nil {
-		delta := *filter.Delta
-		updated := clock.Now().Add(-delta)
-		baseQuery["updated"] = bson.M{"$gt": updated.UnixNano()}
-	}
-	if filter.FromDate != nil {
-		baseQuery["updated"] = bson.M{"$gt": filter.FromDate.UnixNano()}
-	}
-	excludes := []string{}
-	excludes = append(excludes, filter.Exclude.Values()...)
-	if len(excludes) > 0 {
-		baseQuery["statusinfo"] = bson.M{"$nin": excludes}
-	}
-
-	query = col.Find(baseQuery).Sort("-updated")
-	if filter.Size > 0 {
-		query = query.Limit(filter.Size)
-	}
-	err := query.All(&docs)
-
-	if err == mgo.ErrNotFound {
-		return []historicalStatusDoc{}, errors.NotFoundf("status history")
-	} else if err != nil {
-		return []historicalStatusDoc{}, errors.Annotatef(err, "cannot get status history")
-	}
-	return docs, nil
-
-}
-
-func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
-	if err := args.filter.Validate(); err != nil {
-		return nil, errors.Annotate(err, "validating arguments")
-	}
-	statusHistory, closer := args.db.GetCollection(statusesHistoryC)
-	defer closer()
-
-	var results []status.StatusInfo
-	docs, err := fetchNStatusResults(statusHistory, args.clock, args.globalKey, args.filter)
-	partial := []status.StatusInfo{}
-	if err != nil {
-		return []status.StatusInfo{}, errors.Trace(err)
-	}
-	for _, doc := range docs {
-		partial = append(partial, status.StatusInfo{
-			Status:  doc.Status,
-			Message: doc.StatusInfo,
-			Data:    utils.UnescapeKeys(doc.StatusData),
-			Since:   unixNanoToTime(doc.Updated),
-		})
-	}
-	results = partial
-	return results, nil
 }

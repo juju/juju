@@ -265,8 +265,6 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	defer release()
 	st := f.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
-			"max-status-history-age":  "2h",
-			"max-status-history-size": "4M",
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
 		},
@@ -323,8 +321,6 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	defer release()
 	st := f.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
-			"max-status-history-age":  "2h",
-			"max-status-history-size": "4M",
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
 			"logging-config":          "juju=debug;juju.worker.dependency=trace",
@@ -850,8 +846,6 @@ func (s *MachineLegacySuite) setupNewModel(c *gc.C) (newSt *state.State, closer 
 	defer release()
 	newSt = f.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
-			"max-status-history-age":  "2h",
-			"max-status-history-size": "4M",
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
 		},

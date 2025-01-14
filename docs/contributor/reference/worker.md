@@ -28,7 +28,6 @@ types are defined by the worker packages listeds below.
 `caasapplicationprovisioner`](#caasapplicationprovisioner), the [`charmdownloader`](#charmdownloader),
 > and the [`undertaker`](#undertaker).
 
-* [`actionpruner`](#actionpruner)
 * [`agent`](#agent)
 * [`agentconfigupdater`](#agentconfigupdater)
 * [`apiaddressupdater`](#apiaddressupdater)
@@ -125,7 +124,6 @@ types are defined by the worker packages listeds below.
 * [`state`](#state)
 * [`stateconfigwatcher`](#stateconfigwatcher)
 * [`stateconverter`](#stateconverter)
-* [`statushistorypruner`](#statushistorypruner)
 * [`storageprovisioner`](#storageprovisioner)
 * [`syslogger`](#syslogger)
 * [`terminationworker`](#terminationworker)
@@ -138,8 +136,6 @@ types are defined by the worker packages listeds below.
 * [`upgradeseries`](#upgradeseries)
 * [`upgradesteps`](#upgradesteps)
 
-## `actionpruner`
-> See more: [`juju/worker/actionpruner`](https://github.com/juju/juju/tree/3.3/worker/actionpruner)
 
 ## `agent`
 > See more: [`juju/worker/agent`](https://github.com/juju/juju/tree/3.3/worker/agent)
@@ -647,9 +643,6 @@ is received.
 
 ## `stateconverter`
 > See more: [`juju/worker/stateconverter`](https://github.com/juju/juju/tree/3.3/worker/stateconverter)
-
-## `statushistorypruner`
-> See more: [`juju/worker/statushistorypruner`](https://github.com/juju/juju/tree/3.3/worker/statushistorypruner)
 
 ## `storageprovisioner`
 

@@ -97,14 +97,6 @@ type ManifoldsConfig struct {
 	// revision worker will check for new revisions of known charms.
 	CharmRevisionUpdateInterval time.Duration
 
-	// StatusHistoryPruner* values control status-history pruning
-	// behaviour.
-	StatusHistoryPrunerInterval time.Duration
-
-	// ActionPrunerInterval controls the rate at which the action pruner
-	// worker is run.
-	ActionPrunerInterval time.Duration
-
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc environs.NewEnvironFunc
@@ -638,7 +630,6 @@ const (
 
 	providerTrackerName = "provider-tracker"
 
-	actionPrunerName             = "action-pruner"
 	applicationScalerName        = "application-scaler"
 	asyncCharmDownloader         = "async-charm-downloader"
 	charmRevisionerName          = "charm-revisioner"
@@ -653,7 +644,6 @@ const (
 	providerServiceFactoriesName = "provider-service-factories"
 	remoteRelationsName          = "remote-relations"
 	stateCleanerName             = "state-cleaner"
-	statusHistoryPrunerName      = "status-history-pruner"
 	storageProvisionerName       = "storage-provisioner"
 	undertakerName               = "undertaker"
 	unitAssignerName             = "unit-assigner"

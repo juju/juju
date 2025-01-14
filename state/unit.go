@@ -184,11 +184,6 @@ func (u *Unit) unitWorkloadVersionKind() string {
 	return u.Kind() + "-version"
 }
 
-// cloudContainerKind returns the cloud container kind.
-func (u *Unit) cloudContainerKind() string {
-	return u.Kind() + "-container"
-}
-
 // globalWorkloadVersionKey returns the global database key for the
 // workload version status key for this unit.
 func globalWorkloadVersionKey(name string) string {
@@ -251,12 +246,6 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 		message:    version,
 		updated:    &now,
 	})
-}
-
-// WorkloadVersionHistory returns a HistoryGetter which enables the
-// caller to request past workload version changes.
-func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
-	return &HistoryGetter{st: u.st, globalKey: u.globalWorkloadVersionKey()}
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -488,12 +477,6 @@ func (op *UpdateUnitOperation) Done(err error) error {
 	if err != nil {
 		return errors.Annotatef(err, "updating unit %q", op.unit.Name())
 	}
-	// We can't include in the ops slice the necessary status history updates,
-	// so as with existing practice, do a best effort update of status history.
-	for key, doc := range op.setStatusDocs {
-		_, _ = probablyUpdateStatusHistory(op.unit.st.db(),
-			op.unit.Kind(), op.unit.Name(), key, doc)
-	}
 	return nil
 }
 
@@ -603,39 +586,10 @@ func (op *DestroyUnitOperation) Done(err error) error {
 		}
 		op.AddError(errors.Errorf("force destroy unit %q proceeded despite encountering ERROR %v", op.unit, err))
 	}
-	if err := op.eraseHistory(); err != nil {
-		if !op.Force {
-			logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
-		}
-		op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
-	}
 	// Reimplement in dqlite.
 	//if err := op.deleteSecrets(); err != nil {
 	//	logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
 	//}
-	return nil
-}
-
-func (op *DestroyUnitOperation) eraseHistory() error {
-	var stop <-chan struct{} // stop not used here yet.
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
-		one := errors.Annotate(err, "workload")
-		if op.FatalError(one) {
-			return one
-		}
-	}
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
-		one := errors.Annotate(err, "agent")
-		if op.FatalError(one) {
-			return one
-		}
-	}
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
-		one := errors.Annotate(err, "version")
-		if op.FatalError(one) {
-			return one
-		}
-	}
 	return nil
 }
 
@@ -1363,12 +1317,6 @@ func (u *Unit) Agent() *UnitAgent {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
 }
 
-// AgentHistory returns an StatusHistoryGetter which can
-// be used to query the status history of the unit's agent.
-func (u *Unit) AgentHistory() status.StatusHistoryGetter {
-	return u.Agent()
-}
-
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // were not separate entities.
@@ -1389,19 +1337,6 @@ func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
-}
-
-// StatusHistory returns a slice of at most <size> StatusInfo items
-// or items as old as <date> or items newer than now - <delta> time
-// representing past statuses for this unit.
-func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        u.st.db(),
-		globalKey: u.globalKey(),
-		filter:    filter,
-		clock:     u.st.clock(),
-	}
-	return statusHistory(args)
 }
 
 // Status returns the status of the unit.
@@ -1442,33 +1377,15 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
 
-	var newHistory *statusDoc
-	if u.modelType == ModelTypeCAAS {
-		// Caas Charms currently have no way to query workload status;
-		// Cloud container status might contradict what the charm is
-		// attempting to set, make sure the right history is set.
-		cloudContainerStatus, err := getStatus(u.st.db(), globalCloudContainerKey(u.Name()), "cloud container")
-		if err != nil {
-			if !errors.Is(err, errors.NotFound) {
-				return errors.Trace(err)
-			}
-		}
-		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, status.UnitDisplayStatus, u.st.clock())
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	return setStatus(u.st.db(), setStatusParams{
-		badge:            "unit",
-		statusKind:       u.Kind(),
-		statusId:         u.Name(),
-		globalKey:        u.globalKey(),
-		status:           unitStatus.Status,
-		message:          unitStatus.Message,
-		rawData:          unitStatus.Data,
-		updated:          timeOrNow(unitStatus.Since, u.st.clock()),
-		historyOverwrite: newHistory,
+		badge:      "unit",
+		statusKind: u.Kind(),
+		statusId:   u.Name(),
+		globalKey:  u.globalKey(),
+		status:     unitStatus.Status,
+		message:    unitStatus.Message,
+		rawData:    unitStatus.Data,
+		updated:    timeOrNow(unitStatus.Since, u.st.clock()),
 	})
 }
 
@@ -2583,21 +2500,4 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 		Assert: txn.DocMissing,
 		Insert: args.unitDoc,
 	}), nil
-}
-
-// HistoryGetter allows getting the status history based on some identifying key.
-type HistoryGetter struct {
-	st        *State
-	globalKey string
-}
-
-// StatusHistory implements status.StatusHistoryGetter.
-func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	args := &statusHistoryArgs{
-		db:        g.st.db(),
-		globalKey: g.globalKey,
-		filter:    filter,
-		clock:     g.st.clock(),
-	}
-	return statusHistory(args)
 }
