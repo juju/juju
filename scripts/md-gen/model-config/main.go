@@ -82,19 +82,19 @@ func render(data map[string]*keyInfo) string {
 		mainDoc += strings.TrimRight(info.Summary, ".\n") + ".\n\n"
 
 		if info.Default != "" {
-			mainDoc += "**Default value:** " + info.Default + "\n\n"
+			mainDoc += "**Default value:** `" + info.Default + "`\n\n"
 		} else {
-			mainDoc += `**Default value:** ""` + "\n\n"
+			mainDoc += "**Default value:** `\"\"`" + "\n\n"
 		}
 
 		if info.Type != "" {
 			mainDoc += "**Type:** " + info.Type + "\n\n"
 		}
 		if len(info.ValidValues) > 0 {
-			mainDoc += "**Valid values:** " + strings.Join(
+			mainDoc += "**Valid values:** `" + strings.Join(
 				info.ValidValues,
-				", ",
-			) + "\n\n"
+				"`, `",
+			) + "`\n\n"
 		}
 
 		if info.Doc != "" {

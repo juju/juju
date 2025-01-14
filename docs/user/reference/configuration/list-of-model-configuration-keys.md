@@ -7,7 +7,7 @@ This document gives a list of all the configuration keys that can be applied to 
 
 URL of private stream.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -15,6 +15,13 @@ URL of private stream.
 ## agent-stream
 
 Version of Juju to use for deploy/upgrades.
+
+**Default value:** `released`
+
+**Type:** string
+
+**Description:**
+
 
 The agent-stream key specifies the “stream” to use when a Juju agent is to be
 installed or upgraded. This setting reflects the general stability of the
@@ -44,11 +51,8 @@ patch version of 1 (instead of 2), the following would be run:
 If a patch version is available that is greater than that of the client then it
 can be targeted in this way:
 
-	juju bootstrap aws --auto-upgrade.
+	juju bootstrap aws --auto-upgrade
 
-**Default value:** released
-
-**Type:** string
 
 
 ## agent-version
@@ -57,7 +61,7 @@ can be targeted in this way:
 
 The desired Juju agent version to use.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -66,7 +70,7 @@ The desired Juju agent version to use.
 
 The APT FTP proxy for the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -75,7 +79,7 @@ The APT FTP proxy for the model.
 
 The APT HTTP proxy for the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -84,7 +88,7 @@ The APT HTTP proxy for the model.
 
 The APT HTTPS proxy for the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -93,7 +97,7 @@ The APT HTTPS proxy for the model.
 
 The APT mirror for the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -119,7 +123,7 @@ The apt-mirror option is often used to point to a local mirror.
 
 List of domain addresses not to be proxied for APT (comma-separated).
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -128,7 +132,7 @@ List of domain addresses not to be proxied for APT (comma-separated).
 
 Determines whether the uniter should automatically retry failed hooks.
 
-**Default value:** true
+**Default value:** `true`
 
 **Type:** bool
 
@@ -159,7 +163,7 @@ manually using:
 
 Directory used to store the backup working directory.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -168,7 +172,7 @@ Directory used to store the backup working directory.
 
 The url for CharmHub API calls.
 
-**Default value:** https://api.charmhub.io
+**Default value:** `https://api.charmhub.io`
 
 **Type:** string
 
@@ -177,7 +181,7 @@ The url for CharmHub API calls.
 
 Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -265,7 +269,7 @@ line (like the config command)
 
 Whether default simplestreams sources are used for image metadata with containers.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -274,7 +278,7 @@ Whether default simplestreams sources are used for image metadata with container
 
 The URL at which the metadata used to locate container OS image ids is located.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -283,7 +287,7 @@ The URL at which the metadata used to locate container OS image ids is located.
 
 The simplestreams stream used to identify which image ids to search when starting a container.
 
-**Default value:** released
+**Default value:** `released`
 
 **Type:** string
 
@@ -293,7 +297,7 @@ The simplestreams stream used to identify which image ids to search when startin
 List of properties to be copied from the host machine to new containers created
 in this model (comma-separated).
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -326,7 +330,7 @@ For example:
 
 Method of container networking setup - one of "provider", "local", or "" (auto-configure).
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -335,7 +339,7 @@ Method of container networking setup - one of "provider", "local", or "" (auto-c
 
 The default base image to use for deploying charms, will act like --base when deploying charms.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -344,7 +348,7 @@ The default base image to use for deploying charms, will act like --base when de
 
 The default network space used for application endpoints in this model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -353,7 +357,7 @@ The default network space used for application endpoints in this model.
 
 Whether the model is in development mode.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -363,7 +367,7 @@ Whether the model is in development mode.
 Whether the provider should control networks (on MAAS models, set to true for
 MAAS to control networks.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -383,7 +387,7 @@ bridge.
 
 Disable telemetry reporting of model information.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -392,7 +396,7 @@ Disable telemetry reporting of model information.
 
 Source address(es) for traffic originating from this model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -402,7 +406,7 @@ Source address(es) for traffic originating from this model.
 Whether newly provisioned instances should run their respective OS's update
 capability.
 
-**Default value:** true
+**Default value:** `true`
 
 **Type:** bool
 
@@ -432,7 +436,7 @@ latest software available to it by disabling upgrades but enabling updates.
 Whether newly provisioned instances should run their respective OS's upgrade
 capability.
 
-**Default value:** true
+**Default value:** `true`
 
 **Type:** bool
 
@@ -460,7 +464,7 @@ latest software available to it by disabling upgrades but enabling updates.
 
 Arbitrary user specified string data that is stored against the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -471,11 +475,11 @@ Arbitrary user specified string data that is stored against the model.
 
 The mode to use for network firewalling.
 
-**Default value:** instance
+**Default value:** `instance`
 
 **Type:** string
 
-**Valid values:** instance, global, none
+**Valid values:** `instance`, `global`, `none`
 
 **Description:**
 
@@ -495,7 +499,7 @@ global or per instance security groups.
 
 The FTP proxy value to configure on instances, in the `FTP_PROXY` environment variable.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -504,7 +508,7 @@ The FTP proxy value to configure on instances, in the `FTP_PROXY` environment va
 
 The HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment variable.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -513,7 +517,7 @@ The HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment 
 
 The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environment variable.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -522,7 +526,7 @@ The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environmen
 
 Whether the machine worker should discover machine addresses on startup.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -531,7 +535,7 @@ Whether the machine worker should discover machine addresses on startup.
 
 Whether default simplestreams sources are used for image metadata.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -540,7 +544,7 @@ Whether default simplestreams sources are used for image metadata.
 
 The URL at which the metadata used to locate OS image ids is located.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -551,7 +555,7 @@ The URL at which the metadata used to locate OS image ids is located.
 The simplestreams stream used to identify which image ids to search when
 starting an instance.
 
-**Default value:** released
+**Default value:** `released`
 
 **Type:** string
 
@@ -569,7 +573,7 @@ upgrades.
 
 The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment variable.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -578,7 +582,7 @@ The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment 
 
 The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -587,7 +591,7 @@ The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environmen
 
 The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environment variable.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -596,17 +600,16 @@ The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environm
 
 List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable.
 
-**Default value:** 127.0.0.1,localhost,::1
+**Default value:** `127.0.0.1,localhost,::1`
 
 **Type:** string
 
 
 ## logging-config
 
-The configuration string to use when configuring Juju agent logging (see +
-http://godoc.org/github.com/juju/loggo#Parsefor details).
+The configuration string to use when configuring Juju agent logging.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -685,7 +688,7 @@ To view details about each API request:
 
 The channel to use when installing LXD from a snap (cosmic and later).
 
-**Default value:** 5.0/stable
+**Default value:** `5.0/stable`
 
 **Type:** string
 
@@ -694,7 +697,7 @@ The channel to use when installing LXD from a snap (cosmic and later).
 
 The maximum age for action entries before they are pruned, in human-readable time format.
 
-**Default value:** 336h
+**Default value:** `336h`
 
 **Type:** string
 
@@ -703,7 +706,7 @@ The maximum age for action entries before they are pruned, in human-readable tim
 
 The maximum size for the action collection, in human-readable memory format.
 
-**Default value:** 5G
+**Default value:** `5G`
 
 **Type:** string
 
@@ -712,7 +715,7 @@ The maximum size for the action collection, in human-readable memory format.
 
 The maximum age for status history entries before they are pruned, in human-readable time format.
 
-**Default value:** 336h
+**Default value:** `336h`
 
 **Type:** string
 
@@ -721,7 +724,7 @@ The maximum age for status history entries before they are pruned, in human-read
 
 The maximum size for the status history collection, in human-readable memory format.
 
-**Default value:** 5G
+**Default value:** `5G`
 
 **Type:** string
 
@@ -734,7 +737,7 @@ mode the model should run in. So far only one is implemented
 potentially valuable resources.
 (default "").
 
-**Default value:** requires-prompts
+**Default value:** `requires-prompts`
 
 **Type:** string
 
@@ -747,7 +750,7 @@ potentially valuable resources.
 
 The name of the current model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -756,7 +759,7 @@ The name of the current model.
 
 The amount of time in seconds to sleep between ifdown and ifup when bridging.
 
-**Default value:** 17
+**Default value:** `17`
 
 **Type:** int
 
@@ -765,7 +768,7 @@ The amount of time in seconds to sleep between ifdown and ifup when bridging.
 
 List of domain addresses not to be proxied (comma-separated).
 
-**Default value:** 127.0.0.1,localhost,::1
+**Default value:** `127.0.0.1,localhost,::1`
 
 **Type:** string
 
@@ -774,7 +777,7 @@ List of domain addresses not to be proxied (comma-separated).
 
 The number of container provisioning workers to use per machine.
 
-**Default value:** 4
+**Default value:** `4`
 
 **Type:** int
 
@@ -783,7 +786,7 @@ The number of container provisioning workers to use per machine.
 
 The number of provisioning workers to use per model.
 
-**Default value:** 16
+**Default value:** `16`
 
 **Type:** int
 
@@ -793,11 +796,11 @@ The number of provisioning workers to use per model.
 
 What to do with unknown machines (default destroyed).
 
-**Default value:** destroyed
+**Default value:** `destroyed`
 
 **Type:** string
 
-**Valid values:** all, none, unknown, destroyed
+**Valid values:** `all`, `none`, `unknown`, `destroyed`
 
 **Description:**
 
@@ -831,7 +834,7 @@ Below, the harvest mode key for the current model is set to 'none':
 
 Whether SSH commands should be proxied through the API server.
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -840,7 +843,7 @@ Whether SSH commands should be proxied through the API server.
 
 resource tags.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** attrs
 
@@ -850,7 +853,7 @@ resource tags.
 Application-offer ingress allowlist is a comma-separated list of
 CIDRs specifying what ingress can be applied to offers in this model.
 
-**Default value:** 0.0.0.0/0,::/0
+**Default value:** `0.0.0.0/0,::/0`
 
 **Type:** string
 
@@ -859,7 +862,7 @@ CIDRs specifying what ingress can be applied to offers in this model.
 
 The HTTP proxy value for installing snaps.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -868,7 +871,7 @@ The HTTP proxy value for installing snaps.
 
 The HTTPS proxy value for installing snaps.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -877,7 +880,7 @@ The HTTPS proxy value for installing snaps.
 
 The assertions for the defined snap store proxy.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -886,7 +889,7 @@ The assertions for the defined snap store proxy.
 
 The snap store proxy for installing snaps.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -895,7 +898,7 @@ The snap store proxy for installing snaps.
 
 The URL for the defined snap store proxy.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -906,7 +909,7 @@ SSH allowlist is a comma-separated list of CIDRs from
 which machines in this model will accept connections to the SSH service.
 Currently only the aws & openstack providers support ssh-allow.
 
-**Default value:** 0.0.0.0/0,::/0
+**Default value:** `0.0.0.0/0,::/0`
 
 **Type:** string
 
@@ -915,7 +918,7 @@ Currently only the aws & openstack providers support ssh-allow.
 
 Whether SSL hostname verification is enabled (default true).
 
-**Default value:** true
+**Default value:** `true`
 
 **Type:** bool
 
@@ -924,7 +927,7 @@ Whether SSL hostname verification is enabled (default true).
 
 The default block storage source for the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -933,7 +936,7 @@ The default block storage source for the model.
 
 The default filesystem storage source for the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -944,7 +947,7 @@ Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false).
 
-**Default value:** false
+**Default value:** `false`
 
 **Type:** bool
 
@@ -953,7 +956,7 @@ data of the store. (default false).
 
 Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics.
 
-**Default value:** true
+**Default value:** `true`
 
 **Type:** bool
 
@@ -966,7 +969,7 @@ Determines whether metrics declared by charms deployed into this model are sent 
 
 Type of model, e.g. local, ec2.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
@@ -975,7 +978,7 @@ Type of model, e.g. local, ec2.
 
 How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m).
 
-**Default value:** 5m
+**Default value:** `5m`
 
 **Type:** string
 
@@ -986,7 +989,7 @@ How often to run the charm update-status hook, in human-readable time format (de
 
 The UUID of the model.
 
-**Default value: ""**
+**Default value:** `""`
 
 **Type:** string
 
