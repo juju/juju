@@ -4,6 +4,8 @@
 package deployer_test
 
 import (
+	"os"
+	"path"
 	"time"
 
 	"github.com/juju/clock"
@@ -18,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	message "github.com/juju/juju/pubsub/agent"
@@ -193,12 +196,22 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	// Wait for unit to start.
 	s.workers.waitForStart(c, unitName)
 
+	// Waiting for the unit to be indicated as started (above) is not sufficient
+	// for this test.
+	// The unitWorkersStub that represents the nested config for the unit
+	// dependency engine indicates that the unit is started as soon as it is
+	// created, but the introspection socket is created subsequently, which can
+	// inhibit removal of the directory during the subsequent call to RecallUnit.
+	// Waiting for the socket file to be present on disk is more robust.
+	socketPath := path.Join(agent.Dir(s.agent.DataDir(), tag), addons.IntrospectionSocketName)
+	err = waitForFile(socketPath)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = ctx.RecallUnit(unitName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit agent dir no longer exists.
-	unitAgentDir := agent.Dir(s.agent.DataDir(), tag)
-	c.Assert(unitAgentDir, jc.DoesNotExist)
+	c.Assert(agent.Dir(s.agent.DataDir(), tag), jc.DoesNotExist)
 
 	// Unit written into the config value as deployed units.
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.HasLen, 0)
@@ -206,6 +219,23 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	// Recall is idempotent.
 	err = ctx.RecallUnit(unitName)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func waitForFile(filePath string) error {
+	maxAttempts := 10
+	pollInterval := 50 * time.Millisecond
+
+	for i := 0; i < maxAttempts; i++ {
+		if _, err := os.Stat(filePath); err == nil {
+			return nil
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+
+		time.Sleep(pollInterval)
+	}
+
+	return errors.New("file not found after 10 attempts")
 }
 
 func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
