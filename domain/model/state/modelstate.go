@@ -81,7 +81,7 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		err := tx.Query(ctx, modelTriggerStmt).Run()
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New("model does not exist").Add(modelerrors.NotFound)
-		} else if err != nil && !internaldatabase.IsErrError(err) {
+		} else if err != nil && !internaldatabase.IsExtendedErrorCode(err) {
 			return fmt.Errorf("deleting model trigger %w", err)
 		}
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/database/drivererrors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -272,7 +273,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 	}
 
 	// If there is any constraint error then we should log it as an error.
-	if isConstraintError(err) {
+	if drivererrors.IsConstraintError(err) {
 		t.logger.Errorf("constraint error %v - running queries: %v", err, queryable.Queries())
 	}
 
@@ -306,7 +307,7 @@ func DefaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 				}
 
 				// If the error is potentially retryable then keep going.
-				if IsErrRetryable(err) {
+				if drivererrors.IsErrRetryable(err) {
 					// Record the error for the metrics. We could potentially
 					// record the error type here, but it's not clear what
 					// value that would provide.

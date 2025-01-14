@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/database/txn"
+	databaseerrors "github.com/juju/juju/internal/database"
 )
 
 const (
@@ -309,7 +309,7 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 		claim.respond(nil)
 	} else {
 		switch {
-		case lease.IsTimeout(err), txn.IsErrRetryable(err):
+		case lease.IsTimeout(err), databaseerrors.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrTimeout)
@@ -444,7 +444,7 @@ func (manager *Manager) retryingRevoke(ctx context.Context, revoke revoke) {
 		}
 	} else {
 		switch {
-		case lease.IsTimeout(err), txn.IsErrRetryable(err):
+		case lease.IsTimeout(err), databaseerrors.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrTimeout)
@@ -769,7 +769,7 @@ outstanding-revokes: %v
 
 func isFatalRetryError(err error) bool {
 	switch {
-	case txn.IsErrRetryable(err):
+	case databaseerrors.IsErrRetryable(err):
 		return false
 	case lease.IsTimeout(err):
 		return false
@@ -798,7 +798,7 @@ func (a action) String() string {
 
 func isFatalClaimRetryError(act action, err error, count int) bool {
 	switch {
-	case txn.IsErrRetryable(err):
+	case databaseerrors.IsErrRetryable(err):
 		return false
 	case lease.IsTimeout(err):
 		return false
