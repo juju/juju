@@ -52,6 +52,10 @@ CREATE TABLE charm (
     -- name than the charm name in the metadata.yaml file.
     reference_name TEXT NOT NULL,
 
+    -- create_time is purely used for ordering a charm by time, as we can't
+    -- use the revision number to determine the order of the charm.
+    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+
     CONSTRAINT fk_charm_source_source
     FOREIGN KEY (source_id)
     REFERENCES charm_source (id),
