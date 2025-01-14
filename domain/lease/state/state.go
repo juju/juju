@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/database/txn"
+	databaseerrors "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -464,7 +464,7 @@ DELETE FROM lease WHERE uuid in (
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, countStmt).Get(&count)
-		if txn.IsErrRetryable(err) {
+		if databaseerrors.IsErrRetryable(err) {
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -483,7 +483,7 @@ DELETE FROM lease WHERE uuid in (
 			// locking or other contention. We know we will retry very soon,
 			// so just log and indicate success for these cases.
 			// Rethink this if the worker cardinality changes to be singular.
-			if txn.IsErrRetryable(err) {
+			if databaseerrors.IsErrRetryable(err) {
 				s.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
 				return nil
 			}

@@ -6,6 +6,7 @@ package txn
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,12 +19,13 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/database/drivererrors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
-// txn represents a transaction interface that can be used for committing
-// a transaction.
-type txn interface {
+// committable represents a transaction interface that can be used for
+// committing a transaction.
+type committable interface {
 	Commit() error
 }
 
@@ -71,7 +73,7 @@ func newOptions() *option {
 	return &option{
 		timeout:       DefaultTimeout,
 		logger:        logger,
-		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
+		retryStrategy: DefaultRetryStrategy(clock.WallClock, logger),
 	}
 }
 
@@ -182,7 +184,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 // Commit is split out as we can't pass a context directly to the commit. To
 // enable tracing, we need to just wrap the commit call. All other traces are
 // done at the dqlite level.
-func (t *RetryingTxnRunner) commit(ctx context.Context, tx txn) (err error) {
+func (t *RetryingTxnRunner) commit(ctx context.Context, tx committable) (err error) {
 	if t.logger.IsLevelEnabled(logger.TRACE) {
 		t.logger.Tracef("running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
 	}
@@ -241,34 +243,47 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 	// This is the last generic place that we can place a trace for the
 	// dqlite library. Ideally we would push this into the dqlite only code,
 	// but that requires a lot of abstractions, that I'm unsure is worth it.
+	var queryable queryable
 	if tracer, enabled := trace.TracerFromContext(ctx); enabled {
 		dtracer := t.tracePool.Get().(*dqliteTracer)
 		defer t.tracePool.Put(dtracer)
 
-		// Force the tracer onto the pooled object. We guarantee that the trace
-		// should be done once the run has been completed.
-		dtracer.tracer = tracer
-		dtracer.txnID = txnID
+		dtracer.prepare(tracer, txnID)
 
 		ctx = tracing.WithTracer(ctx, dtracer)
-	} else if t.logger.IsLevelEnabled(logger.TRACE) {
+
+		queryable = dtracer
+	} else {
 		// If the logger is trace enabled, then we can use the log tracer. The
 		// log tracer is a light weight tracer that just logs the query and the
 		// txnID. This is useful for debugging.
 		ltrace := t.loggerPool.Get().(*logTracer)
 		defer t.loggerPool.Put(ltrace)
 
-		ltrace.txnID = txnID
+		ltrace.prepare(txnID)
 
 		ctx = tracing.WithTracer(ctx, ltrace)
+
+		queryable = ltrace
 	}
-	return fn(ctx)
+
+	err = fn(ctx)
+	if err == nil {
+		return nil
+	}
+
+	// If there is any constraint error then we should log it as an error.
+	if drivererrors.IsConstraintError(err) {
+		t.logger.Errorf("constraint error %v - running queries:\n %v", err, queryable.Queries())
+	}
+
+	return errors.Trace(err)
 }
 
-// defaultRetryStrategy returns a function that can be used to apply a default
+// DefaultRetryStrategy returns a function that can be used to apply a default
 // retry strategy to its input operation. It will retry in cases of transient
 // known database errors.
-func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func() error) error {
+func DefaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func() error) error {
 	return func(ctx context.Context, fn func() error) error {
 		metrics := MetricsFromContext(ctx)
 		err := retry.Call(retry.CallArgs{
@@ -292,7 +307,7 @@ func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 				}
 
 				// If the error is potentially retryable then keep going.
-				if IsErrRetryable(err) {
+				if drivererrors.IsErrRetryable(err) {
 					// Record the error for the metrics. We could potentially
 					// record the error type here, but it's not clear what
 					// value that would provide.
@@ -331,23 +346,59 @@ func traceName(name string) trace.Name {
 	return trace.Name(rootTraceName + name)
 }
 
+type queryable interface {
+	Queries() string
+}
+
 // logTracer is a pooled object for implementing a log tracing from a
 // per-transaction trace. This works by piggy backing off the OTEL tracing
 // implementation in go-dqlite package. The OTEL tracing already exposes the
 // query, we can create a log tracer that just logs the query and the txnID.
 type logTracer struct {
 	logger logger.Logger
-	txnID  uint64
+
+	mu           sync.Mutex
+	txnID        uint64
+	traceEnabled bool
+	queries      []string
+}
+
+func (d *logTracer) prepare(txnID uint64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.txnID = txnID
+	d.queries = d.queries[:0]
+	d.traceEnabled = d.logger.IsLevelEnabled(logger.TRACE)
 }
 
 func (d *logTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	// Log the start of the transaction.
-	d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
+	if d.traceEnabled {
+		d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
+	}
+
+	// This is less than ideal, it might be better to bulk create an array
+	// of strings (maybe 256) as a ballast and then wipe them out when preparing
+	// them. We could then just insert them into the array, rather than
+	// appending them.
+	d.queries = append(d.queries, query)
 
 	return ctx, d
 }
 
 func (d *logTracer) End() {}
+
+// Queries returns the queries that have been run in the transaction.
+func (d *logTracer) Queries() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return strings.Join(d.queries, "\n")
+}
 
 // dqliteTracer is a pooled object for implementing a dqlite tracing from a
 // juju tracing trace. The dqlite trace is just the lightest touch for
@@ -356,16 +407,31 @@ func (d *logTracer) End() {}
 // As there are going to thousands of these in flight, it's wise to pool these
 // as much as possible, to provide compatibility.
 type dqliteTracer struct {
+	logger logger.Logger
+
 	tracer trace.Tracer
 	pool   *sync.Pool
-	logger logger.Logger
-	txnID  uint64
+
+	mu      sync.Mutex
+	txnID   uint64
+	queries []string
+}
+
+func (d *dqliteTracer) prepare(tracer trace.Tracer, txnID uint64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.txnID = txnID
+	d.queries = d.queries[:0]
+	d.tracer = tracer
 }
 
 // Start creates a span and a context.Context containing the newly-created
 // span.
 func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
 	// Log the start of the transaction.
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.logger.Tracef("running txn (id: %d) with query: %s", d.txnID, query)
 
 	// Start the span.
@@ -381,7 +447,21 @@ func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (co
 	// should be done once the run has been completed.
 	dspan.span = span
 
+	// This is less than ideal, it might be better to bulk create an array
+	// of strings (maybe 256) as a ballast and then wipe them out when preparing
+	// them. We could then just insert them into the array, rather than
+	// appending them.
+	d.queries = append(d.queries, query)
+
 	return ctx, dspan
+}
+
+// Queries returns the queries that have been run in the transaction.
+func (d *dqliteTracer) Queries() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return strings.Join(d.queries, "\n")
 }
 
 type dqliteSpan struct {

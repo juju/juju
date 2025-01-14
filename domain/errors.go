@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/database/drivererrors"
 )
 
 // CoerceError converts all sql, sqlite and dqlite errors into an error that
@@ -44,7 +44,7 @@ type maskError struct {
 // As implements standard errors As interface. As will check if the target type
 // is a sql error that is trying to be retrieved and return false.
 func (e maskError) As(target any) bool {
-	if database.IsErrorTarget(target) {
+	if drivererrors.IsErrorTarget(target) {
 		return false
 	}
 
@@ -64,7 +64,7 @@ func (e maskError) Is(target error) bool {
 // isDatabaseError checks if the error is a sql, sqlite or dqlite error.
 func isDatabaseError(err error) bool {
 	return errors.Is(err, sql.ErrNoRows) ||
-		database.IsError(err) ||
+		drivererrors.IsError(err) ||
 		errors.Is(err, sql.ErrTxDone) ||
 		errors.Is(err, sql.ErrConnDone)
 }

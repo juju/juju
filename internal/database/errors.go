@@ -6,9 +6,10 @@ package database
 import (
 	"database/sql"
 
-	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/errors"
 	"github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/internal/database/drivererrors"
 )
 
 // NOTE (stickupkid): This doesn't include a generic IsErrConstraint check,
@@ -19,64 +20,64 @@ import (
 // IsErrConstraintCheck returns true if the input error was
 // returned by SQLite due to violation of a constraint check.
 func IsErrConstraintCheck(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintCheck)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintCheck)
 }
 
 // IsErrConstraintForeignKey returns true if the input error was
 // returned by SQLite due to violation of a constraint foreign key.
 func IsErrConstraintForeignKey(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintForeignKey)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintForeignKey)
 }
 
 // IsErrConstraintNotNull returns true if the input error was
 // returned by SQLite due to violation of a constraint not null.
 func IsErrConstraintNotNull(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintNotNull)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintNotNull)
 }
 
 // IsErrConstraintPrimaryKey returns true if the input error was
 // returned by SQLite due to violation of a constraint primary key.
 func IsErrConstraintPrimaryKey(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintPrimaryKey)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintPrimaryKey)
 }
 
 // IsErrConstraintTrigger returns true if the input error was
 // returned by SQLite due to violation of a constraint trigger.
 func IsErrConstraintTrigger(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintTrigger)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintTrigger)
 }
 
 // IsErrConstraintUnique returns true if the input error was
 // returned by SQLite due to violation of a unique constraint.
 func IsErrConstraintUnique(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintUnique)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintUnique)
 }
 
 // IsErrConstraintRowID returns true if the input error was
 // returned by SQLite due to violation of a unique constraint.
 func IsErrConstraintRowID(err error) bool {
-	if err == nil || isErrLocked(err) {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, sqlite3.ErrConstraintRowID)
+	return drivererrors.IsExtendedErrorCode(err, sqlite3.ErrConstraintRowID)
 }
 
 // IsErrError returns true if the input error was returned by SQLite due
@@ -86,11 +87,11 @@ func IsErrConstraintRowID(err error) bool {
 // - no such table
 // This is useful when trying to determine if the error is sqlite specific
 // or internal to Juju.
-func IsErrError(err error) bool {
-	if err == nil || isErrLocked(err) {
+func IsExtendedErrorCode(err error) bool {
+	if err == nil || drivererrors.IsErrLocked(err) {
 		return false
 	}
-	return isErrCode(err, 1)
+	return drivererrors.IsExtendedErrorCode(err, 1)
 }
 
 // IsErrNotFound returns true if the input error was returned by SQLite due
@@ -103,69 +104,8 @@ func IsErrNotFound(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
-// If the error is locked, or a busy error, then we can't have a extended
-// error code. In those cases, we just return early and prevent error
-// unwrapping for common cases.
-func isErrLocked(err error) bool {
-	return errors.Is(err, sqlite3.ErrLocked) || errors.Is(err, sqlite3.ErrBusy)
-}
-
-func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
-	// Check if the error is a dqlite error, if so, check the code.
-	var dqliteErr dqlite.Error
-	if errors.As(err, &dqliteErr) {
-		return dqliteErr.Code == int(code)
-	}
-
-	// TODO (stickupkid): This is a compatibility layer for sqlite3, we should
-	// remove this once we are only using dqlite.
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		return sqliteErr.ExtendedCode == code
-	}
-
-	return false
-}
-
-// IsError reports if the any type passed to it is a database driver error in
-// Juju. The purpose of this function is so that our domain error masking can
-// assert if a specific error needs to be hidden from layers above that of the
-// domain/state.
-func IsError(err error) bool {
-	// Check for the dqlite error type, before checking sqlite3 error type. In
-	// production we should only be using dqlite, but in tests we may use
-	// sqlite3 directly.
-
-	// Check if the error is a dqlite error, if so, check the code.
-	var dqliteErr dqlite.Error
-	if errors.As(err, &dqliteErr) {
-		return true
-	}
-
-	// TODO (stickupkid): This is a compatibility layer for sqlite3, we should
-	// remove this once we are only using dqlite.
-	var sqliteErr sqlite3.Error
-	return errors.As(err, &sqliteErr)
-}
-
-// IsErrorTarget reports if the any type passed to it is a database driver
-// error.
-func IsErrorTarget(target any) bool {
-	if _, is := target.(*dqlite.Error); is {
-		return true
-	}
-	if _, is := target.(dqlite.Error); is {
-		return true
-	}
-
-	// TODO (stickupkid): This is a compatibility layer for sqlite3, we should
-	// remove this once we are only using dqlite.
-	if _, is := target.(*sqlite3.Error); is {
-		return true
-	}
-	if _, is := target.(sqlite3.Error); is {
-		return true
-	}
-
-	return false
+// IsErrRetryable returns true if the given error might be transient and the
+// interaction can be safely retried.
+func IsErrRetryable(err error) bool {
+	return drivererrors.IsErrRetryable(err)
 }
