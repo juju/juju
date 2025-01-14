@@ -42,6 +42,19 @@ jobs:
         run: |
           make go-install
 
+      - name: Install microk8s
+        run: |
+          sudo snap install microk8s --channel=1.28-strict/stable
+          sudo usermod -a -G snap_microk8s $USER
+          sudo chown -R $USER ~/.kube
+          sudo microk8s.enable dns storage
+          sudo microk8s.enable dns local-storage
+          sudo -g snap_microk8s -E microk8s status --wait-ready --timeout=600
+
+      - name: Set additional environment for LXD
+        run: |
+          sudo microk8s.config > /home/$USER/microk8s-config.yaml
+
       - name: Bootstrap Juju - localhost
         shell: bash
         run: |
