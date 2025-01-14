@@ -20,6 +20,11 @@ import (
 	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
+const (
+	// States which report the state of the worker.
+	stateStarted = "started"
+)
+
 // WorkerConfig defines the configuration values that the pubsub worker needs
 // to operate.
 type WorkerConfig struct {
@@ -61,8 +66,10 @@ type serverChanges struct {
 }
 
 type remoteWorker struct {
-	cfg      WorkerConfig
-	catacomb catacomb.Catacomb
+	internalStates chan string
+	catacomb       catacomb.Catacomb
+
+	cfg WorkerConfig
 
 	runner  *worker.Runner
 	changes chan serverChanges
@@ -75,10 +82,10 @@ type remoteWorker struct {
 
 // NewWorker exposes the remoteWorker as a Worker.
 func NewWorker(config WorkerConfig) (worker.Worker, error) {
-	return newWorker(config)
+	return newWorker(config, nil)
 }
 
-func newWorker(cfg WorkerConfig) (*remoteWorker, error) {
+func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,7 +102,9 @@ func newWorker(cfg WorkerConfig) (*remoteWorker, error) {
 			RestartDelay: time.Second * 5,
 			Logger:       cfg.Logger,
 		}),
-		changes: make(chan serverChanges),
+		changes:        make(chan serverChanges),
+		internalStates: internalState,
+		apiRemotes:     make([]RemoteConnection, 0),
 	}
 
 	var err error
@@ -149,6 +158,9 @@ func (w *remoteWorker) Wait() error {
 }
 
 func (w *remoteWorker) loop() error {
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
+
 	defer w.unsubServerDetails()
 
 	ctx, cancel := w.scopedContext()
@@ -344,4 +356,12 @@ func (w *remoteWorker) workerFromCache(target names.Tag) (RemoteServer, error) {
 // completed.
 func (w *remoteWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func (w *remoteWorker) reportInternalState(state string) {
+	select {
+	case <-w.catacomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/names/v5"
@@ -20,10 +21,8 @@ import (
 // RemoteConnection is an interface that represents a connection to a remote
 // API server.
 type RemoteConnection interface {
-	// Connection returns a channel that will be populated with the connection
-	// to the remote API server. If the connection is lost or the remote server
-	// is unreachable, the channel will be closed.
-	Connection() (api.Connection, bool)
+	// Connection returns the connection to the remote API server.
+	Connection() api.Connection
 
 	// Tag returns the tag of the remote API server.
 	Tag() names.Tag
@@ -79,14 +78,12 @@ func NewRemoteServer(config RemoteServerConfig) RemoteServer {
 	return w
 }
 
-// Connection returns a channel that will be populated with the connection to
-// the remote API server. If the connection is lost or the remote server is
-// unreachable, the channel will be closed.
-func (w *remoteServer) Connection() (api.Connection, bool) {
+// Connection returns the connection to the remote API server.
+func (w *remoteServer) Connection() api.Connection {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	return w.currentConnection, w.currentConnection != nil
+	return w.currentConnection
 }
 
 // Tag returns the tag of the remote API server.
@@ -119,7 +116,10 @@ func (w *remoteServer) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	var connected bool
+	var (
+		connected bool
+		monitor   <-chan struct{}
+	)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -133,7 +133,9 @@ func (w *remoteServer) loop() error {
 				continue
 			}
 
-			if err := w.connect(ctx, addresses); err != nil {
+			var err error
+			monitor, err = w.connect(ctx, addresses)
+			if err != nil {
 				return err
 			}
 
@@ -141,6 +143,16 @@ func (w *remoteServer) loop() error {
 			// addresses.
 			w.info.Addrs = addresses
 			connected = true
+
+		case <-monitor:
+			// If the connection is lost, force the worker to restart. We
+			// won't attempt to reconnect here, just make the worker die.
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			default:
+				return errors.Errorf("connection to %q has been lost", w.target)
+			}
 		}
 	}
 }
@@ -159,7 +171,7 @@ func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
 	return true
 }
 
-func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
+func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan struct{}, error) {
 	w.logger.Debugf("connecting to %s with addresses: %v", w.target, addresses)
 
 	// Use temporary info until we're sure we can connect. If the addresses
@@ -191,7 +203,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
 		Clock:       w.clock,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	w.closeCurrentConnection()
@@ -200,7 +212,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) error {
 	w.currentConnection = connection
 	w.mu.Unlock()
 
-	return nil
+	return connection.Broken(), nil
 }
 
 // closeCurrentConnection will close the current connection if it exists.
