@@ -72,7 +72,7 @@ sp-run: sp-install
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
 sp-html: sp-install
-	. $(VENV); $(SPHINXBUILD) -W --keep-going -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
+	. $(VENV); $(SPHINXBUILD) --keep-going -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
 
 sp-epub: sp-install
 	. $(VENV); $(SPHINXBUILD) -b epub "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)

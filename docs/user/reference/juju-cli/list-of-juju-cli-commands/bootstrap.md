@@ -556,14 +556,6 @@ Model configuration keys (affecting the controller model):
       type: string
       description: The maximum size for the action collection, in human-readable memory
         format
-    max-status-history-age:
-      type: string
-      description: The maximum age for status history entries before they are pruned,
-        in human-readable time format
-    max-status-history-size:
-      type: string
-      description: The maximum size for the status history collection, in human-readable
-        memory format
     mode:
       type: string
       description: |-

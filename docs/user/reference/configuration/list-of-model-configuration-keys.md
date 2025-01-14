@@ -704,24 +704,6 @@ The maximum size for the action collection, in human-readable memory format.
 **Type:** string
 
 
-## max-status-history-age
-
-The maximum age for status history entries before they are pruned, in human-readable time format.
-
-**Default value:** `336h`
-
-**Type:** string
-
-
-## max-status-history-size
-
-The maximum size for the status history collection, in human-readable memory format.
-
-**Default value:** `5G`
-
-**Type:** string
-
-
 ## mode
 
 Mode is a comma-separated list which sets the
