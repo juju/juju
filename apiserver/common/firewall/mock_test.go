@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -258,7 +259,7 @@ type mockRelation struct {
 	testing.Stub
 	firewall.Relation
 	id        int
-	endpoints []state.Endpoint
+	endpoints []relation.Endpoint
 	ruw       *mockRelationUnitsWatcher
 	ew        *mockStringsWatcher
 	ruwApp    string
@@ -277,7 +278,7 @@ func (r *mockRelation) Id() int {
 	return r.id
 }
 
-func (r *mockRelation) Endpoints() []state.Endpoint {
+func (r *mockRelation) Endpoints() []relation.Endpoint {
 	r.MethodCall(r, "Endpoints")
 	return r.endpoints
 }

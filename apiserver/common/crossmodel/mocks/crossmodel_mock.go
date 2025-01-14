@@ -21,6 +21,7 @@ import (
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
+	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -340,7 +341,7 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddRelation mocks base method.
-func (m *MockBackend) AddRelation(arg0 ...state.Endpoint) (crossmodel.Relation, error) {
+func (m *MockBackend) AddRelation(arg0 ...relation.Endpoint) (crossmodel.Relation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{}
 	for _, a := range arg0 {
@@ -371,13 +372,13 @@ func (c *MockBackendAddRelationCall) Return(arg0 crossmodel.Relation, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendAddRelationCall) Do(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockBackendAddRelationCall {
+func (c *MockBackendAddRelationCall) Do(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockBackendAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddRelationCall) DoAndReturn(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockBackendAddRelationCall {
+func (c *MockBackendAddRelationCall) DoAndReturn(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockBackendAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -615,7 +616,7 @@ func (c *MockBackendControllerTagCall) DoAndReturn(f func() names.ControllerTag)
 }
 
 // EndpointsRelation mocks base method.
-func (m *MockBackend) EndpointsRelation(arg0 ...state.Endpoint) (crossmodel.Relation, error) {
+func (m *MockBackend) EndpointsRelation(arg0 ...relation.Endpoint) (crossmodel.Relation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{}
 	for _, a := range arg0 {
@@ -646,13 +647,13 @@ func (c *MockBackendEndpointsRelationCall) Return(arg0 crossmodel.Relation, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendEndpointsRelationCall) Do(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockBackendEndpointsRelationCall {
+func (c *MockBackendEndpointsRelationCall) Do(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockBackendEndpointsRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendEndpointsRelationCall) DoAndReturn(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockBackendEndpointsRelationCall {
+func (c *MockBackendEndpointsRelationCall) DoAndReturn(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockBackendEndpointsRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

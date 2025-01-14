@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -284,7 +285,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	app := &mockApplication{}
-	app.eps = []state.Endpoint{{
+	app.eps = []relation.Endpoint{{
 		ApplicationName: "offeredapp",
 		Relation:        charm.Relation{Name: "local"},
 	}}
@@ -917,8 +918,8 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	ru1.settings["che-fu"] = "fade away"
 
 	rel.endpoints = append(rel.endpoints,
-		state.Endpoint{ApplicationName: "db2"},
-		state.Endpoint{ApplicationName: "django"},
+		relation.Endpoint{ApplicationName: "db2"},
+		relation.Endpoint{ApplicationName: "django"},
 	)
 	rel.units["django/1"] = ru1
 	rel.units["django/2"] = ru2

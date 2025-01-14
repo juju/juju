@@ -13,6 +13,7 @@ import (
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
@@ -25,7 +26,7 @@ type mockRelation struct {
 	suspended             bool
 	units                 map[string]common.RelationUnit
 	remoteUnits           map[string]common.RelationUnit
-	endpoints             []state.Endpoint
+	endpoints             []relation.Endpoint
 	endpointUnitsWatchers map[string]*mockRelationUnitsWatcher
 	appSettings           map[string]map[string]interface{}
 }
@@ -90,7 +91,7 @@ func (r *mockRelation) RemoteUnit(unitId string) (common.RelationUnit, error) {
 	return u, nil
 }
 
-func (r *mockRelation) Endpoints() []state.Endpoint {
+func (r *mockRelation) Endpoints() []relation.Endpoint {
 	r.MethodCall(r, "Endpoints")
 	return r.endpoints
 }

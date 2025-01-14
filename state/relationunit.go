@@ -19,6 +19,7 @@ import (
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -31,7 +32,7 @@ type RelationUnit struct {
 	relation    *Relation
 	unitName    string
 	isPrincipal bool
-	endpoint    Endpoint
+	endpoint    relation.Endpoint
 	scope       string
 
 	// isLocalUnit is true for relation units representing
@@ -47,7 +48,7 @@ func (ru *RelationUnit) Relation() *Relation {
 
 // Endpoint returns the relation endpoint that defines the unit's
 // participation in the relation.
-func (ru *RelationUnit) Endpoint() Endpoint {
+func (ru *RelationUnit) Endpoint() relation.Endpoint {
 	return ru.endpoint
 }
 
@@ -217,7 +218,7 @@ func (ru *RelationUnit) EnterScope(
 // (So for Peer relations, app is returned, for a Provider the apps on Requirer side is returned
 func (ru *RelationUnit) CounterpartApplications() []string {
 	counterApps := set.NewStrings()
-	counterRole := counterpartRole(ru.endpoint.Role)
+	counterRole := relation.CounterpartRole(ru.endpoint.Role)
 	for _, ep := range ru.relation.Endpoints() {
 		if ep.Role == counterRole {
 			counterApps.Add(ep.ApplicationName)
@@ -576,7 +577,7 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 // WatchScope returns a watcher which notifies of counterpart units
 // entering and leaving the unit's scope.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
-	role := counterpartRole(ru.endpoint.Role)
+	role := relation.CounterpartRole(ru.endpoint.Role)
 	return watchRelationScope(ru.st, ru.scope, role, ru.unitName)
 }
 

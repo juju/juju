@@ -5,6 +5,7 @@ package controller
 
 import (
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
@@ -26,8 +27,8 @@ type Application interface {
 }
 
 type Relation interface {
-	Endpoint(applicationname string) (state.Endpoint, error)
-	RelatedEndpoints(applicationname string) ([]state.Endpoint, error)
+	Endpoint(applicationname string) (relation.Endpoint, error)
+	RelatedEndpoints(applicationname string) ([]relation.Endpoint, error)
 	ApplicationSettings(appName string) (map[string]interface{}, error)
 	ModelUUID() string
 }

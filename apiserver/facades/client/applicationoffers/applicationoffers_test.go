@@ -29,6 +29,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -1111,7 +1112,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	}
 	s.mockState.relations["hosted-mysql:server wordpress:db"] = &mockRelation{
 		id: 1,
-		endpoint: state.Endpoint{
+		endpoint: relation.Endpoint{
 			ApplicationName: "mysql",
 			Relation: charm.Relation{
 				Name:      "server",
@@ -1570,7 +1571,7 @@ func (s *consumeSuite) setupOffer() string {
 	st.applications["mysql"] = &mockApplication{
 		name:     "mysql",
 		bindings: map[string]string{"database": "myspace"},
-		endpoints: []state.Endpoint{
+		endpoints: []relation.Endpoint{
 			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}}},

@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/relation"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -1394,7 +1395,7 @@ func (s *uniterLegacySuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(
 	uiEndpoint, err := uiApp.Endpoint("logging-client")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{subEndpoint, uiEndpoint},
+		Endpoints: []relation.Endpoint{subEndpoint, uiEndpoint},
 	})
 
 	wc.AssertChange(rel.Tag().Id())
@@ -1459,7 +1460,7 @@ func (s *uniterLegacySuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	logEp, err := loggingApp.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{monEp, logEp},
+		Endpoints: []relation.Endpoint{monEp, logEp},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1485,7 +1486,7 @@ func (s *uniterLegacySuite) makeSubordinateRelation(c *gc.C, subApp, principalAp
 	defer release()
 
 	rel := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{subEndpoint, principalEndpoint},
+		Endpoints: []relation.Endpoint{subEndpoint, principalEndpoint},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Trigger the creation of the subordinate unit by entering scope

@@ -14,6 +14,7 @@ import (
 
 	controller "github.com/juju/juju/apiserver/facades/client/controller"
 	charm "github.com/juju/juju/internal/charm"
+	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -476,10 +477,10 @@ func (c *MockRelationApplicationSettingsCall) DoAndReturn(f func(string) (map[st
 }
 
 // Endpoint mocks base method.
-func (m *MockRelation) Endpoint(arg0 string) (state.Endpoint, error) {
+func (m *MockRelation) Endpoint(arg0 string) (relation.Endpoint, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Endpoint", arg0)
-	ret0, _ := ret[0].(state.Endpoint)
+	ret0, _ := ret[0].(relation.Endpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -497,19 +498,19 @@ type MockRelationEndpointCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationEndpointCall) Return(arg0 state.Endpoint, arg1 error) *MockRelationEndpointCall {
+func (c *MockRelationEndpointCall) Return(arg0 relation.Endpoint, arg1 error) *MockRelationEndpointCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationEndpointCall) Do(f func(string) (state.Endpoint, error)) *MockRelationEndpointCall {
+func (c *MockRelationEndpointCall) Do(f func(string) (relation.Endpoint, error)) *MockRelationEndpointCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationEndpointCall) DoAndReturn(f func(string) (state.Endpoint, error)) *MockRelationEndpointCall {
+func (c *MockRelationEndpointCall) DoAndReturn(f func(string) (relation.Endpoint, error)) *MockRelationEndpointCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -553,10 +554,10 @@ func (c *MockRelationModelUUIDCall) DoAndReturn(f func() string) *MockRelationMo
 }
 
 // RelatedEndpoints mocks base method.
-func (m *MockRelation) RelatedEndpoints(arg0 string) ([]state.Endpoint, error) {
+func (m *MockRelation) RelatedEndpoints(arg0 string) ([]relation.Endpoint, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RelatedEndpoints", arg0)
-	ret0, _ := ret[0].([]state.Endpoint)
+	ret0, _ := ret[0].([]relation.Endpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -574,19 +575,19 @@ type MockRelationRelatedEndpointsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationRelatedEndpointsCall) Return(arg0 []state.Endpoint, arg1 error) *MockRelationRelatedEndpointsCall {
+func (c *MockRelationRelatedEndpointsCall) Return(arg0 []relation.Endpoint, arg1 error) *MockRelationRelatedEndpointsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationRelatedEndpointsCall) Do(f func(string) ([]state.Endpoint, error)) *MockRelationRelatedEndpointsCall {
+func (c *MockRelationRelatedEndpointsCall) Do(f func(string) ([]relation.Endpoint, error)) *MockRelationRelatedEndpointsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationRelatedEndpointsCall) DoAndReturn(f func(string) ([]state.Endpoint, error)) *MockRelationRelatedEndpointsCall {
+func (c *MockRelationRelatedEndpointsCall) DoAndReturn(f func(string) ([]relation.Endpoint, error)) *MockRelationRelatedEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

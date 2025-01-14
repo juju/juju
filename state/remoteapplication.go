@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 )
 
 // RemoteApplication represents the state of an application hosted
@@ -481,14 +482,14 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 }
 
 // Endpoints returns the application's currently available relation endpoints.
-func (a *RemoteApplication) Endpoints() ([]Endpoint, error) {
+func (a *RemoteApplication) Endpoints() ([]relation.Endpoint, error) {
 	return remoteEndpointDocsToEndpoints(a.Name(), a.doc.Endpoints), nil
 }
 
-func remoteEndpointDocsToEndpoints(applicationName string, docs []remoteEndpointDoc) []Endpoint {
-	eps := make([]Endpoint, len(docs))
+func remoteEndpointDocsToEndpoints(applicationName string, docs []remoteEndpointDoc) []relation.Endpoint {
+	eps := make([]relation.Endpoint, len(docs))
 	for i, ep := range docs {
-		eps[i] = Endpoint{
+		eps[i] = relation.Endpoint{
 			ApplicationName: applicationName,
 			Relation: charm.Relation{
 				Name:      ep.Name,
@@ -503,17 +504,17 @@ func remoteEndpointDocsToEndpoints(applicationName string, docs []remoteEndpoint
 }
 
 // Endpoint returns the relation endpoint with the supplied name, if it exists.
-func (a *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
+func (a *RemoteApplication) Endpoint(relationName string) (relation.Endpoint, error) {
 	eps, err := a.Endpoints()
 	if err != nil {
-		return Endpoint{}, err
+		return relation.Endpoint{}, err
 	}
 	for _, ep := range eps {
 		if ep.Name == relationName {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, fmt.Errorf("saas application %q has no %q relation", a, relationName)
+	return relation.Endpoint{}, fmt.Errorf("saas application %q has no %q relation", a, relationName)
 }
 
 // AddEndpoints adds the specified endpoints to the remote application.
@@ -538,7 +539,7 @@ func (a *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		return errors.Errorf("model is no longer alive")
 	}
 
-	checkCompatibleEndpoints := func(currentEndpoints []Endpoint) error {
+	checkCompatibleEndpoints := func(currentEndpoints []relation.Endpoint) error {
 		// Ensure there are no current endpoints with the same name as
 		// any of those we want to update.
 		currentEndpointNames := set.NewStrings()

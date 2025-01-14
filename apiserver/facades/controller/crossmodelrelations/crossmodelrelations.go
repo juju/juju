@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/charm"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -233,7 +234,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	}
 
 	// Does the requested local endpoint exist?
-	var localEndpoint *state.Endpoint
+	var localEndpoint *internalrelation.Endpoint
 	for _, v := range eps {
 		ep := v
 		if ep.Name == relation.LocalEndpointName {
@@ -251,7 +252,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	// application being related to, does not need to know the name of the
 	// consuming application.
 	uniqueRemoteApplicationName := "remote-" + strings.Replace(relation.ApplicationToken, "-", "", -1)
-	remoteEndpoint := state.Endpoint{
+	remoteEndpoint := internalrelation.Endpoint{
 		ApplicationName: uniqueRemoteApplicationName,
 		Relation: charm.Relation{
 			Name:      relation.RemoteEndpoint.Name,

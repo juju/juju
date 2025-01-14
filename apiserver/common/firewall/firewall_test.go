@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -72,7 +73,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	db2Relation.ruwApp = "django"
 	// Initial event.
 	db2Relation.ew.changes <- []string{}
-	db2Relation.endpoints = []state.Endpoint{
+	db2Relation.endpoints = []relation.Endpoint{
 		{
 			ApplicationName: "django",
 			Relation: charm.Relation{
@@ -150,7 +151,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *g
 	db2Relation := newMockRelation(123)
 	// Initial event.
 	db2Relation.ew.changes <- []string{}
-	db2Relation.endpoints = []state.Endpoint{
+	db2Relation.endpoints = []relation.Endpoint{
 		{
 			ApplicationName: "db2",
 			Relation: charm.Relation{

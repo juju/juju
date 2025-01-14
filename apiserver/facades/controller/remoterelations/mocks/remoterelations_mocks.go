@@ -16,6 +16,7 @@ import (
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	secrets "github.com/juju/juju/core/secrets"
+	relation "github.com/juju/juju/internal/relation"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
@@ -47,7 +48,7 @@ func (m *MockRemoteRelationsState) EXPECT() *MockRemoteRelationsStateMockRecorde
 }
 
 // AddRelation mocks base method.
-func (m *MockRemoteRelationsState) AddRelation(arg0 ...state.Endpoint) (crossmodel.Relation, error) {
+func (m *MockRemoteRelationsState) AddRelation(arg0 ...relation.Endpoint) (crossmodel.Relation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{}
 	for _, a := range arg0 {
@@ -78,13 +79,13 @@ func (c *MockRemoteRelationsStateAddRelationCall) Return(arg0 crossmodel.Relatio
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsStateAddRelationCall) Do(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateAddRelationCall {
+func (c *MockRemoteRelationsStateAddRelationCall) Do(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsStateAddRelationCall) DoAndReturn(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateAddRelationCall {
+func (c *MockRemoteRelationsStateAddRelationCall) DoAndReturn(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -322,7 +323,7 @@ func (c *MockRemoteRelationsStateControllerTagCall) DoAndReturn(f func() names.C
 }
 
 // EndpointsRelation mocks base method.
-func (m *MockRemoteRelationsState) EndpointsRelation(arg0 ...state.Endpoint) (crossmodel.Relation, error) {
+func (m *MockRemoteRelationsState) EndpointsRelation(arg0 ...relation.Endpoint) (crossmodel.Relation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{}
 	for _, a := range arg0 {
@@ -353,13 +354,13 @@ func (c *MockRemoteRelationsStateEndpointsRelationCall) Return(arg0 crossmodel.R
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsStateEndpointsRelationCall) Do(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateEndpointsRelationCall {
+func (c *MockRemoteRelationsStateEndpointsRelationCall) Do(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateEndpointsRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsStateEndpointsRelationCall) DoAndReturn(f func(...state.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateEndpointsRelationCall {
+func (c *MockRemoteRelationsStateEndpointsRelationCall) DoAndReturn(f func(...relation.Endpoint) (crossmodel.Relation, error)) *MockRemoteRelationsStateEndpointsRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

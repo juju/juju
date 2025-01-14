@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/configschema"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	internalpassword "github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -929,14 +930,14 @@ func (a *Application) CharmURL() (*string, bool) {
 }
 
 // Endpoints returns the application's currently available relation endpoints.
-func (a *Application) Endpoints() (eps []Endpoint, err error) {
+func (a *Application) Endpoints() (eps []relation.Endpoint, err error) {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return nil, err
 	}
 	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
 		for _, rel := range rels {
-			eps = append(eps, Endpoint{
+			eps = append(eps, relation.Endpoint{
 				ApplicationName: a.doc.Name,
 				Relation:        rel,
 			})
@@ -964,17 +965,17 @@ func (a *Application) Endpoints() (eps []Endpoint, err error) {
 }
 
 // Endpoint returns the relation endpoint with the supplied name, if it exists.
-func (a *Application) Endpoint(relationName string) (Endpoint, error) {
+func (a *Application) Endpoint(relationName string) (relation.Endpoint, error) {
 	eps, err := a.Endpoints()
 	if err != nil {
-		return Endpoint{}, err
+		return relation.Endpoint{}, err
 	}
 	for _, ep := range eps {
 		if ep.Name == relationName {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q has no %q relation", a, relationName)
+	return relation.Endpoint{}, errors.Errorf("application %q has no %q relation", a, relationName)
 }
 
 // extraPeerRelations returns only the peer relations in newMeta not

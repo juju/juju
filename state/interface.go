@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -224,10 +225,10 @@ type ApplicationEntity interface {
 	IsRemote() bool
 
 	// Endpoints returns the application's currently available relation endpoints.
-	Endpoints() ([]Endpoint, error)
+	Endpoints() ([]relation.Endpoint, error)
 
 	// Endpoint returns the relation endpoint with the supplied name, if it exists.
-	Endpoint(relationName string) (Endpoint, error)
+	Endpoint(relationName string) (relation.Endpoint, error)
 
 	// Relations returns a Relation for every relation the application is in.
 	Relations() (relations []*Relation, err error)

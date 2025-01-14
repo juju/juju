@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
@@ -97,7 +98,7 @@ func (st stateShim) RemoteApplication(name string) (RemoteApplication, error) {
 	return &remoteApplicationShim{a}, nil
 }
 
-func (st stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
+func (st stateShim) AddRelation(eps ...relation.Endpoint) (Relation, error) {
 	r, err := st.State.AddRelation(eps...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -105,7 +106,7 @@ func (st stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
 	return relationShim{r, st.State}, nil
 }
 
-func (st stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
+func (st stateShim) EndpointsRelation(eps ...relation.Endpoint) (Relation, error) {
 	r, err := st.State.EndpointsRelation(eps...)
 	if err != nil {
 		return nil, errors.Trace(err)
