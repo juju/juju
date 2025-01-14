@@ -85,7 +85,7 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		k8sConfig, err := kubernetes.BuiltInConfig(spec)
+		k8sConfig, err := kubernetes.BuiltInConfig(model.Name(), model.ControllerUUID(), spec)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
