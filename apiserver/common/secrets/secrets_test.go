@@ -81,6 +81,26 @@ var (
 	}
 )
 
+func (s *secretsSuite) TestMarshallLegacyBackendConfig(c *gc.C) {
+	cfg := k8sBackendConfig
+	err := secrets.MarshallLegacyBackendConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, jc.DeepEquals, provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: kubernetes.BackendType,
+			Config: provider.ConfigAttrs{
+				"endpoint":            "http://nowhere",
+				"ca-certs":            []string{"cert-data"},
+				"credential":          `{"auth-type":"oauth2","Attributes":{"Token":"bar"}}`,
+				"is-controller-cloud": false,
+			},
+		},
+	})
+}
+
 func (s *secretsSuite) TestAdminBackendConfigInfoDefaultIAAS(c *gc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "auto",
 		&provider.ModelBackendConfigInfo{

@@ -29,22 +29,36 @@ func Register(registry facade.FacadeRegistry) {
 		return NewSecretManagerAPIV1(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
 	registry.MustRegister("SecretsManager", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return NewSecretManagerAPI(ctx)
+		return NewSecretManagerAPIV2(ctx)
+	}, reflect.TypeOf((*SecretsManagerAPIV2)(nil)))
+	registry.MustRegister("SecretsManager", 3, func(ctx facade.Context) (facade.Facade, error) {
+		return NewSecretManagerAPI(ctx, false)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
 
 // NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
 // TODO - drop when we no longer support juju 3.1.x
 func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error) {
-	api, err := NewSecretManagerAPI(context)
+	api, err := NewSecretManagerAPIV2(context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &SecretsManagerAPIV1{SecretsManagerAPI: api}, nil
+	return &SecretsManagerAPIV1{SecretsManagerAPIV2: api}, nil
+}
+
+// NewSecretManagerAPIV2 creates a SecretsManagerAPIV2.
+func NewSecretManagerAPIV2(context facade.Context) (*SecretsManagerAPIV2, error) {
+	api, err := NewSecretManagerAPI(context, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretsManagerAPIV2{SecretsManagerAPI: api}, nil
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
-func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
+// If compat is true, then we need to be compatible with older callers which expect
+// a k8s backend secret config to contain a serialised cloud credential.
+func NewSecretManagerAPI(context facade.Context, compat bool) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -57,14 +71,41 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	backendConfigMarshaller := func(cfg provider.ModelBackendConfig) error {
+		if !compat {
+			return nil
+		}
+		if err := secrets.MarshallLegacyBackendConfig(cfg); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
 	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
+		result, err := secrets.BackendConfigInfo(secrets.SecretsModel(model), true, backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
+		if !compat || err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, cfg := range result.Configs {
+			if err := secrets.MarshallLegacyBackendConfig(cfg); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return result, errors.Trace(err)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
 	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
+		result, err := secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
+		if !compat || err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, cfg := range result.Configs {
+			if err := secrets.MarshallLegacyBackendConfig(cfg); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return result, errors.Trace(err)
 	}
 	systemState, err := context.StatePool().SystemState()
 	if err != nil {
@@ -98,20 +139,21 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	}
 
 	return &SecretsManagerAPI{
-		authorizer:          context.Auth(),
-		authTag:             context.Auth().GetAuthTag(),
-		leadershipChecker:   leadershipChecker,
-		secretsState:        state.NewSecrets(context.State()),
-		resources:           context.Resources(),
-		secretsTriggers:     context.State(),
-		secretsConsumer:     context.State(),
-		clock:               clock.WallClock,
-		controllerUUID:      context.State().ControllerUUID(),
-		modelUUID:           context.State().ModelUUID(),
-		backendConfigGetter: secretBackendConfigGetter,
-		adminConfigGetter:   secretBackendAdminConfigGetter,
-		drainConfigGetter:   secretBackendDrainConfigGetter,
-		remoteClientGetter:  remoteClientGetter,
-		crossModelState:     context.State().RemoteEntities(),
+		authorizer:              context.Auth(),
+		authTag:                 context.Auth().GetAuthTag(),
+		leadershipChecker:       leadershipChecker,
+		secretsState:            state.NewSecrets(context.State()),
+		resources:               context.Resources(),
+		secretsTriggers:         context.State(),
+		secretsConsumer:         context.State(),
+		clock:                   clock.WallClock,
+		controllerUUID:          context.State().ControllerUUID(),
+		modelUUID:               context.State().ModelUUID(),
+		backendConfigMarshaller: backendConfigMarshaller,
+		backendConfigGetter:     secretBackendConfigGetter,
+		adminConfigGetter:       secretBackendAdminConfigGetter,
+		drainConfigGetter:       secretBackendDrainConfigGetter,
+		remoteClientGetter:      remoteClientGetter,
+		crossModelState:         context.State().RemoteEntities(),
 	}, nil
 }

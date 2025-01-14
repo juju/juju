@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
@@ -335,6 +337,30 @@ func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
 		cred.Attributes(),
 	)
 	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)
+}
+
+// MarshallLegacyBackendConfig returns backend config suitable for
+// older juju agents.
+func MarshallLegacyBackendConfig(cfg provider.ModelBackendConfig) error {
+	if cfg.BackendType != kubernetes.BackendType {
+		return nil
+	}
+	token, ok := cfg.Config["token"].(string)
+	if !ok {
+		return nil
+	}
+	delete(cfg.Config, "token")
+	delete(cfg.Config, "namespace")
+	delete(cfg.Config, "prefer-incluster-address")
+
+	cred := cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{k8scloud.CredAttrToken: token})
+	credData, err := json.Marshal(cred)
+	if err != nil {
+		return errors.Annotatef(err, "error marshalling backend config")
+	}
+	cfg.Config["credential"] = string(credData)
+	cfg.Config["is-controller-cloud"] = false
+	return nil
 }
 
 // BackendFilter is used when listing secret backends.

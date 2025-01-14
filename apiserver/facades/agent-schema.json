@@ -9551,7 +9551,7 @@
     {
         "Name": "SecretsManager",
         "Description": "",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -12356,7 +12356,7 @@
     {
         "Name": "Uniter",
         "Description": "",
-        "Version": 20,
+        "Version": 21,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",

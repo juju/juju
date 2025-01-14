@@ -48,10 +48,11 @@ type SecretsManagerAPI struct {
 	controllerUUID    string
 	modelUUID         string
 
-	backendConfigGetter commonsecrets.BackendConfigGetter
-	adminConfigGetter   commonsecrets.BackendAdminConfigGetter
-	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
-	remoteClientGetter  func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
+	backendConfigGetter     commonsecrets.BackendConfigGetter
+	adminConfigGetter       commonsecrets.BackendAdminConfigGetter
+	drainConfigGetter       commonsecrets.BackendDrainConfigGetter
+	backendConfigMarshaller func(secretsprovider.ModelBackendConfig) error
+	remoteClientGetter      func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
 
 	crossModelState CrossModelState
 }
@@ -59,6 +60,11 @@ type SecretsManagerAPI struct {
 // SecretsManagerAPIV1 the secrets manager facade v1.
 // TODO - drop when we no longer support juju 3.1.0
 type SecretsManagerAPIV1 struct {
+	*SecretsManagerAPIV2
+}
+
+// SecretsManagerAPIV2 the secrets manager facade v2.
+type SecretsManagerAPIV2 struct {
 	*SecretsManagerAPI
 }
 
@@ -536,6 +542,11 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 			consumerInfo.Label = *labelToUpdate
 		}
 		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
+			return nil, nil, false, errors.Trace(err)
+		}
+	}
+	if backend != nil {
+		if err := s.backendConfigMarshaller(*backend); err != nil {
 			return nil, nil, false, errors.Trace(err)
 		}
 	}

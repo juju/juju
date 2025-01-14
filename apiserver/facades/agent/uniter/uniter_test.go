@@ -1938,7 +1938,7 @@ func (s *uniterSuite) TestRelationV19(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 	}}
 
-	api := &uniter.UniterAPIv19{UniterAPI: *s.uniter}
+	api := &uniter.UniterAPIv19{UniterAPIv20: uniter.UniterAPIv20{UniterAPI: *s.uniter}}
 	result, err := api.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
@@ -2007,7 +2007,7 @@ func (s *uniterSuite) TestRelationByIdV19(c *gc.C) {
 		RelationIds: []int{rel.Id()},
 	}
 
-	api := &uniter.UniterAPIv19{UniterAPI: *s.uniter}
+	api := &uniter.UniterAPIv19{UniterAPIv20: uniter.UniterAPIv20{UniterAPI: *s.uniter}}
 	result, err := api.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
@@ -3804,7 +3804,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 
-	api := &uniter.UniterAPIv18{UniterAPIv19: uniter.UniterAPIv19{UniterAPI: *uniterAPI}}
+	api := &uniter.UniterAPIv18{UniterAPIv19: uniter.UniterAPIv19{UniterAPIv20: uniter.UniterAPIv20{UniterAPI: *uniterAPI}}}
 	result, err := api.OpenedApplicationPortRangesByEndpoint(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
