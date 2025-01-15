@@ -46,14 +46,21 @@ type RemoteServerConfig struct {
 
 	// APIInfo is initially populated with the addresses of the target machine.
 	APIInfo *api.Info
+
+	// APIOpener is a function that will open a connection to the target API
+	// server.
+	APIOpener api.OpenFunc
 }
 
 // remoteServer is a worker that provides addresses for the target API server.
 type remoteServer struct {
-	tomb tomb.Tomb
+	internalStates chan string
+	tomb           tomb.Tomb
 
 	target names.Tag
 	info   *api.Info
+
+	apiOpener api.OpenFunc
 
 	logger logger.Logger
 	clock  clock.Clock
@@ -67,12 +74,18 @@ type remoteServer struct {
 // NewRemoteServer creates a new RemoteServer that will connect to the remote
 // apiserver and pass on messages to the pubsub endpoint of that apiserver.
 func NewRemoteServer(config RemoteServerConfig) RemoteServer {
+	return newRemoteServer(config, nil)
+}
+
+func newRemoteServer(config RemoteServerConfig, internalStates chan string) RemoteServer {
 	w := &remoteServer{
-		target:  config.Target,
-		info:    config.APIInfo,
-		logger:  config.Logger,
-		clock:   config.Clock,
-		changes: make(chan []string),
+		target:         config.Target,
+		info:           config.APIInfo,
+		logger:         config.Logger,
+		clock:          config.Clock,
+		apiOpener:      config.APIOpener,
+		changes:        make(chan []string),
+		internalStates: internalStates,
 	}
 	w.tomb.Go(w.loop)
 	return w
@@ -111,10 +124,43 @@ func (w *remoteServer) Wait() error {
 }
 
 func (w *remoteServer) loop() error {
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
+
 	defer w.closeCurrentConnection()
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	// When we receive a new change, we want to be able to cancel the current
+	// connection attempt. The current setup is that it will dial indefinitely
+	// until it has connected. The cancelling of the connection should not
+	// affect the current connection, it should always remain in the same
+	// state.
+	connectCtx, connectCancel := context.WithCancel(ctx)
+	defer connectCancel()
+
+	changes := make(chan []string)
+	w.tomb.Go(func() error {
+		// If the worker is dying, or the original context is cancelled, we
+		// should return immediately.
+		for {
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case <-ctx.Done():
+				return ctx.Err()
+			case change := <-w.changes:
+				// Cancel the current connection attempt and then proxy the
+				// change through to the main loop.
+				connectCancel()
+
+				// We might want to consider only sending a change after a
+				// period of time, to avoid sending too many changes at once.
+				changes <- change
+			}
+		}
+	})
 
 	var (
 		connected bool
@@ -125,7 +171,7 @@ func (w *remoteServer) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 
-		case addresses := <-w.changes:
+		case addresses := <-changes:
 			w.logger.Debugf("addresses for %q have changed: %v", w.target, addresses)
 
 			// If the addresses already exist, we don't need to do anything.
@@ -134,7 +180,7 @@ func (w *remoteServer) loop() error {
 			}
 
 			var err error
-			monitor, err = w.connect(ctx, addresses)
+			monitor, err = w.connect(connectCtx, addresses)
 			if err != nil {
 				return err
 			}
@@ -184,7 +230,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 	var connection api.Connection
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			conn, err := api.Open(ctx, &info, dialOpts)
+			conn, err := w.apiOpener(ctx, &info, dialOpts)
 			if err != nil {
 				return err
 			}
@@ -238,6 +284,14 @@ func (w *remoteServer) closeCurrentConnection() {
 // completed.
 func (w *remoteServer) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.tomb.Context(context.Background()))
+}
+
+func (w *remoteServer) reportInternalState(state string) {
+	select {
+	case <-w.tomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }
 
 var dialOpts = api.DialOpts{

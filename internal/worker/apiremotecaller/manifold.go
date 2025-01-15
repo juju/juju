@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common"
 )
@@ -64,6 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			cfg := WorkerConfig{
 				Hub:       hub,
 				APIInfo:   apiInfo,
+				APIOpener: api.Open,
 				Origin:    agentConfig.Tag(),
 				NewRemote: NewRemoteServer,
 				Logger:    config.Logger,

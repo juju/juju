@@ -66,6 +66,10 @@ func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
+	cfg.APIOpener = nil
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.newConfig(c)
 	cfg.NewRemote = nil
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
@@ -417,8 +421,9 @@ func (s *WorkerSuite) newWorker(c *gc.C) *remoteWorker {
 func (s *WorkerSuite) newConfig(c *gc.C) WorkerConfig {
 
 	return WorkerConfig{
-		Origin:  names.NewMachineTag("0"),
-		APIInfo: &api.Info{},
+		Origin:    names.NewMachineTag("0"),
+		APIInfo:   &api.Info{},
+		APIOpener: api.Open,
 		NewRemote: func(rsc RemoteServerConfig) RemoteServer {
 			target := rsc.Target.String()
 

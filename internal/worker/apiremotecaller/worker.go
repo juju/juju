@@ -34,6 +34,7 @@ type WorkerConfig struct {
 	Logger logger.Logger
 
 	APIInfo   *api.Info
+	APIOpener api.OpenFunc
 	NewRemote func(RemoteServerConfig) RemoteServer
 }
 
@@ -53,6 +54,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.APIInfo == nil {
 		return errors.NotValidf("missing api info")
+	}
+	if c.APIOpener == nil {
+		return errors.NotValidf("missing api opener")
 	}
 	if c.NewRemote == nil {
 		return errors.NotValidf("missing new remote")
@@ -290,10 +294,11 @@ func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (Re
 	err := w.runner.StartWorker(target.String(), func() (worker.Worker, error) {
 		w.cfg.Logger.Debugf("starting remote worker for %q", target)
 		return w.cfg.NewRemote(RemoteServerConfig{
-			Clock:   w.cfg.Clock,
-			Logger:  w.cfg.Logger,
-			Target:  target,
-			APIInfo: &apiInfo,
+			Clock:     w.cfg.Clock,
+			Logger:    w.cfg.Logger,
+			Target:    target,
+			APIInfo:   &apiInfo,
+			APIOpener: w.cfg.APIOpener,
 		}), nil
 	})
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
