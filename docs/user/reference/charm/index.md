@@ -206,7 +206,7 @@ A **charm revision** is a number that uniquely identifies the version of the cha
 The revision increases with every new version of the charm being uploaded to Charmhub. This can lead to situations of mismatch between the semantic version of a charm and its revision number. That is, whether the changes are for a semantically newer or older version, the revision number always goes up.
 ```
 
-A revision only becomes available for consumption once it's been released into a {ref}`channel <channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`.
+A revision only becomes available for consumption once it's been released into a {ref}`channel <channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
 
 (charm-channel)=
 ### Charm channel

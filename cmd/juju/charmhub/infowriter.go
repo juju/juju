@@ -23,7 +23,7 @@ import (
 // There are exceptions, slices of strings and tables.  These
 // are transformed into strings.
 
-func makeInfoWriter(w io.Writer, warningLog Log, config bool, unicodeMode string, baseMode baseMode, in *InfoResponse) Printer {
+func makeInfoWriter(w io.Writer, warningLog Log, config bool, unicodeMode string, baseMode baseMode, in *InfoResponse, revision int) Printer {
 	iw := infoWriter{
 		w:             w,
 		warningf:      warningLog,
@@ -31,6 +31,7 @@ func makeInfoWriter(w io.Writer, warningLog Log, config bool, unicodeMode string
 		displayConfig: config,
 		unicodeMode:   unicodeMode,
 		baseMode:      baseMode,
+		hasRevision:   revision != -1,
 	}
 	if iw.in.Type == "charm" {
 		return charmInfoWriter{infoWriter: iw}
@@ -45,6 +46,7 @@ type infoWriter struct {
 	displayConfig bool
 	unicodeMode   string
 	baseMode      baseMode
+	hasRevision   bool
 }
 
 type baseMode int
@@ -83,7 +85,7 @@ func (iw infoWriter) channels() string {
 			if !ok {
 				w.Printf("%s/%s:", track, risk)
 				c := UnicodeDash // dash means no revision available
-				if shown {
+				if shown && !iw.hasRevision {
 					c = UnicodeUpArrow // points up to revision on previous line
 				}
 				_, _ = w.PrintlnUnicode(c)
