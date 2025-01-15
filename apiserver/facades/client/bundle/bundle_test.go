@@ -439,7 +439,6 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, gc.NotNil)
@@ -523,8 +522,6 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -575,8 +572,6 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
-
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -634,8 +629,6 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -682,8 +675,6 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
-
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -749,8 +740,6 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	app2 := s.st.model.AddApplication(app2Args)
 	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
-
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -901,8 +890,6 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
 
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1032,8 +1019,6 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1144,9 +1129,7 @@ func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) descr
 func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-
-	model := s.newModel("iaas", "wordpress", "mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
+	s.newModel("iaas", "wordpress", "mysql")
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -1186,7 +1169,6 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	s.facade = s.makeAPI(c)
 
 	model := s.newModel("iaas", "wordpress", "mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
 	app := model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mariadb"),
 		CharmURL: "ch:mariadb",
@@ -1291,7 +1273,6 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	s.facade = s.makeAPI(c)
 
 	model := s.newModel("iaas", "wordpress", "mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	// Add a subordinate relations between logging and both wordpress and mysql.
 	rel := model.AddRelation(description.RelationArgs{
@@ -1576,8 +1557,6 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	s.addMinimalMachineWithConstraints(model, "0")
 	s.addMinimalMachineWithConstraints(model, "1")
 
-	model.SetStatus(description.StatusArgs{Value: "available"})
-
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1635,8 +1614,6 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 
 	s.addMinimalMachineWithAnnotations(model, "0")
 	s.addMinimalMachineWithAnnotations(model, "1")
-
-	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -1895,9 +1872,7 @@ machines:
 func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-
-	model := s.newModel("caas", "wordpress", "mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
+	s.newModel("caas", "wordpress", "mysql")
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -1925,9 +1900,7 @@ relations:
 func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-
-	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
+	s.newModel("iaas", "ch:wordpress", "ch:mysql")
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -1965,9 +1938,7 @@ relations:
 func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-
-	model := s.newModel("iaas", "local:wordpress", "local:mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
+	s.newModel("iaas", "local:wordpress", "local:mysql")
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
@@ -2003,9 +1974,7 @@ relations:
 func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-
-	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
-	model.SetStatus(description.StatusArgs{Value: "available"})
+	s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 
 	s.assertGetSpaces(c)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
