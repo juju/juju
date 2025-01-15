@@ -120,7 +120,8 @@ WHEN
 	NEW.source_id != OLD.source_id OR
 	NEW.revision != OLD.revision OR
 	(NEW.architecture_id != OLD.architecture_id OR (NEW.architecture_id IS NOT NULL AND OLD.architecture_id IS NULL) OR (NEW.architecture_id IS NULL AND OLD.architecture_id IS NOT NULL)) OR
-	NEW.reference_name != OLD.reference_name 
+	NEW.reference_name != OLD.reference_name OR
+	NEW.create_time != OLD.create_time 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
