@@ -34,7 +34,7 @@ apps:
   juju:
     environment:
       # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
-      PATH: "$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
+      PATH: "$SNAP/watch/bin:$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
     command: bin/juju
     plugs:
       - network

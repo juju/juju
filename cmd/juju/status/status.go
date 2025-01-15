@@ -413,15 +413,15 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		// Collect all args except the watch flag
 		jujuStatusArgs := c.statusCommandForWatch(os.Args)
 
-		// Check is  `viddy` shell command available, if not thought the error. In case strictly confined juju snap
-		// viddy installed as a `part`.
+		// Check is `viddy` shell command available, if not thought the error. In case strictly confined juju snap
+		// juju-watch is installed.
 		var watchArgs []string
 		var watchableJujuCmd *exec.Cmd
 		if _, err := exec.LookPath("viddy"); err == nil {
 			watchArgs = append([]string{"--no-title", "--interval", c.watch.String()}, jujuStatusArgs...)
 			watchableJujuCmd = exec.Command("viddy", watchArgs...)
 		} else {
-			return errors.Annotate(err, "`viddy` (watch-command) is not available")
+			return errors.Annotate(err, "there is no viddy (watch) command available")
 		}
 		watchableJujuCmd.Stdout = os.Stdout
 		watchableJujuCmd.Stderr = os.Stderr
