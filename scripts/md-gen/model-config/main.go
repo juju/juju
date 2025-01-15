@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 // Generate Markdown documentation based on the contents of the
@@ -125,7 +125,7 @@ func fillFromSchema() map[string]*keyInfo {
 			}
 		}
 
-		if attr.Group == environschema.JujuGroup {
+		if attr.Group == configschema.JujuGroup {
 			data[key].SetByJuju = true
 		}
 
