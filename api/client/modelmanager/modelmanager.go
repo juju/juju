@@ -57,6 +57,7 @@ func (c *Client) CreateModel(
 	name, owner, cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
+	environVersion int,
 ) (base.ModelInfo, error) {
 	var result base.ModelInfo
 	if !names.IsValidUser(owner) {
@@ -80,6 +81,7 @@ func (c *Client) CreateModel(
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
+		EnvironVersion:     environVersion,
 	}
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall(ctx, "CreateModel", createArgs, &modelInfo)

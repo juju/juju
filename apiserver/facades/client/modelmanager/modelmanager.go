@@ -451,7 +451,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	args.EnvironVersion = 6
 	// createModelNew represents the logic needed for moving to DQlite. It is in
 	// a half finished state at the moment for the purpose of removing the model
 	// manager service. This check will go in the very near future.

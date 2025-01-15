@@ -37,7 +37,7 @@ func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(context.Background(), "mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel(context.Background(), "mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil, 0)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
@@ -46,7 +46,7 @@ func (s *modelmanagerSuite) TestCreateModelBadCloud(c *gc.C) {
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(context.Background(), "mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel(context.Background(), "mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil, 0)
 	c.Assert(err, gc.ErrorMatches, `invalid cloud name "123!"`)
 }
 
@@ -86,6 +86,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 		"catbus",
 		names.CloudCredentialTag{},
 		map[string]interface{}{"abc": 123},
+		0,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
