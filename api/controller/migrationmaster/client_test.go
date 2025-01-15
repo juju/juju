@@ -208,7 +208,6 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *gc.C) {
 	modelDescription := description.NewModel(description.ModelArgs{
 		Config: make(map[string]interface{}),
 	})
-	modelDescription.SetStatus(description.StatusArgs{})
 	serialized, err := description.Serialize(modelDescription)
 	c.Assert(err, jc.ErrorIsNil)
 

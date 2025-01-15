@@ -137,9 +137,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-	if err := export.modelStatus(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -243,16 +240,6 @@ func (e *exporter) sequences() error {
 	for name, value := range sequences {
 		e.model.SetSequence(name, value)
 	}
-	return nil
-}
-
-func (e *exporter) modelStatus() error {
-	statusArgs, err := e.statusArgs(modelGlobalKey)
-	if err != nil {
-		return errors.Annotatef(err, "status for model")
-	}
-
-	e.model.SetStatus(statusArgs)
 	return nil
 }
 
