@@ -11142,6 +11142,9 @@
                         "credential": {
                             "type": "string"
                         },
+                        "environ-version": {
+                            "type": "integer"
+                        },
                         "name": {
                             "type": "string"
                         },

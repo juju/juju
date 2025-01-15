@@ -150,6 +150,10 @@ type ModelCreateArgs struct {
 	// and the owner is the controller owner, the same credential
 	// used for the controller model will be used.
 	CloudCredentialTag string `json:"credential,omitempty"`
+
+	// EnvironVersion is the version of the model's environ -- the related
+	// cloud provider resources.
+	EnvironVersion int `json:"environ-version,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID

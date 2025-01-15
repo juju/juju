@@ -103,6 +103,7 @@ func (s *ModelService) CreateModel(
 		CloudRegion:     m.CloudRegion,
 		CredentialOwner: m.Credential.Owner,
 		CredentialName:  m.Credential.Name,
+		EnvironVersion:  m.EnvironVersion,
 	}
 
 	return s.modelSt.Create(ctx, args)

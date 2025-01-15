@@ -606,12 +606,13 @@ func createModel(
 	}
 
 	model := dbInitialModel{
-		UUID:      modelUUID.String(),
-		CloudUUID: cloudUUID.UUID,
-		ModelType: modelType.String(),
-		LifeID:    int(life.Alive),
-		Name:      input.Name,
-		OwnerUUID: input.Owner.String(),
+		UUID:           modelUUID.String(),
+		CloudUUID:      cloudUUID.UUID,
+		ModelType:      modelType.String(),
+		LifeID:         int(life.Alive),
+		Name:           input.Name,
+		OwnerUUID:      input.Owner.String(),
+		EnvironVersion: input.EnvironVersion,
 	}
 
 	stmt, err := preparer.Prepare(`
@@ -620,13 +621,15 @@ func createModel(
 		            model_type_id,
 		            life_id,
 		            name,
-		            owner_uuid)
+		            owner_uuid,
+					environ_version)
 		SELECT  $dbInitialModel.uuid, 
 				$dbInitialModel.cloud_uuid, 
 				model_type.id, 
 				$dbInitialModel.life_id, 
 				$dbInitialModel.name,
-				$dbInitialModel.owner_uuid
+				$dbInitialModel.owner_uuid,
+				$dbInitialModel.environ_version
 		FROM model_type
 		WHERE model_type.type = $dbInitialModel.model_type
 		`, model)

@@ -37,6 +37,7 @@ CREATE TABLE model (
     life_id INT NOT NULL,
     name TEXT NOT NULL,
     owner_uuid TEXT NOT NULL,
+    environ_version INT NOT NULL,
     CONSTRAINT fk_model_cloud
     FOREIGN KEY (cloud_uuid)
     REFERENCES cloud (uuid),
@@ -84,6 +85,7 @@ SELECT
     mt.type AS model_type,
     m.name,
     m.owner_uuid,
+    m.environ_version AS environ_version,
     o.name AS owner_name,
     l.value AS life,
     ma.target_version AS target_agent_version

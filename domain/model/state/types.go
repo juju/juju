@@ -61,6 +61,8 @@ type dbModel struct {
 
 	// OwnerName is the name of the model owner in the Juju controller.
 	OwnerName string `db:"owner_name"`
+
+	EnvironVersion int `db:"environ_version"`
 }
 
 func (m *dbModel) toCoreModel() (coremodel.Model, error) {
@@ -109,8 +111,9 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 			Cloud: credentialCloudName,
 			Owner: credOwnerName,
 		},
-		Owner:     user.UUID(m.OwnerUUID),
-		OwnerName: ownerName,
+		Owner:          user.UUID(m.OwnerUUID),
+		OwnerName:      ownerName,
+		EnvironVersion: m.EnvironVersion,
 	}, nil
 }
 
@@ -134,6 +137,8 @@ type dbInitialModel struct {
 
 	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
 	OwnerUUID string `db:"owner_uuid"`
+
+	EnvironVersion int `db:"environ_version"`
 }
 
 type dbNames struct {
@@ -320,6 +325,7 @@ type dbReadOnlyModel struct {
 	CredentialOwner    string         `db:"credential_owner"`
 	CredentialName     string         `db:"credential_name"`
 	IsControllerModel  bool           `db:"is_controller_model"`
+	EnvironVersion     int            `db:"environ_version"`
 }
 
 type dbModelMetrics struct {

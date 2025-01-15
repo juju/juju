@@ -266,6 +266,7 @@ FROM model
 		CredentialOwner:    args.CredentialOwner.Name(),
 		CredentialName:     args.CredentialName,
 		IsControllerModel:  args.IsControllerModel,
+		EnvironVersion:     args.EnvironVersion,
 	}
 
 	insertStmt, err := preparer.Prepare(`

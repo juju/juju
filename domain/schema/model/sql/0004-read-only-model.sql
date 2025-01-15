@@ -16,7 +16,8 @@ CREATE TABLE model (
     cloud_region TEXT,
     credential_owner TEXT,
     credential_name TEXT,
-    is_controller_model BOOLEAN DEFAULT FALSE
+    is_controller_model BOOLEAN DEFAULT FALSE,
+    environ_version INT DEFAULT 0
 );
 
 -- A unique constraint over a constant index ensures only 1 entry matching the

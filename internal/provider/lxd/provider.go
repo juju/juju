@@ -141,7 +141,7 @@ func NewProvider() environs.CloudEnvironProvider {
 
 // Version is part of the EnvironProvider interface.
 func (*environProvider) Version() int {
-	return 0
+	return 4
 }
 
 // Open implements environs.EnvironProvider.
