@@ -229,6 +229,12 @@ type CharmLocator struct {
 	Architecture architecture.Architecture
 }
 
+// IsZero returns true if the charm locator is zero.
+func (c CharmLocator) IsZero() bool {
+	// It should be enough to check the name and the source is empty.
+	return c.Name == "" && c.Source == ""
+}
+
 // Provenance represents the provenance of a charm download. Ideally this would
 // be called origin, but that's already used for an origin of a charm.
 type Provenance string

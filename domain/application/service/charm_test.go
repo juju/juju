@@ -1707,6 +1707,51 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expected, nil)
+
+	result, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "foo", arch.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, expected)
+}
+
+func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "!!!foo", arch.AMD64)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
+}
+
+func (s *charmServiceSuite) TestGetCharmLocatorByCharmID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	locator := charm.CharmLocator{
+		Name:         "foo",
+		Revision:     1,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+
+	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(locator, nil)
+
+	result, err := s.service.GetCharmLocatorByCharmID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, locator)
+}
+
+func (s *charmServiceSuite) TestGetCharmLocatorByCharmIDInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmLocatorByCharmID(context.Background(), "!!!id")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 type watchableServiceSuite struct {
 	baseSuite
 

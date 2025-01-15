@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -3342,11 +3343,159 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *gc.C) {
 	c.Check(available, gc.Equals, true)
 }
 
+func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetLatestPendingCharmhubCharm(context.Background(), "foo", architecture.AMD64)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(latest, gc.DeepEquals, id)
+}
+
+func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmForAnotherArch(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.ARM64)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	// Revision doesn't matter here, we only care about the latest insertion
+	// time.
+
+	id0 := charmtesting.GenCharmID(c)
+	uuid0 := id0.String()
+
+	id1 := charmtesting.GenCharmID(c)
+	uuid1 := id1.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmStateWithRevision(ctx, c, tx, uuid0, 2); err != nil {
+			return errors.Trace(err)
+		}
+		if err := insertCharmStateWithRevision(ctx, c, tx, uuid1, 1); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(latest, gc.DeepEquals, id1)
+}
+
+func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplication(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	// Ensure it's not already assigned to an application.
+
+	appUUID := utils.MustNewUUID().String()
+
+	id0 := charmtesting.GenCharmID(c)
+	uuid0 := id0.String()
+
+	id1 := charmtesting.GenCharmID(c)
+	uuid1 := id1.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmStateWithRevision(ctx, c, tx, uuid0, 2); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := insertCharmStateWithRevision(ctx, c, tx, uuid1, 1); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := insertMinimalApplication(ctx, c, tx, appUUID, uuid1); err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(latest, gc.DeepEquals, id0)
+}
+
+func (s *charmStateSuite) TestGetCharmLocatorNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmLocatorByCharmID(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetCharmLocator(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(latest, gc.DeepEquals, id)
+
+	locator, err := st.GetCharmLocatorByCharmID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(locator, gc.DeepEquals, charm.CharmLocator{
+		Name:         "ubuntu",
+		Source:       charm.CharmHubSource,
+		Revision:     42,
+		Architecture: architecture.AMD64,
+	})
+}
+
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
+	return insertCharmStateWithRevision(ctx, c, tx, uuid, 42)
+}
+
+func insertCharmStateWithRevision(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string, revision int) error {
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, archive_path, available, reference_name, revision, version, architecture_id) 
-VALUES (?, 'archive', false, 'ubuntu', 42, 'deadbeef', 0)
-`, uuid)
+VALUES (?, 'archive', false, 'ubuntu', ?, 'deadbeef', 0)
+`, uuid, revision)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3404,6 +3553,17 @@ func insertAdditionalHashKindForCharm(ctx context.Context, c *gc.C, tx *sql.Tx, 
 	_, err = tx.ExecContext(ctx, `INSERT INTO charm_hash (charm_uuid, hash_kind_id, hash) VALUES (?, ?, ?)`, charmId, kindId, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
+	return nil
+}
+
+func insertMinimalApplication(ctx context.Context, c *gc.C, tx *sql.Tx, uuid, charm_uuid string) error {
+	_, err := tx.ExecContext(ctx, `
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
+VALUES (?, ?, 'ubuntu', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');
+`, uuid, charm_uuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

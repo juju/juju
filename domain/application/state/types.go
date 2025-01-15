@@ -230,6 +230,11 @@ type setCharmHash struct {
 	Hash       string `db:"hash"`
 }
 
+type charmNameAndArchitecture struct {
+	Name           string `db:"name"`
+	ArchitectureID int    `db:"architecture_id"`
+}
+
 type charmState struct {
 	ReferenceName   string         `db:"reference_name"`
 	Revision        int            `db:"revision"`
