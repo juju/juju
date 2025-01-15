@@ -708,7 +708,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
 	retrievedByType := resource.Application
-	err := s.state.RecordStoredResource(
+	droppedStoreID, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -721,6 +721,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(droppedStoreID, gc.Equals, store.ID{})
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -762,7 +763,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
 	retrievedByType := resource.Unit
-	err := s.state.RecordStoredResource(
+	droppedStoreID, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -775,6 +776,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(droppedStoreID, gc.Equals, store.ID{})
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -818,7 +820,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource and increment the CMV.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID,
@@ -833,7 +835,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 
 	foundCharmModifiedVersion1 := s.getCharmModifiedVersion(c, resID.String())
 
-	err = s.state.RecordStoredResource(
+	_, err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID2,
@@ -862,7 +864,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -882,69 +884,119 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
 	resID, storeID1, size, hash := s.createContainerImageResourceAndBlob(c)
-
-	storageKey2 := "storage-key-2"
-	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
-	err := s.addContainerImage(storageKey2)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
+	retrievedBy1 := "ubuntu/0"
+	retrievedByType1 := resource.Unit
 
 	// Arrange: store the first resource.
-	err = s.state.RecordStoredResource(
+	droppedStoreID1, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
-			ResourceUUID: resID,
-			StorageID:    storeID1,
-			ResourceType: charmresource.TypeContainerImage,
-			SHA384:       hash,
-			Size:         size,
+			ResourceUUID:    resID,
+			StorageID:       storeID1,
+			ResourceType:    charmresource.TypeContainerImage,
+			SHA384:          hash,
+			Size:            size,
+			RetrievedBy:     retrievedBy1,
+			RetrievedByType: retrievedByType1,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Check(droppedStoreID1, gc.Equals, store.ID{})
+
+	storageKey2 := "storage-key-2"
+	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
+	retrievedBy2 := "user-name"
+	retrievedByType2 := resource.User
+	err = s.addContainerImage(storageKey2)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
-	err = s.state.RecordStoredResource(
+	droppedStoreID2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
-			ResourceUUID: resID,
-			StorageID:    storeID2,
-			ResourceType: charmresource.TypeContainerImage,
-			SHA384:       hash,
-			Size:         size,
+			ResourceUUID:    resID,
+			StorageID:       storeID2,
+			ResourceType:    charmresource.TypeContainerImage,
+			SHA384:          hash,
+			Size:            size,
+			RetrievedBy:     retrievedBy2,
+			RetrievedByType: retrievedByType2,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceAlreadyStored)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(droppedStoreID2, gc.Equals, storeID1)
+	// Assert: Check that the resource has been linked to the stored blob
+	var foundStoreUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT store_storage_key FROM resource_image_store
+WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
+	storeID, err := storeID2.ContainerImageMetadataStoreID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(foundStoreUUID, gc.Equals, storeID)
+
+	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
+	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
+	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
 }
 
 func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource.
 	resID, storeID1, _, _ := s.createFileResourceAndBlob(c)
-
-	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
-	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
-	err := s.addObjectStoreBlobMetadata(objectStoreUUID2)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
+	retrievedBy1 := "ubuntu/0"
+	retrievedByType1 := resource.Unit
 
 	// Arrange: store the first resource.
-	err = s.state.RecordStoredResource(
+	droppedStoreID, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
-			ResourceUUID: resID,
-			StorageID:    storeID1,
-			ResourceType: charmresource.TypeFile,
+			ResourceUUID:    resID,
+			StorageID:       storeID1,
+			ResourceType:    charmresource.TypeFile,
+			RetrievedBy:     retrievedBy1,
+			RetrievedByType: retrievedByType1,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(droppedStoreID, gc.Equals, store.ID{})
+
+	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
+	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
+	retrievedBy2 := "ubuntu/0"
+	retrievedByType2 := resource.Unit
+	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
-	err = s.state.RecordStoredResource(
+	droppedStoreID2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
-			ResourceUUID: resID,
-			StorageID:    storeID2,
-			ResourceType: charmresource.TypeFile,
+			ResourceUUID:    resID,
+			StorageID:       storeID2,
+			ResourceType:    charmresource.TypeFile,
+			RetrievedBy:     retrievedBy2,
+			RetrievedByType: retrievedByType2,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceAlreadyStored)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(droppedStoreID2, gc.Equals, storeID1)
+	// Assert: Check that the resource has been linked to the stored blob
+	var foundStoreUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT store_uuid FROM resource_file_store
+WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
+	objectStoreUUID, err := storeID2.ObjectStoreUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(foundStoreUUID, gc.Equals, objectStoreUUID.String())
+
+	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
+	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
+	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
 }
 
 func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObjectStore(c *gc.C) {
@@ -956,7 +1008,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 
 	// Act: try and store the resource.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -973,7 +1025,7 @@ func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotF
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, "bad-storage-key")
 
 	// Act: try and store the resource.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1674,8 +1726,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err := s.addObjectStoreBlobMetadata(objectStoreUUID)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
-
-	return s.state.RecordStoredResource(
+	_, err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resourceUUID,
@@ -1685,6 +1736,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 			RetrievedByType: retrievedByType,
 		},
 	)
+	return err
 }
 
 func (s *resourceSuite) getRetrievedByType(c *gc.C, resourceUUID coreresource.UUID) (retrievedBy string, retrievedByType resource.RetrievedByType) {

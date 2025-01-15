@@ -52,8 +52,6 @@ type State interface {
 	// The following error types can be expected to be returned:
 	// - [resourceerrors.StoredResourceNotFound] if the stored resource at the
 	//   storageID cannot be found.
-	// - [resourceerrors.ResourceAlreadyStored] if the resource is already
-	//   associated with a stored resource blob.
 	RecordStoredResource(ctx context.Context, args resource.RecordStoredResourceArgs) error
 
 	// SetUnitResource sets the resource metadata for a specific unit.
@@ -209,8 +207,6 @@ func (s *Service) GetResource(
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
 //     found.
-//   - [resourceerrors.ResourceAlreadyStored] if the resource is already
-//     associated with a stored resource blob.
 //   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
 //     invalid.
 func (s *Service) StoreResource(
@@ -228,8 +224,6 @@ func (s *Service) StoreResource(
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
 //     found.
-//   - [resourceerrors.ResourceAlreadyStored] if the resource is already
-//     associated with a stored resource blob.
 //   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
 //     invalid.
 func (s *Service) StoreResourceAndIncrementCharmModifiedVersion(
