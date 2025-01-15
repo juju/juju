@@ -130,7 +130,7 @@ The `kubernetes` backend supports the following configuration keys:
 | `client-key`| An unencrypted, PEM-encoded client private key. This comes from base64 decoding the user's `client-key-data` value in the kubeconfig file.|
 | `endpoint`||
 | `namespace`| The namespace to use store the secrets. The namespace must already exist (it is not created).|
-| `service-account`| The service account for the access token refresh (optional). Defaults to the "default" service account for the namespace.|
+| `service-account`| The service account for the access token refresh.|
 | `skip-tls-verify`| Do not verify the TLS certificate. For testing only.|
 | `token`| The Kuberneres authentication token (can be generated using `kubectl create token ${service-account} --namespace ${namespace}`.|
 | `username`| The Kuberneres authentication username.|
@@ -138,6 +138,7 @@ The `kubernetes` backend supports the following configuration keys:
 
 A minimum configuration must include the `endpoint`, `namespace`, and `ca-cert`.
 In most cases, `token` would also be specified for authentication.
+If the token is to expire and needs to be rotated, the token's service account must be specified so a new token can be created.
 
 The service account used to generate the access token must have been configured with a cluster role binding to allow the necessary access privileges. 
 The following is an example of how this might be done:

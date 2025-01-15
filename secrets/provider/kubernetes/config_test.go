@@ -4,6 +4,8 @@
 package kubernetes
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,10 +24,12 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	configValidator, ok := p.(provider.ProviderConfig)
 	c.Assert(ok, jc.IsTrue)
+	rotateInterval := time.Hour
 	for _, t := range []struct {
-		cfg    map[string]interface{}
-		oldCfg map[string]interface{}
-		err    string
+		cfg                 map[string]interface{}
+		oldCfg              map[string]interface{}
+		tokenRotateInterval *time.Duration
+		err                 string
 	}{{
 		cfg: map[string]interface{}{"namespace": "foo"},
 		err: "endpoint: expected string, got nothing",
@@ -42,14 +46,12 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	}, {
 		cfg: map[string]interface{}{"endpoint": "newep", "namespace": "foo", "client-key": "aaa"},
 		err: `k8s config missing client certificate not valid`,
+	}, {
+		cfg:                 map[string]interface{}{"endpoint": "newep", "namespace": "foo"},
+		tokenRotateInterval: &rotateInterval,
+		err:                 `k8s config missing service account not valid`,
 	}} {
-		err = configValidator.ValidateConfig(t.oldCfg, t.cfg)
+		err = configValidator.ValidateConfig(t.oldCfg, t.cfg, t.tokenRotateInterval)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
-}
-
-func (s *configSuite) TestDefaultServiceAccount(c *gc.C) {
-	cfg, err := newConfig(map[string]interface{}{"endpoint": "newep", "namespace": "foo"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.serviceAccount(), gc.Equals, "default")
 }

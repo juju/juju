@@ -6,6 +6,7 @@ package kubernetes
 import (
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -46,7 +47,6 @@ var configSchema = environschema.Fields{
 	serviceAccountKey: {
 		Description: "The k8s access token service account.",
 		Type:        environschema.Tstring,
-		Mandatory:   true,
 	},
 	caCertsKey: {
 		Description: "The k8s CA certificate(s).",
@@ -92,7 +92,7 @@ var configSchema = environschema.Fields{
 var configDefaults = schema.Defaults{
 	usernameKey:               schema.Omit,
 	passwordKey:               schema.Omit,
-	serviceAccountKey:         "default",
+	serviceAccountKey:         schema.Omit,
 	tokenKey:                  schema.Omit,
 	caCertsKey:                schema.Omit,
 	caCertKey:                 schema.Omit,
@@ -187,7 +187,7 @@ func (p k8sProvider) ConfigDefaults() schema.Defaults {
 }
 
 // ValidateConfig implements SecretBackendProvider.
-func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
+func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs, tokenRotateInterval *time.Duration) error {
 	newValidCfg, err := newConfig(newCfg)
 	if err != nil {
 		return errors.Trace(err)
@@ -204,6 +204,11 @@ func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
 	}
 	if clientCert == "" && clientKey != "" {
 		return errors.NotValidf("k8s config missing client certificate")
+	}
+
+	serviceAccount := newValidCfg.serviceAccount()
+	if tokenRotateInterval != nil && serviceAccount == "" {
+		return errors.NotValidf("k8s config missing service account")
 	}
 
 	if oldCfg == nil {

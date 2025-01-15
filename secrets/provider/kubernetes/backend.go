@@ -39,9 +39,11 @@ func (k *k8sBackend) Ping() (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "checking secrets namespace")
 	}
-	_, err = k.client.CoreV1().ServiceAccounts(k.namespace).Get(context.Background(), k.serviceAccount, v1.GetOptions{})
-	if err != nil {
-		return errors.Annotatef(err, "checking secrets service account")
+	if k.serviceAccount != "" {
+		_, err = k.client.CoreV1().ServiceAccounts(k.namespace).Get(context.Background(), k.serviceAccount, v1.GetOptions{})
+		if err != nil {
+			return errors.Annotatef(err, "checking secrets service account")
+		}
 	}
 	return nil
 }

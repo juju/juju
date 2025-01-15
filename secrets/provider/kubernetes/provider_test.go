@@ -745,13 +745,17 @@ func (s *providerSuite) TestRefreshAuth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	r, ok := p.(provider.SupportAuthRefresh)
 	c.Assert(ok, jc.IsTrue)
+
+	cfg := s.backendConfig()
+	cfg.Config["service-account"] = "default"
+
 	validFor := time.Hour
-	cfg, err := r.RefreshAuth(&provider.ModelBackendConfig{
+	newCfg, err := r.RefreshAuth(&provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
-		BackendConfig:  s.backendConfig(),
+		BackendConfig:  cfg,
 	}, validFor)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["token"], gc.Equals, "token2")
+	c.Assert(newCfg.Config["token"], gc.Equals, "token2")
 }
