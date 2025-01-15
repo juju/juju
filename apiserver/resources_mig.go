@@ -8,16 +8,42 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/objectstore"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/resource"
+	coreunit "github.com/juju/juju/core/unit"
+	domainresource "github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
+
+// ResourceService defines operations related to managing application resources.
+type ResourceService interface {
+	// GetApplicationResourceID returns the ID of the application resource
+	// specified by natural key of application and resource name.
+	GetApplicationResourceID(ctx context.Context, args domainresource.GetApplicationResourceIDArgs) (resource.UUID, error)
+
+	// SetUnitResource sets the resource metadata for a specific unit.
+	SetUnitResource(ctx context.Context, resourceUUID resource.UUID, unitUUID coreunit.UUID) error
+
+	// StoreResource adds the application resource to blob storage and updates
+	// the metadata. It also sets the retrival information for the resource.
+	StoreResource(ctx context.Context, args domainresource.StoreResourceArgs) error
+
+	// GetResource returns the identified application resource.
+	GetResource(ctx context.Context, resourceUUID resource.UUID) (domainresource.Resource, error)
+}
+
+// ResourceServiceGetter is an interface for retrieving a ResourceService
+// instance.
+type ResourceServiceGetter interface {
+	// Resource retrieves a ResourceService for handling resource-related
+	// operations.
+	Resource(*http.Request) (ResourceService, error)
+}
 
 // Resources represents the methods required to migrate a
 // resource blob.
@@ -28,169 +54,186 @@ type Resources interface {
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
-	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
-	objectStore   func(context.Context) (objectstore.ObjectStore, error)
+	resourceServiceGetter    ResourceServiceGetter
+	applicationServiceGetter ApplicationServiceGetter
 }
 
+// ServeHTTP handles HTTP requests by delegating to ServePost for POST requests
+// or returning a method not allowed error for others.
 func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Validate before authenticate because the authentication is dependent
-	// on the state connection that is determined during the validation.
-	st, err := h.stateAuthFunc(r)
-	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
-		}
-		return
-	}
-	defer st.Release()
-
-	store, err := h.objectStore(r.Context())
-	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
-		}
-		return
-	}
-
+	var err error
 	switch r.Method {
 	case "POST":
-		res, err := h.processPost(r, st.State, store)
-		if err != nil {
-			if err := sendError(w, err); err != nil {
-				logger.Errorf("%v", err)
-			}
-			return
-		}
-		if err := sendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
-			ID:        res.ID,
-			Timestamp: res.Timestamp,
-		}); err != nil {
-			logger.Errorf("%v", err)
-		}
+		err = internalerrors.Capture(h.servePost(w, r))
 	default:
-		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf("%v", err)
+		err = errors.MethodNotAllowedf("method not allowed: %s", r.Method)
+	}
+	if err != nil {
+		if err := sendError(w, internalerrors.Capture(err)); err != nil {
+			logger.Errorf("cannot return error to user: %v", err)
 		}
 	}
+}
+
+// ServePost handles the POST request for resource uploads, including
+// validation, authentication, processing, and response.
+func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *http.Request) error {
+	// todo(gfouillet): This call should be authenticated. When model domain will
+	//  provide authentication checks, we will need to ensure here that
+	//  the request has been authenticated, and that the targeted model is in
+	//  `importing` state.
+
+	resourceService, err := h.resourceServiceGetter.Resource(r)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	applicationService, err := h.applicationServiceGetter.Application(r)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	res, err := h.processPost(r, resourceService, applicationService)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+	return sendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
+		ID:        res.UUID.String(),
+		Timestamp: res.Timestamp,
+	})
 }
 
 // processPost handles resources upload POST request after
 // authentication.
-func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State, store objectstore.ObjectStore) (resource.Resource, error) {
-	var empty resource.Resource
+func (h *resourcesMigrationUploadHandler) processPost(
+	r *http.Request,
+	resourceService ResourceService,
+	applicationService ApplicationService,
+) (domainresource.Resource, error) {
+	var empty domainresource.Resource
+	ctx := r.Context()
 	query := r.URL.Query()
 
-	target, isUnit, err := getUploadTarget(query)
+	userID := query.Get("user") // Is allowed to be blank.
+
+	// Get the target of the upload, which is an application with or without
+	// unit.
+	target, err := getUploadTarget(ctx, applicationService, query)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, internalerrors.Capture(err)
 	}
 
-	userID := query.Get("user") // Is allowed to be blank
-	res, err := queryToResource(query)
+	resUUID, err := resourceService.GetApplicationResourceID(ctx,
+		domainresource.GetApplicationResourceIDArgs{
+			ApplicationID: target.appID,
+			Name:          target.name,
+		})
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, internalerrors.Errorf("resource upload failed: %w", err)
 	}
 
-	reader := r.Body
+	if target.unitUUID != "" {
+		err := resourceService.SetUnitResource(ctx, resUUID, target.unitUUID)
+		if err != nil {
+			return empty, internalerrors.Capture(err)
+		}
+	}
+	if !isPlaceholder(query) {
+		var (
+			retrievedBy     string
+			retrievedByType domainresource.RetrievedByType
+		)
+		if target.unitUUID != "" {
+			retrievedBy = target.unitUUID.String()
+			retrievedByType = domainresource.Unit
+		} else if userID != "" {
+			retrievedBy = userID
+			retrievedByType = domainresource.User
+		} else {
+			retrievedBy = target.appID.String()
+			retrievedByType = domainresource.Application
+		}
 
-	// Don't associate content with a placeholder resource.
-	if isPlaceholder(query) {
-		reader = nil
+		err := resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{
+			ResourceUUID:    resUUID,
+			Reader:          r.Body,
+			RetrievedBy:     retrievedBy,
+			RetrievedByType: retrievedByType,
+		})
+		if err != nil {
+			return empty, internalerrors.Capture(err)
+		}
 	}
 
-	outRes, err := setResource(isUnit, target, userID, res, reader, &noopResourceShim{})
-	if err != nil {
-		return empty, errors.Annotate(err, "resource upload failed")
-	}
-	return outRes, nil
+	return resourceService.GetResource(ctx, resUUID)
 }
 
-func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt Resources) (
-	resource.Resource, error,
-) {
-	if isUnit {
-		return rSt.SetUnitResource(target, user, res)
-	}
-	return rSt.SetResource(target, user, res, r, false)
-}
-
+// isPlaceholder determines if the given query represents a placeholder by
+// checking if the "timestamp" field is empty.
 func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
 }
 
-func getUploadTarget(query url.Values) (string, bool, error) {
+type resourceUploadTarget struct {
+	name     string
+	appID    coreapplication.ID
+	unitUUID coreunit.UUID
+}
+
+// getUploadTarget resolves the upload target by determining the application ID
+// and optional unit UUID from the query inputs. It validates that either
+// application or unit is specified, but not both, and fetches necessary details
+// using the application service.
+// Returns the name of the resource, the application ID and the unit UUID
+// (if applicable), or an error if any issues occur during resolution.
+func getUploadTarget(
+	ctx context.Context,
+	service ApplicationService,
+	query url.Values,
+) (target resourceUploadTarget, err error) {
+	// Validate parameters
+	target.name = query.Get("name")
 	appName := query.Get("application")
 	unitName := query.Get("unit")
+
+	if target.name == "" {
+		return target, errors.BadRequestf("missing resource name")
+	}
+
 	switch {
 	case appName == "" && unitName == "":
-		return "", false, errors.BadRequestf("missing application/unit")
+		return target, errors.BadRequestf("missing application/unit")
 	case appName != "" && unitName != "":
-		return "", false, errors.BadRequestf("application and unit can't be set at the same time")
-	case appName != "":
-		return appName, false, nil
-	default:
-		return unitName, true, nil
+		return target, errors.BadRequestf("application and unit can't be set at the same time")
 	}
-}
 
-func queryToResource(query url.Values) (charmresource.Resource, error) {
-	var err error
-	empty := charmresource.Resource{}
-
-	res := charmresource.Resource{
-		Meta: charmresource.Meta{
-			Name:        query.Get("name"),
-			Path:        query.Get("path"),
-			Description: query.Get("description"),
-		},
-	}
-	if res.Name == "" {
-		return empty, errors.BadRequestf("missing name")
-	}
-	res.Type, err = charmresource.ParseType(query.Get("type"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid type")
-	}
-	res.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid origin")
-	}
-	res.Revision, err = strconv.Atoi(query.Get("revision"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid revision")
-	}
-	res.Size, err = strconv.ParseInt(query.Get("size"), 10, 64)
-	if err != nil {
-		return empty, errors.BadRequestf("invalid size")
-	}
-	switch res.Type {
-	case charmresource.TypeFile:
-		if res.Path == "" {
-			return empty, errors.BadRequestf("missing path")
-		}
-		res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+	// Resolve target by unit name if any
+	if unitName != "" {
+		coreUnitName, err := coreunit.NewName(unitName)
 		if err != nil {
-			return empty, errors.BadRequestf("invalid fingerprint")
+			return target, errors.BadRequestf(err.Error())
 		}
-	case charmresource.TypeContainerImage:
-		res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+		target.unitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
 		if err != nil {
-			// Old resources do not have fingerprints.
-			res.Fingerprint = charmresource.Fingerprint{}
+			return target, internalerrors.Capture(err)
 		}
+		target.appID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
+		return target, internalerrors.Capture(err)
 	}
-	return res, nil
+
+	// Resolve target by appName
+	target.appID, err = service.GetApplicationIDByName(ctx, appName)
+	return target, internalerrors.Capture(err)
 }
 
-// noopResourceShim is a placeholder for state.Resource until
-// the resource domain is used by the resourcesMigrationUploadHandler.
-type noopResourceShim struct{}
-
-func (r *noopResourceShim) SetUnitResource(string, string, charmresource.Resource) (resource.Resource, error) {
-	return resource.Resource{}, nil
+type migratingResourceServiceGetter struct {
+	ctxt httpContext
 }
 
-func (r *noopResourceShim) SetResource(string, string, charmresource.Resource, io.Reader, bool) (resource.Resource, error) {
-	return resource.Resource{}, nil
+func (a *migratingResourceServiceGetter) Resource(r *http.Request) (ResourceService, error) {
+	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return domainServices.Resource(), nil
 }
