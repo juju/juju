@@ -42,7 +42,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 		cfg: map[string]interface{}{"endpoint": "newep", "client-key": "aaa"},
 		err: `vault config missing client certificate not valid`,
 	}} {
-		err = configValidator.ValidateConfig(t.oldCfg, t.cfg)
+		err = configValidator.ValidateConfig(t.oldCfg, t.cfg, nil)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
 }

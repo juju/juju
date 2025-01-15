@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -724,4 +725,37 @@ func (s *providerSuite) TestDeleteContent(c *gc.C) {
 
 	err = b.DeleteContent(context.Background(), uri.ID+"-1")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *providerSuite) TestRefreshAuth(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	treq := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: ptr(int64(3600)),
+		},
+	}
+	s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "default", treq, v1.CreateOptions{}).
+		Return(&authenticationv1.TokenRequest{
+			Status: authenticationv1.TokenRequestStatus{Token: "token2"},
+		}, nil)
+
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	r, ok := p.(provider.SupportAuthRefresh)
+	c.Assert(ok, jc.IsTrue)
+
+	cfg := s.backendConfig()
+	cfg.Config["service-account"] = "default"
+
+	validFor := time.Hour
+	newCfg, err := r.RefreshAuth(&provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  cfg,
+	}, validFor)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCfg.Config["token"], gc.Equals, "token2")
 }

@@ -60,7 +60,7 @@ type ProviderConfig interface {
 
 	// ValidateConfig returns an error if the new
 	//provider config is not valid.
-	ValidateConfig(oldCfg, newCfg ConfigAttrs) error
+	ValidateConfig(oldCfg, newCfg ConfigAttrs, tokenRotateInterval *time.Duration) error
 }
 
 // SecretBackendProvider instances create secret backends.

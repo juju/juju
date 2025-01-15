@@ -5,6 +5,7 @@ package vault
 
 import (
 	"net/url"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -110,7 +111,7 @@ func (p vaultProvider) ConfigDefaults() schema.Defaults {
 }
 
 // ValidateConfig implements SecretBackendProvider.
-func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
+func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs, tokenRotateInterval *time.Duration) error {
 	newValidCfg, err := newConfig(newCfg)
 	if err != nil {
 		return errors.Trace(err)

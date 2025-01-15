@@ -74,7 +74,7 @@ func (s *SecretBackendsAPI) createBackend(id string, arg params.SecretBackend) e
 				arg.Config[k] = v
 			}
 		}
-		err = configValidator.ValidateConfig(nil, arg.Config)
+		err = configValidator.ValidateConfig(nil, arg.Config, arg.TokenRotateInterval)
 		if err != nil {
 			return errors.Annotatef(err, "invalid config for provider %q", arg.BackendType)
 		}
@@ -156,7 +156,7 @@ func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) err
 				cfg[k] = defaultVal
 			}
 		}
-		err = configValidator.ValidateConfig(existing.Config, cfg)
+		err = configValidator.ValidateConfig(existing.Config, cfg, arg.TokenRotateInterval)
 		if err != nil {
 			return errors.Annotatef(err, "invalid config for provider %q", existing.BackendType)
 		}

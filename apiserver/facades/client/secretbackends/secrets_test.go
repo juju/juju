@@ -105,7 +105,7 @@ func (providerWithConfig) ConfigDefaults() schema.Defaults {
 	}
 }
 
-func (providerWithConfig) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
+func (providerWithConfig) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs, tokenRotateInterval *time.Duration) error {
 	return nil
 }
 
