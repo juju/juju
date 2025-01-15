@@ -251,11 +251,11 @@ func (s *Service) storeResource(
 	if args.Reader == nil {
 		return errors.Errorf("cannot have nil reader")
 	}
-	if args.Size <= 0 {
+	if args.Size < 0 {
 		return errors.Errorf("invalid size: %d", args.Size)
 	}
 	if args.Fingerprint.IsZero() {
-		return errors.Errorf("fingerprint is zero")
+		return errors.Errorf("invalid fingerprint")
 	}
 
 	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
@@ -272,7 +272,13 @@ func (s *Service) storeResource(
 		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
 	}
 
-	storageUUID, err := store.Put(ctx, args.ResourceUUID.String(), args.Reader, args.Size, coreresourcestore.NewFingerprint(args.Fingerprint.Fingerprint))
+	storageUUID, err := store.Put(
+		ctx,
+		args.ResourceUUID.String(),
+		args.Reader,
+		args.Size,
+		coreresourcestore.NewFingerprint(args.Fingerprint.Fingerprint),
+	)
 	if err != nil {
 		return errors.Errorf("putting resource %q in store: %w", res.Name, err)
 	}
@@ -293,7 +299,7 @@ func (s *Service) storeResource(
 			ResourceType:                  res.Type,
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
 			Size:                          args.Size,
-			Fingerprint:                   args.Fingerprint,
+			Hash:                          args.Fingerprint.String(),
 		},
 	)
 	if err != nil {

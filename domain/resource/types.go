@@ -157,6 +157,6 @@ type RecordStoredResourceArgs struct {
 	IncrementCharmModifiedVersion bool
 	// Size is the size in bytes of the resource blob.
 	Size int64
-	// Fingerprint is the hash of the resource blob.
-	Fingerprint charmresource.Fingerprint
+	// Hash is the hash of the resource blob.
+	Hash string
 }

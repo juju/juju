@@ -443,12 +443,12 @@ func (st *State) RecordStoredResource(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		switch args.ResourceType {
 		case charmresource.TypeFile:
-			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Fingerprint)
+			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Hash)
 			if err != nil {
 				return errors.Errorf("inserting stored file resource information: %w", err)
 			}
 		case charmresource.TypeContainerImage:
-			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Fingerprint)
+			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Hash)
 			if err != nil {
 				return errors.Errorf("inserting stored container image resource information: %w", err)
 			}
@@ -531,7 +531,7 @@ func (st *State) insertFileResource(
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
 	size int64,
-	fingerprint charmresource.Fingerprint,
+	hash string,
 ) error {
 	// Get the object store UUID of the stored resource blob.
 	uuid, err := storageID.ObjectStoreUUID()
@@ -544,7 +544,7 @@ func (st *State) insertFileResource(
 		ResourceUUID:    resourceUUID.String(),
 		ObjectStoreUUID: uuid.String(),
 		Size:            size,
-		Fingerprint:     fingerprint.String(),
+		Hash:            hash,
 	}
 	checkObjectStoreMetadataStmt, err := st.Prepare(`
 SELECT uuid AS &storedFileResource.store_uuid
@@ -607,7 +607,7 @@ func (st *State) insertImageResource(
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
 	size int64,
-	fingerprint charmresource.Fingerprint,
+	hash string,
 ) error {
 	// Get the container image metadata storage key.
 	storageKey, err := storageID.ContainerImageMetadataStoreID()
@@ -620,7 +620,7 @@ func (st *State) insertImageResource(
 		ResourceUUID: resourceUUID.String(),
 		StorageKey:   storageKey,
 		Size:         size,
-		Fingerprint:  fingerprint.String(),
+		Hash:         hash,
 	}
 	checkContainerImageStoreStmt, err := st.Prepare(`
 SELECT storage_key AS &storedContainerImageResource.store_storage_key

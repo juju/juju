@@ -259,7 +259,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: false,
 		Size:                          size,
-		Fingerprint:                   fp,
+		Hash:                          fp.String(),
 	})
 
 	err = s.service.StoreResource(
@@ -319,7 +319,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: false,
 		Size:                          size,
-		Fingerprint:                   fp,
+		Hash:                          fp.String(),
 	}).Return(expectedErr)
 
 	// Expect the removal of the resource.
@@ -360,16 +360,16 @@ func (s *resourceServiceSuite) TestStoreResourceNilReader(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot have nil reader")
 }
 
-func (s *resourceServiceSuite) TestStoreResourceZeroSize(c *gc.C) {
+func (s *resourceServiceSuite) TestStoreResourceNegativeSize(c *gc.C) {
 	err := s.service.StoreResource(
 		context.Background(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
-			Size:         0,
+			Size:         -1,
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "invalid size: 0")
+	c.Assert(err, gc.ErrorMatches, "invalid size: -1")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *gc.C) {
@@ -378,11 +378,10 @@ func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *gc.C) {
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
-			Size:         42,
 			Fingerprint:  charmresource.Fingerprint{},
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "fingerprint is zero")
+	c.Assert(err, gc.ErrorMatches, "invalid fingerprint")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *gc.C) {
@@ -393,7 +392,6 @@ func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *gc.C) {
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
-			Size:            42,
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
 			RetrievedByType: resource.Unknown,
@@ -442,7 +440,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: true,
 		Size:                          size,
-		Fingerprint:                   fp,
+		Hash:                          fp.String(),
 	})
 
 	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
@@ -480,16 +478,16 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	c.Assert(err, gc.ErrorMatches, "cannot have nil reader")
 }
 
-func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionZeroSize(c *gc.C) {
+func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionNegativeSize(c *gc.C) {
 	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		context.Background(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
-			Size:         0,
+			Size:         -1,
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "invalid size: 0")
+	c.Assert(err, gc.ErrorMatches, "invalid size: -1")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionZeroFingerprint(c *gc.C) {
@@ -498,11 +496,10 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
-			Size:         42,
 			Fingerprint:  charmresource.Fingerprint{},
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "fingerprint is zero")
+	c.Assert(err, gc.ErrorMatches, "invalid fingerprint")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadRetrievedBy(c *gc.C) {
@@ -513,7 +510,6 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
-			Size:            42,
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
 			RetrievedByType: resource.Unknown,
