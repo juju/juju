@@ -1064,8 +1064,6 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 
 func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
@@ -1077,8 +1075,6 @@ func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 
 func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
 	cm, err := s.Model.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1101,8 +1097,6 @@ containers:
 func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
 
 	u, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1163,9 +1157,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.app.SetScale(1, 1, true)
+	err := s.app.SetScale(1, 1, true)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
