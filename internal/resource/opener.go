@@ -4,7 +4,6 @@
 package resource
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -309,7 +308,7 @@ func (ro ResourceOpener) getResource(
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
 	}
-	data, err := client.GetResource(req)
+	data, err := client.GetResource(ctx, req)
 	if errors.Is(err, jujuerrors.NotFound) {
 		// A NotFound error might not be detectable from some clients as the
 		// error types may be lost after call, for example http. For these
@@ -319,25 +318,12 @@ func (ro ResourceOpener) getResource(
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
 	}
-
-	// Validate the blob from the resource client.
-	buffer := bytes.NewBuffer(nil)
-	defer data.Close()
-	fp, err := charmresource.GenerateFingerprint(io.TeeReader(data, buffer))
-	if err != nil {
-		return coreresource.Opened{}, errors.Errorf("generating fingerprint from downloaded resource: %w", err)
-	}
-	if fp.String() != data.Resource.Fingerprint.String() {
-		return coreresource.Opened{}, MismatchedFingerprint
-	}
-	if int64(buffer.Len()) != data.Resource.Size {
-		return coreresource.Opened{}, MismatchedSize
-	}
+	defer data.ReadCloser.Close()
 
 	res, reader, err = ro.store(
 		ctx,
 		resourceUUID,
-		buffer,
+		data.ReadCloser,
 		data.Resource.Size,
 		data.Resource.Fingerprint,
 	)
@@ -450,7 +436,7 @@ type noopClient struct{}
 // GetResource is a no-op resourceClient implementation of a ResourceGetter. The
 // implementation expects to never call the underlying resourceClient and instead
 // returns a not-found error straight away.
-func (noopClient) GetResource(req charmhub.ResourceRequest) (charmhub.ResourceData, error) {
+func (noopClient) GetResource(_ context.Context, req charmhub.ResourceRequest) (charmhub.ResourceData, error) {
 	return charmhub.ResourceData{}, jujuerrors.NotFoundf("resource %q", req.Name)
 }
 

@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"context"
-	"io"
 	"net/url"
 
 	"github.com/juju/juju/environs/config"
@@ -24,14 +23,16 @@ type ResourceClient interface {
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
 	// is ignored.
-	GetResource(ResourceRequest) (ResourceData, error)
+	GetResource(context.Context, ResourceRequest) (ResourceData, error)
 }
 
 // CharmHub represents methods required from a charmhub client talking to the
 // charmhub api used by the local CharmHubClient
 type CharmHub interface {
-	// DownloadResource returns an IO reader for the resource blob.
-	DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error)
+	// Download retrieves the specified charm from the store and saves its
+	// contents to the specified path. Read the path to get the contents of the
+	// charm.
+	Download(ctx context.Context, url *url.URL, path string, options ...charmhub.DownloadOption) (*charmhub.Digest, error)
 	// Refresh gets the recommended revisions to install/refresh for the given
 	// charms, including resource revisions.
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)

@@ -4,6 +4,7 @@
 package charmhub
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -51,13 +52,13 @@ func NewRetryClient(client ResourceClient, logger logger.Logger) *ResourceRetryC
 }
 
 // GetResource returns a reader for the resource's data.
-func (client ResourceRetryClient) GetResource(req ResourceRequest) (ResourceData, error) {
+func (client ResourceRetryClient) GetResource(ctx context.Context, req ResourceRequest) (ResourceData, error) {
 	args := client.RetryArgs // a copy
 
 	var data ResourceData
 	args.Func = func() error {
 		var err error
-		data, err = client.ResourceClient.GetResource(req)
+		data, err = client.ResourceClient.GetResource(ctx, req)
 		if err != nil {
 			return errors.Trace(err)
 		}

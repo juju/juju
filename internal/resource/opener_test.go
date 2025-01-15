@@ -80,7 +80,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 		newResourceRetryClientForTest(c, s.resourceClient),
 		nil,
 	)
-	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(
+	s.resourceClient.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(
 		charmhub.ResourceData{
 			ReadCloser: s.resourceReader,
 			Resource:   res.Resource,
@@ -123,7 +123,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 		newResourceRetryClientForTest(c, s.resourceClient),
 		nil,
 	)
-	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(
+	s.resourceClient.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(
 		charmhub.ResourceData{
 			ReadCloser: s.resourceReader,
 			Resource:   res.Resource,
@@ -185,7 +185,7 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 		ApplicationID: "postgreql",
 	}
 	s.expectServiceMethods(res, 1)
-	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(
+	s.resourceClient.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(
 		charmhub.ResourceData{
 			ReadCloser: s.resourceReader,
 			Resource:   res.Resource,
@@ -207,112 +207,6 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	c.Check(opened.Fingerprint.String(), gc.Equals, res.Fingerprint.String())
 	err = opened.Close()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *OpenerSuite) TestOpenResourceMismatchedSize(c *gc.C) {
-	defer s.setupMocks(c, true).Finish()
-	res := domainresource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: "wal-e",
-				Type: 1,
-			},
-			Origin:      2,
-			Revision:    0,
-			Fingerprint: s.resourceFingerprint,
-			Size:        1,
-		},
-		ApplicationID: "postgreql",
-	}
-	s.resourceService.EXPECT().GetApplicationResourceID(
-		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
-		},
-	).Return(s.resourceUUID, nil).AnyTimes()
-	s.resourceService.EXPECT().OpenResource(
-		gomock.Any(),
-		s.resourceUUID,
-	).Return(
-		domainresource.Resource{},
-		nil,
-		resourceerrors.StoredResourceNotFound,
-	)
-	s.resourceService.EXPECT().GetResource(
-		gomock.Any(),
-		s.resourceUUID,
-	).Return(res, nil)
-	s.resourceClientGetter.EXPECT().GetResourceClient(
-		gomock.Any(), gomock.Any(),
-	).Return(
-		newResourceRetryClientForTest(c, s.resourceClient),
-		nil,
-	)
-	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(
-		charmhub.ResourceData{
-			ReadCloser: s.resourceReader,
-			Resource:   res.Resource,
-		}, nil,
-	)
-
-	_, err := s.newUnitResourceOpener(c, 0).OpenResource(
-		context.Background(),
-		"wal-e",
-	)
-	c.Assert(err, jc.ErrorIs, MismatchedSize)
-}
-
-func (s *OpenerSuite) TestOpenResourceMismatchedFingerprint(c *gc.C) {
-	defer s.setupMocks(c, true).Finish()
-	res := domainresource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: "wal-e",
-				Type: 1,
-			},
-			Origin:      2,
-			Revision:    0,
-			Fingerprint: charmresource.Fingerprint{},
-			Size:        s.resourceSize,
-		},
-		ApplicationID: "postgreql",
-	}
-	s.resourceService.EXPECT().GetApplicationResourceID(
-		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
-		},
-	).Return(s.resourceUUID, nil).AnyTimes()
-	s.resourceService.EXPECT().OpenResource(
-		gomock.Any(),
-		s.resourceUUID,
-	).Return(
-		domainresource.Resource{},
-		nil,
-		resourceerrors.StoredResourceNotFound,
-	)
-	s.resourceService.EXPECT().GetResource(
-		gomock.Any(),
-		s.resourceUUID,
-	).Return(res, nil)
-	s.resourceClientGetter.EXPECT().GetResourceClient(
-		gomock.Any(), gomock.Any(),
-	).Return(
-		newResourceRetryClientForTest(c, s.resourceClient),
-		nil,
-	)
-	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(
-		charmhub.ResourceData{
-			ReadCloser: s.resourceReader,
-			Resource:   res.Resource,
-		}, nil,
-	)
-
-	_, err := s.newUnitResourceOpener(c, 0).OpenResource(
-		context.Background(),
-		"wal-e",
-	)
-	c.Assert(err, jc.ErrorIs, MismatchedFingerprint)
 }
 
 func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
@@ -408,7 +302,7 @@ func (s *OpenerSuite) expectServiceMethods(
 	s.resourceService.EXPECT().StoreResource(
 		gomock.Any(), domainresource.StoreResourceArgs{
 			ResourceUUID:    s.resourceUUID,
-			Reader:          bytes.NewBuffer([]byte(s.resourceContent)),
+			Reader:          s.resourceReader,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrevedByType,
 			Size:            s.resourceSize,
@@ -482,7 +376,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		s.resourceUUID,
 	).Return(res, nil)
 	const retryCount = 3
-	s.resourceClient.EXPECT().GetResource(gomock.Any()).Return(
+	s.resourceClient.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(
 		charmhub.ResourceData{},
 		errors.New("boom"),
 	).Times(retryCount)
