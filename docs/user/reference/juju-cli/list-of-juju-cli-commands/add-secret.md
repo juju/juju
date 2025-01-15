@@ -1,6 +1,5 @@
 (command-juju-add-secret)=
 # `juju add-secret`
-
 ## Summary
 Add a new secret.
 

@@ -23,7 +23,7 @@ Refresh an application's charm.
 | `--path` |  | Refresh to a charm located at path |
 | `--resource` |  | Resource to be uploaded to the controller |
 | `--revision` | -1 | Explicit revision of current charm |
-| `--storage` |  | Charm storage constraints |
+| `--storage` |  | Charm storage directives |
 | `--switch` |  | Crossgrade to a different charm |
 | `--trust` | unset | Allows charm to run hooks that require access credentials |
 
@@ -48,19 +48,18 @@ When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision option.
 
-A path will need to be supplied to allow an updated copy of the charm
-to be located.
+Refreshing a local packaged charm will require a path to be supplied to allow an
+updated copy of the charm.
 
 Deploying from a path is intended to suit the workflow of a charm author working
 on a single client machine; use of this deployment method from multiple clients
-is not supported and may lead to confusing behaviour. Each local charm gets
-uploaded with the revision specified in the charm, if possible, otherwise it
-gets a unique revision (highest in state + 1).
+is not supported and may lead to confusing behaviour. Each local packaged charm
+gets uploaded with the revision specified in the charm, if possible, otherwise
+it gets a unique revision (highest in state + 1).
 
-When deploying from a path, the --path option is used to specify the location from
-which to load the updated charm. Note that the directory containing the charm must
-match what was originally used to deploy the charm as a superficial check that the
-updated charm is compatible.
+When deploying from a path, the --path option is used to specify the location
+of the packaged charm. Note that the charm must match what was originally used
+to deploy the charm as a superficial check that the updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the --resource option.
 Following the resource option should be name=filepath pair.  This option may be
@@ -70,10 +69,10 @@ repeated more than once to upload more than one resource.
 
 Where bar and baz are resources named in the metadata for the foo charm.
 
-Storage constraints may be added or updated at upgrade time by specifying
+Storage directives may be added or updated at upgrade time by specifying
 the --storage option, with the same format as specified in "juju deploy".
 If new required storage is added by the new charm revision, then you must
-specify constraints or the defaults will be applied.
+specify directives or the defaults will be applied.
 
   juju refresh foo --storage cache=ssd,10G
 

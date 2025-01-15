@@ -2,6 +2,8 @@
 # `juju debug-hooks`
 > See also: [ssh](#ssh), [debug-code](#debug-code)
 
+**Aliases:** debug-hook
+
 ## Summary
 Launch a tmux session to debug hooks and/or actions.
 
@@ -16,7 +18,6 @@ Launch a tmux session to debug hooks and/or actions.
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
 
 ## Examples
 

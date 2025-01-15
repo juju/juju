@@ -2,6 +2,8 @@
 # `juju actions`
 > See also: [run](#run), [show-action](#show-action)
 
+**Aliases:** list-actions
+
 ## Summary
 List actions defined for an application.
 

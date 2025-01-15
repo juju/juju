@@ -10,11 +10,14 @@ Displays log messages for a model.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--color` | false | Force use of ANSI color codes |
+| `--controller` |  | A specific controller from which to display logs, or 'all' for interleaved logs from all controllers. |
 | `--date` | false | Show dates as well as times |
-| `--exclude-label` |  | Do not show log messages for these logging labels |
+| `--exclude-labels` |  | Do not show log messages for these logging label key values |
 | `--exclude-module` |  | Do not show log messages for these logging modules |
+| `--firehose` | false | Show logs from all models |
+| `--format` | text | Specify output format (json&#x7c;text) |
 | `-i`, `--include` |  | Only show log messages for these entities |
-| `--include-label` |  | Only show log messages for these logging labels |
+| `--include-labels` |  | Only show log messages for these logging label key values |
 | `--include-module` |  | Only show log messages for these logging modules |
 | `-l`, `--level` |  | Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR] |
 | `--limit` | 0 | Exit once this many of the most recent (possibly filtered) lines are shown |
@@ -23,6 +26,7 @@ Displays log messages for a model.
 | `--ms` | false | Show times to millisecond precision |
 | `-n`, `--lines` | 10 | Show this many of the most recent (possibly filtered) lines, and continue to append |
 | `--no-tail` | false | Stop after returning existing log messages |
+| `-o`, `--output` |  | Specify an output file |
 | `--replay` | false | Show the entire (possibly filtered) log and continue to append |
 | `--retry` | false | Retry connection on failure |
 | `--retry-delay` | 1s | Retry delay between connection failure retries |
@@ -67,6 +71,20 @@ new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
 
+To see logs from all models hosted on the controller, use the --firehose option.
+
+    juju debug-log --firehose
+
+In the HA case, debug-log can be configured to stream messages from a selected controller.
+Use juju show-controller to see the available controller numbers.
+
+    juju debug-log --controller 2
+
+You can also stream messages from all controllers - a best effort will be made to correctly
+interleave them so they are ordered by timestamp.
+
+    juju debug-log --controller all
+
 
 ## Details
 
@@ -89,15 +107,15 @@ The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
 with the prefix will match.
 
-The '--include-label' and '--exclude-label' options filter by logging label. 
+The '--include-labels' and '--exclude-labels' options filter by logging labels. 
 
 The filtering options combine as follows:
 * All --include options are logically ORed together.
 * All --exclude options are logically ORed together.
 * All --include-module options are logically ORed together.
 * All --exclude-module options are logically ORed together.
-* All --include-label options are logically ORed together.
-* All --exclude-label options are logically ORed together.
+* All --include-labels options are logically ORed together.
+* All --exclude-labels options are logically ORed together.
 * The combined --include, --exclude, --include-module, --exclude-module,
-  --include-label and --exclude-label selections are logically ANDed to form
+  --include-labels and --exclude-labels selections are logically ANDed to form
   the complete filter.

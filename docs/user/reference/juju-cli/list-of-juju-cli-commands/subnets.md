@@ -1,5 +1,6 @@
 (command-juju-subnets)=
 # `juju subnets`
+**Aliases:** list-subnets
 
 ## Summary
 List subnets known to Juju.

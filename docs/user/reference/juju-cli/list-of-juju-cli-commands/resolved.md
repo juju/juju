@@ -1,5 +1,6 @@
 (command-juju-resolved)=
 # `juju resolved`
+**Aliases:** resolve
 
 ## Summary
 Marks unit errors resolved and re-executes failed hooks.

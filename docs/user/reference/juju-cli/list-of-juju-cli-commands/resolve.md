@@ -1,12 +1,12 @@
 (command-juju-resolve)=
 # `juju resolve`
-**Alias:** resolved
+**Aliases:** resolve
 
 ## Summary
 Marks unit errors resolved and re-executes failed hooks.
 
 ## Usage
-```juju resolve [options] [<unit> ...]```
+```juju resolved [options] [<unit> ...]```
 
 ### Options
 | Flag | Default | Usage |

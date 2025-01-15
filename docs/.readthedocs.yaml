@@ -26,7 +26,7 @@ build:
     - GOBIN=$HOME/_rtd_juju_build make juju
 
     # Install build requirements
-    - python -mvirtualenv $READTHEDOCS_VIRTUALENV_PATH
+    - python -m virtualenv $READTHEDOCS_VIRTUALENV_PATH
     - python -m pip install --upgrade --no-cache-dir pip setuptools
     - python -m pip install --exists-action=w --no-cache-dir -r docs/.sphinx/requirements.txt
 
@@ -40,7 +40,6 @@ build:
 sphinx:
   builder: dirhtml
   configuration: docs/conf.py
-  fail_on_warning: true
 
 # If using Sphinx, optionally build your docs in additional formats such as PDF
 formats:

@@ -1,7 +1,8 @@
 (command-juju-list-storage-pools)=
 # `juju list-storage-pools`
 > See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool)
-**Alias:** storage-pools
+
+**Aliases:** list-storage-pools
 
 ## Summary
 List storage pools.

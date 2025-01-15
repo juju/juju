@@ -31,8 +31,11 @@ var (
 // Generate Markdown documentation based on the contents of the
 // github.com/juju/juju/controller package.
 func main() {
-	outputDir := mustEnv("DOCS_DIR")        // directory to write output to
-	jujuSrcRoot := mustEnv("JUJU_SRC_ROOT") // root of Juju source tree
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "Error: missing argument: root of Juju source tree")
+		os.Exit(1)
+	}
+	jujuSrcRoot := os.Args[1]
 
 	data := map[string]*keyInfo{}
 
@@ -42,8 +45,8 @@ func main() {
 	fillFromAllowedUpdateConfigAttributes(data)
 	fillFromNewConfig(data)
 
-	_ = os.MkdirAll(outputDir, 0755)
-	render(filepath.Join(outputDir, "controller-config-keys.md"), data)
+	// Print generated docs.
+	fmt.Print(render(data))
 }
 
 // keyInfo contains information about a config key.
@@ -60,10 +63,9 @@ type keyInfo struct {
 	Default2 string `yaml:"default2,omitempty"` // from reflection on Config type
 }
 
-// render turns the input data into a Markdown document
-func render(filepath string, data map[string]*keyInfo) {
-	// Generate table of contents and main doc separately
-	var tableOfContents, mainDoc string
+// render turns the input data into a Markdown string.
+func render(data map[string]*keyInfo) string {
+	var mainDoc string
 
 	anchorForKey := func(key string) string {
 		return "heading--" + key
@@ -83,7 +85,6 @@ func render(filepath string, data map[string]*keyInfo) {
 	for _, key := range keys {
 		info := data[key]
 
-		tableOfContents += fmt.Sprintf("- [`%s`](#%s)\n", key, anchorForKey(key))
 		mainDoc += headingForKey(key) + "\n"
 		if info.Deprecated {
 			mainDoc += "> This key is deprecated.\n"
@@ -109,17 +110,7 @@ func render(filepath string, data map[string]*keyInfo) {
 		}
 		mainDoc += "\n\n\n"
 	}
-
-	err := os.WriteFile(filepath, []byte(fmt.Sprintf(`
-> <small> [Configuration](/t/6659) > List of controller configuration keys</small>
->
-> See also: [Controller](/t/5455),  [How to manage configuration values for a controller](/t/1111#heading--manage-configuration-values-for-a-controller)
-
-%s
-
-%s
-`[1:], tableOfContents, mainDoc)), 0644)
-	check(err)
+	return mainDoc
 }
 
 // Gather information from the AST parsed from the Go files:
@@ -347,16 +338,6 @@ func fillFromConfigType(data map[string]*keyInfo) {
 }
 
 // UTILITY FUNCTIONS
-
-// Returns the value of the given environment variable, panicking if the var
-// is not set.
-func mustEnv(key string) string {
-	val, ok := os.LookupEnv(key)
-	if !ok {
-		panic(fmt.Sprintf("env var %q not set", key))
-	}
-	return val
-}
 
 // Return the first value that is defined / not-zero, and "true"
 // if such a value is found.

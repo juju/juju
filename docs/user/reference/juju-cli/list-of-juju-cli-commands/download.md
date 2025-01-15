@@ -19,7 +19,6 @@ Locates and then downloads a CharmHub charm.
 | `--no-progress` | false | disable the progress bar |
 | `--resources` | false | download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0) |
 | `--revision` | -1 | specify a revision of the charm to download |
-| `--series` | all | specify a series. DEPRECATED use --base |
 
 ## Examples
 
@@ -37,8 +36,7 @@ the OS, separated by @. For example, --base ubuntu@22.04.
 By default, the latest revision in the default channel will be
 downloaded. To download the latest revision from another channel,
 use --channel. To download a specific revision, use --revision,
-which cannot be used together with --arch, --base, --channel or
---series.
+which cannot be used together with --arch, --base or --channel.
 
 Adding a hyphen as the second argument allows the download to be piped
 to stdout.

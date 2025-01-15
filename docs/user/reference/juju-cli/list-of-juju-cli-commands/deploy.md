@@ -27,8 +27,7 @@ Deploys a new application or bundle.
 | `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
 | `--resource` |  | Resource to be uploaded to the controller |
 | `--revision` | -1 | The revision to deploy |
-| `--series` |  | The series on which to deploy. DEPRECATED: use --base |
-| `--storage` |  | Charm storage constraints |
+| `--storage` |  | Charm storage directives |
 | `--to` |  | The machine and/or container to deploy the unit in (bypasses constraints) |
 | `--trust` | false | Allows charm to run hooks that require access credentials |
 
@@ -117,16 +116,17 @@ If a revision is specified, a channel must also be specified for Charmhub charms
 and bundles.  The charm will be deployed with revision.  The channel will be used
 when refreshing the application in the future.
 
-A local charm may be deployed by giving the path to its directory:
-
-  juju deploy /path/to/charm
-  juju deploy /path/to/charm --base ubuntu@22.04
-
 You will need to be explicit if there is an ambiguity between a local and a
 remote charm:
 
-  juju deploy ./pig
-  juju deploy ch:pig
+  juju deploy ./postgresql.charm
+  juju deploy ch:postgresql
+
+A local charm may be deploy by giving the path to the charm package:
+
+   juju deploy /path/to/example.charm
+
+A charm package is created with charmcraft pack command.
 
 A bundle can be expressed similarly to a charm:
 

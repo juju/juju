@@ -112,10 +112,6 @@ The following keys are available:
     apt-no-proxy:
       type: string
       description: List of domain addresses not to be proxied for APT (comma-separated)
-    authorized-keys:
-      type: string
-      description: Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys
-        file
     automatically-retry-hooks:
       type: bool
       description: Determines whether the uniter should automatically retry failed hooks
@@ -147,7 +143,8 @@ The following keys are available:
         created in this model (comma-separated)
     container-networking-method:
       type: string
-      description: Method of container networking setup - one of fan, provider, local
+      description: Method of container networking setup - one of "provider", "local",
+        or "" (auto-configure).
     default-base:
       type: string
       description: The default base image to use for deploying charms, will act like --base
@@ -179,34 +176,20 @@ The following keys are available:
     extra-info:
       type: string
       description: Arbitrary user specified string data that is stored against the model.
-    fan-config:
-      type: string
-      description: Configuration for fan networking for this model
     firewall-mode:
       type: string
-      description: |-
-        The mode to use for network firewalling.
-    
-        'instance' requests the use of an individual firewall per instance.
-    
-        'global' uses a single firewall for all instances (access
-        for a network port is enabled to one instance if any instance requires
-        that port).
-    
-        'none' requests that no firewalling should be performed
-        inside the model. It's useful for clouds without support for either
-        global or per instance security groups.
+      description: The mode to use for network firewalling.
     ftp-proxy:
       type: string
-      description: The FTP proxy value to configure on instances, in the FTP_PROXY environment
+      description: The FTP proxy value to configure on instances, in the `FTP_PROXY` environment
         variable
     http-proxy:
       type: string
-      description: The HTTP proxy value to configure on instances, in the HTTP_PROXY environment
-        variable
+      description: The HTTP proxy value to configure on instances, in the `HTTP_PROXY`
+        environment variable
     https-proxy:
       type: string
-      description: The HTTPS proxy value to configure on instances, in the HTTPS_PROXY
+      description: The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY`
         environment variable
     ignore-machine-addresses:
       type: bool
@@ -223,30 +206,23 @@ The following keys are available:
         when starting an instance.
     juju-ftp-proxy:
       type: string
-      description: The FTP proxy value to pass to charms in the JUJU_CHARM_FTP_PROXY environment
-        variable
+      description: The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY`
+        environment variable
     juju-http-proxy:
       type: string
-      description: The HTTP proxy value to pass to charms in the JUJU_CHARM_HTTP_PROXY
+      description: The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY`
         environment variable
     juju-https-proxy:
       type: string
-      description: The HTTPS proxy value to pass to charms in the JUJU_CHARM_HTTPS_PROXY
+      description: The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY`
         environment variable
     juju-no-proxy:
       type: string
       description: List of domain addresses not to be proxied (comma-separated), may contain
-        CIDRs. Passed to charms in the JUJU_CHARM_NO_PROXY environment variable
-    logforward-enabled:
-      type: bool
-      description: Whether syslog forwarding is enabled.
+        CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable
     logging-config:
       type: string
       description: The configuration string to use when configuring Juju agent logging
-        (see http://godoc.org/github.com/juju/loggo#ParseConfigurationString for details)
-    logging-output:
-      type: string
-      description: 'The logging output destination: database and/or syslog. (default "")'
     lxd-snap-channel:
       type: string
       description: The channel to use when installing LXD from a snap (cosmic and later)
@@ -258,14 +234,6 @@ The following keys are available:
       type: string
       description: The maximum size for the action collection, in human-readable memory
         format
-    max-status-history-age:
-      type: string
-      description: The maximum age for status history entries before they are pruned,
-        in human-readable time format
-    max-status-history-size:
-      type: string
-      description: The maximum size for the status history collection, in human-readable
-        memory format
     mode:
       type: string
       description: |-
@@ -301,9 +269,6 @@ The following keys are available:
       description: |-
         Application-offer ingress allowlist is a comma-separated list of
         CIDRs specifying what ingress can be applied to offers in this model.
-    secret-backend:
-      type: string
-      description: The name of the secret store backend. (default "auto")
     snap-http-proxy:
       type: string
       description: The HTTP proxy value for installing snaps
@@ -334,19 +299,6 @@ The following keys are available:
     storage-default-filesystem-source:
       type: string
       description: The default filesystem storage source for the model
-    syslog-ca-cert:
-      type: string
-      description: The certificate of the CA that signed the syslog server certificate,
-        in PEM format.
-    syslog-client-cert:
-      type: string
-      description: The syslog client certificate in PEM format.
-    syslog-client-key:
-      type: string
-      description: The syslog client key in PEM format.
-    syslog-host:
-      type: string
-      description: The hostname:port of the syslog server.
     test-mode:
       type: bool
       description: |-

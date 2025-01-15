@@ -1,7 +1,8 @@
 (command-juju-list-ssh-keys)=
 # `juju list-ssh-keys`
 > See also: [add-ssh-key](#add-ssh-key), [remove-ssh-key](#remove-ssh-key)
-**Alias:** ssh-keys
+
+**Aliases:** list-ssh-keys
 
 ## Summary
 Lists the currently known SSH keys for the current (or specified) model.

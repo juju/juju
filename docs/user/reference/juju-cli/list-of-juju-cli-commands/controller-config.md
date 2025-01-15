@@ -101,9 +101,9 @@ The following keys are available:
       type: bool
       description: Determines if the audit log contains the arguments passed to API methods
     audit-log-exclude-methods:
-      type: list
-      description: The list of Facade.Method names that aren't interesting for audit logging
-        purposes.
+      type: string
+      description: A comma-delimited list of Facade.Method names that aren't interesting
+        for audit logging purposes.
     audit-log-max-backups:
       type: int
       description: The number of old audit log files to keep (compressed)
@@ -116,21 +116,13 @@ The following keys are available:
     caas-image-repo:
       type: string
       description: The docker repo to use for the jujud operator and mongo images
-    controller-api-port:
-      type: int
-      description: |-
-        An optional port that may be set for controllers
-        that have a very heavy load. If this port is set, this port is used by
-        the controllers to talk to each other - used for the local API connection
-        as well as the pubsub forwarders, and the raft workers. If this value is
-        set, the api-port isn't opened until the controllers have started properly.
     controller-resource-download-limit:
       type: int
       description: The maximum number of concurrent resources downloads across all the
         applications on the controller
     features:
-      type: list
-      description: A list of runtime changeable features to be updated
+      type: string
+      description: A comma-delimited list of runtime changeable features to be updated
     juju-ha-space:
       type: string
       description: The network space within which the MongoDB replica-set should communicate
@@ -166,12 +158,42 @@ The following keys are available:
       type: string
       description: The maximum size of the log file written out by the controller on behalf
         of workers running for a model
-    model-logs-size:
-      type: string
-      description: The size of the capped collections used to hold the logs for the models
     mongo-memory-profile:
       type: string
       description: Sets mongo memory profile
+    object-store-s3-endpoint:
+      type: string
+      description: The s3 endpoint for the object store backend
+    object-store-s3-static-key:
+      type: string
+      description: The s3 static key for the object store backend
+    object-store-s3-static-secret:
+      type: string
+      description: The s3 static secret for the object store backend
+    object-store-s3-static-session:
+      type: string
+      description: The s3 static session for the object store backend
+    object-store-type:
+      type: string
+      description: The type of object store backend to use for storing blobs
+    open-telemetry-enabled:
+      type: bool
+      description: Enable open telemetry tracing
+    open-telemetry-endpoint:
+      type: string
+      description: Endpoint open telemetry tracing
+    open-telemetry-insecure:
+      type: bool
+      description: Allows insecure endpoint for open telemetry tracing
+    open-telemetry-sample-ratio:
+      type: string
+      description: Allows defining a sample ratio open telemetry tracing
+    open-telemetry-stack-traces:
+      type: bool
+      description: Allows stack traces open telemetry tracing per span
+    open-telemetry-tail-sampling-threshold:
+      type: string
+      description: Allows defining a tail sampling threshold open telemetry tracing
     prune-txn-query-count:
       type: int
       description: The number of transactions to read in a single query

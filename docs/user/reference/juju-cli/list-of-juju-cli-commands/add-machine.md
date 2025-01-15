@@ -14,12 +14,11 @@ Provision a new machine or assign one to the model.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--base` |  | The operating system base to install on the new machine(s) |
 | `--constraints` | [] | Machine constraints that overwrite those available from 'juju model-constraints' and provider's defaults |
-| `--disks` |  | Storage constraints for disks to attach to the machine(s) |
+| `--disks` |  | Storage directives for disks to attach to the machine(s) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-n` | 1 | The number of machines to add |
 | `--private-key` |  | Path to the private key to use during the connection |
 | `--public-key` |  | Path to the public key to add to the remote authorized keys |
-| `--series` |  | The operating system series to install on the new machine(s). DEPRECATED use --base |
 
 ## Examples
 
@@ -61,15 +60,15 @@ Allocate a machine to the model via SSH:
 	
 Allocate a machine specifying the private key to use during the connection:
 
-	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_rsa
+	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_ed25519
 	
 Allocate a machine specifying a public key to set in the list of authorized keys in the machine:
 
-	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub
+	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_ed25519.pub
 	
 Allocate a machine specifying a public key to set in the list of authorized keys and the private key to used during the connection:
 
-	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa
+	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_ed25519.pub --private-key /tmp/id_ed25519
 	
 Allocate a machine to the model. Note: specific to MAAS.
 
@@ -106,7 +105,7 @@ To control which instance type is provisioned, use the --constraints and
 the OS, separated by @. For example, --base ubuntu@22.04.
 
 To add storage volumes to the instance, provide a whitespace-delimited
-list of storage constraints to the --disks option. 
+list of storage directives to the --disks option. 
 
 Add "placement directives" as an argument give Juju additional information 
 about how to allocate the machine in the cloud. For example, one can direct 

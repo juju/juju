@@ -14,7 +14,6 @@ Upgrades Juju on all machines in a model.
 | `--dry-run` | false | Don't change anything, just report what would be changed |
 | `--ignore-agent-versions` | false | Don't check if all agents have already reached the current version |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--reset-previous-upgrade` | false | Clear the previous (incomplete) upgrade status (use with care) |
 | `--timeout` | 10m0s | Timeout before upgrade is aborted |
 | `-y`, `--yes` | false | Answer 'yes' to confirmation prompts |
 
@@ -45,6 +44,4 @@ When looking for an agent to upgrade to, Juju will check the currently
 configured agent stream for that model. It's possible to overwrite this for
 the lifetime of this upgrade using --agent-stream
 
-If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
-used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.

@@ -16,7 +16,6 @@ Initiates an SSH session or executes a command on a Juju machine or container.
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
 
 ## Examples
 
@@ -103,7 +102,7 @@ The SSH host keys of the target are verified. The --no-host-key-checks option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
 
-The default identity known to Juju and used by this command is ~/.ssh/id_rsa
+The default identity known to Juju and used by this command is ~/.ssh/id_ed25519
 
 Options can be passed to the local OpenSSH client (ssh) on platforms 
 where it is available. This is done by inserting them between the target and 

@@ -2,6 +2,8 @@
 # `juju update-credential`
 > See also: [add-credential](#add-credential), [credentials](#credentials), [remove-credential](#remove-credential), [set-credential](#set-credential)
 
+**Aliases:** update-credentials
+
 ## Summary
 Updates a controller credential for a cloud.
 

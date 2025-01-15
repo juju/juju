@@ -1,6 +1,5 @@
 (command-juju-remove-secret)=
 # `juju remove-secret`
-
 ## Summary
 Remove a existing secret.
 

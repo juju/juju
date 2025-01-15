@@ -15,7 +15,6 @@ Securely transfer files within a model.
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
 
 ## Examples
 

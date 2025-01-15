@@ -1,13 +1,14 @@
 (command-juju-list-resources)=
 # `juju list-resources`
 > See also: [attach-resource](#attach-resource), [charm-resources](#charm-resources)
-**Alias:** resources
+
+**Aliases:** list-resources
 
 ## Summary
 Show the resources for an application or unit.
 
 ## Usage
-```juju list-resources [options] <application or unit>```
+```juju resources [options] <application or unit>```
 
 ### Options
 | Flag | Default | Usage |

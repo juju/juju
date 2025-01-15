@@ -1,6 +1,5 @@
 (command-juju-show-application)=
 # `juju show-application`
-
 ## Summary
 Displays information about an application.
 

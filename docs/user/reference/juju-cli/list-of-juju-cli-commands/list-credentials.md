@@ -1,13 +1,14 @@
 (command-juju-list-credentials)=
 # `juju list-credentials`
 > See also: [add-credential](#add-credential), [update-credential](#update-credential), [remove-credential](#remove-credential), [default-credential](#default-credential), [autoload-credentials](#autoload-credentials), [show-credential](#show-credential)
-**Alias:** credentials
+
+**Aliases:** list-credentials
 
 ## Summary
 Lists Juju credentials for a cloud.
 
 ## Usage
-```juju list-credentials [options] [<cloud name>]```
+```juju credentials [options] [<cloud name>]```
 
 ### Options
 | Flag | Default | Usage |

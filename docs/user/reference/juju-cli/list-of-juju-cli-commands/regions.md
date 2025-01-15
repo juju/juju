@@ -2,6 +2,8 @@
 # `juju regions`
 > See also: [add-cloud](#add-cloud), [clouds](#clouds), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
 
+**Aliases:** list-regions
+
 ## Summary
 Lists regions for a given cloud.
 

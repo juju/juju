@@ -1,13 +1,14 @@
 (command-juju-relate)=
 # `juju relate`
 > See also: [consume](#consume), [find-offers](#find-offers), [set-firewall-rule](#set-firewall-rule), [suspend-relation](#suspend-relation)
-**Alias:** integrate
+
+**Aliases:** relate
 
 ## Summary
 Integrate two applications.
 
 ## Usage
-```juju relate [options] <application>[:<endpoint>] <application>[:<endpoint>]```
+```juju integrate [options] <application>[:<endpoint>] <application>[:<endpoint>]```
 
 ### Options
 | Flag | Default | Usage |

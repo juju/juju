@@ -1,7 +1,8 @@
 (command-juju-list-firewall-rules)=
 # `juju list-firewall-rules`
 > See also: [set-firewall-rule](#set-firewall-rule)
-**Alias:** firewall-rules
+
+**Aliases:** list-firewall-rules
 
 ## Summary
 Prints the firewall rules.

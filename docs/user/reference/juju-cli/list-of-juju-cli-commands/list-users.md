@@ -1,18 +1,19 @@
 (command-juju-list-users)=
 # `juju list-users`
 > See also: [add-user](#add-user), [register](#register), [show-user](#show-user), [disable-user](#disable-user), [enable-user](#enable-user)
-**Alias:** users
+
+**Aliases:** list-users
 
 ## Summary
 Lists Juju users allowed to connect to a controller or model.
 
 ## Usage
-```juju list-users [options] [model-name]```
+```juju users [options] [model-name]```
 
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--all` | false | Include disabled users |
+| `--all` | false | Include disabled users (on controller only) |
 | `-c`, `--controller` |  | Controller to operate in |
 | `--exact-time` | false | Use full timestamp for connection times |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |

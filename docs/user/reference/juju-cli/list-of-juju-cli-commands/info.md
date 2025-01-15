@@ -18,7 +18,6 @@ Displays detailed information about CharmHub charms.
 | `--config` | false | display config for this charm |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--series` | all | specify a series. DEPRECATED use --base |
 | `--unicode` | auto | display output using unicode &lt;auto&#x7c;never&#x7c;always&gt; |
 
 ## Examples

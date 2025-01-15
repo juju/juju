@@ -2,6 +2,8 @@
 # `juju controllers`
 > See also: [models](#models), [show-controller](#show-controller)
 
+**Aliases:** list-controllers
+
 ## Summary
 Lists all controllers.
 

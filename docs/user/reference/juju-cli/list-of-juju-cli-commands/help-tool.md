@@ -25,7 +25,6 @@ Currently available charm hook tools are:
     action-get               Get action parameters.
     action-log               Record a progress message for the current action.
     action-set               Set action results.
-    add-metric               Add metrics.
     application-version-set  Specify which version of the application is deployed.
     close-port               Register a request to close a port or port range.
     config-get               Print application configuration.
@@ -34,23 +33,15 @@ Currently available charm hook tools are:
     is-leader                Print application leadership status.
     juju-log                 Write a message to the juju log.
     juju-reboot              Reboot the host machine.
-    k8s-raw-get              Get k8s raw spec information.
-    k8s-raw-set              Set k8s raw spec information.
-    k8s-spec-get             Get k8s spec information.
-    k8s-spec-set             Set k8s spec information.
     leader-get               Print application leadership settings.
     leader-set               Write application leadership settings.
     network-get              Get network config.
     open-port                Register a request to open a port or port range.
     opened-ports             List all ports or port ranges opened by the unit.
-    payload-register         Register a charm payload with Juju.
-    payload-status-set       Update the status of a payload.
-    payload-unregister       Stop tracking a payload.
-    pod-spec-get             Get k8s spec information. (deprecated)
-    pod-spec-set             Set k8s spec information. (deprecated)
     relation-get             Get relation settings.
     relation-ids             List all relation IDs for the given endpoint.
     relation-list            List relation units.
+    relation-model-get       Get details about the model hosing a related application.
     relation-set             Set relation settings.
     resource-get             Get the path to the locally cached resource file.
     secret-add               Add a new secret.

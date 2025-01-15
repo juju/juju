@@ -1,13 +1,14 @@
 (command-juju-list-charm-resources)=
 # `juju list-charm-resources`
 > See also: [resources](#resources), [attach-resource](#attach-resource)
-**Alias:** charm-resources
+
+**Aliases:** list-charm-resources
 
 ## Summary
 Display the resources for a charm in a repository.
 
 ## Usage
-```juju list-charm-resources [options] <charm>```
+```juju charm-resources [options] <charm>```
 
 ### Options
 | Flag | Default | Usage |

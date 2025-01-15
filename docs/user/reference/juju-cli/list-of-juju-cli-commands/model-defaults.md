@@ -2,6 +2,8 @@
 # `juju model-defaults`
 > See also: [models](#models), [model-config](#model-config)
 
+**Aliases:** model-default
+
 ## Summary
 Displays or sets default configuration settings for new models.
 

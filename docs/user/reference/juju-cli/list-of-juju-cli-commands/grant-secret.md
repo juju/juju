@@ -1,6 +1,5 @@
 (command-juju-grant-secret)=
 # `juju grant-secret`
-
 ## Summary
 Grant access to a secret.
 

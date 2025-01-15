@@ -1,13 +1,14 @@
 (command-juju-set-default-region)=
 # `juju set-default-region`
 > See also: [add-credential](#add-credential)
-**Alias:** default-region
+
+**Aliases:** set-default-region
 
 ## Summary
 Sets the default region for a cloud.
 
 ## Usage
-```juju set-default-region [options] <cloud name> [<region>]```
+```juju default-region [options] <cloud name> [<region>]```
 
 ### Options
 | Flag | Default | Usage |

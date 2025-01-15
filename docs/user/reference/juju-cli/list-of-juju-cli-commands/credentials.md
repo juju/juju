@@ -2,6 +2,8 @@
 # `juju credentials`
 > See also: [add-credential](#add-credential), [update-credential](#update-credential), [remove-credential](#remove-credential), [default-credential](#default-credential), [autoload-credentials](#autoload-credentials), [show-credential](#show-credential)
 
+**Aliases:** list-credentials
+
 ## Summary
 Lists Juju credentials for a cloud.
 

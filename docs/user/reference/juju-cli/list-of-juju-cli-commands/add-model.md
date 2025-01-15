@@ -58,6 +58,3 @@ If no cloud/region is specified, then the model will be deployed to
 the same cloud/region as the controller model. If a region is specified
 without a cloud qualifier, then it is assumed to be in the same cloud
 as the controller model.
-
-When adding --config, the default-series key is deprecated in favour of
-default-base, e.g. ubuntu@22.04.
