@@ -39,7 +39,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/repository"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/state"
 )
 
@@ -547,9 +547,9 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 
 // ConfigSchema is used to force the trust config option to be true for all
 // controllers.
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	coreapplication.TrustConfigOptionName: {
-		Type: environschema.Tbool,
+		Type: configschema.Tbool,
 	},
 }
 

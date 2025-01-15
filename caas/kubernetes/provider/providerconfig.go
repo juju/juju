@@ -12,14 +12,14 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	k8sconstants.WorkloadStorageKey: {
 		Description: "The preferred storage class used to provision workload storage.",
-		Type:        environschema.Tstring,
-		Group:       environschema.AccountGroup,
+		Type:        configschema.Tstring,
+		Group:       configschema.AccountGroup,
 	},
 }
 
@@ -57,7 +57,7 @@ func (p kubernetesEnvironProvider) newConfig(ctx context.Context, cfg *config.Co
 }
 
 // Schema returns the configuration schema for an environment.
-func (kubernetesEnvironProvider) Schema() environschema.Fields {
+func (kubernetesEnvironProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

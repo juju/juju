@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 var ctrConfigBase = config.ConfigCommandBase{
@@ -336,7 +336,7 @@ func ConfigDetailsAll() (map[string]common.PrintConfigSchema, error) {
 	return specifics, nil
 }
 
-func attrToPrintSchema(attr environschema.Attr) common.PrintConfigSchema {
+func attrToPrintSchema(attr configschema.Attr) common.PrintConfigSchema {
 	return common.PrintConfigSchema{
 		Description: attr.Description,
 		Type:        string(attr.Type),

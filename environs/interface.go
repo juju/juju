@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
 )
@@ -110,7 +110,7 @@ type ProviderSchema interface {
 	// Schema returns the schema for the provider. It should
 	// include all fields defined in environs/config, conventionally
 	// by calling config.Schema.
-	Schema() environschema.Fields
+	Schema() configschema.Fields
 }
 
 // PrepareConfigParams contains the parameters for EnvironProvider.PrepareConfig.
@@ -127,7 +127,7 @@ type PrepareConfigParams struct {
 // in order to validate and automatically detect credentials for clouds
 // supported by the provider.
 //
-// TODO(axw) replace CredentialSchemas with an updated environschema.
+// TODO(axw) replace CredentialSchemas with an updated configschema.
 // The Dashboard also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
 type ProviderCredentials interface {

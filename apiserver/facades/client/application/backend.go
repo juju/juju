@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -76,7 +76,7 @@ type Application interface {
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
 	UpdateCharmConfig(charm.Settings) error
-	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
+	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
 }

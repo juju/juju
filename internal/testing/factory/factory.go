@@ -33,7 +33,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
@@ -105,7 +105,7 @@ type ApplicationParams struct {
 	CharmOrigin             *state.CharmOrigin
 	Status                  *status.StatusInfo
 	ApplicationConfig       map[string]interface{}
-	ApplicationConfigFields environschema.Fields
+	ApplicationConfigFields configschema.Fields
 	CharmConfig             map[string]interface{}
 	Storage                 map[string]state.StorageConstraints
 	Constraints             constraints.Value

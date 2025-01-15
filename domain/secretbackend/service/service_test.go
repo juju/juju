@@ -32,7 +32,7 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -52,8 +52,8 @@ type providerWithConfig struct {
 	provider.SecretBackendProvider
 }
 
-func (providerWithConfig) ConfigSchema() environschema.Fields {
-	return environschema.Fields{
+func (providerWithConfig) ConfigSchema() configschema.Fields {
+	return configschema.Fields{
 		"token": {
 			Secret: true,
 		},

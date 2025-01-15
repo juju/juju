@@ -19,7 +19,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/pki"
 )
 
@@ -624,7 +624,7 @@ func NewConfig(controllerUUID, caCert string, attrs map[string]interface{}) (Con
 	// TODO(wallyworld) - use core/config when it supports duration types
 	for k, v := range attrs {
 		field, ok := ConfigSchema[k]
-		if !ok || field.Type != environschema.Tlist {
+		if !ok || field.Type != configschema.Tlist {
 			continue
 		}
 		str, ok := v.(string)

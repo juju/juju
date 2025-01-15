@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
@@ -245,7 +245,7 @@ var (
 		}
 		return fs
 	}()
-	configSchema   = environschema.Fields{}
+	configSchema   = configschema.Fields{}
 	configDefaults = schema.Defaults{}
 )
 

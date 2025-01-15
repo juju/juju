@@ -94,7 +94,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/charmhub/path",
 		"internal/charmhub/transport",
 		"internal/cmd",
-		"internal/environschema",
+		"internal/configschema",
 		"internal/errors",
 		"internal/featureflag",
 		"internal/http",

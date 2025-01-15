@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 // CloudCredential contains attributes used to define credentials for a cloud.
@@ -352,12 +352,12 @@ func (s CredentialSchema) processFileAttrValue(
 }
 
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
-	fields := make(environschema.Fields)
+	fields := make(configschema.Fields)
 	for _, field := range s {
-		fields[field.Name] = environschema.Attr{
+		fields[field.Name] = configschema.Attr{
 			Description: field.Description,
-			Type:        environschema.Tstring,
-			Group:       environschema.AccountGroup,
+			Type:        configschema.Tstring,
+			Group:       configschema.AccountGroup,
 			Mandatory:   field.FileAttr == "" && !field.Optional,
 			Secret:      field.Hidden,
 			Values:      field.Options,
@@ -372,10 +372,10 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 		if _, ok := fields[field.FileAttr]; ok {
 			return nil, errors.Errorf("duplicate field %q", field.FileAttr)
 		}
-		fields[field.FileAttr] = environschema.Attr{
+		fields[field.FileAttr] = configschema.Attr{
 			Description: field.Description + " (file)",
-			Type:        environschema.Tstring,
-			Group:       environschema.AccountGroup,
+			Type:        configschema.Tstring,
+			Group:       configschema.AccountGroup,
 			Mandatory:   false,
 			Secret:      false,
 		}

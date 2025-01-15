@@ -11,7 +11,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 // ConfigAttributes represents config for an entity.
@@ -20,13 +20,13 @@ type ConfigAttributes map[string]interface{}
 // Config encapsulates config for an entity.
 type Config struct {
 	attributes map[string]interface{}
-	schema     environschema.Fields
+	schema     configschema.Fields
 	defaults   schema.Defaults
 }
 
 // NewConfig returns a new config instance with the given attributes and
 // allowing for the extra provider attributes.
-func NewConfig(attrs map[string]interface{}, schema environschema.Fields, defaults schema.Defaults) (*Config, error) {
+func NewConfig(attrs map[string]interface{}, schema configschema.Fields, defaults schema.Defaults) (*Config, error) {
 	cfg := &Config{schema: schema, defaults: defaults}
 	if err := cfg.setAttributes(attrs); err != nil {
 		return nil, errors.Trace(err)
@@ -43,7 +43,7 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 	for k, v := range attrs {
 		m[k] = v
 		field, ok := c.schema[k]
-		if !ok || field.Type == environschema.Tstring {
+		if !ok || field.Type == configschema.Tstring {
 			continue
 		}
 		str, ok := v.(string)
@@ -66,7 +66,7 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 }
 
 // KnownConfigKeys returns the valid config keys.
-func KnownConfigKeys(schema environschema.Fields) set.Strings {
+func KnownConfigKeys(schema configschema.Fields) set.Strings {
 	result := set.NewStrings()
 	for name := range schema {
 		result.Add(name)

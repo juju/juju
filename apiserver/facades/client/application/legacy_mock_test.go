@@ -17,7 +17,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
 	charm "github.com/juju/juju/internal/charm"
-	environschema "github.com/juju/juju/internal/environschema"
+	configschema "github.com/juju/juju/internal/configschema"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
@@ -1588,7 +1588,7 @@ func (c *MockApplicationUnsetExposeSettingsCall) DoAndReturn(f func([]string) er
 }
 
 // UpdateApplicationConfig mocks base method.
-func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 environschema.Fields, arg3 schema.Defaults) error {
+func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 configschema.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -1614,13 +1614,13 @@ func (c *MockApplicationUpdateApplicationConfigCall) Return(arg0 error) *MockApp
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationUpdateApplicationConfigCall) Do(f func(config.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error) *MockApplicationUpdateApplicationConfigCall {
+func (c *MockApplicationUpdateApplicationConfigCall) Do(f func(config.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error) *MockApplicationUpdateApplicationConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationUpdateApplicationConfigCall) DoAndReturn(f func(config.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error) *MockApplicationUpdateApplicationConfigCall {
+func (c *MockApplicationUpdateApplicationConfigCall) DoAndReturn(f func(config.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error) *MockApplicationUpdateApplicationConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

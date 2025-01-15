@@ -10,7 +10,7 @@ import (
 	"github.com/juju/schema"
 
 	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -24,38 +24,38 @@ const (
 	TLSServerNameKey = "tls-server-name"
 )
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	EndpointKey: {
 		Description: "The vault service endpoint.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Immutable:   true,
 		Mandatory:   true,
 	},
 	TokenKey: {
 		Description: "The vault access token.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Secret:      true,
 	},
 	NamespaceKey: {
 		Description: "The namespace in which to store secrets.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	CACertKey: {
 		Description: "The vault CA certificate.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	ClientCertKey: {
 		Description: "The vault client certificate.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 	ClientKeyKey: {
 		Description: "The vault client certificate key.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 		Secret:      true,
 	},
 	TLSServerNameKey: {
 		Description: "The vault TLS server name.",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	},
 }
 
@@ -100,7 +100,7 @@ func (c *backendConfig) tlsServerName() string {
 }
 
 // ConfigSchema implements SecretBackendProvider.
-func (p vaultProvider) ConfigSchema() environschema.Fields {
+func (p vaultProvider) ConfigSchema() configschema.Fields {
 	return configSchema
 }
 

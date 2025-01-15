@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/v2/ussologin"
-	"gopkg.in/juju/environschema.v1/form"
 
 	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/internal/cmd"
@@ -73,10 +72,7 @@ func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieSto
 		// Only support discharge interactions if command is not embedded.
 		noBrowser := ctxt != nil && opts != nil && opts.NoBrowser
 		if noBrowser {
-			filler := &form.IOFiller{
-				In:  ctxt.Stdin,
-				Out: ctxt.Stdout,
-			}
+			filler := ussologin.MakeIOFiller(ctxt.Stdin, ctxt.Stdout)
 			interactor = ussologin.NewInteractor(ussologin.StoreTokenGetter{
 				Store: jujuclient.NewTokenStore(),
 				TokenGetter: ussologin.FormTokenGetter{

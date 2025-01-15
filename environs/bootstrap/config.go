@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/juju/osenv"
@@ -108,8 +108,8 @@ var BootstrapConfigAttributes = []string{
 
 // BootstrapConfigSchema returns the schema used for config items during
 // bootstrap.
-func BootstrapConfigSchema() environschema.Fields {
-	return environschema.Fields{
+func BootstrapConfigSchema() configschema.Fields {
+	return configschema.Fields{
 		// TODO (tlm): It is unclear why we define this schema twice in this file.
 		// Take a look at [configSchema] that repeats this information again and is
 		// what is actually used by this file. This information is purely used for
@@ -119,13 +119,13 @@ func BootstrapConfigSchema() environschema.Fields {
 		// ourselves.
 		AdminSecretKey: {
 			Description: "Sets the Juju administrator password",
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 		},
 		AuthorizedKeysKey: {
 			Description: "Additional authorized SSH public keys for the " +
 				"initial controller model, as found in a " +
 				"~/.ssh/authorized_keys file. Multiple keys are delimited by ';'",
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		AuthorizedKeysPathKey: {
 			Description: fmt.Sprintf(
@@ -134,53 +134,53 @@ func BootstrapConfigSchema() environschema.Fields {
 					"file are appended to those already defined in %s",
 				AuthorizedKeysKey,
 			),
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		CACertKey: {
 			Description: fmt.Sprintf(
 				"Sets the bootstrapped controllers CA cert to use and issue "+
 					"certificates from, used in conjunction with %s",
 				CAPrivateKeyKey),
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		CAPrivateKeyKey: {
 			Description: fmt.Sprintf(
 				"Sets the bootstrapped controllers CA cert private key to sign "+
 					"certificates with, used in conjunction with %s",
 				CACertKey),
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		BootstrapTimeoutKey: {
 			Description: "Controls how long Juju will wait for a bootstrap to " +
 				"complete before considering it failed in seconds",
-			Type: environschema.Tint,
+			Type: configschema.Tint,
 		},
 		BootstrapRetryDelayKey: {
 			Description: "Controls the amount of time in seconds between attempts " +
 				"to connect to a bootstrap machine address",
-			Type: environschema.Tint,
+			Type: configschema.Tint,
 		},
 		BootstrapAddressesDelayKey: {
 			Description: "Controls the amount of time in seconds in between " +
 				"refreshing the bootstrap machine addresses",
-			Type: environschema.Tint,
+			Type: configschema.Tint,
 		},
 		ControllerServiceType: {
 			Description: "Controls the kubernetes service type for Juju " +
 				"controllers, see\n" +
 				"https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/#ServiceSpec\n" +
 				"valid values are one of cluster, loadbalancer, external",
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		ControllerExternalName: {
 			Description: "Sets the external name for a k8s controller of type " +
 				"external",
-			Type: environschema.Tstring,
+			Type: configschema.Tstring,
 		},
 		ControllerExternalIPs: {
 			Description: "Specifies a comma separated list of external IPs for a " +
 				"k8s controller of type external",
-			Type: environschema.Tlist,
+			Type: configschema.Tlist,
 		},
 	}
 }
@@ -390,46 +390,46 @@ func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (conten
 	return string(data), userSpecified, nil
 }
 
-var configSchema = environschema.Fields{
+var configSchema = configschema.Fields{
 	AdminSecretKey: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	AuthorizedKeysKey: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	AuthorizedKeysPathKey: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	CACertKey: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	CACertKey + "-path": {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	CAPrivateKeyKey: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	CAPrivateKeyKey + "-path": {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	ControllerExternalName: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 	},
 	ControllerExternalIPs: {
-		Type:  environschema.Tlist,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tlist,
+		Group: configschema.JujuGroup,
 	},
 	ControllerServiceType: {
-		Type:  environschema.Tstring,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
 		Values: []interface{}{
 			string(caas.ServiceCluster),
 			string(caas.ServiceLoadBalancer),
@@ -437,16 +437,16 @@ var configSchema = environschema.Fields{
 		},
 	},
 	BootstrapTimeoutKey: {
-		Type:  environschema.Tint,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tint,
+		Group: configschema.JujuGroup,
 	},
 	BootstrapRetryDelayKey: {
-		Type:  environschema.Tint,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tint,
+		Group: configschema.JujuGroup,
 	},
 	BootstrapAddressesDelayKey: {
-		Type:  environschema.Tint,
-		Group: environschema.JujuGroup,
+		Type:  configschema.Tint,
+		Group: configschema.JujuGroup,
 	},
 }
 

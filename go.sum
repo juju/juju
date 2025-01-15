@@ -406,8 +406,8 @@ github.com/juju/gojsonschema v1.0.0/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UM
 github.com/juju/gomaasapi/v2 v2.2.0 h1:vaYeEKr0mQXsM38/zfWqCrYDG8cYhHRkfTQMgkJGHdU=
 github.com/juju/gomaasapi/v2 v2.2.0/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
-github.com/juju/idmclient/v2 v2.0.0 h1:PsGa092JGy6iFNHZCcao+bigVsTyz1C+tHNRdYmKvuE=
-github.com/juju/idmclient/v2 v2.0.0/go.mod h1:EOiFbPmnkqKvCUS/DHpDRWhL7eKF0AJaTvMjIYlIUak=
+github.com/juju/idmclient/v2 v2.0.1 h1:DRT3w1aXKlhw66fscPhESIwe6yj5Swy3bgQ1CEM7uIE=
+github.com/juju/idmclient/v2 v2.0.1/go.mod h1:EOiFbPmnkqKvCUS/DHpDRWhL7eKF0AJaTvMjIYlIUak=
 github.com/juju/jsonschema v1.0.0 h1:2ScR9hhVdHxft+Te3fnclVx61MmlikHNEOirTGi+hV4=
 github.com/juju/jsonschema v1.0.0/go.mod h1:SlFW+jFtpWX0P4Tb+zTTPR4ufttLrnJIdQPePxVEfkM=
 github.com/juju/loggo v0.0.0-20170605014607-8232ab8918d9/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
@@ -984,8 +984,8 @@ google.golang.org/protobuf v1.22.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2
 google.golang.org/protobuf v1.23.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
 google.golang.org/protobuf v1.23.1-0.20200526195155-81db48ad09cc/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
 google.golang.org/protobuf v1.25.0/go.mod h1:9JNX74DMeImyA3h4bdi1ymwjUzf21/xIlbajtzgsN7c=
-google.golang.org/protobuf v1.35.2 h1:8Ar7bF+apOIoThw1EdZl0p1oWvMqTHmpA2fRTyZO8io=
-google.golang.org/protobuf v1.35.2/go.mod h1:9fA7Ob0pmnwhb644+1+CVWFRbNajQ6iRojtC/QF5bRE=
+google.golang.org/protobuf v1.36.2 h1:R8FeyR1/eLmkutZOM5CWghmo5itiG9z0ktFlTVLuTmU=
+google.golang.org/protobuf v1.36.2/go.mod h1:9fA7Ob0pmnwhb644+1+CVWFRbNajQ6iRojtC/QF5bRE=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20160105164936-4f90aeace3a2/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

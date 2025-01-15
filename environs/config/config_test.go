@@ -22,7 +22,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -1469,29 +1469,29 @@ func (s *ConfigSuite) TestContainerInheritProperties(c *gc.C) {
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, gc.IsNil)
-	orig := make(environschema.Fields)
+	orig := make(configschema.Fields)
 	for name, field := range config.ConfigSchema {
 		orig[name] = field
 	}
 	c.Assert(schema, jc.DeepEquals, orig)
 	// Check that we actually returned a copy, not the original.
-	schema["foo"] = environschema.Attr{}
+	schema["foo"] = configschema.Attr{}
 	_, ok := orig["foo"]
 	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
-	extraField := environschema.Attr{
+	extraField := configschema.Attr{
 		Description: "fooish",
-		Type:        environschema.Tstring,
+		Type:        configschema.Tstring,
 	}
-	schema, err := config.Schema(environschema.Fields{
+	schema, err := config.Schema(configschema.Fields{
 		"foo": extraField,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(schema["foo"], gc.DeepEquals, extraField)
 	delete(schema, "foo")
-	orig := make(environschema.Fields)
+	orig := make(configschema.Fields)
 	for name, field := range config.ConfigSchema {
 		orig[name] = field
 	}
@@ -1499,10 +1499,10 @@ func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
-	schema, err := config.Schema(environschema.Fields{
-		"type": environschema.Attr{
+	schema, err := config.Schema(configschema.Fields{
+		"type": configschema.Attr{
 			Description: "duplicate",
-			Type:        environschema.Tstring,
+			Type:        configschema.Tstring,
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, `config field "type" clashes with global config`)

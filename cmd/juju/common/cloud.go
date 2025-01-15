@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -127,7 +127,7 @@ func CloudByName(cloudName string) (*jujucloud.Cloud, error) {
 // CloudSchemaByType returns the Schema for a given cloud type.
 // If the ProviderSchema is not implemented for the given cloud
 // type, a NotFound error is returned.
-func CloudSchemaByType(cloudType string) (environschema.Fields, error) {
+func CloudSchemaByType(cloudType string) (configschema.Fields, error) {
 	provider, err := environs.Provider(cloudType)
 	if err != nil {
 		return nil, err

@@ -16,7 +16,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 const (
@@ -90,7 +90,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 }
 
 // Schema returns the configuration schema for an environment.
-func (environProvider) Schema() environschema.Fields {
+func (environProvider) Schema() configschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)

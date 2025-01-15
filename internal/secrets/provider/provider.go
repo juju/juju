@@ -12,7 +12,7 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 )
 
 // SecretRevisions holds external revision ids for a list of secrets.
@@ -53,7 +53,7 @@ type ConfigAttrs map[string]interface{}
 // ProviderConfig is implemented by providers that support config validation.
 type ProviderConfig interface {
 	// ConfigSchema returns the fields defining the provider config.
-	ConfigSchema() environschema.Fields
+	ConfigSchema() configschema.Fields
 
 	// ConfigDefaults returns default attribute values.
 	ConfigDefaults() schema.Defaults

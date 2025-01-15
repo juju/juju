@@ -46,7 +46,7 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/environschema"
+	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
@@ -322,7 +322,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 }
 
 // ConfigSchema returns the config schema and defaults for an application.
-func ConfigSchema() (environschema.Fields, schema.Defaults, error) {
+func ConfigSchema() (configschema.Fields, schema.Defaults, error) {
 	return trustFields, trustDefaults, nil
 }
 
@@ -635,7 +635,7 @@ func validateSecretConfig(chCfg *charm.Config, cfg charm.Settings) error {
 // returned back as an *application.Config.
 func parseCharmSettings(
 	chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting,
-) (_ *config.Config, _ environschema.Fields, chOut charm.Settings, _ schema.Defaults, err error) {
+) (_ *config.Config, _ configschema.Fields, chOut charm.Settings, _ schema.Defaults, err error) {
 	defer func() {
 		if chOut != nil {
 			err = validateSecretConfig(chCfg, chOut)
