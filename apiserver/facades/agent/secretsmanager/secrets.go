@@ -48,11 +48,10 @@ type SecretsManagerAPI struct {
 	controllerUUID    string
 	modelUUID         string
 
-	backendConfigGetter     commonsecrets.BackendConfigGetter
-	adminConfigGetter       commonsecrets.BackendAdminConfigGetter
-	drainConfigGetter       commonsecrets.BackendDrainConfigGetter
-	backendConfigMarshaller func(secretsprovider.ModelBackendConfig) error
-	remoteClientGetter      func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
+	backendConfigGetter commonsecrets.BackendConfigGetter
+	adminConfigGetter   commonsecrets.BackendAdminConfigGetter
+	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
+	remoteClientGetter  func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
 
 	crossModelState CrossModelState
 }
@@ -106,11 +105,30 @@ func (s *SecretsManagerAPIV1) GetSecretBackendConfig() (params.SecretBackendConf
 			Params:      cfg.Config,
 		}
 	}
+	for _, cfg := range result.Configs {
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg); err != nil {
+			return params.SecretBackendConfigResultsV1{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+	}
 	return result, nil
 }
 
 // GetSecretBackendConfigs isn't on the V1 API.
 func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
+
+// GetSecretBackendConfigs gets the config needed to create a client to secret backends.
+func (s *SecretsManagerAPIV2) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	results, err := s.SecretsManagerAPI.GetSecretBackendConfigs(arg)
+	if err != nil {
+		return params.SecretBackendConfigResults{}, errors.Trace(err)
+	}
+	for _, cfg := range results.Results {
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.Config); err != nil {
+			return params.SecretBackendConfigResults{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+	}
+	return results, nil
+}
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
@@ -436,6 +454,24 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
+func (s *SecretsManagerAPIV2) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
+	results, err := s.SecretsManagerAPI.GetSecretContentInfo(args)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, cfg := range results.Results {
+		if cfg.BackendConfig == nil {
+			continue
+		}
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.BackendConfig.Config); err != nil {
+			return params.SecretContentResults{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+		results.Results[i] = cfg
+	}
+	return results, nil
+}
+
+// GetSecretContentInfo returns the secret values for the specified secrets.
 func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(args.Args)),
@@ -545,12 +581,22 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 			return nil, nil, false, errors.Trace(err)
 		}
 	}
-	if backend != nil {
-		if err := s.backendConfigMarshaller(*backend); err != nil {
-			return nil, nil, false, errors.Trace(err)
+	return content, backend, draining, nil
+}
+
+// GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
+func (s *SecretsManagerAPIV2) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
+	results, err := s.SecretsManagerAPI.GetSecretRevisionContentInfo(arg)
+	if err != nil {
+		return params.SecretContentResults{}, errors.Trace(err)
+	}
+
+	for _, cfg := range results.Results {
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.BackendConfig.Config); err != nil {
+			return params.SecretContentResults{}, errors.Annotatef(err, "marshalling legacy backend config")
 		}
 	}
-	return content, backend, draining, nil
+	return results, nil
 }
 
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.

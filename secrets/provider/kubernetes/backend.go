@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/secrets"
 )
 
 type k8sBackend struct {
@@ -62,13 +61,6 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 		return nil, errors.Trace(err)
 	}
 	return secret, nil
-}
-
-func maybePermissionDenied(err error) error {
-	if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) {
-		return errors.WithType(err, secrets.PermissionDenied)
-	}
-	return err
 }
 
 // GetContent implements SecretBackend.

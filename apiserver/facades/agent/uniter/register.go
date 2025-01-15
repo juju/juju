@@ -26,9 +26,6 @@ func Register(registry facade.FacadeRegistry) {
 		return newUniterAPIv19(ctx)
 	}, reflect.TypeOf((*UniterAPIv19)(nil)))
 	registry.MustRegister("Uniter", 20, func(ctx facade.Context) (facade.Facade, error) {
-		return newUniterAPIv20(ctx)
-	}, reflect.TypeOf((*UniterAPIv20)(nil)))
-	registry.MustRegister("Uniter", 21, func(ctx facade.Context) (facade.Facade, error) {
 		return newUniterAPI(ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
@@ -42,29 +39,15 @@ func newUniterAPIv18(context facade.Context) (*UniterAPIv18, error) {
 }
 
 func newUniterAPIv19(context facade.Context) (*UniterAPIv19, error) {
-	api, err := newUniterAPIv20(context)
+	api, err := newUniterAPI(context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &UniterAPIv19{*api}, nil
 }
 
-func newUniterAPIv20(context facade.Context) (*UniterAPIv20, error) {
-	api, err := newUniterAPIMaybeCompat(context, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &UniterAPIv20{*api}, nil
-}
-
+// newUniterAPI creates a new instance of the core Uniter API.
 func newUniterAPI(context facade.Context) (*UniterAPI, error) {
-	return newUniterAPIMaybeCompat(context, false)
-}
-
-// newUniterAPIMaybeCompat creates a new instance of the core Uniter API.
-// If compat is true, then we need to be compatible with older callers which expect
-// a k8s backend secret config to contain a serialised cloud credential.
-func newUniterAPIMaybeCompat(context facade.Context, compat bool) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -124,7 +107,7 @@ func newUniterAPIMaybeCompat(context facade.Context, compat bool) (*UniterAPI, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsAPI, err := secretsmanager.NewSecretManagerAPI(context, compat)
+	secretsAPI, err := secretsmanager.NewSecretManagerAPI(context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

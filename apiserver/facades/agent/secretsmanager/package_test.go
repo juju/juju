@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -43,7 +42,6 @@ func NewTestAPI(
 	adminConfigGetter commonsecrets.BackendAdminConfigGetter,
 	drainConfigGetter commonsecrets.BackendDrainConfigGetter,
 	remoteClientGetter func(uri *coresecrets.URI) (CrossModelSecretsClient, error),
-	backendConfigMarshaller func(cfg provider.ModelBackendConfig) error,
 	crossModelState CrossModelState,
 	authTag names.Tag,
 	clock clock.Clock,
@@ -53,21 +51,20 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:                 authTag,
-		authorizer:              authorizer,
-		resources:               resources,
-		leadershipChecker:       leadership,
-		secretsState:            secretsState,
-		secretsConsumer:         consumer,
-		secretsTriggers:         secretTriggers,
-		backendConfigGetter:     backendConfigGetter,
-		backendConfigMarshaller: backendConfigMarshaller,
-		adminConfigGetter:       adminConfigGetter,
-		drainConfigGetter:       drainConfigGetter,
-		remoteClientGetter:      remoteClientGetter,
-		crossModelState:         crossModelState,
-		clock:                   clock,
-		controllerUUID:          coretesting.ControllerTag.Id(),
-		modelUUID:               coretesting.ModelTag.Id(),
+		authTag:             authTag,
+		authorizer:          authorizer,
+		resources:           resources,
+		leadershipChecker:   leadership,
+		secretsState:        secretsState,
+		secretsConsumer:     consumer,
+		secretsTriggers:     secretTriggers,
+		backendConfigGetter: backendConfigGetter,
+		adminConfigGetter:   adminConfigGetter,
+		drainConfigGetter:   drainConfigGetter,
+		remoteClientGetter:  remoteClientGetter,
+		crossModelState:     crossModelState,
+		clock:               clock,
+		controllerUUID:      coretesting.ControllerTag.Id(),
+		modelUUID:           coretesting.ModelTag.Id(),
 	}, nil
 }

@@ -87,11 +87,6 @@ type UniterAPIv18 struct {
 
 // UniterAPIv19 implements version 19 of the uniter API.
 type UniterAPIv19 struct {
-	UniterAPIv20
-}
-
-// UniterAPIv20 implements version 20 of the uniter API.
-type UniterAPIv20 struct {
 	UniterAPI
 }
 

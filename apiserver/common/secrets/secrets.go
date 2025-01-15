@@ -339,27 +339,30 @@ func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
 	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)
 }
 
-// MarshallLegacyBackendConfig returns backend config suitable for
-// older juju agents.
-func MarshallLegacyBackendConfig(cfg provider.ModelBackendConfig) error {
+// MarshallLegacyBackendConfig converts the supplied backend config
+// so it is suitable for older juju agents.
+func MarshallLegacyBackendConfig(cfg params.SecretBackendConfig) error {
 	if cfg.BackendType != kubernetes.BackendType {
 		return nil
 	}
-	token, ok := cfg.Config["token"].(string)
+	if _, ok := cfg.Params["credential"]; ok {
+		return nil
+	}
+	token, ok := cfg.Params["token"].(string)
 	if !ok {
 		return nil
 	}
-	delete(cfg.Config, "token")
-	delete(cfg.Config, "namespace")
-	delete(cfg.Config, "prefer-incluster-address")
+	delete(cfg.Params, "token")
+	delete(cfg.Params, "namespace")
+	delete(cfg.Params, "prefer-incluster-address")
 
 	cred := cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{k8scloud.CredAttrToken: token})
 	credData, err := json.Marshal(cred)
 	if err != nil {
 		return errors.Annotatef(err, "error marshalling backend config")
 	}
-	cfg.Config["credential"] = string(credData)
-	cfg.Config["is-controller-cloud"] = false
+	cfg.Params["credential"] = string(credData)
+	cfg.Params["is-controller-cloud"] = false
 	return nil
 }
 

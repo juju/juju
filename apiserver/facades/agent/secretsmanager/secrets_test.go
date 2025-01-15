@@ -135,9 +135,6 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
-	backendConfigMarshaller := func(cfg provider.ModelBackendConfig) error {
-		return nil
-	}
 	remoteClientGetter := func(uri *coresecrets.URI) (secretsmanager.CrossModelSecretsClient, error) {
 		return s.remoteClient, nil
 	}
@@ -146,7 +143,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer,
 		s.secretTriggers, backendConfigGetter, adminConfigGetter,
-		drainConfigGetter, remoteClientGetter, backendConfigMarshaller,
+		drainConfigGetter, remoteClientGetter,
 		s.crossModelState, s.authTag, s.clock,
 	)
 	c.Assert(err, jc.ErrorIsNil)

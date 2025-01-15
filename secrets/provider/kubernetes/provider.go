@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
-	
+
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -25,13 +25,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	
+
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -686,6 +687,13 @@ func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.Secr
 		serviceAccount: broker.serviceAccount,
 		client:         broker.client,
 	}, nil
+}
+
+func maybePermissionDenied(err error) error {
+	if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) {
+		return errors.WithType(err, secrets.PermissionDenied)
+	}
+	return err
 }
 
 // RefreshAuth implements SupportAuthRefresh.
