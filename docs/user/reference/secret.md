@@ -124,19 +124,28 @@ The `kubernetes` backend supports the following configuration keys:
 
 |||
 |---|---|
-| `ca-cert` | A PEM-encoded CA certificate. This comes from base64 decoding the `certificate-authority-data` value in the kubeconfig file.|
-| `ca-certs` | A list of PEM-encoded CA certificates (if a cert chain is used).|
-| `client-cert` | A PEM-encoded client certificate. This comes from base64 decoding the user's `client-certificate-data` value in the kubeconfig file.|
-| `client-key` | An unencrypted, PEM-encoded client private key. This comes from base64 decoding the user's `client-key-data` value in the kubeconfig file.|
-| `endpoint` ||
-| `namespace` | The namespace to use store the secrets. The namespace must already exist (it is not created).|
-| `skip-tls-verify` | Do not verify the TLS certificate. For testing only.|
-| `token` | The Kuberneres authentication token (can be generated using `kubectl create token default --namespace ${namespace}`.|
-| `username` | The Kuberneres authentication username.|
-| `password` | The Kuberneres authentication password.|
+| `ca-cert`| A PEM-encoded CA certificate. This comes from base64 decoding the `certificate-authority-data` value in the kubeconfig file.|
+| `ca-certs`| A list of PEM-encoded CA certificates (if a cert chain is used).|
+| `client-cert`| A PEM-encoded client certificate. This comes from base64 decoding the user's `client-certificate-data` value in the kubeconfig file.|
+| `client-key`| An unencrypted, PEM-encoded client private key. This comes from base64 decoding the user's `client-key-data` value in the kubeconfig file.|
+| `endpoint`||
+| `namespace`| The namespace to use store the secrets. The namespace must already exist (it is not created).|
+| `service-account`| The service account for the access token refresh (optional). Defaults to the "default" service account for the namespace.|
+| `skip-tls-verify`| Do not verify the TLS certificate. For testing only.|
+| `token`| The Kuberneres authentication token (can be generated using `kubectl create token ${service-account} --namespace ${namespace}`.|
+| `username`| The Kuberneres authentication username.|
+| `password`| The Kuberneres authentication password.|
 
 A minimum configuration must include the `endpoint`, `namespace`, and `ca-cert`.
 In most cases, `token` would also be specified for authentication.
+
+The service account used to generate the access token must have been configured with a cluster role binding to allow the necessary access privileges. 
+The following is an example of how this might be done:
+
+```
+kubectl create clusterrole juju-secrets --verb='*' --resource=namespaces,clusterroles,clusterrolebindings,secrets,serviceaccounts,serviceaccounts/token
+kubectl create clusterrolebinding juju-secrets --clusterrole=juju-secrets --serviceaccount=${namespace}:${serviceaccount}
+```
 
 ## Permissions around secrets
 

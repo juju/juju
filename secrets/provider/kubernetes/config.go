@@ -18,6 +18,7 @@ import (
 const (
 	endpointKey               = "endpoint"
 	namespaceKey              = "namespace"
+	serviceAccountKey         = "service-account"
 	tokenKey                  = "token"
 	usernameKey               = "username"
 	passwordKey               = "password"
@@ -40,6 +41,11 @@ var configSchema = environschema.Fields{
 		Description: "The namespace in which to store secrets.",
 		Type:        environschema.Tstring,
 		Immutable:   true,
+		Mandatory:   true,
+	},
+	serviceAccountKey: {
+		Description: "The k8s access token service account.",
+		Type:        environschema.Tstring,
 		Mandatory:   true,
 	},
 	caCertsKey: {
@@ -86,6 +92,7 @@ var configSchema = environschema.Fields{
 var configDefaults = schema.Defaults{
 	usernameKey:               schema.Omit,
 	passwordKey:               schema.Omit,
+	serviceAccountKey:         "default",
 	tokenKey:                  schema.Omit,
 	caCertsKey:                schema.Omit,
 	caCertKey:                 schema.Omit,
@@ -110,6 +117,11 @@ func (c *backendConfig) namespace() string {
 
 func (c *backendConfig) token() string {
 	v, _ := c.validAttrs[tokenKey].(string)
+	return v
+}
+
+func (c *backendConfig) serviceAccount() string {
+	v, _ := c.validAttrs[serviceAccountKey].(string)
 	return v
 }
 

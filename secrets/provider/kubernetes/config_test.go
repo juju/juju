@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package kubernetes_test
+package kubernetes
 
 import (
 	"github.com/juju/testing"
@@ -9,8 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/secrets/provider"
-	_ "github.com/juju/juju/secrets/provider/all"
-	jujuk8s "github.com/juju/juju/secrets/provider/kubernetes"
 )
 
 type configSuite struct {
@@ -20,7 +18,7 @@ type configSuite struct {
 var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
-	p, err := provider.Provider(jujuk8s.BackendType)
+	p, err := provider.Provider(BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	configValidator, ok := p.(provider.ProviderConfig)
 	c.Assert(ok, jc.IsTrue)
@@ -48,4 +46,10 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 		err = configValidator.ValidateConfig(t.oldCfg, t.cfg)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
+}
+
+func (s *configSuite) TestDefaultServiceAccount(c *gc.C) {
+	cfg, err := newConfig(map[string]interface{}{"endpoint": "newep", "namespace": "foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.serviceAccount(), gc.Equals, "default")
 }

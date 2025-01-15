@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -90,6 +91,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (*kubernetesCli
 	}
 	broker := &kubernetesClient{
 		namespace:         validCfg.namespace(),
+		serviceAccount:    validCfg.serviceAccount(),
 		isControllerModel: cfg.ModelName == bootstrap.ControllerModelName,
 		client:            k8sClient,
 	}
@@ -273,6 +275,7 @@ func (p k8sProvider) RestrictedConfig(
 type kubernetesClient struct {
 	client kubernetes.Interface
 
+	serviceAccount    string
 	namespace         string
 	isControllerModel bool
 }
@@ -679,8 +682,44 @@ func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.Secr
 		return nil, errors.Annotate(err, "getting cluster client")
 	}
 	return &k8sBackend{
-		model:     cfg.ModelName,
-		namespace: broker.namespace,
-		client:    broker.client,
+		model:          cfg.ModelName,
+		namespace:      broker.namespace,
+		serviceAccount: broker.serviceAccount,
+		client:         broker.client,
 	}, nil
+}
+
+func maybePermissionDenied(err error) error {
+	if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) {
+		return errors.WithType(err, secrets.PermissionDenied)
+	}
+	return err
+}
+
+// RefreshAuth implements SupportAuthRefresh.
+func (p k8sProvider) RefreshAuth(adminCfg *provider.ModelBackendConfig, validFor time.Duration) (_ *provider.BackendConfig, err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
+	broker, err := p.getBroker(adminCfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting cluster client")
+	}
+	validForSeconds := int64(validFor.Truncate(time.Second).Seconds())
+
+	treq := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: &validForSeconds,
+		},
+	}
+	tr, err := broker.client.CoreV1().ServiceAccounts(broker.namespace).CreateToken(
+		context.TODO(), broker.serviceAccount, treq, v1.CreateOptions{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot request a token for %q", broker.serviceAccount)
+	}
+
+	cfgCopy := adminCfg.BackendConfig
+	cfgCopy.Config[tokenKey] = tr.Status.Token
+	return &cfgCopy, nil
 }

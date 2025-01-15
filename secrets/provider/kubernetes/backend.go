@@ -19,19 +19,31 @@ import (
 )
 
 type k8sBackend struct {
-	namespace string
-	model     string
+	serviceAccount string
+	namespace      string
+	model          string
 
 	client kubernetes.Interface
 }
 
 // Ping implements SecretsBackend.
-func (k *k8sBackend) Ping() error {
-	_, err := k.client.Discovery().ServerVersion()
-	if err == nil {
-		_, err = k.client.CoreV1().Namespaces().Get(context.Background(), k.namespace, v1.GetOptions{})
+func (k *k8sBackend) Ping() (err error) {
+	defer func() {
+		err = errors.Annotatef(err, "backend not reachable")
+	}()
+	_, err = k.client.Discovery().ServerVersion()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Annotate(err, "backend not reachable")
+	_, err = k.client.CoreV1().Namespaces().Get(context.Background(), k.namespace, v1.GetOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "checking secrets namespace")
+	}
+	_, err = k.client.CoreV1().ServiceAccounts(k.namespace).Get(context.Background(), k.serviceAccount, v1.GetOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "checking secrets service account")
+	}
+	return nil
 }
 
 // getSecret returns a secret resource.
