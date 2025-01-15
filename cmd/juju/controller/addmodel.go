@@ -207,7 +207,6 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	var cloudTag names.CloudTag
 	var cloud jujucloud.Cloud
 	var cloudRegion string
-	var environVersion int
 	if c.CloudRegion != "" {
 		cloudTag, cloud, cloudRegion, err = c.getCloudRegion(ctx, cloudClient)
 		if err != nil {
@@ -223,7 +222,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	// Find a local credential to use with the new model.
 	// If credential was found on the controller, it will be nil in return.
-	credential, credentialTag, credentialRegion, environVersion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
+	credential, credentialTag, credentialRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
 		cloudTag:    cloudTag,
 		cloudRegion: cloudRegion,
 		cloud:       cloud,
@@ -253,9 +252,13 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	// Called once in findCredential.
+	var environVersion int
 	provider, err := c.providerRegistry.Provider(cloud.Type)
 	if err == nil {
 		environVersion = provider.Version()
+	} else {
+		return errors.Trace(err)
 	}
 
 	addModelClient := c.newAddModelAPI(root)
@@ -487,22 +490,22 @@ type findCredentialParams struct {
 // controller. If a credential is found locally then it's value will be
 // returned as the first return value. If it is found on the controller
 // this will be nil as there is no need to upload it in that case.
-func (c *addModelCommand) findCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, environVersion int, _ error) {
+func (c *addModelCommand) findCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, _ error) {
 	if c.CredentialName == "" {
 		return c.findUnspecifiedCredential(ctx, cloudClient, p)
 	}
 	return c.findSpecifiedCredential(ctx, cloudClient, p)
 }
 
-func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, environVersion int, _ error) {
-	fail := func(err error) (*jujucloud.Credential, names.CloudCredentialTag, string, int, error) {
-		return nil, names.CloudCredentialTag{}, "", 0, err
+func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, _ error) {
+	fail := func(err error) (*jujucloud.Credential, names.CloudCredentialTag, string, error) {
+		return nil, names.CloudCredentialTag{}, "", err
 	}
 	// If the user has not specified a credential, and the cloud advertises
 	// itself as supporting the "empty" auth-type, then return immediately.
 	for _, authType := range p.cloud.AuthTypes {
 		if authType == jujucloud.EmptyAuthType {
-			return nil, names.CloudCredentialTag{}, p.cloudRegion, 0, nil
+			return nil, names.CloudCredentialTag{}, p.cloudRegion, nil
 		}
 	}
 
@@ -521,7 +524,7 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 		// If the controller already has a credential, see if
 		// there is a local version that has an associated
 		// region.
-		credential, _, cloudRegion, environVersion, err := c.findLocalCredential(ctx, p, credentialTag.Name())
+		credential, _, cloudRegion, err := c.findLocalCredential(ctx, p, credentialTag.Name())
 		if errors.Is(err, errors.NotFound) {
 			// No local credential; use the region
 			// specified by the user, if any.
@@ -530,12 +533,12 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 			return fail(errors.Trace(err))
 		}
 		// If there is a credential in the controller use it even if we don't have a local version.
-		return credential, credentialTag, cloudRegion, environVersion, nil
+		return credential, credentialTag, cloudRegion, nil
 	}
 	// There is not a default credential on the controller (either
 	// there are no credentials, or there is more than one). Look for
 	// a local credential we might use.
-	credential, credentialName, cloudRegion, environVersion, err := c.findLocalCredential(ctx, p, "")
+	credential, credentialName, cloudRegion, err := c.findLocalCredential(ctx, p, "")
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -546,15 +549,15 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	return credential, credentialTag, cloudRegion, environVersion, nil
+	return credential, credentialTag, cloudRegion, nil
 }
 
-func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, environVersion int, _ error) {
-	fail := func(err error) (*jujucloud.Credential, names.CloudCredentialTag, string, int, error) {
-		return nil, names.CloudCredentialTag{}, "", 0, err
+func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, _ error) {
+	fail := func(err error) (*jujucloud.Credential, names.CloudCredentialTag, string, error) {
+		return nil, names.CloudCredentialTag{}, "", err
 	}
 	// Look for a local credential with the specified name
-	credential, credentialName, cloudRegion, environVersion, err := c.findLocalCredential(ctx, p, c.CredentialName)
+	credential, credentialName, cloudRegion, err := c.findLocalCredential(ctx, p, c.CredentialName)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fail(errors.Trace(err))
 	}
@@ -567,7 +570,7 @@ func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient 
 		if err != nil {
 			return fail(errors.Trace(err))
 		}
-		return credential, credentialTag, cloudRegion, environVersion, nil
+		return credential, credentialTag, cloudRegion, nil
 	}
 
 	// There was no local credential with that name, check the controller
@@ -588,16 +591,16 @@ func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient 
 			continue
 		}
 		ctx.Infof("Using credential '%s' cached in controller", c.CredentialName)
-		return nil, credentialTag, "", 0, nil
+		return nil, credentialTag, "", nil
 	}
 
 	// Cannot find a credential with the correct name
 	return fail(errors.NotFoundf("credential '%s'", c.CredentialName))
 }
 
-func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentialParams, name string) (_ *jujucloud.Credential, credentialName, cloudRegion string, environVersion int, _ error) {
-	fail := func(err error) (*jujucloud.Credential, string, string, int, error) {
-		return nil, "", "", 0, err
+func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentialParams, name string) (_ *jujucloud.Credential, credentialName, cloudRegion string, _ error) {
+	fail := func(err error) (*jujucloud.Credential, string, string, error) {
+		return nil, "", "", err
 	}
 	provider, err := c.providerRegistry.Provider(p.cloud.Type)
 	if err != nil {
@@ -611,7 +614,7 @@ func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentia
 		},
 	)
 	if err == nil {
-		return credential, credentialName, cloudRegion, provider.Version(), nil
+		return credential, credentialName, cloudRegion, nil
 	}
 	switch errors.Cause(err) {
 	case modelcmd.ErrMultipleCredentials:

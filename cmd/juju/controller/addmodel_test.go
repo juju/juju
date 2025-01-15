@@ -702,6 +702,7 @@ type fakeAddClient struct {
 	config          map[string]interface{}
 	err             error
 	model           base.ModelInfo
+	environVersion  int
 }
 
 var _ controller.AddModelAPI = (*fakeAddClient)(nil)
@@ -710,7 +711,7 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(ctx context.Context, name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(ctx context.Context, name, owner, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}, environVersion int) (base.ModelInfo, error) {
 	if f.err != nil {
 		return base.ModelInfo{}, f.err
 	}
@@ -719,6 +720,7 @@ func (f *fakeAddClient) CreateModel(ctx context.Context, name, owner, cloudName,
 	f.cloudName = cloudName
 	f.cloudRegion = cloudRegion
 	f.config = config
+	f.environVersion = environVersion
 	return f.model, nil
 }
 

@@ -62,6 +62,8 @@ type dbModel struct {
 	// OwnerName is the name of the model owner in the Juju controller.
 	OwnerName string `db:"owner_name"`
 
+	// EnvironVersion is the version of the model's environ -- the related
+	// cloud provider resources.
 	EnvironVersion int `db:"environ_version"`
 }
 
@@ -138,6 +140,8 @@ type dbInitialModel struct {
 	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
 	OwnerUUID string `db:"owner_uuid"`
 
+	// EnvironVersion is the version of the model's environ -- the related
+	// cloud provider resources.
 	EnvironVersion int `db:"environ_version"`
 }
 

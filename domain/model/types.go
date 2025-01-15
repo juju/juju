@@ -48,6 +48,8 @@ type ModelCreationArgs struct {
 	// chosen at creation time.
 	SecretBackend string
 
+	// EnvironVersion is the version of the model's environ -- the related
+	// cloud provider resources.
 	EnvironVersion int
 }
 
@@ -147,6 +149,8 @@ type ReadOnlyModelCreationArgs struct {
 	// controller model.
 	IsControllerModel bool
 
+	// EnvironVersion is the version of the model's environ -- the related
+	// cloud provider resources.
 	EnvironVersion int
 }
 
