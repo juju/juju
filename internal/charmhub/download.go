@@ -126,15 +126,6 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 	return
 }
 
-// DownloadResource returns an io.ReadCloser to read the Resource from.
-func (c *DownloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
-	resp, err := c.downloadFromURL(ctx, resourceURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return resp.Body, nil
-}
-
 func (c *DownloadClient) download(ctx context.Context, url *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
 	opts := newDownloadOptions()
 	for _, option := range options {
