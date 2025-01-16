@@ -42,9 +42,7 @@ When you use the bootstrap command in this way (non-interactively), you can also
 
 > See more: {ref}`command-juju-bootstrap`
 
-```{tip}
-
-**Tips for production:**
+```{dropdown} Tips for production
 
 **- Machines:** Make sure to bootstrap with no less than 50 GB disk, 2 CPUs, and 4 GB RAM (e.g., 
  `juju bootstrap aws/us-east-1 mymachinecontroller --bootstrap-constraints "root-disk=50G cores=2  mem=4G"`). Bootstrapping a controller like this allows you to manage a few hundred units. However, if your needs go beyond this, consider making the controller highly available.
@@ -57,7 +55,7 @@ When you use the bootstrap command in this way (non-interactively), you can also
   
 ```
 
-````{note}
+````{dropdown} Tips for troubleshooting
 - **Machines:**
 
 Bootstrap on machines consists of the following steps:
@@ -71,7 +69,7 @@ For failure at any point, retry the `bootstrap` command with the `--debug`, `--v
 ```text
 juju bootstrap <cloud> <controller> --debug --verbose --keep-broken
 ```
-````
+
 
 > See more: {ref}`command-juju-bootstrap`
 

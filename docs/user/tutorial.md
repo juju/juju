@@ -28,7 +28,7 @@ At any point, to ask for help or give feedback or contribute: Get in touch: {ref
 
 On your machine, install Multipass and use it to set up an Ubuntu virtual machine (VM) called `my-juju-vm` from the `charm-dev` blueprint. 
 
-> See more: {ref}`manage-your-test-environment` > Set things up (automatically)
+> See more: {ref}`set-up-your-deployment-environment` > Set things up (automatically)
 > 
 > Note: This document also contains a manual path, using which you can set things up without the Multipass VM or the `charm-dev` blueprint. However, please note that the manual path may yield slightly different results that may impact your experience of this tutorial. For best results we strongly recommend the automatic path, or else suggest that you follow the manual path in a way that stays very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
 
@@ -201,13 +201,13 @@ self-signed-certificates:certificates  postgresql-k8s:certificates    tls-certif
 From the output of `juju status`> `Unit` > `mattermost-k8s/0`, retrieve the IP address and the port and feed them to `curl` on the template below:
 
 ```text
-curl <IP address>:<port>/api/v4/system/ping
+curl <IP address>:<port number>/api/v4/system/ping
 ```
 
 Sample session:
 
 ```text
-ubuntu@my-juju-vm:~$ curl 10.1.170.150:8065/api/v4/system/ping
+ubuntu@my-juju-vm:~$ curl 10.1.32.155:8065/api/v4/system/ping
 {"ActiveSearchBackend":"database","AndroidLatestVersion":"","AndroidMinVersion":"","IosLatestVersion":"","IosMinVersion":"","status":"OK"}
 ```
 
@@ -629,7 +629,7 @@ Congratulations, you now have a functional observability setup! But your control
 
 To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Multipass:
 
-> See more: {ref}`manage-your-test-environment` > Tear things down (automatically)
+> See more: {ref}`set-up-your-deployment-environment` > Tear things down (automatically)
 
 
 ## Next steps
