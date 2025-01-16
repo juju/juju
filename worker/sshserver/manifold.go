@@ -1,22 +1,23 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package sshserver
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
+
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	StateName string
-	NewWorker func(*state.StatePool) (worker.Worker, error)
+	NewWorker func(*state.StatePool, string) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -54,8 +55,7 @@ func (config ManifoldConfig) startSSHServerWorker(context dependency.Context) (w
 		return nil, errors.Trace(err)
 	}
 
-
-	w, err := config.NewWorker(statePool)
+	w, err := config.NewWorker(statePool, "") // TODO(ale8k): Add jumpHostKey from controller config.
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)

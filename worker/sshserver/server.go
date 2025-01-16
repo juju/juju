@@ -1,17 +1,20 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package sshserver
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"io"
 	"net"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	gossh "golang.org/x/crypto/ssh"
+
+	"github.com/juju/juju/state"
 )
 
 // newSSHServer returns an embedded SSH server. This server does a few things,
@@ -25,13 +28,8 @@ import (
 // - `ssh -J controller:2223 ubuntu@app.controller.model`
 //
 // TODO(ale8k): Word this comment better later explaining why the host routing works.
-func NewSSHServer(sp *state.StatePool, jumpHostKey, terminatingHostKey string) (*ssh.Server, error) {
+func NewSSHServer(sp *state.StatePool, jumpHostKey string) (*ssh.Server, error) {
 	jumpHostSigner, err := gossh.ParsePrivateKey([]byte(jumpHostKey))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	terminatingHostSigner, err := gossh.ParsePrivateKey([]byte(terminatingHostKey))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -45,7 +43,7 @@ func NewSSHServer(sp *state.StatePool, jumpHostKey, terminatingHostKey string) (
 			return true
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip": directTCPIPHandlerClosure(sp, terminatingHostSigner),
+			"direct-tcpip": directTCPIPHandlerClosure(sp),
 		},
 	}
 
@@ -56,7 +54,7 @@ func NewSSHServer(sp *state.StatePool, jumpHostKey, terminatingHostKey string) (
 
 // directTCPIPHandlerClosure is a closure that returns a direct-tcpip handler passing in state
 // to check the permissions the user has for the model containing this unit.
-func directTCPIPHandlerClosure(sp *state.StatePool, terminatingHostSigner gossh.Signer) ssh.ChannelHandler {
+func directTCPIPHandlerClosure(sp *state.StatePool) ssh.ChannelHandler {
 	return func(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 		d := struct {
 			DestAddr string
@@ -116,7 +114,11 @@ func directTCPIPHandlerClosure(sp *state.StatePool, terminatingHostSigner gossh.
 			},
 		}
 
-		server.AddHostKey(terminatingHostSigner)
+		// TODO(ale8k): Update later to generate host keys per unit.
+		terminatingHostKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+		signer, _ := gossh.NewSignerFromKey(terminatingHostKey)
+
+		server.AddHostKey(signer)
 		server.HandleConn(terminatingServerPipe)
 	}
 }

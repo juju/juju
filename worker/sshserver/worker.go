@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package sshserver
@@ -8,9 +8,10 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/state"
 )
 
 // sshServerWorker is a worker that runs an embedded SSH server.
@@ -22,8 +23,8 @@ type sshServerWorker struct {
 }
 
 // NewSSHServerWorker returns a new worker that runs an embedded SSH server.
-func NewSSHServerWorker(statePool *state.StatePool, jumpHostKey, terminatingHostKey string) (worker.Worker, error) {
-	srv, err := NewSSHServer(statePool, jumpHostKey, terminatingHostKey)
+func NewSSHServerWorker(statePool *state.StatePool, jumpHostKey string) (worker.Worker, error) {
+	srv, err := NewSSHServer(statePool, jumpHostKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

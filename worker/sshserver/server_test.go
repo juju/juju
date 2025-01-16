@@ -11,12 +11,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/juju/juju/worker/sshserver"
 	"github.com/juju/testing"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
-
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/worker/sshserver"
 )
 
 type sshServerSuite struct {
@@ -50,17 +50,6 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 
 	s.jumpHostKey = string(jumpHostKeyPEM)
 
-	// Setup terminating host private key
-	terminatingHostKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	c.Assert(err, gc.IsNil)
-
-	terminatingHostKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(terminatingHostKey),
-	})
-
-	s.terminatingHostKey = string(terminatingHostKeyPEM)
-
 }
 
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {
@@ -69,7 +58,6 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	server, err := sshserver.NewSSHServer(
 		nil,
 		s.jumpHostKey,
-		s.terminatingHostKey,
 	)
 	c.Assert(err, gc.IsNil)
 
