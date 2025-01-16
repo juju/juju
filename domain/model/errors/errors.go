@@ -36,4 +36,12 @@ const (
 	// a user on a particular model cannot be found. This does not mean the user
 	// does not exist.
 	UserNotFoundOnModel = errors.ConstError("user not found on model")
+
+	// ModelConstraintNotFound describes an error that occurs when a model constraint does not
+	// have a constraint configured.
+	ModelConstraintNotFound = errors.ConstError("model constraint not found")
+
+	// ModelConstraintSpaceNotFound describes an error that occurs when a model constraint sets to a space
+	// that does not exist.
+	ModelConstraintSpaceDoesNotExist = errors.ConstError("model constraint space does not exist")
 )
