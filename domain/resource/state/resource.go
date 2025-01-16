@@ -443,12 +443,12 @@ func (st *State) RecordStoredResource(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		switch args.ResourceType {
 		case charmresource.TypeFile:
-			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Hash)
+			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored file resource information: %w", err)
 			}
 		case charmresource.TypeContainerImage:
-			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.Hash)
+			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored container image resource information: %w", err)
 			}
@@ -531,7 +531,7 @@ func (st *State) insertFileResource(
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
 	size int64,
-	hash string,
+	sha384 string,
 ) error {
 	// Get the object store UUID of the stored resource blob.
 	uuid, err := storageID.ObjectStoreUUID()
@@ -544,7 +544,7 @@ func (st *State) insertFileResource(
 		ResourceUUID:    resourceUUID.String(),
 		ObjectStoreUUID: uuid.String(),
 		Size:            size,
-		Hash:            hash,
+		SHA384:          sha384,
 	}
 	checkObjectStoreMetadataStmt, err := st.Prepare(`
 SELECT uuid AS &storedFileResource.store_uuid

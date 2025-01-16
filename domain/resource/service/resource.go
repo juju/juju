@@ -299,7 +299,7 @@ func (s *Service) storeResource(
 			ResourceType:                  res.Type,
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
 			Size:                          args.Size,
-			Hash:                          args.Fingerprint.String(),
+			SHA384:                        args.Fingerprint.String(),
 		},
 	)
 	if err != nil {

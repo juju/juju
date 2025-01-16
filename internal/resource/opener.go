@@ -25,11 +25,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var (
-	MismatchedFingerprint = errors.New("fingerprint of downloaded resource does not match expected fingerprint from charmhub")
-	MismatchedSize        = errors.New("size of downloaded resource does not match expected size from charmhub")
-)
-
 var resourceLogger = internallogger.GetLogger("juju.resource")
 
 // ResourceOpenerArgs are common arguments for the 2

@@ -109,12 +109,12 @@ type storedFileResource struct {
 	ObjectStoreUUID string `db:"store_uuid"`
 	ResourceUUID    string `db:"resource_uuid"`
 	Size            int64  `db:"size"`
-	Hash            string `db:"hash_sha384"`
+	SHA384          string `db:"sha384"`
 }
 
 type storedContainerImageResource struct {
 	StorageKey   string `db:"store_storage_key"`
 	ResourceUUID string `db:"resource_uuid"`
 	Size         int64  `db:"size"`
-	Hash         string `db:"hash_sha384"`
+	Hash         string `db:"sha384"`
 }

@@ -639,7 +639,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 			RetrievedByType: retrievedByType,
 			ResourceType:    charmresource.TypeContainerImage,
 			Size:            size,
-			Hash:            hash,
+			SHA384:          hash,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -693,7 +693,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 			RetrievedByType: retrievedByType,
 			ResourceType:    charmresource.TypeFile,
 			Size:            size,
-			Hash:            hash,
+			SHA384:          hash,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -747,7 +747,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			StorageID:                     storeID,
 			ResourceType:                  charmresource.TypeContainerImage,
 			IncrementCharmModifiedVersion: true,
-			Hash:                          hash,
+			SHA384:                        hash,
 			Size:                          size,
 		},
 	)
@@ -762,7 +762,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			StorageID:                     storeID2,
 			ResourceType:                  charmresource.TypeContainerImage,
 			IncrementCharmModifiedVersion: true,
-			Hash:                          hash2,
+			SHA384:                        hash2,
 			Size:                          size2,
 		},
 	)
@@ -790,7 +790,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 			ResourceUUID: resID,
 			StorageID:    storeID,
 			ResourceType: charmresource.TypeContainerImage,
-			Hash:         hash,
+			SHA384:       hash,
 			Size:         size,
 		},
 	)
@@ -817,7 +817,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			ResourceUUID: resID,
 			StorageID:    storeID1,
 			ResourceType: charmresource.TypeContainerImage,
-			Hash:         hash,
+			SHA384:       hash,
 			Size:         size,
 		},
 	)
@@ -830,7 +830,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			ResourceUUID: resID,
 			StorageID:    storeID2,
 			ResourceType: charmresource.TypeContainerImage,
-			Hash:         hash,
+			SHA384:       hash,
 			Size:         size,
 		},
 	)

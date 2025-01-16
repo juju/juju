@@ -259,7 +259,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: false,
 		Size:                          size,
-		Hash:                          fp.String(),
+		SHA384:                        fp.String(),
 	})
 
 	err = s.service.StoreResource(
@@ -319,7 +319,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: false,
 		Size:                          size,
-		Hash:                          fp.String(),
+		SHA384:                        fp.String(),
 	}).Return(expectedErr)
 
 	// Expect the removal of the resource.
@@ -440,7 +440,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		ResourceType:                  resourceType,
 		IncrementCharmModifiedVersion: true,
 		Size:                          size,
-		Hash:                          fp.String(),
+		SHA384:                        fp.String(),
 	})
 
 	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(

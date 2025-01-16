@@ -7,9 +7,10 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 )
 
-func NewCharmHubClientForTest(cl CharmHub, logger corelogger.Logger) *CharmHubClient {
+func NewCharmHubClientForTest(cl CharmHub, downloader Downloader, logger corelogger.Logger) *CharmHubClient {
 	return &CharmHubClient{
-		client: cl,
-		logger: logger,
+		downloader: downloader,
+		client:     cl,
+		logger:     logger,
 	}
 }

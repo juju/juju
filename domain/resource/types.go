@@ -157,6 +157,6 @@ type RecordStoredResourceArgs struct {
 	IncrementCharmModifiedVersion bool
 	// Size is the size in bytes of the resource blob.
 	Size int64
-	// Hash is the hash of the resource blob.
-	Hash string
+	// SHA384 is the hash of the resource blob.
+	SHA384 string
 }

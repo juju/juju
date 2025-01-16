@@ -5,9 +5,7 @@ package charmhub
 
 import (
 	"context"
-	"io"
 	"net/url"
-	"os"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/kr/pretty"
@@ -17,20 +15,13 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/errors"
-)
-
-const (
-	// ErrUnexpectedFingerprint is returned when the fingerprint of the downloaded
-	// resource does not match the expected fingerprint.
-	ErrUnexpectedFingerprint = errors.ConstError("downloaded resource has unexpected fingerprint")
-
-	// ErrUnexpectedSize is returned when the size of the downloaded
-	// resources does not match the expected size.
-	ErrUnexpectedSize = errors.ConstError("downloaded resource has unexpected size")
+	"github.com/juju/juju/internal/resource/downloader"
 )
 
 type charmHubOpener struct {
 	modelConfigService ModelConfigService
+	downloader         Downloader
+	client             CharmHub
 }
 
 type resourceClientGetter func(ctx context.Context, logger corelogger.Logger) (ResourceClient, error)
@@ -40,7 +31,9 @@ func (rcg resourceClientGetter) GetResourceClient(ctx context.Context, logger co
 }
 
 func NewCharmHubOpener(modelConfigService ModelConfigService) resourceClientGetter {
-	ch := &charmHubOpener{modelConfigService: modelConfigService}
+	ch := &charmHubOpener{
+		modelConfigService: modelConfigService,
+	}
 	return ch.NewClient
 }
 
@@ -65,12 +58,17 @@ func newCharmHubClient(charmhubURL string, logger corelogger.Logger) (*CharmHubC
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return &CharmHubClient{client: chClient, logger: logger.Child("charmhub", corelogger.CHARMHUB)}, nil
+	return &CharmHubClient{
+		client:     chClient,
+		downloader: downloader.NewResourceDownloader(chClient, logger),
+		logger:     logger.Child("charmhub", corelogger.CHARMHUB),
+	}, nil
 }
 
 type CharmHubClient struct {
-	client CharmHub
-	logger corelogger.Logger
+	client     CharmHub
+	downloader Downloader
+	logger     corelogger.Logger
 }
 
 // GetResource returns data about the resource including an io.ReadCloser
@@ -85,54 +83,13 @@ func (ch *CharmHubClient) GetResource(ctx context.Context, req ResourceRequest) 
 
 	ch.logger.Tracef("Read resource %q from %q", res.Name, resourceURL)
 
-	tmpFile, err := os.CreateTemp("", "resource-")
+	readCloser, err := ch.downloader.Download(ctx, resourceURL, res.Fingerprint.String(), res.Size)
 	if err != nil {
-		return ResourceData{}, errors.Capture(err)
+		return ResourceData{}, errors.Errorf("downloading resource: %w", err)
 	}
-	defer func() {
-		// Always close the file, we no longer require to have it open for
-		// this purpose. Another process/method can take over the file.
-		tmpFile.Close()
-
-		// If the download was successful, we don't need to remove the file.
-		// It is the responsibility of the caller to remove the file.
-		if err == nil {
-			return
-		}
-
-		// Remove the temporary file if the download failed. If we can't
-		// remove the file, log a warning, so the operator can clean it up
-		// manually.
-		removeErr := os.Remove(tmpFile.Name())
-		if removeErr != nil {
-			ch.logger.Warningf("failed to remove temporary file %q: %v", tmpFile.Name(), removeErr)
-		}
-	}()
-
-	downloadResult, err := ch.download(ctx, resourceURL, tmpFile)
-	if err != nil {
-		return ResourceData{}, errors.Capture(err)
-	}
-	if downloadResult.SHA384 != res.Fingerprint.String() {
-		return ResourceData{}, errors.Errorf(
-			"%w: %q, got %q", ErrUnexpectedFingerprint, res.Fingerprint.String(), downloadResult.SHA384,
-		)
-	}
-	if downloadResult.Size != res.Size {
-		return ResourceData{}, errors.Errorf(
-			"%w: %q, got %q", ErrUnexpectedSize, res.Size, downloadResult.Size,
-		)
-	}
-
-	// Create a reader for the temporary file containing the resource.
-	tmpFileReader, err := newTmpFileReader(tmpFile.Name(), ch.logger)
-	if err != nil {
-		return ResourceData{}, errors.Errorf("opening downloaded resource: %w", err)
-	}
-
 	return ResourceData{
 		Resource:   res,
-		ReadCloser: tmpFileReader,
+		ReadCloser: readCloser,
 	}, nil
 }
 
@@ -208,71 +165,4 @@ func resourceFromRevision(name string, revs []transport.ResourceRevision) (charm
 		return charmresource.Resource{}, nil, errors.Capture(err)
 	}
 	return r, resourceURL, nil
-}
-
-// Download looks up the requested charm using the appropriate store, downloads
-// it to a temporary file and passes it to the configured storage API so it can
-// be persisted.
-//
-// The resulting charm is verified to be the right hash. It expected that the
-// origin will always have the correct hash following this call.
-//
-// Returns [ErrInvalidHash] if the hash of the downloaded charm does not match
-// the expected hash.
-func (d *CharmHubClient) download(ctx context.Context, url *url.URL, tmpFile *os.File) (_ *DownloadResult, err error) {
-	d.logger.Debugf("downloading resource: %s", url)
-
-	// Force the sha256 digest to be calculated on download.
-	digest, err := d.client.Download(ctx, url, tmpFile.Name())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	d.logger.Debugf("downloaded charm: %q", url)
-
-	return &DownloadResult{
-		SHA256: digest.SHA256,
-		SHA384: digest.SHA384,
-		Size:   digest.Size,
-	}, nil
-}
-
-// DownloadResult contains information about a downloaded charm.
-type DownloadResult struct {
-	ReadCloser io.ReadCloser
-	SHA256     string
-	SHA384     string
-	Size       int64
-}
-
-// tmpFileReader wraps an *os.File and deletes it when closed.
-type tmpFileReader struct {
-	logger corelogger.Logger
-	*os.File
-}
-
-func newTmpFileReader(file string, logger corelogger.Logger) (*tmpFileReader, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	return &tmpFileReader{
-		logger: logger,
-		File:   f,
-	}, nil
-}
-
-// Close closes the temporary file and removes it. If the file cannot be
-// removed, an error is logged.
-func (f *tmpFileReader) Close() (err error) {
-	defer func() {
-		removeErr := os.Remove(f.Name())
-		if err == nil {
-			err = removeErr
-		} else if removeErr != nil {
-			f.logger.Warningf("failed to remove temporary file %q: %v", f.Name(), removeErr)
-		}
-	}()
-
-	return f.File.Close()
 }

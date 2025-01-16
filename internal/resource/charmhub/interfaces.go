@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"io"
 	"net/url"
 
 	"github.com/juju/juju/environs/config"
@@ -26,7 +27,7 @@ type ResourceClient interface {
 	GetResource(context.Context, ResourceRequest) (ResourceData, error)
 }
 
-// CharmHub represents methods required from a charmhub client talking to the
+// CharmHub represents methods required from a charmhub lient talking to the
 // charmhub api used by the local CharmHubClient
 type CharmHub interface {
 	// Download retrieves the specified charm from the store and saves its
@@ -36,4 +37,19 @@ type CharmHub interface {
 	// Refresh gets the recommended revisions to install/refresh for the given
 	// charms, including resource revisions.
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
+// Downloader defines an API for downloading and storing charms.
+type Downloader interface {
+	// Download looks up the requested resource using the appropriate store,
+	// downloads it to a temporary file and returns a ReadCloser that deletes the
+	// temporary file on closure.
+	//
+	// The resulting resource is verified to have the right hash and size.
+	//
+	// Returns [ErrUnexpectedHash] if the hash of the downloaded resource does not
+	// match the expected hash.
+	// Returns [ErrUnexpectedSize] if the size of the downloaded resource does not
+	// match the expected size.
+	Download(ctx context.Context, url *url.URL, sha384 string, size int64) (io.ReadCloser, error)
 }
