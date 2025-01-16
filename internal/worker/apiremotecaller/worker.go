@@ -5,6 +5,8 @@ package apiremotecaller
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -220,13 +222,8 @@ func (w *remoteWorker) loop() error {
 
 			w.cfg.Logger.Debugf("remote workers updated: %v", required)
 
-			remotes := make([]RemoteConnection, 0, len(required))
-			for _, remote := range required {
-				remotes = append(remotes, remote)
-			}
-
 			w.mu.Lock()
-			w.apiRemotes = remotes
+			w.apiRemotes = slices.Collect(maps.Values(required))
 			w.mu.Unlock()
 		}
 	}
