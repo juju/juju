@@ -545,7 +545,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Placement:            application.doc.Placement,
 		HasResources:         application.doc.HasResources,
 		DesiredScale:         application.doc.DesiredScale,
-		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpointBindings[globalKey]),
 		ApplicationConfig:    applicationConfig,
 		CharmConfig:          charmConfig,

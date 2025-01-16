@@ -907,7 +907,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		RelationCount:        i.relationCount(a.Name()),
 		Exposed:              a.Exposed(),
 		ExposedEndpoints:     exposedEndpoints,
-		MinUnits:             a.MinUnits(),
 		Tools:                agentTools,
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),

@@ -586,41 +586,6 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacySuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
-	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
-
-	s.assertJob(c, state.JobManageModel, nil, func(_ agent.Config, _ *MachineAgent) {
-		// Ensure that the MinUnits worker is alive by doing a simple check
-		// that it responds to state changes: add an application, set its minimum
-		// number of units to one, wait for the worker to add the missing unit.
-		f, release := s.NewFactory(c, s.ControllerModelUUID())
-		defer release()
-		app := f.MakeApplication(c, &factory.ApplicationParams{
-			Name:  "wordpress",
-			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
-		err := app.SetMinUnits(1)
-		c.Assert(err, jc.ErrorIsNil)
-		w := app.Watch()
-		defer worker.Stop(w)
-
-		// Wait for the unit to be created.
-		timeout := time.After(longerWait)
-		for {
-			select {
-			case <-timeout:
-				c.Fatalf("unit not created")
-			case <-w.Changes():
-				units, err := app.AllUnits()
-				c.Assert(err, jc.ErrorIsNil)
-				if len(units) == 1 {
-					return
-				}
-			}
-		}
-	})
-}
-
 func (s *MachineLegacySuite) TestControllerModelWorkers(c *gc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
 

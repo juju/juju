@@ -302,10 +302,6 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 }
 
 func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number, modelType state.ModelType) error {
-	if len(units) < app.MinUnits() {
-		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
-	}
-
 	appCharmURL, _ := app.CharmURL()
 	if appCharmURL == nil {
 		return errors.Errorf("application charm url is nil")

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
-	"github.com/juju/juju/internal/worker/applicationscaler"
 	"github.com/juju/juju/internal/worker/asynccharmdownloader"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
@@ -430,12 +429,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
-		})),
-		applicationScalerName: ifNotMigrating(applicationscaler.Manifold(applicationscaler.ManifoldConfig{
-			APICallerName: apiCallerName,
-			NewFacade:     applicationscaler.NewFacade,
-			NewWorker:     applicationscaler.New,
-			// No Logger defined in applicationscaler package.
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName:                apiCallerName,

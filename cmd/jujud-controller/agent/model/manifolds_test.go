@@ -39,7 +39,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"application-scaler",
 		"async-charm-downloader",
 		"charm-revisioner",
 		"clock",
@@ -405,14 +404,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"api-caller": {"agent"},
 
 	"api-config-watcher": {"agent"},
-
-	"application-scaler": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag"},
 
 	"async-charm-downloader": {
 		"agent",
