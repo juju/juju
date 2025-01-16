@@ -10,8 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
-
-	"github.com/juju/juju/state"
 )
 
 // sshServerWorker is a worker that runs an embedded SSH server.
@@ -23,8 +21,8 @@ type sshServerWorker struct {
 }
 
 // NewSSHServerWorker returns a new worker that runs an embedded SSH server.
-func NewSSHServerWorker(statePool *state.StatePool, jumpHostKey string) (worker.Worker, error) {
-	srv, err := NewSSHServer(statePool, jumpHostKey)
+func NewSSHServerWorker(jumpHostKey string) (worker.Worker, error) {
+	srv, err := NewSSHServer(jumpHostKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

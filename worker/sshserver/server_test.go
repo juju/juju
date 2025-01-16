@@ -55,7 +55,6 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(8 * 1024)
 	server, err := sshserver.NewSSHServer(
-		nil,
 		s.jumpHostKey,
 	)
 	c.Assert(err, gc.IsNil)

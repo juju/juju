@@ -13,22 +13,10 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
-
-	"github.com/juju/juju/state"
 )
 
-// NewSSHServer returns an embedded SSH server. This server does a few things,
-// reuqests that come in must go through the jump server. The jump server will
-// pipe the connection and pass it into an in-memory instance of another SSH server.
-//
-// This second SSH server (seen within directTCPIPHandlerClosure) will handle the
-// the termination of the SSH connections, note, it is not listening on any ports
-// because we are passing the piped connection to it, essentially allowing the following
-// to work (despite only having one server listening):
-// - `ssh -J controller:2223 ubuntu@app.controller.model`
-//
-// TODO(ale8k): Word this comment better later explaining why the host routing works.
-func NewSSHServer(sp *state.StatePool, jumpHostKey string) (*ssh.Server, error) {
+// NewSSHServer returns an embedded SSH server.
+func NewSSHServer(jumpHostKey string) (*ssh.Server, error) {
 	jumpHostSigner, err := gossh.ParsePrivateKey([]byte(jumpHostKey))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -43,7 +31,7 @@ func NewSSHServer(sp *state.StatePool, jumpHostKey string) (*ssh.Server, error) 
 			return true
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip": directTCPIPHandlerClosure(sp),
+			"direct-tcpip": directTCPIPHandlerClosure(),
 		},
 	}
 
@@ -52,9 +40,9 @@ func NewSSHServer(sp *state.StatePool, jumpHostKey string) (*ssh.Server, error) 
 	return server, nil
 }
 
-// directTCPIPHandlerClosure is a closure that returns a direct-tcpip handler passing in state
-// to check the permissions the user has for the model containing this unit.
-func directTCPIPHandlerClosure(sp *state.StatePool) ssh.ChannelHandler {
+// directTCPIPHandlerClosure is a closure that returns a direct-tcpip handler, passing
+// in necessary dependencies.
+func directTCPIPHandlerClosure() ssh.ChannelHandler {
 	return func(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 		d := struct {
 			DestAddr string
@@ -73,6 +61,8 @@ func directTCPIPHandlerClosure(sp *state.StatePool) ssh.ChannelHandler {
 			return
 		}
 
+		// gossh.Request are requests sent outside of the normal stream of data (ex. pty-req for an interactive session).
+		// Since we only need the raw data to redirect, we can discard them.
 		go gossh.DiscardRequests(reqs)
 
 		jumpServerPipe, terminatingServerPipe := net.Pipe()
