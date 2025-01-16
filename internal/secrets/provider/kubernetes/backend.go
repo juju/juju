@@ -5,44 +5,112 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/juju/errors"
+	core "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
 
 type k8sBackend struct {
-	broker caas.SecretsBackend
-	pinger func() error
-}
+	serviceAccount string
+	namespace      string
+	model          string
 
-// GetContent implements SecretsBackend.
-func (k k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
-	v, err := k.broker.GetJujuSecret(ctx, revisionId)
-	if errors.Is(err, errors.NotFound) {
-		err = fmt.Errorf("secret revision %q not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
-	}
-	return v, errors.Trace(err)
-}
-
-// DeleteContent implements SecretsBackend.
-func (k k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
-	err := k.broker.DeleteJujuSecret(ctx, revisionId)
-	if errors.Is(err, errors.NotFound) {
-		err = fmt.Errorf("secret revision %q not found%w", revisionId, errors.Hide(secreterrors.SecretRevisionNotFound))
-	}
-	return errors.Trace(err)
-}
-
-// SaveContent implements SecretsBackend.
-func (k k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
-	return k.broker.SaveJujuSecret(ctx, uri.Name(revision), value)
+	client kubernetes.Interface
 }
 
 // Ping implements SecretsBackend.
-func (k k8sBackend) Ping() error {
-	return k.pinger()
+func (k *k8sBackend) Ping() (err error) {
+	defer func() {
+		err = errors.Annotatef(err, "backend not reachable")
+	}()
+	_, err = k.client.Discovery().ServerVersion()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = k.client.CoreV1().Namespaces().Get(context.Background(), k.namespace, v1.GetOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "checking secrets namespace")
+	}
+	if k.serviceAccount != "" {
+		_, err = k.client.CoreV1().ServiceAccounts(k.namespace).Get(context.Background(), k.serviceAccount, v1.GetOptions{})
+		if err != nil {
+			return errors.Annotatef(err, "checking secrets service account")
+		}
+	}
+	return nil
+}
+
+// getSecret returns a secret resource.
+func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Secret, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("secret revision %q not found%w", secretName, errors.Hide(secreterrors.SecretRevisionNotFound))
+		} else if k8serrors.IsForbidden(err) {
+			return nil, errors.Unauthorizedf("cannot access %q", secretName)
+		}
+		return nil, errors.Trace(err)
+	}
+	return secret, nil
+}
+
+// GetContent implements SecretBackend.
+func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
+	// revisionId is the secret name.
+	secret, err := k.getSecret(ctx, revisionId)
+	if err != nil {
+		logger.Tracef("getting secret %q: %v", revisionId, err)
+		return nil, errors.Trace(err)
+	}
+	data := map[string]string{}
+	for k, v := range secret.Data {
+		data[k] = base64.StdEncoding.EncodeToString(v)
+	}
+	return secrets.NewSecretValue(data), nil
+}
+
+// SaveContent implements SecretBackend.
+func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
+	name := uri.Name(revision)
+	labels := utils.LabelsMerge(
+		utils.LabelsForModel(k.model, false),
+		utils.LabelsJuju)
+	in := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: labels,
+		},
+		Type: core.SecretTypeOpaque,
+	}
+	if in.StringData, err = value.Values(); err != nil {
+		return "", errors.Trace(err)
+	}
+	secret := resources.NewSecret(name, k.namespace, in)
+	if err = secret.Apply(ctx, k.client); err != nil {
+		return "", errors.Trace(err)
+	}
+	return name, nil
+}
+
+// DeleteContent implements SecretBackend.
+func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
+	// revisionId is the secret name.
+	secret, err := k.getSecret(ctx, revisionId)
+	if err != nil {
+		logger.Tracef("deleting secret %q: %v", revisionId, err)
+		return errors.Trace(err)
+	}
+	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client)
 }

@@ -481,6 +481,15 @@ GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
 		return nil, errors.Trace(err)
 	}
 
+	// Controller name is still stored in controller config.
+	var controller controllerName
+	controllerNameStmt, err := s.Prepare(`
+SELECT value AS &controllerName.name FROM v_controller_config WHERE key = 'controller-name'
+`, controller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var sbData secretBackendForK8sModelRows
 	var cloudData cloudRows
 	var credentialData cloudCredentialRows
@@ -495,15 +504,23 @@ GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
 	if err != nil {
 		return nil, fmt.Errorf("querying kubernetes secret backends: %w", err)
 	}
-	return sbData.toSecretBackend(cloudData, credentialData)
+
+	err = tx.Query(ctx, controllerNameStmt).Get(&controller)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("controller name key not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot select controller name")
+	}
+	return sbData.toSecretBackend(controller.Name, cloudData, credentialData)
 }
 
-func getK8sBackendConfig(cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
+func getK8sBackendConfig(controllerName, modelName string, cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {
 	spec, err := cloudspec.MakeCloudSpec(cloud, "", &cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	k8sConfig, err := kubernetes.BuiltInConfig(spec)
+	k8sConfig, err := kubernetes.BuiltInConfig(controllerName, modelName, spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -614,6 +631,7 @@ func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, 
 SELECT
     vc.uuid       AS &secretBackendForK8sModelRow.cloud_uuid,
     vcca.uuid     AS &secretBackendForK8sModelRow.cloud_credential_uuid,
+    vm.name       AS &modelDetails.name,
     vm.model_type AS &modelDetails.model_type,
     (vc.uuid,
     vc.name,
@@ -636,6 +654,16 @@ GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secret
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Controller name is still stored in controller config.
+	var controller controllerName
+	controllerNameStmt, err := s.Prepare(`
+SELECT value AS &controllerName.name FROM v_controller_config WHERE key = 'controller-name'
+`, controller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var models []modelDetails
 	var sbCloudCredentialIDs secretBackendForK8sModelRows
 	var clds cloudRows
@@ -650,6 +678,13 @@ GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secret
 	if len(models) == 0 || len(sbCloudCredentialIDs) == 0 {
 		return nil, fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
 	}
+	err = tx.Query(ctx, controllerNameStmt).Get(&controller)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("controller name key not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot select controller name")
+	}
 	model := models[0]
 	if model.Type != coremodel.CAAS {
 		return nil, fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
@@ -658,7 +693,7 @@ GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secret
 
 	cld := clds.toClouds()[sbCloudCredentialID.CloudID]
 	cred := creds.toCloudCredentials()[sbCloudCredentialID.CredentialID]
-	k8sConfig, err := getK8sBackendConfig(cld, cred)
+	k8sConfig, err := getK8sBackendConfig(controller.Name, model.Name, cld, cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -443,7 +443,7 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.S
 				backend.Config[k] = v
 			}
 		}
-		err = configValidator.ValidateConfig(nil, backend.Config)
+		err = configValidator.ValidateConfig(nil, backend.Config, backend.TokenRotateInterval)
 		if err != nil {
 			return fmt.Errorf("%w: config for provider %q: %w", secretbackenderrors.NotValid, backend.BackendType, err)
 		}
@@ -517,7 +517,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 				cfgToApply[k] = defaultVal
 			}
 		}
-		err = configValidator.ValidateConfig(existing.Config, cfgToApply)
+		err = configValidator.ValidateConfig(existing.Config, cfgToApply, params.TokenRotateInterval)
 		if err != nil {
 			return fmt.Errorf("%w: config for provider %q: %w", secretbackenderrors.NotValid, existing.BackendType, err)
 		}
@@ -574,7 +574,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	// Ideally, we should do this in a transaction, but it's not critical.
 	// Because it's called by a single worker at a time.
 	var nextRotateTime time.Time
-	auth, err := p.(provider.SupportAuthRefresh).RefreshAuth(cfg, *backendInfo.TokenRotateInterval)
+	auth, err := p.(provider.SupportAuthRefresh).RefreshAuth(ctx, cfg, *backendInfo.TokenRotateInterval)
 	if err != nil {
 		s.logger.Debugf("refreshing auth token for %q: %v", backendInfo.Name, err)
 		// If there's a permission error, we can't recover from that.

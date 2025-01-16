@@ -15,10 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/secrets"
 )
 
 func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
@@ -164,58 +162,4 @@ func (k *kubernetesClient) GetSecretToken(ctx context.Context, name string) (str
 		return "", errors.Trace(err)
 	}
 	return string(secret.Data[core.ServiceAccountTokenKey]), nil
-}
-
-// GetJujuSecret implements SecretsStore.
-func (k *kubernetesClient) GetJujuSecret(ctx context.Context, backendId string) (secrets.SecretValue, error) {
-	// backendId is the secret name.
-	secret, err := k.getSecret(ctx, backendId)
-	if k8serrors.IsForbidden(err) {
-		logger.Tracef("getting secret %q: %v", backendId, err)
-		return nil, errors.Unauthorizedf("cannot access %q", backendId)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	data := map[string]string{}
-	for k, v := range secret.Data {
-		data[k] = base64.StdEncoding.EncodeToString(v)
-	}
-	return secrets.NewSecretValue(data), nil
-}
-
-// SaveJujuSecret implements SecretsStore.
-func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (_ string, err error) {
-	labels := utils.LabelsMerge(
-		utils.LabelsForModel(k.CurrentModel(), false),
-		utils.LabelsJuju)
-	in := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Labels:      labels,
-			Annotations: k.annotations,
-		},
-		Type: core.SecretTypeOpaque,
-	}
-	if in.StringData, err = value.Values(); err != nil {
-		return "", errors.Trace(err)
-	}
-	secret := resources.NewSecret(name, k.namespace, in)
-	if err = secret.Apply(ctx, k.client()); err != nil {
-		return "", errors.Trace(err)
-	}
-	return name, nil
-}
-
-// DeleteJujuSecret implements SecretsStore.
-func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, backendId string) error {
-	// backendId is the secret name.
-	secret, err := k.getSecret(ctx, backendId)
-	if k8serrors.IsForbidden(err) {
-		logger.Tracef("deleting secret %q: %v", backendId, err)
-		return errors.Unauthorizedf("cannot access %q", backendId)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client())
 }

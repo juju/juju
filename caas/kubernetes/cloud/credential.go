@@ -21,7 +21,7 @@ const (
 	CredAttrClientCertificateData = "ClientCertificateData"
 	// CredAttrClientKeyData is the attribute key for client certificate key credentials
 	CredAttrClientKeyData = "ClientKeyData"
-	// CredAttrToken is the attribute key for outh2 token credentials
+	// CredAttrToken is the attribute key for oauth2 token credentials
 	CredAttrToken = "Token"
 	// RBACLabelKeyName key id for rbac credential labels
 	RBACLabelKeyName = "rbac-id"
@@ -82,7 +82,7 @@ var SupportedCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 	},
 }
 
-// LegacyCredentialsSchemas represents legacy credentials schemas that Juju used
+// LegacyCredentialSchemas represents legacy credentials schemas that Juju used
 // to output but still need to be supported to maintain working Kubernetes
 // support. These types should be liberally allowed as input but not used as
 // new output from Juju. This change was introduced by tlm in juju 2.9

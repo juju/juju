@@ -35,7 +35,6 @@ var (
 
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	DecideKubeConfigDir          = decideKubeConfigDir
-	RulesForSecretAccess         = rulesForSecretAccess
 )
 
 type (

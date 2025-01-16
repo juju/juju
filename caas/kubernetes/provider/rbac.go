@@ -5,18 +5,13 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 )
 
 // AppNameForServiceAccount returns the juju application name associated with a
@@ -182,17 +175,6 @@ func (k *kubernetesClient) ensureRole(ctx context.Context, role *rbacv1.Role) (o
 	return out, cleanups, errors.Trace(err)
 }
 
-func (k *kubernetesClient) getRole(ctx context.Context, name string) (*rbacv1.Role, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	out, err := k.client().RbacV1().Roles(k.namespace).Get(ctx, name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("role %q", name)
-	}
-	return out, errors.Trace(err)
-}
-
 func (k *kubernetesClient) deleteRole(ctx context.Context, name string, uid types.UID) error {
 	if k.namespace == "" {
 		return errNoNamespace
@@ -219,40 +201,6 @@ func (k *kubernetesClient) listRoles(ctx context.Context, selector k8slabels.Sel
 		return nil, errors.NotFoundf("role with selector %q", selector)
 	}
 	return rList.Items, nil
-}
-
-func (k *kubernetesClient) createClusterRole(ctx context.Context, clusterrole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	utils.PurifyResource(clusterrole)
-	out, err := k.client().RbacV1().ClusterRoles().Create(ctx, clusterrole, v1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("clusterrole %q", clusterrole.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterrole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	out, err := k.client().RbacV1().ClusterRoles().Update(ctx, clusterrole, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("clusterrole %q", clusterrole.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) getClusterRole(ctx context.Context, name string) (*rbacv1.ClusterRole, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	out, err := k.client().RbacV1().ClusterRoles().Get(ctx, name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("clusterrole %q", name)
-	}
-	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteClusterRoles(ctx context.Context, selector k8slabels.Selector) error {
@@ -423,255 +371,4 @@ func (k *kubernetesClient) listClusterRoleBindings(ctx context.Context, selector
 		return nil, errors.NotFoundf("cluster role binding with selector %q", selector)
 	}
 	return cRBList.Items, nil
-}
-
-// TODO: make this configurable.
-var expiresInSeconds = int64(60 * 10)
-
-// EnsureSecretAccessToken ensures the RBAC resources created and updated for the provided resource name.
-// Any revisions listed in removed have access revoked.
-func (k *kubernetesClient) EnsureSecretAccessToken(ctx context.Context, unitName string, owned, read, removed []string) (string, error) {
-	appName, _ := names.UnitApplication(unitName)
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
-
-	objMeta := v1.ObjectMeta{
-		Name:      "unit-" + strings.ReplaceAll(unitName, "/", "-"),
-		Labels:    labels,
-		Namespace: k.namespace,
-	}
-
-	sa := &core.ServiceAccount{
-		ObjectMeta:                   objMeta,
-		AutomountServiceAccountToken: boolPtr(true),
-	}
-	_, _, err := k.ensureServiceAccount(ctx, sa)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot ensure service account %q", sa.GetName())
-	}
-
-	if err := k.ensureBindingForSecretAccessToken(ctx, sa, objMeta, owned, read, removed); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	treq := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: &expiresInSeconds,
-		},
-	}
-	tr, err := k.client().CoreV1().ServiceAccounts(k.namespace).CreateToken(ctx, sa.Name, treq, v1.CreateOptions{})
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot request a token for %q", sa.Name)
-	}
-	return tr.Status.Token, nil
-}
-
-func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(ctx context.Context, sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
-	objMeta.Name = fmt.Sprintf("%s-%s", k.namespace, objMeta.Name)
-	clusterRole, err := k.getClusterRole(ctx, objMeta.Name)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotFound) {
-		clusterRole, err = k.createClusterRole(
-			ctx,
-			&rbacv1.ClusterRole{
-				ObjectMeta: objMeta,
-				Rules:      rulesForSecretAccess(k.namespace, true, nil, owned, read, removed),
-			},
-		)
-	} else {
-		clusterRole.Rules = rulesForSecretAccess(k.namespace, true, clusterRole.Rules, owned, read, removed)
-		clusterRole, err = k.updateClusterRole(ctx, clusterRole)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	bindingSpec := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: objMeta,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     clusterRole.Name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      sa.Name,
-				Namespace: sa.Namespace,
-			},
-		},
-	}
-	clusterRoleBinding := resources.NewClusterRoleBinding(bindingSpec.Name, bindingSpec)
-	_, err = clusterRoleBinding.Ensure(ctx, k.client(), resources.ClaimJujuOwnership)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Ensure role binding exists before we return to avoid a race where a client
-	// attempts to perform an operation before the role is allowed.
-	return errors.Trace(retry.Call(retry.CallArgs{
-		Func: func() error {
-			api := k.client().RbacV1().ClusterRoleBindings()
-			_, err := api.Get(ctx, clusterRoleBinding.Name, v1.GetOptions{ResourceVersion: clusterRoleBinding.ResourceVersion})
-			if k8serrors.IsNotFound(err) {
-				return errors.NewNotFound(err, "k8s")
-			}
-			return errors.Trace(err)
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotFound)
-		},
-		Clock:    jujuclock.WallClock,
-		Attempts: 5,
-		Delay:    time.Second,
-	}))
-}
-
-func (k *kubernetesClient) ensureBindingForSecretAccessToken(ctx context.Context, sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
-	if k.Config().Name() == environsbootstrap.ControllerModelName {
-		return k.ensureClusterBindingForSecretAccessToken(ctx, sa, objMeta, owned, read, removed)
-	}
-
-	role, err := k.getRole(ctx, objMeta.Name)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotFound) {
-		role, err = k.createRole(
-			ctx,
-			&rbacv1.Role{
-				ObjectMeta: objMeta,
-				Rules:      rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
-			},
-		)
-	} else {
-		role.Rules = rulesForSecretAccess(k.namespace, false, role.Rules, owned, read, removed)
-		role, err = k.updateRole(ctx, role)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	bindingSpec := &rbacv1.RoleBinding{
-		ObjectMeta: objMeta,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     role.Name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      sa.Name,
-				Namespace: sa.Namespace,
-			},
-		},
-	}
-	roleBinding := resources.NewRoleBinding(bindingSpec.Name, bindingSpec.Namespace, bindingSpec)
-	err = roleBinding.Apply(ctx, k.client())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Ensure role binding exists before we return to avoid a race where a client
-	// attempts to perform an operation before the role is allowed.
-	return errors.Trace(retry.Call(retry.CallArgs{
-		Func: func() error {
-			api := k.client().RbacV1().RoleBindings(k.namespace)
-			_, err := api.Get(ctx, roleBinding.Name, v1.GetOptions{ResourceVersion: roleBinding.ResourceVersion})
-			if k8serrors.IsNotFound(err) {
-				return errors.NewNotFound(err, "k8s")
-			}
-			return errors.Trace(err)
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotFound)
-		},
-		Clock:    jujuclock.WallClock,
-		Attempts: 5,
-		Delay:    time.Second,
-	}))
-}
-
-func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []rbacv1.PolicyRule {
-	if len(existing) == 0 {
-		return nil
-	}
-
-	i := 0
-	for _, r := range existing {
-		if len(r.ResourceNames) == 1 && shouldRemove(r.ResourceNames[0]) {
-			continue
-		}
-		existing[i] = r
-		i++
-	}
-	return existing[:i]
-}
-
-func rulesForSecretAccess(
-	namespace string, isControllerModel bool,
-	existing []rbacv1.PolicyRule, owned, read, removed []string,
-) []rbacv1.PolicyRule {
-	if len(existing) == 0 {
-		existing = []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{rbacv1.APIGroupAll},
-				Resources: []string{"secrets"},
-				Verbs: []string{
-					"create",
-					"patch", // TODO: we really should only allow "create" but not patch  but currently we uses .Apply() which requres patch!!!
-				},
-			},
-		}
-		if isControllerModel {
-			// We need to be able to list/get all namespaces for units in controller model.
-			existing = append(existing, rbacv1.PolicyRule{
-				APIGroups: []string{rbacv1.APIGroupAll},
-				Resources: []string{"namespaces"},
-				Verbs:     []string{"get", "list"},
-			})
-		} else {
-			// We just need to be able to list/get our own namespace for units in other models.
-			existing = append(existing, rbacv1.PolicyRule{
-				APIGroups:     []string{rbacv1.APIGroupAll},
-				Resources:     []string{"namespaces"},
-				Verbs:         []string{"get", "list"},
-				ResourceNames: []string{namespace},
-			})
-		}
-	}
-
-	ownedIDs := set.NewStrings(owned...)
-	readIDs := set.NewStrings(read...)
-	removedIDs := set.NewStrings(removed...)
-
-	existing = cleanRules(existing,
-		func(s string) bool {
-			return ownedIDs.Contains(s) || readIDs.Contains(s) || removedIDs.Contains(s)
-		},
-	)
-
-	for _, rName := range owned {
-		if removedIDs.Contains(rName) {
-			continue
-		}
-		existing = append(existing, rbacv1.PolicyRule{
-			APIGroups:     []string{rbacv1.APIGroupAll},
-			Resources:     []string{"secrets"},
-			Verbs:         []string{rbacv1.VerbAll},
-			ResourceNames: []string{rName},
-		})
-	}
-	for _, rName := range read {
-		if removedIDs.Contains(rName) {
-			continue
-		}
-		existing = append(existing, rbacv1.PolicyRule{
-			APIGroups:     []string{rbacv1.APIGroupAll},
-			Resources:     []string{"secrets"},
-			Verbs:         []string{"get"},
-			ResourceNames: []string{rName},
-		})
-	}
-	return existing
 }
