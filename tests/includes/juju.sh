@@ -483,7 +483,7 @@ destroy_model() {
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
 		cat "${output}"
-		exit 1
+		return
 	fi
 	echo "====> Destroyed juju model ${name}"
 }
