@@ -430,3 +430,39 @@ type dbModelState struct {
 	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
 	Migrating               bool   `db:"migrating"`
 }
+
+type dbModelConstraint struct {
+	ModelUUID      string `db:"model_uuid"`
+	ConstraintUUID string `db:"constraint_uuid"`
+}
+
+type dbConstraint struct {
+	UUID             string  `db:"uuid"`
+	Arch             *string `db:"arch"`
+	CPUCores         *uint64 `db:"cpu_cores"`
+	CPUPower         *uint64 `db:"cpu_power"`
+	Mem              *uint64 `db:"mem"`
+	RootDisk         *uint64 `db:"root_disk"`
+	RootDiskSource   *string `db:"root_disk_source"`
+	InstanceRole     *string `db:"instance_role"`
+	InstanceType     *string `db:"instance_type"`
+	VirtType         *string `db:"virt_type"`
+	AllocatePublicIP *bool   `db:"allocate_public_ip"`
+	ImageID          *string `db:"image_id"`
+}
+
+type dbConstraintTag struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Tag            string `db:"tag"`
+}
+
+type dbConstraintSpace struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Space          string `db:"space"`
+	Exclude        bool   `db:"exclude"`
+}
+
+type dbConstraintZone struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Zone           string `db:"zone"`
+}
