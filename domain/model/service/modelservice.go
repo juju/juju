@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
@@ -33,6 +34,12 @@ type ModelState interface {
 
 	// GetModelCloudType returns the model cloud type set in the database.
 	GetModelCloudType(context.Context) (string, error)
+
+	// GetModelConstraints returns the current model's constraints.
+	GetModelConstraints(context.Context) (constraints.Value, error)
+
+	// SetModelConstraints replaces the current model constraints.
+	SetModelConstraints(ctx context.Context, cons constraints.Value) error
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -70,6 +77,20 @@ func NewModelService(
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
 	}
+}
+
+// GetModelConstraints returns the current model constraints.
+// It returns an error satisfying [modelerrors.NotFound] if the model does not exist,
+// [modelerrors.ModelConstraintNotFound] if the model does not have a constraint configured.
+func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+	return s.modelSt.GetModelConstraints(ctx)
+}
+
+// SetModelConstraints sets the model constraints, including tags, spaces, and zones.
+// It returns an error satisfying [modelerrors.ModelConstraintSpaceDoesNotExist] if a space to set does not exist,
+// [modelerrors.NotFound] if the model does not exist.
+func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
+	return s.modelSt.SetModelConstraints(ctx, cons)
 }
 
 // GetModelInfo returns the readonly model information for the model in
