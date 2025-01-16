@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/packaging/v3/manager"
+	"github.com/juju/packaging/v4/manager"
 
 	"github.com/juju/juju/core/base"
 )

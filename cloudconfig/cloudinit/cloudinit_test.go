@@ -7,7 +7,7 @@ package cloudinit_test
 import (
 	"fmt"
 
-	"github.com/juju/packaging/v3"
+	"github.com/juju/packaging/v4"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	"golang.org/x/crypto/ssh"
