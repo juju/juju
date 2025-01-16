@@ -80,14 +80,14 @@ func NewModelService(
 }
 
 // GetModelConstraints returns the current model constraints.
-// It returns an error satisfying [modelerrors.NotFound] if the model does not exist,
-// [modelerrors.ModelConstraintNotFound] if the model does not have a constraint configured.
+// It returns an error satisfying [modelerrors.NotFound] if the model does not exist.
+// It returns an empty Value if the model does not have any constraints configured.
 func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
 	return s.modelSt.GetModelConstraints(ctx)
 }
 
 // SetModelConstraints sets the model constraints, including tags, spaces, and zones.
-// It returns an error satisfying [modelerrors.ModelConstraintSpaceDoesNotExist] if a space to set does not exist,
+// It returns an error satisfying [networkerrors.SpaceNotFound] if a space to set does not exist,
 // [modelerrors.NotFound] if the model does not exist.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
 	return s.modelSt.SetModelConstraints(ctx, cons)

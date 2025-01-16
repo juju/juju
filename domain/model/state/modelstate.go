@@ -107,15 +107,15 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 }
 
 // GetModelConstraints returns the current model constraints.
-// It returns an error satisfying [modelerrors.NotFound] if the model does not exist,
-// [modelerrors.ModelConstraintNotFound] if the model does not have a constraint configured.
+// It returns an error satisfying [modelerrors.NotFound] if the model does not exist.
+// It returns an empty Value if the model does not have any constraints configured.
 func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
 	// TODO: Implement this method.
 	return constraints.Value{}, nil
 }
 
 // SetModelConstraints sets the model constraints, including tags, spaces, and zones.
-// It returns an error satisfying [modelerrors.ModelConstraintSpaceDoesNotExist] if a space to set does not exist,
+// It returns an error satisfying [networkerrors.SpaceNotFound] if a space to set does not exist,
 // [modelerrors.NotFound] if the model does not exist.
 func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constraints.Value) error {
 	// TODO: Implement this method.
