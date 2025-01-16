@@ -23,14 +23,9 @@ import (
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
-
-	clock  *MockClock
-	remote *MockRemoteServer
+	baseSuite
 
 	hub *pubsub.StructuredHub
-
-	states chan string
 
 	mutex    sync.Mutex
 	called   map[string]int
@@ -380,26 +375,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) expectClock() {
-	s.clock.EXPECT().Now().DoAndReturn(func() time.Time {
-		return time.Now()
-	}).AnyTimes()
-}
-
 func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.clock = NewMockClock(ctrl)
-	s.remote = NewMockRemoteServer(ctrl)
+	ctrl := s.baseSuite.setupMocks(c)
 
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
 	})
-
-	// Ensure we buffer the channel, this is because we might miss the
-	// event if we're too quick at starting up.
-	s.states = make(chan string, 1)
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -412,14 +394,12 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *WorkerSuite) newWorker(c *gc.C) *remoteWorker {
 	w, err := newWorker(s.newConfig(c), s.states)
-
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w
 }
 
 func (s *WorkerSuite) newConfig(c *gc.C) WorkerConfig {
-
 	return WorkerConfig{
 		Origin:    names.NewMachineTag("0"),
 		APIInfo:   &api.Info{},
@@ -442,15 +422,6 @@ func (s *WorkerSuite) newConfig(c *gc.C) WorkerConfig {
 		Hub:    s.hub,
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
-	}
-}
-
-func (s *WorkerSuite) ensureStartup(c *gc.C) {
-	select {
-	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for startup")
 	}
 }
 

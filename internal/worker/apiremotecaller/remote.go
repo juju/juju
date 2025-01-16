@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/logger"
 )
 
 // RemoteConnection is an interface that represents a connection to a remote
@@ -157,7 +158,11 @@ func (w *remoteServer) loop() error {
 
 				// We might want to consider only sending a change after a
 				// period of time, to avoid sending too many changes at once.
-				changes <- change
+				select {
+				case <-w.tomb.Dying():
+					return tomb.ErrDying
+				case changes <- change:
+				}
 			}
 		}
 	})
