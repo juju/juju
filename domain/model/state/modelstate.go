@@ -452,7 +452,6 @@ VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
 }
 
 func (s *ModelState) upsertContraintZones(ctx context.Context, tx *sqlair.TX, constraintUUID string, zones []string) error {
-	s.logger.Criticalf("upsertContraintZones %#v", zones)
 	if len(zones) == 0 {
 		return nil
 	}
@@ -485,7 +484,6 @@ VALUES ($dbConstraintZone.*)`, dbConstraintZone{})
 			ConstraintUUID: constraintUUID,
 			Zone:           zone,
 		}).Run()
-		s.logger.Criticalf("insertConstraintZoneStmt %q %#v", zone, err)
 		if err != nil {
 			return errors.Errorf("inserting constraint zone %q: %w", zone, err)
 		}
