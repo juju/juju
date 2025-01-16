@@ -1235,7 +1235,7 @@ TBA
 TBA
 
 (hook-storage-storage-detaching)=
-#### `<storage>-storage-detaching`
+### `<storage>-storage-detaching`
 
 #### What triggers it?
 

@@ -8,20 +8,22 @@ On machines, an agent is managed by `systemd`.
 
 ## Types of agents
 
+(controller-agent)=
 ### Controller agent
 
 On machine and Kubernetes clouds, a `jujud` process running workers responsible for a {ref}`controller <controller>`. This includes, among others, the `apiserver` worker, which is responsible for running the Juju API server.
 
-
+(machine-agent)=
 ### Machine agent
 
 On machine clouds, a `jujud` process running workers responsible for a {ref}`machine <machine>`.
 
+(model-agent)=
 ### Model agent
 
 On machine and Kubernetes clouds, a `jujud` process running workers responsible for all the {ref}`models <model>` associated with a given controller.
 
-
+(unit-agent)=
 ### Unit agent
 
 On machine / Kubernetes clouds, a `jujud` / `containeragent` process responsible for a {ref}`unit <unit>`.

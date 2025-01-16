@@ -5,7 +5,7 @@
 
 ```{note}
 
-Note: a small number of dashboard features (e.g. the web CLI) are dependent on the deployment environment. These are noted as “requirements” in this document.
+Note: A small number of dashboard features (e.g. the web CLI) are dependent on the deployment environment. These are noted as “requirements” in this document.
 
 ```
 
@@ -14,8 +14,7 @@ The Juju Dashboard aims to expose Juju environments, providing at-scale manageme
 
 Juju Dashboard is hosted on [JAAS](https://jaas.ai/) for use with JAAS controllers, but can also be deployed on local controllers.
 
-
-![JujuDashboard](juju-dashboard.png)
+![Juju dashboard](juju-dashboard.png)
 
 ```{caution}
 

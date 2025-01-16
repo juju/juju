@@ -15,7 +15,7 @@ juju-environment-variables
 
 <!--The Juju CLI is the client for bootstrapping Juju controllers, creating Juju models, deploying applications and managing these entities.-->
 
-`juju` is the main CLI {ref}`client <client>` of Juju that you can use to manage Juju {ref}`controllers <controller>`, whether as an administrator or as a regular user.
+`juju` is the main CLI client of Juju that you can use to manage Juju {ref}`controllers <controller>`, whether as an administrator or as a regular user.
 
 <!--This software connects to Juju controllers and is used to issue commands that deploy and manage application units running on cloud instances.-->
 
