@@ -132,7 +132,7 @@ CREATE TABLE resource_container_image_metadata_store (
 CREATE TABLE resource_file_store (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
     store_uuid TEXT NOT NULL,
-    size INTEGER,
+    size INTEGER, -- in bytes
     sha384 TEXT,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
@@ -146,7 +146,7 @@ CREATE TABLE resource_file_store (
 CREATE TABLE resource_image_store (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
     store_storage_key TEXT NOT NULL,
-    size INTEGER,
+    size INTEGER, -- in bytes
     sha384 TEXT,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)

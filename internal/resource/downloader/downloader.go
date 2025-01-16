@@ -89,7 +89,7 @@ func (d *ResourceDownloader) Download(
 
 	d.logger.Debugf("downloading resource: %s", url)
 
-	// Force the sha256 digest to be calculated on download.
+	// Force the sha256 and sha384 digest to be calculated on download.
 	digest, err := d.client.Download(ctx, url, tmpFile.Name())
 	if err != nil {
 		return nil, errors.Capture(err)
