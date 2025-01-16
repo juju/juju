@@ -261,6 +261,10 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"relation_status_type",
 		"relation_unit",
 		"relation_unit_setting",
+
+		// Cleanup
+		"removal_type",
+		"removal",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -418,6 +422,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_unit_delete",
 		"trg_log_unit_insert",
 		"trg_log_unit_update",
+
+		"trg_log_removal_delete",
+		"trg_log_removal_insert",
+		"trg_log_removal_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but
