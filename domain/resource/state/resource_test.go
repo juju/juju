@@ -46,6 +46,8 @@ var _ = gc.Suite(&resourceSuite{})
 
 const fakeCharmUUID = "fake-charm-uuid"
 
+var fingerprint = []byte("123456789012345678901234567890123456789012345678")
+
 func (s *resourceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
@@ -482,6 +484,82 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
 }
 
+func (s *resourceSuite) TestGetResourceWithStoredFile(c *gc.C) {
+	// Arrange : a simple resource
+	resID := coreresource.UUID("resource-id")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Type: charmresource.TypeFile,
+			},
+			Fingerprint: fp,
+			Size:        42,
+		},
+		UUID:          resID,
+		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+	}
+	input := resourceData{
+		UUID:            resID.String(),
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Type:            expected.Type,
+		ObjectStoreUUID: "object-store-uuid",
+		Size:            int(expected.Size),
+		SHA384:          expected.Fingerprint.String(),
+	}
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(context.Background(), tx)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act
+	obtained, err := s.state.GetResource(context.Background(), resID)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+
+	// Assert
+	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
+}
+
+func (s *resourceSuite) TestGetResourceWithStoredImage(c *gc.C) {
+	// Arrange : a simple resource
+	resID := coreresource.UUID("resource-id")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Type: charmresource.TypeContainerImage,
+			},
+			Fingerprint: fp,
+			Size:        42,
+		},
+		UUID:          resID,
+		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+	}
+	input := resourceData{
+		UUID:                     resID.String(),
+		ApplicationUUID:          s.constants.fakeApplicationUUID1,
+		Type:                     expected.Type,
+		ContainerImageStorageKey: "container-image-key",
+		Size:                     int(expected.Size),
+		SHA384:                   expected.Fingerprint.String(),
+	}
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(context.Background(), tx)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act
+	obtained, err := s.state.GetResource(context.Background(), resID)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+
+	// Assert
+	c.Assert(obtained, jc.DeepEquals, expected, gc.Commentf("(Assert) resource different than expected"))
+}
+
 // TestSetRepositoryResource ensures that the SetRepositoryResources function
 // updates the resource poll dates correctly.
 func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
@@ -651,7 +729,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT store_storage_key, size, hash_sha384 FROM resource_image_store
+SELECT store_storage_key, size, sha384 FROM resource_image_store
 WHERE resource_uuid = ?`, resID).Scan(&foundStorageKey, &foundSize, &foundHash)
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
@@ -705,7 +783,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT store_uuid, size, hash_sha384 FROM resource_file_store
+SELECT store_uuid, size, sha384 FROM resource_file_store
 WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID, &foundSize, &foundHash)
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
@@ -1663,6 +1741,16 @@ type resourceData struct {
 	// KubernetesApplication indicates if this resource is set for a kubernetes
 	// application in the kubernetes_application_resource table.
 	KubernetesApplication bool
+	// ObjectStoreUUID indicates if the resource is a file type resource stored
+	// in the object store. If it is then it will be inserted along with the
+	// Size and SHA384.
+	ObjectStoreUUID string
+	// ContainerImageStorageKey indicates if the resource is a container image
+	// type resource stored in the object store. If it is then it will be
+	// inserted along with the Size and SHA384.
+	ContainerImageStorageKey string
+	Size                     int
+	SHA384                   string
 }
 
 // toCharmResource converts a resourceData object to a charmresource.Resource object.
@@ -1768,7 +1856,32 @@ VALUES (?, ?)`, d.UUID, d.AddedAt)
 		return errors.Capture(err)
 	}
 
-	return
+	if d.ObjectStoreUUID != "" {
+		if _, err := tx.Exec(`
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) 
+VALUES (?, '', '', 0)`, d.ObjectStoreUUID); err != nil {
+			return errors.Capture(err)
+		}
+		if _, err := tx.Exec(`
+INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384) 
+VALUES (?, ?, ?, ?)`, d.UUID, d.ObjectStoreUUID, d.Size, d.SHA384); err != nil {
+			return errors.Capture(err)
+		}
+
+	} else if d.ContainerImageStorageKey != "" {
+		if _, err := tx.Exec(`
+INSERT INTO resource_container_image_metadata_store (storage_key, registry_path) 
+VALUES (?,'')`, d.ContainerImageStorageKey); err != nil {
+			return errors.Capture(err)
+		}
+		if _, err := tx.Exec(`
+INSERT INTO resource_image_store (resource_uuid, store_storage_key, size, sha384) 
+VALUES (?, ?, ?, ?)`, d.UUID, d.ContainerImageStorageKey, d.Size, d.SHA384); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return err
 }
 
 // runQuery executes a SQL query within a transaction and discards the result.

@@ -20,8 +20,6 @@ import (
 
 type charmHubOpener struct {
 	modelConfigService ModelConfigService
-	downloader         Downloader
-	client             CharmHub
 }
 
 type resourceClientGetter func(ctx context.Context, logger corelogger.Logger) (ResourceClient, error)

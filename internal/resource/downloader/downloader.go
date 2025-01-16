@@ -117,14 +117,6 @@ func (d *ResourceDownloader) Download(
 	return tmpFileReader, nil
 }
 
-// DownloadResult contains information about a downloaded charm.
-type DownloadResult struct {
-	ReadCloser io.ReadCloser
-	SHA256     string
-	SHA384     string
-	Size       int64
-}
-
 // tmpFileReader wraps an *os.File and deletes it when closed.
 type tmpFileReader struct {
 	logger logger.Logger
