@@ -22,9 +22,8 @@ import (
 type sshServerSuite struct {
 	testing.IsolationSuite
 
-	userSigner         ssh.Signer
-	jumpHostKey        string
-	terminatingHostKey string
+	userSigner  ssh.Signer
+	jumpHostKey string
 }
 
 var _ = gc.Suite(&sshServerSuite{})
