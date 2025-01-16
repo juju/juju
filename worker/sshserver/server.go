@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// newSSHServer returns an embedded SSH server. This server does a few things,
+// NewSSHServer returns an embedded SSH server. This server does a few things,
 // reuqests that come in must go through the jump server. The jump server will
 // pipe the connection and pass it into an in-memory instance of another SSH server.
 //
