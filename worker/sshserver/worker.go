@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
@@ -21,9 +22,14 @@ type sshServerWorker struct {
 }
 
 // NewSSHServerWorker returns a new worker that runs an embedded SSH server.
-func NewSSHServerWorker(statePool *state.StatePool) (worker.Worker, error) {
+func NewSSHServerWorker(statePool *state.StatePool, jumpHostKey, terminatingHostKey string) (worker.Worker, error) {
+	srv, err := NewSSHServer(statePool, jumpHostKey, terminatingHostKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &sshServerWorker{
-		srv: newSSHServer(statePool),
+		srv: srv,
 	}
 
 	w.tomb.Go(w.srv.ListenAndServe)

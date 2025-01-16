@@ -54,6 +54,7 @@ func (config ManifoldConfig) startSSHServerWorker(context dependency.Context) (w
 		return nil, errors.Trace(err)
 	}
 
+
 	w, err := config.NewWorker(statePool)
 	if err != nil {
 		_ = stTracker.Done()
