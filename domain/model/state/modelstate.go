@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -105,7 +106,23 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// GetModel returns model information that has been set in the
+// GetModelConstraints returns the current model constraints.
+// It returns an error satisfying [modelerrors.NotFound] if the model does not exist,
+// [modelerrors.ModelConstraintNotFound] if the model does not have a constraint configured.
+func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+	// TODO: Implement this method.
+	return constraints.Value{}, nil
+}
+
+// SetModelConstraints sets the model constraints, including tags, spaces, and zones.
+// It returns an error satisfying [modelerrors.ModelConstraintSpaceDoesNotExist] if a space to set does not exist,
+// [modelerrors.NotFound] if the model does not exist.
+func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constraints.Value) error {
+	// TODO: Implement this method.
+	return nil
+}
+
+// GetModel returns a read-only model information that has been set in the
 // database. If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
 func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
