@@ -21,11 +21,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 )
 
 // relationKey returns a string describing the relation defined by
 // endpoints, for use in various contexts (including error messages).
-func relationKey(endpoints []Endpoint) string {
+func relationKey(endpoints []relation.Endpoint) string {
 	eps := epSlice{}
 	for _, ep := range endpoints {
 		eps = append(eps, ep)
@@ -41,15 +42,15 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in core/multiwatcher.
 type relationDoc struct {
-	DocID           string     `bson:"_id"`
-	Key             string     `bson:"key"`
-	ModelUUID       string     `bson:"model-uuid"`
-	Id              int        `bson:"id"`
-	Endpoints       []Endpoint `bson:"endpoints"`
-	Life            Life       `bson:"life"`
-	UnitCount       int        `bson:"unitcount"`
-	Suspended       bool       `bson:"suspended"`
-	SuspendedReason string     `bson:"suspended-reason"`
+	DocID           string              `bson:"_id"`
+	Key             string              `bson:"key"`
+	ModelUUID       string              `bson:"model-uuid"`
+	Id              int                 `bson:"id"`
+	Endpoints       []relation.Endpoint `bson:"endpoints"`
+	Life            Life                `bson:"life"`
+	UnitCount       int                 `bson:"unitcount"`
+	Suspended       bool                `bson:"suspended"`
+	SuspendedReason string              `bson:"suspended-reason"`
 }
 
 // Relation represents a relation between one or two application endpoints.
@@ -527,7 +528,7 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 // When 'force' is set, this call will return both needed operations
 // as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string, op *ForcedOperation) ([]txn.Op, error) {
+func (r *Relation) removeLocalEndpointOps(ep relation.Endpoint, departingUnitName string, op *ForcedOperation) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 	departingUnitApplicationMatchesEndpoint := func() bool {
@@ -575,7 +576,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 	}}, cleanupOps...), nil
 }
 
-func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
+func (r *Relation) removeRemoteEndpointOps(ep relation.Endpoint, unitDying bool) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 	if !unitDying {
@@ -630,14 +631,14 @@ func (r *Relation) Id() int {
 
 // Endpoint returns the endpoint of the relation for the named application.
 // If the application is not part of the relation, an error will be returned.
-func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
+func (r *Relation) Endpoint(applicationname string) (relation.Endpoint, error) {
 	for _, ep := range r.doc.Endpoints {
 		if ep.ApplicationName == applicationname {
 			return ep, nil
 		}
 	}
 	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
-	return Endpoint{}, errors.NewNotFound(nil, msg)
+	return relation.Endpoint{}, errors.NewNotFound(nil, msg)
 }
 
 // ModelUUID returns the model UUID for the relation.
@@ -646,20 +647,20 @@ func (r *Relation) ModelUUID() string {
 }
 
 // Endpoints returns the endpoints for the relation.
-func (r *Relation) Endpoints() []Endpoint {
+func (r *Relation) Endpoints() []relation.Endpoint {
 	return r.doc.Endpoints
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
 // units of the named application will establish relations. If the application
 // is not part of the relation r, an error will be returned.
-func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) {
+func (r *Relation) RelatedEndpoints(applicationname string) ([]relation.Endpoint, error) {
 	local, err := r.Endpoint(applicationname)
 	if err != nil {
 		return nil, err
 	}
-	role := counterpartRole(local.Role)
-	var eps []Endpoint
+	role := relation.CounterpartRole(local.Role)
+	var eps []relation.Endpoint
 	for _, ep := range r.doc.Endpoints {
 		if ep.Role == role {
 			eps = append(eps, ep)

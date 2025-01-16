@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
@@ -43,10 +44,10 @@ type Backend interface {
 	RemoteApplication(string) (RemoteApplication, error)
 
 	// AddRelation adds a relation between the specified endpoints and returns the relation info.
-	AddRelation(...state.Endpoint) (Relation, error)
+	AddRelation(...relation.Endpoint) (Relation, error)
 
 	// EndpointsRelation returns the existing relation with the given endpoints.
-	EndpointsRelation(...state.Endpoint) (Relation, error)
+	EndpointsRelation(...relation.Endpoint) (Relation, error)
 
 	// OfferConnectionForRelation get the offer connection for a cross model relation.
 	OfferConnectionForRelation(string) (OfferConnection, error)
@@ -135,10 +136,10 @@ type Relation interface {
 	AllRemoteUnits(appName string) ([]RelationUnit, error)
 
 	// Endpoints returns the endpoints that constitute the relation.
-	Endpoints() []state.Endpoint
+	Endpoints() []relation.Endpoint
 
 	// Endpoint returns the endpoint of the relation for the named application.
-	Endpoint(appName string) (state.Endpoint, error)
+	Endpoint(appName string) (relation.Endpoint, error)
 
 	// Unit returns a RelationUnit for the unit with the supplied ID.
 	Unit(unitId string) (RelationUnit, error)
@@ -205,7 +206,7 @@ type Application interface {
 	Life() state.Life
 
 	// Endpoints returns the application's currently available relation endpoints.
-	Endpoints() ([]state.Endpoint, error)
+	Endpoints() ([]relation.Endpoint, error)
 
 	// CharmURL returns a string representation the application's charm URL,
 	// and whether units should upgrade to the charm with that URL even if

@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -781,7 +782,7 @@ func (s *applicationOffers) filterOffersByEndpoint(
 		return in, nil
 	}
 
-	match := func(ep Endpoint) bool {
+	match := func(ep relation.Endpoint) bool {
 		for _, fep := range endpoints {
 			if fep.Interface != "" && fep.Interface == ep.Interface {
 				continue

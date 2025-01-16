@@ -38,6 +38,7 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
@@ -127,7 +128,7 @@ type UnitParams struct {
 
 // RelationParams are used to create relations.
 type RelationParams struct {
-	Endpoints []state.Endpoint
+	Endpoints []relation.Endpoint
 }
 
 type ModelParams struct {
@@ -704,7 +705,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 		e2, err := s2.Endpoint("db")
 		c.Assert(err, jc.ErrorIsNil)
 
-		params.Endpoints = []state.Endpoint{e1, e2}
+		params.Endpoints = []relation.Endpoint{e1, e2}
 	}
 
 	relation, err := factory.st.AddRelation(params.Endpoints...)

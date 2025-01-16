@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
@@ -128,7 +129,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 	}
 	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
 		id: 1,
-		endpoint: state.Endpoint{
+		endpoint: relation.Endpoint{
 			ApplicationName: "test",
 			Relation: charm.Relation{
 				Name:      "db",

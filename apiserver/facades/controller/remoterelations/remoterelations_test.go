@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -165,7 +166,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	djangoRelation.units["django/0"] = ru1
 
 	djangoRelation.endpointUnitsWatchers["django"] = djangoRelationUnitsWatcher
-	djangoRelation.endpoints = []state.Endpoint{{
+	djangoRelation.endpoints = []relation.Endpoint{{
 		ApplicationName: "db2",
 	}, {
 		ApplicationName: "django",
@@ -353,7 +354,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.suspended = true
 	db2Relation.units["django/0"] = djangoRelationUnit
-	db2Relation.endpoints = []state.Endpoint{
+	db2Relation.endpoints = []relation.Endpoint{
 		{
 			ApplicationName: "django",
 			Relation: charm.Relation{

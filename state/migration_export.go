@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state/migrations"
 )
 
@@ -778,7 +779,7 @@ func (e *exporter) relations() error {
 func (e *exporter) relationEndpoint(
 	relation *Relation,
 	exRelation description.Relation,
-	ep Endpoint,
+	ep relation.Endpoint,
 	relationScopes set.Strings,
 ) error {
 	exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{

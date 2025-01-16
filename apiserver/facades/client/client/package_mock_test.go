@@ -15,6 +15,7 @@ import (
 
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	crossmodel "github.com/juju/juju/core/crossmodel"
+	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -44,7 +45,7 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddRelation mocks base method.
-func (m *MockBackend) AddRelation(arg0 ...state.Endpoint) (*state.Relation, error) {
+func (m *MockBackend) AddRelation(arg0 ...relation.Endpoint) (*state.Relation, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{}
 	for _, a := range arg0 {
@@ -75,13 +76,13 @@ func (c *MockBackendAddRelationCall) Return(arg0 *state.Relation, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendAddRelationCall) Do(f func(...state.Endpoint) (*state.Relation, error)) *MockBackendAddRelationCall {
+func (c *MockBackendAddRelationCall) Do(f func(...relation.Endpoint) (*state.Relation, error)) *MockBackendAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddRelationCall) DoAndReturn(f func(...state.Endpoint) (*state.Relation, error)) *MockBackendAddRelationCall {
+func (c *MockBackendAddRelationCall) DoAndReturn(f func(...relation.Endpoint) (*state.Relation, error)) *MockBackendAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

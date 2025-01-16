@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -111,7 +112,7 @@ type mockApplication struct {
 	crossmodel.Application
 	name      string
 	curl      string
-	endpoints []state.Endpoint
+	endpoints []relation.Endpoint
 	bindings  map[string]string
 }
 
@@ -123,7 +124,7 @@ func (m *mockApplication) CharmURL() (curl *string, force bool) {
 	return &m.curl, true
 }
 
-func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
+func (m *mockApplication) Endpoints() ([]relation.Endpoint, error) {
 	return m.endpoints, nil
 }
 
@@ -144,16 +145,16 @@ func (b *mockBindings) MapWithSpaceNames(network.SpaceInfos) (map[string]string,
 type mockRelation struct {
 	crossmodel.Relation
 	id       int
-	endpoint state.Endpoint
+	endpoint relation.Endpoint
 }
 
 func (m *mockRelation) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: status.Joined}, nil
 }
 
-func (m *mockRelation) Endpoint(appName string) (state.Endpoint, error) {
+func (m *mockRelation) Endpoint(appName string) (relation.Endpoint, error) {
 	if m.endpoint.ApplicationName != appName {
-		return state.Endpoint{}, errors.NotFoundf("endpoint for %q", appName)
+		return relation.Endpoint{}, errors.NotFoundf("endpoint for %q", appName)
 	}
 	return m.endpoint, nil
 }

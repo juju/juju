@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -1093,7 +1094,7 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 	return out
 }
 
-func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
+func (context *statusContext) isSubordinate(ep *relation.Endpoint) bool {
 	application := context.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
 	if application == nil {
 		return false
@@ -1101,7 +1102,7 @@ func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
 	return isSubordinate(ep, application)
 }
 
-func isSubordinate(ep *state.Endpoint, application *state.Application) bool {
+func isSubordinate(ep *relation.Endpoint, application *state.Application) bool {
 	return ep.Scope == charm.ScopeContainer && !application.IsPrincipal()
 }
 

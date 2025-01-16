@@ -25,6 +25,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -572,7 +573,7 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
-		endpoints: []state.Endpoint{
+		endpoints: []relation.Endpoint{
 			{ApplicationName: "foo"},
 			{ApplicationName: "bar"},
 		},
@@ -596,7 +597,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
 		key: "foo:db bar:db",
-		endpoints: []state.Endpoint{
+		endpoints: []relation.Endpoint{
 			{ApplicationName: "foo"},
 			{ApplicationName: "bar"},
 		},
@@ -621,7 +622,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
 		key: "foo:db bar:db",
-		endpoints: []state.Endpoint{
+		endpoints: []relation.Endpoint{
 			{ApplicationName: "foo"},
 			{ApplicationName: "bar"},
 		},
@@ -645,7 +646,7 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
 		key: "foo:db remote-mysql:db",
-		endpoints: []state.Endpoint{
+		endpoints: []relation.Endpoint{
 			{ApplicationName: "foo"},
 			{ApplicationName: "remote-mysql"},
 		},
@@ -1454,7 +1455,7 @@ func (u *fakeUnit) IsSidecar() (bool, error) {
 
 type fakeRelation struct {
 	key            string
-	endpoints      []state.Endpoint
+	endpoints      []relation.Endpoint
 	relUnits       map[string]*fakeRelationUnit
 	remoteAppName  string
 	remoteRelUnits map[string][]*fakeRelationUnit
@@ -1465,7 +1466,7 @@ func (r *fakeRelation) String() string {
 	return r.key
 }
 
-func (r *fakeRelation) Endpoints() []state.Endpoint {
+func (r *fakeRelation) Endpoints() []relation.Endpoint {
 	return r.endpoints
 }
 

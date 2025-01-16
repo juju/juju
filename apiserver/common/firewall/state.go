@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
@@ -47,7 +48,7 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 
 type Relation interface {
 	status.StatusSetter
-	Endpoints() []state.Endpoint
+	Endpoints() []relation.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 	WatchRelationIngressNetworks() state.StringsWatcher
 	WatchRelationEgressNetworks() state.StringsWatcher

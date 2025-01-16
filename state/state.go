@@ -36,6 +36,7 @@ import (
 	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/watcher"
 )
@@ -759,7 +760,7 @@ nextRel:
 	for _, rel := range newCharmMeta.Peers {
 		newPeerRelKeySet.Add(
 			relationKey(
-				[]Endpoint{{
+				[]relation.Endpoint{{
 					ApplicationName: applicationName,
 					Relation:        rel,
 				}},
@@ -810,7 +811,7 @@ func (st *State) addPeerRelationsOps(applicationName string, peers map[string]ch
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		eps := []Endpoint{{
+		eps := []relation.Endpoint{{
 			ApplicationName: applicationName,
 			Relation:        rel,
 		}}
@@ -1669,9 +1670,9 @@ func (st *State) InferActiveRelation(names ...string) (*Relation, error) {
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
-func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
+func (st *State) InferEndpoints(names ...string) ([]relation.Endpoint, error) {
 	// Collect all possible sane endpoint lists.
-	var candidates [][]Endpoint
+	var candidates [][]relation.Endpoint
 	switch len(names) {
 	// Implicitly assume this is a peer relation, as they have only one endpoint
 	case 1:
@@ -1680,7 +1681,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 			return nil, errors.Trace(err)
 		}
 		for _, ep := range eps {
-			candidates = append(candidates, []Endpoint{ep})
+			candidates = append(candidates, []relation.Endpoint{ep})
 		}
 	// All other relations are between two endpoints
 	case 2:
@@ -1699,7 +1700,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 					return nil, errors.Trace(err)
 				}
 				if ep1.CanRelateTo(ep2) && scopeOk {
-					candidates = append(candidates, []Endpoint{ep1, ep2})
+					candidates = append(candidates, []relation.Endpoint{ep1, ep2})
 				}
 			}
 		}
@@ -1713,7 +1714,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		return candidates[0], nil
 	}
 	// If there's ambiguity, try discarding implicit relations.
-	var filtered [][]Endpoint
+	var filtered [][]relation.Endpoint
 outer:
 	for _, cand := range candidates {
 		for _, ep := range cand {
@@ -1735,20 +1736,20 @@ outer:
 		strings.Join(names, " "), strings.Join(keys, "; "))
 }
 
-func isPeer(ep Endpoint) bool {
+func isPeer(ep relation.Endpoint) bool {
 	return ep.Role == charm.RolePeer
 }
 
-func notPeer(ep Endpoint) bool {
+func notPeer(ep relation.Endpoint) bool {
 	return ep.Role != charm.RolePeer
 }
 
-func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
+func containerScopeOk(st *State, ep1, ep2 relation.Endpoint) (bool, error) {
 	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
 		return true, nil
 	}
 	var subordinateCount int
-	for _, ep := range []Endpoint{ep1, ep2} {
+	for _, ep := range []relation.Endpoint{ep1, ep2} {
 		app, err := applicationByName(st, ep.ApplicationName)
 		if err != nil {
 			return false, err
@@ -1795,7 +1796,7 @@ func applicationByName(st *State, name string) (ApplicationEntity, error) {
 // endpoints returns all endpoints that could be intended by the
 // supplied endpoint name, and which cause the filter param to
 // return true.
-func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
+func (st *State) endpoints(name string, filter func(ep relation.Endpoint) bool) ([]relation.Endpoint, error) {
 	appName, relName, err := splitEndpointName(name)
 	if err != nil {
 		return nil, err
@@ -1804,7 +1805,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	eps := []Endpoint{}
+	eps := []relation.Endpoint{}
 	if relName != "" {
 		ep, err := app.Endpoint(relName)
 		if err != nil {
@@ -1817,7 +1818,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 			return nil, errors.Trace(err)
 		}
 	}
-	final := []Endpoint{}
+	final := []relation.Endpoint{}
 	for _, ep := range eps {
 		if filter(ep) {
 			final = append(final, ep)
@@ -1827,7 +1828,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 }
 
 // AddRelation creates a new relation with the given endpoints.
-func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
+func (st *State) AddRelation(eps ...relation.Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
 	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
 
@@ -2022,7 +2023,7 @@ func compatibleSupportedBases(b1s, b2s []corebase.Base) bool {
 // from app:ep exceeds the maximum allowed relation limit as specified in the
 // charm metadata. It also returns the number of existing relations and a bool
 // if a limit is to be enforced.
-func enforceMaxRelationLimit(app ApplicationEntity, ep Endpoint) (int, bool, error) {
+func enforceMaxRelationLimit(app ApplicationEntity, ep relation.Endpoint) (int, bool, error) {
 	// No limit defined
 	if ep.Relation.Limit == 0 {
 		return -1, false, nil
@@ -2056,7 +2057,7 @@ func aliveApplication(st *State, name string) (ApplicationEntity, error) {
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
-func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
+func (st *State) EndpointsRelation(endpoints ...relation.Endpoint) (*Relation, error) {
 	return st.KeyRelation(relationKey(endpoints))
 }
 

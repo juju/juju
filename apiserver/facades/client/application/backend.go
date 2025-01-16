@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
+	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -33,9 +34,9 @@ type Backend interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
-	AddRelation(...state.Endpoint) (Relation, error)
+	AddRelation(...relation.Endpoint) (Relation, error)
 	Relation(int) (Relation, error)
-	InferEndpoints(...string) ([]state.Endpoint, error)
+	InferEndpoints(...string) ([]relation.Endpoint, error)
 	InferActiveRelation(...string) (Relation, error)
 	Machine(string) (Machine, error)
 	Unit(string) (Unit, error)
@@ -67,7 +68,7 @@ type Application interface {
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
-	Endpoints() ([]state.Endpoint, error)
+	Endpoints() ([]relation.Endpoint, error)
 	IsExposed() bool
 	IsPrincipal() bool
 	IsRemote() bool
@@ -129,12 +130,12 @@ type Relation interface {
 	Destroy(objectstore.ObjectStore) error
 	DestroyWithForce(bool, time.Duration) ([]error, error)
 	Id() int
-	Endpoints() []state.Endpoint
-	RelatedEndpoints(applicationname string) ([]state.Endpoint, error)
+	Endpoints() []relation.Endpoint
+	RelatedEndpoints(applicationname string) ([]relation.Endpoint, error)
 	ApplicationSettings(appName string) (map[string]interface{}, error)
 	AllRemoteUnits(appName string) ([]RelationUnit, error)
 	Unit(string) (RelationUnit, error)
-	Endpoint(string) (state.Endpoint, error)
+	Endpoint(string) (relation.Endpoint, error)
 	SetSuspended(bool, string) error
 	Suspended() bool
 	SuspendedReason() string
@@ -283,7 +284,7 @@ type remoteApplicationShim struct {
 type RemoteApplication interface {
 	Name() string
 	SourceModel() names.ModelTag
-	Endpoints() ([]state.Endpoint, error)
+	Endpoints() ([]relation.Endpoint, error)
 	AddEndpoints(eps []charm.Relation) error
 	Destroy() error
 	DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation
@@ -301,7 +302,7 @@ func (s stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (
 	return &remoteApplicationShim{RemoteApplication: app}, err
 }
 
-func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
+func (s stateShim) AddRelation(eps ...relation.Endpoint) (Relation, error) {
 	r, err := s.State.AddRelation(eps...)
 	if err != nil {
 		return nil, err

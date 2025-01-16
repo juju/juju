@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
+	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -98,7 +99,7 @@ func (st *mockState) ApplyOperation(state.ModelOperation) error {
 	return nil
 }
 
-func (st *mockState) AddRelation(eps ...state.Endpoint) (commoncrossmodel.Relation, error) {
+func (st *mockState) AddRelation(eps ...relation.Endpoint) (commoncrossmodel.Relation, error) {
 	rel := &mockRelation{
 		id:  len(st.relations),
 		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name),
@@ -139,7 +140,7 @@ func (st *mockState) OfferConnectionForRelation(relationKey string) (commoncross
 	return oc, nil
 }
 
-func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (commoncrossmodel.Relation, error) {
+func (st *mockState) EndpointsRelation(eps ...relation.Endpoint) (commoncrossmodel.Relation, error) {
 	key := fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)
 	if rel, ok := st.relations[key]; ok {
 		return rel, nil
@@ -357,7 +358,7 @@ type mockRelation struct {
 	status          status.Status
 	message         string
 	units           map[string]commoncrossmodel.RelationUnit
-	endpoints       []state.Endpoint
+	endpoints       []relation.Endpoint
 	watchers        map[string]*mockUnitsWatcher
 	appSettings     map[string]map[string]interface{}
 }
@@ -465,7 +466,7 @@ func (r *mockRelation) ReplaceApplicationSettings(appName string, values map[str
 	return r.NextErr()
 }
 
-func (r *mockRelation) Endpoints() []state.Endpoint {
+func (r *mockRelation) Endpoints() []relation.Endpoint {
 	r.MethodCall(r, "Endpoints")
 	return r.endpoints
 }
@@ -540,7 +541,7 @@ type mockApplication struct {
 	appStatus status.Status
 	testing.Stub
 	life state.Life
-	eps  []state.Endpoint
+	eps  []relation.Endpoint
 }
 
 func (a *mockApplication) Name() string {
@@ -548,7 +549,7 @@ func (a *mockApplication) Name() string {
 	return a.name
 }
 
-func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {
+func (a *mockApplication) Endpoints() ([]relation.Endpoint, error) {
 	a.MethodCall(a, "Endpoints")
 	return a.eps, nil
 }
