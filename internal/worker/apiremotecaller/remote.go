@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
@@ -24,9 +23,6 @@ import (
 type RemoteConnection interface {
 	// Connection returns the connection to the remote API server.
 	Connection() api.Connection
-
-	// Tag returns the tag of the remote API server.
-	Tag() names.Tag
 }
 
 // RemoteServer represents the public interface of the worker
@@ -43,7 +39,7 @@ type RemoteServerConfig struct {
 	Clock  clock.Clock
 	Logger logger.Logger
 
-	Target names.Tag
+	ControllerID string
 
 	// APIInfo is initially populated with the addresses of the target machine.
 	APIInfo *api.Info
@@ -58,8 +54,8 @@ type remoteServer struct {
 	internalStates chan string
 	tomb           tomb.Tomb
 
-	target names.Tag
-	info   *api.Info
+	controllerID string
+	info         *api.Info
 
 	apiOpener api.OpenFunc
 
@@ -80,7 +76,7 @@ func NewRemoteServer(config RemoteServerConfig) RemoteServer {
 
 func newRemoteServer(config RemoteServerConfig, internalStates chan string) RemoteServer {
 	w := &remoteServer{
-		target:         config.Target,
+		controllerID:   config.ControllerID,
 		info:           config.APIInfo,
 		logger:         config.Logger,
 		clock:          config.Clock,
@@ -98,11 +94,6 @@ func (w *remoteServer) Connection() api.Connection {
 	defer w.mu.Unlock()
 
 	return w.currentConnection
-}
-
-// Tag returns the tag of the remote API server.
-func (w *remoteServer) Tag() names.Tag {
-	return w.target
 }
 
 // UpdateAddresses will update the addresses held for the target API server.
@@ -177,7 +168,7 @@ func (w *remoteServer) loop() error {
 			return tomb.ErrDying
 
 		case addresses := <-changes:
-			w.logger.Debugf("addresses for %q have changed: %v", w.target, addresses)
+			w.logger.Debugf("addresses for %q have changed: %v", w.controllerID, addresses)
 
 			// If the addresses already exist, we don't need to do anything.
 			if connected && w.addressesAlreadyExist(addresses) {
@@ -202,7 +193,7 @@ func (w *remoteServer) loop() error {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			default:
-				return errors.Errorf("connection to %q has been lost", w.target)
+				return errors.Errorf("connection to %q has been lost", w.controllerID)
 			}
 		}
 	}
@@ -223,7 +214,7 @@ func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
 }
 
 func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan struct{}, error) {
-	w.logger.Debugf("connecting to %s with addresses: %v", w.target, addresses)
+	w.logger.Debugf("connecting to %s with addresses: %v", w.controllerID, addresses)
 
 	// Use temporary info until we're sure we can connect. If the addresses
 	// are invalid, but the existing connection is still valid, we don't want
@@ -245,7 +236,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 		},
 		NotifyFunc: func(err error, attempt int) {
 			// This is normal behavior, so we don't need to log it as an error.
-			w.logger.Debugf("failed to connect to %s attempt %d, with addresses %v: %v", w.target, attempt, info.Addrs, err)
+			w.logger.Debugf("failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
 		},
 		Attempts:    retry.UnlimitedAttempts,
 		Delay:       1 * time.Second,
@@ -279,7 +270,7 @@ func (w *remoteServer) closeCurrentConnection() {
 
 	err := w.currentConnection.Close()
 	if err != nil {
-		w.logger.Errorf("failed to close connection %q: %v", w.target, err)
+		w.logger.Errorf("failed to close connection %q: %v", w.controllerID, err)
 	}
 
 	w.currentConnection = nil

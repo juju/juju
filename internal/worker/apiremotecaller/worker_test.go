@@ -135,7 +135,8 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 	s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
 		close(done)
 	})
-	s.remote.EXPECT().Tag().Return(names.NewMachineTag("1"))
+	s.remote.EXPECT().Connection().Return(s.connection)
+	s.connection.EXPECT().Addr().Return("192.168.0.17")
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -163,11 +164,11 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"machine-1"})
+	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
 
 	remotes := w.GetAPIRemotes()
 	c.Assert(remotes, gc.HasLen, 1)
-	c.Check(remotes[0].Tag().String(), gc.Equals, "machine-1")
+	c.Assert(remotes[0].Connection().Addr(), gc.Equals, "192.168.0.17")
 
 	workertest.CleanKill(c, w)
 }
@@ -207,7 +208,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"machine-1"})
+	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
 
 	workertest.CleanKill(c, w)
 }
@@ -229,8 +230,8 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 		}),
 	)
 
-	s.finished["machine-1"] = make(chan struct{})
-	s.finished["machine-2"] = make(chan struct{})
+	s.finished["1"] = make(chan struct{})
+	s.finished["2"] = make(chan struct{})
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -258,7 +259,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"machine-1"})
+	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
 
 	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -281,11 +282,11 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	// Wait for the machine-1 to finish, so we can verify that it's been
+	// Wait for the 1 to finish, so we can verify that it's been
 	// removed.
 
 	select {
-	case <-s.finished["machine-1"]:
+	case <-s.finished["1"]:
 		// Annoyingly, we need to wait for the worker to finish cleaning
 		// up before we can check the worker names. It would be better if
 		// runner exposed a way to emit changes to the internal state.
@@ -294,10 +295,10 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"machine-2"})
+	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"2"})
 	c.Check(s.called, jc.DeepEquals, map[string]int{
-		"machine-1": 1,
-		"machine-2": 1,
+		"1": 1,
+		"2": 1,
 	})
 
 	workertest.CleanKill(c, w)
@@ -346,7 +347,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"machine-1"})
+	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
 
 	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -369,8 +370,8 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"machine-1"})
-	c.Check(s.called, jc.DeepEquals, map[string]int{"machine-1": 1})
+	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
+	c.Check(s.called, jc.DeepEquals, map[string]int{"1": 1})
 
 	workertest.CleanKill(c, w)
 }
@@ -405,7 +406,7 @@ func (s *WorkerSuite) newConfig(c *gc.C) WorkerConfig {
 		APIInfo:   &api.Info{},
 		APIOpener: api.Open,
 		NewRemote: func(rsc RemoteServerConfig) RemoteServer {
-			target := rsc.Target.String()
+			target := rsc.ControllerID
 
 			s.mutex.Lock()
 			s.called[target]++

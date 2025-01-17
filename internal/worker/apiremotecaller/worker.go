@@ -67,8 +67,7 @@ func (c *WorkerConfig) Validate() error {
 }
 
 type serverChanges struct {
-	servers map[names.Tag][]string
-	origin  names.Tag
+	servers map[string][]string
 }
 
 type remoteWorker struct {
@@ -184,7 +183,7 @@ func (w *remoteWorker) loop() error {
 			// no longer required.
 			current := w.runner.WorkerNames()
 
-			required := make(map[names.Tag]RemoteConnection)
+			required := make(map[string]RemoteConnection)
 			for target, addresses := range change.servers {
 
 				server, err := w.newRemoteServer(target, addresses)
@@ -204,20 +203,12 @@ func (w *remoteWorker) loop() error {
 			// Walk over the current workers and remove any that are no longer
 			// required.
 			for _, s := range current {
-				target, err := names.ParseTag(s)
-				if err != nil {
-					// This really should never happen, but if it does, bounce
-					// the worker and start again.
-					w.cfg.Logger.Errorf("failed to parse tag %q: %v", s, err)
-					return errors.Trace(err)
-				}
-
-				if _, ok := required[target]; ok {
+				if _, ok := required[s]; ok {
 					continue
 				}
 
-				w.cfg.Logger.Debugf("remote worker %q no longer required", target)
-				w.stopRemoteServer(ctx, target)
+				w.cfg.Logger.Debugf("remote worker %q no longer required", s)
+				w.stopRemoteServer(ctx, s)
 			}
 
 			w.cfg.Logger.Debugf("remote workers updated: %v", required)
@@ -237,8 +228,7 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 
 	w.cfg.Logger.Debugf("remoteWorker API server changes: %v", details)
 
-	var origin names.Tag
-	changes := make(map[names.Tag][]string)
+	changes := make(map[string][]string)
 
 	for id, apiServer := range details.Servers {
 		// The target is constructed from an id, and the tag type
@@ -256,7 +246,6 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 
 		// If the target is the origin, we don't need a connection to ourselves.
 		if target == w.cfg.Origin {
-			origin = target
 			continue
 		}
 
@@ -266,7 +255,7 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 			addresses = []string{apiServer.InternalAddress}
 		}
 
-		changes[target] = addresses
+		changes[target.Id()] = addresses
 	}
 
 	// We must dispatch every time we get a change, as the API server might
@@ -277,32 +266,31 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 		return
 	case w.changes <- serverChanges{
 		servers: changes,
-		origin:  origin,
 	}:
 	}
 }
 
-func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (RemoteServer, error) {
+func (w *remoteWorker) newRemoteServer(controllerID string, addresses []string) (RemoteServer, error) {
 	// Create a new remote server APIInfo with the target and addresses.
 	apiInfo := *w.cfg.APIInfo
 	apiInfo.Addrs = addresses
 
 	// Start a new worker with the target and addresses.
-	err := w.runner.StartWorker(target.String(), func() (worker.Worker, error) {
-		w.cfg.Logger.Debugf("starting remote worker for %q", target)
+	err := w.runner.StartWorker(controllerID, func() (worker.Worker, error) {
+		w.cfg.Logger.Debugf("starting remote worker for %q", controllerID)
 		return w.cfg.NewRemote(RemoteServerConfig{
-			Clock:     w.cfg.Clock,
-			Logger:    w.cfg.Logger,
-			Target:    target,
-			APIInfo:   &apiInfo,
-			APIOpener: w.cfg.APIOpener,
+			Clock:        w.cfg.Clock,
+			Logger:       w.cfg.Logger,
+			ControllerID: controllerID,
+			APIInfo:      &apiInfo,
+			APIOpener:    w.cfg.APIOpener,
 		}), nil
 	})
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Trace(err)
 	}
 
-	server, err := w.workerFromCache(target)
+	server, err := w.workerFromCache(controllerID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -310,30 +298,30 @@ func (w *remoteWorker) newRemoteServer(target names.Tag, addresses []string) (Re
 	// This shouldn't happen, because we just started the worker and waited for
 	// it with the workerFromCache call above.
 	if server == nil {
-		return nil, errors.NotFoundf("worker %q not found", target.String())
+		return nil, errors.NotFoundf("worker %q not found", controllerID)
 	}
 
 	return server, nil
 }
 
-func (w *remoteWorker) stopRemoteServer(ctx context.Context, target names.Tag) error {
+func (w *remoteWorker) stopRemoteServer(ctx context.Context, controllerID string) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	// Stop and remove the worker if it's no longer required.
-	w.cfg.Logger.Debugf("stopping remote worker for %q", target)
-	if err := w.runner.StopAndRemoveWorker(target.String(), ctx.Done()); errors.Is(err, context.DeadlineExceeded) {
-		return errors.Errorf("failed to stop worker %q: timed out", target)
+	w.cfg.Logger.Debugf("stopping remote worker for %q", controllerID)
+	if err := w.runner.StopAndRemoveWorker(controllerID, ctx.Done()); errors.Is(err, context.DeadlineExceeded) {
+		return errors.Errorf("failed to stop worker %q: timed out", controllerID)
 	} else if err != nil {
-		return errors.Errorf("failed to stop worker %q: %v", target, err)
+		return errors.Errorf("failed to stop worker %q: %v", controllerID, err)
 	}
 
 	return nil
 }
 
-func (w *remoteWorker) workerFromCache(target names.Tag) (RemoteServer, error) {
+func (w *remoteWorker) workerFromCache(controllerID string) (RemoteServer, error) {
 	// If the worker already exists, return the existing worker early.
-	if tracked, err := w.runner.Worker(target.String(), w.catacomb.Dying()); err == nil {
+	if tracked, err := w.runner.Worker(controllerID, w.catacomb.Dying()); err == nil {
 		return tracked.(RemoteServer), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.

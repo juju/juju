@@ -26,8 +26,9 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	clock  *MockClock
-	remote *MockRemoteServer
+	clock      *MockClock
+	remote     *MockRemoteServer
+	connection *MockConnection
 
 	states chan string
 }
@@ -37,6 +38,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.clock = NewMockClock(ctrl)
 	s.remote = NewMockRemoteServer(ctrl)
+	s.connection = NewMockConnection(ctrl)
 
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.

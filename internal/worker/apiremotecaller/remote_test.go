@@ -7,7 +7,6 @@ import (
 	"context"
 	time "time"
 
-	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -21,24 +20,12 @@ import (
 type RemoteSuite struct {
 	baseSuite
 
-	target     names.Tag
 	apiConnect chan struct{}
 
 	apiConnection *MockConnection
 }
 
 var _ = gc.Suite(&RemoteSuite{})
-
-func (s *RemoteSuite) TestTag(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	w := s.newRemoteServer(c)
-	defer workertest.DirtyKill(c, w)
-
-	s.ensureStartup(c)
-
-	c.Assert(w.Tag(), gc.Equals, s.target)
-}
 
 func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -87,8 +74,6 @@ func (s *RemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.apiConnection = NewMockConnection(ctrl)
-
-	s.target = names.NewMachineTag("0")
 	s.apiConnect = make(chan struct{})
 
 	return ctrl
@@ -102,7 +87,6 @@ func (s *RemoteSuite) newConfig(c *gc.C) RemoteServerConfig {
 	return RemoteServerConfig{
 		Clock:   s.clock,
 		Logger:  loggertesting.WrapCheckLog(c),
-		Target:  s.target,
 		APIInfo: &api.Info{},
 		APIOpener: func(ctx context.Context, i *api.Info, do api.DialOpts) (api.Connection, error) {
 			close(s.apiConnect)
