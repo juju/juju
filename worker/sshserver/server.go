@@ -88,8 +88,9 @@ func directTCPIPHandlerClosure() ssh.ChannelHandler {
 			LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
 				return true
 			}),
+			// ReversePortForwarding will not be supported.
 			ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
-				return true
+				return false
 			}),
 			ChannelHandlers: map[string]ssh.ChannelHandler{
 				"session":      ssh.DefaultSessionHandler,
