@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -207,30 +208,29 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 		ImageID:          cons.ImageID,
 	}
 
-	var tagStrings []string
 	for _, tag := range tags {
-		tagStrings = append(tagStrings, tag.Tag)
-	}
-	if len(tagStrings) > 0 {
-		consVal.Tags = &tagStrings
+		if consVal.Tags == nil {
+			var tagStrings []string
+			consVal.Tags = &tagStrings
+		}
+		*consVal.Tags = append(*consVal.Tags, tag.Tag)
 	}
 
-	var spaceStrings []string
 	for _, space := range spaces {
-		spaceStrings = append(spaceStrings, space.Space)
-	}
-	if len(spaceStrings) > 0 {
-		consVal.Spaces = &spaceStrings
+		if consVal.Spaces == nil {
+			var spaceStrings []string
+			consVal.Spaces = &spaceStrings
+		}
+		*consVal.Spaces = append(*consVal.Spaces, space.Space)
 	}
 
-	var zoneStrings []string
 	for _, zone := range zones {
-		zoneStrings = append(zoneStrings, zone.Zone)
+		if consVal.Zones == nil {
+			var zoneStrings []string
+			consVal.Zones = &zoneStrings
+		}
+		*consVal.Zones = append(*consVal.Zones, zone.Zone)
 	}
-	if len(zoneStrings) > 0 {
-		consVal.Zones = &zoneStrings
-	}
-
 	return consVal, nil
 }
 
@@ -319,7 +319,7 @@ DO UPDATE SET
 
 		isNewConstraint := existingConstraint.UUID == ""
 		if isNewConstraint {
-			// No constraint exists for the model, so we create one.
+			// No constraint exists for the model, so we generate a new UUID.
 			id, err := uuid.NewUUID()
 			if err != nil {
 				return errors.Errorf("generating new constraint uuid: %w", err)
@@ -333,6 +333,7 @@ DO UPDATE SET
 		}
 
 		if isNewConstraint {
+			// Insert a new model constraint.
 			err = tx.Query(ctx, insertModelConstraintStmt, dbModelConstraint{
 				ModelUUID:      modelUUID.String(),
 				ConstraintUUID: existingConstraint.UUID,
@@ -364,15 +365,10 @@ DO UPDATE SET
 		}
 		return nil
 	})
-
 	return errors.Capture(err)
 }
 
 func (s *ModelState) upsertContraintTags(ctx context.Context, tx *sqlair.TX, constraintUUID string, tags []string) error {
-	if len(tags) == 0 {
-		return nil
-	}
-
 	removeConstraintTagsStmt, err := s.Prepare(`
 DELETE FROM constraint_tag
 WHERE constraint_uuid = $dbConstraintTag.constraint_uuid
@@ -393,6 +389,10 @@ VALUES ($dbConstraintTag.*)`, dbConstraintTag{})
 		return errors.Errorf("removing existing constraint tags for constraint %q: %w", constraintUUID, err)
 	}
 
+	if len(tags) == 0 {
+		return nil
+	}
+
 	for _, tag := range tags {
 		if tag == "" {
 			continue
@@ -409,10 +409,6 @@ VALUES ($dbConstraintTag.*)`, dbConstraintTag{})
 }
 
 func (s *ModelState) upsertContraintSpaces(ctx context.Context, tx *sqlair.TX, constraintUUID string, spaces []string) error {
-	if len(spaces) == 0 {
-		return nil
-	}
-
 	removeConstraintSpacesStmt, err := s.Prepare(`
 DELETE FROM constraint_space
 WHERE constraint_uuid = $dbConstraintSpace.constraint_uuid
@@ -433,6 +429,10 @@ VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
 		return errors.Errorf("removing existing constraint spaces for constraint %q: %w", constraintUUID, err)
 	}
 
+	if len(spaces) == 0 {
+		return nil
+	}
+
 	for _, space := range spaces {
 		if space == "" {
 			continue
@@ -442,7 +442,7 @@ VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
 			Space:          space,
 		}).Run()
 		if internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("inserting constraint space %q: %w", space, modelerrors.ModelConstraintSpaceDoesNotExist)
+			return errors.Errorf("inserting constraint space %q: %w", space, networkerrors.SpaceNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("inserting constraint space %q: %w", space, err)
@@ -452,10 +452,6 @@ VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
 }
 
 func (s *ModelState) upsertContraintZones(ctx context.Context, tx *sqlair.TX, constraintUUID string, zones []string) error {
-	if len(zones) == 0 {
-		return nil
-	}
-
 	removeConstraintZonesStmt, err := s.Prepare(`
 DELETE FROM constraint_zone
 WHERE constraint_uuid = $dbConstraintZone.constraint_uuid
@@ -474,6 +470,10 @@ VALUES ($dbConstraintZone.*)`, dbConstraintZone{})
 	err = tx.Query(ctx, removeConstraintZonesStmt, dbConstraintZone{ConstraintUUID: constraintUUID}).Run()
 	if err != nil {
 		return errors.Errorf("removing existing constraint zones for constraint %q: %w", constraintUUID, err)
+	}
+
+	if len(zones) == 0 {
+		return nil
 	}
 
 	for _, zone := range zones {

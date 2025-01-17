@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +17,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -293,10 +295,16 @@ func (s *modelSuite) TestSetModelConstraints(c *gc.C) {
 	err := state.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.DB().ExecContext(context.Background(),
-		`INSERT INTO space (uuid, name) VALUES (?, ?)`, uuid.MustNewUUID().String(), "space1")
+	_, err = s.DB().ExecContext(context.Background(), `
+INSERT INTO space (uuid, name) VALUES 
+	(?, ?),
+	(?, ?)`,
+		uuid.MustNewUUID().String(), "space1",
+		uuid.MustNewUUID().String(), "space2",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Set constraints - 1st time.
 	err = state.SetModelConstraints(context.Background(), constraints.Value{
 		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(4)),
@@ -314,20 +322,7 @@ func (s *modelSuite) TestSetModelConstraints(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var consData dbConstraint
-	err = s.DB().QueryRowContext(context.Background(), `
-SELECT arch, cpu_cores, mem, root_disk, root_disk_source, 
-	instance_role, instance_type, 
-	virt_type, allocate_public_ip, image_id
-FROM "constraint"`).Scan(
-		&consData.Arch, &consData.CPUCores, &consData.Mem,
-		&consData.RootDisk, &consData.RootDiskSource,
-		&consData.InstanceRole, &consData.InstanceType, &consData.VirtType,
-		&consData.AllocatePublicIP, &consData.ImageID,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(consData, jc.DeepEquals, dbConstraint{
+	assertConstraint(c, s.DB(), dbConstraint{
 		Arch:             ptr("amd64"),
 		CPUCores:         ptr(uint64(4)),
 		Mem:              ptr(uint64(1024)),
@@ -339,40 +334,83 @@ FROM "constraint"`).Scan(
 		AllocatePublicIP: ptr(true),
 		ImageID:          ptr("image-id"),
 	})
+	assertConstraintTags(c, s.DB(), []string{"tag1", "tag2"})
+	assertConstraintSpaces(c, s.DB(), []string{"space1"})
+	assertConstraintZones(c, s.DB(), []string{"zone1", "zone2"})
 
+	// Set constraints - following updates.
+	err = state.SetModelConstraints(context.Background(), constraints.Value{
+		Arch:   ptr("arm64"),
+		Tags:   ptr([]string{"tag1", "tag3"}),
+		Spaces: ptr([]string{"space2"}),
+		Zones:  ptr([]string{"zone1"}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertConstraint(c, s.DB(), dbConstraint{
+		Arch: ptr("arm64"),
+	})
+	assertConstraintTags(c, s.DB(), []string{"tag1", "tag3"})
+	assertConstraintSpaces(c, s.DB(), []string{"space2"})
+	assertConstraintZones(c, s.DB(), []string{"zone1"})
+}
+
+func assertConstraint(c *gc.C, db *sql.DB, expected dbConstraint) {
+	var consData dbConstraint
+	err := db.QueryRowContext(context.Background(), `
+SELECT arch, cpu_cores, mem, root_disk, root_disk_source, 
+	instance_role, instance_type, 
+	virt_type, allocate_public_ip, image_id
+FROM "constraint"`).Scan(
+		&consData.Arch, &consData.CPUCores, &consData.Mem,
+		&consData.RootDisk, &consData.RootDiskSource,
+		&consData.InstanceRole, &consData.InstanceType, &consData.VirtType,
+		&consData.AllocatePublicIP, &consData.ImageID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(consData, jc.DeepEquals, expected)
+}
+
+func assertConstraintTags(c *gc.C, db *sql.DB, expected []string) {
 	var tags []string
-	row, err := s.DB().QueryContext(context.Background(), `
+	rows, err := db.QueryContext(context.Background(), `
 SELECT tag FROM constraint_tag`)
 	c.Assert(err, jc.ErrorIsNil)
-	for row.Next() {
+	for rows.Next() {
 		var tag string
-		err := row.Scan(&tag)
+		err := rows.Scan(&tag)
 		c.Assert(err, jc.ErrorIsNil)
 		tags = append(tags, tag)
 	}
-	c.Assert(tags, jc.DeepEquals, []string{"tag1", "tag2"})
+	c.Assert(tags, jc.DeepEquals, expected)
+}
 
+func assertConstraintSpaces(c *gc.C, db *sql.DB, expected []string) {
 	var spaces []string
-	row, err = s.DB().QueryContext(context.Background(), `
+	rows, err := db.QueryContext(context.Background(), `
 SELECT space FROM constraint_space`)
-	for row.Next() {
+	c.Assert(err, jc.ErrorIsNil)
+	for rows.Next() {
 		var space string
-		err := row.Scan(&space)
+		err := rows.Scan(&space)
 		c.Assert(err, jc.ErrorIsNil)
 		spaces = append(spaces, space)
 	}
-	c.Assert(spaces, jc.DeepEquals, []string{"space1"})
+	c.Assert(spaces, jc.DeepEquals, expected)
+}
 
+func assertConstraintZones(c *gc.C, db *sql.DB, expected []string) {
 	var zones []string
-	row, err = s.DB().QueryContext(context.Background(), `
+	rows, err := db.QueryContext(context.Background(), `
 SELECT zone FROM constraint_zone`)
-	for row.Next() {
+	c.Assert(err, jc.ErrorIsNil)
+	for rows.Next() {
 		var zone string
-		err := row.Scan(&zone)
+		err := rows.Scan(&zone)
 		c.Assert(err, jc.ErrorIsNil)
 		zones = append(zones, zone)
 	}
-	c.Assert(zones, jc.DeepEquals, []string{"zone1", "zone2"})
+	c.Assert(zones, jc.DeepEquals, expected)
 }
 
 func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C) {
@@ -408,7 +446,7 @@ func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *gc.C) {
 	err = state.SetModelConstraints(context.Background(), constraints.Value{
 		Spaces: ptr([]string{"space1"}),
 	})
-	c.Assert(err, jc.ErrorIs, modelerrors.ModelConstraintSpaceDoesNotExist)
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *modelSuite) TestGetModelConstraints(c *gc.C) {
@@ -431,8 +469,13 @@ func (s *modelSuite) TestGetModelConstraints(c *gc.C) {
 	err := state.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.DB().ExecContext(context.Background(),
-		`INSERT INTO space (uuid, name) VALUES (?, ?)`, uuid.MustNewUUID().String(), "space1")
+	_, err = s.DB().ExecContext(context.Background(), `
+INSERT INTO space (uuid, name) VALUES
+	(?, ?),
+	(?, ?)`,
+		uuid.MustNewUUID().String(), "space1",
+		uuid.MustNewUUID().String(), "space2",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = state.SetModelConstraints(context.Background(), constraints.Value{
@@ -444,7 +487,7 @@ func (s *modelSuite) TestGetModelConstraints(c *gc.C) {
 		Tags:             ptr([]string{"tag1", "tag2"}),
 		InstanceRole:     ptr("instance-role"),
 		InstanceType:     ptr("instance-type"),
-		Spaces:           ptr([]string{"space1"}),
+		Spaces:           ptr([]string{"space1", "space2"}),
 		VirtType:         ptr("virt-type"),
 		Zones:            ptr([]string{"zone1", "zone2"}),
 		AllocatePublicIP: ptr(true),
@@ -463,7 +506,7 @@ func (s *modelSuite) TestGetModelConstraints(c *gc.C) {
 		Tags:             ptr([]string{"tag1", "tag2"}),
 		InstanceRole:     ptr("instance-role"),
 		InstanceType:     ptr("instance-type"),
-		Spaces:           ptr([]string{"space1"}),
+		Spaces:           ptr([]string{"space1", "space2"}),
 		VirtType:         ptr("virt-type"),
 		Zones:            ptr([]string{"zone1", "zone2"}),
 		AllocatePublicIP: ptr(true),
