@@ -46,18 +46,20 @@ type resourceView struct {
 	Path            string    `db:"path"`
 	Description     string    `db:"description"`
 	Kind            string    `db:"kind_name"`
+	Size            int64     `db:"size"`
+	SHA384          string    `db:"sha384"`
 }
 
 // toCharmResource converts the resourceView struct to a
 // charmresource.Resource, populating its fields accordingly.
-func (rv resourceView) toCharmResource(size int64, hash string) (charmresource.Resource, error) {
+func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 	kind, err := charmresource.ParseType(rv.Kind)
 	if err != nil {
 		return charmresource.Resource{}, errors.Errorf("converting resource type: %w", err)
 	}
 	var fingerprint charmresource.Fingerprint
-	if hash != "" {
-		fingerprint, err = charmresource.ParseFingerprint(hash)
+	if rv.SHA384 != "" {
+		fingerprint, err = charmresource.ParseFingerprint(rv.SHA384)
 		if err != nil {
 			return charmresource.Resource{}, errors.Errorf("converting resource fingerprint: %w", err)
 		}
@@ -73,14 +75,14 @@ func (rv resourceView) toCharmResource(size int64, hash string) (charmresource.R
 		Origin:      charmresource.Origin(rv.OriginTypeId),
 		Revision:    rv.Revision,
 		Fingerprint: fingerprint,
-		Size:        size,
+		Size:        rv.Size,
 	}, nil
 }
 
 // toResource converts a resourceView object to a resource.Resource object
 // including metadata and timestamps.
-func (rv resourceView) toResource(size int64, hash string) (resource.Resource, error) {
-	charmRes, err := rv.toCharmResource(size, hash)
+func (rv resourceView) toResource() (resource.Resource, error) {
+	charmRes, err := rv.toCharmResource()
 	if err != nil {
 		return resource.Resource{}, errors.Capture(err)
 	}
@@ -124,9 +126,4 @@ type storedContainerImageResource struct {
 	ResourceUUID string `db:"resource_uuid"`
 	Size         int64  `db:"size"`
 	Hash         string `db:"sha384"`
-}
-
-type getSizeAndSHA384 struct {
-	Size   int64  `db:"size"`
-	SHA384 string `db:"sha384"`
 }

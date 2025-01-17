@@ -341,12 +341,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 				return errors.Capture(err)
 			}
 
-			size, sha384, err := st.getSizeAndSHA384(ctx, tx, res.UUID, res.Kind)
-			if err != nil {
-				return errors.Errorf("getting size and sha384: %w", err)
-			}
-
-			r, err := res.toResource(size, sha384)
+			r, err := res.toResource()
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -357,7 +352,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 			// depending on polled status.
 			charmRes := charmresource.Resource{}
 			if hasBeenPolled {
-				charmRes, err = res.toCharmResource(size, sha384)
+				charmRes, err = res.toCharmResource()
 				if err != nil {
 					return errors.Capture(err)
 				}
@@ -370,7 +365,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 				if !ok {
 					unitRes = resource.UnitResources{ID: coreunit.UUID(unit.UnitUUID)}
 				}
-				ur, err := res.toResource(size, sha384)
+				ur, err := res.toResource()
 				if err != nil {
 					return errors.Capture(err)
 				}
@@ -415,66 +410,18 @@ WHERE uuid = $resourceIdentity.uuid`,
 		return resource.Resource{}, errors.Capture(err)
 	}
 
-	var (
-		size   int64
-		sha384 string
-	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, resourceParam).Get(&resourceOutput)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return resourceerrors.ResourceNotFound
 		}
-
-		size, sha384, err = st.getSizeAndSHA384(ctx, tx, resourceUUID.String(), resourceOutput.Kind)
-		if err != nil {
-			return errors.Errorf("getting size and sha384: %w", err)
-		}
-
 		return errors.Capture(err)
 	})
 	if err != nil {
 		return resource.Resource{}, errors.Capture(err)
 	}
 
-	return resourceOutput.toResource(size, sha384)
-}
-
-// getSizeAndSHA384 looks for the size and SHA384 of a resources stored blob. If
-// the resource has not been stored, the zero values are returned.
-func (st *State) getSizeAndSHA384(ctx context.Context, tx *sqlair.TX, resourceUUID string, kind string) (int64, string, error) {
-	var q string
-	switch kind {
-	case charmresource.TypeFile.String():
-		q = `
-SELECT &getSizeAndSHA384.*
-FROM   resource_file_store
-WHERE  resource_uuid = $resourceIdentity.uuid`
-	case charmresource.TypeContainerImage.String():
-		q = `
-SELECT &getSizeAndSHA384.*
-FROM   resource_image_store
-WHERE  resource_uuid = $resourceIdentity.uuid`
-	default:
-		return 0, "", errors.Errorf("unknown resource type")
-	}
-	resourceID := resourceIdentity{
-		UUID: resourceUUID,
-	}
-	var sizeAndSHA384 getSizeAndSHA384
-	sizeAndSHAStmt, err := st.Prepare(q, resourceID, sizeAndSHA384)
-	if err != nil {
-		return 0, "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, sizeAndSHAStmt, resourceID).Get(&sizeAndSHA384)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// If there is no size and sha stored return the zero values.
-		return 0, "", nil
-	} else if err != nil {
-		return 0, "", errors.Capture(err)
-	}
-
-	return sizeAndSHA384.Size, sizeAndSHA384.SHA384, nil
+	return resourceOutput.toResource()
 }
 
 // RecordStoredResource records a stored resource along with who retrieved it.
