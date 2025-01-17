@@ -76,16 +76,14 @@ func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		StartTime:     reqParams.startTime,
-		InitialLines:  int(reqParams.backlog),
+		InitialLines:  int(reqParams.initialLines),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,
 		ExcludeModule: reqParams.excludeModule,
 		IncludeLabel:  reqParams.includeLabel,
 		ExcludeLabel:  reqParams.excludeLabel,
-	}
-	if reqParams.fromTheStart {
-		tailerParams.InitialLines = 0
+		FromTheStart:  reqParams.fromTheStart,
 	}
 	return tailerParams
 }

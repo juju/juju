@@ -43,4 +43,5 @@ type LogTailerParams struct {
 	ExcludeModule []string
 	IncludeLabel  []string
 	ExcludeLabel  []string
+	FromTheStart  bool
 }

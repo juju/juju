@@ -160,10 +160,11 @@ func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
 	st, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Confirm the state isn't closed.
+	// Confirm the state is closed because there are no references. Calling
+	// pool.Get will recreate the state again.
 	removed := st.Release()
-	c.Assert(removed, jc.IsFalse)
-	assertNotClosed(c, st.State)
+	c.Assert(removed, jc.IsTrue)
+	assertClosed(c, st.State)
 
 	removed, err = s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)

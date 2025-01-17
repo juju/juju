@@ -40,7 +40,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	reqParams := debugLogParams{
 		fromTheStart:  false,
 		noTail:        true,
-		backlog:       11,
+		initialLines:  11,
 		startTime:     t1,
 		filterLevel:   loggo.INFO,
 		includeEntity: []string{"foo"},
@@ -81,7 +81,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 	reqParams := debugLogParams{
 		fromTheStart: true,
-		backlog:      123,
+		initialLines: 123,
 	}
 
 	called := false
@@ -89,7 +89,7 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
-		c.Assert(params.InitialLines, gc.Equals, 0)
+		c.Assert(params.InitialLines, gc.Equals, 123)
 
 		return newFakeLogTailer(), nil
 	})

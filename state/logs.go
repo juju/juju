@@ -595,9 +595,10 @@ func (t *logTailer) processCollection() error {
 	query := t.logsColl.Find(sel)
 
 	var doc logDoc
-	if t.params.InitialLines > 0 {
+	if t.params.InitialLines > 0 && !t.params.FromTheStart {
 		return t.processReversed(query)
 	}
+	// Handles debug-log command with --replay
 	// In tests, sorting by time can leave the result ordering
 	// underconstrained. Since object ids are (timestamp, machine id,
 	// process id, counter)
@@ -613,8 +614,11 @@ func (t *logTailer) processCollection() error {
 	// but don't write out any additional errors until we either hit
 	// a good value, or end the method.
 	deserialisationFailures := 0
-	iter := query.Sort("t", "_id").Iter()
+	iter := query.Sort("t", "_id").
+		Limit(t.params.InitialLines).
+		Iter()
 	defer iter.Close()
+
 	for iter.Next(&doc) {
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
