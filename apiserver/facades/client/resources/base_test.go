@@ -1,20 +1,17 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	"context"
 	"time"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources"
-	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
-	coreresources "github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -22,33 +19,31 @@ import (
 )
 
 type BaseSuite struct {
-	testing.IsolationSuite
-
-	backend *mocks.MockBackend
-	factory *mocks.MockNewCharmRepository
+	applicationService *MockApplicationService
+	resourceService    *MockResourceService
+	repository         *MockNewCharmRepository
+	factory            func(context.Context, *charm.URL) (NewCharmRepository, error)
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-}
-
-func (s *BaseSuite) setUpTest(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.factory = mocks.NewMockNewCharmRepository(ctrl)
-	s.backend = mocks.NewMockBackend(ctrl)
+
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.resourceService = NewMockResourceService(ctrl)
+	s.repository = NewMockNewCharmRepository(ctrl)
+	s.factory = func(context.Context, *charm.URL) (NewCharmRepository, error) { return s.repository, nil }
+
 	return ctrl
 }
 
-func (s *BaseSuite) newFacade(c *gc.C) *resources.API {
-	factoryFunc := func(context.Context, *charm.URL) (resources.NewCharmRepository, error) {
-		return s.factory, nil
-	}
-	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc, loggertesting.WrapCheckLog(c))
+func (s *BaseSuite) newFacade(c *gc.C) *API {
+	facade, err := NewResourcesAPI(s.applicationService, s.resourceService, s.factory,
+		loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
 
-func newResource(c *gc.C, name, username, data string) (coreresources.Resource, params.Resource) {
+func newResource(c *gc.C, name, username, data string) (coreresource.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.RetrievedBy = username

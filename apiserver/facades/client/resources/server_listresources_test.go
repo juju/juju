@@ -1,19 +1,21 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	coreresources "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/unit"
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/resource"
+	coreunit "github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -23,8 +25,8 @@ type ListResourcesSuite struct {
 	BaseSuite
 }
 
-func (s *ListResourcesSuite) TestOkay(c *gc.C) {
-	defer s.setUpTest(c).Finish()
+func (s *ListResourcesSuite) TestListResourcesOkay(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
 
@@ -42,28 +44,31 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	apiChRes2.Revision++
 
 	appTag := names.NewApplicationTag("a-application")
-	s.backend.EXPECT().ListResources(appTag.Id()).Return(coreresources.ApplicationResources{
-		Resources: []coreresources.Resource{
-			res1,
-			res2,
-		},
-		UnitResources: []coreresources.UnitResources{
-			{
-				Name: unit.Name(tag0.Id()),
-				Resources: []coreresources.Resource{
-					res1,
-					res2,
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(),
+		appTag.Id()).Return("a-application-id", nil)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(
+		resource.ApplicationResources{
+			Resources: []resource.Resource{
+				res1,
+				res2,
+			},
+			UnitResources: []resource.UnitResources{
+				{
+					Name: coreunit.Name(tag0.Id()),
+					Resources: []resource.Resource{
+						res1,
+						res2,
+					},
+				},
+				{
+					Name: coreunit.Name(tag1.Id()),
 				},
 			},
-			{
-				Name: unit.Name(tag1.Id()),
+			RepositoryResources: []charmresource.Resource{
+				chres1,
+				chres2,
 			},
-		},
-		RepositoryResources: []charmresource.Resource{
-			chres1,
-			chres2,
-		},
-	}, nil)
+		}, nil)
 
 	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -104,10 +109,12 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
-	defer s.setUpTest(c).Finish()
+func (s *ListResourcesSuite) TestListResourcesEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
-	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, nil)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.
+		ApplicationResources{}, nil)
 
 	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -121,11 +128,36 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestError(c *gc.C) {
-	defer s.setUpTest(c).Finish()
+func (s *ListResourcesSuite) TestListResourcesErrorGetAppID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
-	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, failure)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("", failure)
+
+	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+		Results: []params.ResourcesResult{{
+			ErrorResult: params.ErrorResult{Error: &params.Error{
+				Message: "<failure>",
+			}},
+		}},
+	})
+}
+
+func (s *ListResourcesSuite) TestListResourcesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	failure := errors.New("<failure>")
+	tag := names.NewApplicationTag("a-application")
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.
+		ApplicationResources{},
+		failure)
 
 	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{

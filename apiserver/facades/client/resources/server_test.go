@@ -1,16 +1,12 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
-	"context"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources"
-	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -21,19 +17,25 @@ type FacadeSuite struct {
 }
 
 func (s *FacadeSuite) TestNewFacadeOkay(c *gc.C) {
-	defer s.setUpTest(c).Finish()
-	_, err := resources.NewResourcesAPI(s.backend, func(context.Context, *charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil }, loggertesting.WrapCheckLog(c))
+	defer s.setupMocks(c).Finish()
+	_, err := NewResourcesAPI(s.applicationService, s.resourceService, s.factory, loggertesting.WrapCheckLog(c))
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *FacadeSuite) TestNewFacadeMissingDataStore(c *gc.C) {
-	defer s.setUpTest(c).Finish()
-	_, err := resources.NewResourcesAPI(nil, func(context.Context, *charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil }, loggertesting.WrapCheckLog(c))
-	c.Check(err, gc.ErrorMatches, `missing data backend`)
+func (s *FacadeSuite) TestNewFacadeMissingApplicationService(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := NewResourcesAPI(nil, s.resourceService, s.factory, loggertesting.WrapCheckLog(c))
+	c.Check(err, gc.ErrorMatches, ".*missing application service.*")
 }
 
-func (s *FacadeSuite) TestNewFacadeMissingCSClientFactory(c *gc.C) {
-	defer s.setUpTest(c).Finish()
-	_, err := resources.NewResourcesAPI(s.backend, nil, loggertesting.WrapCheckLog(c))
-	c.Check(err, gc.ErrorMatches, `missing factory for new repository`)
+func (s *FacadeSuite) TestNewFacadeMissingResourceService(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := NewResourcesAPI(s.applicationService, nil, s.factory, loggertesting.WrapCheckLog(c))
+	c.Check(err, gc.ErrorMatches, ".*missing resource service.*")
+}
+
+func (s *FacadeSuite) TestNewFacadeMissingFactory(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := NewResourcesAPI(s.applicationService, s.resourceService, nil, loggertesting.WrapCheckLog(c))
+	c.Check(err, gc.ErrorMatches, ".*missing factory for new repository.*")
 }
