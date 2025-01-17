@@ -208,7 +208,10 @@ func (w *remoteWorker) loop() error {
 				}
 
 				w.cfg.Logger.Debugf("remote worker %q no longer required", s)
-				w.stopRemoteServer(ctx, s)
+				if err := w.stopRemoteServer(ctx, s); err != nil {
+					w.cfg.Logger.Errorf("failed to stop remote worker %q: %v", s, err)
+					continue
+				}
 			}
 
 			w.cfg.Logger.Debugf("remote workers updated: %v", required)

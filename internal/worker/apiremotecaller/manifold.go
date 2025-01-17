@@ -38,7 +38,7 @@ type ManifoldConfig struct {
 	NewWorker func(WorkerConfig) (worker.Worker, error)
 }
 
-// Manifold returns a dependency manifold that runs a API remote caller worker,
+// Manifold returns a dependency manifold that runs an API remote caller worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
