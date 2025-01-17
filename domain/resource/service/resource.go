@@ -52,7 +52,7 @@ type State interface {
 	// The following error types can be expected to be returned:
 	// - [resourceerrors.StoredResourceNotFound] if the stored resource at the
 	//   storageID cannot be found.
-	RecordStoredResource(ctx context.Context, args resource.RecordStoredResourceArgs) error
+	RecordStoredResource(ctx context.Context, args resource.RecordStoredResourceArgs) (droppedHash string, err error)
 
 	// SetUnitResource sets the resource metadata for a specific unit.
 	//
@@ -204,6 +204,9 @@ func (s *Service) GetResource(
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
 //
+// If storing a blob for a resource that already has a blob stored, the old blob
+// will be replaced and removed from the store.
+//
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
 //     found.
@@ -220,6 +223,12 @@ func (s *Service) StoreResource(
 // to blob storage and updates the metadata. It sets the retrival information
 // for the resource and also increments the charm modified version for the
 // resources' application.
+//
+// The Size and Fingerprint should be validated against the resource blob before
+// the resource is passed in.
+//
+// If storing a blob for a resource that already has a blob stored, the old blob
+// will be replaced and removed from the store.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
@@ -261,14 +270,21 @@ func (s *Service) storeResource(
 		return errors.Errorf("getting resource: %w", err)
 	}
 
+	if args.Fingerprint.String() == res.Fingerprint.String() {
+		// This resource blob has already been stored, no need to store it
+		// again.
+		return nil
+	}
+
 	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
 	if err != nil {
 		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
 	}
 
+	path := blobPath(args.ResourceUUID, args.Fingerprint.String())
 	storageUUID, err := store.Put(
 		ctx,
-		args.ResourceUUID.String(),
+		path,
 		args.Reader,
 		args.Size,
 		coreresourcestore.NewFingerprint(args.Fingerprint.Fingerprint),
@@ -279,11 +295,11 @@ func (s *Service) storeResource(
 	defer func() {
 		// If any subsequent operation fails, remove the resource blob.
 		if err != nil {
-			_ = store.Remove(ctx, args.ResourceUUID.String())
+			_ = store.Remove(ctx, path)
 		}
 	}()
 
-	err = s.st.RecordStoredResource(
+	droppedHash, err := s.st.RecordStoredResource(
 		ctx,
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  args.ResourceUUID,
@@ -298,6 +314,15 @@ func (s *Service) storeResource(
 	)
 	if err != nil {
 		return errors.Errorf("recording stored resource %q: %w", res.Name, err)
+	}
+
+	// If the resource was updated and an old resource blob was dropped, remove
+	// the old blob from the store.
+	if droppedHash != "" {
+		err = store.Remove(ctx, blobPath(args.ResourceUUID, droppedHash))
+		if err != nil {
+			s.logger.Errorf("failed to remove resource with ID %s from the store", droppedHash)
+		}
 	}
 	return err
 }
@@ -330,7 +355,8 @@ func (s *Service) OpenResource(
 	// TODO(aflynn): ideally this would be finding the resource via the
 	// resources storageID, however the object store does not currently have a
 	// method for this.
-	reader, _, err := store.Get(ctx, resourceUUID.String())
+	path := resourceUUID.String() + res.Fingerprint.String()
+	reader, _, err := store.Get(ctx, path)
 	if errors.Is(err, objectstoreerrors.ErrNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		return resource.Resource{}, nil, resourceerrors.StoredResourceNotFound
@@ -418,4 +444,11 @@ func (s *Service) SetRepositoryResources(
 		return errors.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
+}
+
+// Store the resource with a path made up of the UUID and the resource
+// hash, this ensures that different resource blobs are stored in
+// different locations.
+func blobPath(uuid coreresource.UUID, hash string) string {
+	return uuid.String() + hash
 }

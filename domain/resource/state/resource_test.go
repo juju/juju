@@ -708,7 +708,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
 	retrievedByType := resource.Application
-	droppedStoreID, err := s.state.RecordStoredResource(
+	droppedFingerprint, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -721,7 +721,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedStoreID, gc.Equals, store.ID{})
+	c.Assert(droppedFingerprint.IsZero(), gc.Equals, true)
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -763,7 +763,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
 	retrievedByType := resource.Unit
-	droppedStoreID, err := s.state.RecordStoredResource(
+	droppedFingerprint, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -776,7 +776,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedStoreID, gc.Equals, store.ID{})
+	c.Assert(droppedFingerprint.IsZero(), gc.Equals, true)
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -883,48 +883,50 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 
 func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
-	resID, storeID1, size, hash := s.createContainerImageResourceAndBlob(c)
+	resID, storeID1, size1, hash1 := s.createContainerImageResourceAndBlob(c)
 	retrievedBy1 := "ubuntu/0"
 	retrievedByType1 := resource.Unit
 
 	// Arrange: store the first resource.
-	droppedStoreID1, err := s.state.RecordStoredResource(
+	droppedFingerprint1, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID1,
 			ResourceType:    charmresource.TypeContainerImage,
-			SHA384:          hash,
-			Size:            size,
+			SHA384:          hash1,
+			Size:            size1,
 			RetrievedBy:     retrievedBy1,
 			RetrievedByType: retrievedByType1,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Check(droppedStoreID1, gc.Equals, store.ID{})
+	c.Check(droppedFingerprint1.IsZero(), gc.Equals, true)
 
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
 	retrievedBy2 := "user-name"
 	retrievedByType2 := resource.User
+	size2 := int64(422)
+	hash2 := "hash2"
 	err = s.addContainerImage(storageKey2)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
-	droppedStoreID2, err := s.state.RecordStoredResource(
+	droppedFingerprint2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID2,
 			ResourceType:    charmresource.TypeContainerImage,
-			SHA384:          hash,
-			Size:            size,
+			SHA384:          hash2,
+			Size:            size2,
 			RetrievedBy:     retrievedBy2,
 			RetrievedByType: retrievedByType2,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(droppedStoreID2, gc.Equals, storeID1)
+	c.Assert(droppedFingerprint2, gc.DeepEquals, hash1)
 	// Assert: Check that the resource has been linked to the stored blob
 	var foundStoreUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -944,12 +946,12 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 
 func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource.
-	resID, storeID1, _, _ := s.createFileResourceAndBlob(c)
+	resID, storeID1, size1, hash1 := s.createFileResourceAndBlob(c)
 	retrievedBy1 := "ubuntu/0"
 	retrievedByType1 := resource.Unit
 
 	// Arrange: store the first resource.
-	droppedStoreID, err := s.state.RecordStoredResource(
+	droppedFingerprint1, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -957,20 +959,24 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			ResourceType:    charmresource.TypeFile,
 			RetrievedBy:     retrievedBy1,
 			RetrievedByType: retrievedByType1,
+			SHA384:          hash1,
+			Size:            size1,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedStoreID, gc.Equals, store.ID{})
+	c.Assert(droppedFingerprint1.IsZero(), gc.Equals, true)
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
 	retrievedBy2 := "ubuntu/0"
 	retrievedByType2 := resource.Unit
+	size2 := int64(422)
+	hash2 := "hash2"
 	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
-	droppedStoreID2, err := s.state.RecordStoredResource(
+	droppedFingerprint2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -978,10 +984,12 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			ResourceType:    charmresource.TypeFile,
 			RetrievedBy:     retrievedBy2,
 			RetrievedByType: retrievedByType2,
+			SHA384:          hash2,
+			Size:            size2,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(droppedStoreID2, gc.Equals, storeID1)
+	c.Assert(droppedFingerprint2, gc.DeepEquals, hash1)
 	// Assert: Check that the resource has been linked to the stored blob
 	var foundStoreUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
