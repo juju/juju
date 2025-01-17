@@ -120,6 +120,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Constraint
 		"constraint",
+		"constraint_container_type",
 		"constraint_tag",
 		"constraint_space",
 		"constraint_zone",
