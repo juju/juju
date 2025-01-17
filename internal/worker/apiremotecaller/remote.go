@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/core/logger"
 )
 
+const (
+	newChangeRequestError = errors.ConstError("new change request")
+)
+
 // RemoteConnection is an interface that represents a connection to a remote
 // API server.
 type RemoteConnection interface {
@@ -115,6 +119,11 @@ func (w *remoteServer) Wait() error {
 	return w.tomb.Wait()
 }
 
+type request struct {
+	ctx       context.Context
+	addresses []string
+}
+
 func (w *remoteServer) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
@@ -129,30 +138,44 @@ func (w *remoteServer) loop() error {
 	// until it has connected. The cancelling of the connection should not
 	// affect the current connection, it should always remain in the same
 	// state.
-	connectCtx, connectCancel := context.WithCancel(ctx)
-	defer connectCancel()
+	var canceler context.CancelCauseFunc
+	defer func() {
+		if canceler != nil {
+			canceler(nil)
+		}
+	}()
 
-	changes := make(chan []string)
+	requests := make(chan request)
 	w.tomb.Go(func() error {
-		// If the worker is dying, or the original context is cancelled, we
-		// should return immediately.
+		// If the worker is dying, we need to cancel the current connection
+		// attempt.
+		// Note: do not use context.Done() here, as it will cause the worker
+		// to die for the wrong cause (context.Canceled).
 		for {
 			select {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
-			case <-ctx.Done():
-				return ctx.Err()
-			case change := <-w.changes:
+			case addresses := <-w.changes:
 				// Cancel the current connection attempt and then proxy the
 				// change through to the main loop.
-				connectCancel()
+				if canceler != nil {
+					canceler(newChangeRequestError)
+				}
+
+				// Create a new context for the next connection attempt.
+				var requestCtx context.Context
+				requestCtx, canceler = context.WithCancelCause(ctx)
 
 				// We might want to consider only sending a change after a
 				// period of time, to avoid sending too many changes at once.
 				select {
 				case <-w.tomb.Dying():
+					canceler(context.Canceled)
 					return tomb.ErrDying
-				case changes <- change:
+				case requests <- request{
+					ctx:       requestCtx,
+					addresses: addresses,
+				}:
 				}
 			}
 		}
@@ -167,19 +190,29 @@ func (w *remoteServer) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 
-		case addresses := <-changes:
+		case request := <-requests:
+			var (
+				addresses = request.addresses
+				rctx      = request.ctx
+			)
+
 			w.logger.Debugf("addresses for %q have changed: %v", w.controllerID, addresses)
 
 			// If the addresses already exist, we don't need to do anything.
 			if connected && w.addressesAlreadyExist(addresses) {
+				w.logger.Debugf("addresses for %q have not changed", w.controllerID)
 				continue
 			}
 
 			var err error
-			monitor, err = w.connect(connectCtx, addresses)
-			if err != nil {
+			monitor, err = w.connect(rctx, addresses)
+			if errors.Is(err, newChangeRequestError) {
+				continue
+			} else if err != nil {
 				return err
 			}
+
+			w.logger.Debugf("connected to %s with addresses: %v", w.controllerID, addresses)
 
 			// We've successfully connected to the remote server, so update the
 			// addresses.
@@ -238,6 +271,12 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 			// This is normal behavior, so we don't need to log it as an error.
 			w.logger.Debugf("failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
 		},
+		IsFatalError: func(err error) bool {
+			// This is the only legitimist error that can be returned from the
+			// connection attempt. Otherwise it should keep trying until the
+			// controller comes up.
+			return errors.Is(context.Cause(ctx), newChangeRequestError)
+		},
 		Attempts:    retry.UnlimitedAttempts,
 		Delay:       1 * time.Second,
 		MaxDelay:    time.Minute,
@@ -245,7 +284,9 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 		Stop:        ctx.Done(),
 		Clock:       w.clock,
 	})
-	if err != nil {
+	if errors.Is(context.Cause(ctx), newChangeRequestError) {
+		return nil, newChangeRequestError
+	} else if err != nil {
 		return nil, err
 	}
 
