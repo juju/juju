@@ -66,7 +66,7 @@ func (s *Server) FindImage(
 		target = entry.Target
 		image, _, err := s.GetImage(target)
 		if err == nil && isCompatibleVirtType(virtType, image.Type) {
-			logger.Debugf("Found image locally - %q %q", image.Filename, target)
+			logger.Debugf("found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
 				LXDServer: s.InstanceServer,
@@ -74,16 +74,17 @@ func (s *Server) FindImage(
 		}
 	}
 
-	sourced := SourcedImage{}
-	lastErr := fmt.Errorf("no matching image found")
-
 	// We don't have an image locally with the juju-specific alias,
 	// so look in each of the provided remote sources for any of the aliases
 	// that might identify the image we want.
 	aliases, err := baseRemoteAliases(base, arch)
 	if err != nil {
-		return sourced, errors.Trace(err)
+		return SourcedImage{}, errors.Trace(err)
 	}
+
+	var sourced SourcedImage
+	lastErr := fmt.Errorf("no matching image found")
+
 	for _, remote := range sources {
 		source, err := ConnectImageRemote(ctx, remote)
 		if err != nil {
@@ -91,23 +92,32 @@ func (s *Server) FindImage(
 			lastErr = errors.Trace(err)
 			continue
 		}
+
 		for _, alias := range aliases {
-			if res, _, err := source.GetImageAliasType(string(virtType), alias); err == nil && res != nil && res.Target != "" {
+			res, _, err := source.GetImageAliasType(string(virtType), alias)
+			if err != nil {
+				logger.Debugf("failed to get alias %q from %q: %s", alias, remote.Name, err)
+				continue
+			} else if res != nil && res.Target != "" {
 				target = res.Target
 				break
 			}
 		}
-		if target != "" {
-			image, _, err := source.GetImage(target)
-			if err == nil {
-				logger.Debugf("Found image remotely - %q %q %q", remote.Name, image.Filename, target)
-				sourced.Image = image
-				sourced.LXDServer = source
-				break
-			} else {
-				lastErr = errors.Trace(err)
-			}
+
+		if target == "" {
+			continue
 		}
+
+		image, _, err := source.GetImage(target)
+		if err != nil {
+			lastErr = errors.Trace(err)
+			continue
+		}
+
+		logger.Debugf("found image remotely - %q %q %q", remote.Name, image.Filename, target)
+		sourced.Image = image
+		sourced.LXDServer = source
+		break
 	}
 
 	if sourced.Image == nil {
