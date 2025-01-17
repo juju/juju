@@ -2193,6 +2193,220 @@ FROM v_revision_updater_application_unit
 	})
 }
 
+// GetApplicationConfig returns the application config attributes for the
+// configuration.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	// We don't currently check for life in the old code, it might though be
+	// worth checking if the application is not dead.
+	ident := applicationID{ID: appID}
+
+	// This isn't ideal, as we could request this in one query, but we need to
+	// perform multiple queries to get the data. First is to get the application
+	// availability, second to just get the application overlay config for the
+	// charm config and the application settings for the trust config.
+	appQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	configQuery := `
+SELECT &applicationConfig.*
+FROM v_application_config
+WHERE uuid = $applicationID.uuid;
+`
+	settingsQuery := `
+SELECT &applicationSettings.*
+FROM application_setting
+WHERE application_uuid = $applicationID.uuid;`
+
+	appStmt, err := st.Prepare(appQuery, ident)
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	configStmt, err := st.Prepare(configQuery, applicationConfig{}, ident)
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+
+	var configs []applicationConfig
+	var settings applicationSettings
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("querying application: %w", err)
+		}
+
+		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application config: %w", err)
+		}
+
+		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application settings: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, internalerrors.Errorf("querying application config: %w", err)
+	}
+
+	result := make(map[string]application.ApplicationConfig)
+	for _, c := range configs {
+		typ, err := decodeConfigType(c.Type)
+		if err != nil {
+			return nil, internalerrors.Errorf("decoding config type: %w", err)
+		}
+
+		result[c.Key] = application.ApplicationConfig{
+			Type:  typ,
+			Value: c.Value,
+		}
+	}
+	result["trust"] = application.ApplicationConfig{
+		Type:  charm.OptionBool,
+		Value: settings.Trust,
+	}
+	return result, nil
+}
+
+// SetApplicationConfig sets the application config attributes using the
+// configuration.
+func (st *State) SetApplicationConfig(ctx context.Context, appID coreapplication.ID, config map[string]application.ApplicationConfig) error {
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	// We don't need to verify the application exists on write, as there
+	// will be a foreign key constraint that will fail if the application
+	// doesn't exist.
+	getQuery := `
+SELECT &applicationConfig.*
+FROM v_application_config
+WHERE uuid = $applicationID.uuid;
+`
+	deleteQuery := `
+DELETE FROM application_config
+WHERE application_uuid = $applicationID.uuid
+AND key IN ($S[:]);
+`
+	insertQuery := `
+INSERT INTO application_config (*)
+VALUES ($applicationConfig.*);
+`
+	updateQuery := `
+UPDATE application_config
+SET value = $applicationConfig.value
+	type_id = $applicationConfig.type_id
+WHERE application_uuid = $applicationID.uuid;
+`
+	settingsQuery := `
+INSERT INTO application_setting (*)
+VALUES ($applicationSettings.*)
+ON CONFLICT(application_uuid) DO UPDATE SET
+	trust = excluded.trust;
+`
+
+	getStmt, err := st.Prepare(getQuery, applicationConfig{}, ident)
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	deleteStmt, err := st.Prepare(deleteQuery, ident)
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	insertStmt, err := st.Prepare(insertQuery, applicationConfig{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	updateStmt, err := st.Prepare(updateQuery, applicationConfig{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+
+	var trust any
+	if v, ok := config["trust"]; ok {
+		trust = v
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var current []applicationConfig
+		if err := tx.Query(ctx, getStmt, ident).GetAll(&current); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application config: %w", err)
+		}
+
+		currentM := make(map[string]applicationConfig)
+		for _, c := range current {
+			currentM[c.Key] = c
+		}
+
+		// Work out what we need to do, based on what we have, vs what we
+		// need.
+		var removal sqlair.S
+		var update []applicationConfig
+		for k, v := range currentM {
+			if _, ok := config[k]; !ok {
+				removal = append(removal, k)
+			} else {
+				update = append(update, v)
+			}
+		}
+		var insert []applicationConfig
+		for k, v := range config {
+			if _, ok := currentM[k]; !ok {
+				insert = append(insert, applicationConfig{
+					Key:   k,
+					Value: v.Value,
+				})
+			}
+		}
+
+		if len(removal) > 0 {
+			if err := tx.Query(ctx, deleteStmt, removal, ident).Run(); err != nil {
+				return internalerrors.Errorf("deleting application config: %w", err)
+			}
+		}
+		if len(insert) > 0 {
+			if err := tx.Query(ctx, insertStmt, insert).Run(); err != nil {
+				return internalerrors.Errorf("inserting application config: %w", err)
+			}
+		}
+		if len(update) > 0 {
+			if err := tx.Query(ctx, updateStmt, update).Run(); err != nil {
+				return internalerrors.Errorf("updating application config: %w", err)
+			}
+		}
+
+		if err := tx.Query(ctx, settingsStmt, applicationSettings{Trust: trust}).Run(); err != nil {
+			return internalerrors.Errorf("updating application settings: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internalerrors.Errorf("setting application config: %w", err)
+	}
+	return nil
+}
+
 func decodeRisk(risk string) (application.ChannelRisk, error) {
 	switch risk {
 	case "stable":

@@ -673,3 +673,13 @@ type revisionUpdaterApplicationNumUnits struct {
 	UUID     string `db:"uuid"`
 	NumUnits int    `db:"num_units"`
 }
+
+type applicationConfig struct {
+	Key   string `db:"key"`
+	Value any    `db:"value"`
+	Type  string `db:"type"`
+}
+
+type applicationSettings struct {
+	Trust any `db:"trust"`
+}

@@ -245,3 +245,12 @@ type RevisionUpdaterApplication struct {
 	Origin       Origin
 	NumUnits     int
 }
+
+// ApplicationConfig contains the configuration for the application config.
+// This will include the charm config type.
+type ApplicationConfig struct {
+	// Type dictates the type of the config value. The value is derived from
+	// the charm config.
+	Type  domaincharm.OptionType
+	Value any
+}

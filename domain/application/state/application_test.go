@@ -2459,6 +2459,134 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
 	}})
 }
 
+func (s *applicationStateSuite) TestGetApplicationConfig(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)`
+		_, err := tx.ExecContext(ctx, stmt, id.String(), "key", "value", 0)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: "value",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: nil,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigWithTrust(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)`
+		_, err := tx.ExecContext(ctx, stmt, id.String(), "key", "value", 0)
+		if err != nil {
+			return err
+		}
+
+		stmt = `INSERT INTO application_setting (application_uuid, trust) VALUES (?, true)`
+		_, err = tx.ExecContext(ctx, stmt, id.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: "value",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: true,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigNotFound(c *gc.C) {
+	// If the application is not found, it should return application not found.
+	id := applicationtesting.GenApplicationUUID(c)
+	_, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	// If there is no config, we should always return the trust. This comes
+	// from the application_setting table.
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: nil,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigForApplications(c *gc.C) {
+	id0 := s.createApplication(c, "foo", life.Alive)
+	id1 := s.createApplication(c, "bar", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)`
+		if _, err := tx.ExecContext(ctx, stmt, id0.String(), "a", "b", 0); err != nil {
+			return err
+		}
+		stmt = `INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)`
+		if _, err := tx.ExecContext(ctx, stmt, id0.String(), "c", "d", 2); err != nil {
+			return err
+		}
+		stmt = `INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)`
+		if _, err := tx.ExecContext(ctx, stmt, id1.String(), "e", "f", 1); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"a": {
+			Type:  charm.OptionString,
+			Value: "b",
+		},
+		"c": {
+			Type:  charm.OptionFloat,
+			Value: "d",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: nil,
+		},
+	})
+	config, err = s.state.GetApplicationConfig(context.Background(), id1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"e": {
+			Type:  charm.OptionInt,
+			Value: "f",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: nil,
+		},
+	})
+}
+
 func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	platform := application.Platform{
 		Channel:      "22.04/stable",
