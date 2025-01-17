@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 
 	api "github.com/juju/juju/api"
-	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -110,44 +109,6 @@ func (c *MockRemoteServerKillCall) Do(f func()) *MockRemoteServerKillCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemoteServerKillCall) DoAndReturn(f func()) *MockRemoteServerKillCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Tag mocks base method.
-func (m *MockRemoteServer) Tag() names.Tag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names.Tag)
-	return ret0
-}
-
-// Tag indicates an expected call of Tag.
-func (mr *MockRemoteServerMockRecorder) Tag() *MockRemoteServerTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockRemoteServer)(nil).Tag))
-	return &MockRemoteServerTagCall{Call: call}
-}
-
-// MockRemoteServerTagCall wrap *gomock.Call
-type MockRemoteServerTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteServerTagCall) Return(arg0 names.Tag) *MockRemoteServerTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteServerTagCall) Do(f func() names.Tag) *MockRemoteServerTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteServerTagCall) DoAndReturn(f func() names.Tag) *MockRemoteServerTagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
