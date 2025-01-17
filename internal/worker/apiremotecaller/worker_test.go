@@ -121,7 +121,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *gc.C) {
 	// Machine-0 is the origin, so we should not have any workers.
 
 	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{})
-	c.Check(w.GetAPIRemotes(), gc.DeepEquals, []RemoteConnection{})
+	c.Check(w.GetAPIRemotes(), gc.HasLen, 0)
 
 	workertest.CleanKill(c, w)
 }
