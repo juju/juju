@@ -361,6 +361,7 @@ juju enable-command destroy-model
 
 > See more: {ref}`command-juju-enable-command`
 
+(export-model-to-bundle)=
 ## Compare and export the contents of a model to a bundle
 
 **Compare.** To compare the contents of the current model with a bundle and report any differences, run the `diff-bundle` command:
