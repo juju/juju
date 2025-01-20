@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
+	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
 	"github.com/juju/juju/apiserver/facades/agent/secretsdrain"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
@@ -55,6 +56,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/pinger"
+	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
 	"github.com/juju/juju/apiserver/facades/client/secrets"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
@@ -131,9 +133,7 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	provisioner.Register(registry)
 	proxyupdater.Register(registry)
 	reboot.Register(registry)
-	// Temporarily disable the resourceshookcontext facade until
-	// it uses the new resource domain.
-	//resourceshookcontext.Register(registry)
+	resourceshookcontext.Register(registry)
 	retrystrategy.Register(registry)
 	secretsdrain.Register(registry)
 	secretsmanager.Register(registry)
@@ -223,12 +223,8 @@ func AllFacades() *facade.Registry {
 	proxyupdater.Register(registry)
 	reboot.Register(registry)
 	remoterelations.Register(registry)
-	// Temporarily disable the resourceshookcontext facade until
-	// it uses the new resource domain.
-	// TODO: when both have been enabled, remove Skip from
-	// TestFacadeVersionsMatchServerVersions
-	//resources.Register(registry)
-	//resourceshookcontext.Register(registry)
+	resources.Register(registry)
+	resourceshookcontext.Register(registry)
 	retrystrategy.Register(registry)
 	singular.Register(registry)
 	secrets.Register(registry)

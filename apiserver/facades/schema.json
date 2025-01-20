@@ -12139,6 +12139,417 @@
         }
     },
     {
+        "Name": "Resources",
+        "Description": "",
+        "Version": 3,
+        "AvailableTo": [
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "AddPendingResources": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/AddPendingResourcesArgsV2"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/AddPendingResourcesResult"
+                        }
+                    }
+                },
+                "ListResources": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ListResourcesArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ResourcesResults"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "AddPendingResourcesArgsV2": {
+                    "type": "object",
+                    "properties": {
+                        "Entity": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "resources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmResource"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "Entity",
+                        "url",
+                        "charm-origin",
+                        "macaroon",
+                        "resources"
+                    ]
+                },
+                "AddPendingResourcesResult": {
+                    "type": "object",
+                    "properties": {
+                        "ErrorResult": {
+                            "$ref": "#/definitions/ErrorResult"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "pending-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ErrorResult",
+                        "pending-ids"
+                    ]
+                },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
+                "CharmOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "architecture": {
+                            "type": "string"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
+                        "branch": {
+                            "type": "string"
+                        },
+                        "hash": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "instance-key": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "risk": {
+                            "type": "string"
+                        },
+                        "source": {
+                            "type": "string"
+                        },
+                        "track": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "source",
+                        "type",
+                        "id"
+                    ]
+                },
+                "CharmResource": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "fingerprint": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "origin": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "origin",
+                        "revision",
+                        "fingerprint",
+                        "size"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ListResourcesArgs": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
+                },
+                "Resource": {
+                    "type": "object",
+                    "properties": {
+                        "CharmResource": {
+                            "$ref": "#/definitions/CharmResource"
+                        },
+                        "application": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "fingerprint": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "origin": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "pending-id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "origin",
+                        "revision",
+                        "fingerprint",
+                        "size",
+                        "CharmResource",
+                        "id",
+                        "pending-id",
+                        "application",
+                        "username",
+                        "timestamp"
+                    ]
+                },
+                "ResourcesResult": {
+                    "type": "object",
+                    "properties": {
+                        "ErrorResult": {
+                            "$ref": "#/definitions/ErrorResult"
+                        },
+                        "charm-store-resources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmResource"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "resources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Resource"
+                            }
+                        },
+                        "unit-resources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UnitResources"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ErrorResult",
+                        "resources",
+                        "charm-store-resources",
+                        "unit-resources"
+                    ]
+                },
+                "ResourcesResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ResourcesResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "UnitResources": {
+                    "type": "object",
+                    "properties": {
+                        "Entity": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "download-progress": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "resources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Resource"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "Entity",
+                        "resources",
+                        "download-progress"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "SSHClient",
         "Description": "",
         "Version": 4,
