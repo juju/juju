@@ -84,6 +84,46 @@ func (c *MockTrackedObjectStoreGetCall) DoAndReturn(f func(context.Context, stri
 	return c
 }
 
+// GetBySHA256 mocks base method.
+func (m *MockTrackedObjectStore) GetBySHA256(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBySHA256", arg0, arg1)
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetBySHA256 indicates an expected call of GetBySHA256.
+func (mr *MockTrackedObjectStoreMockRecorder) GetBySHA256(arg0, arg1 any) *MockTrackedObjectStoreGetBySHA256Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBySHA256", reflect.TypeOf((*MockTrackedObjectStore)(nil).GetBySHA256), arg0, arg1)
+	return &MockTrackedObjectStoreGetBySHA256Call{Call: call}
+}
+
+// MockTrackedObjectStoreGetBySHA256Call wrap *gomock.Call
+type MockTrackedObjectStoreGetBySHA256Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTrackedObjectStoreGetBySHA256Call) Return(arg0 io.ReadCloser, arg1 int64, arg2 error) *MockTrackedObjectStoreGetBySHA256Call {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTrackedObjectStoreGetBySHA256Call) Do(f func(context.Context, string) (io.ReadCloser, int64, error)) *MockTrackedObjectStoreGetBySHA256Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTrackedObjectStoreGetBySHA256Call) DoAndReturn(f func(context.Context, string) (io.ReadCloser, int64, error)) *MockTrackedObjectStoreGetBySHA256Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetBySHA256Prefix mocks base method.
 func (m *MockTrackedObjectStore) GetBySHA256Prefix(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()
