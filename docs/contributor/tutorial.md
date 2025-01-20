@@ -26,24 +26,31 @@ as they see fit.
 
 ## Set up and build Juju
 Clone the main branch of the Juju repository onto your machine:
+
 ```console
 $ git clone -b main git@github.com:juju/juju.git 
 ```
+
 Try compiling and installing this version of Juju to check you have all the
 tools you need:
+
 ```console
 $ cd juju
 $ make build
 ```
+
 If the `make` fails because you are missing any tools, install them.
 
 ## Add a new command to Juju
 You are going to add a new command to Juju to set the author of the quote of the
 day:
+
 ```console
 $ juju set-qotd-author
 ```
+
 To begin with, this command will only print out the author you have set. For example:
+
 ```console
 $ juju set-qotd-author "Nelson Mandela"
 You have set todays author to: Nelson Mandela
@@ -54,6 +61,7 @@ code for the Juju CLI commands.
 
 Make a new folder called `qotd` and a file in it called `qotd.go`. Add the base
 command definition and help information for the `set-qotd-author`:
+
 ```go
 package qotd
 
@@ -107,6 +115,7 @@ can then register it with the Juju CLI.
 Now, add the `SetFlags`, `Init` and `Run` methods to the command.
 
 First, add the imports:
+
 ```go
   "github.com/juju/gnuflag"
 
@@ -114,6 +123,7 @@ First, add the imports:
 ```
 
 Then add the methods:
+
 ```go
 // SetFlags adds flags to the command. It is part of the Command interface in
 // the internal/cmd package.
@@ -153,7 +163,7 @@ func (c *setQOTDAuthorCommand) Run(ctx *cmd.Context) error {
 ```
 
 There are two other methods that are part of the command interface:
-`IsSuperCommand` and `AllowIntersperedFlags`. We do not need to provide these.
+`IsSuperCommand` and `AllowInterspersedFlags`. We do not need to provide these.
 The `setQOTDAuthorComand` struct embeds the `modelcmd.ControllerCommandBase`
 which in several layers down embeds `cmd.Command` from the command package. This
 provides a default implementation.
@@ -165,6 +175,7 @@ go check unit test suite.
 
 In the `qotd` directory, create a `package_test.go`, and hook up go check to
 work with the `go test` command:
+
 ```go
 package qotd_test
 
@@ -178,6 +189,7 @@ func TestPackage(t *stdtesting.T) {
   gc.TestingT(t)
 }
 ```
+
 Next, in the `qotd` directory, create a `qotd_test.go` file and add a go check
 suite.
 
@@ -196,6 +208,7 @@ type SetQOTDAuthorSuite struct {
 
 var _ = gc.Suite(&SetQOTDAuthorSuite{})
 ```
+
 Embedding the `testing.BaseSuite` provides isolation for the test from the
 system it is running on.
 
@@ -203,6 +216,7 @@ Now, add some tests of the command. We will test the command works as expected
 and returns the right errors.
 
 Add the imports:
+
 ```go
     jc "github.com/juju/testing/checkers"
 
@@ -212,6 +226,7 @@ Add the imports:
 ```
 
 And the tests:
+
 ```go
 func (s *SetQOTDAuthorSuite) TestSetQOTDAuthor(c *gc.C) {
   context, err := cmdtesting.RunCommand(c, qotd.NewSetQOTDAuthorCommand(), "Nelson Mandela")
@@ -241,6 +256,7 @@ the Juju CLI.
 
 Go to `cmd/juju/command/main.go` and find the `registerCommands` function.
 Import the `qotd` package and register the new command at the bottom.
+
 ```go
   ...
 
@@ -251,14 +267,17 @@ Import the `qotd` package and register the new command at the bottom.
 
 ### Compile and install Juju to try the new command
 From the root of the repo, run:
+
 ```console
 $ make install
 ```
+
 Once it has finished, do `which juju` to check that the `juju` binary has been
 correctly installed. It should be installed in your `GOPATH` (defaults to
 `~/go`) at `GOPATH/bin/juju`.
 
 To admire your handiwork, run: 
+
 ```console
 $ juju set-qotd-author "Nelson Mandela"
 ```
