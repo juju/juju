@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/juju/errors"
 
@@ -114,6 +115,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			return empty, internalerrors.Capture(err)
 		}
 	}
+
 	if !isPlaceholder(query) {
 		var (
 			retrievedBy     string
@@ -130,11 +132,20 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			retrievedByType = coreresource.Application
 		}
 
-		err := resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{
+		details, err := resourceDetailsFromQuery(query)
+		if err != nil {
+			return empty, errors.Errorf("extracting resource details from request: %w", err)
+		}
+
+		err = resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{
 			ResourceUUID:    resUUID,
 			Reader:          r.Body,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
+			Size:            details.Size,
+			Fingerprint:     details.Fingerprint,
+			Origin:          details.Origin,
+			Revision:        details.Revision,
 		})
 		if err != nil {
 			return empty, internalerrors.Capture(err)
@@ -200,6 +211,39 @@ func getUploadTarget(
 	// Resolve target by appName
 	target.appID, err = service.GetApplicationIDByName(ctx, appName)
 	return target, internalerrors.Capture(err)
+}
+
+type resourceDetails struct {
+	// Origin identifies where the resource will come from.
+	Origin charmresource.Origin
+	// Revision is the charm store revision of the resource.
+	Revision int
+	// Fingerprint is the SHA-384 checksum for the resource blob.
+	Fingerprint charmresource.Fingerprint
+	// Size is the size of the resource, in bytes.
+	Size int64
+}
+
+// resourceDetailsFromQuery extracts details about the uploaded resource from
+// the request.
+func resourceDetailsFromQuery(query url.Values) (details resourceDetails, err error) {
+	details.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid origin")
+	}
+	details.Revision, err = strconv.Atoi(query.Get("revision"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid revision")
+	}
+	details.Size, err = strconv.ParseInt(query.Get("size"), 10, 64)
+	if err != nil {
+		return details, errors.BadRequestf("invalid size")
+	}
+	details.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid fingerprint")
+	}
+	return details, nil
 }
 
 type migratingResourceServiceGetter struct {

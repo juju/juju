@@ -75,6 +75,13 @@ type ResourceService interface {
 		args resource.StoreResourceArgs,
 	) error
 
+	// StoreResourceAndIncrementCharmModifiedVersion adds the application resource to blob storage and updates the
+	// metadata. It also sets the retrival information for the resource.
+	StoreResourceAndIncrementCharmModifiedVersion(
+		ctx context.Context,
+		args resource.StoreResourceArgs,
+	) error
+
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(
@@ -221,18 +228,31 @@ func (h *ResourcesHandler) upload(resourceService ResourceService, req *http.Req
 		return nil, errors.Capture(err)
 	}
 
-	err = resourceService.StoreResource(req.Context(), resource.StoreResourceArgs{
-		ResourceUUID:    uploaded.UUID,
-		Reader:          uploaded.Data,
-		RetrievedBy:     username,
-		RetrievedByType: resource.User,
-	})
+	err = resourceService.StoreResourceAndIncrementCharmModifiedVersion(
+		req.Context(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    uploaded.UUID,
+			Reader:          uploaded.Data,
+			RetrievedBy:     username,
+			RetrievedByType: resource.User,
+			Size:            uploaded.Size,
+			Fingerprint:     uploaded.Fingerprint,
+			Origin:          charmresource.OriginUpload,
+			Revision:        -1,
+		},
+	)
 	if err != nil {
 		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.Resource.Name, uploaded.Application, err)
 	}
 
+	res, err := resourceService.GetResource(req.Context(), uploaded.UUID)
+	if err != nil {
+		logger.Errorf("getting uploaded resource details: %w", err)
+		return &params.UploadResult{}, nil
+	}
+
 	return &params.UploadResult{
-		Resource: api.DomainResource2API(uploaded.Resource),
+		Resource: api.DomainResource2API(res),
 	}, nil
 }
 
