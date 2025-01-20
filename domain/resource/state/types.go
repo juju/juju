@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+
+	// statePotential represents a constant string value indicating potential
+	// state for a resource in the DB
+	statePotential = "potential"
+)
+
 // resourceAndAppName represents the resource name and app name, this can be
 // used as an identifier for a resource.
 type resourceAndAppName struct {
@@ -62,6 +69,7 @@ type resourceView struct {
 	Kind            string    `db:"kind_name"`
 	Size            int64     `db:"size"`
 	SHA384          string    `db:"sha384"`
+	State           string    `db:"state"`
 }
 
 // toCharmResource converts the resourceView struct to a
@@ -120,14 +128,6 @@ type unitResource struct {
 	AddedAt      time.Time `db:"added_at"`
 }
 
-// unitResourceWithUnitName represents the mapping of a resource to a unit.
-type unitResourceWithUnitName struct {
-	ResourceUUID string    `db:"resource_uuid"`
-	UnitUUID     string    `db:"unit_uuid"`
-	UnitName     string    `db:"unit_name"`
-	AddedAt      time.Time `db:"added_at"`
-}
-
 type applicationNameAndID struct {
 	ApplicationID coreapplication.ID `db:"uuid"`
 	Name          string             `db:"name"`
@@ -151,4 +151,10 @@ type storedContainerImageResource struct {
 	ResourceUUID string `db:"resource_uuid"`
 	Size         int64  `db:"size"`
 	Hash         string `db:"sha384"`
+}
+
+// unitUUIDAndName represents an unit with uuid and name
+type unitUUIDAndName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }

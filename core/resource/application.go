@@ -4,8 +4,6 @@
 package resource
 
 import (
-	"github.com/juju/errors"
-
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/charm/resource"
 )
@@ -30,23 +28,25 @@ type ApplicationResources struct {
 }
 
 // Updates returns the list of charm store resources corresponding to
-// the application's resources that are out of date. Note that there must be
-// a charm store resource for each of the application resources and
-// vice-versa. If they are out of sync then an error is returned.
+// the application's resources that are out of date. If there is a charm
+// store resource with a different revision than the one used into the
+// application, it will be returned.
+// Any charm store resources with the same revision number from the
+// corresponding application resources will be filtered out.
 func (sr ApplicationResources) Updates() ([]resource.Resource, error) {
-	storeResources, err := sr.alignStoreResources()
-	if err != nil {
-		return nil, errors.Trace(err)
+	storeResources := map[string]resource.Resource{}
+	for _, res := range sr.RepositoryResources {
+		storeResources[res.Name] = res
 	}
 
 	var updates []resource.Resource
-	for i, res := range sr.Resources {
+	for _, res := range sr.Resources {
 		if res.Origin != resource.OriginStore {
 			continue
 		}
-		csRes := storeResources[i]
+		csRes, ok := storeResources[res.Name]
 		// If the revision is the same then all the other info must be.
-		if res.Revision == csRes.Revision {
+		if !ok || res.Revision == csRes.Revision {
 			continue
 		}
 		updates = append(updates, csRes)
@@ -54,32 +54,7 @@ func (sr ApplicationResources) Updates() ([]resource.Resource, error) {
 	return updates, nil
 }
 
-func (sr ApplicationResources) alignStoreResources() ([]resource.Resource, error) {
-	if len(sr.RepositoryResources) > len(sr.Resources) {
-		return nil, errors.Errorf("have more charm store resources than application resources")
-	}
-	if len(sr.RepositoryResources) < len(sr.Resources) {
-		return nil, errors.Errorf("have fewer charm store resources than application resources")
-	}
-
-	var store []resource.Resource
-	for _, res := range sr.Resources {
-		found := false
-		for _, chRes := range sr.RepositoryResources {
-			if chRes.Name == res.Name {
-				store = append(store, chRes)
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, errors.Errorf("charm store resource %q not found", res.Name)
-		}
-	}
-	return store, nil
-}
-
-// UnitResources conains the list of resources used by a unit.
+// UnitResources contains the list of resources used by a unit.
 type UnitResources struct {
 	// Name is the name of the unit.
 	Name coreunit.Name

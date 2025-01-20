@@ -85,10 +85,12 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
+	birds := newStoreResource(c, "birds", "a-application", 3)
 	sr := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			spam,
 			eggs,
+			birds,
 		},
 		RepositoryResources: []charmresource.Resource{
 			spam.Resource,

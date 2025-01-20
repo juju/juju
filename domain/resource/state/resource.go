@@ -342,37 +342,45 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
-	// Prepare the statement to check if a resource has been polled.
-	checkPolledQuery := `
-SELECT &resourceIdentity.uuid 
-FROM v_application_resource
-WHERE application_uuid = $resourceIdentity.application_uuid
-AND uuid = $resourceIdentity.uuid
-AND last_polled IS NOT NULL`
-	checkPolledStmt, err := st.Prepare(checkPolledQuery, appID)
+	// Prepare the statement to get units related to a resource.
+	getResourceUnitsQuery := `
+SELECT &unitResource.*	
+FROM unit_resource
+WHERE resource_uuid = $resourceIdentity.uuid`
+	getUnitStmt, err := st.Prepare(getResourceUnitsQuery, appID, unitResource{})
 	if err != nil {
 		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
-	// Prepare the statement to get units related to a resource.
-	getUnitsQuery := `
-SELECT 
-    u.uuid as &unitResourceWithUnitName.unit_uuid,
-    u.name as &unitResourceWithUnitName.unit_name,
-	ur.added_at as &unitResourceWithUnitName.added_at,
-	ur.resource_uuid as &unitResourceWithUnitName.resource_uuid
-FROM unit_resource AS ur
-LEFT JOIN unit as u ON u.uuid = ur.unit_uuid
-WHERE ur.resource_uuid = $resourceIdentity.uuid`
-	getUnitStmt, err := st.Prepare(getUnitsQuery, appID, unitResourceWithUnitName{})
+	getApplicationUnitsStmt, err := st.Prepare(`
+SELECT &unitUUIDAndName.*
+FROM unit 
+WHERE application_uuid = $resourceIdentity.application_uuid
+	`, appID, unitUUIDAndName{})
 	if err != nil {
 		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
 	var result coreresource.ApplicationResources
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+
 		// Map to hold unit-specific resources
 		resByUnit := map[coreunit.UUID]coreresource.UnitResources{}
+		// Query all units for the given application
+		var applicationUnits []unitUUIDAndName
+		err = tx.Query(ctx, getApplicationUnitsStmt, appID).GetAll(&applicationUnits)
+		// it is ok to not have any units.
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		for _, unit := range applicationUnits {
+			resByUnit[coreunit.UUID(unit.UUID)] = coreresource.UnitResources{
+				Name:      coreunit.Name(unit.Name),
+				Resources: nil,
+			}
+		}
+
 		// resource found for the application
 		var resources []resourceView
 
@@ -388,17 +396,21 @@ WHERE ur.resource_uuid = $resourceIdentity.uuid`
 		// Process each resource from the application to check polled state
 		// and if they are associated with a unit.
 		for _, res := range resources {
+
+			if res.State == statePotential {
+				// Add the charm resource
+				charmRes, err := res.toCharmResource()
+				if err != nil {
+					return errors.Capture(err)
+				}
+				result.RepositoryResources = append(result.RepositoryResources, charmRes)
+				continue
+			}
+
 			resId := resourceIdentity{UUID: res.UUID, ApplicationUUID: res.ApplicationUUID}
 
-			// Check to see if the resource has already been polled.
-			err = tx.Query(ctx, checkPolledStmt, resId).Get(&resId)
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Capture(err)
-			}
-			hasBeenPolled := !errors.Is(err, sqlair.ErrNoRows)
-
 			// Fetch units related to the resource.
-			var units []unitResourceWithUnitName
+			var units []unitResource
 			err = tx.Query(ctx, getUnitStmt, resId).GetAll(&units)
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Capture(err)
@@ -411,22 +423,11 @@ WHERE ur.resource_uuid = $resourceIdentity.uuid`
 			// Add each resource.
 			result.Resources = append(result.Resources, r)
 
-			// Add the charm resource or an empty one,
-			// depending on polled status.
-			charmRes := charmresource.Resource{}
-			if hasBeenPolled {
-				charmRes, err = res.toCharmResource()
-				if err != nil {
-					return errors.Capture(err)
-				}
-			}
-			result.RepositoryResources = append(result.RepositoryResources, charmRes)
-
 			// Sort by unit to generate unit resources.
 			for _, unit := range units {
 				unitRes, ok := resByUnit[coreunit.UUID(unit.UnitUUID)]
 				if !ok {
-					unitRes = coreresource.UnitResources{Name: coreunit.Name(unit.UnitName)}
+					return errors.Errorf("unexpected unit %q linked to resource %q.", unit.UnitUUID, unitRes.Name)
 				}
 				ur, err := res.toResource()
 				if err != nil {
@@ -441,7 +442,6 @@ WHERE ur.resource_uuid = $resourceIdentity.uuid`
 			return strings.Compare(r1.Name.String(), r2.Name.String())
 		})
 		result.UnitResources = append(result.UnitResources, units...)
-
 		return nil
 	})
 
