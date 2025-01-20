@@ -60,7 +60,7 @@ type ProviderConfig interface {
 
 	// ValidateConfig returns an error if the new
 	//provider config is not valid.
-	ValidateConfig(oldCfg, newCfg ConfigAttrs) error
+	ValidateConfig(oldCfg, newCfg ConfigAttrs, tokenRotateInterval *time.Duration) error
 }
 
 // SecretBackendProvider instances create secret backends.
@@ -92,7 +92,7 @@ type SecretBackendProvider interface {
 
 // SupportAuthRefresh defines the methods to refresh auth tokens.
 type SupportAuthRefresh interface {
-	RefreshAuth(adminCfg BackendConfig, validFor time.Duration) (*BackendConfig, error)
+	RefreshAuth(ctx context.Context, adminCfg BackendConfig, validFor time.Duration) (*BackendConfig, error)
 }
 
 // HasAuthRefresh returns true if the provider supports token refresh.

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/docker"
@@ -193,12 +192,6 @@ type Broker interface {
 	// ServiceManager provides an API for creating and watching services.
 	ServiceManager
 
-	// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
-	SecretsProvider
-
-	// SecretsBackend provides an API for managing Juju secrets.
-	SecretsBackend
-
 	// ModelOperatorManager provides an API for deploying operators for
 	// individual models.
 	ModelOperatorManager
@@ -223,24 +216,6 @@ type ApplicationBroker interface {
 
 	// AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
 	AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error
-}
-
-// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
-type SecretsProvider interface {
-	// EnsureSecretAccessToken ensures the secret related RBAC resources for the provided entity.
-	EnsureSecretAccessToken(ctx context.Context, unitName string, owned, read, removed []string) (string, error)
-}
-
-// SecretsBackend provides an API for managing Juju secrets.
-type SecretsBackend interface {
-	// SaveJujuSecret saves a secret, returning an id used to access the secret later.
-	SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error)
-
-	// GetJujuSecret gets the content of a Juju secret.
-	GetJujuSecret(ctx context.Context, id string) (secrets.SecretValue, error)
-
-	// DeleteJujuSecret deletes a Juju secret.
-	DeleteJujuSecret(ctx context.Context, id string) error
 }
 
 // ModelOperatorManager provides an API for deploying operators for individual

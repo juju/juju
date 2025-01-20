@@ -67,8 +67,16 @@ func (m modelIdentifier) String() string {
 type modelDetails struct {
 	// UUID is the unique identifier for the model.
 	UUID coremodel.UUID `db:"uuid"`
+	// Name is the name of the model.
+	Name string `db:"name"`
 	// Type is the type of the model.
 	Type coremodel.ModelType `db:"model_type"`
+}
+
+// controllerName represents details about a controller.
+type controllerName struct {
+	// Name is the name of the controller.
+	Name string `db:"name"`
 }
 
 // upsertSecretBackendParams are used to upsert a secret backend.
@@ -213,7 +221,7 @@ type secretBackendForK8sModelRow struct {
 
 type secretBackendForK8sModelRows []secretBackendForK8sModelRow
 
-func (rows secretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, credData cloudCredentialRows) ([]*secretbackend.SecretBackend, error) {
+func (rows secretBackendForK8sModelRows) toSecretBackend(controllerName string, cldData cloudRows, credData cloudCredentialRows) ([]*secretbackend.SecretBackend, error) {
 	clds := cldData.toClouds()
 	creds := credData.toCloudCredentials()
 
@@ -230,7 +238,7 @@ func (rows secretBackendForK8sModelRows) toSecretBackend(cldData cloudRows, cred
 		if _, ok := creds[row.CredentialID]; !ok {
 			return nil, errors.Errorf("cloud credential %q not found", row.CredentialID)
 		}
-		k8sConfig, err := getK8sBackendConfig(clds[row.CloudID], creds[row.CredentialID])
+		k8sConfig, err := getK8sBackendConfig(controllerName, row.ModelName, clds[row.CloudID], creds[row.CredentialID])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

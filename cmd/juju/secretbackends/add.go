@@ -213,7 +213,7 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	}
 	configValidator, ok := p.(provider.ProviderConfig)
 	if ok {
-		err = configValidator.ValidateConfig(nil, attrs)
+		err = configValidator.ValidateConfig(nil, attrs, tokenRotateInterval)
 		if err != nil {
 			return errors.Annotate(err, "invalid provider config")
 		}

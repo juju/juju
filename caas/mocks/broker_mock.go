@@ -15,7 +15,6 @@ import (
 
 	caas "github.com/juju/juju/caas"
 	constraints "github.com/juju/juju/core/constraints"
-	secrets "github.com/juju/juju/core/secrets"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -395,44 +394,6 @@ func (c *MockBrokerCreateCall) DoAndReturn(f func(envcontext.ProviderCallContext
 	return c
 }
 
-// DeleteJujuSecret mocks base method.
-func (m *MockBroker) DeleteJujuSecret(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteJujuSecret", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteJujuSecret indicates an expected call of DeleteJujuSecret.
-func (mr *MockBrokerMockRecorder) DeleteJujuSecret(arg0, arg1 any) *MockBrokerDeleteJujuSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteJujuSecret", reflect.TypeOf((*MockBroker)(nil).DeleteJujuSecret), arg0, arg1)
-	return &MockBrokerDeleteJujuSecretCall{Call: call}
-}
-
-// MockBrokerDeleteJujuSecretCall wrap *gomock.Call
-type MockBrokerDeleteJujuSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBrokerDeleteJujuSecretCall) Return(arg0 error) *MockBrokerDeleteJujuSecretCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBrokerDeleteJujuSecretCall) Do(f func(context.Context, string) error) *MockBrokerDeleteJujuSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerDeleteJujuSecretCall) DoAndReturn(f func(context.Context, string) error) *MockBrokerDeleteJujuSecretCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Destroy mocks base method.
 func (m *MockBroker) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()
@@ -581,84 +542,6 @@ func (c *MockBrokerEnsureModelOperatorCall) Do(f func(context.Context, string, s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBrokerEnsureModelOperatorCall) DoAndReturn(f func(context.Context, string, string, *caas.ModelOperatorConfig) error) *MockBrokerEnsureModelOperatorCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// EnsureSecretAccessToken mocks base method.
-func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 string, arg2, arg3, arg4 []string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EnsureSecretAccessToken indicates an expected call of EnsureSecretAccessToken.
-func (mr *MockBrokerMockRecorder) EnsureSecretAccessToken(arg0, arg1, arg2, arg3, arg4 any) *MockBrokerEnsureSecretAccessTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).EnsureSecretAccessToken), arg0, arg1, arg2, arg3, arg4)
-	return &MockBrokerEnsureSecretAccessTokenCall{Call: call}
-}
-
-// MockBrokerEnsureSecretAccessTokenCall wrap *gomock.Call
-type MockBrokerEnsureSecretAccessTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBrokerEnsureSecretAccessTokenCall) Return(arg0 string, arg1 error) *MockBrokerEnsureSecretAccessTokenCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBrokerEnsureSecretAccessTokenCall) Do(f func(context.Context, string, []string, []string, []string) (string, error)) *MockBrokerEnsureSecretAccessTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerEnsureSecretAccessTokenCall) DoAndReturn(f func(context.Context, string, []string, []string, []string) (string, error)) *MockBrokerEnsureSecretAccessTokenCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetJujuSecret mocks base method.
-func (m *MockBroker) GetJujuSecret(arg0 context.Context, arg1 string) (secrets.SecretValue, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetJujuSecret", arg0, arg1)
-	ret0, _ := ret[0].(secrets.SecretValue)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetJujuSecret indicates an expected call of GetJujuSecret.
-func (mr *MockBrokerMockRecorder) GetJujuSecret(arg0, arg1 any) *MockBrokerGetJujuSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJujuSecret", reflect.TypeOf((*MockBroker)(nil).GetJujuSecret), arg0, arg1)
-	return &MockBrokerGetJujuSecretCall{Call: call}
-}
-
-// MockBrokerGetJujuSecretCall wrap *gomock.Call
-type MockBrokerGetJujuSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBrokerGetJujuSecretCall) Return(arg0 secrets.SecretValue, arg1 error) *MockBrokerGetJujuSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBrokerGetJujuSecretCall) Do(f func(context.Context, string) (secrets.SecretValue, error)) *MockBrokerGetJujuSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerGetJujuSecretCall) DoAndReturn(f func(context.Context, string) (secrets.SecretValue, error)) *MockBrokerGetJujuSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -968,45 +851,6 @@ func (c *MockBrokerProxyToApplicationCall) Do(f func(context.Context, string, st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBrokerProxyToApplicationCall) DoAndReturn(f func(context.Context, string, string) (proxy.Proxier, error)) *MockBrokerProxyToApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SaveJujuSecret mocks base method.
-func (m *MockBroker) SaveJujuSecret(arg0 context.Context, arg1 string, arg2 secrets.SecretValue) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveJujuSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SaveJujuSecret indicates an expected call of SaveJujuSecret.
-func (mr *MockBrokerMockRecorder) SaveJujuSecret(arg0, arg1, arg2 any) *MockBrokerSaveJujuSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveJujuSecret", reflect.TypeOf((*MockBroker)(nil).SaveJujuSecret), arg0, arg1, arg2)
-	return &MockBrokerSaveJujuSecretCall{Call: call}
-}
-
-// MockBrokerSaveJujuSecretCall wrap *gomock.Call
-type MockBrokerSaveJujuSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBrokerSaveJujuSecretCall) Return(arg0 string, arg1 error) *MockBrokerSaveJujuSecretCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBrokerSaveJujuSecretCall) Do(f func(context.Context, string, secrets.SecretValue) (string, error)) *MockBrokerSaveJujuSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerSaveJujuSecretCall) DoAndReturn(f func(context.Context, string, secrets.SecretValue) (string, error)) *MockBrokerSaveJujuSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

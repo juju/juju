@@ -66,14 +66,14 @@ func (providerWithConfig) ConfigDefaults() schema.Defaults {
 	}
 }
 
-func (p providerWithConfig) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
+func (p providerWithConfig) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs, tokenRotate *time.Duration) error {
 	if p.Type() == "something" {
 		return fmt.Errorf("bad config for %q", p.Type())
 	}
 	return nil
 }
 
-func (providerWithConfig) RefreshAuth(cfg provider.BackendConfig, validFor time.Duration) (*provider.BackendConfig, error) {
+func (providerWithConfig) RefreshAuth(_ context.Context, cfg provider.BackendConfig, validFor time.Duration) (*provider.BackendConfig, error) {
 	result := cfg
 	result.Config["token"] = validFor.String()
 	return &result, nil
@@ -99,10 +99,10 @@ var (
 		BackendConfig: provider.BackendConfig{
 			BackendType: kubernetes.BackendType,
 			Config: provider.ConfigAttrs{
-				"endpoint":            "http://nowhere",
-				"ca-certs":            []string{"cert-data"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-				"is-controller-cloud": true,
+				"endpoint":  "http://nowhere",
+				"namespace": "my-model",
+				"ca-certs":  []string{"cert-data"},
+				"token":     "deadbeaf",
 			},
 		},
 	}
@@ -162,10 +162,10 @@ func (s *serviceSuite) expectGetSecretBackendConfigForAdminDefault(
 			Name:        kubernetes.BackendName,
 			BackendType: kubernetes.BackendType,
 			Config: map[string]any{
-				"ca-certs":            "[cert-data]",
-				"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-				"endpoint":            "http://nowhere",
-				"is-controller-cloud": "true",
+				"namespace": "my-model",
+				"ca-certs":  "[cert-data]",
+				"token":     "deadbeaf",
+				"endpoint":  "http://nowhere",
 			},
 		}}
 
@@ -221,10 +221,10 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdmin(c *gc.C) {
 			Name:        kubernetes.BackendName,
 			BackendType: kubernetes.BackendType,
 			Config: map[string]any{
-				"ca-certs":            []string{"cert-data"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-				"endpoint":            "http://nowhere",
-				"is-controller-cloud": true,
+				"namespace": "my-model",
+				"ca-certs":  []string{"cert-data"},
+				"token":     "deadbeaf",
+				"endpoint":  "http://nowhere",
 			},
 		},
 	}, nil)
@@ -269,10 +269,10 @@ func (s *serviceSuite) TestGetSecretBackendConfigForAdminFailedNotFound(c *gc.C)
 			Name:        kubernetes.BackendName,
 			BackendType: kubernetes.BackendType,
 			Config: map[string]any{
-				"ca-certs":            []string{"cert-data"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-				"endpoint":            "http://nowhere",
-				"is-controller-cloud": true,
+				"namespace": "my-model",
+				"ca-certs":  "[cert-data]",
+				"token":     "deadbeaf",
+				"endpoint":  "http://nowhere",
 			},
 		},
 	}, nil)
@@ -330,7 +330,12 @@ func (s *serviceSuite) TestBackendSummaryInfoForModel(c *gc.C) {
 			ID:          k8sBackendID,
 			Name:        "my-model-local",
 			BackendType: kubernetes.BackendType,
-			NumSecrets:  3,
+			Config: map[string]any{
+				"endpoint":  "http://nowhere",
+				"namespace": "my-model",
+				"token":     "deadbeef",
+			},
+			NumSecrets: 3,
 		},
 	}, nil)
 	s.mockRegistry.EXPECT().Type().Return(vault.BackendType).AnyTimes()
@@ -379,6 +384,11 @@ func (s *serviceSuite) TestBackendSummaryInfoForModel(c *gc.C) {
 				ID:          k8sBackendID,
 				Name:        "my-model-local",
 				BackendType: kubernetes.BackendType,
+				Config: map[string]any{
+					"endpoint":  "http://nowhere",
+					"namespace": "my-model",
+					"token":     "deadbeef",
+				},
 			},
 			NumSecrets: 3,
 			Status:     "active",
@@ -429,7 +439,12 @@ func (s *serviceSuite) assertBackendSummaryInfo(
 			ID:          k8sBackendID,
 			Name:        "my-model-local",
 			BackendType: kubernetes.BackendType,
-			NumSecrets:  3,
+			Config: map[string]any{
+				"endpoint":  "http://nowhere",
+				"namespace": "my-model",
+				"token":     "deadbeef",
+			},
+			NumSecrets: 3,
 		})
 	} else {
 		backends = append(backends, &secretbackend.SecretBackend{
@@ -508,6 +523,11 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *gc.C) {
 					ID:          k8sBackendID,
 					Name:        "my-model-local",
 					BackendType: kubernetes.BackendType,
+					Config: map[string]any{
+						"endpoint":  "http://nowhere",
+						"namespace": "my-model",
+						"token":     "deadbeef",
+					},
 				},
 				NumSecrets: 3,
 				Status:     "active",

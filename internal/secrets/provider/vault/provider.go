@@ -331,7 +331,7 @@ func (p vaultProvider) newBackendNoMount(cfg *provider.BackendConfig) (*vaultBac
 }
 
 // RefreshAuth implements SupportAuthRefresh.
-func (p vaultProvider) RefreshAuth(backendConfig provider.BackendConfig, validFor time.Duration) (_ *provider.BackendConfig, err error) {
+func (p vaultProvider) RefreshAuth(_ context.Context, backendConfig provider.BackendConfig, validFor time.Duration) (_ *provider.BackendConfig, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()

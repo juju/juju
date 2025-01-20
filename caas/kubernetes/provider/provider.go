@@ -171,37 +171,32 @@ func (p kubernetesEnvironProvider) Open(ctx stdcontext.Context, args environs.Op
 		return nil, errors.Trace(err)
 	}
 
-	if args.Config.Name() != environsbootstrap.ControllerModelName {
-		broker, err := newK8sBroker(
-			ctx, args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
-			k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
-			jujuclock.WallClock)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return broker, nil
-	}
-
-	k8sClient, _, _, err := NewK8sClients(k8sRestConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	ns, err := findControllerNamespace(ctx, k8sClient, args.ControllerUUID)
-	if errors.Is(err, errors.NotFound) {
-		// The controller is currently bootstrapping.
-		return newK8sBroker(
-			ctx, args.ControllerUUID, k8sRestConfig, args.Config, "",
-			NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
-			utils.RandomPrefix, jujuclock.WallClock)
-	} else if err != nil {
+	namespace, err := NamespaceForModel(ctx, args.Config.Name(), args.ControllerUUID, k8sRestConfig)
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}
 
-	return newK8sBroker(
-		ctx, args.ControllerUUID, k8sRestConfig, args.Config, ns.Name,
+	return newK8sBroker(ctx,
+		args.ControllerUUID, k8sRestConfig, args.Config, namespace,
 		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 		utils.RandomPrefix, jujuclock.WallClock)
+}
+
+// NamespaceForModel returns the namespace which is associated with the specified model.
+func NamespaceForModel(ctx context.Context, modelName string, controllerUUID string, k8sRestConfig *rest.Config) (string, error) {
+	if modelName != environsbootstrap.ControllerModelName {
+		return modelName, nil
+	}
+	k8sClient, _, _, err := NewK8sClients(k8sRestConfig)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	ns, err := findControllerNamespace(ctx, k8sClient, controllerUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return ns.Name, nil
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.

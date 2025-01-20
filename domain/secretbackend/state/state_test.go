@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/version"
 	userstate "github.com/juju/juju/domain/access/state"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
@@ -196,8 +197,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		Label:    "foobar",
 		AuthType: string(cloud.AccessKeyAuthType),
 		Attributes: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
+			"Token": "token val",
 		},
 	}
 
@@ -232,6 +232,12 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 			SecretBackend: "my-backend",
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ccState := controllerconfigstate.NewState(s.TxnRunnerFactory())
+	err = ccState.UpdateControllerConfig(context.Background(), map[string]string{
+		"controller-name": "test",
+	}, nil, func(map[string]string) error { return nil })
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = modelSt.Activate(context.Background(), modelUUID)
@@ -998,10 +1004,10 @@ func (s *stateSuite) TestListSecretBackendsCAAS(c *gc.C) {
 			Name:        "my-model-local",
 			BackendType: kubernetes.BackendType,
 			Config: map[string]any{
-				"ca-certs":            []string{"my-ca-cert"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"bar":"bar val","foo":"foo val"}}`,
-				"endpoint":            "https://my-cloud.com",
-				"is-controller-cloud": false,
+				"endpoint":  "https://my-cloud.com",
+				"namespace": "my-model",
+				"ca-certs":  []string{"my-ca-cert"},
+				"token":     "token val",
 			},
 			NumSecrets: 2,
 		},
@@ -1260,10 +1266,10 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *gc.C, includeEmpty 
 			Name:        "kubernetes",
 			BackendType: "kubernetes",
 			Config: map[string]any{
-				"ca-certs":            []string{"my-ca-cert"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"bar":"bar val","foo":"foo val"}}`,
-				"endpoint":            "https://my-cloud.com",
-				"is-controller-cloud": false,
+				"endpoint":  "https://my-cloud.com",
+				"namespace": "controller-test",
+				"ca-certs":  []string{"my-ca-cert"},
+				"token":     "token val",
 			},
 		},
 		{
