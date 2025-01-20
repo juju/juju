@@ -176,6 +176,10 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 		if err != nil {
 			return errors.Capture(err)
 		}
+		if cons.UUID == "" {
+			// No constraint exists for the model, no furhter queries are needed.
+			return nil
+		}
 		err = tx.Query(ctx, selectTagStmt, cons).GetAll(&tags)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting constraint tags: %w", err)
@@ -191,47 +195,9 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 		return nil
 	})
 	if err != nil {
-		return constraints.Value{}, err
+		return constraints.Value{}, errors.Capture(err)
 	}
-
-	consVal := constraints.Value{
-		Arch:             cons.Arch,
-		CpuCores:         cons.CPUCores,
-		CpuPower:         cons.CPUPower,
-		Mem:              cons.Mem,
-		RootDisk:         cons.RootDisk,
-		RootDiskSource:   cons.RootDiskSource,
-		InstanceRole:     cons.InstanceRole,
-		InstanceType:     cons.InstanceType,
-		VirtType:         cons.VirtType,
-		AllocatePublicIP: cons.AllocatePublicIP,
-		ImageID:          cons.ImageID,
-	}
-
-	for _, tag := range tags {
-		if consVal.Tags == nil {
-			var tagStrings []string
-			consVal.Tags = &tagStrings
-		}
-		*consVal.Tags = append(*consVal.Tags, tag.Tag)
-	}
-
-	for _, space := range spaces {
-		if consVal.Spaces == nil {
-			var spaceStrings []string
-			consVal.Spaces = &spaceStrings
-		}
-		*consVal.Spaces = append(*consVal.Spaces, space.Space)
-	}
-
-	for _, zone := range zones {
-		if consVal.Zones == nil {
-			var zoneStrings []string
-			consVal.Zones = &zoneStrings
-		}
-		*consVal.Zones = append(*consVal.Zones, zone.Zone)
-	}
-	return consVal, nil
+	return cons.toValue(tags, spaces, zones), nil
 }
 
 func (s *ModelState) getModelConstraints(ctx context.Context, modelUUID coremodel.UUID, tx *sqlair.TX) (dbConstraint, error) {
@@ -249,7 +215,7 @@ WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 	var constraint dbConstraint
 	err = tx.Query(ctx, stmt, modelConstraint).Get(&constraint)
 	if errors.Is(err, sql.ErrNoRows) {
-		return dbConstraint{}, errors.New("model constraint does not exist").Add(modelerrors.ModelConstraintNotFound)
+		return dbConstraint{}, nil
 	}
 	if err != nil {
 		return dbConstraint{}, errors.Errorf("getting model constraint for model %q: %w", modelUUID, err)
@@ -301,7 +267,7 @@ DO UPDATE SET
 		}
 
 		existingConstraint, err := s.getModelConstraints(ctx, modelUUID, tx)
-		if err != nil && !errors.Is(err, modelerrors.ModelConstraintNotFound) {
+		if err != nil {
 			return errors.Errorf("getting model constraints: %w", err)
 		}
 

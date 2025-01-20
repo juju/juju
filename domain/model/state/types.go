@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -449,6 +450,50 @@ type dbConstraint struct {
 	VirtType         *string `db:"virt_type"`
 	AllocatePublicIP *bool   `db:"allocate_public_ip"`
 	ImageID          *string `db:"image_id"`
+}
+
+func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) constraints.Value {
+	if c.UUID == "" {
+		return constraints.Value{}
+	}
+	consVal := constraints.Value{
+		Arch:             c.Arch,
+		CpuCores:         c.CPUCores,
+		CpuPower:         c.CPUPower,
+		Mem:              c.Mem,
+		RootDisk:         c.RootDisk,
+		RootDiskSource:   c.RootDiskSource,
+		InstanceRole:     c.InstanceRole,
+		InstanceType:     c.InstanceType,
+		VirtType:         c.VirtType,
+		AllocatePublicIP: c.AllocatePublicIP,
+		ImageID:          c.ImageID,
+	}
+
+	for _, tag := range tags {
+		if consVal.Tags == nil {
+			var tagStrings []string
+			consVal.Tags = &tagStrings
+		}
+		*consVal.Tags = append(*consVal.Tags, tag.Tag)
+	}
+
+	for _, space := range spaces {
+		if consVal.Spaces == nil {
+			var spaceStrings []string
+			consVal.Spaces = &spaceStrings
+		}
+		*consVal.Spaces = append(*consVal.Spaces, space.Space)
+	}
+
+	for _, zone := range zones {
+		if consVal.Zones == nil {
+			var zoneStrings []string
+			consVal.Zones = &zoneStrings
+		}
+		*consVal.Zones = append(*consVal.Zones, zone.Zone)
+	}
+	return consVal
 }
 
 type dbConstraintTag struct {
