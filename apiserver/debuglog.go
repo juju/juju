@@ -197,17 +197,10 @@ type debugLogParams struct {
 }
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
-	var (
-		params      debugLogParams
-		err         error
-		backLogVal  uint64
-		maxLinesVal uint64
-		noTail      bool
-		replay      bool
-	)
+	var params debugLogParams
 
 	if value := queryMap.Get("backlog"); value != "" {
-		backLogVal, err = strconv.ParseUint(value, 10, 64)
+		backLogVal, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
 		}
@@ -215,15 +208,15 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	}
 
 	if value := queryMap.Get("maxLines"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
+		maxLinesVal, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
-		params.initialLines = uint(num)
+		params.initialLines = uint(maxLinesVal)
 	}
 
 	if value := queryMap.Get("noTail"); value != "" {
-		noTail, err = strconv.ParseBool(value)
+		noTail, err := strconv.ParseBool(value)
 		if err != nil {
 			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
@@ -231,27 +224,11 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	}
 
 	if value := queryMap.Get("replay"); value != "" {
-		replay, err = strconv.ParseBool(value)
+		replay, err := strconv.ParseBool(value)
 		if err != nil {
 			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
-	}
-
-	if !noTail && maxLinesVal != 0 {
-		return params, errors.Errorf("tail not valid with maxLines")
-	}
-
-	if noTail && backLogVal != 0 {
-		return params, errors.Errorf("noTail not valid with backLog")
-	}
-
-	if maxLinesVal != 0 && backLogVal != 0 {
-		return params, errors.Errorf("maxLines not valid with backLog")
-	}
-
-	if replay && backLogVal != 0 {
-		return params, errors.Errorf("replay not valid with backLog")
 	}
 
 	if value := queryMap.Get("level"); value != "" {
