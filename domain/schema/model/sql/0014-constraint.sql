@@ -8,9 +8,13 @@ CREATE TABLE "constraint" (
     root_disk_source TEXT,
     instance_role TEXT,
     instance_type TEXT,
+    container_type_id INT,
     virt_type TEXT,
     allocate_public_ip BOOLEAN,
-    image_id TEXT
+    image_id TEXT,
+    CONSTRAINT fk_constraint_container_type
+    FOREIGN KEY (container_type_id)
+    REFERENCES container_type (id)
 );
 
 CREATE TABLE constraint_tag (

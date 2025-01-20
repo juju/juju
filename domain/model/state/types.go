@@ -447,6 +447,7 @@ type dbConstraint struct {
 	RootDiskSource   *string `db:"root_disk_source"`
 	InstanceRole     *string `db:"instance_role"`
 	InstanceType     *string `db:"instance_type"`
+	ContainerType    *string `db:"container_type"`
 	VirtType         *string `db:"virt_type"`
 	AllocatePublicIP *bool   `db:"allocate_public_ip"`
 	ImageID          *string `db:"image_id"`
