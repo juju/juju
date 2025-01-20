@@ -189,6 +189,45 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 	}
 }
 
+// GetBySHA256 returns an io.ReadCloser for any object with a SHA256
+// hash starting with a given prefix, namespaced to the model.
+//
+// If no object is found, an [objectstore.ObjectNotFound] error is returned.
+func (t *s3ObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+	// Optimistically try to get the file from the file system. If it doesn't
+	// exist, then we'll get an error, and we'll try to get it when sequencing
+	// the get request with the put and remove requests.
+	if reader, size, err := t.getBySHA256(ctx, sha256, noFileFallback); err == nil {
+		return reader, size, nil
+	}
+
+	// Sequence the get request with the put and remove requests.
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case t.requests <- request{
+		op:       opGetBySHA256,
+		sha256:   sha256,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case resp := <-response:
+		if resp.err != nil {
+			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
+		}
+		return resp.reader, resp.size, nil
+	}
+}
+
 // GetBySHA256Prefix returns an io.ReadCloser for any object with a SHA256
 // hash starting with a given prefix, namespaced to the model.
 //
@@ -209,9 +248,9 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	case <-t.tomb.Dying():
 		return nil, -1, tomb.ErrDying
 	case t.requests <- request{
-		op:           opGetByHash,
-		sha256Prefix: sha256Prefix,
-		response:     response,
+		op:       opGetBySHA256Prefix,
+		sha256:   sha256Prefix,
+		response: response,
 	}:
 	}
 
@@ -400,13 +439,32 @@ func (t *s3ObjectStore) loop() error {
 				}:
 				}
 
-			case opGetByHash:
+			case opGetBySHA256:
 				// We can attempt to use the file accessor to get the file
 				// if it's not found in the s3 object store. This can occur
 				// during the drain process. As these requests are sequenced
 				// with the drain requests we can at least attempt to get the
 				// file from the file accessor for intermediate content.
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix, fileFallback)
+				reader, size, err := t.getBySHA256(ctx, req.sha256, fileFallback)
+
+				select {
+				case <-t.tomb.Dying():
+					return tomb.ErrDying
+
+				case req.response <- response{
+					reader: reader,
+					size:   size,
+					err:    err,
+				}:
+				}
+
+			case opGetBySHA256Prefix:
+				// We can attempt to use the file accessor to get the file
+				// if it's not found in the s3 object store. This can occur
+				// during the drain process. As these requests are sequenced
+				// with the drain requests we can at least attempt to get the
+				// file from the file accessor for intermediate content.
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256, fileFallback)
 
 				select {
 				case <-t.tomb.Dying():
@@ -483,6 +541,20 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 	}
 	if err != nil {
 		return nil, -1, errors.Errorf("get metadata: %w", err)
+	}
+
+	return t.getWithMetadata(ctx, metadata, useAccessor)
+}
+
+func (t *s3ObjectStore) getBySHA256(ctx context.Context, sha256 string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
+	t.logger.Debugf("getting object with SHA256 %q from file storage", sha256)
+
+	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
+	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+		return nil, -1, errors.Errorf("get metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
+	}
+	if err != nil {
+		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
 	}
 
 	return t.getWithMetadata(ctx, metadata, useAccessor)

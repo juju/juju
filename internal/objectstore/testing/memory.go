@@ -67,6 +67,15 @@ func (s *objectStore) GetMetadata(ctx context.Context, path string) (coreobjects
 	return s.store.get(path)
 }
 
+// GetMetadataBySHA256 implements objectstore.ObjectStoreMetadata.
+func (s *objectStore) GetMetadataBySHA256(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
+	if sha256 == "" {
+		return coreobjectstore.Metadata{}, errors.NotValidf("sha256 cannot be empty")
+	}
+
+	return s.store.getBySHA(sha256)
+}
+
 // GetMetadataBySHA256Prefix implements objectstore.ObjectStoreMetadata.
 func (s *objectStore) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (coreobjectstore.Metadata, error) {
 	if sha256Prefix == "" {
@@ -134,6 +143,18 @@ func (s *store) get(path string) (coreobjectstore.Metadata, error) {
 		return coreobjectstore.Metadata{}, errors.NotFoundf("metadata for %q", path)
 	}
 	return m.metadata, nil
+}
+
+func (s *store) getBySHA(sha256 string) (coreobjectstore.Metadata, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, m := range s.metadata {
+		if m.metadata.SHA256 == sha256 {
+			return m.metadata, nil
+		}
+	}
+	return coreobjectstore.Metadata{}, errors.NotFoundf("metadata for SHA %q", sha256)
 }
 
 func (s *store) getBySHAPrefix(sha256Prefix string) (coreobjectstore.Metadata, error) {
