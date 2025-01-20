@@ -166,3 +166,14 @@ CREATE TABLE machine_lxd_profile (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+-- container_type represents the valid container types that can exist for an
+-- instance.
+CREATE TABLE container_type (
+    id INT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+INSERT INTO container_type VALUES
+(0, 'none'),
+(1, 'lxd');
