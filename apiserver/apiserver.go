@@ -542,7 +542,7 @@ func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) {
 	defer srv.mu.Unlock()
 	globalLimit := cfg.ControllerResourceDownloadLimit()
 	appLimit := cfg.ApplicationResourceDownloadLimit()
-	srv.resourceLock = resource.NewResourceDownloadLimiter(globalLimit, appLimit)
+	srv.resourceLock = resource.NewResourceDownloadLimiter(int64(globalLimit), int64(appLimit))
 }
 
 func (srv *Server) getResourceDownloadLimiter() resource.ResourceDownloadLock {

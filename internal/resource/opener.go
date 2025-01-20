@@ -192,17 +192,6 @@ func newClientGetter(
 	return clientGetter
 }
 
-// noopDownloadResourceLocker is a no-op download resource locker.
-type noopDownloadResourceLocker struct{}
-
-// Acquire grabs the lock for a given application so long as the
-// per-application limit is not exceeded and total across all
-// applications does not exceed the global limit.
-func (noopDownloadResourceLocker) Acquire(string) {}
-
-// Release releases the lock for the given application.
-func (noopDownloadResourceLocker) Release(appName string) {}
-
 // ResourceOpener is a ResourceOpener for charmhub. It will first look on the
 // controller for the requested resource.
 type ResourceOpener struct {
@@ -222,15 +211,16 @@ type ResourceOpener struct {
 
 // OpenResource implements server.ResourceOpener.
 func (ro ResourceOpener) OpenResource(ctx context.Context, name string) (opener coreresource.Opened, err error) {
-	appKey := fmt.Sprintf("%s:%s", ro.modelUUID, ro.appName)
 	lock := ro.resourceDownloadLimiterFunc()
-	lock.Acquire(appKey)
 
-	done := func() {
-		lock.Release(appKey)
+	appKey := fmt.Sprintf("%s:%s", ro.modelUUID, ro.appName)
+	if err := lock.Acquire(ctx, appKey); err != nil {
+		return coreresource.Opened{}, errors.Errorf("acquiring resource download lock for %s: %w", appKey, err)
 	}
 
-	return ro.getResource(ctx, name, done)
+	return ro.getResource(ctx, name, func() {
+		lock.Release(appKey)
+	})
 }
 
 var resourceMutex = kmutex.New()

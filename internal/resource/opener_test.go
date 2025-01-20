@@ -380,7 +380,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		charmhub.ResourceData{},
 		errors.New("boom"),
 	).Times(retryCount)
-	s.limiter.EXPECT().Acquire("uuid:postgresql")
+	s.limiter.EXPECT().Acquire(gomock.Any(), "uuid:postgresql").Return(nil)
 	s.limiter.EXPECT().Release("uuid:postgresql")
 
 	opened, err := s.newUnitResourceOpener(
@@ -480,7 +480,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
 
 func (s *OpenerSuite) newUnitResourceOpener(
 	c *gc.C,
-	maxRequests int,
+	maxRequests int64,
 ) coreresource.Opener {
 	var limiter ResourceDownloadLock = NewResourceDownloadLimiter(
 		maxRequests,

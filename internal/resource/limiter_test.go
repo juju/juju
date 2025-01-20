@@ -4,6 +4,7 @@
 package resource
 
 import (
+	context "context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,7 +41,7 @@ func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 		go func() {
 			defer finished.Done()
 			started.Done()
-			limiter.Acquire("app1")
+			limiter.Acquire(context.Background(), "app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
@@ -99,7 +100,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
 		go func() {
 			defer finished.Done()
 			started.Done()
-			limiter.Acquire("app1")
+			limiter.Acquire(context.Background(), "app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
@@ -171,7 +172,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 		go func(uui string) {
 			defer finished.Done()
 			started.Done()
-			limiter.Acquire(uuid)
+			limiter.Acquire(context.Background(), uuid)
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release(uuid)
@@ -222,7 +223,6 @@ func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
 }
 
 func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
-
 	const (
 		globalLimit                  = 5
 		applicationLimit             = 3
@@ -247,7 +247,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
 		go func(uui string) {
 			defer finished.Done()
 			started.Done()
-			limiter.Acquire(uuid)
+			limiter.Acquire(context.Background(), uuid)
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release(uuid)

@@ -900,15 +900,17 @@ func (m *MockResourceDownloadLock) EXPECT() *MockResourceDownloadLockMockRecorde
 }
 
 // Acquire mocks base method.
-func (m *MockResourceDownloadLock) Acquire(arg0 string) {
+func (m *MockResourceDownloadLock) Acquire(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Acquire", arg0)
+	ret := m.ctrl.Call(m, "Acquire", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Acquire indicates an expected call of Acquire.
-func (mr *MockResourceDownloadLockMockRecorder) Acquire(arg0 any) *MockResourceDownloadLockAcquireCall {
+func (mr *MockResourceDownloadLockMockRecorder) Acquire(arg0, arg1 any) *MockResourceDownloadLockAcquireCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Acquire", reflect.TypeOf((*MockResourceDownloadLock)(nil).Acquire), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Acquire", reflect.TypeOf((*MockResourceDownloadLock)(nil).Acquire), arg0, arg1)
 	return &MockResourceDownloadLockAcquireCall{Call: call}
 }
 
@@ -918,19 +920,19 @@ type MockResourceDownloadLockAcquireCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceDownloadLockAcquireCall) Return() *MockResourceDownloadLockAcquireCall {
-	c.Call = c.Call.Return()
+func (c *MockResourceDownloadLockAcquireCall) Return(arg0 error) *MockResourceDownloadLockAcquireCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceDownloadLockAcquireCall) Do(f func(string)) *MockResourceDownloadLockAcquireCall {
+func (c *MockResourceDownloadLockAcquireCall) Do(f func(context.Context, string) error) *MockResourceDownloadLockAcquireCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceDownloadLockAcquireCall) DoAndReturn(f func(string)) *MockResourceDownloadLockAcquireCall {
+func (c *MockResourceDownloadLockAcquireCall) DoAndReturn(f func(context.Context, string) error) *MockResourceDownloadLockAcquireCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
