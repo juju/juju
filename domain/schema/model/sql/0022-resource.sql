@@ -132,6 +132,8 @@ CREATE TABLE resource_container_image_metadata_store (
 CREATE TABLE resource_file_store (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
     store_uuid TEXT NOT NULL,
+    size INTEGER, -- in bytes
+    sha384 TEXT,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid),
@@ -144,6 +146,8 @@ CREATE TABLE resource_file_store (
 CREATE TABLE resource_image_store (
     resource_uuid TEXT NOT NULL PRIMARY KEY,
     store_storage_key TEXT NOT NULL,
+    size INTEGER, -- in bytes
+    sha384 TEXT,
     CONSTRAINT fk_resource_uuid
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid),
@@ -174,10 +178,16 @@ SELECT
     rrbt.name AS retrieved_by_type,
     cr.path,
     cr.description,
-    crk.name AS kind_name
+    crk.name AS kind_name,
+    -- Select the size and sha384 from whichever store contains the resource
+    -- blob.
+    COALESCE(rfs.size, ris.size) AS size,
+    COALESCE(rfs.sha384, ris.sha384) AS sha384
 FROM resource AS r
 INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
 INNER JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
 INNER JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id
 LEFT JOIN resource_retrieved_by AS rrb ON r.uuid = rrb.resource_uuid
-LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id;
+LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id
+LEFT JOIN resource_file_store AS rfs ON r.uuid = rfs.resource_uuid
+LEFT JOIN resource_image_store AS ris ON r.uuid = ris.resource_uuid;

@@ -18,7 +18,6 @@ package charmhub
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
 	"path"
 	"strings"
@@ -189,11 +188,6 @@ func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics Metrics) er
 // Download defines a client for downloading charms directly.
 func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*Digest, error) {
 	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
-}
-
-// DownloadResource returns an io.ReadCloser to read the Resource from.
-func (c *Client) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
-	return c.downloadClient.DownloadResource(ctx, resourceURL)
 }
 
 // ListResourceRevisions returns resource revisions for the provided charm and resource.

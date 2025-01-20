@@ -826,10 +826,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 			}
 			args := resource.ResourceOpenerArgs{
-				State:                st.State,
-				ApplicationService:   domainServices.Application(),
-				ResourceService:      domainServices.Resource(),
-				CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(domainServices.Config()),
+				State:              st.State,
+				ApplicationService: domainServices.Application(),
+				ResourceService:    domainServices.Resource(),
+				CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(
+					domainServices.Config(),
+				),
 			}
 
 			opener, err := resource.NewResourceOpenerForUnit(

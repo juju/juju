@@ -131,6 +131,10 @@ type StoreResourceArgs struct {
 	// RetrievedByType is the type of entity that retrieved the resource. This
 	// field is optional.
 	RetrievedByType RetrievedByType
+	// Size is the size in bytes of the resource blob.
+	Size int64
+	// Fingerprint is the hash of the resource blob.
+	Fingerprint charmresource.Fingerprint
 }
 
 // RecordStoredResourceArgs holds the arguments for record stored resource state
@@ -151,4 +155,8 @@ type RecordStoredResourceArgs struct {
 	// IncrementCharmModifiedVersion indicates weather the charm modified
 	// version should be incremented or not.
 	IncrementCharmModifiedVersion bool
+	// Size is the size in bytes of the resource blob.
+	Size int64
+	// SHA384 is the hash of the resource blob.
+	SHA384 string
 }

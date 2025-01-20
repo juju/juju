@@ -203,6 +203,9 @@ func (s *Service) GetResource(
 // StoreResource adds the application resource to blob storage and updates the
 // metadata. It also sets the retrival information for the resource.
 //
+// The Size and Fingerprint should be validated against the resource blob before
+// the resource is passed in.
+//
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
 //     found.
@@ -248,6 +251,12 @@ func (s *Service) storeResource(
 	if args.Reader == nil {
 		return errors.Errorf("cannot have nil reader")
 	}
+	if args.Size < 0 {
+		return errors.Errorf("invalid size: %d", args.Size)
+	}
+	if args.Fingerprint.IsZero() {
+		return errors.Errorf("invalid fingerprint")
+	}
 
 	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
 		return resourceerrors.RetrievedByTypeNotValid
@@ -263,7 +272,13 @@ func (s *Service) storeResource(
 		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
 	}
 
-	storageUUID, err := store.Put(ctx, args.ResourceUUID.String(), args.Reader, res.Size, coreresourcestore.NewFingerprint(res.Fingerprint.Fingerprint))
+	storageUUID, err := store.Put(
+		ctx,
+		args.ResourceUUID.String(),
+		args.Reader,
+		args.Size,
+		coreresourcestore.NewFingerprint(args.Fingerprint.Fingerprint),
+	)
 	if err != nil {
 		return errors.Errorf("putting resource %q in store: %w", res.Name, err)
 	}
@@ -283,6 +298,8 @@ func (s *Service) storeResource(
 			RetrievedByType:               args.RetrievedByType,
 			ResourceType:                  res.Type,
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
+			Size:                          args.Size,
+			SHA384:                        args.Fingerprint.String(),
 		},
 	)
 	if err != nil {

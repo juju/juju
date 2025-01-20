@@ -11,7 +11,6 @@ package resource
 
 import (
 	context "context"
-	io "io"
 	url "net/url"
 	reflect "reflect"
 
@@ -45,18 +44,18 @@ func (m *MockResourceClient) EXPECT() *MockResourceClientMockRecorder {
 }
 
 // GetResource mocks base method.
-func (m *MockResourceClient) GetResource(arg0 charmhub0.ResourceRequest) (charmhub0.ResourceData, error) {
+func (m *MockResourceClient) GetResource(arg0 context.Context, arg1 charmhub0.ResourceRequest) (charmhub0.ResourceData, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetResource", arg0)
+	ret := m.ctrl.Call(m, "GetResource", arg0, arg1)
 	ret0, _ := ret[0].(charmhub0.ResourceData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetResource indicates an expected call of GetResource.
-func (mr *MockResourceClientMockRecorder) GetResource(arg0 any) *MockResourceClientGetResourceCall {
+func (mr *MockResourceClientMockRecorder) GetResource(arg0, arg1 any) *MockResourceClientGetResourceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockResourceClient)(nil).GetResource), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockResourceClient)(nil).GetResource), arg0, arg1)
 	return &MockResourceClientGetResourceCall{Call: call}
 }
 
@@ -72,13 +71,13 @@ func (c *MockResourceClientGetResourceCall) Return(arg0 charmhub0.ResourceData, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceClientGetResourceCall) Do(f func(charmhub0.ResourceRequest) (charmhub0.ResourceData, error)) *MockResourceClientGetResourceCall {
+func (c *MockResourceClientGetResourceCall) Do(f func(context.Context, charmhub0.ResourceRequest) (charmhub0.ResourceData, error)) *MockResourceClientGetResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceClientGetResourceCall) DoAndReturn(f func(charmhub0.ResourceRequest) (charmhub0.ResourceData, error)) *MockResourceClientGetResourceCall {
+func (c *MockResourceClientGetResourceCall) DoAndReturn(f func(context.Context, charmhub0.ResourceRequest) (charmhub0.ResourceData, error)) *MockResourceClientGetResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -106,41 +105,46 @@ func (m *MockCharmHub) EXPECT() *MockCharmHubMockRecorder {
 	return m.recorder
 }
 
-// DownloadResource mocks base method.
-func (m *MockCharmHub) DownloadResource(arg0 context.Context, arg1 *url.URL) (io.ReadCloser, error) {
+// Download mocks base method.
+func (m *MockCharmHub) Download(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadResource", arg0, arg1)
-	ret0, _ := ret[0].(io.ReadCloser)
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Download", varargs...)
+	ret0, _ := ret[0].(*charmhub.Digest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// DownloadResource indicates an expected call of DownloadResource.
-func (mr *MockCharmHubMockRecorder) DownloadResource(arg0, arg1 any) *MockCharmHubDownloadResourceCall {
+// Download indicates an expected call of Download.
+func (mr *MockCharmHubMockRecorder) Download(arg0, arg1, arg2 any, arg3 ...any) *MockCharmHubDownloadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadResource", reflect.TypeOf((*MockCharmHub)(nil).DownloadResource), arg0, arg1)
-	return &MockCharmHubDownloadResourceCall{Call: call}
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockCharmHub)(nil).Download), varargs...)
+	return &MockCharmHubDownloadCall{Call: call}
 }
 
-// MockCharmHubDownloadResourceCall wrap *gomock.Call
-type MockCharmHubDownloadResourceCall struct {
+// MockCharmHubDownloadCall wrap *gomock.Call
+type MockCharmHubDownloadCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmHubDownloadResourceCall) Return(arg0 io.ReadCloser, arg1 error) *MockCharmHubDownloadResourceCall {
+func (c *MockCharmHubDownloadCall) Return(arg0 *charmhub.Digest, arg1 error) *MockCharmHubDownloadCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmHubDownloadResourceCall) Do(f func(context.Context, *url.URL) (io.ReadCloser, error)) *MockCharmHubDownloadResourceCall {
+func (c *MockCharmHubDownloadCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charmhub.Digest, error)) *MockCharmHubDownloadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmHubDownloadResourceCall) DoAndReturn(f func(context.Context, *url.URL) (io.ReadCloser, error)) *MockCharmHubDownloadResourceCall {
+func (c *MockCharmHubDownloadCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (*charmhub.Digest, error)) *MockCharmHubDownloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

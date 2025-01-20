@@ -4,9 +4,12 @@
 package charmhub_test
 
 import (
-	"bytes"
+	"context"
 	"io"
+	"net/url"
+	"strings"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -20,7 +23,10 @@ import (
 )
 
 type CharmHubSuite struct {
-	client *MockCharmHub
+	testing.IsolationSuite
+
+	client     *MockCharmHub
+	downloader *MockDownloader
 }
 
 var _ = gc.Suite(&CharmHubSuite{})
@@ -29,32 +35,42 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.client = NewMockCharmHub(ctrl)
-	s.expectRefresh()
-	s.expectDownloadResource()
+	s.downloader = NewMockDownloader(ctrl)
+
+	fingerprint := "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"
+	fp, _ := charmresource.ParseFingerprint(fingerprint)
+	size := int64(42)
+	reader := io.NopCloser(strings.NewReader("blob"))
+	resURL := s.expectRefresh(size, fingerprint)
+	parsedURL, err := url.Parse(resURL)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.downloader.EXPECT().Download(gomock.Any(), parsedURL, fingerprint, size).Return(reader, nil)
 
 	cl := s.newCharmHubClient(c)
 	curl, _ := charm.ParseURL("ch:postgresql")
 	rev := 42
-	result, err := cl.GetResource(charmhub.ResourceRequest{
-		CharmID: charmhub.CharmID{
-			URL: curl,
-			Origin: state.CharmOrigin{
-				ID:       "mycharmhubid",
-				Channel:  &state.Channel{Risk: "stable"},
-				Revision: &rev,
-				Platform: &state.Platform{
-					Architecture: "amd64",
-					OS:           "ubuntu",
-					Channel:      "20.04/stable",
+	result, err := cl.GetResource(
+		context.Background(),
+		charmhub.ResourceRequest{
+			CharmID: charmhub.CharmID{
+				URL: curl,
+				Origin: state.CharmOrigin{
+					ID:       "mycharmhubid",
+					Channel:  &state.Channel{Risk: "stable"},
+					Revision: &rev,
+					Platform: &state.Platform{
+						Architecture: "amd64",
+						OS:           "ubuntu",
+						Channel:      "20.04/stable",
+					},
 				},
 			},
-		},
-		Name:     "wal-e",
-		Revision: 8,
-	})
+			Name:     "wal-e",
+			Revision: 8,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(result.Resource, gc.DeepEquals, charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name: "wal-e",
@@ -63,34 +79,33 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 		Origin:      2,
 		Revision:    8,
 		Fingerprint: fp,
-		Size:        0,
+		Size:        size,
 	})
+
+	c.Assert(result.ReadCloser, gc.Equals, reader)
 }
 
 func (s *CharmHubSuite) newCharmHubClient(c *gc.C) *charmhub.CharmHubClient {
-	return charmhub.NewCharmHubClientForTest(s.client, loggertesting.WrapCheckLog(c))
+	return charmhub.NewCharmHubClientForTest(s.client, s.downloader, loggertesting.WrapCheckLog(c))
 }
 
-func (s *CharmHubSuite) expectDownloadResource() {
-	s.client.EXPECT().DownloadResource(gomock.Any(), gomock.Any()).Return(io.NopCloser(bytes.NewBuffer([]byte{})), nil)
-}
-
-func (s *CharmHubSuite) expectRefresh() {
+func (s *CharmHubSuite) expectRefresh(size int64, hash string) (url string) {
+	url = "https://api.staging.charmhub.io/api/v1/charms/download/jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD_208.charm"
 	resp := []transport.RefreshResponse{
 		{
 			Entity: transport.RefreshEntity{
 				Download: transport.Download{
 					HashSHA256: "c97e1efc5367d2fdcfdf29f4a2243b13765cc9cbdfad19627a29ac903c01ae63",
 					Size:       5487460,
-					URL:        "https://api.staging.charmhub.io/api/v1/charms/download/jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD_208.charm"},
+					URL:        url},
 				ID:   "jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD",
 				Name: "ubuntu",
 				Resources: []transport.ResourceRevision{
 					{
 						Download: transport.Download{
-							HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
-							Size:       0,
-							URL:        "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0"},
+							HashSHA384: hash,
+							Size:       int(size),
+							URL:        url},
 						Name:     "wal-e",
 						Revision: 8,
 						Type:     "file",
@@ -106,4 +121,5 @@ func (s *CharmHubSuite) expectRefresh() {
 		},
 	}
 	s.client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return(resp, nil)
+	return url
 }

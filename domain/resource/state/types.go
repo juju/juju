@@ -46,6 +46,8 @@ type resourceView struct {
 	Path            string    `db:"path"`
 	Description     string    `db:"description"`
 	Kind            string    `db:"kind_name"`
+	Size            int64     `db:"size"`
+	SHA384          string    `db:"sha384"`
 }
 
 // toCharmResource converts the resourceView struct to a
@@ -55,6 +57,14 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 	if err != nil {
 		return charmresource.Resource{}, errors.Errorf("converting resource type: %w", err)
 	}
+	var fingerprint charmresource.Fingerprint
+	if rv.SHA384 != "" {
+		fingerprint, err = charmresource.ParseFingerprint(rv.SHA384)
+		if err != nil {
+			return charmresource.Resource{}, errors.Errorf("converting resource fingerprint: %w", err)
+		}
+	}
+
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        rv.Name,
@@ -62,11 +72,10 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 			Path:        rv.Path,
 			Description: rv.Description,
 		},
-		Origin:   charmresource.Origin(rv.OriginTypeId),
-		Revision: rv.Revision,
-		// todo(gfouillet): deal with fingerprint & size
-		Fingerprint: charmresource.Fingerprint{},
-		Size:        0,
+		Origin:      charmresource.Origin(rv.OriginTypeId),
+		Revision:    rv.Revision,
+		Fingerprint: fingerprint,
+		Size:        rv.Size,
 	}, nil
 }
 
@@ -108,9 +117,13 @@ type kubernetesApplicationResource struct {
 type storedFileResource struct {
 	ObjectStoreUUID string `db:"store_uuid"`
 	ResourceUUID    string `db:"resource_uuid"`
+	Size            int64  `db:"size"`
+	SHA384          string `db:"sha384"`
 }
 
 type storedContainerImageResource struct {
 	StorageKey   string `db:"store_storage_key"`
 	ResourceUUID string `db:"resource_uuid"`
+	Size         int64  `db:"size"`
+	Hash         string `db:"sha384"`
 }

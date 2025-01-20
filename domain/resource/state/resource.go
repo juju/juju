@@ -349,7 +349,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 			result.Resources = append(result.Resources, r)
 
 			// Add the charm resource or an empty one,
-			// depending ons polled status.
+			// depending on polled status.
 			charmRes := charmresource.Resource{}
 			if hasBeenPolled {
 				charmRes, err = res.toCharmResource()
@@ -443,12 +443,12 @@ func (st *State) RecordStoredResource(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		switch args.ResourceType {
 		case charmresource.TypeFile:
-			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID)
+			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored file resource information: %w", err)
 			}
 		case charmresource.TypeContainerImage:
-			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID)
+			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored container image resource information: %w", err)
 			}
@@ -530,6 +530,8 @@ func (st *State) insertFileResource(
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
+	size int64,
+	sha384 string,
 ) error {
 	// Get the object store UUID of the stored resource blob.
 	uuid, err := storageID.ObjectStoreUUID()
@@ -541,6 +543,8 @@ func (st *State) insertFileResource(
 	storedResource := storedFileResource{
 		ResourceUUID:    resourceUUID.String(),
 		ObjectStoreUUID: uuid.String(),
+		Size:            size,
+		SHA384:          sha384,
 	}
 	checkObjectStoreMetadataStmt, err := st.Prepare(`
 SELECT uuid AS &storedFileResource.store_uuid
@@ -602,6 +606,8 @@ func (st *State) insertImageResource(
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
+	size int64,
+	hash string,
 ) error {
 	// Get the container image metadata storage key.
 	storageKey, err := storageID.ContainerImageMetadataStoreID()
@@ -613,6 +619,8 @@ func (st *State) insertImageResource(
 	storedResource := storedContainerImageResource{
 		ResourceUUID: resourceUUID.String(),
 		StorageKey:   storageKey,
+		Size:         size,
+		Hash:         hash,
 	}
 	checkContainerImageStoreStmt, err := st.Prepare(`
 SELECT storage_key AS &storedContainerImageResource.store_storage_key
