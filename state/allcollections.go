@@ -181,7 +181,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-		minUnitsC: {},
 
 		// This collection holds documents that indicate units which are queued
 		// to be assigned to machines. It is used exclusively by the
@@ -427,7 +426,6 @@ const (
 	globalSettingsC        = "globalSettings"
 	machinesC              = "machines"
 	machineRemovalsC       = "machineremovals"
-	minUnitsC              = "minunits"
 	migrationsActiveC      = "migrations.active"
 	migrationsC            = "migrations"
 	migrationsMinionSyncC  = "migrations.minionsync"

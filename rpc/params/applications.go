@@ -67,23 +67,6 @@ type ApplicationDeploy struct {
 	Force            bool
 }
 
-// ApplicationUpdate holds the parameters for making the application Update call.
-type ApplicationUpdate struct {
-	ApplicationName string             `json:"application"`
-	CharmURL        string             `json:"charm-url"`
-	ForceCharmURL   bool               `json:"force-charm-url"`
-	ForceBase       bool               `json:"force-base"`
-	Force           bool               `json:"force"`
-	MinUnits        *int               `json:"min-units,omitempty"`
-	SettingsStrings map[string]string  `json:"settings,omitempty"` // Takes precedence over yaml entries if both are present.
-	SettingsYAML    string             `json:"settings-yaml"`
-	Constraints     *constraints.Value `json:"constraints,omitempty"`
-
-	// Generation is the generation version in which this
-	// request will update the application.
-	Generation string `json:"generation"`
-}
-
 // ApplicationSetCharmV2 sets the charm for a given application.
 type ApplicationSetCharmV2 struct {
 	// ApplicationName is the name of the application to set the charm on.

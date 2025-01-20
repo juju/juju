@@ -90,7 +90,6 @@ type applicationDoc struct {
 	Life                 Life         `bson:"life"`
 	UnitCount            int          `bson:"unitcount"`
 	RelationCount        int          `bson:"relationcount"`
-	MinUnits             int          `bson:"minunits"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
 
@@ -474,13 +473,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		return nil, errRefresh
 	}
 	var ops []txn.Op
-	minUnitsExists, err := doesMinUnitsExist(op.app.st, op.app.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if minUnitsExists {
-		ops = []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
-	}
 	removeCount := 0
 	failedRels := false
 	for _, rel := range rels {

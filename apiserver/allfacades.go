@@ -63,7 +63,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
-	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
@@ -166,7 +165,6 @@ func AllFacades() *facade.Registry {
 	annotations.Register(registry)
 	application.Register(registry)
 	applicationoffers.Register(registry)
-	applicationscaler.Register(registry)
 	backups.Register(registry)
 	block.Register(registry)
 	bundle.Register(registry)

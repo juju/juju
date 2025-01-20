@@ -98,7 +98,6 @@ types are defined by the worker packages listeds below.
 * [`migrationflag`](#migrationflag)
 * [`migrationmaster`](#migrationmaster)
 * [`migrationminion`](#migrationminion)
-* [`minunitsworker`](#minunitsworker)
 * [`mocks`](#mocks)
 * [`modelcache`](#modelcache)
 * [`modelworkermanager`](#modelworkermanager)
@@ -511,9 +510,6 @@ The `meterstatus` worker executes the meter-status-changed hook periodically.
 
 ## `migrationminion`
 > See more: [`juju/worker/migrationminion`](https://github.com/juju/juju/tree/3.3/worker/migrationminion)
-
-## `minunitsworker`
-> See more: [`juju/worker/minunitsworker`](https://github.com/juju/juju/tree/3.3/worker/minunitsworker)
 
 ## `mocks`
 

@@ -94,7 +94,6 @@ type PrecheckApplication interface {
 	Name() string
 	CharmURL() (*string, bool)
 	AllUnits() ([]PrecheckUnit, error)
-	MinUnits() int
 }
 
 // PrecheckUnit describes state interface for a unit needed by

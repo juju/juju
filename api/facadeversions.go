@@ -28,7 +28,6 @@ var facadeVersions = facades.FacadeVersions{
 	"Annotations":                  {2},
 	"Application":                  {19, 20},
 	"ApplicationOffers":            {5},
-	"ApplicationScaler":            {1},
 	"Backups":                      {3},
 	"Block":                        {2},
 	"Bundle":                       {8},
