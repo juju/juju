@@ -19,33 +19,25 @@ const (
 
 // apt is the PackageManager implementation for deb-based systems.
 type apt struct {
-	basePackageManager
+	aptCommander     commands.AptPackageCommander
+	retryPolicy      RetryPolicy
 	installRetryable Retryable
 }
 
 // NewAptPackageManager returns a PackageManager for apt-based systems.
 func NewAptPackageManager() PackageManager {
 	manager := &apt{
-		basePackageManager: basePackageManager{
-			cmder:       commands.NewAptPackageCommander(),
-			retryPolicy: DefaultRetryPolicy(),
-		},
+		aptCommander:     commands.NewAptPackageCommander(),
+		retryPolicy:      DefaultRetryPolicy(),
 		installRetryable: makeAPTInstallRetryable(APTExitCode),
 	}
-	// Push the base retryable on the type itself as that has the context
-	// to make the choices.
-	manager.basePackageManager.retryable = manager
 	return manager
 }
 
 // Install is defined on the PackageManager interface.
 func (apt *apt) Install(packs ...string) error {
-	_, _, err := RunCommandWithRetry(apt.cmder.InstallCmd(packs...), apt.installRetryable, apt.retryPolicy)
+	_, _, err := RunCommandWithRetry(apt.aptCommander.InstallCmd(packs...), apt.installRetryable, apt.retryPolicy)
 	return err
-}
-
-func (*apt) IsRetryable(code int, output string) bool {
-	return code == APTExitCode
 }
 
 // aptInstallRetryable defines a retryable that focuses on apt install process.

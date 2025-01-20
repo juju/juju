@@ -158,12 +158,6 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 	}
 }
 
-// getPackageCommander is a helper function which returns the
-// package commands implementation for the current system.
-func getPackageCommander() commands.PackageCommander {
-	return commands.NewAptPackageCommander()
-}
-
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
 	if w.config.RunFunc == nil {
 		w.config.Logger.Tracef("snap proxies not updated")
@@ -238,22 +232,15 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror string) {
 	mirrorUpdateNeeded := aptMirror != "" && aptMirror != w.aptMirror
-	updateNeeded := w.first || aptSettings != w.aptProxy || mirrorUpdateNeeded
-	var (
-		paccmder commands.PackageCommander
-		err      error
-	)
-	if updateNeeded {
-		paccmder = getPackageCommander()
-	}
+	aptCommander := commands.NewAptPackageCommander()
 
 	if aptSettings != w.aptProxy || w.first {
 		w.config.Logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
 
 		// Always finish with a new line.
-		content := paccmder.ProxyConfigContents(w.aptProxy) + "\n"
-		err = stdos.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
+		content := aptCommander.ProxyConfigContents(w.aptProxy) + "\n"
+		err := stdos.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
 			w.config.Logger.Errorf("error writing apt proxy config file: %v", err)
@@ -267,7 +254,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror
 		w.config.Logger.Debugf("new apt mirror value %v", aptMirror)
 		w.aptMirror = aptMirror
 
-		cmds := paccmder.SetMirrorCommands(aptMirror, aptMirror)
+		cmds := aptCommander.SetMirrorCommands(aptMirror, aptMirror)
 		script := []string{"#!/bin/bash", "set -e"}
 		script = append(script, "(")
 		script = append(script, cmds...)

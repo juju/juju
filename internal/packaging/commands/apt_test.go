@@ -16,15 +16,15 @@ import (
 var _ = gc.Suite(&AptSuite{})
 
 type AptSuite struct {
-	paccmder commands.PackageCommander
+	aptCommander commands.AptPackageCommander
 }
 
 func (s *AptSuite) SetUpSuite(c *gc.C) {
-	s.paccmder = commands.NewAptPackageCommander()
+	s.aptCommander = commands.NewAptPackageCommander()
 }
 
 func (s *AptSuite) TestProxyConfigContentsEmpty(c *gc.C) {
-	out := s.paccmder.ProxyConfigContents(proxy.Settings{})
+	out := s.aptCommander.ProxyConfigContents(proxy.Settings{})
 	c.Assert(out, gc.Equals, "")
 }
 
@@ -33,7 +33,7 @@ func (s *AptSuite) TestProxyConfigContentsPartial(c *gc.C) {
 		Http: "dat-proxy.zone:8080",
 	}
 
-	output := s.paccmder.ProxyConfigContents(sets)
+	output := s.aptCommander.ProxyConfigContents(sets)
 	c.Assert(output, gc.Equals, "Acquire::http::Proxy \"dat-proxy.zone:8080\";")
 }
 
@@ -54,7 +54,7 @@ Acquire::http::Proxy::"local2" "DIRECT";
 Acquire::https::Proxy::"local2" "DIRECT";
 Acquire::ftp::Proxy::"local2" "DIRECT";`
 
-	output := s.paccmder.ProxyConfigContents(sets)
+	output := s.aptCommander.ProxyConfigContents(sets)
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -86,7 +86,7 @@ for old in ${old_prefix}_*; do
       mv $old $new
     fi
 done`[1:]
-	cmds := s.paccmder.SetMirrorCommands("http://mirror", "http://security-mirror")
+	cmds := s.aptCommander.SetMirrorCommands("http://mirror", "http://security-mirror")
 	output := strings.Join(cmds, "\n")
 	c.Assert(output, gc.Equals, expected)
 }

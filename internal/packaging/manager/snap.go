@@ -33,19 +33,18 @@ var (
 
 // Snap is the PackageManager implementation for snap-based systems.
 type Snap struct {
-	basePackageManager
+	snapCommander    commands.SnapPackageCommander
+	retryPolicy      RetryPolicy
 	installRetryable Retryable
 }
 
 // NewSnapPackageManager returns a PackageManager for snap-based systems.
 func NewSnapPackageManager() *Snap {
 	return &Snap{
-		basePackageManager: basePackageManager{
-			cmder: commands.NewSnapPackageCommander(),
-			retryPolicy: RetryPolicy{
-				Delay:    Delay,
-				Attempts: SnapAttempts,
-			},
+		snapCommander: commands.NewSnapPackageCommander(),
+		retryPolicy: RetryPolicy{
+			Delay:    Delay,
+			Attempts: SnapAttempts,
 		},
 		// InstallRetryable checks a series of strings, to pattern
 		// match against the cmd output to see if an install command is
@@ -55,6 +54,11 @@ func NewSnapPackageManager() *Snap {
 			"(?i)setup snap .*? security profiles \\(cannot reload udev rules",
 		),
 	}
+}
+
+// IsRetryable returns whether the following error code and/or message is retryable.
+func (snap *Snap) IsRetryable(code int, output string) bool {
+	return snap.installRetryable.IsRetryable(code, output)
 }
 
 // InstalledChannel returns the snap channel for an installed package.
@@ -84,7 +88,7 @@ func (snap *Snap) ChangeChannel(pack, channel string) error {
 
 // Install is defined on the PackageManager interface.
 func (snap *Snap) Install(packs ...string) error {
-	out, _, err := RunCommandWithRetry(snap.cmder.InstallCmd(packs...), snap.installRetryable, snap.retryPolicy)
+	out, _, err := RunCommandWithRetry(snap.snapCommander.InstallCmd(packs...), snap.installRetryable, snap.retryPolicy)
 	if snapNotFoundRE.MatchString(combinedOutput(out, err)) {
 		return errors.New("unable to locate package")
 	}

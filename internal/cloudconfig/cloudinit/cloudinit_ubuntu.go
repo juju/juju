@@ -140,18 +140,17 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	var cmds []string
-	pkgCmder := cfg.paccmder[packaging.AptPackageManager]
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
 		cmds = append(cmds, LogProgressCmd("Changing apt mirror to %q", newMirror))
-		cmds = append(cmds, pkgCmder.SetMirrorCommands(newMirror, newMirror)...)
+		cmds = append(cmds, cfg.aptCommander.SetMirrorCommands(newMirror, newMirror)...)
 	}
 
 	if len(cfg.PackageSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, LogProgressCmd("Installing add-apt-repository"))
-		cmds = append(cmds, pkgCmder.InstallCmd("software-properties-common"))
+		cmds = append(cmds, cfg.aptCommander.InstallCmd("software-properties-common"))
 	}
 	for _, src := range cfg.PackageSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
@@ -163,7 +162,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			}
 		}
 		cmds = append(cmds, LogProgressCmd("Adding apt repository: %s", src.URL))
-		cmds = append(cmds, pkgCmder.AddRepositoryCmd(src.URL))
+		cmds = append(cmds, cfg.aptCommander.AddRepositoryCmd(src.URL))
 	}
 
 	pkgConfer := cfg.getPackagingConfigurer(packaging.AptPackageManager)
@@ -180,12 +179,12 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, looper+pkgCmder.UpdateCmd())
+		cmds = append(cmds, looper+cfg.aptCommander.UpdateCmd())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
 		cmds = append(cmds, looper+"apt-mark hold cloud-init")
-		cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
+		cmds = append(cmds, looper+cfg.aptCommander.UpgradeCmd())
 		cmds = append(cmds, looper+"apt-mark unhold cloud-init")
 	}
 
@@ -217,7 +216,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			pkgsWithTargetRelease = []string{}
 		}
 
-		cmd := looper + pkgCmder.InstallCmd(installArgs...)
+		cmd := looper + cfg.aptCommander.InstallCmd(installArgs...)
 		pkgCmds = append(pkgCmds, cmd)
 	}
 
@@ -265,11 +264,10 @@ done
 func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
 	// Write out the apt proxy settings
 	if aptProxy := proxyCfg.AptProxy(); (aptProxy != proxy.Settings{}) {
-		pkgCmder := cfg.paccmder[packaging.AptPackageManager]
 		filename := config.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
 			`echo %s > %s`,
-			utils.ShQuote(pkgCmder.ProxyConfigContents(aptProxy)),
+			utils.ShQuote(cfg.aptCommander.ProxyConfigContents(aptProxy)),
 			filename))
 	}
 
@@ -284,8 +282,11 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 	// Write out the snap http/https proxy settings
 	if snapProxy := proxyCfg.SnapProxy(); (snapProxy != proxy.Settings{}) {
 		addWaitSnapSeeded()
-		pkgCmder := cfg.paccmder[packaging.SnapPackageManager]
-		for _, cmd := range pkgCmder.SetProxyCmds(snapProxy) {
+		proxyCommands, err := cfg.snapCommander.SetProxyCmds(snapProxy)
+		if err != nil {
+			return err
+		}
+		for _, cmd := range proxyCommands {
 			cfg.AddRunCmd(cmd)
 		}
 	}
