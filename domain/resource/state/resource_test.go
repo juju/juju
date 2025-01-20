@@ -522,7 +522,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 				Type:        charmresource.TypeFile,
 			},
 			Revision: 42,
-			Origin:   0,
+			Origin:   1, // uploaded
 			// todo(gfouillet): handle size/fingerprint
 			//Fingerprint: charmresource.Fingerprint{},
 			//Size:        0,
@@ -536,7 +536,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 		UUID:            resID.String(),
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Revision:        expected.Revision,
-		OriginType:      "uploaded", // 0 in db
+		OriginType:      "uploaded",
 		CreatedAt:       now,
 		Name:            expected.Name,
 		Type:            charmresource.TypeFile,
@@ -2216,6 +2216,11 @@ type resourceData struct {
 
 // toCharmResource converts a resourceData object to a charmresource.Resource object.
 func (d resourceData) toCharmResource() charmresource.Resource {
+	origin, err := charmresource.ParseOrigin(d.OriginType)
+	if err != nil {
+		// default case
+		origin = charmresource.OriginUpload
+	}
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        d.Name,
@@ -2223,7 +2228,7 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 			Path:        d.Path,
 			Description: d.Description,
 		},
-		Origin:   charmresource.Origin(OriginTypeID(d.OriginType)),
+		Origin:   origin,
 		Revision: d.Revision,
 		// todo(gfouillet): deal with fingerprint & size
 		Fingerprint: charmresource.Fingerprint{},

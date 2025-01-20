@@ -54,7 +54,7 @@ type resourceView struct {
 	Name            string    `db:"name"`
 	CreatedAt       time.Time `db:"created_at"`
 	Revision        int       `db:"revision"`
-	OriginTypeId    int       `db:"origin_type_id"`
+	OriginType      string    `db:"origin_type"`
 	RetrievedBy     string    `db:"retrieved_by"`
 	RetrievedByType string    `db:"retrieved_by_type"`
 	Path            string    `db:"path"`
@@ -71,6 +71,10 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 	if err != nil {
 		return charmresource.Resource{}, errors.Errorf("converting resource type: %w", err)
 	}
+	origin, err := charmresource.ParseOrigin(rv.OriginType)
+	if err != nil {
+		return charmresource.Resource{}, errors.Errorf("converting origin type: %w", err)
+	}
 	var fingerprint charmresource.Fingerprint
 	if rv.SHA384 != "" {
 		fingerprint, err = charmresource.ParseFingerprint(rv.SHA384)
@@ -86,7 +90,7 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 			Path:        rv.Path,
 			Description: rv.Description,
 		},
-		Origin:      charmresource.Origin(rv.OriginTypeId),
+		Origin:      origin,
 		Revision:    rv.Revision,
 		Fingerprint: fingerprint,
 		Size:        rv.Size,
