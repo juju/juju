@@ -120,7 +120,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Constraint
 		"constraint",
-		"constraint_container_type",
 		"constraint_tag",
 		"constraint_space",
 		"constraint_zone",
@@ -142,6 +141,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"machine_cloud_instance_status",
 		"machine_cloud_instance_status_data",
 		"machine_lxd_profile",
+		"container_type",
 
 		// Charm
 		"architecture",

@@ -14,19 +14,8 @@ CREATE TABLE "constraint" (
     image_id TEXT,
     CONSTRAINT fk_constraint_container_type
     FOREIGN KEY (container_type_id)
-    REFERENCES constraint_container_type (id)
+    REFERENCES container_type (id)
 );
-
--- constraint_container_type represents the valid container types that a
--- constraint can have.
-CREATE TABLE constraint_container_type (
-    id INT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
-INSERT INTO constraint_container_type VALUES
-(0, 'none'),
-(1, 'lxd');
 
 CREATE TABLE constraint_tag (
     constraint_uuid TEXT NOT NULL,
