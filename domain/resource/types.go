@@ -135,6 +135,10 @@ type StoreResourceArgs struct {
 	Size int64
 	// Fingerprint is the hash of the resource blob.
 	Fingerprint charmresource.Fingerprint
+	// Origin is where the resource blob comes from.
+	Origin charmresource.Origin
+	// Revision indicates the resource revision.
+	Revision int
 }
 
 // RecordStoredResourceArgs holds the arguments for record stored resource state
@@ -159,4 +163,8 @@ type RecordStoredResourceArgs struct {
 	Size int64
 	// SHA384 is the hash of the resource blob.
 	SHA384 string
+	// Origin is where the resource blob comes from.
+	Origin charmresource.Origin
+	// Revision indicates the resource revision.
+	Revision int
 }

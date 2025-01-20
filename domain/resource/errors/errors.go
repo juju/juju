@@ -53,4 +53,8 @@ const (
 	// cannot be found in the relevant resource persistence layer for its
 	// resource type.
 	StoredResourceNotFound = errors.ConstError("stored resource not found")
+
+	// ResourceRevisionNotValid describes an error where the resource origin is
+	// not valid.
+	ResourceRevisionNotValid = errors.ConstError("resource revision not valid")
 )

@@ -458,6 +458,11 @@ func (st *State) RecordStoredResource(
 			return errors.Errorf("unknown resource type: %q", args.ResourceType.String())
 		}
 
+		err := st.updateOriginAndRevision(ctx, tx, args.ResourceUUID, args.Origin, args.Revision)
+		if err != nil {
+			return errors.Errorf("updating resource revision and origin: %w", err)
+		}
+
 		if args.RetrievedBy != "" {
 			err := st.upsertRetrievedBy(ctx, tx, args.ResourceUUID, args.RetrievedBy, args.RetrievedByType)
 			if err != nil {
@@ -748,6 +753,49 @@ ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved
 		return errors.Capture(err)
 	} else if rows != 1 {
 		return errors.Errorf("updating charm modified version: expected 1 row affected, got %d", rows)
+	}
+
+	return nil
+}
+
+// updateOriginAndRevision sets the resource origin and revision.
+func (st *State) updateOriginAndRevision(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resourceUUID coreresource.UUID,
+	origin charmresource.Origin,
+	revision int,
+) error {
+	originAndRevision := resourceOriginAndRevision{
+		UUID:     resourceUUID.String(),
+		Origin:   origin.String(),
+		Revision: revision,
+	}
+	updateOriginAndRevisionStmt, err := st.Prepare(`
+UPDATE resource
+SET    revision = $resourceOriginAndRevision.revision,
+       origin_type_id = (
+    SELECT id
+    FROM resource_origin_type
+    WHERE name = $resourceOriginAndRevision.origin_name
+)
+WHERE  uuid = $resourceOriginAndRevision.uuid
+`, originAndRevision)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, updateOriginAndRevisionStmt, originAndRevision).Get(&outcome)
+	if err != nil {
+		return errors.Errorf("updating resource origin and revision: %w", err)
+	}
+
+	rows, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	} else if rows != 1 {
+		return errors.Errorf("updating resource origin and revision: expected 1 row affected, got %d", rows)
 	}
 
 	return nil

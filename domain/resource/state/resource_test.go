@@ -708,7 +708,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
 	retrievedByType := resource.Application
-	droppedFingerprint, err := s.state.RecordStoredResource(
+	droppedHash, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -718,10 +718,11 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 			ResourceType:    charmresource.TypeContainerImage,
 			Size:            size,
 			SHA384:          hash,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedFingerprint.IsZero(), gc.Equals, true)
+	c.Assert(droppedHash, gc.Equals, "")
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -763,7 +764,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
 	retrievedByType := resource.Unit
-	droppedFingerprint, err := s.state.RecordStoredResource(
+	droppedHash, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -773,10 +774,11 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 			ResourceType:    charmresource.TypeFile,
 			Size:            size,
 			SHA384:          hash,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedFingerprint.IsZero(), gc.Equals, true)
+	c.Assert(droppedHash, gc.Equals, "")
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -829,6 +831,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			IncrementCharmModifiedVersion: true,
 			SHA384:                        hash,
 			Size:                          size,
+			Origin:                        charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -844,6 +847,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			IncrementCharmModifiedVersion: true,
 			SHA384:                        hash2,
 			Size:                          size2,
+			Origin:                        charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -872,6 +876,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 			ResourceType: charmresource.TypeContainerImage,
 			SHA384:       hash,
 			Size:         size,
+			Origin:       charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -888,7 +893,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	retrievedByType1 := resource.Unit
 
 	// Arrange: store the first resource.
-	droppedFingerprint1, err := s.state.RecordStoredResource(
+	droppedHash1, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -898,10 +903,11 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			Size:            size1,
 			RetrievedBy:     retrievedBy1,
 			RetrievedByType: retrievedByType1,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Check(droppedFingerprint1.IsZero(), gc.Equals, true)
+	c.Check(droppedHash1, gc.Equals, "")
 
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
@@ -913,7 +919,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
-	droppedFingerprint2, err := s.state.RecordStoredResource(
+	droppedHash2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -923,10 +929,11 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			Size:            size2,
 			RetrievedBy:     retrievedBy2,
 			RetrievedByType: retrievedByType2,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(droppedFingerprint2, gc.DeepEquals, hash1)
+	c.Assert(droppedHash2, gc.DeepEquals, hash1)
 	// Assert: Check that the resource has been linked to the stored blob
 	var foundStoreUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -951,7 +958,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	retrievedByType1 := resource.Unit
 
 	// Arrange: store the first resource.
-	droppedFingerprint1, err := s.state.RecordStoredResource(
+	droppedHash1, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -961,10 +968,11 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			RetrievedByType: retrievedByType1,
 			SHA384:          hash1,
 			Size:            size1,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedFingerprint1.IsZero(), gc.Equals, true)
+	c.Assert(droppedHash1, gc.Equals, "")
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
@@ -976,7 +984,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
-	droppedFingerprint2, err := s.state.RecordStoredResource(
+	droppedHash2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -986,10 +994,11 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			RetrievedByType: retrievedByType2,
 			SHA384:          hash2,
 			Size:            size2,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(droppedFingerprint2, gc.DeepEquals, hash1)
+	c.Assert(droppedHash2, gc.DeepEquals, hash1)
 	// Assert: Check that the resource has been linked to the stored blob
 	var foundStoreUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1005,6 +1014,98 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
 	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
 	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
+}
+
+// TestRecordStoredResourceOriginAndRevision checks that resource origin and
+// revision are set correctly.
+func (s *resourceSuite) TestRecordStoredResourceStoreOriginAndRevision(c *gc.C) {
+	// Arrange: Create file resource.
+	resID, storeID, _, _ := s.createFileResourceAndBlob(c)
+	origin := charmresource.OriginStore
+	revision := 8
+
+	// Act: store the resource blob.
+	_, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			Origin:       origin,
+			Revision:     revision,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+
+	// Assert: Check that the origin and revision have been set.
+	var (
+		foundOrigin   string
+		foundRevision int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT rot.name, r.revision 
+FROM   resource r
+JOIN   resource_origin_type rot ON r.origin_type_id = rot.id
+WHERE  r.uuid = ?`, resID).Scan(&foundOrigin, &foundRevision)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(foundOrigin, gc.Equals, origin.String())
+	c.Check(foundRevision, gc.Equals, revision)
+}
+
+// TestRecordStoredResourceOriginAndRevision checks that resource origin and
+// revision are set correctly.
+func (s *resourceSuite) TestRecordStoredResourceUpdateOriginAndRevision(c *gc.C) {
+	// Arrange: Create file resource.
+	resID, storeID, _, _ := s.createFileResourceAndBlob(c)
+	origin1 := charmresource.OriginStore
+	revision1 := 8
+
+	origin2 := charmresource.OriginUpload
+	revision2 := -1
+
+	// Arrange: Store the first origin and revision.
+	_, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			Origin:       origin1,
+			Revision:     revision1,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+
+	// Act: store the second origin and revision
+	_, err = s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			Origin:       origin2,
+			Revision:     revision2,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+
+	// Assert: Check that the origin and revision have been set.
+	var (
+		foundOrigin   string
+		foundRevision int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT rot.name, r.revision 
+FROM   resource r
+JOIN   resource_origin_type rot ON r.origin_type_id = rot.id
+WHERE  r.uuid = ?`, resID).Scan(&foundOrigin, &foundRevision)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(foundOrigin, gc.Equals, origin2.String())
+	c.Check(foundRevision, gc.Equals, revision2)
 }
 
 func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObjectStore(c *gc.C) {
@@ -1742,6 +1843,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 			ResourceType:    charmresource.TypeFile,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	return err

@@ -32,6 +32,13 @@ type resourceKind struct {
 	UUID string `db:"uuid"`
 }
 
+// resourceOriginAndRevision represents the origin and revision of a resource
+type resourceOriginAndRevision struct {
+	UUID     string `db:"uuid"`
+	Origin   string `db:"origin_name"`
+	Revision int    `db:"revision"`
+}
+
 // resourceView represents the view model for a resource entity. It contains
 // all fields from v_resource table view.
 type resourceView struct {
