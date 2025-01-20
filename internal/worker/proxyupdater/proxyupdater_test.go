@@ -622,9 +622,10 @@ func (s *ProxyUpdaterSuite) TestAptMirror(c *gc.C) {
 #!/bin/bash
 set -e
 (
-old_archive_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
-new_archive_mirror=http://mirror
-sed -i s,$old_archive_mirror,$new_archive_mirror, /etc/apt/sources.list
+old_archive_mirror=$(apt-cache policy | grep http | awk '{ $1="" ; print }' | sed 's/^ //g'  | grep "$(lsb_release -c -s)/main" | awk '{print $1; exit}')
+new_archive_mirror="http://mirror"
+[ -f "/etc/apt/sources.list" ] && sed -i s,$old_archive_mirror,$new_archive_mirror, "/etc/apt/sources.list"
+[ -f "/etc/apt/sources.list.d/ubuntu.sources" ] && sed -i s,$old_archive_mirror,$new_archive_mirror, "/etc/apt/sources.list.d/ubuntu.sources"
 old_prefix=/var/lib/apt/lists/$(echo $old_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 new_prefix=/var/lib/apt/lists/$(echo $new_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 [ "$old_prefix" != "$new_prefix" ] &&
@@ -634,9 +635,10 @@ for old in ${old_prefix}_*; do
       mv $old $new
     fi
 done
-old_security_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release)-security .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
-new_security_mirror=http://mirror
-sed -i s,$old_security_mirror,$new_security_mirror, /etc/apt/sources.list
+old_security_mirror=$(apt-cache policy | grep http | awk '{ $1="" ; print }' | sed 's/^ //g'  | grep "$(lsb_release -c -s)-security/main" | awk '{print $1; exit}')
+new_security_mirror="http://mirror"
+[ -f "/etc/apt/sources.list" ] && sed -i s,$old_security_mirror,$new_security_mirror, "/etc/apt/sources.list"
+[ -f "/etc/apt/sources.list.d/ubuntu.sources" ] && sed -i s,$old_security_mirror,$new_security_mirror, "/etc/apt/sources.list.d/ubuntu.sources"
 old_prefix=/var/lib/apt/lists/$(echo $old_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 new_prefix=/var/lib/apt/lists/$(echo $new_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 [ "$old_prefix" != "$new_prefix" ] &&

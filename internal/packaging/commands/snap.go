@@ -24,7 +24,6 @@ var snapCmder = packageCommander{
 	listAvailable:    makeNopCmd(),
 	listInstalled:    buildCommand(snapBinary, "list"),
 	addRepository:    makeNopCmd(),
-	listRepositories: makeNopCmd(),
 	removeRepository: makeNopCmd(),
 	cleanup:          makeNopCmd(),
 	// Note: proxy.{http,https} available since snapd 2.28

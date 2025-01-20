@@ -49,12 +49,6 @@ type PackageCommander interface {
 	// packages currently installed on the system.
 	ListInstalledCmd() string
 
-	// ListRepositoriesCmd returns the command that lists all repositories
-	// currently configured on the system.
-	// NOTE: requires the prerequisite package whose installation command
-	// is given by InstallPrerequisiteCmd().
-	ListRepositoriesCmd() string
-
 	// AddRepositoryCmd returns the command that adds a repository to the
 	// list of available repositories.
 	// NOTE: requires the prerequisite package whose installation command
