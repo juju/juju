@@ -58,10 +58,9 @@ command definition and help information for the `set-qotd-author`:
 package qotd
 
 import (
-  "github.com/juju/cmd/v4"
-
   jujucmd "github.com/juju/juju/cmd"
   "github.com/juju/juju/cmd/modelcmd"
+  "github.com/juju/juju/internal/cmd"
 )
 
 // setQOTDAuthorCommand is the base of the set-qotd-author command.
@@ -84,7 +83,7 @@ func NewSetQOTDAuthorCommand() cmd.Command {
 }
 
 // Info defines the name of the command and the command documentation. It
-// implements command.Info from the juju/cmd package.
+// implements command.Info from the cmd package.
 func (c *setQOTDAuthorCommand) Info() *cmd.Info {
   // jujucmd.Info adds flags common to all juju cli commands>
   return jujucmd.Info(&cmd.Info{
@@ -101,11 +100,9 @@ func (c *setQOTDAuthorCommand) Info() *cmd.Info {
 }
 ```
 
-Here you have made use of the `juju/cmd` package to define the command. Our
+Here you have made use of the `internal/cmd` package to define the command. Our
 command needs to implement the `Command` interface defined in this package. We
 can then register it with the Juju CLI.
-
-> See more: [github.com/juju/cmd](https://github.com/juju/cmd), [`Command` interface](https://github.com/juju/cmd?tab=readme-ov-file#type-command)
 
 Now, add the `SetFlags`, `Init` and `Run` methods to the command.
 
@@ -119,7 +116,7 @@ First, add the imports:
 Then add the methods:
 ```go
 // SetFlags adds flags to the command. It is part of the Command interface in
-// the juju/cmd package.
+// the internal/cmd package.
 func (c *setQOTDAuthorCommand) SetFlags(f *gnuflag.FlagSet) {
 	// Collect the default output formatters.
 	formatters := make(map[string]cmd.Formatter, len(cmd.DefaultFormatters))
@@ -133,7 +130,7 @@ func (c *setQOTDAuthorCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command before running it. It collects the user supplied
 // arguments and throws an error if they are not as expected. It is part of the
-// Command interface in the juju/cmd package.
+// Command interface in the internal/cmd package.
 func (c *setQOTDAuthorCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
@@ -148,7 +145,7 @@ func (c *setQOTDAuthorCommand) Init(args []string) error {
 }
 
 // Run executes the action of the command. It is part of the Command interface
-// in the juju/cmd package.
+// in the internal/cmd package.
 func (c *setQOTDAuthorCommand) Run(ctx *cmd.Context) error {
 	// For now, just tell the user what they wrote.
 	return c.out.Write(ctx, "Quote author set to \""+c.author+"\"")
@@ -207,10 +204,11 @@ and returns the right errors.
 
 Add the imports:
 ```go
-	"github.com/juju/cmd/v4/cmdtesting"
-	jc "github.com/juju/testing/checkers"
+    jc "github.com/juju/testing/checkers"
 
-	"github.com/juju/juju/cmd/juju/qotd"
+    "github.com/juju/juju/cmd/juju/qotd"
+    "github.com/juju/juju/internal/cmd/cmdtesting"
+
 ```
 
 And the tests:
