@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v3/manager"
+	"github.com/juju/packaging/v4/manager"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"

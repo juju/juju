@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/packaging/v3"
-	"github.com/juju/packaging/v3/config"
+	"github.com/juju/packaging/v4"
+	"github.com/juju/packaging/v4/config"
 	"gopkg.in/yaml.v2"
 
 	corenetwork "github.com/juju/juju/core/network"

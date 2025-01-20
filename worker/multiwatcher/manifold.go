@@ -97,6 +97,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	allWatcher, err := config.NewAllWatcher(pool)
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 
