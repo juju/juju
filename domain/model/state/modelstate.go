@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
@@ -24,6 +25,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
+
+// NONEContainerType is the default container type.
+var NONEContainerType = instance.NONE
 
 // ModelState represents a type for interacting with the underlying model
 // database state.
@@ -126,8 +130,8 @@ func (s *ModelState) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel
 }
 
 // GetModelConstraints returns the current model constraints.
-// It returns an error satisfying [modelerrors.NotFound] if the model does not exist,
-// [modelerrors.ModelConstraintNotFound] if the model does not have a constraint configured.
+// It returns an error satisfying [modelerrors.NotFound] if the model does not exist.
+// It returns an empty constraints.Value if the model does not have a constraint configured.
 func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -197,14 +201,27 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
-	return cons.toValue(tags, spaces, zones), nil
+	return cons.toValue(tags, spaces, zones)
 }
 
 func (s *ModelState) getModelConstraints(ctx context.Context, modelUUID coremodel.UUID, tx *sqlair.TX) (dbConstraint, error) {
 	stmt, err := s.Prepare(`
-SELECT (c.*) AS (&dbConstraint.*)
+SELECT c.uuid AS &dbConstraint.uuid,
+       c.arch AS &dbConstraint.arch,
+       c.cpu_cores AS &dbConstraint.cpu_cores,
+       c.cpu_power AS &dbConstraint.cpu_power,
+       c.mem AS &dbConstraint.mem,
+       c.root_disk AS &dbConstraint.root_disk,
+       c.root_disk_source AS &dbConstraint.root_disk_source,
+       c.instance_role AS &dbConstraint.instance_role,
+       c.instance_type AS &dbConstraint.instance_type,
+       ct.value AS &dbConstraint.container_type,
+       c.virt_type AS &dbConstraint.virt_type,
+       c.allocate_public_ip AS &dbConstraint.allocate_public_ip,
+       c.image_id AS &dbConstraint.image_id
 FROM   model_constraint mc
        JOIN "constraint" c ON c.uuid = mc.constraint_uuid
+       JOIN container_type ct ON ct.id = c.container_type_id
 WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 `, dbConstraint{}, dbModelConstraint{})
 	if err != nil {
@@ -224,12 +241,15 @@ WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 }
 
 // SetModelConstraints sets the model constraints, including tags, spaces, and zones.
-// It returns an error satisfying [modelerrors.ModelConstraintSpaceDoesNotExist] if a space to set does not exist,
+// It returns an error satisfying [networkerrors.SpaceNotFound] if a space to set does not exist,
 // [modelerrors.NotFound] if the model does not exist.
 func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constraints.Value) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
+	}
+	if consValue.Container == nil {
+		consValue.Container = &NONEContainerType
 	}
 
 	insertModelConstraintStmt, err := s.Prepare(`
@@ -240,21 +260,50 @@ VALUES ($dbModelConstraint.*)`, dbModelConstraint{})
 	}
 
 	upsertConstraintStmt, err := s.Prepare(`
-INSERT INTO "constraint" (*)
-VALUES ($dbConstraint.*)
+INSERT INTO "constraint" (
+    uuid,
+    arch,
+    cpu_cores,
+    cpu_power,
+    mem,
+    root_disk,
+    root_disk_source,
+    instance_role,
+    instance_type,
+    container_type_id,
+    virt_type,
+    allocate_public_ip,
+    image_id
+)
+SELECT $dbConstraint.uuid,
+       $dbConstraint.arch,
+       $dbConstraint.cpu_cores,
+       $dbConstraint.cpu_power,
+       $dbConstraint.mem,
+       $dbConstraint.root_disk,
+       $dbConstraint.root_disk_source,
+       $dbConstraint.instance_role,
+       $dbConstraint.instance_type,
+       ct.id,
+       $dbConstraint.virt_type,
+       $dbConstraint.allocate_public_ip,
+       $dbConstraint.image_id
+FROM container_type ct
+WHERE ct.value = $dbConstraint.container_type
 ON CONFLICT (uuid)
 DO UPDATE SET
-	arch = $dbConstraint.arch,
-	cpu_cores = $dbConstraint.cpu_cores,
-	cpu_power = $dbConstraint.cpu_power,
-	mem = $dbConstraint.mem,
-	root_disk = $dbConstraint.root_disk,
-	root_disk_source = $dbConstraint.root_disk_source,
-	instance_role = $dbConstraint.instance_role,
-	instance_type = $dbConstraint.instance_type,
-	virt_type = $dbConstraint.virt_type,
-	allocate_public_ip = $dbConstraint.allocate_public_ip,
-	image_id = $dbConstraint.image_id
+	arch=excluded.arch,
+	cpu_cores=excluded.cpu_cores,
+	cpu_power=excluded.cpu_power,
+	mem=excluded.mem,
+	root_disk=excluded.root_disk,
+	root_disk_source=excluded.root_disk_source,
+	instance_role=excluded.instance_role,
+	instance_type=excluded.instance_type,
+	container_type_id=excluded.container_type_id,
+	virt_type=excluded.virt_type,
+	allocate_public_ip=excluded.allocate_public_ip,
+	image_id=excluded.image_id
 `, dbConstraint{})
 	if err != nil {
 		return errors.Capture(err)
@@ -279,6 +328,7 @@ DO UPDATE SET
 		existingConstraint.RootDiskSource = consValue.RootDiskSource
 		existingConstraint.InstanceRole = consValue.InstanceRole
 		existingConstraint.InstanceType = consValue.InstanceType
+		existingConstraint.ContainerType = (*string)(consValue.Container)
 		existingConstraint.VirtType = consValue.VirtType
 		existingConstraint.AllocatePublicIP = consValue.AllocatePublicIP
 		existingConstraint.ImageID = consValue.ImageID

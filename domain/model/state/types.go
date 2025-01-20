@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -453,22 +454,34 @@ type dbConstraint struct {
 	ImageID          *string `db:"image_id"`
 }
 
-func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) constraints.Value {
+func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
 	if c.UUID == "" {
-		return constraints.Value{}
+		return constraints.Value{}, nil
 	}
+
 	consVal := constraints.Value{
-		Arch:             c.Arch,
-		CpuCores:         c.CPUCores,
-		CpuPower:         c.CPUPower,
-		Mem:              c.Mem,
-		RootDisk:         c.RootDisk,
-		RootDiskSource:   c.RootDiskSource,
-		InstanceRole:     c.InstanceRole,
-		InstanceType:     c.InstanceType,
-		VirtType:         c.VirtType,
-		AllocatePublicIP: c.AllocatePublicIP,
-		ImageID:          c.ImageID,
+		Arch:           c.Arch,
+		CpuCores:       c.CPUCores,
+		CpuPower:       c.CPUPower,
+		Mem:            c.Mem,
+		RootDisk:       c.RootDisk,
+		RootDiskSource: c.RootDiskSource,
+		InstanceRole:   c.InstanceRole,
+		InstanceType:   c.InstanceType,
+		VirtType:       c.VirtType,
+		ImageID:        c.ImageID,
+	}
+	if c.AllocatePublicIP != nil && *c.AllocatePublicIP {
+		consVal.AllocatePublicIP = c.AllocatePublicIP
+	}
+	if c.ContainerType != nil {
+		containerType, err := instance.ParseContainerTypeOrNone(*c.ContainerType)
+		if err != nil {
+			// This should never happen as the container type is validated when
+			// it is inserted into the database.
+			return constraints.Value{}, errors.Annotatef(err, "parsing container type %q", *c.ContainerType)
+		}
+		consVal.Container = &containerType
 	}
 
 	for _, tag := range tags {
@@ -494,7 +507,7 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 		}
 		*consVal.Zones = append(*consVal.Zones, zone.Zone)
 	}
-	return consVal
+	return consVal, nil
 }
 
 type dbConstraintTag struct {
