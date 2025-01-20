@@ -28,8 +28,10 @@ import (
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/secrets"
@@ -41,6 +43,11 @@ var logger = loggo.GetLogger("juju.secrets.provider.kubernetes")
 const (
 	// BackendType is the type of the Kubernetes secrets backend.
 	BackendType = "kubernetes"
+)
+
+const (
+	controllerIdLabel = "controller.juju.is/id"
+	modelIdLabel      = "model.juju.is/id"
 )
 
 // These are patched for testing.
@@ -146,7 +153,8 @@ func (p k8sProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = broker.ensureSecretAccessToken(context.TODO(), tag, nil, nil, removed.RevisionIDs())
+	_, err = broker.ensureSecretAccessToken(
+		context.TODO(), cfg.ControllerUUID, cfg.ModelUUID, cfg.ModelName, tag, nil, nil, removed.RevisionIDs())
 	return errors.Trace(err)
 }
 
@@ -230,7 +238,8 @@ func (p k8sProvider) RestrictedConfig(
 		return nil, errors.Trace(err)
 	}
 	ctx := context.TODO()
-	token, err := broker.ensureSecretAccessToken(ctx, consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
+	token, err := broker.ensureSecretAccessToken(
+		ctx, adminCfg.ControllerUUID, adminCfg.ModelUUID, adminCfg.ModelName, consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -344,7 +353,9 @@ func (k *kubernetesClient) ensureServiceAccount(ctx context.Context, sa *core.Se
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listServiceAccount(ctx, sa.GetLabels())
+	_, err = k.listServiceAccount(ctx, map[string]string{
+		constants.LabelKubernetesAppManaged: "juju",
+	})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// sa.Name is already used for an existing service account.
@@ -476,10 +487,6 @@ func rulesForSecretAccess(
 }
 
 func (k *kubernetesClient) ensureBindingForSecretAccessToken(ctx context.Context, sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
-	if k.isControllerModel {
-		return k.ensureClusterBindingForSecretAccessToken(ctx, sa, objMeta, owned, read, removed)
-	}
-
 	role, err := k.getRole(ctx, objMeta.Name)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
@@ -574,7 +581,6 @@ func (k *kubernetesClient) getClusterRole(ctx context.Context, name string) (*rb
 }
 
 func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(ctx context.Context, sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
-	objMeta.Name = fmt.Sprintf("%s-%s", k.namespace, objMeta.Name)
 	clusterRole, err := k.getClusterRole(ctx, objMeta.Name)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
@@ -634,15 +640,54 @@ func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(ctx context.
 	}))
 }
 
-func (k *kubernetesClient) ensureSecretAccessToken(ctx context.Context, tag names.Tag, owned, read, removed []string) (string, error) {
-	appName := tag.Id()
-	if tag.Kind() == names.UnitTagKind {
-		appName, _ = names.UnitApplication(tag.Id())
+const (
+	maxResourceNameLength = 63
+	clusterResourcePrefix = "juju-secrets-"
+)
+
+func (k *kubernetesClient) ensureSecretAccessToken(ctx context.Context, controllerUUID, modelUUID, modelName string, consumer names.Tag, owned, read, removed []string) (string, error) {
+	labels := utils.LabelsMerge(
+		utils.LabelsJuju,
+		map[string]string{
+			controllerIdLabel:            controllerUUID,
+			modelIdLabel:                 modelUUID,
+			constants.LabelJujuModelName: modelName,
+		})
+
+	if consumer.Kind() != names.ModelTagKind {
+		appName := consumer.Id()
+		if consumer.Kind() == names.UnitTagKind {
+			appName, _ = names.UnitApplication(consumer.Id())
+		}
+		labels = utils.LabelsMerge(labels,
+			map[string]string{
+				constants.LabelKubernetesAppName: appName,
+			})
 	}
-	labels := utils.LabelsForApp(appName, false)
+
+	// Compose the name of the service account and role and role binding.
+	// We'll use the tag string, but for models we'll use the model name, since
+	// the UUID will be used to disambiguate anyway.
+	resourceName := consumer.String()
+	if consumer.Kind() == names.ModelTagKind {
+		resourceName = fmt.Sprintf("model-%s", modelName)
+	}
+	// For the controller model, the resources are cluster scoped so
+	// given them a meaningful prefix.
+	if k.isControllerModel {
+		resourceName = clusterResourcePrefix + resourceName
+	}
+	// If the resources are going to a namespace other than that of the host model,
+	// disambiguate the name.
+	if k.namespace != modelName || k.isControllerModel {
+		var err error
+		if resourceName, err = model.DisambiguateResourceName(modelUUID, resourceName, maxResourceNameLength); err != nil {
+			return "", errors.Annotatef(err, "disambiguating resource name %q", resourceName)
+		}
+	}
 
 	objMeta := v1.ObjectMeta{
-		Name:      tag.String(),
+		Name:      resourceName,
 		Labels:    labels,
 		Namespace: k.namespace,
 	}
@@ -657,8 +702,14 @@ func (k *kubernetesClient) ensureSecretAccessToken(ctx context.Context, tag name
 		return "", errors.Annotatef(err, "cannot ensure service account %q", sa.GetName())
 	}
 
-	if err := k.ensureBindingForSecretAccessToken(ctx, sa, objMeta, owned, read, removed); err != nil {
-		return "", errors.Trace(err)
+	if k.isControllerModel {
+		if err := k.ensureClusterBindingForSecretAccessToken(ctx, sa, objMeta, owned, read, removed); err != nil {
+			return "", errors.Trace(err)
+		}
+	} else {
+		if err := k.ensureBindingForSecretAccessToken(ctx, sa, objMeta, owned, read, removed); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
 	treq := &authenticationv1.TokenRequest{
