@@ -83,7 +83,7 @@ func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
 		NoTail:        reqParams.noTail,
 		Firehose:      reqParams.firehose,
 		StartTime:     reqParams.startTime,
-		InitialLines:  int(reqParams.backlog),
+		InitialLines:  int(reqParams.initialLines),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,

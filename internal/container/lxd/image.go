@@ -85,7 +85,7 @@ func (s *Server) FindImage(
 	// that might identify the image we want.
 	alias, err := constructBaseRemoteAlias(base, arch)
 	if err != nil {
-		return sourced, errors.Trace(err)
+		return SourcedImage{}, errors.Trace(err)
 	}
 
 	for _, remote := range sources {
@@ -99,7 +99,10 @@ func (s *Server) FindImage(
 		// Locate the image using the aliases. This will return the first
 		// image found that matches the alias.
 		res, _, err := source.GetImageAliasType(string(virtType), alias)
-		if err == nil && res != nil && res.Target != "" {
+		if err != nil {
+			logger.Debugf("failed to get alias %q from %q: %s", alias, remote.Name, err)
+			continue
+		} else if err == nil && res != nil && res.Target != "" {
 			// If the image is found by an alias prefer that over the one
 			// from the local alias.
 			target = res.Target
@@ -145,6 +148,11 @@ func (s *Server) FindImage(
 		} else {
 			lastErr = errors.Trace(err)
 		}
+
+		logger.Debugf("found image remotely - %q %q %q", remote.Name, image.Filename, target)
+		sourced.Image = image
+		sourced.LXDServer = source
+		break
 	}
 
 	// We use the absence of a sourced image to indicate that we didn't find

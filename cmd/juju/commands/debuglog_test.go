@@ -60,11 +60,11 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				"-i", "foo/3",
 				"--include", "bar"},
 			expected: common.DebugLogParams{
+				Backlog: 10,
 				IncludeEntity: []string{
 					"machine-1", "machine-2",
 					"unit-foo-2", "unit-foo-3",
 					"unit-bar-*"},
-				Backlog: 10,
 			},
 		}, {
 			args: []string{
@@ -74,23 +74,23 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				"-x", "foo/3",
 				"--exclude", "bar"},
 			expected: common.DebugLogParams{
+				Backlog: 10,
 				ExcludeEntity: []string{
 					"machine-1", "machine-2",
 					"unit-foo-2", "unit-foo-3",
 					"unit-bar-*"},
-				Backlog: 10,
 			},
 		}, {
 			args: []string{"--include-module", "juju.foo", "--include-module", "unit"},
 			expected: common.DebugLogParams{
-				IncludeModule: []string{"juju.foo", "unit"},
 				Backlog:       10,
+				IncludeModule: []string{"juju.foo", "unit"},
 			},
 		}, {
 			args: []string{"--exclude-module", "juju.foo", "--exclude-module", "unit"},
 			expected: common.DebugLogParams{
-				ExcludeModule: []string{"juju.foo", "unit"},
 				Backlog:       10,
+				ExcludeModule: []string{"juju.foo", "unit"},
 			},
 		}, {
 			args: []string{"--include-labels", "logger-tags=http,apiserver"},
@@ -107,8 +107,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 		}, {
 			args: []string{"--replay"},
 			expected: common.DebugLogParams{
-				Backlog: 10,
-				Replay:  true,
+				Replay: true,
 			},
 		}, {
 			args: []string{"--firehose"},
@@ -125,12 +124,56 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 		}, {
 			args: []string{"--limit", "100"},
 			expected: common.DebugLogParams{
-				Backlog: 10,
-				Limit:   100,
+				Limit: 100,
 			},
 		}, {
 			args:     []string{"--retry-delay", "-1s"},
 			errMatch: `negative retry delay not valid`,
+		}, {
+			args:     []string{"--no-tail", "--tail"},
+			errMatch: `setting --tail and --no-tail not valid`,
+		}, {
+			args:     []string{"--limit", "20", "--tail"},
+			errMatch: `setting --tail and --limit not valid`,
+		}, {
+			args:     []string{"--limit", "0", "--tail"},
+			errMatch: `setting --tail and --limit not valid`,
+		}, {
+			args:     []string{"--lines", "30", "--no-tail"},
+			errMatch: `setting --no-tail and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "0", "--no-tail"},
+			errMatch: `setting --no-tail and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "30", "--limit", "50"},
+			errMatch: `setting --limit and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "0", "--limit", "50"},
+			errMatch: `setting --limit and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "30", "--limit", "0"},
+			errMatch: `setting --limit and --lines not valid`,
+		}, {
+			args:     []string{"--replay", "--lines", "40"},
+			errMatch: `setting --replay and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "40", "--replay"},
+			errMatch: `setting --replay and --lines not valid`,
+		}, {
+			args:     []string{"--replay", "--lines", "0"},
+			errMatch: `setting --replay and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "30", "--include-module", "unit", "--limit", "50"},
+			errMatch: `setting --limit and --lines not valid`,
+		}, {
+			args:     []string{"--replay", "-l", "INFO", "--lines", "40"},
+			errMatch: `setting --replay and --lines not valid`,
+		}, {
+			args:     []string{"--no-tail", "-l", "ERROR", "--exclude-label", "http", "--lines", "40"},
+			errMatch: `setting --no-tail and --lines not valid`,
+		}, {
+			args:     []string{"--lines", "30", "--no-tail", "--limit", "50"},
+			errMatch: `setting --no-tail and --lines not valid`,
 		},
 	} {
 		c.Logf("test %v", i)
@@ -156,7 +199,6 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--include-module=juju.provisioner",
 		"--lines=500",
 		"--level=WARNING",
-		"--no-tail",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fake.params, gc.DeepEquals, common.DebugLogParams{
@@ -165,7 +207,6 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		ExcludeEntity: []string{"machine-1-lxd-1"},
 		Backlog:       500,
 		Level:         loggo.WARNING,
-		NoTail:        true,
 	})
 }
 
