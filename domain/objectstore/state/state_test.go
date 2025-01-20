@@ -47,6 +47,45 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	c.Check(received, gc.DeepEquals, metadata)
 }
 
+func (s *stateSuite) TestGetMetadataBySHA256Found(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3",
+		SHA384: "sha384-1",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "b867951a18e694f3415cbef36be5a05de2d43f795f87c87756749e7bb6545b11",
+		SHA384: "sha384-2",
+		Path:   "blah-foo-2",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadata(context.Background(), metadata1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.PutMetadata(context.Background(), metadata2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	received, err := st.GetMetadataBySHA256(context.Background(), "41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(received, gc.DeepEquals, metadata1)
+
+	received, err = st.GetMetadataBySHA256(context.Background(), "b867951a18e694f3415cbef36be5a05de2d43f795f87c87756749e7bb6545b11")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(received, gc.DeepEquals, metadata2)
+}
+
+func (s *stateSuite) TestGetMetadataBySHA256NotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetMetadataBySHA256(context.Background(), "deadbeef")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+}
+
 func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

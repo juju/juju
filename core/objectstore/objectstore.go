@@ -96,6 +96,12 @@ type ReadObjectStore interface {
 	// error is returned.
 	Get(context.Context, string) (io.ReadCloser, int64, error)
 
+	// GetBySHA256 returns an io.ReadCloser for the object with the given SHA256
+	// hash, namespaced to the model.
+	//
+	// If no object is found, an [objectstore.ObjectNotFound] error is returned.
+	GetBySHA256(context.Context, string) (io.ReadCloser, int64, error)
+
 	// GetBySHA256Prefix returns an io.ReadCloser for any object with the a SHA256
 	// hash starting with a given prefix, namespaced to the model.
 	//

@@ -19,7 +19,12 @@ type dbMetadata struct {
 	Size int64 `db:"size"`
 }
 
-type sha256Prefix struct {
+type sha256Ident struct {
+	// SHA256 is the prefix 256 hash of the object.
+	SHA256 string `db:"sha_256"`
+}
+
+type sha256IdentPrefix struct {
 	// SHA256Prefix is the prefix 256 hash of the object.
 	SHA256Prefix string `db:"sha_256_prefix"`
 }
