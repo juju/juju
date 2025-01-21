@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package resource
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 
 	"github.com/juju/errors"
 
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resource"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
@@ -31,8 +33,20 @@ type Resources interface {
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
-	resourceServiceGetter    ResourceServiceGetter
-	applicationServiceGetter ApplicationServiceGetter
+	serviceGetter ResourceAndApplicationServiceGetter
+	logger        logger.Logger
+}
+
+// NewResourceMigrationUploadHandler returns a new HTTP client for handling
+// resources uploads for model migrations.
+func NewResourceMigrationUploadHandler(
+	serviceGetter ResourceAndApplicationServiceGetter,
+	logger logger.Logger,
+) *resourcesMigrationUploadHandler {
+	return &resourcesMigrationUploadHandler{
+		serviceGetter: serviceGetter,
+		logger:        logger,
+	}
 }
 
 // ServeHTTP handles HTTP requests by delegating to ServePost for POST requests
@@ -46,8 +60,8 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 		err = errors.MethodNotAllowedf("method not allowed: %s", r.Method)
 	}
 	if err != nil {
-		if err := sendError(w, internalerrors.Capture(err)); err != nil {
-			logger.Errorf("cannot return error to user: %v", err)
+		if err := internalhttp.SendError(w, internalerrors.Capture(err), h.logger); err != nil {
+			h.logger.Errorf("cannot return error to user: %v", err)
 		}
 	}
 }
@@ -60,12 +74,12 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 	//  the request has been authenticated, and that the targeted model is in
 	//  `importing` state.
 
-	resourceService, err := h.resourceServiceGetter.Resource(r)
+	resourceService, err := h.serviceGetter.Resource(r)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
 
-	applicationService, err := h.applicationServiceGetter.Application(r)
+	applicationService, err := h.serviceGetter.Application(r)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -74,7 +88,7 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
-	return sendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
+	return internalhttp.SendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
 		ID:        res.UUID.String(),
 		Timestamp: res.Timestamp,
 	})
@@ -102,15 +116,15 @@ func (h *resourcesMigrationUploadHandler) processPost(
 
 	resUUID, err := resourceService.GetApplicationResourceID(ctx,
 		domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: target.appID,
-			Name:          target.name,
+			ApplicationID: target.AppID,
+			Name:          target.Name,
 		})
 	if err != nil {
 		return empty, internalerrors.Errorf("resource upload failed: %w", err)
 	}
 
-	if target.unitUUID != "" {
-		err := resourceService.SetUnitResource(ctx, resUUID, target.unitUUID)
+	if target.UnitUUID != "" {
+		err := resourceService.SetUnitResource(ctx, resUUID, target.UnitUUID)
 		if err != nil {
 			return empty, internalerrors.Capture(err)
 		}
@@ -121,20 +135,20 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			retrievedBy     string
 			retrievedByType coreresource.RetrievedByType
 		)
-		if target.unitUUID != "" {
-			retrievedBy = target.unitUUID.String()
-			retrievedByType = coreresource.Unit
+		if target.UnitUUID != "" {
+			retrievedBy = target.UnitUUID.String()
+			retrievedByType = resource.Unit
 		} else if userID != "" {
 			retrievedBy = userID
 			retrievedByType = coreresource.User
 		} else {
-			retrievedBy = target.appID.String()
-			retrievedByType = coreresource.Application
+			retrievedBy = target.AppID.String()
+			retrievedByType = resource.Application
 		}
 
 		details, err := resourceDetailsFromQuery(query)
 		if err != nil {
-			return empty, errors.Errorf("extracting resource details from request: %w", err)
+			return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
 		}
 
 		err = resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{
@@ -161,10 +175,10 @@ func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
 }
 
-type resourceUploadTarget struct {
-	name     string
-	appID    coreapplication.ID
-	unitUUID coreunit.UUID
+type ResourceUploadTarget struct {
+	Name     string
+	AppID    coreapplication.ID
+	UnitUUID coreunit.UUID
 }
 
 // getUploadTarget resolves the upload target by determining the application ID
@@ -177,7 +191,7 @@ func getUploadTarget(
 	ctx context.Context,
 	service ApplicationService,
 	query url.Values,
-) (target resourceUploadTarget, err error) {
+) (target ResourceUploadTarget, err error) {
 	// Validate parameters
 	target.name = query.Get("name")
 	appName := query.Get("application")
@@ -200,16 +214,16 @@ func getUploadTarget(
 		if err != nil {
 			return target, errors.BadRequestf(err.Error())
 		}
-		target.unitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
+		target.UnitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
 		if err != nil {
 			return target, internalerrors.Capture(err)
 		}
-		target.appID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
+		target.AppID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
 		return target, internalerrors.Capture(err)
 	}
 
 	// Resolve target by appName
-	target.appID, err = service.GetApplicationIDByName(ctx, appName)
+	target.AppID, err = service.GetApplicationIDByName(ctx, appName)
 	return target, internalerrors.Capture(err)
 }
 
@@ -226,8 +240,12 @@ type resourceDetails struct {
 
 // resourceDetailsFromQuery extracts details about the uploaded resource from
 // the request.
-func resourceDetailsFromQuery(query url.Values) (details resourceDetails, err error) {
-	details.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
+func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
+	var (
+		details resourceDetails
+		err     error
+	)
+	details.origin, err = charmresource.ParseOrigin(query.Get("origin"))
 	if err != nil {
 		return details, errors.BadRequestf("invalid origin")
 	}
@@ -244,16 +262,4 @@ func resourceDetailsFromQuery(query url.Values) (details resourceDetails, err er
 		return details, errors.BadRequestf("invalid fingerprint")
 	}
 	return details, nil
-}
-
-type migratingResourceServiceGetter struct {
-	ctxt httpContext
-}
-
-func (a *migratingResourceServiceGetter) Resource(r *http.Request) (ResourceService, error) {
-	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-	return domainServices.Resource(), nil
 }

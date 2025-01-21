@@ -36,6 +36,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
+	handlersresource "github.com/juju/juju/apiserver/internal/handlers/resource"
+	resourcevalidate "github.com/juju/juju/apiserver/internal/handlers/resource/validate"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -791,71 +793,77 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "tools")
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
-	resourcesHandler := srv.monitoredHandler(&ResourcesHandler{
-		AuthFunc: func(req *http.Request, tagKinds ...string) (names.Tag, error) {
-			_, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+	resourceAuthFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
+		_, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-			return entity.Tag(), nil
-		},
-		ChangeAllowedFunc: func(ctx context.Context) error {
-			serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		return entity.Tag(), nil
+	}
+	resourceChangeAllowedFunc := func(ctx context.Context) error {
+		serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-			blockChecker := common.NewBlockChecker(serviceFactory.BlockCommand())
-			if err := blockChecker.ChangeAllowed(ctx); err != nil {
-				return errors.Trace(err)
-			}
-			return nil
-		},
-		ResourceServiceGetter: &resourceServiceGetter{ctxt: httpCtxt},
-	}, "applications")
-	unitResourcesHandler := srv.monitoredHandler(&UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (coreresource.Opener, state.PoolHelper, error) {
-			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
+		blockChecker := common.NewBlockChecker(serviceFactory.BlockCommand())
+		if err := blockChecker.ChangeAllowed(ctx); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+	resourcesHandler := srv.monitoredHandler(handlersresource.NewResourceHandler(
+		logger,
+		resourceAuthFunc,
+		resourceChangeAllowedFunc,
+		&resourceServiceGetter{ctxt: httpCtxt},
+		resourcevalidate.NewValidator(logger, resourcevalidate.DefaultFileSystem()),
+	), "applications")
+	unitResourceNewOpenerFunc := resourceOpenerGetter(func(req *http.Request, tagKinds ...string) (coreresource.Opener, error) {
+		st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-			tagStr := req.URL.Query().Get(":unit")
-			tag, err := names.ParseUnitTag(tagStr)
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-			unitName, err := coreunit.NewName(tag.Id())
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
+		tagStr := req.URL.Query().Get(":unit")
+		tag, err := names.ParseUnitTag(tagStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-			domainServices, err := httpCtxt.domainServicesForRequest(req.Context())
-			if err != nil {
-				return nil, nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
-			}
-			args := resource.ResourceOpenerArgs{
-				State:              st.State,
-				ApplicationService: domainServices.Application(),
-				ResourceService:    domainServices.Resource(),
-				CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(
-					domainServices.Config(),
-				),
-			}
+		domainServices, err := httpCtxt.domainServicesForRequest(req.Context())
+		if err != nil {
+			return nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
+		}
+		args := resource.ResourceOpenerArgs{
+			State:              st.State,
+			ApplicationService: domainServices.Application(),
+			ResourceService:    domainServices.Resource(),
+			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(
+				domainServices.Config(),
+			),
+		}
 
-			opener, err := resource.NewResourceOpenerForUnit(
-				req.Context(),
-				args,
-				srv.getResourceDownloadLimiter,
-				unitName,
-			)
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-			return opener, st, nil
-		},
-	}, "units")
+		opener, err := resource.NewResourceOpenerForUnit(
+			req.Context(),
+			args,
+			srv.getResourceDownloadLimiter,
+			unitName,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return opener, nil
+	})
+	unitResourcesHandler := srv.monitoredHandler(handlersresource.NewUnitResourcesHandler(
+		logger,
+		unitResourceNewOpenerFunc,
+	), "units")
 
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: systemState.ControllerTag(),
@@ -870,10 +878,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}, "tools")
-	resourcesMigrationUploadHandler := srv.monitoredHandler(&resourcesMigrationUploadHandler{
-		resourceServiceGetter:    &migratingResourceServiceGetter{ctxt: httpCtxt},
-		applicationServiceGetter: migratingApplicationServiceGetter,
-	}, "applications")
+	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresource.NewResourceMigrationUploadHandler(
+		&migratingResourceServicesGetter{ctxt: httpCtxt},
+		logger,
+	), "applications")
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
 		ctxt: httpCtxt,
 	}, "register")

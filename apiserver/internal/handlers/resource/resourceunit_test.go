@@ -1,34 +1,33 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package resource_test
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 
-	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	resource "github.com/juju/juju/apiserver/internal/handlers/resource"
+	coreresource "github.com/juju/juju/core/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type UnitResourcesHandlerSuite struct {
 	testing.IsolationSuite
 
-	opener *MockOpener
+	opener       *MockOpener
+	openerGetter *MockResourceOpenerGetter
 
 	urlStr   string
 	recorder *httptest.ResponseRecorder
@@ -38,7 +37,10 @@ var _ = gc.Suite(&UnitResourcesHandlerSuite{})
 
 func (s *UnitResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.opener = NewMockOpener(ctrl)
+	s.openerGetter = NewMockResourceOpenerGetter(ctrl)
+
 	return ctrl
 }
 
@@ -53,9 +55,20 @@ func (s *UnitResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.recorder = httptest.NewRecorder()
 }
 
+func (s *UnitResourcesHandlerSuite) newUnitResourceHander(c *gc.C) *UnitResourcesHandler {
+	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(s.opener, nil)
+	return NewUnitResourcesHandler(
+		loggertesting.WrapCheckLog(c),
+		s.openerGetter,
+	)
+}
+
 func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	handler := &apiserver.UnitResourcesHandler{}
+	handler := NewUnitResourcesHandler(
+		loggertesting.WrapCheckLog(c),
+		nil,
+	)
 
 	req, err := http.NewRequest("POST", s.urlStr, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,11 +81,11 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
-	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
-			return nil, nil, failure
-		},
-	}
+	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(nil, failure)
+	handler := resource.NewUnitResourcesHandler(
+		loggertesting.WrapCheckLog(c),
+		s.openerGetter,
+	)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,12 +102,8 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
-	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(resource.Opened{}, failure)
-	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
-			return s.opener, apiservertesting.StubPoolHelper{StubRelease: func() bool { return true }}, nil
-		},
-	}
+	handler := s.newUnitResourceHander(c)
+	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(coreresource.Opened{}, failure)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,13 +116,20 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	const body = "some data"
-	opened := resourcetesting.NewResource(c, new(testing.Stub), "blob", "app", body)
-	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
-			return s.opener, apiservertesting.StubPoolHelper{StubRelease: func() bool { return true }}, nil
-		},
-	}
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(body))
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(len(body))
+	handler := s.newUnitResourceHander(c)
 
+	opened := coreresource.Opened{
+		Resource: coreresource.Resource{
+			Resource: charmresource.Resource{
+				Fingerprint: fp,
+				Size:        size,
+			},
+		},
+		ReadCloser: io.NopCloser(strings.NewReader(body)),
+	}
 	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(opened, nil)
 	s.opener.EXPECT().SetResourceUsed(gomock.Any(), "blob").Return(nil)
 
@@ -134,23 +150,4 @@ func (s *UnitResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body s
 	actualBody, err := io.ReadAll(s.recorder.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(actualBody), gc.Equals, body)
-}
-
-func apiFailure(msg, code string) (error, string) {
-	failure := errors.New(msg)
-	data := mustMarshalJSON(params.ErrorResult{
-		Error: &params.Error{
-			Message: msg,
-			Code:    code,
-		},
-	})
-	return failure, string(data)
-}
-
-func mustMarshalJSON(v interface{}) []byte {
-	data, err := json.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return data
 }
