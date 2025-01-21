@@ -21,11 +21,6 @@ func (s *PackageSource) KeyFileName() string {
 	return s.Name + ".key"
 }
 
-// RenderSourceFile renders the current source based on a template it receives.
-func (s *PackageSource) RenderSourceFile(fileTemplate *template.Template) (string, error) {
-	return renderTemplate(fileTemplate, s)
-}
-
 // renderTemplate is a helper function which renders a given object to a given
 // template and returns its output as a string.
 func renderTemplate(t *template.Template, obj interface{}) (string, error) {

@@ -7,12 +7,6 @@ package config_test
 import "github.com/juju/juju/internal/packaging/source"
 
 var (
-	testedSource = source.PackageSource{
-		Name: "Some Totally Official Source.",
-		URL:  "some-source.com/packages",
-		Key:  "some-key",
-	}
-
 	testedPrefs = source.PackagePreferences{
 		Path:        "/etc/my-package-manager.d/prefs_file.conf",
 		Explanation: "don't judge me",

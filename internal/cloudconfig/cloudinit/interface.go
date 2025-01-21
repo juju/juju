@@ -12,7 +12,6 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
-	jujupackaging "github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/config"
 	"github.com/juju/juju/internal/packaging/source"
@@ -360,10 +359,6 @@ type AdvancedPackagingConfig interface {
 		addUpgradeScripts bool,
 	) error
 
-	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig
-	// for the specified package manager.
-	getPackagingConfigurer(jujupackaging.PackageManagerName) config.PackagingConfigurer
-
 	// addRequiredPackages is a helper to add packages that juju requires in
 	// order to operate.
 	addRequiredPackages()
@@ -449,9 +444,7 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 	case ostype.Ubuntu:
 		cfg.aptCommander = commands.NewAptPackageCommander()
 		cfg.snapCommander = commands.NewSnapPackageCommander()
-		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(),
-		}
+		cfg.aptConfigurer = config.NewAptPackagingConfigurer()
 		return &ubuntuCloudConfig{cfg}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for os %q", osname)
