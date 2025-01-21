@@ -34,6 +34,7 @@ type Resources interface {
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
 	serviceGetter ResourceAndApplicationServiceGetter
+	validator     Validator
 	logger        logger.Logger
 }
 
@@ -41,10 +42,12 @@ type resourcesMigrationUploadHandler struct {
 // resources uploads for model migrations.
 func NewResourceMigrationUploadHandler(
 	serviceGetter ResourceAndApplicationServiceGetter,
+	validator Validator,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
 		serviceGetter: serviceGetter,
+		validator:     validator,
 		logger:        logger,
 	}
 }
@@ -151,9 +154,14 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
 		}
 
+		reader, err := h.validator.Validate(r.Body, details.Fingerprint.String(), details.Size)
+		if err != nil {
+			return empty, internalerrors.Errorf("validating resource size and hash: %w", err)
+		}
+
 		err = resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{
 			ResourceUUID:    resUUID,
-			Reader:          r.Body,
+			Reader:          reader,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
 			Size:            details.Size,

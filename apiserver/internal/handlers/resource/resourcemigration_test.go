@@ -35,6 +35,7 @@ type resourcesUploadSuite struct {
 	serviceGetter       *MockResourceAndApplicationServiceGetter
 	applicationsService *MockApplicationService
 	resourceService     *MockResourceService
+	validator           *MockValidator
 
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
@@ -63,6 +64,7 @@ func (s *resourcesUploadSuite) TestStub(c *gc.C) {
 func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
 	// Arrange
 	handler := resource.NewResourceMigrationUploadHandler(
+		nil,
 		nil,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -266,6 +268,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *g
 	_, _, _, _ = s.setQueryHeaders(c, query)
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
+	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any())
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(errors.New("cannot store resource"))
 
 	// Act
@@ -290,6 +293,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 	_, _, _, _ = s.setQueryHeaders(c, query)
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
+	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any())
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{}, errors.New(
 		"cannot get resource"))
@@ -358,6 +362,11 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		ApplicationID: "testapp-id",
 		Name:          "test",
 	}).Return("res-uuid", nil)
+	s.validator.EXPECT().Validate(
+		http.NoBody,
+		fp.String(),
+		size,
+	).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -452,6 +461,11 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
 	}).Return("res-uuid", nil)
 	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), coreresource.UUID("res-uuid"),
 		unit.UUID("testunit-id")).Return(nil)
+	s.validator.EXPECT().Validate(
+		http.NoBody,
+		fp.String(),
+		size,
+	).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -541,6 +555,7 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 
 	handler := resource.NewResourceMigrationUploadHandler(
 		s.serviceGetter,
+		s.validator,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -573,17 +588,18 @@ func (s *resourcesUploadSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applicationsService = NewMockApplicationService(ctrl)
 	s.serviceGetter = NewMockResourceAndApplicationServiceGetter(ctrl)
 	s.resourceService = NewMockResourceService(ctrl)
+	s.validator = NewMockValidator(ctrl)
 
 	return ctrl
 }
 
 func (s *resourcesUploadSuite) setQueryHeaders(c *gc.C, query url.Values) (
-	origin charmresource.Origin, revision, size int, fp charmresource.Fingerprint,
+	origin charmresource.Origin, revision int, size int64, fp charmresource.Fingerprint,
 ) {
 	content := "resource-content"
 	origin = charmresource.OriginStore
 	revision = 3
-	size = len(content)
+	size = int64(len(content))
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 	query.Add("origin", origin.String())
