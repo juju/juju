@@ -41,6 +41,12 @@ func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, mat
 	c.Assert(script, checker, pattern)
 }
 
+func assertScriptContains(c *gc.C, cfg cloudinit.CloudConfig, substring string) {
+	script, err := cfg.RenderScript()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(script, jc.Contains, substring)
+}
+
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
@@ -84,11 +90,12 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 }
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
-	expectedCommands := regexp.QuoteMeta(`
+	expectedCommands := `
 echo 'Changing apt mirror to "http://woat.com"' >&$JUJU_PROGRESS_FD
-old_archive_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
-new_archive_mirror=http://woat.com
-sed -i s,$old_archive_mirror,$new_archive_mirror, /etc/apt/sources.list
+old_archive_mirror=$(apt-cache policy | grep http | awk '{ $1="" ; print }' | sed 's/^ //g'  | grep "$(lsb_release -c -s)/main" | awk '{print $1; exit}')
+new_archive_mirror="http://woat.com"
+[ -f "/etc/apt/sources.list" ] && sed -i s,$old_archive_mirror,$new_archive_mirror, "/etc/apt/sources.list"
+[ -f "/etc/apt/sources.list.d/ubuntu.sources" ] && sed -i s,$old_archive_mirror,$new_archive_mirror, "/etc/apt/sources.list.d/ubuntu.sources"
 old_prefix=/var/lib/apt/lists/$(echo $old_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 new_prefix=/var/lib/apt/lists/$(echo $new_archive_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 [ "$old_prefix" != "$new_prefix" ] &&
@@ -98,9 +105,10 @@ for old in ${old_prefix}_*; do
       mv $old $new
     fi
 done
-old_security_mirror=$(awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release)-security .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
-new_security_mirror=http://woat.com
-sed -i s,$old_security_mirror,$new_security_mirror, /etc/apt/sources.list
+old_security_mirror=$(apt-cache policy | grep http | awk '{ $1="" ; print }' | sed 's/^ //g'  | grep "$(lsb_release -c -s)-security/main" | awk '{print $1; exit}')
+new_security_mirror="http://woat.com"
+[ -f "/etc/apt/sources.list" ] && sed -i s,$old_security_mirror,$new_security_mirror, "/etc/apt/sources.list"
+[ -f "/etc/apt/sources.list.d/ubuntu.sources" ] && sed -i s,$old_security_mirror,$new_security_mirror, "/etc/apt/sources.list.d/ubuntu.sources"
 old_prefix=/var/lib/apt/lists/$(echo $old_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 new_prefix=/var/lib/apt/lists/$(echo $new_security_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
 [ "$old_prefix" != "$new_prefix" ] &&
@@ -109,10 +117,9 @@ for old in ${old_prefix}_*; do
     if [ -f $old ]; then
       mv $old $new
     fi
-done`)
-	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
+done`
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetPackageMirror("http://woat.com")
-	assertScriptMatches(c, cfg, aptMirrorRegexp, true)
+	assertScriptContains(c, cfg, expectedCommands)
 }

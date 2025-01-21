@@ -9,9 +9,15 @@ import (
 )
 
 const (
-	// AptSourcesFile is the default file which list all core
-	// sources for apt packages on an apt-based system.
-	AptSourcesFile = "/etc/apt/sources.list"
+	// LegacyAptSourcesFile is the default file which list all core
+	// sources for apt packages on an apt-based system for ubuntu
+	// distros before noble
+	LegacyAptSourcesFile = "/etc/apt/sources.list"
+
+	// LegacyAptSourcesFile is the default file which list all core
+	// sources for apt packages on an apt-based system for ubuntu
+	// distros noble or after
+	AptSourcesFile = "/etc/apt/sources.list.d/ubuntu.sources"
 
 	// AptListsDirectory is the location of the APT sources list.
 	AptListsDirectory = "/var/lib/apt/lists"
@@ -19,18 +25,6 @@ const (
 	// AptConfigDirectory is the default directory in which
 	// apt configuration files are stored.
 	AptConfigDirectory = "/etc/apt/apt.conf.d"
-
-	// ExtractAptArchiveSource is a shell command that will extract the
-	// currently configured APT archive source location. We assume that
-	// the first source for "main" in the file is the one that
-	// should be replaced throughout the file.
-	ExtractAptArchiveSource = `awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release) .*main.*\$/{print \$2;exit}" ` + AptSourcesFile
-
-	// ExtractAptSecuritySource is a shell command that will extract the
-	// currently configured APT security source location. We assume that
-	// the first source for "main" in the file is the one that
-	// should be replaced throughout the file.
-	ExtractAptSecuritySource = `awk "/^deb .* $(awk -F= '/DISTRIB_CODENAME=/ {gsub(/"/,""); print $2}' /etc/lsb-release)-security .*main.*\$/{print \$2;exit}" ` + AptSourcesFile
 
 	// AptSourceListPrefix is a shell program that translates an
 	// APT source (piped from stdin) to a file prefix. The algorithm

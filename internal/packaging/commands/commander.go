@@ -25,7 +25,6 @@ type packageCommander struct {
 	isInstalled           string                        // checks if a given package is installed
 	listAvailable         string                        // lists all packes available
 	listInstalled         string                        // lists all installed packages
-	listRepositories      string                        // lists all currently configured repositories
 	addRepository         string                        // adds the given repository
 	removeRepository      string                        // removes the given repository
 	cleanup               string                        // cleans up orhaned packages and the package cache
@@ -86,11 +85,6 @@ func (p *packageCommander) ListAvailableCmd() string {
 // ListInstalledCmd is defined on the PackageCommander interface.
 func (p *packageCommander) ListInstalledCmd() string {
 	return p.listInstalled
-}
-
-// ListRepositoriesCmd is defined on the PackageCommander interface.
-func (p *packageCommander) ListRepositoriesCmd() string {
-	return p.listRepositories
 }
 
 // AddRepositoryCmd is defined on the PackageCommander interface.
