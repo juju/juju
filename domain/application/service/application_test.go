@@ -303,7 +303,34 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
 
-func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesMismatchCharmAndArgsResources(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllResourcesResolved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
+		"not-resolved": {Name: "not-resolved"},
+	}}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Risk: charm.Stable,
+			},
+			Architectures: []string{"amd64"},
+		}},
+	}).MinTimes(1)
+
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.Local,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	},
+		AddApplicationArgs{
+			ReferenceName:     "foo",
+			ResolvedResources: nil,
+		})
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesMoreResolvedThanCharmResources(c *gc.C) {
 	resources := ResolvedResources{
 		{
 			Name:     "not-in-charm",

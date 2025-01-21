@@ -377,11 +377,10 @@ func validateCreateApplicationParams(
 			applicationerrors.InvalidResourceArgs)
 	}
 	if !missingResources.IsEmpty() {
-		// todo(gfouillet): It should be an error,
-		//  because it means that there will be charm resources not added into
-		//  application_resource, but if we do it before using dqlite for handling
-		//  resources, it will break the application deployment
-		logger.Warningf("charm resources not resolved: %v", missingResources.Values())
+		// Some resources are defined in the charm but not given when trying
+		// to create the application.
+		return internalerrors.Errorf("charm resources not resolved %v: %w", missingResources.Values(),
+			applicationerrors.InvalidResourceArgs)
 	}
 
 	return nil

@@ -33,6 +33,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -497,6 +498,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			}
 		}
 
+		resolvedResources := fakeResolvedResourcesFromCharmMeta(ch.Meta())
 		revision := ch.Revision()
 		_, err = factory.applicationService.CreateApplication(context.Background(), params.Name, params.Charm, corecharm.Origin{
 			Source:   corecharm.Source(params.CharmOrigin.Source),
@@ -516,6 +518,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			DownloadInfo: &applicationcharm.DownloadInfo{
 				Provenance: applicationcharm.ProvenanceUpload,
 			},
+			ResolvedResources: resolvedResources,
 		})
 	}
 	c.Assert(err, jc.ErrorIsNil)
@@ -551,6 +554,17 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	}
 
 	return application, params.Password
+}
+
+func fakeResolvedResourcesFromCharmMeta(charmMeta *charm.Meta) applicationservice.ResolvedResources {
+	resolvedResources := applicationservice.ResolvedResources{}
+	for _, resource := range charmMeta.Resources {
+		resolvedResources = append(resolvedResources, applicationservice.ResolvedResource{
+			Name:   resource.Name,
+			Origin: charmresource.OriginStore,
+		})
+	}
+	return resolvedResources
 }
 
 // MakeUnit creates an application unit with specified params, filling in
@@ -623,6 +637,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 				DownloadInfo: &applicationcharm.DownloadInfo{
 					Provenance: applicationcharm.ProvenanceUpload,
 				},
+				ResolvedResources: fakeResolvedResourcesFromCharmMeta(ch.Meta()),
 			})
 		if !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 			c.Assert(err, jc.ErrorIsNil)
