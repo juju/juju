@@ -98,10 +98,11 @@ juju integrate mattermost-k8s postgresql-k8s:db
 Watch your deployment come to life:
 
 ```
-juju status --watch 1s
+watch -n 1 -c juju status --color
 ```
 
-(Press `Ctrl-C` to quit. Drop the `--watch 1s` flag to get the status statically. Use the `--relations` flag to view more information about your integrations.)
+Use the `--relations` flag to view more information about your integrations.
+Use the `--storage` flag to view more information about your storages.
 
 ### Test your deployment
 

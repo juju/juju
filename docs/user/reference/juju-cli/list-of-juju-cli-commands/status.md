@@ -23,7 +23,6 @@ Report the status of the model, its machines, applications and units.
 | `--retry-delay` | 100ms | Time to wait between retry attempts |
 | `--storage` | false | Show 'storage' section in tabular output |
 | `--utc` | false | Display timestamps in the UTC timezone |
-| `--watch` | 0s | Watch the status every period of time |
 
 ## Examples
 
@@ -46,10 +45,6 @@ Include information about storage and integrations in output:
 Provide output as valid JSON:
 
     juju status --format=json
-
-Watch the status every five seconds:
-
-    juju status --watch 5s
 
 Show only applications/units in active status:
 

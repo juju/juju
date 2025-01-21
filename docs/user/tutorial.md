@@ -84,7 +84,7 @@ Split your terminal window into three. In all, access your Multipass VM shell (`
 
 **Shell 1:** Keep using it as you've already been doing so far, namely to type the commands in this tutorial.
 
-**Shell 2:**  Run `juju status --relations --watch 1s` to watch your deployment status evolve. (Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`. See more: {ref}`status`.
+**Shell 2:**  Run `watch -n 1 -c juju status --relations --color` to watch your deployment status evolve. (Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`. See more: {ref}`status`.
 
 **Shell 3:** Run `juju debug-log` to watch all the details behind your deployment status. (Especially useful when things don't evolve as expected. In that case, please get in touch.)
 ```
@@ -395,7 +395,7 @@ These upgrades don't all have to happen at once, but it mostly makes sense to do
 Let's give it a try!
 
 ```{caution} 
-The running processes in your Shells 2 and 3  will block your client upgrade. To prevent that, in each one, hit the `C-c` key combination to stop them for the duration of the client upgrade, the restart them by running again `juju status --relations --watch 1s` and, respectively, `juju debug-log`.
+The running processes in your Shells 2 and 3  will block your client upgrade. To prevent that, in each one, hit the `C-c` key combination to stop them for the duration of the client upgrade, the restart them by running again `watch -n 1 -c juju status --relations --color` and, respectively, `juju debug-log`.
 ```
 
 
