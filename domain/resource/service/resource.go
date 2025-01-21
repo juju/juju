@@ -14,11 +14,11 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
 // State describes retrieval and persistence methods for resource.
@@ -365,12 +365,6 @@ func (s *Service) storeResource(
 		return errors.Errorf("getting resource: %w", err)
 	}
 
-	if args.Fingerprint.String() == res.Fingerprint.String() {
-		// This resource blob has already been stored, no need to store it
-		// again.
-		return nil
-	}
-
 	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
 	if err != nil {
 		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
@@ -384,7 +378,10 @@ func (s *Service) storeResource(
 		args.Size,
 		coreresourcestore.NewFingerprint(args.Fingerprint.Fingerprint),
 	)
-	if err != nil {
+	if errors.Is(err, objectstoreerrors.ObjectAlreadyExists) ||
+		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored) {
+		return resourceerrors.StoredResourceAlreadyExists
+	} else if err != nil {
 		return errors.Errorf("putting resource %q in store: %w", res.Name, err)
 	}
 	defer func() {
@@ -456,7 +453,7 @@ func (s *Service) OpenResource(
 	// resources storageID, however the object store does not currently have a
 	// method for this.
 	reader, _, err := store.Get(ctx, blobPath(resourceUUID, res.Fingerprint.String()))
-	if errors.Is(err, objectstoreerrors.ErrNotFound) ||
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		return coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound
 	} else if err != nil {

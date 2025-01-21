@@ -23,11 +23,11 @@ import (
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
 type resourceServiceSuite struct {
@@ -494,11 +494,10 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOldResourceBlob(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.C) {
+func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContainer(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: We only expect a call to GetResource, not to
 	// RecordStoredResource since the blob is identical.
-
 	resourceUUID := resourcetesting.GenResourceUUID(c)
 
 	reader := bytes.NewBufferString("spamspamspam")
@@ -511,13 +510,24 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
 		coreresource.Resource{
 			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Type: charmresource.TypeContainerImage,
+				},
 				Fingerprint: fp,
 			},
 		}, nil,
 	)
 
-	// Act:
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		blobPath(resourceUUID, fp.String()),
+		reader,
+		int64(0),
+		coreresourcestore.NewFingerprint(fp.Fingerprint),
+	).Return(coreresourcestore.ID{}, containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored)
 
+	// Act:
 	err = s.service.StoreResource(
 		context.Background(),
 		resource.StoreResourceArgs{
@@ -530,7 +540,55 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.
 	)
 
 	// Assert:
+	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceAlreadyExists)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+
+	reader := bytes.NewBufferString("spamspamspam")
+	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
+
+	origin := charmresource.OriginStore
+	revision := 17
+
+	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
+		resource.Resource{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Type: charmresource.TypeFile,
+				},
+				Fingerprint: fp,
+			},
+		}, nil,
+	)
+
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		blobPath(resourceUUID, fp.String()),
+		reader,
+		int64(0),
+		coreresourcestore.NewFingerprint(fp.Fingerprint),
+	).Return(coreresourcestore.ID{}, objectstoreerrors.ObjectAlreadyExists)
+
+	// Act:
+	err = s.service.StoreResource(
+		context.Background(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourceUUID,
+			Reader:       reader,
+			Fingerprint:  fp,
+			Origin:       origin,
+			Revision:     revision,
+		},
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceAlreadyExists)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceBadUUID(c *gc.C) {
@@ -856,7 +914,7 @@ func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *gc.C) {
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
 		blobPath(id, fp.String()),
-	).Return(nil, 0, objectstoreerrors.ErrNotFound)
+	).Return(nil, 0, objectstoreerrors.ObjectNotFound)
 
 	_, _, err = s.service.OpenResource(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceNotFound)
