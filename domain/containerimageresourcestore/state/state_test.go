@@ -70,41 +70,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryN
 	c.Assert(retrievedPassword, gc.Equals, "")
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceIdentical(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	resourceUUID := coreresourcetesting.GenResourceUUID(c)
-	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
-		RegistryPath: "testing@sha256:beef-deed",
-		Username:     "docker-registry",
-		Password:     "fragglerock",
-	}
-	storageKey, err := st.PutContainerImageMetadata(
-		context.Background(),
-		resourceUUID.String(),
-		ociImageMetadata.RegistryPath,
-		ociImageMetadata.Username,
-		ociImageMetadata.Password,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageKey, gc.Not(gc.Equals), "")
-
-	storageKey, err = st.PutContainerImageMetadata(
-		context.Background(),
-		resourceUUID.String(),
-		ociImageMetadata.RegistryPath,
-		ociImageMetadata.Username,
-		ociImageMetadata.Password,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageKey, gc.Not(gc.Equals), "")
-
-	retrievedRegistryPath, retrievedUsername, retrievedPassword := s.getContainerImageMetadata(c, storageKey)
-	c.Assert(retrievedRegistryPath, gc.Equals, ociImageMetadata.RegistryPath)
-	c.Assert(retrievedUsername, gc.Equals, ociImageMetadata.Username)
-	c.Assert(retrievedPassword, gc.Equals, ociImageMetadata.Password)
-}
-
-func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceDifferent(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
@@ -127,20 +93,14 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwiceDifferen
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageKey, gc.Not(gc.Equals), "")
 
-	storageKey, err = st.PutContainerImageMetadata(
+	_, err = st.PutContainerImageMetadata(
 		context.Background(),
 		resourceUUID.String(),
 		ociImageMetadata2.RegistryPath,
 		ociImageMetadata2.Username,
 		ociImageMetadata2.Password,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageKey, gc.Not(gc.Equals), "")
-
-	retrievedRegistryPath, retrievedUsername, retrievedPassword := s.getContainerImageMetadata(c, storageKey)
-	c.Assert(retrievedRegistryPath, gc.Equals, ociImageMetadata2.RegistryPath)
-	c.Assert(retrievedUsername, gc.Equals, ociImageMetadata2.Username)
-	c.Assert(retrievedPassword, gc.Equals, ociImageMetadata2.Password)
+	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataAlreadyStored)
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *gc.C) {

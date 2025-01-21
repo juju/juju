@@ -77,6 +77,8 @@ WHERE  storage_key = $containerImageMetadataStorageKey.storage_key
 
 // PutContainerImageMetadata stores container image metadata the database and
 // returns its UUID.
+// If an image is already stored under the storage key, it returns:
+// - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
 func (s *State) PutContainerImageMetadata(
 	ctx context.Context,
 	storageKey string,
@@ -94,24 +96,34 @@ func (s *State) PutContainerImageMetadata(
 		Password:     password,
 	}
 
-	stmt, err := s.Prepare(`
-INSERT INTO resource_container_image_metadata_store (*)
-VALUES ($containerImageMetadata.*) 
-ON CONFLICT (storage_key) DO UPDATE SET
-      registry_path = excluded.registry_path,
-      username  = excluded.username,
-      password  = excluded.password
-WHERE storage_key = excluded.storage_key
-                                       
-
+	checkStmt, err := s.Prepare(`
+SELECT &containerImageMetadata.storage_key
+FROM   resource_container_image_metadata_store
+WHERE  storage_key = $containerImageMetadata.storage_key
 `, m)
+	if err != nil {
+		return store.ID{}, errors.Capture(err)
+	}
+
+	insertStmt, err := s.Prepare(`
+INSERT INTO resource_container_image_metadata_store (*)
+VALUES      ($containerImageMetadata.*) 
+`, m)
+	if err != nil {
+		return store.ID{}, errors.Capture(err)
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err != nil {
-			return errors.Errorf("preparing upsert container image metadata statement: %w", err)
+		err = tx.Query(ctx, checkStmt, m).Get(&m)
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			if err != nil {
+				return errors.Errorf("inserting container image metadata: %w", err)
+			}
+			return containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored
 		}
+
 		var outcome sqlair.Outcome
-		err = tx.Query(ctx, stmt, m).Get(&outcome)
+		err = tx.Query(ctx, insertStmt, m).Get(&outcome)
 		if err != nil {
 			return errors.Errorf("upserting container image metadata: %w", err)
 		}

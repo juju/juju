@@ -26,6 +26,8 @@ type State interface {
 	) error
 	// PutContainerImageMetadata puts a container image resources metadata into
 	// the container image metadata resource store.
+	// If an image is already stored under the storage key, it returns:
+	// - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
 	PutContainerImageMetadata(
 		ctx context.Context,
 		storageKey string,
@@ -76,8 +78,10 @@ func (s Service) Get(
 	return io.NopCloser(infoReader), int64(length), nil
 }
 
-// Put stores data from io.Reader in the resource store at the
-// path specified in the resource.
+// Put stores data from io.Reader in the resource store at the path specified in
+// the resource.
+// If an image is already stored under the storage key, it returns:
+// - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
 func (s Service) Put(
 	ctx context.Context,
 	storageKey string,
