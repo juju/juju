@@ -62,7 +62,7 @@ func (d *ResourceDownloader) Download(
 	url *url.URL,
 	sha384 string,
 	size int64,
-) (io.ReadCloser, error) {
+) (_ io.ReadCloser, err error) {
 	tmpFile, err := os.CreateTemp("", "resource-")
 	if err != nil {
 		return nil, errors.Capture(err)
