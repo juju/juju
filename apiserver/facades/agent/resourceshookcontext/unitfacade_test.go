@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext/mocks"
 	coreapplication "github.com/juju/juju/core/application"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
@@ -23,8 +22,8 @@ import (
 )
 
 type unitFacadeSuite struct {
-	resourceService    *mocks.MockResourceService
-	applicationService *mocks.MockApplicationService
+	resourceService    *MockResourceService
+	applicationService *MockApplicationService
 }
 
 var _ = gc.Suite(&unitFacadeSuite{})
@@ -32,8 +31,8 @@ var _ = gc.Suite(&unitFacadeSuite{})
 func (s *unitFacadeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.resourceService = mocks.NewMockResourceService(ctrl)
-	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.resourceService = NewMockResourceService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	return ctrl
 }
@@ -190,7 +189,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *gc.C) {
 	expectedError := errors.New("expected error")
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), gomock.Any()).Return(resource.ApplicationResources{}, expectedError)
+	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
@@ -226,12 +225,10 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), gomock.Any()).Return(resource.ApplicationResources{
-		Resources: []resource.Resource{
-			minimalResourceInfo("fetched-resource-1"),
-			minimalResourceInfo("not-fetched-resource"),
-			minimalResourceInfo("fetched-resource-2"),
-		},
+	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return([]resource.Resource{
+		minimalResourceInfo("fetched-resource-1"),
+		minimalResourceInfo("not-fetched-resource"),
+		minimalResourceInfo("fetched-resource-2"),
 	}, nil)
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,

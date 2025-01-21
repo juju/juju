@@ -1572,6 +1572,150 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	})
 }
 
+// TestGetResourcesByApplicationIDWrongApplicationID verifies the behavior
+// when querying non-existing application ID.
+// Ensures the method returns the correct `ApplicationNotFound` error for an
+// invalid application ID.
+func (s *resourceSuite) TestGetResourcesByApplicationIDWrongApplicationID(c *gc.C) {
+	// Arrange: No resources
+	// Act
+	_, err := s.state.GetResourcesByApplicationID(context.Background(), "not-an-application-id")
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound,
+		gc.Commentf("(Assert) should fails with specific error: %v",
+			errors.ErrorStack(err)))
+}
+
+// TestGetResourcesByApplicationIDNoResources verifies that no resources are listed for an
+// application when no resources exist. It checks that the resulting lists
+// is empty.
+func (s *resourceSuite) TestGetResourcesByApplicationIDNoResources(c *gc.C) {
+	// Arrange: No resources
+	// Act
+	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Assert(results, gc.HasLen, 0)
+}
+
+// TestGetResourcesByApplicationID tests the retrieval and organization of resources from the
+// database.
+func (s *resourceSuite) TestGetResourcesByApplicationID(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	// Arrange : Insert several resources
+	simpleRes := resourceData{
+		UUID:            "simple-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "simple",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+	}
+	polledRes := resourceData{
+		UUID:            "polled-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "polled",
+		CreatedAt:       now,
+		PolledAt:        now,
+		Type:            charmresource.TypeContainerImage,
+	}
+	unitRes := resourceData{
+		UUID:            "unit-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "unit",
+		CreatedAt:       now,
+		UnitUUID:        s.constants.fakeUnitUUID1,
+		AddedAt:         now,
+		Type:            charmresource.TypeFile,
+	}
+	bothRes := resourceData{
+		UUID:            "both-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "both",
+		UnitUUID:        s.constants.fakeUnitUUID1,
+		AddedAt:         now,
+		PolledAt:        now,
+		Type:            charmresource.TypeContainerImage,
+	}
+	anotherUnitRes := resourceData{
+		UUID:            "another-unit-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "anotherUnit",
+		CreatedAt:       now,
+		UnitUUID:        s.constants.fakeUnitUUID2,
+		AddedAt:         now,
+		Type:            charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, input := range []resourceData{simpleRes, polledRes, unitRes, bothRes, anotherUnitRes} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act
+	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Assert(results, gc.DeepEquals, []resource.Resource{
+		simpleRes.toResource(),
+		polledRes.toResource(),
+		unitRes.toResource(),
+		bothRes.toResource(),
+		anotherUnitRes.toResource(),
+	})
+}
+
+// TestGetResourcesByApplicationIDWithStatePotential tests retrieving resources
+// by application ID where state filters are applied. It ensures that only
+// resources with the "available" state are returned, excluding any with the
+// "potential" state.
+func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	// Arrange : Insert several resources
+	availableRes := resourceData{
+		UUID:            "simple-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "simple",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		State:           "available",
+	}
+	potentialRes := resourceData{
+		UUID:            "simple-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "simple",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		State:           "potential",
+	}
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, input := range []resourceData{availableRes, potentialRes} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act
+	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Assert(results, gc.DeepEquals, []resource.Resource{
+		availableRes.toResource(),
+		// potential resources are not returned
+	})
+}
+
 func (s *resourceSuite) addResource(c *gc.C, resType charmresource.Type) coreresource.UUID {
 	createdAt := time.Now().Truncate(time.Second).UTC()
 	resourceUUID := coreresource.UUID("resource-uuid")

@@ -40,6 +40,16 @@ type State interface {
 	// GetResource returns the identified resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
 
+	// GetResourcesByApplicationID returns the list of resource for the given application.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ApplicationNotFound] if the application ID is not an
+	//     existing one.
+	//
+	// If the application exists but doesn't have any resources, no error are
+	// returned, the result just contains an empty list.
+	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]resource.Resource, error)
+
 	// GetResourceType finds the type of the given resource from the resource table.
 	//
 	// The following error types can be expected to be returned:
@@ -168,11 +178,8 @@ func (s *Service) GetApplicationResourceID(
 // for machine units. Repository resource data is included if it exists.
 //
 // The following error types can be expected to be returned:
-//   - [coreerrors.NotValid] is returned if the application ID is not valid.
-//   - [resourceerrors.ApplicationDyingOrDead] for dead or dying
-//     applications.
-//   - [resourceerrors.ApplicationNotFound] when the specified application
-//     does not exist.
+//   - [resourceerrors.ApplicationIDNotValid] is returned if the application ID
+//     is not valid.
 //
 // No error is returned if the provided application has no resource.
 func (s *Service) ListResources(
@@ -180,9 +187,27 @@ func (s *Service) ListResources(
 	applicationID coreapplication.ID,
 ) (resource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
-		return resource.ApplicationResources{}, errors.Errorf("application id: %w", err)
+		return resource.ApplicationResources{}, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)
 	}
 	return s.st.ListResources(ctx, applicationID)
+}
+
+// GetResourcesByApplicationID retrieves resources associated with a specific application ID.
+// Returns a slice of resources or an error if the operation fails.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ApplicationIDNotValid] is returned if the application ID
+//     is not valid.
+//   - [resourceerrors.ApplicationNotFound] is returned if the application ID
+//     is not an existing one.
+//
+// If the application doesn't have any resources, no error are
+// returned, the result just contain an empty list.
+func (s *Service) GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]resource.Resource, error) {
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)
+	}
+	return s.st.GetResourcesByApplicationID(ctx, applicationID)
 }
 
 // GetResource returns the identified application resource.

@@ -386,6 +386,71 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 	return result, errors.Capture(err)
 }
 
+// GetResourcesByApplicationID returns the list of resource for the given application.
+// Returns an error if the operation fails at any point in the process.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ApplicationNotFound] if the application ID is not an
+//     existing one.
+//
+// If the application exists but doesn't have any resources, no error are
+// returned, the result just contains an empty list.
+func (st *State) GetResourcesByApplicationID(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]resource.Resource, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Prepare the application ID to query resources by application.
+	appID := resourceIdentity{
+		ApplicationUUID: applicationID.String(),
+	}
+
+	// Prepare the statement to get resources for the given application.
+	getResourcesQuery := `
+SELECT &resourceView.* 
+FROM v_resource
+WHERE application_uuid = $resourceIdentity.application_uuid
+AND state = 'available'`
+	getResourcesStmt, err := st.Prepare(getResourcesQuery, appID, resourceView{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var resources []resourceView
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		// Query to get all resources for the given application.
+		err = tx.Query(ctx, getResourcesStmt, appID).GetAll(&resources)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			if exists, err := st.checkApplicationIDExists(ctx, tx, applicationID); err != nil {
+				return errors.Errorf("checking if application with id %q exists: %w", applicationID, err)
+			} else if !exists {
+				return errors.Errorf("no application with id %q: %w", applicationID, resourceerrors.ApplicationNotFound)
+			}
+			return nil // nothing found
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	// Convert each resourceView to a resource
+	var result []resource.Resource
+	for _, res := range resources {
+		r, err := res.toResource()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		// Add each resource.
+		result = append(result, r)
+	}
+
+	return result, errors.Capture(err)
+}
+
 // GetResource returns the identified resource.
 //
 // The following error types can be expected to be returned:
@@ -1132,4 +1197,25 @@ WHERE uuid = $lastPolledResource.uuid
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+// checkApplicationIDExists checks if an application exists in the database by its UUID.
+func (st *State) checkApplicationIDExists(ctx context.Context, tx *sqlair.TX, appID application.ID) (bool, error) {
+	application := applicationNameAndID{ApplicationID: appID}
+	checkApplicationExistsStmt, err := st.Prepare(`
+SELECT &applicationNameAndID.*
+FROM   application
+WHERE  uuid = $applicationNameAndID.uuid
+`, application)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkApplicationExistsStmt, application).Get(&application)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
 }

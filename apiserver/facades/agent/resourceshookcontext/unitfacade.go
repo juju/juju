@@ -21,10 +21,9 @@ import (
 // ResourceService provides methods for managing resource data related
 // to applications, units, and repositories.
 type ResourceService interface {
-	// ListResources returns the resource data for the given application including
-	// application, unit and repository resource data. Unit data is only included
-	// for machine units. Repository resource data is included if it exists.
-	ListResources(ctx context.Context, applicationID coreapplication.ID) (resource.ApplicationResources, error)
+
+	// GetResourcesByApplicationID retrieves all resources associated with a given application ID in the specified context.
+	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]resource.Resource, error)
 }
 
 // ApplicationService defines operations to retrieve application IDs based
@@ -99,7 +98,7 @@ func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitRe
 	}
 
 	for i, name := range args.ResourceNames {
-		res, ok := lookUpResource(name, foundResources.Resources)
+		res, ok := lookUpResource(name, foundResources)
 		if !ok {
 			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
 			continue
@@ -112,12 +111,12 @@ func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitRe
 
 // listResources retrieves the application resources information through the
 // resource service using the application ID.
-func (uf UnitFacade) listResources(ctx context.Context) (resource.ApplicationResources, error) {
+func (uf UnitFacade) listResources(ctx context.Context) ([]resource.Resource, error) {
 	appID, err := uf.getApplicationID(ctx)
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Errorf("cannot get application id: %w", err)
+		return nil, errors.Errorf("cannot get application id: %w", err)
 	}
-	return uf.resourceService.ListResources(ctx, appID)
+	return uf.resourceService.GetResourcesByApplicationID(ctx, appID)
 }
 
 // lookUpResource searches for a resource by name in a list of resources and
