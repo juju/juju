@@ -552,7 +552,7 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 		Iter()
 	defer iter.Close()
 
-	queue := make([]logDoc, t.params.InitialLines)
+	queue := make([]logDoc, 0, t.params.InitialLines)
 	var doc logDoc
 	for iter.Next(&doc) {
 		select {
