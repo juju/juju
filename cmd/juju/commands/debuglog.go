@@ -433,7 +433,10 @@ func (v *intValue) Set(s string) error {
 
 // Implements gnuflag.Value String.
 func (v *intValue) String() string {
-	return fmt.Sprint(v.value)
+	if v == nil || v.value == nil {
+		return ""
+	}
+	return fmt.Sprint(*v.value)
 }
 
 // Returns true if the value has been set.
