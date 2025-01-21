@@ -21,10 +21,6 @@ import (
 
 var (
 	logger = internallogger.GetLogger("juju.packaging.manager")
-
-	// Override for testing.
-	Delay    = 10 * time.Second
-	Attempts = 30
 )
 
 // CommandOutput is cmd.Output. It was aliased for testing purposes.
@@ -32,13 +28,6 @@ var CommandOutput = (*exec.Cmd).CombinedOutput
 
 // ProcessStateSys is ps.Sys. It was aliased for testing purposes.
 var ProcessStateSys = (*os.ProcessState).Sys
-
-// RunCommand is helper function to execute the command and gather the output.
-var RunCommand = func(command string, args ...string) (output string, err error) {
-	cmd := exec.Command(command, args...)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
 
 // exitStatuser is a mini-interface for the ExitStatus() method.
 type exitStatuser interface {
@@ -66,14 +55,6 @@ type RetryPolicy struct {
 	Attempts int
 }
 
-// DefaultRetryPolicy returns the default retry policy.
-func DefaultRetryPolicy() RetryPolicy {
-	return RetryPolicy{
-		Delay:    Delay,
-		Attempts: Attempts,
-	}
-}
-
 // RunCommandWithRetry is a helper function which tries to execute the given command.
 // It tries to do so for 30 times with a 10 second sleep between commands.
 // It returns the output of the command, the exit code, and an error, if one occurs,
@@ -88,9 +69,8 @@ var RunCommandWithRetry = func(cmd string, retryable Retryable, policy RetryPoli
 
 	logger.Infof("Running: %s", cmd)
 
-	// Retry operation 30 times, sleeping every 10 seconds between attempts.
-	// This avoids failure in the case of something else having the dpkg lock
-	// (e.g. a charm on the machine we're deploying containers to).
+	// Retry operation, sleeping between attempts. This avoids failure in the
+	// case of something else having the, for example, dpkg lock.
 	var (
 		out      []byte
 		fatalErr error

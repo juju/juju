@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -25,10 +26,11 @@ var (
 	// SnapAttempts describe the number of attempts to retry each command.
 	SnapAttempts = 3
 
+	// SnapDelay is the time to wait between retries.
+	SnapDelay = 10 * time.Second
+
 	snapNotFoundRE = regexp.MustCompile(`(?i)error: snap "[^"]+" not found`)
 	trackingRE     = regexp.MustCompile(`(?im)tracking:\s*(.*)$`)
-
-	_ PackageManager = (*Snap)(nil)
 )
 
 // Snap is the PackageManager implementation for snap-based systems.
@@ -43,7 +45,7 @@ func NewSnapPackageManager() *Snap {
 	return &Snap{
 		snapCommander: commands.NewSnapPackageCommander(),
 		retryPolicy: RetryPolicy{
-			Delay:    Delay,
+			Delay:    SnapDelay,
 			Attempts: SnapAttempts,
 		},
 		// InstallRetryable checks a series of strings, to pattern
