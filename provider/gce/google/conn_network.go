@@ -178,8 +178,7 @@ func (gce Connection) ClosePorts(target string, rules corefirewall.IngressRules)
 			// If all CIDRs are also to be removed, we can delete the firewall.
 			if len(remainingCidrs) == 0 {
 				// Delete a firewall.
-				// TODO(ericsnow) Handle case where firewall does not exist.
-				if err := gce.service.RemoveFirewall(gce.projectID, existingFirewall.Name); err != nil {
+				if err := gce.service.RemoveFirewall(gce.projectID, existingFirewall.Name); err != nil && !IsNotFound(err) {
 					return errors.Annotatef(err, "closing port(s) %+v", rules)
 				}
 				continue
