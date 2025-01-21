@@ -86,11 +86,10 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			tag:  names.NewUnitTag("mysql/0"),
 			life: life.Alive,
 			application: mockApplication{
-				tag:                   names.NewApplicationTag("mysql"),
-				life:                  life.Alive,
-				curl:                  "ch:trusty/mysql",
-				charmModifiedVersion:  5,
-				leaderSettingsWatcher: newMockNotifyWatcher(),
+				tag:                  names.NewApplicationTag("mysql"),
+				life:                 life.Alive,
+				curl:                 "ch:trusty/mysql",
+				charmModifiedVersion: 5,
 			},
 			unitWatcher:                      newMockNotifyWatcher(),
 			addressesWatcher:                 newMockStringsWatcher(),
@@ -249,7 +248,6 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	if s.uniterClient.unit.application.applicationWatcher != nil {
 		s.uniterClient.unit.application.applicationWatcher.changes <- struct{}{}
 	}
-	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	s.uniterClient.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
@@ -263,7 +261,6 @@ func (s *WatcherSuite) signalAll() {
 	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
 	s.uniterClient.unit.actionWatcher.changes <- []string{}
-	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash"}
 	s.uniterClient.updateStatusIntervalWatcher.changes <- struct{}{}
@@ -293,7 +290,6 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
-		LeaderSettingsVersion:   1,
 		Leader:                  true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
@@ -317,7 +313,6 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
-		LeaderSettingsVersion:   1,
 		Leader:                  true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
@@ -332,7 +327,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.signalAll()
 	assertOneChange()
-	initial := s.watcher.Snapshot()
 
 	s.uniterClient.unit.life = life.Dying
 	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
@@ -391,10 +385,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
-
-	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
-	assertOneChange()
-	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
 	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
@@ -913,7 +903,6 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 
 	s.signalAll()
 	assertOneChange()
-	initial := s.watcher.Snapshot()
 
 	s.uniterClient.unit.life = life.Dying
 	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
@@ -973,10 +962,6 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
 
-	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
-	assertOneChange()
-	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
-
 	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
@@ -1015,7 +1000,6 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
-		LeaderSettingsVersion:   1,
 		Leader:                  true,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},

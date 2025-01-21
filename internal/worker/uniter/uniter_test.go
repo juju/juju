@@ -1336,21 +1336,6 @@ func (s *UniterSuite) TestLeadership(c *gc.C) {
 			quickStart{minion: true},
 			forceLeader{},
 			waitHooks{"leader-elected"},
-		), ut(
-			"leader-settings-changed triggers when leader settings change",
-			quickStart{minion: true},
-			setLeaderSettings{"ping": "pong"},
-			waitHooks{"leader-settings-changed"},
-		), ut(
-			"leader-settings-changed triggers when bounced",
-			quickStart{minion: true},
-			verifyRunning{minion: true},
-		), ut(
-			"leader-settings-changed triggers when deposed (while stopped)",
-			quickStart{},
-			stopUniter{},
-			forceMinion{},
-			verifyRunning{minion: true},
 		),
 	})
 }

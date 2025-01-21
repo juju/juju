@@ -117,16 +117,6 @@ func (*RestrictedContext) NetworkInfo(_ context.Context, bindingNames []string, 
 // IsLeader implements hooks.Context.
 func (*RestrictedContext) IsLeader() (bool, error) { return false, ErrRestrictedContext }
 
-// LeaderSettings implements hooks.Context.
-func (*RestrictedContext) LeaderSettings(_ context.Context) (map[string]string, error) {
-	return nil, ErrRestrictedContext
-}
-
-// WriteLeaderSettings implements hooks.Context.
-func (*RestrictedContext) WriteLeaderSettings(context.Context, map[string]string) error {
-	return ErrRestrictedContext
-}
-
 // AddMetric implements hooks.Context.
 func (*RestrictedContext) AddMetric(string, string, time.Time) error { return ErrRestrictedContext }
 

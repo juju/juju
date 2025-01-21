@@ -127,7 +127,6 @@ type testContext struct {
 	stateMu sync.Mutex
 
 	machineProfiles []string
-	leaderSettings  map[string]string
 	storage         map[string]*storageAttachment
 	relationUnits   map[int]relationUnitSettings
 	actionCounter   atomic.Int32
@@ -693,12 +692,6 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.app.EXPECT().WatchLeadershipSettings(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		ctx.sendNotify(c, ctx.leadershipSettingsCh, "initial leadership settings event")
-		w := watchertest.NewMockNotifyWatcher(ctx.leadershipSettingsCh)
-		return w, nil
-	}).AnyTimes()
-
 	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
@@ -836,7 +829,6 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(gomock.Any(), ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes()
 
 	ctx.api.EXPECT().UpdateStatusHookInterval(gomock.Any()).Return(time.Minute, nil).AnyTimes()
-	ctx.api.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 
 	// Storage attachments init.
 	var attachments []params.StorageAttachmentId
@@ -2032,15 +2024,6 @@ func (fastTicket) Ready() <-chan struct{} {
 
 func (t fastTicket) Wait() bool {
 	return t.value
-}
-
-type setLeaderSettings map[string]string
-
-func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
-	ctx.stateMu.Lock()
-	ctx.leaderSettings = s
-	ctx.stateMu.Unlock()
-	ctx.sendNotify(c, ctx.leadershipSettingsCh, "notify leadership settings change")
 }
 
 type mockCharmDirGuard struct{}

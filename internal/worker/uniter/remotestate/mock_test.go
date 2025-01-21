@@ -298,13 +298,12 @@ func (u *mockUnit) WatchInstanceData(_ context.Context) (watcher.NotifyWatcher, 
 
 type mockApplication struct {
 	api.Application
-	tag                   names.ApplicationTag
-	life                  life.Value
-	curl                  string
-	charmModifiedVersion  int
-	forceUpgrade          bool
-	applicationWatcher    *mockNotifyWatcher
-	leaderSettingsWatcher *mockNotifyWatcher
+	tag                  names.ApplicationTag
+	life                 life.Value
+	curl                 string
+	charmModifiedVersion int
+	forceUpgrade         bool
+	applicationWatcher   *mockNotifyWatcher
 }
 
 func (s *mockApplication) CharmModifiedVersion(_ context.Context) (int, error) {
@@ -329,10 +328,6 @@ func (s *mockApplication) Tag() names.ApplicationTag {
 
 func (s *mockApplication) Watch(context.Context) (watcher.NotifyWatcher, error) {
 	return s.applicationWatcher, nil
-}
-
-func (s *mockApplication) WatchLeadershipSettings(_ context.Context) (watcher.NotifyWatcher, error) {
-	return s.leaderSettingsWatcher, nil
 }
 
 type mockRelation struct {

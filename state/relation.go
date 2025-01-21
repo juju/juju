@@ -875,7 +875,7 @@ func (r *Relation) UpdateApplicationSettingsOperation(appName string, token lead
 	}
 
 	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
-	return newUpdateLeaderSettingsOperation(r.st.db(), token, key, updates), nil
+	return newUpdateSettingsWithLeaderTokenOperation(r.st.db(), token, key, updates), nil
 }
 
 // WatchApplicationSettings returns a notify watcher that will signal

@@ -4,22 +4,12 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
 )
-
-func removeLeadershipSettingsOp(applicationId string) txn.Op {
-	return removeSettingsOp(settingsC, leadershipSettingsKey(applicationId))
-}
-
-func leadershipSettingsKey(applicationId string) string {
-	return fmt.Sprintf("a#%s#leader", applicationId)
-}
 
 // buildTxnWithLeadership returns a transaction source
 // that reasserts application leadership continuity.

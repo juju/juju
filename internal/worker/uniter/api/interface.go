@@ -98,7 +98,6 @@ type Application interface {
 
 	// Used by remotestate watcher.
 
-	WatchLeadershipSettings(context.Context) (watcher.NotifyWatcher, error)
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 	Refresh(context.Context) error
 }

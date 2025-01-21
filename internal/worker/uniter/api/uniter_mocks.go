@@ -474,44 +474,6 @@ func (c *MockUniterClientGoalStateCall) DoAndReturn(f func(context.Context) (app
 	return c
 }
 
-// LeadershipSettings mocks base method.
-func (m *MockUniterClient) LeadershipSettings() uniter.LeadershipSettingsAccessor {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LeadershipSettings")
-	ret0, _ := ret[0].(uniter.LeadershipSettingsAccessor)
-	return ret0
-}
-
-// LeadershipSettings indicates an expected call of LeadershipSettings.
-func (mr *MockUniterClientMockRecorder) LeadershipSettings() *MockUniterClientLeadershipSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeadershipSettings", reflect.TypeOf((*MockUniterClient)(nil).LeadershipSettings))
-	return &MockUniterClientLeadershipSettingsCall{Call: call}
-}
-
-// MockUniterClientLeadershipSettingsCall wrap *gomock.Call
-type MockUniterClientLeadershipSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUniterClientLeadershipSettingsCall) Return(arg0 uniter.LeadershipSettingsAccessor) *MockUniterClientLeadershipSettingsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUniterClientLeadershipSettingsCall) Do(f func() uniter.LeadershipSettingsAccessor) *MockUniterClientLeadershipSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientLeadershipSettingsCall) DoAndReturn(f func() uniter.LeadershipSettingsAccessor) *MockUniterClientLeadershipSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Model mocks base method.
 func (m *MockUniterClient) Model(arg0 context.Context) (*types.Model, error) {
 	m.ctrl.T.Helper()

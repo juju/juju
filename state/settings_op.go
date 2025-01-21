@@ -12,7 +12,7 @@ import (
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 )
 
-type updateLeaderSettingsOperation struct {
+type updateSettingsWithLeaderTokenOperation struct {
 	db Database
 
 	sets   bson.M
@@ -24,9 +24,9 @@ type updateLeaderSettingsOperation struct {
 	tokenAwareTxnBuilder func(int) ([]txn.Op, error)
 }
 
-// newApplicationUpdateLeaderSettingsOperation returns a ModelOperation for
+// newUpdateSettingsWithLeaderTokenOperation returns a ModelOperation for
 // updating the leader settings for a particular application.
-func newUpdateLeaderSettingsOperation(db Database, token leadership.Token, key string, updates map[string]interface{}) ModelOperation {
+func newUpdateSettingsWithLeaderTokenOperation(db Database, token leadership.Token, key string, updates map[string]interface{}) ModelOperation {
 	// We can calculate the actual update ahead of time; it's not dependent
 	// upon the current state of the document. (*Writing* it should depend
 	// on document state, but that's handled below.)
@@ -42,7 +42,7 @@ func newUpdateLeaderSettingsOperation(db Database, token leadership.Token, key s
 	}
 	updateDoc := setUnsetUpdateSettings(sets, unsets)
 
-	op := &updateLeaderSettingsOperation{
+	op := &updateSettingsWithLeaderTokenOperation{
 		db:        db,
 		sets:      sets,
 		unsets:    unsets,
@@ -55,11 +55,11 @@ func newUpdateLeaderSettingsOperation(db Database, token leadership.Token, key s
 }
 
 // Build implements ModelOperation.
-func (op *updateLeaderSettingsOperation) Build(attempt int) ([]txn.Op, error) {
+func (op *updateSettingsWithLeaderTokenOperation) Build(attempt int) ([]txn.Op, error) {
 	return op.tokenAwareTxnBuilder(attempt)
 }
 
-func (op *updateLeaderSettingsOperation) buildTxn(_ int) ([]txn.Op, error) {
+func (op *updateSettingsWithLeaderTokenOperation) buildTxn(_ int) ([]txn.Op, error) {
 	// Read the current document state so we can abort if there's
 	// no actual change; and the version number so we can assert
 	// on it and prevent these settings from landing late.
@@ -78,7 +78,7 @@ func (op *updateLeaderSettingsOperation) buildTxn(_ int) ([]txn.Op, error) {
 	}}, nil
 }
 
-func (op *updateLeaderSettingsOperation) isNullChange(rawMap map[string]interface{}) bool {
+func (op *updateSettingsWithLeaderTokenOperation) isNullChange(rawMap map[string]interface{}) bool {
 	for key := range op.unsets {
 		if _, found := rawMap[key]; found {
 			return false
@@ -93,4 +93,4 @@ func (op *updateLeaderSettingsOperation) isNullChange(rawMap map[string]interfac
 }
 
 // Done implements ModelOperation.
-func (op *updateLeaderSettingsOperation) Done(err error) error { return err }
+func (op *updateSettingsWithLeaderTokenOperation) Done(err error) error { return err }

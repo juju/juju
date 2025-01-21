@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	corewatcher "github.com/juju/juju/core/watcher"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -52,7 +52,6 @@ type UniterAPI struct {
 	*common.ModelConfigWatcher
 	*common.RebootRequester
 	*common.UnitStateAPI
-	*leadershipapiserver.LeadershipSettingsAccessor
 
 	lxdProfileAPI           *LXDProfileAPIv2
 	m                       *state.Model
@@ -2085,46 +2084,6 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 	return result, nil
 }
 
-func leadershipSettingsAccessorFactory(
-	st *state.State,
-	checker leadership.Checker,
-	resources facade.Resources,
-	auth facade.Authorizer,
-) *leadershipapiserver.LeadershipSettingsAccessor {
-	registerWatcher := func(applicationId string) (string, error) {
-		application, err := st.Application(applicationId)
-		if err != nil {
-			return "", err
-		}
-		w := application.WatchLeaderSettings()
-		if _, ok := <-w.Changes(); ok {
-			return resources.Register(w), nil
-		}
-		return "", statewatcher.EnsureErr(w)
-	}
-	getSettings := func(applicationId string) (map[string]string, error) {
-		application, err := st.Application(applicationId)
-		if err != nil {
-			return nil, err
-		}
-		return application.LeaderSettings()
-	}
-	writeSettings := func(token leadership.Token, applicationId string, settings map[string]string) error {
-		application, err := st.Application(applicationId)
-		if err != nil {
-			return err
-		}
-		return application.UpdateLeaderSettings(token, settings)
-	}
-	return leadershipapiserver.NewLeadershipSettingsAccessor(
-		auth,
-		registerWatcher,
-		getSettings,
-		checker.LeadershipCheck,
-		writeSettings,
-	)
-}
-
 // V4 specific methods.
 
 //  specific methods - the new NetworkInfo and
@@ -3040,6 +2999,52 @@ func (u *UniterAPI) watchUnit(tag names.Tag) (corewatcher.NotifyWatcher, error) 
 	watcher := entity.Watch()
 	return watcher, err
 }
+
+// Merge merges in the provided leadership settings. Only leaders for
+// the given service may perform this operation.
+func (u *UniterAPIv20) Merge(ctx context.Context, bulkArgs params.MergeLeadershipSettingsBulkParams) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(bulkArgs.Params))
+	return params.ErrorResults{Results: results}, nil
+}
+
+// Read reads leadership settings for the provided service ID. Any
+// unit of the service may perform this operation.
+func (u *UniterAPIv20) Read(ctx context.Context, bulkArgs params.Entities) (params.GetLeadershipSettingsBulkResults, error) {
+	results := make([]params.GetLeadershipSettingsResult, len(bulkArgs.Entities))
+	return params.GetLeadershipSettingsBulkResults{Results: results}, nil
+}
+
+// WatchLeadershipSettings will block the caller until leadership settings
+// for the given service ID change.
+func (u *UniterAPIv20) WatchLeadershipSettings(ctx context.Context, bulkArgs params.Entities) (params.NotifyWatchResults, error) {
+	results := make([]params.NotifyWatchResult, len(bulkArgs.Entities))
+
+	for i := range bulkArgs.Entities {
+		result := &results[i]
+
+		// We need a notify watcher for each item, otherwise during a migration
+		// a 3.x agent will bounce and will not be able to continue. By
+		// providing a watcher which does nothing, we can ensure that the 3.x
+		// agent will continue to work.
+		watcher := watcher.TODO[struct{}]()
+		id, _, err := internal.EnsureRegisterWatcher(ctx, u.watcherRegistry, watcher)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.NotifyWatcherId = id
+	}
+	return params.NotifyWatchResults{Results: results}, nil
+}
+
+// Merge is not implemented in version 21 of the uniter.
+func (u *UniterAPI) Merge(ctx context.Context, _, _ struct{}) {}
+
+// Read is not implemented in version 21 of the uniter.
+func (u *UniterAPI) Read(ctx context.Context, _, _ struct{}) {}
+
+// WatchLeadershipSettings is not implemented in version 21 of the uniter.
+func (u *UniterAPI) WatchLeadershipSettings(ctx context.Context, _, _ struct{}) {}
 
 func ptr[T any](v T) *T {
 	return &v

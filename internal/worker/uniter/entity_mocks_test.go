@@ -366,21 +366,3 @@ func (ctx *testContext) makeRelationUnit(c *gc.C, rel *relation, u *unit) *relat
 
 	return ru
 }
-
-type stubLeadershipSettingsAccessor struct {
-	results map[string]string
-}
-
-func (s *stubLeadershipSettingsAccessor) Read(_ context.Context, _ string) (result map[string]string, _ error) {
-	return result, nil
-}
-
-func (s *stubLeadershipSettingsAccessor) Merge(_ context.Context, _, _ string, settings map[string]string) error {
-	if s.results == nil {
-		s.results = make(map[string]string)
-	}
-	for k, v := range settings {
-		s.results[k] = v
-	}
-	return nil
-}

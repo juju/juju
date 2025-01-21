@@ -773,7 +773,7 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 		relation.RelationStateTrackerConfig{
 			Client:            u.client,
 			Unit:              u.unit,
-			LeadershipContext: context.NewLeadershipContext(u.client.LeadershipSettings(), u.leadershipTracker, unitTag.Id()),
+			LeadershipContext: context.NewLeadershipContext(u.leadershipTracker),
 			CharmDir:          u.paths.State.CharmDir,
 			Abort:             u.catacomb.Dying(),
 			Logger:            u.logger.Child("relation"),

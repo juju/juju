@@ -38,7 +38,6 @@ type UniterClient interface {
 	SetUnitWorkloadVersion(ctx context.Context, tag names.UnitTag, version string) error
 	OpenedMachinePortRangesByEndpoint(ctx context.Context, machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
 	OpenedPortRangesByEndpoint(ctx context.Context) (map[names.UnitTag]network.GroupedPortRanges, error)
-	LeadershipSettings() uniter.LeadershipSettingsAccessor
 	CloudAPIVersion(context.Context) (string, error)
 	APIAddresses(context.Context) ([]string, error)
 	WatchRelationUnits(context.Context, names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)

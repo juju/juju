@@ -495,7 +495,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	globalKey := application.globalKey()
 	charmConfigKey := application.charmConfigKey()
 	appConfigKey := application.applicationConfigKey()
-	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
 	var charmConfig map[string]interface{}
@@ -518,16 +517,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	delete(e.modelSettings, appConfigKey)
 
-	var leadershipSettings map[string]interface{}
-	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
-	if !found && !e.cfg.SkipSettings && !e.cfg.IgnoreIncompleteModel {
-		return errors.Errorf("missing leadership settings for application %q", appName)
-	}
-	if found {
-		leadershipSettings = leadershipSettingsDoc.Settings
-	}
-	delete(e.modelSettings, leadershipKey)
-
 	charmURL := application.doc.CharmURL
 	if charmURL == nil {
 		return errors.Errorf("missing charm URL for application %q", appName)
@@ -549,7 +538,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		ApplicationConfig:    applicationConfig,
 		CharmConfig:          charmConfig,
 		Leader:               ctx.leader,
-		LeadershipSettings:   leadershipSettings,
 	}
 
 	if cloudService, found := ctx.cloudServices[application.globalKey()]; found {

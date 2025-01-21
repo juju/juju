@@ -55,9 +55,6 @@ func (opc *operationCallbacks) PrepareHook(ctx stdcontext.Context, hi hook.Info)
 	case hi.Kind == hooks.ConfigChanged:
 		// TODO(axw)
 		//opc.u.f.DiscardConfigEvent()
-	case hi.Kind == hooks.LeaderSettingsChanged:
-		// TODO(axw)
-		//opc.u.f.DiscardLeaderSettingsEvent()
 	}
 	return name, nil
 }

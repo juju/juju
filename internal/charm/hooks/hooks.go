@@ -41,9 +41,8 @@ const (
 	Remove Kind = "remove"
 	Action Kind = "action"
 
-	LeaderElected         Kind = "leader-elected"
-	LeaderDeposed         Kind = "leader-deposed"
-	LeaderSettingsChanged Kind = "leader-settings-changed"
+	LeaderElected Kind = "leader-elected"
+	LeaderDeposed Kind = "leader-deposed"
 
 	UpdateStatus Kind = "update-status"
 
@@ -114,7 +113,6 @@ var unitHooks = []Kind{
 	Remove,
 	LeaderElected,
 	LeaderDeposed,
-	LeaderSettingsChanged,
 	UpdateStatus,
 }
 

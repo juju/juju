@@ -601,14 +601,13 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		operatorStatusDoc = &operatorStatus
 	}
 	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
-		applicationDoc:     appDoc,
-		statusDoc:          appStatusDoc,
-		constraints:        i.constraints(a.Constraints()),
-		storage:            i.storageConstraints(a.StorageDirectives()),
-		charmConfig:        a.CharmConfig(),
-		applicationConfig:  a.ApplicationConfig(),
-		leadershipSettings: a.LeadershipSettings(),
-		operatorStatus:     operatorStatusDoc,
+		applicationDoc:    appDoc,
+		statusDoc:         appStatusDoc,
+		constraints:       i.constraints(a.Constraints()),
+		storage:           i.storageConstraints(a.StorageDirectives()),
+		charmConfig:       a.CharmConfig(),
+		applicationConfig: a.ApplicationConfig(),
+		operatorStatus:    operatorStatusDoc,
 	})
 	if err != nil {
 		return errors.Trace(err)

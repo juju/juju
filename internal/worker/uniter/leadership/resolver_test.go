@@ -11,10 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/leadership"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -96,38 +94,4 @@ func (s *resolverSuite) TestNextOpResignLeaderDying(c *gc.C) {
 	}, f)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, op)
-}
-
-func (s *resolverSuite) TestNextOpLeaderSettings(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	f := mocks.NewMockFactory(ctrl)
-	op := mocks.NewMockOperation(ctrl)
-	logger := loggertesting.WrapCheckLog(c)
-
-	f.EXPECT().NewRunHook(hook.Info{Kind: hooks.LeaderSettingsChanged}).Return(op, nil)
-
-	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(context.Background(), resolver.LocalState{
-		State:                 operation.State{Installed: true, Kind: operation.Continue},
-		LeaderSettingsVersion: 1,
-	}, remotestate.Snapshot{LeaderSettingsVersion: 2}, f)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, op)
-}
-
-func (s *resolverSuite) TestNextOpNoLeaderSettingsWhenDying(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	f := mocks.NewMockFactory(ctrl)
-	logger := loggertesting.WrapCheckLog(c)
-
-	r := leadership.NewResolver(logger)
-	_, err := r.NextOp(context.Background(), resolver.LocalState{
-		State:                 operation.State{Installed: true, Kind: operation.Continue},
-		LeaderSettingsVersion: 1,
-	}, remotestate.Snapshot{Life: life.Dying, LeaderSettingsVersion: 2}, f)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }

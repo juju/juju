@@ -186,9 +186,7 @@ func (f *contextFactory) newId(name string) (string, error) {
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *contextFactory) coreContext(stdCtx context.Context) (*HookContext, error) {
 	leadershipContext := NewLeadershipContext(
-		f.client.LeadershipSettings(),
 		f.tracker,
-		f.unit.Name(),
 	)
 	ctx := &HookContext{
 		unit:                 f.unit,
