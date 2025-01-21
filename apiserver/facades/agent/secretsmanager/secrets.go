@@ -59,6 +59,11 @@ type SecretsManagerAPI struct {
 // SecretsManagerAPIV1 the secrets manager facade v1.
 // TODO - drop when we no longer support juju 3.1.0
 type SecretsManagerAPIV1 struct {
+	*SecretsManagerAPIV2
+}
+
+// SecretsManagerAPIV2 the secrets manager facade v2.
+type SecretsManagerAPIV2 struct {
 	*SecretsManagerAPI
 }
 
@@ -100,11 +105,30 @@ func (s *SecretsManagerAPIV1) GetSecretBackendConfig() (params.SecretBackendConf
 			Params:      cfg.Config,
 		}
 	}
+	for _, cfg := range result.Configs {
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg); err != nil {
+			return params.SecretBackendConfigResultsV1{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+	}
 	return result, nil
 }
 
 // GetSecretBackendConfigs isn't on the V1 API.
 func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
+
+// GetSecretBackendConfigs gets the config needed to create a client to secret backends.
+func (s *SecretsManagerAPIV2) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	results, err := s.SecretsManagerAPI.GetSecretBackendConfigs(arg)
+	if err != nil {
+		return params.SecretBackendConfigResults{}, errors.Trace(err)
+	}
+	for _, cfg := range results.Results {
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.Config); err != nil {
+			return params.SecretBackendConfigResults{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+	}
+	return results, nil
+}
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
@@ -430,6 +454,24 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
+func (s *SecretsManagerAPIV2) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
+	results, err := s.SecretsManagerAPI.GetSecretContentInfo(args)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, cfg := range results.Results {
+		if cfg.BackendConfig == nil {
+			continue
+		}
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.BackendConfig.Config); err != nil {
+			return params.SecretContentResults{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+		results.Results[i] = cfg
+	}
+	return results, nil
+}
+
+// GetSecretContentInfo returns the secret values for the specified secrets.
 func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(args.Args)),
@@ -540,6 +582,21 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 		}
 	}
 	return content, backend, draining, nil
+}
+
+// GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
+func (s *SecretsManagerAPIV2) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
+	results, err := s.SecretsManagerAPI.GetSecretRevisionContentInfo(arg)
+	if err != nil {
+		return params.SecretContentResults{}, errors.Trace(err)
+	}
+
+	for _, cfg := range results.Results {
+		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.BackendConfig.Config); err != nil {
+			return params.SecretContentResults{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+	}
+	return results, nil
 }
 
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.

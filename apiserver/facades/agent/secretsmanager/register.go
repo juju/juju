@@ -29,6 +29,9 @@ func Register(registry facade.FacadeRegistry) {
 		return NewSecretManagerAPIV1(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
 	registry.MustRegister("SecretsManager", 2, func(ctx facade.Context) (facade.Facade, error) {
+		return NewSecretManagerAPIV2(ctx)
+	}, reflect.TypeOf((*SecretsManagerAPIV2)(nil)))
+	registry.MustRegister("SecretsManager", 3, func(ctx facade.Context) (facade.Facade, error) {
 		return NewSecretManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
@@ -36,11 +39,20 @@ func Register(registry facade.FacadeRegistry) {
 // NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
 // TODO - drop when we no longer support juju 3.1.x
 func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error) {
+	api, err := NewSecretManagerAPIV2(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretsManagerAPIV1{SecretsManagerAPIV2: api}, nil
+}
+
+// NewSecretManagerAPIV2 creates a SecretsManagerAPIV2.
+func NewSecretManagerAPIV2(context facade.Context) (*SecretsManagerAPIV2, error) {
 	api, err := NewSecretManagerAPI(context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &SecretsManagerAPIV1{SecretsManagerAPI: api}, nil
+	return &SecretsManagerAPIV2{SecretsManagerAPI: api}, nil
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
