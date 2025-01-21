@@ -447,10 +447,8 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 
 	switch osType {
 	case ostype.Ubuntu:
-		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
-			jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
-			jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
-		}
+		cfg.aptCommander = commands.NewAptPackageCommander()
+		cfg.snapCommander = commands.NewSnapPackageCommander()
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
 			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(),
 		}

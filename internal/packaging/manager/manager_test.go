@@ -56,10 +56,6 @@ var (
 	// single-package testing scenarios.
 	testedPackageName = "test-package"
 
-	// testedRepoName is the repository name used in all
-	// repository-related tests.
-	testedRepoName = "some-repo"
-
 	// testedPackageNames is a list of package names used in all
 	// multiple-package testing scenario's.
 	testedPackageNames = []string{
@@ -114,36 +110,6 @@ type simpleTestCase struct {
 
 var simpleTestCases = []*simpleTestCase{
 	{
-		"Test install prerequisites.",
-		aptCmder.InstallPrerequisiteCmd(),
-		nil,
-		snapCmder.InstallPrerequisiteCmd(),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.InstallPrerequisite()
-		},
-	},
-	{
-		"Test system update.",
-		aptCmder.UpdateCmd(),
-		nil,
-		snapCmder.UpdateCmd(),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.Update()
-		},
-	},
-	{
-		"Test system upgrade.",
-		aptCmder.UpgradeCmd(),
-		nil,
-		snapCmder.UpgradeCmd(),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.Upgrade()
-		},
-	},
-	{
 		"Test install packages.",
 		aptCmder.InstallCmd(testedPackageNames...),
 		nil,
@@ -153,90 +119,13 @@ var simpleTestCases = []*simpleTestCase{
 			return nil, pacman.Install(testedPackageNames...)
 		},
 	},
-	{
-		"Test remove packages.",
-		aptCmder.RemoveCmd(testedPackageNames...),
-		nil,
-		snapCmder.RemoveCmd(testedPackageNames...),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.Remove(testedPackageNames...)
-		},
-	},
-	{
-		"Test purge packages.",
-		aptCmder.PurgeCmd(testedPackageNames...),
-		nil,
-		snapCmder.PurgeCmd(testedPackageNames...),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.Purge(testedPackageNames...)
-		},
-	},
-	{
-		"Test repository addition.",
-		aptCmder.AddRepositoryCmd(testedRepoName),
-		nil,
-		snapCmder.AddRepositoryCmd(testedRepoName),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.AddRepository(testedRepoName)
-		},
-	},
-	{
-		"Test repository removal.",
-		aptCmder.RemoveRepositoryCmd(testedRepoName),
-		nil,
-		snapCmder.RemoveRepositoryCmd(testedRepoName),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.RemoveRepository(testedRepoName)
-		},
-	},
-	{
-		"Test running cleanup.",
-		aptCmder.CleanupCmd(),
-		nil,
-		snapCmder.CleanupCmd(),
-		nil,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return nil, pacman.Cleanup()
-		},
-	},
-}
-
-// searchingTestCases are a couple of simple test cases which search for a
-// given package; either locally or remotely, and need to be tested separately
-// on the case of their return value being a boolean.
-var searchingTestCases = []*simpleTestCase{
-	{
-		"Test package search.",
-		aptCmder.SearchCmd(testedPackageName),
-		false,
-		snapCmder.SearchCmd(testedPackageName),
-		true,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return pacman.Search(testedPackageName)
-		},
-	},
-	{
-		"Test local package search.",
-		aptCmder.IsInstalledCmd(testedPackageName),
-		true,
-		snapCmder.IsInstalledCmd(testedPackageName),
-		true,
-		func(pacman manager.PackageManager) (interface{}, error) {
-			return pacman.IsInstalled(testedPackageName), nil
-		},
-	},
 }
 
 func (s *ManagerSuite) TestSimpleCases(c *gc.C) {
 	s.PatchValue(&manager.RunCommand, getMockRunCommand(&s.calledCommand))
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCommand))
 
-	testCases := append(simpleTestCases, searchingTestCases...)
-	for i, testCase := range testCases {
+	for i, testCase := range simpleTestCases {
 		c.Logf("Simple test %d: %s", i+1, testCase.desc)
 
 		// run for the apt PackageManager implementation:

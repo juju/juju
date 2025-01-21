@@ -21,9 +21,11 @@ type cloudConfig struct {
 	// osName is the os for which this cloudConfig is made for.
 	osName string
 
-	// paccmder is a map containing PackageCommander instances for all
-	// package managers supported by a particular target.
-	paccmder map[jujupackaging.PackageManagerName]commands.PackageCommander
+	// aptCommander constructs shell commands for apt package management.
+	aptCommander commands.AptPackageCommander
+
+	// snapCommander constructs shell commands for snap package management.
+	snapCommander commands.SnapPackageCommander
 
 	// pacconfer is a map containing PackagingConfigurer instances for all
 	// package managers supported by a particular target.
