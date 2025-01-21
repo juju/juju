@@ -272,10 +272,6 @@ func (s *modelSuite) TestGetModelMetricsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func ptr[T any](s T) *T {
-	return &s
-}
-
 func (s *modelSuite) TestSetModelConstraints(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
@@ -324,15 +320,15 @@ INSERT INTO space (uuid, name) VALUES
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertConstraint(c, s.DB(), dbConstraint{
+	assertConstraint(c, s.DB(), constraints.Value{
 		Arch:             ptr("amd64"),
-		CPUCores:         ptr(uint64(4)),
+		CpuCores:         ptr(uint64(4)),
 		Mem:              ptr(uint64(1024)),
 		RootDisk:         ptr(uint64(1024)),
 		RootDiskSource:   ptr("root-disk-source"),
 		InstanceRole:     ptr("instance-role"),
 		InstanceType:     ptr("instance-type"),
-		ContainerType:    ptr("lxd"),
+		Container:        ptr(instance.LXD),
 		VirtType:         ptr("virt-type"),
 		AllocatePublicIP: ptr(true),
 		ImageID:          ptr("image-id"),
@@ -350,20 +346,19 @@ INSERT INTO space (uuid, name) VALUES
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertConstraint(c, s.DB(), dbConstraint{
-		Arch:          ptr("arm64"),
-		ContainerType: ptr("none"),
+	assertConstraint(c, s.DB(), constraints.Value{
+		Arch:      ptr("arm64"),
+		Container: ptr(instance.NONE),
 	})
 	assertConstraintTags(c, s.DB(), []string{"tag1", "tag3"})
 	assertConstraintSpaces(c, s.DB(), []string{"space2"})
 	assertConstraintZones(c, s.DB(), []string{"zone1"})
 }
 
-func assertConstraint(c *gc.C, db *sql.DB, expected dbConstraint) {
+func assertConstraint(c *gc.C, db *sql.DB, expected constraints.Value) {
 	var consData dbConstraint
-	var allocatePublicIP bool
 	err := db.QueryRowContext(context.Background(), `
-SELECT arch, cpu_cores, mem, root_disk, root_disk_source, 
+SELECT uuid, arch, cpu_cores, mem, root_disk, root_disk_source, 
 	instance_role, instance_type, ct.value,
 	virt_type, allocate_public_ip, image_id
 FROM "constraint" c
@@ -371,13 +366,12 @@ JOIN container_type ct ON ct.id = c.container_type_id`).Scan(
 		&consData.Arch, &consData.CPUCores, &consData.Mem,
 		&consData.RootDisk, &consData.RootDiskSource,
 		&consData.InstanceRole, &consData.InstanceType, &consData.ContainerType, &consData.VirtType,
-		&allocatePublicIP, &consData.ImageID,
+		&consData.AllocatePublicIP, &consData.ImageID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	if allocatePublicIP {
-		consData.AllocatePublicIP = &allocatePublicIP
-	}
-	c.Assert(consData, jc.DeepEquals, expected)
+	consVal, err := consData.toValue(nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(consVal, jc.DeepEquals, expected)
 }
 
 func assertConstraintTags(c *gc.C, db *sql.DB, expected []string) {

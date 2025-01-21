@@ -439,47 +439,66 @@ type dbModelConstraint struct {
 }
 
 type dbConstraint struct {
-	UUID             string  `db:"uuid"`
-	Arch             *string `db:"arch"`
-	CPUCores         *uint64 `db:"cpu_cores"`
-	CPUPower         *uint64 `db:"cpu_power"`
-	Mem              *uint64 `db:"mem"`
-	RootDisk         *uint64 `db:"root_disk"`
-	RootDiskSource   *string `db:"root_disk_source"`
-	InstanceRole     *string `db:"instance_role"`
-	InstanceType     *string `db:"instance_type"`
-	ContainerType    *string `db:"container_type"`
-	VirtType         *string `db:"virt_type"`
-	AllocatePublicIP *bool   `db:"allocate_public_ip"`
-	ImageID          *string `db:"image_id"`
+	UUID             string         `db:"uuid"`
+	Arch             sql.NullString `db:"arch"`
+	CPUCores         sql.NullInt64  `db:"cpu_cores"`
+	CPUPower         sql.NullInt64  `db:"cpu_power"`
+	Mem              sql.NullInt64  `db:"mem"`
+	RootDisk         sql.NullInt64  `db:"root_disk"`
+	RootDiskSource   sql.NullString `db:"root_disk_source"`
+	InstanceRole     sql.NullString `db:"instance_role"`
+	InstanceType     sql.NullString `db:"instance_type"`
+	ContainerType    sql.NullString `db:"container_type"`
+	VirtType         sql.NullString `db:"virt_type"`
+	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
+	ImageID          sql.NullString `db:"image_id"`
+}
+
+func ptr[T any](i T) *T {
+	return &i
 }
 
 func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
-	if c.UUID == "" {
-		return constraints.Value{}, nil
+	consVal := constraints.Value{}
+	if c.Arch.Valid {
+		consVal.Arch = &c.Arch.String
 	}
-
-	consVal := constraints.Value{
-		Arch:           c.Arch,
-		CpuCores:       c.CPUCores,
-		CpuPower:       c.CPUPower,
-		Mem:            c.Mem,
-		RootDisk:       c.RootDisk,
-		RootDiskSource: c.RootDiskSource,
-		InstanceRole:   c.InstanceRole,
-		InstanceType:   c.InstanceType,
-		VirtType:       c.VirtType,
-		ImageID:        c.ImageID,
+	if c.CPUCores.Valid {
+		consVal.CpuCores = ptr(uint64(c.CPUCores.Int64))
 	}
-	if c.AllocatePublicIP != nil && *c.AllocatePublicIP {
-		consVal.AllocatePublicIP = c.AllocatePublicIP
+	if c.CPUPower.Valid {
+		consVal.CpuPower = ptr(uint64(c.CPUPower.Int64))
 	}
-	if c.ContainerType != nil {
-		containerType, err := instance.ParseContainerTypeOrNone(*c.ContainerType)
+	if c.Mem.Valid {
+		consVal.Mem = ptr(uint64(c.Mem.Int64))
+	}
+	if c.RootDisk.Valid {
+		consVal.RootDisk = ptr(uint64(c.RootDisk.Int64))
+	}
+	if c.RootDiskSource.Valid {
+		consVal.RootDiskSource = &c.RootDiskSource.String
+	}
+	if c.InstanceRole.Valid {
+		consVal.InstanceRole = &c.InstanceRole.String
+	}
+	if c.InstanceType.Valid {
+		consVal.InstanceType = &c.InstanceType.String
+	}
+	if c.VirtType.Valid {
+		consVal.VirtType = &c.VirtType.String
+	}
+	if c.AllocatePublicIP.Valid {
+		consVal.AllocatePublicIP = &c.AllocatePublicIP.Bool
+	}
+	if c.ImageID.Valid {
+		consVal.ImageID = &c.ImageID.String
+	}
+	if c.ContainerType.Valid {
+		containerType, err := instance.ParseContainerTypeOrNone(c.ContainerType.String)
 		if err != nil {
 			// This should never happen as the container type is validated when
 			// it is inserted into the database.
-			return constraints.Value{}, errors.Annotatef(err, "parsing container type %q", *c.ContainerType)
+			return constraints.Value{}, errors.Annotatef(err, "parsing container type %q", c.ContainerType.String)
 		}
 		consVal.Container = &containerType
 	}

@@ -204,6 +204,27 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 	return cons.toValue(tags, spaces, zones)
 }
 
+func (s *ModelState) getConstrainUUID(ctx context.Context, modelUUID coremodel.UUID, tx *sqlair.TX) (string, error) {
+	stmt, err := s.Prepare(`
+SELECT constraint_uuid AS &dbModelConstraint.constraint_uuid
+FROM   model_constraint
+WHERE  model_uuid = $dbModelConstraint.model_uuid`, dbModelConstraint{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	modelConstraint := dbModelConstraint{
+		ModelUUID: modelUUID.String(),
+	}
+	err = tx.Query(ctx, stmt, modelConstraint).Get(&modelConstraint)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Errorf("getting constraint UUID for model %q: %w", modelUUID, err)
+	}
+	return modelConstraint.ConstraintUUID, nil
+}
+
 func (s *ModelState) getModelConstraints(ctx context.Context, modelUUID coremodel.UUID, tx *sqlair.TX) (dbConstraint, error) {
 	stmt, err := s.Prepare(`
 SELECT c.uuid AS &dbConstraint.uuid,
@@ -237,7 +258,72 @@ WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 	if err != nil {
 		return dbConstraint{}, errors.Errorf("getting model constraint for model %q: %w", modelUUID, err)
 	}
+	s.logger.Criticalf("getModelConstraints : %#v", constraint)
 	return constraint, nil
+}
+
+func (s *ModelState) removeModelConstraints(ctx context.Context, modelUUID coremodel.UUID, tx *sqlair.TX) error {
+	constraintUUID, err := s.getConstrainUUID(ctx, modelUUID, tx)
+	if err != nil {
+		return errors.Errorf("getting model constraint uuid: %w", err)
+	}
+
+	if constraintUUID == "" {
+		// No constraint exists for the model, nothing to remove.
+		return nil
+	}
+
+	stmt, err := s.Prepare(`DELETE FROM model_constraint`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt).Run()
+	if err != nil {
+		return errors.Errorf("removing model constraints: %w", err)
+	}
+
+	stmt, err = s.Prepare(`
+DELETE FROM constraint_tag 
+WHERE constraint_uuid = $dbConstraintTag.constraint_uuid`, dbConstraintTag{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraintTag{ConstraintUUID: constraintUUID}).Run()
+	if err != nil {
+		return errors.Errorf("removing constraint tags: %w", err)
+	}
+
+	stmt, err = s.Prepare(`
+DELETE FROM constraint_space
+WHERE constraint_uuid = $dbConstraintSpace.constraint_uuid`, dbConstraintSpace{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraintSpace{ConstraintUUID: constraintUUID}).Run()
+	if err != nil {
+		return errors.Errorf("removing constraint spaces: %w", err)
+	}
+
+	stmt, err = s.Prepare(`
+DELETE FROM constraint_zone
+WHERE constraint_uuid = $dbConstraintZone.constraint_uuid`, dbConstraintZone{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraintZone{ConstraintUUID: constraintUUID}).Run()
+	if err != nil {
+		return errors.Errorf("removing constraint zones: %w", err)
+	}
+
+	stmt, err = s.Prepare(`DELETE FROM "constraint" WHERE uuid = $dbConstraint.uuid`, dbConstraint{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraint{UUID: constraintUUID}).Run()
+	if err != nil {
+		return errors.Errorf("removing constraint %q: %w", constraintUUID, err)
+	}
+	return nil
 }
 
 // SetModelConstraints sets the model constraints, including tags, spaces, and zones.
@@ -289,22 +375,7 @@ SELECT $dbConstraint.uuid,
        $dbConstraint.allocate_public_ip,
        $dbConstraint.image_id
 FROM container_type ct
-WHERE ct.value = $dbConstraint.container_type
-ON CONFLICT (uuid)
-DO UPDATE SET
-	arch=excluded.arch,
-	cpu_cores=excluded.cpu_cores,
-	cpu_power=excluded.cpu_power,
-	mem=excluded.mem,
-	root_disk=excluded.root_disk,
-	root_disk_source=excluded.root_disk_source,
-	instance_role=excluded.instance_role,
-	instance_type=excluded.instance_type,
-	container_type_id=excluded.container_type_id,
-	virt_type=excluded.virt_type,
-	allocate_public_ip=excluded.allocate_public_ip,
-	image_id=excluded.image_id
-`, dbConstraint{})
+WHERE ct.value = $dbConstraint.container_type`, dbConstraint{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -315,68 +386,86 @@ DO UPDATE SET
 			return errors.Errorf("getting model uuid: %w", err)
 		}
 
-		existingConstraint, err := s.getModelConstraints(ctx, modelUUID, tx)
+		err = s.removeModelConstraints(ctx, modelUUID, tx)
 		if err != nil {
-			return errors.Errorf("getting model constraints: %w", err)
+			return errors.Errorf("removing existing model constraints: %w", err)
 		}
 
-		existingConstraint.Arch = consValue.Arch
-		existingConstraint.CPUCores = consValue.CpuCores
-		existingConstraint.CPUPower = consValue.CpuPower
-		existingConstraint.Mem = consValue.Mem
-		existingConstraint.RootDisk = consValue.RootDisk
-		existingConstraint.RootDiskSource = consValue.RootDiskSource
-		existingConstraint.InstanceRole = consValue.InstanceRole
-		existingConstraint.InstanceType = consValue.InstanceType
-		existingConstraint.ContainerType = (*string)(consValue.Container)
-		existingConstraint.VirtType = consValue.VirtType
-		existingConstraint.AllocatePublicIP = consValue.AllocatePublicIP
-		existingConstraint.ImageID = consValue.ImageID
+		cons := dbConstraint{}
+		id, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Errorf("generating new constraint uuid: %w", err)
+		}
+		cons.UUID = id.String()
 
-		isNewConstraint := existingConstraint.UUID == ""
-		if isNewConstraint {
-			// No constraint exists for the model, so we generate a new UUID.
-			id, err := uuid.NewUUID()
-			if err != nil {
-				return errors.Errorf("generating new constraint uuid: %w", err)
-			}
-			existingConstraint.UUID = id.String()
+		if consValue.Arch != nil {
+			cons.Arch = sql.NullString{String: *consValue.Arch, Valid: true}
+		}
+		if consValue.CpuCores != nil {
+			cons.CPUCores = sql.NullInt64{Int64: int64(*consValue.CpuCores), Valid: true}
+		}
+		if consValue.CpuPower != nil {
+			cons.CPUPower = sql.NullInt64{Int64: int64(*consValue.CpuPower), Valid: true}
+		}
+		if consValue.Mem != nil {
+			cons.Mem = sql.NullInt64{Int64: int64(*consValue.Mem), Valid: true}
+		}
+		if consValue.RootDisk != nil {
+			cons.RootDisk = sql.NullInt64{Int64: int64(*consValue.RootDisk), Valid: true}
+		}
+		if consValue.RootDiskSource != nil {
+			cons.RootDiskSource = sql.NullString{String: *consValue.RootDiskSource, Valid: true}
+		}
+		if consValue.InstanceRole != nil {
+			cons.InstanceRole = sql.NullString{String: *consValue.InstanceRole, Valid: true}
+		}
+		if consValue.InstanceType != nil {
+			cons.InstanceType = sql.NullString{String: *consValue.InstanceType, Valid: true}
+		}
+		if consValue.Container != nil {
+			cons.ContainerType = sql.NullString{String: string(*consValue.Container), Valid: true}
+		}
+		if consValue.VirtType != nil {
+			cons.VirtType = sql.NullString{String: *consValue.VirtType, Valid: true}
+		}
+		if consValue.AllocatePublicIP != nil {
+			cons.AllocatePublicIP = sql.NullBool{Bool: *consValue.AllocatePublicIP, Valid: true}
+		}
+		if consValue.ImageID != nil {
+			cons.ImageID = sql.NullString{String: *consValue.ImageID, Valid: true}
 		}
 
-		err = tx.Query(ctx, upsertConstraintStmt, existingConstraint).Run()
+		err = tx.Query(ctx, upsertConstraintStmt, cons).Run()
 		if err != nil {
 			return errors.Errorf("upserting constraint: %w", err)
 		}
 
-		if isNewConstraint {
-			// Insert a new model constraint.
-			err = tx.Query(ctx, insertModelConstraintStmt, dbModelConstraint{
-				ModelUUID:      modelUUID.String(),
-				ConstraintUUID: existingConstraint.UUID,
-			}).Run()
-			if err != nil {
-				return errors.Errorf("inserting model constraint: %w", err)
-			}
+		err = tx.Query(ctx, insertModelConstraintStmt, dbModelConstraint{
+			ModelUUID:      modelUUID.String(),
+			ConstraintUUID: cons.UUID,
+		}).Run()
+		if err != nil {
+			return errors.Errorf("inserting model constraint: %w", err)
 		}
 
 		if consValue.Tags != nil {
-			err = s.upsertContraintTags(ctx, tx, existingConstraint.UUID, *consValue.Tags)
+			err = s.insertContraintTags(ctx, tx, cons.UUID, *consValue.Tags)
 			if err != nil {
-				return errors.Errorf("upserting constraint tags for constraint %q: %w", existingConstraint.UUID, err)
+				return errors.Errorf("upserting constraint tags for constraint %q: %w", cons.UUID, err)
 			}
 		}
 
 		if consValue.Spaces != nil {
-			err = s.upsertContraintSpaces(ctx, tx, existingConstraint.UUID, *consValue.Spaces)
+			err = s.insertContraintSpaces(ctx, tx, cons.UUID, *consValue.Spaces)
 			if err != nil {
-				return errors.Errorf("upserting constraint spaces for constraint %q: %w", existingConstraint.UUID, err)
+				return errors.Errorf("upserting constraint spaces for constraint %q: %w", cons.UUID, err)
 			}
 		}
 
 		if consValue.Zones != nil {
-			err = s.upsertContraintZones(ctx, tx, existingConstraint.UUID, *consValue.Zones)
+			err = s.insertContraintZones(ctx, tx, cons.UUID, *consValue.Zones)
 			if err != nil {
-				return errors.Errorf("upserting constraint zones for constraint %q: %w", existingConstraint.UUID, err)
+				return errors.Errorf("upserting constraint zones for constraint %q: %w", cons.UUID, err)
 			}
 		}
 		return nil
@@ -384,15 +473,7 @@ DO UPDATE SET
 	return errors.Capture(err)
 }
 
-func (s *ModelState) upsertContraintTags(ctx context.Context, tx *sqlair.TX, constraintUUID string, tags []string) error {
-	removeConstraintTagsStmt, err := s.Prepare(`
-DELETE FROM constraint_tag
-WHERE constraint_uuid = $dbConstraintTag.constraint_uuid
-`, dbConstraintTag{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
+func (s *ModelState) insertContraintTags(ctx context.Context, tx *sqlair.TX, constraintUUID string, tags []string) error {
 	insertConstraintTagStmt, err := s.Prepare(`
 INSERT INTO constraint_tag (*)
 VALUES ($dbConstraintTag.*)`, dbConstraintTag{})
@@ -400,39 +481,28 @@ VALUES ($dbConstraintTag.*)`, dbConstraintTag{})
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, removeConstraintTagsStmt, dbConstraintTag{ConstraintUUID: constraintUUID}).Run()
-	if err != nil {
-		return errors.Errorf("removing existing constraint tags for constraint %q: %w", constraintUUID, err)
-	}
-
 	if len(tags) == 0 {
 		return nil
 	}
 
+	var data []dbConstraintTag
 	for _, tag := range tags {
 		if tag == "" {
 			continue
 		}
-		err := tx.Query(ctx, insertConstraintTagStmt, dbConstraintTag{
+		data = append(data, dbConstraintTag{
 			ConstraintUUID: constraintUUID,
 			Tag:            tag,
-		}).Run()
-		if err != nil {
-			return errors.Errorf("inserting constraint tag %q: %w", tag, err)
-		}
+		})
+	}
+	err = tx.Query(ctx, insertConstraintTagStmt, data).Run()
+	if err != nil {
+		return errors.Errorf("inserting constraint tags %w", err)
 	}
 	return nil
 }
 
-func (s *ModelState) upsertContraintSpaces(ctx context.Context, tx *sqlair.TX, constraintUUID string, spaces []string) error {
-	removeConstraintSpacesStmt, err := s.Prepare(`
-DELETE FROM constraint_space
-WHERE constraint_uuid = $dbConstraintSpace.constraint_uuid
-`, dbConstraintSpace{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
+func (s *ModelState) insertContraintSpaces(ctx context.Context, tx *sqlair.TX, constraintUUID string, spaces []string) error {
 	insertConstraintSpaceStmt, err := s.Prepare(`
 INSERT INTO constraint_space (*)
 VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
@@ -440,42 +510,31 @@ VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, removeConstraintSpacesStmt, dbConstraintSpace{ConstraintUUID: constraintUUID}).Run()
-	if err != nil {
-		return errors.Errorf("removing existing constraint spaces for constraint %q: %w", constraintUUID, err)
-	}
-
 	if len(spaces) == 0 {
 		return nil
 	}
 
+	var data []dbConstraintSpace
 	for _, space := range spaces {
 		if space == "" {
 			continue
 		}
-		err := tx.Query(ctx, insertConstraintSpaceStmt, dbConstraintSpace{
+		data = append(data, dbConstraintSpace{
 			ConstraintUUID: constraintUUID,
 			Space:          space,
-		}).Run()
-		if internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("inserting constraint space %q: %w", space, networkerrors.SpaceNotFound)
-		}
-		if err != nil {
-			return errors.Errorf("inserting constraint space %q: %w", space, err)
-		}
+		})
+	}
+	err = tx.Query(ctx, insertConstraintSpaceStmt, data).Run()
+	if internaldatabase.IsErrConstraintForeignKey(err) {
+		return errors.Errorf("inserting model space constraints").Add(networkerrors.SpaceNotFound)
+	}
+	if err != nil {
+		return errors.Errorf("inserting constraint space: %w", err)
 	}
 	return nil
 }
 
-func (s *ModelState) upsertContraintZones(ctx context.Context, tx *sqlair.TX, constraintUUID string, zones []string) error {
-	removeConstraintZonesStmt, err := s.Prepare(`
-DELETE FROM constraint_zone
-WHERE constraint_uuid = $dbConstraintZone.constraint_uuid
-`, dbConstraintZone{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
+func (s *ModelState) insertContraintZones(ctx context.Context, tx *sqlair.TX, constraintUUID string, zones []string) error {
 	insertConstraintZoneStmt, err := s.Prepare(`
 INSERT INTO constraint_zone (*)
 VALUES ($dbConstraintZone.*)`, dbConstraintZone{})
@@ -483,26 +542,23 @@ VALUES ($dbConstraintZone.*)`, dbConstraintZone{})
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, removeConstraintZonesStmt, dbConstraintZone{ConstraintUUID: constraintUUID}).Run()
-	if err != nil {
-		return errors.Errorf("removing existing constraint zones for constraint %q: %w", constraintUUID, err)
-	}
-
 	if len(zones) == 0 {
 		return nil
 	}
 
+	var data []dbConstraintZone
 	for _, zone := range zones {
 		if zone == "" {
 			continue
 		}
-		err := tx.Query(ctx, insertConstraintZoneStmt, dbConstraintZone{
+		data = append(data, dbConstraintZone{
 			ConstraintUUID: constraintUUID,
 			Zone:           zone,
-		}).Run()
-		if err != nil {
-			return errors.Errorf("inserting constraint zone %q: %w", zone, err)
-		}
+		})
+	}
+	err = tx.Query(ctx, insertConstraintZoneStmt, data).Run()
+	if err != nil {
+		return errors.Errorf("inserting constraint zone: %w", err)
 	}
 >>>>>>> ba8d2cbc4a (feat: implement model constraints getter and setter state methods;)
 	return nil
