@@ -586,6 +586,11 @@ WHERE  resource_uuid = $storedFileResource.resource_uuid
 	} else if err == nil {
 		// If a row was found, then a file for that resource is
 		// already stored, remove it and set its storeID as droppedHash.
+		if existingStoredResource == storedResource {
+			// Unless it is the same resource blob.
+			return "", nil
+		}
+
 		removeExistingStoredResource, err := st.Prepare(`
 DELETE FROM   resource_file_store
 WHERE         store_uuid = $storedFileResource.store_uuid
@@ -676,6 +681,11 @@ WHERE  resource_uuid = $storedContainerImageResource.resource_uuid
 	} else if err == nil {
 		// If a row was found, then a container image for that resource is
 		// already stored, remove it and set its storeID as droppedHash.
+		if existingStoredResource == storedResource {
+			// Unless it is the same resource blob.
+			return "", nil
+		}
+
 		removeExistingStoredResource, err := st.Prepare(`
 DELETE FROM   resource_image_store
 WHERE         store_storage_key = $storedContainerImageResource.store_storage_key

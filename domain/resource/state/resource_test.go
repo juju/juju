@@ -1016,6 +1016,80 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
 }
 
+func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerImage(c *gc.C) {
+	// Arrange: insert a resource record and generate 2 blobs.
+	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
+
+	// Arrange: store the first resource.
+	droppedHash1, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeContainerImage,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash1, gc.Equals, "")
+
+	// Act: try to store a second resource.
+	droppedHash2, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeContainerImage,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	// Assert: That when record a blob twice, the second recording does not
+	// return its own hash to drop.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(droppedHash2, gc.Equals, "")
+}
+
+func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.C) {
+	// Arrange: insert a resource record and generate 2 blobs.
+	resID, storeID, size, hash := s.createFileResourceAndBlob(c)
+
+	// Arrange: store the first resource.
+	droppedHash1, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash1, gc.Equals, "")
+
+	// Act: try to store a second resource.
+	droppedHash2, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	// Assert: That when record a blob twice, the second recording does not
+	// return its own hash to drop.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(droppedHash2, gc.Equals, "")
+}
+
 // TestRecordStoredResourceOriginAndRevision checks that resource origin and
 // revision are set correctly.
 func (s *resourceSuite) TestRecordStoredResourceStoreOriginAndRevision(c *gc.C) {
