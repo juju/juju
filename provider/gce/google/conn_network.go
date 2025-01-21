@@ -215,6 +215,11 @@ func (gce Connection) ClosePorts(target string, rules corefirewall.IngressRules)
 	return nil
 }
 
+// RemoveFirewall removes the named firewall from the project.
+func (gce Connection) RemoveFirewall(fwname string) error {
+	return gce.service.RemoveFirewall(gce.projectID, fwname)
+}
+
 // Subnetworks returns the subnets available in this region.
 func (gce Connection) Subnetworks(region string) ([]*compute.Subnetwork, error) {
 	results, err := gce.service.ListSubnetworks(gce.projectID, region)
