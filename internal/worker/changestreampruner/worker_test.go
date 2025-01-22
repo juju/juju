@@ -629,7 +629,7 @@ SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.
 }
 
 func (s *workerSuite) truncateChangeLog(c *gc.C, runner coredatabase.TxnRunner) {
-	query, err := sqlair.Prepare(`DELETE FROM change_log;`, sqlair.M{})
+	query, err := sqlair.Prepare(`DELETE FROM change_log;`)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
