@@ -92,10 +92,14 @@ CREATE TABLE application_config (
 );
 
 CREATE VIEW v_application_config AS
-SELECT a.uuid, ac."key", ac.value, cct.name AS type
+SELECT
+    a.uuid,
+    ac."key",
+    ac.value,
+    cct.name AS type
 FROM application AS a
 LEFT JOIN application_config AS ac ON a.uuid = ac.application_uuid
-JOIN charm_config_type AS cct ON ac.type_id = cct.id;
+INNER JOIN charm_config_type AS cct ON ac.type_id = cct.id;
 
 CREATE TABLE application_constraint (
     application_uuid TEXT NOT NULL PRIMARY KEY,

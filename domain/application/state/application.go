@@ -28,7 +28,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
-	jujudb "github.com/juju/juju/internal/database"
+	internaldatabase "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -1513,7 +1513,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		// This is purely defensive and is not expected in practice - the
 		// unitUUID is expected to be validated earlier in the atomic txn
 		// workflow.
-		if jujudb.IsErrConstraintForeignKey(err) {
+		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "cloud_container_status_data", unitUUID, status.Data)
@@ -1546,7 +1546,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		err = tx.Query(ctx, stmt, statusInfo).Run()
 		// This is purely defensive and is not expected in practice - the unitUUID
 		// is expected to be validated earlier in the atomic txn workflow.
-		if jujudb.IsErrConstraintForeignKey(err) {
+		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "unit_agent_status_data", unitUUID, status.Data)
@@ -1580,7 +1580,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		// This is purely defensive and is not expected in practice - the
 		// unitUUID is expected to be validated earlier in the atomic txn
 		// workflow.
-		if jujudb.IsErrConstraintForeignKey(err) {
+		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "unit_workload_status_data", unitUUID, status.Data)
@@ -2281,6 +2281,63 @@ WHERE application_uuid = $applicationID.uuid;`
 	return result, nil
 }
 
+// GetApplicationTrustSetting returns the application trust setting.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, internalerrors.Capture(err)
+	}
+
+	// We don't currently check for life in the old code, it might though be
+	// worth checking if the application is not dead.
+	ident := applicationID{ID: appID}
+
+	// This isn't ideal, as we could request this in one query, but we need to
+	// perform multiple queries to get the data. First is to get the application
+	// availability, second to just get the application overlay config for the
+	// charm config and the application settings for the trust config.
+	appQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	settingsQuery := `
+SELECT trust AS &applicationSettings.trust
+FROM application_setting
+WHERE application_uuid = $applicationID.uuid;`
+
+	appStmt, err := st.Prepare(appQuery, ident)
+	if err != nil {
+		return false, internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
+	if err != nil {
+		return false, internalerrors.Errorf("preparing query for application trust setting: %w", err)
+	}
+
+	var settings applicationSettings
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("querying application: %w", err)
+		}
+
+		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application settings: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return false, internalerrors.Errorf("querying application config: %w", err)
+	}
+
+	return settings.Trust, nil
+}
+
 // SetApplicationConfig sets the application config attributes using the
 // configuration.
 func (st *State) SetApplicationConfig(ctx context.Context, appID coreapplication.ID, config map[string]application.ApplicationConfig) error {
@@ -2306,17 +2363,17 @@ AND key IN ($S[:]);
 `
 	insertQuery := `
 INSERT INTO application_config (*)
-VALUES ($applicationConfig.*);
+VALUES ($setApplicationConfig.*);
 `
 	updateQuery := `
 UPDATE application_config
-SET value = $applicationConfig.value
-	type_id = $applicationConfig.type_id
-WHERE application_uuid = $applicationID.uuid;
+SET value = $setApplicationConfig.value,
+	type_id = $setApplicationConfig.type_id
+WHERE application_uuid = $setApplicationConfig.application_uuid;
 `
 	settingsQuery := `
 INSERT INTO application_setting (*)
-VALUES ($applicationSettings.*)
+VALUES ($setApplicationSettings.*)
 ON CONFLICT(application_uuid) DO UPDATE SET
 	trust = excluded.trust;
 `
@@ -2325,26 +2382,26 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application config: %w", err)
 	}
-	deleteStmt, err := st.Prepare(deleteQuery, ident)
+	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application config: %w", err)
 	}
-	insertStmt, err := st.Prepare(insertQuery, applicationConfig{})
+	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application config: %w", err)
 	}
-	updateStmt, err := st.Prepare(updateQuery, applicationConfig{})
+	updateStmt, err := st.Prepare(updateQuery, setApplicationConfig{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application config: %w", err)
 	}
-	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{})
+	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application config: %w", err)
 	}
 
-	var trust any
-	if v, ok := config["trust"]; ok {
-		trust = v
+	trust, err := encodeTrustConfig(config)
+	if err != nil {
+		return internalerrors.Errorf("encoding trust config: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2360,42 +2417,77 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 		// Work out what we need to do, based on what we have, vs what we
 		// need.
-		var removal sqlair.S
-		var update []applicationConfig
-		for k, v := range currentM {
+		var removals sqlair.S
+		var updates []setApplicationConfig
+		for k := range currentM {
 			if _, ok := config[k]; !ok {
-				removal = append(removal, k)
-			} else {
-				update = append(update, v)
+				removals = append(removals, k)
+				continue
 			}
+
+			typeID, err := encodeConfigType(config[k].Type)
+			if err != nil {
+				return internalerrors.Errorf("encoding config type: %w", err)
+			}
+
+			updates = append(updates, setApplicationConfig{
+				ApplicationUUID: ident.ID.String(),
+				Key:             k,
+				Value:           config[k].Value,
+				TypeID:          typeID,
+			})
+
 		}
-		var insert []applicationConfig
+		var inserts []setApplicationConfig
 		for k, v := range config {
-			if _, ok := currentM[k]; !ok {
-				insert = append(insert, applicationConfig{
-					Key:   k,
-					Value: v.Value,
-				})
+			if _, ok := currentM[k]; ok {
+				continue
 			}
+
+			typeID, err := encodeConfigType(v.Type)
+			if err != nil {
+				return internalerrors.Errorf("encoding config type: %w", err)
+			}
+
+			inserts = append(inserts, setApplicationConfig{
+				ApplicationUUID: ident.ID.String(),
+				Key:             k,
+				Value:           v.Value,
+				TypeID:          typeID,
+			})
 		}
 
-		if len(removal) > 0 {
-			if err := tx.Query(ctx, deleteStmt, removal, ident).Run(); err != nil {
+		// We have to check the foreign key constraint on each request, as
+		// each one is optional, bar the last query.
+
+		if len(removals) > 0 {
+			if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+				return applicationerrors.ApplicationNotFound
+			} else if err != nil {
 				return internalerrors.Errorf("deleting application config: %w", err)
 			}
 		}
-		if len(insert) > 0 {
-			if err := tx.Query(ctx, insertStmt, insert).Run(); err != nil {
+		if len(inserts) > 0 {
+			if err := tx.Query(ctx, insertStmt, inserts).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+				return applicationerrors.ApplicationNotFound
+			} else if err != nil {
 				return internalerrors.Errorf("inserting application config: %w", err)
 			}
 		}
-		if len(update) > 0 {
-			if err := tx.Query(ctx, updateStmt, update).Run(); err != nil {
+		for _, update := range updates {
+			if err := tx.Query(ctx, updateStmt, update).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+				return applicationerrors.ApplicationNotFound
+			} else if err != nil {
 				return internalerrors.Errorf("updating application config: %w", err)
 			}
 		}
 
-		if err := tx.Query(ctx, settingsStmt, applicationSettings{Trust: trust}).Run(); err != nil {
+		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+			ApplicationUUID: ident.ID.String(),
+			Trust:           trust,
+		}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
 			return internalerrors.Errorf("updating application settings: %w", err)
 		}
 
@@ -2405,6 +2497,22 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		return internalerrors.Errorf("setting application config: %w", err)
 	}
 	return nil
+}
+
+func encodeTrustConfig(config map[string]application.ApplicationConfig) (bool, error) {
+	trust, ok := config["trust"]
+	if !ok {
+		return false, nil
+	}
+
+	switch t := trust.Value.(type) {
+	case bool:
+		return t, nil
+	case nil:
+		return false, nil
+	default:
+		return false, internalerrors.Errorf("unexpected trust config type %T", t)
+	}
 }
 
 func decodeRisk(risk string) (application.ChannelRisk, error) {

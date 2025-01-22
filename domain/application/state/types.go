@@ -680,6 +680,18 @@ type applicationConfig struct {
 	Type  string `db:"type"`
 }
 
+type setApplicationConfig struct {
+	ApplicationUUID string `db:"application_uuid"`
+	Key             string `db:"key"`
+	Value           any    `db:"value"`
+	TypeID          int    `db:"type_id"`
+}
+
 type applicationSettings struct {
-	Trust any `db:"trust"`
+	Trust bool `db:"trust"`
+}
+
+type setApplicationSettings struct {
+	ApplicationUUID string `db:"application_uuid"`
+	Trust           bool   `db:"trust"`
 }
