@@ -20,11 +20,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
-	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/service/snap"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -239,7 +237,7 @@ func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *gc.C) {
 
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
-	s.PatchValue(mongo.InstallMongo, func(packaging.Dependency, base.Base) error {
+	s.PatchValue(mongo.InstallMongo, func(string) error {
 		c.Fatalf("unexpected call to InstallMongo")
 		return nil
 	})
@@ -257,7 +255,7 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	failure := errors.New("boom")
-	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, b base.Base) error {
+	s.PatchValue(mongo.InstallMongo, func(string) error {
 		return failure
 	})
 

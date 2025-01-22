@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/snap"
-	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/config"
 	"github.com/juju/juju/internal/packaging/source"
 )
@@ -88,9 +87,8 @@ func (cfg *ubuntuCloudConfig) RenderYAML() ([]byte, error) {
 	// apt_preferences is not a valid field so we use a fake field in attrs
 	// and then render it differently
 	prefs := cfg.PackagePreferences()
-	pkgConfer := cfg.getPackagingConfigurer(packaging.AptPackageManager)
 	for _, pref := range prefs {
-		prefFile, err := pkgConfer.RenderPreferences(pref)
+		prefFile, err := cfg.aptConfigurer.RenderPreferences(pref)
 		if err != nil {
 			return nil, err
 		}
@@ -165,9 +163,8 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, cfg.aptCommander.AddRepositoryCmd(src.URL))
 	}
 
-	pkgConfer := cfg.getPackagingConfigurer(packaging.AptPackageManager)
 	for _, prefs := range cfg.PackagePreferences() {
-		prefFile, err := pkgConfer.RenderPreferences(prefs)
+		prefFile, err := cfg.aptConfigurer.RenderPreferences(prefs)
 		if err != nil {
 			return nil, err
 		}

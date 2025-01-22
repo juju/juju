@@ -23,11 +23,8 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 
-	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/snap"
@@ -228,7 +225,6 @@ func EnsureServerInstalled(ctx context.Context, args EnsureServerParams) error {
 func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweaks map[string]string) (err error) {
 	tweakSysctlForMongo(mongoKernelTweaks)
 
-	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
 	if args.MongoDataDir == "" {
 		args.MongoDataDir = dataPathForJujuDbSnap
 	}
@@ -254,12 +250,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 		return errors.Annotatef(err, "cannot create mongo snap service")
 	}
 
-	hostBase, err := coreos.HostBase()
-	if err != nil {
-		return errors.Annotatef(err, "cannot get host base")
-	}
-
-	if err := installMongod(mongoDep, hostBase, svc); err != nil {
+	if err := installMongod(args.JujuDBSnapChannel, svc); err != nil {
 		return errors.Annotatef(err, "cannot install mongod")
 	}
 
@@ -478,16 +469,16 @@ func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService,
 }
 
 // Override for testing.
-var installMongo = packaging.InstallDependency
+var installMongo = dependency.InstallMongo
 
-func installMongod(mongoDep packaging.Dependency, hostBase base.Base, snapSvc MongoSnapService) error {
+func installMongod(snapChannel string, snapSvc MongoSnapService) error {
 	// Do either a local snap install or a real install from the store.
 	if snapSvc.IsLocal() {
 		// Local snap.
 		return snapSvc.Install()
 	}
 	// Store snap.
-	return installMongo(mongoDep, hostBase)
+	return installMongo(snapChannel)
 }
 
 // dbDir returns the dir where mongo storage is.

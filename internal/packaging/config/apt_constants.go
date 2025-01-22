@@ -46,11 +46,4 @@ Package: {{.Package}}
 Pin: {{.Pin}}
 Pin-Priority: {{.Priority}}
 `[1:]))
-
-	// AptSourceTemplate is the template specific to an apt source file.
-	AptSourceTemplate = template.Must(template.New("").Parse(`
-# {{.Name}} (added by Juju)
-deb {{.URL}} %s main
-# deb-src {{.URL}} %s main
-`[1:]))
 )

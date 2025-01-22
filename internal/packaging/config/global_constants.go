@@ -28,13 +28,3 @@ function package_manager_loop {
 }
 `
 )
-
-var (
-	// DefaultPackages is a list of the default packages Juju'd like to see
-	// installed on all it's machines.
-	DefaultPackages = []string{
-		// TODO (everyone): populate this list with all required packages.
-		// for example:
-		"curl",
-	}
-)

@@ -5,10 +5,10 @@
 package manager_test
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -21,43 +21,12 @@ type RunSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *RunSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
-}
-
-func (s *RunSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-}
-
-func (s *RunSuite) TearDownTest(c *gc.C) {
-	s.IsolationSuite.TearDownTest(c)
-}
-
-func (s *RunSuite) TearDownSuite(c *gc.C) {
-	s.IsolationSuite.TearDownSuite(c)
-}
-
-type mockExitStatuser int
-
-func (es mockExitStatuser) ExitStatus() int {
-	return int(es)
-}
-
-func (s *RunSuite) TestRunCommandWithRetryDoesOnPackageLocationFailure(c *gc.C) {
-	const minRetries = 3
-	var calls int
+func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *gc.C) {
+	calls := 0
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
-	s.PatchValue(&manager.Attempts, minRetries)
-	s.PatchValue(&manager.Delay, testing.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
-		return mockExitStatuser(100) // retry each time.
-	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
 		calls++
-		// Replace the command path and args so it's a no-op.
-		cmd.Path = ""
-		cmd.Args = []string{"version"}
 		// Call the real cmd.CombinedOutput to simulate better what
 		// happens in production. See also http://pad.lv/1394524.
 		output, err := cmd.CombinedOutput()
@@ -68,33 +37,62 @@ func (s *RunSuite) TestRunCommandWithRetryDoesOnPackageLocationFailure(c *gc.C) 
 		return output, cmdError
 	})
 
-	calls = 0
-	apt := manager.NewAptPackageManager()
-	err := apt.Install(testedPackageName)
+	_, _, err := manager.RunCommandWithRetry("ls -la", alwaysRetryable{}, manager.RetryPolicy{
+		Attempts: 3,
+		Delay:    testing.ShortWait,
+	})
+
 	c.Check(err, gc.ErrorMatches, "packaging command failed: attempt count exceeded: exit status.*")
-	c.Check(calls, gc.Equals, minRetries)
+	c.Check(calls, gc.Equals, 3)
 }
 
 func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *gc.C) {
-	const minRetries = 3
-	var calls int
+	calls := 0
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
-	s.PatchValue(&manager.Attempts, minRetries)
-	s.PatchValue(&manager.Delay, testing.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
-		return mockExitStatuser(100) // retry each time.
-	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
 		calls++
-		cmdOutput := fmt.Sprintf("Reading state information...\nE: Unable to locate package %s",
-
-			testedPackageName)
-		return []byte(cmdOutput), cmdError
+		// Call the real cmd.CombinedOutput to simulate better what
+		// happens in production. See also http://pad.lv/1394524.
+		output, err := cmd.CombinedOutput()
+		if _, ok := err.(*exec.Error); err != nil && !ok {
+			c.Check(err, gc.ErrorMatches, "exec: Stdout already set")
+			c.Fatalf("CommandOutput called twice unexpectedly")
+		}
+		return output, cmdError
 	})
 
-	apt := manager.NewAptPackageManager()
-	err := apt.Install(testedPackageName)
-	c.Check(err, gc.ErrorMatches, "packaging command failed: encountered fatal error: unable to locate package")
+	_, _, err := manager.RunCommandWithRetry("ls -la", alwaysFatal{}, manager.RetryPolicy{
+		Attempts: 3,
+		Delay:    testing.ShortWait,
+	})
+
+	c.Check(err, gc.ErrorMatches, "packaging command failed: encountered fatal error: boom!")
 	c.Check(calls, gc.Equals, 1)
+}
+
+type mockExitStatuser int
+
+func (es mockExitStatuser) ExitStatus() int {
+	return int(es)
+}
+
+type alwaysRetryable struct{}
+
+func (alwaysRetryable) IsRetryable(int, string) bool {
+	return true
+}
+
+func (alwaysRetryable) MaskError(int, string) error {
+	return errors.Errorf("boom!")
+}
+
+type alwaysFatal struct{}
+
+func (alwaysFatal) IsRetryable(int, string) bool {
+	return false
+}
+
+func (alwaysFatal) MaskError(int, string) error {
+	return errors.Errorf("boom!")
 }

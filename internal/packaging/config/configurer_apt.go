@@ -8,22 +8,15 @@ import (
 	"github.com/juju/juju/internal/packaging/source"
 )
 
-// aptConfigurer is the PackagingConfigurer implementation for apt-based systems.
-type aptConfigurer struct {
-	*baseConfigurer
-}
+// AptConfigurer is the PackagingConfigurer implementation for apt-based systems.
+type AptConfigurer struct{}
 
-// RenderSource is defined on the PackagingConfigurer interface.
-func (c *aptConfigurer) RenderSource(src source.PackageSource) (string, error) {
-	return src.RenderSourceFile(AptSourceTemplate)
+// NewAptPackagingConfigurer returns a PackagingConfigurer for apt-based systems.
+func NewAptPackagingConfigurer() AptConfigurer {
+	return AptConfigurer{}
 }
 
 // RenderPreferences is defined on the PackagingConfigurer interface.
-func (c *aptConfigurer) RenderPreferences(prefs source.PackagePreferences) (string, error) {
+func (c AptConfigurer) RenderPreferences(prefs source.PackagePreferences) (string, error) {
 	return prefs.RenderPreferenceFile(AptPreferenceTemplate)
-}
-
-// ApplyCloudArchiveTarget is defined on the PackagingConfigurer interface.
-func (c *aptConfigurer) ApplyCloudArchiveTarget(pack string) []string {
-	return []string{pack}
 }

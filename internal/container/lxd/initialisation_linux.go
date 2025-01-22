@@ -13,11 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/containermanager"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/internal/container"
-	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/internal/packaging/manager"
 	"github.com/juju/juju/internal/service"
@@ -72,12 +70,7 @@ func NewContainerInitialiser(
 
 // Initialise is specified on the container.Initialiser interface.
 func (ci *containerInitialiser) Initialise() (err error) {
-	localBase, err := hostBase()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := ensureDependencies(ci.lxdSnapChannel, localBase); err != nil {
+	if err := ensureDependencies(ci.lxdSnapChannel); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -190,7 +183,7 @@ var df = func(path string) (uint64, error) {
 }
 
 // ensureDependencies install the required dependencies for running LXD.
-func ensureDependencies(lxdSnapChannel string, base corebase.Base) error {
+func ensureDependencies(lxdSnapChannel string) error {
 	// If the snap is already installed, check whether the operator asked
 	// us to use a different channel. If so, switch to it.
 	if lxdViaSnap() {
@@ -214,7 +207,7 @@ func ensureDependencies(lxdSnapChannel string, base corebase.Base) error {
 		return nil
 	}
 
-	if err := packaging.InstallDependency(dependency.LXD(lxdSnapChannel), base); err != nil {
+	if err := dependency.InstallLXD(lxdSnapChannel); err != nil {
 		return errors.Trace(err)
 	}
 
