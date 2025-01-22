@@ -41,10 +41,9 @@ type ModelDomainServices interface {
 	// Config returns the model config service.
 	Config() ModelConfigService
 
-	// ModelInfo returns the model service for the model. The model info
-	// contains read-only information about the model.
+	// ModelInfo returns the model service for the model.
 	// Note: This should be called model, but we have naming conflicts with
-	// the model service. As this is only for read-only model information, we
+	// the model service. As this is only for model information, we
 	// can rename it to the more obscure version.
 	ModelInfo() ModelInfoService
 
@@ -164,7 +163,7 @@ type ModelInfoService interface {
 
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
-	GetModelInfo(context.Context) (coremodel.ReadOnlyModel, error)
+	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 
 	// GetStatus returns the current status of the model.
 	// The following error types can be expected to be returned:

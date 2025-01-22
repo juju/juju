@@ -281,10 +281,10 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 }
 
 // Model mocks base method.
-func (m *MockModelService) Model(arg0 context.Context) (model.ReadOnlyModel, error) {
+func (m *MockModelService) Model(arg0 context.Context) (model.ModelInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model", arg0)
-	ret0, _ := ret[0].(model.ReadOnlyModel)
+	ret0, _ := ret[0].(model.ModelInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -302,19 +302,19 @@ type MockModelServiceModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceModelCall) Return(arg0 model.ReadOnlyModel, arg1 error) *MockModelServiceModelCall {
+func (c *MockModelServiceModelCall) Return(arg0 model.ModelInfo, arg1 error) *MockModelServiceModelCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceModelCall) Do(f func(context.Context) (model.ReadOnlyModel, error)) *MockModelServiceModelCall {
+func (c *MockModelServiceModelCall) Do(f func(context.Context) (model.ModelInfo, error)) *MockModelServiceModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceModelCall) DoAndReturn(f func(context.Context) (model.ReadOnlyModel, error)) *MockModelServiceModelCall {
+func (c *MockModelServiceModelCall) DoAndReturn(f func(context.Context) (model.ModelInfo, error)) *MockModelServiceModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

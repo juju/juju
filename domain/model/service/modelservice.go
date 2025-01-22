@@ -25,7 +25,7 @@ type ModelState interface {
 	Delete(context.Context, coremodel.UUID) error
 
 	// GetModel returns the read only model information set in the database.
-	GetModel(context.Context) (coremodel.ReadOnlyModel, error)
+	GetModel(context.Context) (coremodel.ModelInfo, error)
 
 	// GetModelMetrics returns the model metrics information set in the
 	// database.
@@ -68,7 +68,7 @@ func NewModelService(
 
 // GetModelInfo returns the readonly model information for the model in
 // question.
-func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ModelInfo, error) {
 	return s.modelSt.GetModel(ctx)
 }
 

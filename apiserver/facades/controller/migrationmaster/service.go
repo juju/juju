@@ -36,7 +36,7 @@ type ModelConfigService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
-	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+	GetModelInfo(context.Context) (model.ModelInfo, error)
 }
 
 // ModelService provides access to currently deployed models.

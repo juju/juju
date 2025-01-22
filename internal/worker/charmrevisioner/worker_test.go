@@ -236,7 +236,7 @@ func (s *WorkerSuite) TestFetch(c *gc.C) {
 		}}, nil
 	})
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",
@@ -294,7 +294,7 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	s.expectWatcher(c)
 	s.expectModelConfig(c)
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",
@@ -398,7 +398,7 @@ func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *gc.C) {
 	s.expectWatcher(c)
 	s.expectModelConfig(c)
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",
@@ -475,7 +475,7 @@ func (s *WorkerSuite) TestRequest(c *gc.C) {
 	s.expectWatcher(c)
 	s.expectModelConfig(c)
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",
@@ -556,7 +556,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *gc.C) {
 	s.expectWatcher(c)
 	s.expectModelConfig(c)
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",
@@ -657,7 +657,7 @@ func (s *WorkerSuite) TestRequestWithError(c *gc.C) {
 	s.expectWatcher(c)
 	s.expectModelConfig(c)
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",
@@ -1047,7 +1047,7 @@ func (s *WorkerSuite) expectModelConfig(c *gc.C) {
 }
 
 func (s *WorkerSuite) expectSendEmptyModelMetrics(c *gc.C) {
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:           modeltesting.GenModelUUID(c),
 		ControllerUUID: uuid.MustNewUUID(),
 		Cloud:          "aws",

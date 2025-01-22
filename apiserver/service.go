@@ -57,8 +57,8 @@ type BakeryConfigService interface {
 
 // ModelInfoService provides access to information about the current model.
 type ModelInfoService interface {
-	// GetModelInfo returns the read-only information for the current model.
-	GetModelInfo(ctx context.Context) (model.ReadOnlyModel, error)
+	// GetModelInfo returns the information for the current model.
+	GetModelInfo(ctx context.Context) (model.ModelInfo, error)
 }
 
 // AccessService provides information about users and permissions.

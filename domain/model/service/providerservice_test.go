@@ -16,14 +16,14 @@ import (
 )
 
 type dummyProviderState struct {
-	model *coremodel.ReadOnlyModel
+	model *coremodel.ModelInfo
 }
 
-func (d *dummyProviderState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+func (d *dummyProviderState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
 	if d.model != nil {
 		return *d.model, nil
 	}
-	return coremodel.ReadOnlyModel{}, modelerrors.NotFound
+	return coremodel.ModelInfo{}, modelerrors.NotFound
 }
 
 type providerServiceSuite struct {
@@ -42,7 +42,7 @@ func (s *providerServiceSuite) TestModel(c *gc.C) {
 	svc := NewProviderService(s.state)
 
 	id := modeltesting.GenModelUUID(c)
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",

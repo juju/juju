@@ -20,7 +20,7 @@ type ModelConfigService interface {
 // the current model being worked on.
 type ModelInfoService interface {
 	// GetModelInfo returns the information associated with the current model.
-	GetModelInfo(context.Context) (coremodel.ReadOnlyModel, error)
+	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 }
 
 // MetadataService defines methods to access and manipulate cloud image metadata.

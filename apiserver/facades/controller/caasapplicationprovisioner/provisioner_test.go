@@ -162,7 +162,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
 
-	modelInfo := model.ReadOnlyModel{
+	modelInfo := model.ModelInfo{
 		UUID: model.UUID(coretesting.ModelTag.Id()),
 	}
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)

@@ -105,19 +105,19 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// GetModel returns a read-only model information that has been set in the
+// GetModel returns model information that has been set in the
 // database. If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
-func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Capture(err)
+		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
 	m := dbReadOnlyModel{}
 	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Capture(err)
+		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -129,12 +129,12 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, err
 	})
 
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Errorf(
+		return coremodel.ModelInfo{}, errors.Errorf(
 			"getting model read only information: %w", err,
 		)
 	}
 
-	model := coremodel.ReadOnlyModel{
+	model := coremodel.ModelInfo{
 		UUID:              coremodel.UUID(m.UUID),
 		Name:              m.Name,
 		Type:              coremodel.ModelType(m.Type),
@@ -148,7 +148,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, err
 	if owner := m.CredentialOwner; owner != "" {
 		model.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
-			return coremodel.ReadOnlyModel{}, errors.Errorf(
+			return coremodel.ModelInfo{}, errors.Errorf(
 				"parsing model %q owner username %q: %w",
 				m.UUID, owner, err,
 			)
@@ -164,7 +164,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, err
 
 	model.AgentVersion, err = version.Parse(agentVersion)
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Errorf(
+		return coremodel.ModelInfo{}, errors.Errorf(
 			"parsing model %q agent version %q: %w",
 			m.UUID, agentVersion, err,
 		)
@@ -172,7 +172,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, err
 
 	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
 	if err != nil {
-		return coremodel.ReadOnlyModel{}, errors.Errorf(
+		return coremodel.ModelInfo{}, errors.Errorf(
 			"parsing controller uuid %q for model %q: %w",
 			m.ControllerUUID, m.UUID, err,
 		)
@@ -180,8 +180,8 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, err
 	return model, nil
 }
 
-// GetModelMetrics returns a read-only model information that has been set in the
-// database. If no model has been set then an error satisfying
+// GetModelMetrics the current model info and its associated metrics.
+// If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
 func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetrics, error) {
 	readOnlyModel, err := s.GetModel(ctx)

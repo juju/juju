@@ -125,7 +125,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	env environs.Environ,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
-	modelInfo model.ReadOnlyModel,
+	modelInfo model.ModelInfo,
 ) (params.ProvisioningInfo, error) {
 	base := m.Base()
 	result := params.ProvisioningInfo{
@@ -282,7 +282,7 @@ func (api *ProvisionerAPI) machineTags(
 	m *state.Machine,
 	isController bool,
 	modelConfig *config.Config,
-	modelInfo model.ReadOnlyModel,
+	modelInfo model.ModelInfo,
 ) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//

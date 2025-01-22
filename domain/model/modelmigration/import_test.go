@@ -277,7 +277,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
-	// TODO (stickupkid): This is incorrect until the read-only model is
+	// TODO (stickupkid): This is incorrect until the model info is
 	// correctly saved.
 	c.Check(activated, jc.IsTrue)
 }
@@ -357,7 +357,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
-	// TODO (stickupkid): This is incorrect until the read-only model is
+	// TODO (stickupkid): This is incorrect until the model info is
 	// correctly saved.
 	c.Check(activated, jc.IsTrue)
 }
@@ -437,7 +437,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
-	// TODO (stickupkid): This is incorrect until the read-only model is
+	// TODO (stickupkid): This is incorrect until the model info is
 	// correctly saved.
 	c.Check(activated, jc.IsTrue)
 }

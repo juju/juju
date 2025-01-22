@@ -10,10 +10,8 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ReadOnlyModel represents the state of a read-only model found in the
-// model database, not the controller database.
-// All the fields are are denormalized from the model database.
-type ReadOnlyModel struct {
+// ModelInfo represents the state of a model found in the  model database.
+type ModelInfo struct {
 	// UUID represents the model UUID.
 	UUID UUID
 
@@ -51,8 +49,8 @@ type ReadOnlyModel struct {
 
 // ModelMetrics represents the metrics information set in the database.
 type ModelMetrics struct {
-	// Model returns the read only model.
-	Model ReadOnlyModel
+	// Model is the detail from the model database.
+	Model ModelInfo
 
 	// ApplicationCount is the number of applications in the model.
 	ApplicationCount int

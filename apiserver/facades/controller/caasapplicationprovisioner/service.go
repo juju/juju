@@ -42,7 +42,7 @@ type ModelConfigService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
-	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+	GetModelInfo(context.Context) (model.ModelInfo, error)
 }
 
 // ApplicationService describes the service for accessing application scaling info.

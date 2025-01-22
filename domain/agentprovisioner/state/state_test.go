@@ -104,7 +104,7 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *gc.C) {
 
 // TestModelID tests that State.ModelID works as expected.
 func (s *suite) TestModelID(c *gc.C) {
-	// Create a read-only model
+	// Create model info.
 	modelID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(context.Background(), model.ReadOnlyModelCreationArgs{

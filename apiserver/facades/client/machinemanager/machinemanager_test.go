@@ -39,7 +39,7 @@ import (
 
 type AddMachineManagerSuite struct {
 	authorizer    *apiservertesting.FakeAuthorizer
-	model         model.ReadOnlyModel
+	model         model.ModelInfo
 	st            *MockBackend
 	storageAccess *MockStorageInterface
 	pool          *MockPool
@@ -59,7 +59,7 @@ var _ = gc.Suite(&AddMachineManagerSuite{})
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.model = model.ReadOnlyModel{
+	s.model = model.ModelInfo{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 }
@@ -200,7 +200,7 @@ type DestroyMachineManagerSuite struct {
 	cloudService  *commonmocks.MockCloudService
 	credService   *commonmocks.MockCredentialService
 	api           *MachineManagerAPI
-	model         model.ReadOnlyModel
+	model         model.ModelInfo
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -215,7 +215,7 @@ func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.PatchValue(&ClassifyDetachedStorage, mockedClassifyDetachedStorage)
-	s.model = model.ReadOnlyModel{
+	s.model = model.ModelInfo{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 }
@@ -729,7 +729,7 @@ type ProvisioningMachineManagerSuite struct {
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
 	api          *MachineManagerAPI
-	model        model.ReadOnlyModel
+	model        model.ModelInfo
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -749,7 +749,7 @@ func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
 func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.model = model.ReadOnlyModel{
+	s.model = model.ModelInfo{
 		UUID: modeltesting.GenModelUUID(c),
 	}
 

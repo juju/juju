@@ -57,7 +57,7 @@ type baseSuite struct {
 	charmRepositoryFactory *MockRepositoryFactory
 
 	modelUUID model.UUID
-	modelInfo model.ReadOnlyModel
+	modelInfo model.ModelInfo
 
 	// Legacy types that we're transitioning away from.
 	backend           *MockBackend
@@ -140,7 +140,7 @@ func (s *baseSuite) newCAASAPI(c *gc.C) {
 }
 
 func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
-	s.modelInfo = model.ReadOnlyModel{
+	s.modelInfo = model.ModelInfo{
 		UUID: s.modelUUID,
 		Type: modelType,
 	}

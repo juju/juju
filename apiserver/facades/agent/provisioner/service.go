@@ -52,7 +52,7 @@ type ModelConfigService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
-	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+	GetModelInfo(context.Context) (model.ModelInfo, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
