@@ -15,8 +15,8 @@ import (
 
 // ProviderModelService represents the model service provided by the provider.
 type ProviderModelService interface {
-	// Model returns the read-only default model.
-	Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
+	// Model returns information for the current model
+	Model(ctx context.Context) (coremodel.ModelInfo, error)
 }
 
 // ProviderCloudService represents the cloud service provided by the provider.
@@ -31,7 +31,7 @@ type ProviderCloudService interface {
 type ProviderConfigService interface {
 	// ModelConfig returns the model configuration for the given tag.
 	ModelConfig(ctx context.Context) (*config.Config, error)
-	// WatchModelConfig returns a watcher that observes changes to the specified
+	// Watch returns a watcher that observes changes to the specified
 	// model configuration.
 	Watch() (watcher.StringsWatcher, error)
 }

@@ -103,7 +103,7 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 	defer s.setupAPI(c).Finish()
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
-		coremodel.ReadOnlyModel{
+		coremodel.ModelInfo{
 			CloudRegion: "region1",
 		}, nil,
 	)
@@ -120,7 +120,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 		return config.New(config.UseDefaults, coretesting.FakeConfig())
 	})
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
-		coremodel.ReadOnlyModel{
+		coremodel.ModelInfo{
 			CloudRegion: "east",
 		}, nil,
 	)
@@ -183,7 +183,7 @@ func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 	msg := "save error"
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, errors.New(msg))
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
-		coremodel.ReadOnlyModel{
+		coremodel.ModelInfo{
 			CloudRegion: "region1",
 		}, nil,
 	)

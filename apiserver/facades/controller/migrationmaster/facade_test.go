@@ -180,7 +180,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 func (s *Suite) TestModelInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		UUID:            "model-uuid",
 		Name:            "model-name",
 		CredentialOwner: usertesting.GenNewName(c, "owner"),
@@ -322,7 +322,7 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 func (s *Suite) TestPrechecksModelError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{}, errors.New("boom"))
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{}, errors.New("boom"))
 
 	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
 	c.Assert(err, gc.ErrorMatches, "retrieving model info: boom")

@@ -257,7 +257,7 @@ type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
 	caasBroker         CaasBrokerInterface
 	model              Model
-	modelInfo          model.ReadOnlyModel
+	modelInfo          model.ModelInfo
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService
@@ -314,7 +314,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 
 type deployFromRepositoryValidator struct {
 	model              Model
-	modelInfo          model.ReadOnlyModel
+	modelInfo          model.ModelInfo
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService

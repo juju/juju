@@ -201,7 +201,7 @@ func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) Tracke
 func (s *trackerWorkerSuite) expectModel(c *gc.C) coremodel.UUID {
 	id := modeltesting.GenModelUUID(c)
 
-	s.modelService.EXPECT().Model(gomock.Any()).Return(coremodel.ReadOnlyModel{
+	s.modelService.EXPECT().Model(gomock.Any()).Return(coremodel.ModelInfo{
 		UUID:            id,
 		Name:            "model",
 		Type:            coremodel.IAAS,

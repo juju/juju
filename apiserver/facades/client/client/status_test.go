@@ -43,7 +43,7 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		UUID:         s.modelUUID,
 		Name:         "model-name",
 		Type:         model.IAAS,
@@ -77,7 +77,7 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		UUID:         s.modelUUID,
 		Name:         "model-name",
 		Type:         model.IAAS,

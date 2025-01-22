@@ -36,7 +36,7 @@ type NetworkService interface {
 // ModelInfoService provides access to information about the model.
 type ModelInfoService interface {
 	// GetModelInfo returns information about the current model.
-	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+	GetModelInfo(context.Context) (model.ModelInfo, error)
 	// GetStatus returns the current status of the model.
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.

@@ -64,7 +64,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 
 	readonlyVal, err := svc.GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(readonlyVal, gc.Equals, coremodel.ReadOnlyModel{
+	c.Check(readonlyVal, gc.Equals, coremodel.ModelInfo{
 		UUID:           id,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
@@ -97,7 +97,7 @@ func (s *modelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	readonlyVal, err := svc.GetModelMetrics(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(readonlyVal, gc.Equals, coremodel.ModelMetrics{
-		Model: coremodel.ReadOnlyModel{
+		Model: coremodel.ModelInfo{
 			UUID:           id,
 			ControllerUUID: s.controllerUUID,
 			Name:           "my-awesome-model",
@@ -275,13 +275,13 @@ func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCr
 	return nil
 }
 
-func (d *dummyModelState) GetModel(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+func (d *dummyModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
 	if d.setID == coremodel.UUID("") {
-		return coremodel.ReadOnlyModel{}, modelerrors.NotFound
+		return coremodel.ModelInfo{}, modelerrors.NotFound
 	}
 
 	args := d.models[d.setID]
-	return coremodel.ReadOnlyModel{
+	return coremodel.ModelInfo{
 		UUID:            args.UUID,
 		AgentVersion:    args.AgentVersion,
 		ControllerUUID:  args.ControllerUUID,
@@ -302,7 +302,7 @@ func (d *dummyModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelM
 
 	args := d.models[d.setID]
 	return coremodel.ModelMetrics{
-		Model: coremodel.ReadOnlyModel{
+		Model: coremodel.ModelInfo{
 			UUID:            args.UUID,
 			AgentVersion:    args.AgentVersion,
 			ControllerUUID:  args.ControllerUUID,

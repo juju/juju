@@ -80,7 +80,7 @@ type APIBase struct {
 	repoDeploy                DeployFromRepository
 
 	model              Model
-	modelInfo          model.ReadOnlyModel
+	modelInfo          model.ModelInfo
 	modelConfigService ModelConfigService
 	machineService     MachineService
 	applicationService ApplicationService
@@ -213,7 +213,7 @@ type DeployApplicationFunc = func(
 	context.Context,
 	ApplicationDeployer,
 	Model,
-	model.ReadOnlyModel,
+	model.ModelInfo,
 	ApplicationService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
@@ -228,7 +228,7 @@ func NewAPIBase(
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
 	model Model,
-	modelInfo model.ReadOnlyModel,
+	modelInfo model.ModelInfo,
 	leadershipReader Leadership,
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,

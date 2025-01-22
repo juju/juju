@@ -56,7 +56,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	// Check that it was written correctly.
 	model, err := state.GetModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model, jc.DeepEquals, coremodel.ReadOnlyModel{
+	c.Check(model, jc.DeepEquals, coremodel.ModelInfo{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
@@ -242,7 +242,7 @@ func (s *modelSuite) TestGetModelMetrics(c *gc.C) {
 	model, err := state.GetModelMetrics(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, coremodel.ModelMetrics{
-		Model: coremodel.ReadOnlyModel{
+		Model: coremodel.ModelInfo{
 			UUID:            id,
 			AgentVersion:    jujuversion.Current,
 			ControllerUUID:  s.controllerUUID,

@@ -150,7 +150,7 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 
 func (s *newLxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "lxd",
 	}, nil)
@@ -178,7 +178,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDNotManual(c *gc.C) {
 	// manual: false
 	defer s.setupMocks(c).Finish()
 	s.expectUnitAndMachine(1)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "lxd",
 	}, nil)
@@ -193,7 +193,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDManual(c *gc.C) {
 	// manual: true
 	defer s.setupMocks(c).Finish()
 	s.expectUnitAndMachine(1)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "lxd",
 	}, nil)
@@ -206,7 +206,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileCAAS(c *gc.C) {
 	// model type: CAAS
 	// provider type: k8s
 	defer s.setupMocks(c).Finish()
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.CAAS,
 		CloudType: "k8s",
 	}, nil)
@@ -221,7 +221,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *gc.C)
 	// container: LXD
 	defer s.setupMocks(c).Finish()
 	s.expectUnitAndMachine(1)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Type:      model.IAAS,
 		CloudType: "maas",
 	}, nil)

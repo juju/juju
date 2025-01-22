@@ -137,7 +137,7 @@ type BlockCommandService interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	model                   coremodel.ReadOnlyModel
+	model                   coremodel.ModelInfo
 	controllerConfigService ControllerConfigService
 	st                      Backend
 	cloudService            common.CloudService
@@ -162,7 +162,7 @@ type MachineManagerAPI struct {
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
-	model coremodel.ReadOnlyModel,
+	model coremodel.ModelInfo,
 	controllerConfigService ControllerConfigService,
 	backend Backend,
 	cloudService common.CloudService,

@@ -81,10 +81,10 @@ func (m *MockModelInfoService) EXPECT() *MockModelInfoServiceMockRecorder {
 }
 
 // GetModelInfo mocks base method.
-func (m *MockModelInfoService) GetModelInfo(arg0 context.Context) (model.ReadOnlyModel, error) {
+func (m *MockModelInfoService) GetModelInfo(arg0 context.Context) (model.ModelInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelInfo", arg0)
-	ret0, _ := ret[0].(model.ReadOnlyModel)
+	ret0, _ := ret[0].(model.ModelInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

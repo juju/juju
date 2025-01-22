@@ -34,8 +34,8 @@ type DomainServices interface {
 
 // ModelService represents the model service provided by the provider.
 type ModelService interface {
-	// Model returns the read-only default model.
-	Model(ctx context.Context) (model.ReadOnlyModel, error)
+	// Model returns information for the current model.
+	Model(ctx context.Context) (model.ModelInfo, error)
 }
 
 // CloudService represents the cloud service provided by the provider.

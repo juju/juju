@@ -64,7 +64,7 @@ type trackerWorker struct {
 	internalStates chan string
 
 	config           TrackerConfig
-	model            coremodel.ReadOnlyModel
+	model            coremodel.ModelInfo
 	provider         Provider
 	currentCloudSpec environscloudspec.CloudSpec
 
@@ -326,7 +326,7 @@ func (t *trackerWorker) addStringsWatcher(ctx context.Context, watcher eventsour
 }
 
 type providerGetter struct {
-	model             coremodel.ReadOnlyModel
+	model             coremodel.ModelInfo
 	cloudService      CloudService
 	configService     ConfigService
 	credentialService CredentialService
@@ -357,7 +357,7 @@ func (g providerGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudS
 	return environscloudspec.MakeCloudSpec(*modelCloud, g.model.CloudRegion, modelCredentials)
 }
 
-func modelCredentials(ctx context.Context, credentialService CredentialService, model coremodel.ReadOnlyModel) (*cloud.Credential, error) {
+func modelCredentials(ctx context.Context, credentialService CredentialService, model coremodel.ModelInfo) (*cloud.Credential, error) {
 	if model.CredentialName == "" {
 		return nil, nil
 	}
