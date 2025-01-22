@@ -2639,7 +2639,7 @@ func (s *applicationStateSuite) TestSetApplicationConfig(c *gc.C) {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := s.state.GetApplicationConfig(context.Background(), id)
@@ -2676,7 +2676,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
@@ -2684,7 +2684,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
 			Type:  charm.OptionInt,
 			Value: 2,
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := s.state.GetApplicationConfig(context.Background(), id)
@@ -2745,7 +2745,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigNoApplication(c *gc.C) {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -2761,7 +2761,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 			Type:  charm.OptionString,
 			Value: "d1",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
@@ -2773,7 +2773,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 			Type:  charm.OptionBool,
 			Value: true,
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := s.state.GetApplicationConfig(context.Background(), id)
@@ -2789,7 +2789,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 		},
 	})
 
-	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{})
+	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err = s.state.GetApplicationConfig(context.Background(), id)
@@ -2814,7 +2814,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
 			Type:  charm.OptionString,
 			Value: "d1",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a"})
@@ -2844,12 +2844,10 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFoun
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
-		"trust": {
-			Type:  charm.OptionBool,
-			Value: true,
-		},
-	})
+	err := s.state.SetApplicationConfig(context.Background(), id,
+		map[string]application.ApplicationConfig{},
+		application.ApplicationSettings{Trust: true},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := s.state.GetApplicationConfig(context.Background(), id)
@@ -2886,7 +2884,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *gc.
 			Type:  charm.OptionString,
 			Value: "d1",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a", "x", "y"})
@@ -2904,6 +2902,38 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *gc.
 			Value: false,
 		},
 	})
+}
+
+func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	cid, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `INSERT INTO charm_config (charm_uuid, key, default_value, type_id) VALUES (?, ?, ?, ?)`
+		_, err := tx.ExecContext(ctx, stmt, cid.String(), "key", "value", 0)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, charm.Config{
+		Options: map[string]charm.Option{
+			"key": {
+				Type:    charm.OptionString,
+				Default: "value",
+			},
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDApplicationNotFound(c *gc.C) {
+	// If the application is not found, it should return application not found.
+	id := applicationtesting.GenApplicationUUID(c)
+	_, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) assertApplication(

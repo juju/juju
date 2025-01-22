@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
@@ -28,6 +30,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/ipaddress"
@@ -237,6 +240,43 @@ type ApplicationState interface {
 	// that are alive.
 	// This will return an empty slice if there are no applications.
 	GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error)
+
+	// GetCharmConfigByAppID returns the charm config for the specified
+	// application ID.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	// If the charm for the application does not exist, an error satisfying
+	// [applicationerrors.CharmNotFoundError] is returned.
+	GetCharmConfigByAppID(ctx context.Context, appID coreapplication.ID) (charm.Config, error)
+
+	// GetApplicationConfig returns the application config attributes for the
+	// configuration.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error)
+
+	// GetApplicationTrustSetting returns the application trust setting.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error)
+
+	// SetApplicationConfigAndSettings sets the application config attributes
+	// using the configuration, and sets the trust setting as part of the
+	// application.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	SetApplicationConfigAndSettings(
+		ctx context.Context,
+		appID coreapplication.ID,
+		config map[string]application.ApplicationConfig,
+		settings application.ApplicationSettings,
+	) error
+
+	// UnsetApplicationConfigKeys removes the specified keys from the application
+	// config. If the key does not exist, it is ignored.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -1480,4 +1520,142 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 // This will return an empty slice if there are no applications.
 func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error) {
 	return s.st.GetApplicationsForRevisionUpdater(ctx)
+}
+
+// GetApplicationConfig returns the application config attributes for the
+// configuration.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	cfg, err := s.st.GetApplicationConfig(ctx, appID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(config.ConfigAttributes)
+	for k, v := range cfg {
+		result[k] = v
+	}
+	return result, nil
+}
+
+// GetApplicationTrustSetting returns the application trust setting.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	if err := appID.Validate(); err != nil {
+		return false, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	return s.st.GetApplicationTrustSetting(ctx, appID)
+}
+
+// UnsetApplicationConfigKeys removes the specified keys from the application
+// config. If the key does not exist, it is ignored.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
+	if err := appID.Validate(); err != nil {
+		return internalerrors.Errorf("application ID: %w", err)
+	}
+	return s.st.UnsetApplicationConfigKeys(ctx, appID, keys)
+}
+
+// SetApplicationConfig updates the application config with the specified
+// values. If the key does not exist, it is created. If the key already exists,
+// it is updated, if there is no value it is removed. With the caveat that
+// application trust will be set to false.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+// If the charm does not exist, an error satisfying
+// [applicationerrors.CharmNotFound] is returned, if this is the case, then
+// the application is in a bad state and should be removed.
+// If the charm config is not valid, an error satisfying
+// [applicationerrors.CharmConfigNotValid] is returned.
+func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplication.ID, newConfig map[string]string) error {
+	if err := appID.Validate(); err != nil {
+		return internalerrors.Errorf("application ID: %w", err)
+	}
+
+	// Get the charm config. This should be safe to do outside of a singular
+	// transaction, as the charm config is immutable. So it will either be there
+	// or not, and if it's not there we can return an error stating that.
+	// Otherwise if it is there, but then is removed before we set the config, a
+	// foreign key constraint will be violated, and we can return that as an
+	// error.
+
+	cfg, err := s.st.GetCharmConfigByAppID(ctx, appID)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	charmConfig, err := decodeConfig(cfg)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	// Grab the application settings, which is currently just the trust setting.
+	trust, err := getTrustSettingFromConfig(newConfig)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	// Everything else from the newConfig is just application config. Treat it
+	// as such.
+	coercedConfig, err := charmConfig.ParseSettingsStrings(newConfig)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	// The encoded config is the application config, with the type of the
+	// option. Encoding the type ensures that if the type changes during an
+	// upgrade, we can prevent a runtime error during that phase.
+	encodedConfig := make(map[string]application.ApplicationConfig, len(coercedConfig))
+	for k, v := range coercedConfig {
+		option, ok := charmConfig.Options[k]
+		if !ok {
+			// This should never happen, as we've verified the config is valid.
+			// But if it does, then we should return an error.
+			return internalerrors.Errorf("missing charm config, expected %q", k)
+		}
+
+		optionType, err := encodeOptionType(option.Type)
+		if err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		encodedConfig[k] = application.ApplicationConfig{
+			Value: v,
+			Type:  optionType,
+		}
+	}
+
+	return s.st.SetApplicationConfigAndSettings(ctx, appID, encodedConfig, application.ApplicationSettings{
+		Trust: trust,
+	})
+}
+
+func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {
+	trust, ok := cfg[coreapplication.TrustConfigOptionName]
+	if ok {
+		// Once we've got the trust value, we can remove it from the config.
+		// Everything else is just application config.
+		delete(cfg, coreapplication.TrustConfigOptionName)
+	}
+
+	// If the trust setting is not set, then we can just return false, as
+	// parse bool will return an error for empty strings.
+	if trust == "" {
+		return false, nil
+	}
+
+	b, err := strconv.ParseBool(trust)
+	if err != nil {
+		return false, internalerrors.Errorf("parsing trust setting: %w", err)
+	}
+	return b, nil
 }

@@ -2291,7 +2291,12 @@ WHERE application_uuid = $applicationID.uuid;`
 
 // SetApplicationConfig sets the application config attributes using the
 // configuration.
-func (st *State) SetApplicationConfig(ctx context.Context, appID coreapplication.ID, config map[string]application.ApplicationConfig) error {
+func (st *State) SetApplicationConfig(
+	ctx context.Context,
+	appID coreapplication.ID,
+	config map[string]application.ApplicationConfig,
+	settings application.ApplicationSettings,
+) error {
 	db, err := st.DB()
 	if err != nil {
 		return internalerrors.Capture(err)
@@ -2348,11 +2353,6 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application config: %w", err)
-	}
-
-	trust, err := encodeTrustConfig(config)
-	if err != nil {
-		return internalerrors.Errorf("encoding trust config: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2448,7 +2448,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
 			ApplicationUUID: ident.ID.String(),
-			Trust:           trust,
+			Trust:           settings.Trust,
 		}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
@@ -2547,20 +2547,45 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	return nil
 }
 
-func encodeTrustConfig(config map[string]application.ApplicationConfig) (bool, error) {
-	trust, ok := config["trust"]
-	if !ok {
-		return false, nil
+// GetCharmConfigByApplicationID returns the charm config for the specified
+// application ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+// If the charm for the application does not exist, an error satisfying
+// [applicationerrors.CharmNotFoundError] is returned.
+func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (charm.Config, error) {
+	db, err := st.DB()
+	if err != nil {
+		return charm.Config{}, internalerrors.Capture(err)
 	}
 
-	switch t := trust.Value.(type) {
-	case bool:
-		return t, nil
-	case nil:
-		return false, nil
-	default:
-		return false, internalerrors.Errorf("unexpected trust config type %T", t)
+	appIdent := applicationID{ID: appID}
+
+	appQuery := `
+SELECT &charmUUID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	appStmt, err := st.Prepare(appQuery, appIdent, charmUUID{})
+	if err != nil {
+		return charm.Config{}, internalerrors.Errorf("preparing query for charm config: %w", err)
 	}
+
+	var charmConfig charm.Config
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var ident charmUUID
+		if err := tx.Query(ctx, appStmt, appIdent).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: ident.UUID})
+		return internalerrors.Capture(err)
+	}); err != nil {
+		return charm.Config{}, internalerrors.Capture(err)
+	}
+	return charmConfig, nil
 }
 
 func decodeRisk(risk string) (application.ChannelRisk, error) {

@@ -567,7 +567,6 @@ func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Conf
 		return charm.Config{}, internalerrors.Capture(err)
 	}
 	return charmConfig, nil
-
 }
 
 // GetCharmActions returns the actions for the charm using the charm ID.
