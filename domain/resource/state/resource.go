@@ -427,8 +427,9 @@ WHERE uuid = $resourceIdentity.uuid`,
 
 // RecordStoredResource records a stored resource along with who retrieved it.
 //
-// If recording a stored blob for a resource that already has a blob stored, the
-// storage ID of the old blob is returned.
+// If recording a stored blob for a resource that already has a blob associated
+// with it, this association is removed and the hash of this blob returned in
+// droppedHash. If there was no blob associated, droppedHash is empty.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.StoredResourceNotFound] if the stored resource at the
@@ -445,12 +446,12 @@ func (st *State) RecordStoredResource(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		switch args.ResourceType {
 		case charmresource.TypeFile:
-			droppedHash, err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
+			droppedHash, err = st.replaceFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored file resource information: %w", err)
 			}
 		case charmresource.TypeContainerImage:
-			droppedHash, err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
+			droppedHash, err = st.replaceImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored container image resource information: %w", err)
 			}
@@ -529,10 +530,14 @@ WHERE  uuid = $resourceKind.uuid
 	return kind, err
 }
 
-// insertFileResource checks that the storage ID corresponds to stored object
+// replaceFileResource checks that the storage ID corresponds to stored object
 // store metadata and then records that the resource is stored at the provided
 // storage ID.
-func (st *State) insertFileResource(
+//
+// If recording a stored file for a resource that already has a file associated
+// with it, this association is removed and the hash of this file returned in
+// droppedHash. If there was no file associated, droppedHash is empty.
+func (st *State) replaceFileResource(
 	ctx context.Context,
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
@@ -624,10 +629,15 @@ VALUES      ($storedFileResource.*)
 	return droppedHash, nil
 }
 
-// insertImageResource checks that the storage ID corresponds to stored
+// replaceImageResource checks that the storage ID corresponds to stored
 // container image store metadata and then records that the resource is stored
 // at the provided storage ID.
-func (st *State) insertImageResource(
+//
+// If recording a stored image for a resource that already has an image
+// associated with it, this association is removed and the hash of this image
+// returned in droppedHash. If there was no image associated, droppedHash is
+// empty.
+func (st *State) replaceImageResource(
 	ctx context.Context,
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
@@ -720,9 +730,10 @@ VALUES ($storedContainerImageResource.*)
 	return droppedHash, nil
 }
 
-// upsertRetrievedBy updates the retrieved by table to record who retrieved the currently stored resource.
-// in the retrieved_by table, and if not, adds the given retrieved by name and
-// type.
+// upsertRetrievedBy updates the retrieved by table to record who retrieved the
+// currently stored resource in the retrieved_by table, and if not, adds the
+// given retrieved by name and type. If there is already a "retrieved by" value
+// set for the resource, it is replaced.
 func (st *State) upsertRetrievedBy(
 	ctx context.Context,
 	tx *sqlair.TX,

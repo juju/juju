@@ -249,7 +249,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
 		gomock.Any(),
-		resourceUUID.String()+fp.String(),
+		blobPath(resourceUUID, fp.String()),
 		reader,
 		size,
 		coreresourcestore.NewFingerprint(fp.Fingerprint),
@@ -313,7 +313,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
 		gomock.Any(),
-		resourceUUID.String()+fp.String(),
+		blobPath(resourceUUID, fp.String()),
 		reader,
 		size,
 		coreresourcestore.NewFingerprint(fp.Fingerprint),
@@ -335,7 +335,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 	}).Return("", expectedErr)
 
 	// Expect the removal of the resource.
-	s.resourceStore.EXPECT().Remove(gomock.Any(), resourceUUID.String()+fp.String())
+	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(resourceUUID, fp.String()))
 
 	err = s.service.StoreResource(
 		context.Background(),
@@ -383,7 +383,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOldResourceBlob(c *gc.C) 
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
 		gomock.Any(),
-		resourceUUID.String()+fp.String(),
+		blobPath(resourceUUID, fp.String()),
 		reader,
 		size,
 		coreresourcestore.NewFingerprint(fp.Fingerprint),
@@ -406,7 +406,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOldResourceBlob(c *gc.C) 
 	}).Return(droppedFingerprint, nil)
 
 	// Expect the removal of the resource.
-	s.resourceStore.EXPECT().Remove(gomock.Any(), resourceUUID.String()+droppedFingerprint)
+	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(resourceUUID, droppedFingerprint))
 
 	err = s.service.StoreResource(
 		context.Background(),
@@ -426,6 +426,8 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOldResourceBlob(c *gc.C) 
 
 func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	// Arrange: We only expect a call to GetResource, not to
+	// RecordStoredResource since the blob is identical.
 
 	resourceUUID := resourcetesting.GenResourceUUID(c)
 
@@ -444,6 +446,8 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.
 		}, nil,
 	)
 
+	// Act:
+
 	err = s.service.StoreResource(
 		context.Background(),
 		resource.StoreResourceArgs{
@@ -454,6 +458,8 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.
 			Revision:     revision,
 		},
 	)
+
+	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -601,7 +607,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
 		gomock.Any(),
-		resourceUUID.String()+fp.String(),
+		blobPath(resourceUUID, fp.String()),
 		reader,
 		size,
 		coreresourcestore.NewFingerprint(fp.Fingerprint),
@@ -749,7 +755,7 @@ func (s *resourceServiceSuite) TestOpenResource(c *gc.C) {
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
-		id.String()+fp.String(),
+		blobPath(id, fp.String()),
 	).Return(reader, size, nil)
 
 	obtainedRes, obtainedReader, err := s.service.OpenResource(context.Background(), id)
@@ -779,7 +785,7 @@ func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *gc.C) {
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
-		id.String()+fp.String(),
+		blobPath(id, fp.String()),
 	).Return(nil, 0, objectstoreerrors.ErrNotFound)
 
 	_, _, err = s.service.OpenResource(context.Background(), id)
@@ -807,7 +813,7 @@ func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *gc.C) {
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
-		id.String()+fp.String(),
+		blobPath(id, fp.String()),
 	).Return(nil, 0, containerimageresourcestoreerrors.ContainerImageMetadataNotFound)
 
 	_, _, err = s.service.OpenResource(context.Background(), id)

@@ -54,7 +54,7 @@ const (
 	// resource type.
 	StoredResourceNotFound = errors.ConstError("stored resource not found")
 
-	// ResourceRevisionNotValid describes an error where the resource origin is
-	// not valid.
+	// ResourceRevisionNotValid describes an error where the resource revision
+	// is not valid.
 	ResourceRevisionNotValid = errors.ConstError("resource revision not valid")
 )

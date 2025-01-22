@@ -906,7 +906,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			Origin:          charmresource.OriginStore,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	c.Check(droppedHash1, gc.Equals, "")
 
 	storageKey2 := "storage-key-2"
@@ -932,9 +932,10 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			Origin:          charmresource.OriginStore,
 		},
 	)
+	// Assert: Check the hash of the first blob was returned and changed to the
+	// second hash in the database.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(droppedHash2, gc.DeepEquals, hash1)
-	// Assert: Check that the resource has been linked to the stored blob
 	var foundStoreUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -946,6 +947,7 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(foundStoreUUID, gc.Equals, storeID)
 
+	// Assert: Check that the retrievedBy was also updated.
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
 	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
 	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
@@ -971,7 +973,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			Origin:          charmresource.OriginStore,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	c.Assert(droppedHash1, gc.Equals, "")
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
@@ -997,9 +999,10 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			Origin:          charmresource.OriginStore,
 		},
 	)
+	// Assert: Check the hash of the first blob was returned and changed to the
+	// second hash in the database.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(droppedHash2, gc.DeepEquals, hash1)
-	// Assert: Check that the resource has been linked to the stored blob
 	var foundStoreUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -1011,6 +1014,7 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(foundStoreUUID, gc.Equals, objectStoreUUID.String())
 
+	// Assert: Check that the retrievedBy was also updated.
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
 	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
 	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)

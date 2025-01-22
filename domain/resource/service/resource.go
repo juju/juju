@@ -49,6 +49,10 @@ type State interface {
 
 	// RecordStoredResource records a stored resource along with who retrieved it.
 	//
+	// If recording a stored blob for a resource that already has a blob associated
+	// with it, this association is removed and the hash of this blob returned in
+	// droppedHash. If there was no blob associated, droppedHash is empty.
+	//
 	// The following error types can be expected to be returned:
 	// - [resourceerrors.StoredResourceNotFound] if the stored resource at the
 	//   storageID cannot be found.
@@ -311,7 +315,10 @@ func (s *Service) storeResource(
 	defer func() {
 		// If any subsequent operation fails, remove the resource blob.
 		if err != nil {
-			_ = store.Remove(ctx, path)
+			rErr := store.Remove(ctx, path)
+			if rErr != nil {
+				s.logger.Errorf("removing resource %s from store: %w", rErr)
+			}
 		}
 	}()
 
@@ -373,8 +380,7 @@ func (s *Service) OpenResource(
 	// TODO(aflynn): ideally this would be finding the resource via the
 	// resources storageID, however the object store does not currently have a
 	// method for this.
-	path := resourceUUID.String() + res.Fingerprint.String()
-	reader, _, err := store.Get(ctx, path)
+	reader, _, err := store.Get(ctx, blobPath(resourceUUID, res.Fingerprint.String()))
 	if errors.Is(err, objectstoreerrors.ErrNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		return resource.Resource{}, nil, resourceerrors.StoredResourceNotFound
@@ -468,5 +474,5 @@ func (s *Service) SetRepositoryResources(
 // hash, this ensures that different resource blobs are stored in
 // different locations.
 func blobPath(uuid coreresource.UUID, hash string) string {
-	return uuid.String() + hash
+	return "resource-" + uuid.String() + "#" + hash
 }
