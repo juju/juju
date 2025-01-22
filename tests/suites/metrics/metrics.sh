@@ -13,7 +13,7 @@ run_smoke_test() {
 
 	attempt=0
 	while true; do
-		OUT=$(juju metrics metered/0 --format yaml | yq -j | jq -r '.[]')
+		OUT=$(juju metrics metered/0 --format json | jq -r '.[]')
 		if [[ -n ${OUT} ]]; then
 			break
 		fi
@@ -34,4 +34,19 @@ run_smoke_test() {
 	check_contains "$VALUE" "1"
 
 	destroy_model "smoke"
+}
+
+test_smoke_test() {
+	if [ -n "$(skip 'test_smoke_test')" ]; then
+		echo "==> SKIP: Asked to skip metrics smoke test"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_smoke_test"
+	)
 }
