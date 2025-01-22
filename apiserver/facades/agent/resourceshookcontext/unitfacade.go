@@ -18,26 +18,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ResourceService provides methods for managing resource data related
-// to applications, units, and repositories.
-type ResourceService interface {
-
-	// GetResourcesByApplicationID retrieves all resources associated with a given application ID in the specified context.
-	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]resource.Resource, error)
-}
-
-// ApplicationService defines operations to retrieve application IDs based
-// on application or unit names.
-type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-
-	// GetApplicationIDByUnitName returns the application ID for the named unit. It
-	// returns an error if the unit is not found by the name
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
-}
-
 // applicationIDGetter is a function type used to retrieve a coreapplication.ID
 // based on the given context (from application name or unit name)
 // It returns an error if the ID retrieval fails.
