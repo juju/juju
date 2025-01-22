@@ -2776,6 +2776,110 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 	})
 }
 
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+		"a": {
+			Type:  charm.OptionString,
+			Value: "b",
+		},
+		"c": {
+			Type:  charm.OptionString,
+			Value: "d1",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"c": {
+			Type:  charm.OptionString,
+			Value: "d1",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: false,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *gc.C) {
+	// If the application is not found, it should return application not found.
+	id := applicationtesting.GenApplicationUUID(c)
+	err := s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a"})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: true,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: true,
+		},
+	})
+
+	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a", "trust"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err = s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: false,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+		"a": {
+			Type:  charm.OptionString,
+			Value: "b",
+		},
+		"c": {
+			Type:  charm.OptionString,
+			Value: "d1",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.UnsetApplicationConfigKeys(context.Background(), id, []string{"a", "x", "y"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"c": {
+			Type:  charm.OptionString,
+			Value: "d1",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: false,
+		},
+	})
+}
+
 func (s *applicationStateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	platform := application.Platform{
 		Channel:      "22.04/stable",

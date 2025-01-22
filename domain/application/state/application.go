@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -2464,21 +2465,21 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 				return applicationerrors.ApplicationNotFound
 			} else if err != nil {
-				return internalerrors.Errorf("deleting application config: %w", err)
+				return internalerrors.Errorf("deleting config: %w", err)
 			}
 		}
 		if len(inserts) > 0 {
 			if err := tx.Query(ctx, insertStmt, inserts).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 				return applicationerrors.ApplicationNotFound
 			} else if err != nil {
-				return internalerrors.Errorf("inserting application config: %w", err)
+				return internalerrors.Errorf("inserting config: %w", err)
 			}
 		}
 		for _, update := range updates {
 			if err := tx.Query(ctx, updateStmt, update).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 				return applicationerrors.ApplicationNotFound
 			} else if err != nil {
-				return internalerrors.Errorf("updating application config: %w", err)
+				return internalerrors.Errorf("updating config: %w", err)
 			}
 		}
 
@@ -2488,13 +2489,97 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Errorf("updating application settings: %w", err)
+			return internalerrors.Errorf("updating settings: %w", err)
 		}
 
 		return nil
 	})
 	if err != nil {
 		return internalerrors.Errorf("setting application config: %w", err)
+	}
+	return nil
+}
+
+// UnsetApplicationConfigKeys removes the specified keys from the application
+// config. If the key does not exist, it is ignored.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	// This isn't ideal, as we could request this in one query, but we need to
+	// perform multiple queries to get the data. First is to get the application
+	// availability, second to just get the application overlay config for the
+	// charm config and the application settings for the trust config.
+	appQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	deleteQuery := `
+DELETE FROM application_config
+WHERE application_uuid = $applicationID.uuid
+AND key IN ($S[:]);
+`
+	settingsQuery := `
+INSERT INTO application_setting (*)
+VALUES ($setApplicationSettings.*)
+ON CONFLICT(application_uuid) DO UPDATE SET
+	trust = excluded.trust;
+`
+
+	appStmt, err := st.Prepare(appQuery, ident)
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+
+	removals := make(sqlair.S, len(keys))
+	for i, k := range keys {
+		removals[i] = k
+	}
+	removeTrust := slices.Contains(keys, "trust")
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("querying application: %w", err)
+		}
+
+		if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("deleting config: %w", err)
+		}
+
+		if !removeTrust {
+			return nil
+		}
+
+		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+			ApplicationUUID: ident.ID.String(),
+			Trust:           false,
+		}).Run(); err != nil {
+			return internalerrors.Errorf("deleting setting: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internalerrors.Errorf("removing application config: %w", err)
 	}
 	return nil
 }
