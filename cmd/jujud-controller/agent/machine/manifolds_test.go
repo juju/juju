@@ -69,6 +69,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"api-address-updater",
 			"api-caller",
 			"api-config-watcher",
+			"api-remote-caller",
 			"api-server",
 			"audit-config-updater",
 			"bootstrap",
@@ -157,6 +158,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"agent",
 			"api-caller",
 			"api-config-watcher",
+			"api-remote-caller",
 			"api-server",
 			"audit-config-updater",
 			"bootstrap",
@@ -245,6 +247,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
 		"api-server",
 		"audit-config-updater",
 		"bootstrap",
@@ -322,6 +325,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 
 	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
+		"api-remote-caller",
 		"certificate-watcher",
 		"controller-agent-config",
 		"db-accessor",
@@ -557,6 +561,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"api-caller": {"agent", "api-config-watcher"},
 
 	"api-config-watcher": {"agent"},
+
+	"api-remote-caller": {
+		"agent",
+		"central-hub",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 
 	"api-server": {
 		"agent",
@@ -1469,6 +1480,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"api-caller": {"agent", "api-config-watcher"},
 
 	"api-config-watcher": {"agent"},
+
+	"api-remote-caller": {
+		"agent",
+		"central-hub",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 
 	"api-server": {
 		"agent",
