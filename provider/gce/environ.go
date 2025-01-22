@@ -80,6 +80,7 @@ type gceConnection interface {
 
 type environ struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	name  string
 	uuid  string

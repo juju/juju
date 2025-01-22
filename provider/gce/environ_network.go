@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
@@ -323,21 +322,6 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, n
 // SupportsSpaces implements environs.NetworkingEnviron.
 func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
-}
-
-// SupportsContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container addresses")
-}
-
-// ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) ReleaseContainerAddresses(context.ProviderCallContext, []corenetwork.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container addresses")
 }
 
 // AreSpacesRoutable implements environs.NetworkingEnviron.

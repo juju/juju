@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -421,23 +420,4 @@ func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 // two spaces can use cloud-local addresses.
 func (*environ) AreSpacesRoutable(context.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
 	return false, errors.NotSupportedf("spaces")
-}
-
-// SupportsContainerAddresses returns true if the current environment is
-// able to allocate addresses for containers.
-func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// AllocateContainerAddresses allocates a static subnets for each of the
-// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
-// network config including all allocated addresses on success.
-func (*environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container address allocation")
-}
-
-// ReleaseContainerAddresses releases the previously allocated
-// addresses matching the interface details passed in.
-func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container address allocation")
 }

@@ -32,7 +32,6 @@ import (
 	"github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -309,6 +308,7 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 
 type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	name      string
 	uuid      string
@@ -2391,11 +2391,6 @@ func (e *Environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
-// SupportsContainerAddresses is specified on environs.Networking.
-func (e *Environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
-	return false, errors.NotSupportedf("container address")
-}
-
 // SuperSubnets is specified on environs.Networking
 func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	subnets, err := e.networking.Subnets("", nil)
@@ -2408,16 +2403,6 @@ func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 		cidrs[i] = subnet.CIDR
 	}
 	return cidrs, nil
-}
-
-// AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("allocate container address")
-}
-
-// ReleaseContainerAddresses is specified on environs.Networking.
-func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("release container address")
 }
 
 // AreSpacesRoutable is specified on environs.NetworkingEnviron.

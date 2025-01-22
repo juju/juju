@@ -86,6 +86,7 @@ const (
 
 type azureEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider
