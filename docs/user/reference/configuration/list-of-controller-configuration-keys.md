@@ -9,15 +9,8 @@ controller-config-juju-ha-space
 controller-config-juju-mgmt-space
 ```
 
-
-```{caution}
-
-The information in this doc is based on Juju version 3.5.5,
-and may not accurately reflect other versions of Juju.
-```
-
-
-## `agent-logfile-max-backups`
+This document gives a list of all the configuration keys that can be applied to a Juju controller.
+<a href="#heading--agent-logfile-max-backups"><h2 id="heading--agent-logfile-max-backups"><code>agent-logfile-max-backups</code></h2></a>
 
 `agent-logfile-max-backups` is the maximum number of old agent log files
 to keep (compressed; saved on each unit, synced to the controller).
@@ -29,7 +22,7 @@ to keep (compressed; saved on each unit, synced to the controller).
 **Can be changed after bootstrap:** yes
 
 
-## `agent-logfile-max-size`
+<a href="#heading--agent-logfile-max-size"><h2 id="heading--agent-logfile-max-size"><code>agent-logfile-max-size</code></h2></a>
 
 `agent-logfile-max-size` is the maximum file size of each agent log file,
 in MB.
@@ -40,8 +33,8 @@ in MB.
 
 **Can be changed after bootstrap:** yes
 
-(controller-config-agent-ratelimit-max)=
-## `agent-ratelimit-max`
+
+<a href="#heading--agent-ratelimit-max"><h2 id="heading--agent-ratelimit-max"><code>agent-ratelimit-max</code></h2></a>
 
 `agent-ratelimit-max` is the maximum size of the token bucket used to
 ratelimit the agent connections to the API server.
@@ -53,8 +46,7 @@ ratelimit the agent connections to the API server.
 **Can be changed after bootstrap:** yes
 
 
-(controller-config-agent-ratelimit-rate)=
-## `agent-ratelimit-rate`
+<a href="#heading--agent-ratelimit-rate"><h2 id="heading--agent-ratelimit-rate"><code>agent-ratelimit-rate</code></h2></a>
 
 `agent-ratelimit-rate` is the interval at which a new token is added to
 the token bucket, in milliseconds (ms).
@@ -66,7 +58,7 @@ the token bucket, in milliseconds (ms).
 **Can be changed after bootstrap:** yes
 
 
-## `allow-model-access`
+<a href="#heading--allow-model-access"><h2 id="heading--allow-model-access"><code>allow-model-access</code></h2></a>
 
 `allow-model-access` sets whether the controller will allow users to
 connect to models they have been authorized for, even when
@@ -79,7 +71,7 @@ they don't have any access rights to the controller itself.
 **Can be changed after bootstrap:** no
 
 
-## `api-port`
+<a href="#heading--api-port"><h2 id="heading--api-port"><code>api-port</code></h2></a>
 
 `api-port` is the port used for api connections.
 
@@ -90,7 +82,7 @@ they don't have any access rights to the controller itself.
 **Can be changed after bootstrap:** no
 
 
-## `api-port-open-delay`
+<a href="#heading--api-port-open-delay"><h2 id="heading--api-port-open-delay"><code>api-port-open-delay</code></h2></a>
 
 `api-port-open-delay` is a duration that the controller will wait
 between when the controller has been deemed to be ready to open
@@ -104,7 +96,7 @@ is only used when a controller-api-port value is set.
 **Can be changed after bootstrap:** yes
 
 
-## `application-resource-download-limit`
+<a href="#heading--application-resource-download-limit"><h2 id="heading--application-resource-download-limit"><code>application-resource-download-limit</code></h2></a>
 
 `application-resource-download-limit` limits the number of concurrent resource download
 requests from unit agents which will be served. The limit is per application.
@@ -117,7 +109,7 @@ Use a value of 0 to disable the limit.
 **Can be changed after bootstrap:** yes
 
 
-## `audit-log-capture-args`
+<a href="#heading--audit-log-capture-args"><h2 id="heading--audit-log-capture-args"><code>audit-log-capture-args</code></h2></a>
 
 `audit-log-capture-args` determines whether the audit log will
 contain the arguments passed to API methods.
@@ -129,7 +121,7 @@ contain the arguments passed to API methods.
 **Can be changed after bootstrap:** yes
 
 
-## `audit-log-exclude-methods`
+<a href="#heading--audit-log-exclude-methods"><h2 id="heading--audit-log-exclude-methods"><code>audit-log-exclude-methods</code></h2></a>
 
 `audit-log-exclude-methods` is a list of Facade.Method names that
 aren't interesting for audit logging purposes. A conversation
@@ -142,7 +134,7 @@ interesting calls though.).
 **Can be changed after bootstrap:** yes
 
 
-## `audit-log-max-backups`
+<a href="#heading--audit-log-max-backups"><h2 id="heading--audit-log-max-backups"><code>audit-log-max-backups</code></h2></a>
 
 `audit-log-max-backups` is the number of old audit log files to keep
 (compressed).
@@ -154,7 +146,7 @@ interesting calls though.).
 **Can be changed after bootstrap:** yes
 
 
-## `audit-log-max-size`
+<a href="#heading--audit-log-max-size"><h2 id="heading--audit-log-max-size"><code>audit-log-max-size</code></h2></a>
 
 `audit-log-max-size` is the maximum size for the current audit log
 file, eg "250M".
@@ -166,7 +158,7 @@ file, eg "250M".
 **Can be changed after bootstrap:** yes
 
 
-## `auditing-enabled`
+<a href="#heading--auditing-enabled"><h2 id="heading--auditing-enabled"><code>auditing-enabled</code></h2></a>
 
 `auditing-enabled` determines whether the controller will record
 auditing information.
@@ -178,7 +170,7 @@ auditing information.
 **Can be changed after bootstrap:** yes
 
 
-## `autocert-dns-name`
+<a href="#heading--autocert-dns-name"><h2 id="heading--autocert-dns-name"><code>autocert-dns-name</code></h2></a>
 
 `autocert-dns-name` sets the DNS name of the controller. If a
 client connects to this name, an official certificate will be
@@ -190,7 +182,7 @@ will use the usual self-generated certificate.
 **Can be changed after bootstrap:** no
 
 
-## `autocert-url`
+<a href="#heading--autocert-url"><h2 id="heading--autocert-url"><code>autocert-url</code></h2></a>
 
 `autocert-url` sets the URL used to obtain official TLS
 certificates when a client connects to the API. By default,
@@ -203,14 +195,14 @@ testing is
 **Can be changed after bootstrap:** no
 
 
-## `ca-cert`
+<a href="#heading--ca-cert"><h2 id="heading--ca-cert"><code>ca-cert</code></h2></a>
 
 `ca-cert` is the key for the controller's CA certificate attribute.
 
 **Can be changed after bootstrap:** no
 
-(controller-config-caas-image-repo)=
-## `caas-image-repo`
+
+<a href="#heading--caas-image-repo"><h2 id="heading--caas-image-repo"><code>caas-image-repo</code></h2></a>
 
 `caas-image-repo` sets the docker repo to use
 for the jujud operator and mongo images.
@@ -220,7 +212,7 @@ for the jujud operator and mongo images.
 **Can be changed after bootstrap:** yes
 
 
-## `caas-operator-image-path`
+<a href="#heading--caas-operator-image-path"><h2 id="heading--caas-operator-image-path"><code>caas-operator-image-path</code></h2></a>
 > This key is deprecated.
 
 `caas-operator-image-path` sets the URL of the docker image
@@ -232,7 +224,7 @@ Deprecated: use `caas-image-repo`.
 **Can be changed after bootstrap:** no
 
 
-## `controller-api-port`
+<a href="#heading--controller-api-port"><h2 id="heading--controller-api-port"><code>controller-api-port</code></h2></a>
 
 `controller-api-port` is an optional port that may be set for controllers
 that have a very heavy load. If this port is set, this port is used by
@@ -246,16 +238,16 @@ properly.
 **Can be changed after bootstrap:** yes
 
 
-## `controller-name`
+<a href="#heading--controller-name"><h2 id="heading--controller-name"><code>controller-name</code></h2></a>
 
 `controller-name` is the canonical name for the controller.
 
 **Type:** non-empty string
 
-**Can be changed after bootstrap:** yes
+**Can be changed after bootstrap:** no
 
 
-## `controller-resource-download-limit`
+<a href="#heading--controller-resource-download-limit"><h2 id="heading--controller-resource-download-limit"><code>controller-resource-download-limit</code></h2></a>
 
 `controller-resource-download-limit` limits the number of concurrent resource download
 requests from unit agents which will be served. The limit is for the combined total
@@ -269,14 +261,14 @@ Use a value of 0 to disable the limit.
 **Can be changed after bootstrap:** yes
 
 
-## `controller-uuid`
+<a href="#heading--controller-uuid"><h2 id="heading--controller-uuid"><code>controller-uuid</code></h2></a>
 
 `controller-uuid` is the key for the controller UUID attribute.
 
 **Can be changed after bootstrap:** no
 
 
-## `features`
+<a href="#heading--features"><h2 id="heading--features"><code>features</code></h2></a>
 
 `features` allows a list of runtime changeable features to be updated.
 
@@ -285,7 +277,7 @@ Use a value of 0 to disable the limit.
 **Can be changed after bootstrap:** yes
 
 
-## `identity-public-key`
+<a href="#heading--identity-public-key"><h2 id="heading--identity-public-key"><code>identity-public-key</code></h2></a>
 
 `identity-public-key` sets the public key of the identity manager.
 Use this when users should be managed externally rather than
@@ -296,7 +288,7 @@ created locally on the controller.
 **Can be changed after bootstrap:** no
 
 
-## `identity-url`
+<a href="#heading--identity-url"><h2 id="heading--identity-url"><code>identity-url</code></h2></a>
 
 `identity-url` sets the URL of the identity manager.
 Use this when users should be managed externally rather than
@@ -307,7 +299,7 @@ created locally on the controller.
 **Can be changed after bootstrap:** no
 
 
-## `juju-db-snap-channel`
+<a href="#heading--juju-db-snap-channel"><h2 id="heading--juju-db-snap-channel"><code>juju-db-snap-channel</code></h2></a>
 
 `juju-db-snap-channel` selects the channel to use when installing Mongo
 snaps for focal or later. The value is ignored for older releases.
@@ -319,7 +311,7 @@ snaps for focal or later. The value is ignored for older releases.
 **Can be changed after bootstrap:** no
 
 
-## `juju-ha-space`
+<a href="#heading--juju-ha-space"><h2 id="heading--juju-ha-space"><code>juju-ha-space</code></h2></a>
 
 `juju-ha-space` is the network space within which the MongoDB replica-set
 should communicate.
@@ -329,7 +321,7 @@ should communicate.
 **Can be changed after bootstrap:** yes
 
 
-## `juju-mgmt-space`
+<a href="#heading--juju-mgmt-space"><h2 id="heading--juju-mgmt-space"><code>juju-mgmt-space</code></h2></a>
 
 `juju-mgmt-space` is the network space that agents should use to
 communicate with controllers.
@@ -339,7 +331,7 @@ communicate with controllers.
 **Can be changed after bootstrap:** yes
 
 
-## `jujud-controller-snap-source`
+<a href="#heading--jujud-controller-snap-source"><h2 id="heading--jujud-controller-snap-source"><code>jujud-controller-snap-source</code></h2></a>
 
 `jujud-controller-snap-source` returns the source for the controller snap.
 Can be set to "legacy", "snapstore", "local" or "local-dangerous".
@@ -352,7 +344,7 @@ Cannot be changed.
 **Can be changed after bootstrap:** no
 
 
-## `login-token-refresh-url`
+<a href="#heading--login-token-refresh-url"><h2 id="heading--login-token-refresh-url"><code>login-token-refresh-url</code></h2></a>
 
 `login-token-refresh-url` sets the URL of the login JWT well-known endpoint.
 Use this when authentication/authorisation is done using a JWT in the
@@ -364,7 +356,7 @@ permissions model.
 **Can be changed after bootstrap:** no
 
 
-## `max-agent-state-size`
+<a href="#heading--max-agent-state-size"><h2 id="heading--max-agent-state-size"><code>max-agent-state-size</code></h2></a>
 
 `max-agent-state-size` is the maximum allowed size of internal state
 data that agents can store to the controller in bytes. A value of 0
@@ -378,7 +370,7 @@ hard (but configurable) limit of 16M.
 **Can be changed after bootstrap:** yes
 
 
-## `max-charm-state-size`
+<a href="#heading--max-charm-state-size"><h2 id="heading--max-charm-state-size"><code>max-charm-state-size</code></h2></a>
 
 `max-charm-state-size` is the maximum allowed size of charm-specific
 per-unit state data that charms can store to the controller in
@@ -392,7 +384,7 @@ principle, mongo imposes a hard (but configurable) limit of 16M.
 **Can be changed after bootstrap:** yes
 
 
-## `max-debug-log-duration`
+<a href="#heading--max-debug-log-duration"><h2 id="heading--max-debug-log-duration"><code>max-debug-log-duration</code></h2></a>
 
 `max-debug-log-duration` is used to provide a backstop to the execution of a
 debug-log command. If someone starts a debug-log session in a remote
@@ -408,7 +400,7 @@ which should be more than enough time for a debugging session.
 **Can be changed after bootstrap:** yes
 
 
-## `max-prune-txn-batch-size`
+<a href="#heading--max-prune-txn-batch-size"><h2 id="heading--max-prune-txn-batch-size"><code>max-prune-txn-batch-size</code></h2></a>
 > This key is deprecated.
 
 `max-prune-txn-batch-size` (deprecated) is the maximum number of transactions
@@ -422,7 +414,7 @@ A value <= 0 indicates to do all transactions at once.
 **Can be changed after bootstrap:** yes
 
 
-## `max-prune-txn-passes`
+<a href="#heading--max-prune-txn-passes"><h2 id="heading--max-prune-txn-passes"><code>max-prune-txn-passes</code></h2></a>
 > This key is deprecated.
 
 `max-prune-txn-passes` (deprecated) is the maximum number of batches that
@@ -439,7 +431,7 @@ will be used instead.
 **Can be changed after bootstrap:** yes
 
 
-## `max-txn-log-size`
+<a href="#heading--max-txn-log-size"><h2 id="heading--max-txn-log-size"><code>max-txn-log-size</code></h2></a>
 
 `max-txn-log-size` is the maximum size the of capped txn log collection, eg "10M".
 
@@ -450,7 +442,7 @@ will be used instead.
 **Can be changed after bootstrap:** no
 
 
-## `metering-url`
+<a href="#heading--metering-url"><h2 id="heading--metering-url"><code>metering-url</code></h2></a>
 
 `metering-url` is the URL to use for metrics.
 
@@ -460,8 +452,8 @@ will be used instead.
 
 **Can be changed after bootstrap:** no
 
-(controller-config-migration-agent-wait-time)=
-## `migration-agent-wait-time`
+
+<a href="#heading--migration-agent-wait-time"><h2 id="heading--migration-agent-wait-time"><code>migration-agent-wait-time</code></h2></a>
 
 `migration-agent-wait-time` is the maximum time that the migration-master
 worker will wait for agents to report for a migration phase when
@@ -474,7 +466,7 @@ executing a model migration.
 **Can be changed after bootstrap:** yes
 
 
-## `model-logfile-max-backups`
+<a href="#heading--model-logfile-max-backups"><h2 id="heading--model-logfile-max-backups"><code>model-logfile-max-backups</code></h2></a>
 
 `model-logfile-max-backups` is the number of old model
 log files to keep (compressed).
@@ -486,7 +478,7 @@ log files to keep (compressed).
 **Can be changed after bootstrap:** yes
 
 
-## `model-logfile-max-size`
+<a href="#heading--model-logfile-max-size"><h2 id="heading--model-logfile-max-size"><code>model-logfile-max-size</code></h2></a>
 
 `model-logfile-max-size` is the maximum size of the log file written out by the
 controller on behalf of workers running for a model.
@@ -498,7 +490,7 @@ controller on behalf of workers running for a model.
 **Can be changed after bootstrap:** yes
 
 
-## `model-logs-size`
+<a href="#heading--model-logs-size"><h2 id="heading--model-logs-size"><code>model-logs-size</code></h2></a>
 
 `model-logs-size` is the size of the capped collections used to hold the
 logs for the models, eg "20M". Size is per model.
@@ -510,7 +502,7 @@ logs for the models, eg "20M". Size is per model.
 **Can be changed after bootstrap:** yes
 
 
-## `mongo-memory-profile`
+<a href="#heading--mongo-memory-profile"><h2 id="heading--mongo-memory-profile"><code>mongo-memory-profile</code></h2></a>
 
 `mongo-memory-profile` sets the memory profile for MongoDB. Valid values are:
 - "low": use the least possible memory
@@ -523,7 +515,7 @@ logs for the models, eg "20M". Size is per model.
 **Can be changed after bootstrap:** yes
 
 
-## `prune-txn-query-count`
+<a href="#heading--prune-txn-query-count"><h2 id="heading--prune-txn-query-count"><code>prune-txn-query-count</code></h2></a>
 
 `prune-txn-query-count` is the number of transactions to read in a single query.
 Minimum of 10, a value of 0 will indicate to use the default value (1000).
@@ -535,7 +527,7 @@ Minimum of 10, a value of 0 will indicate to use the default value (1000).
 **Can be changed after bootstrap:** yes
 
 
-## `prune-txn-sleep-time`
+<a href="#heading--prune-txn-sleep-time"><h2 id="heading--prune-txn-sleep-time"><code>prune-txn-sleep-time</code></h2></a>
 
 `prune-txn-sleep-time` is the amount of time to sleep between processing each
 batch query. This is used to reduce load on the system, allowing other
@@ -552,7 +544,7 @@ indicates to not sleep at all.
 **Can be changed after bootstrap:** yes
 
 
-## `public-dns-address`
+<a href="#heading--public-dns-address"><h2 id="heading--public-dns-address"><code>public-dns-address</code></h2></a>
 
 `public-dns-address` is the public DNS address (and port) of the controller.
 
@@ -561,7 +553,7 @@ indicates to not sleep at all.
 **Can be changed after bootstrap:** yes
 
 
-## `query-tracing-enabled`
+<a href="#heading--query-tracing-enabled"><h2 id="heading--query-tracing-enabled"><code>query-tracing-enabled</code></h2></a>
 
 `query-tracing-enabled` returns whether query tracing is enabled. If so, any
 queries which take longer than `query-tracing-threshold` will be logged.
@@ -573,7 +565,7 @@ queries which take longer than `query-tracing-threshold` will be logged.
 **Can be changed after bootstrap:** yes
 
 
-## `query-tracing-threshold`
+<a href="#heading--query-tracing-threshold"><h2 id="heading--query-tracing-threshold"><code>query-tracing-threshold</code></h2></a>
 
 `query-tracing-threshold` returns the "threshold" for query tracing. Any
 queries which take longer than this value will be logged (if query tracing
@@ -587,7 +579,7 @@ value of 0 means all queries will be output.
 **Can be changed after bootstrap:** yes
 
 
-## `set-numa-control-policy`
+<a href="#heading--set-numa-control-policy"><h2 id="heading--set-numa-control-policy"><code>set-numa-control-policy</code></h2></a>
 > This key is deprecated.
 
 `set-numa-control-policy` (true/false) is deprecated.
@@ -601,7 +593,7 @@ controller policy turned on.
 **Can be changed after bootstrap:** no
 
 
-## `state-port`
+<a href="#heading--state-port"><h2 id="heading--state-port"><code>state-port</code></h2></a>
 
 `state-port` is the port used for mongo connections.
 
@@ -610,3 +602,5 @@ controller policy turned on.
 **Default value:** 37017
 
 **Can be changed after bootstrap:** no
+
+

@@ -707,8 +707,11 @@ docs:
 .PHONY: docs-help
 docs-help: docs
 
+# Sphinx documentation commands
 docs-%:
-## Build the sphinx documentation
+## docs-html: Build the documentation
+## docs-run: Build and serve the documentation
+## docs-clean: Clean the docs build artifacts
 	cd docs && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
 
 
