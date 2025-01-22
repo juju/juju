@@ -344,11 +344,10 @@ type createCharm struct {
 }
 
 func startupHooks(minion bool) []string {
-	leaderHook := "leader-elected"
 	if minion {
-		leaderHook = "leader-settings-changed"
+		return []string{"install", "config-changed", "start"}
 	}
-	return []string{"install", leaderHook, "config-changed", "start"}
+	return []string{"install", "leader-elected", "config-changed", "start"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *testContext) {
@@ -1100,17 +1099,12 @@ func (s verifyWaiting) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, waitHooks{})
 }
 
-type verifyRunning struct {
-	minion bool
-}
+type verifyRunning struct{}
 
 func (s verifyRunning) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	var hooks []string
-	if s.minion {
-		hooks = append(hooks, "leader-settings-changed")
-	}
 	// We don't expect config-changed to always run on agent restart
 	// anymore.
 	step(c, ctx, waitHooks(hooks))

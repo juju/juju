@@ -27,11 +27,7 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 		Stub:            &s.Stub,
 		applicationName: "led-application",
 	}
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ApplicationName",
-	}}, func() {
-		s.context = context.NewLeadershipContext(s.tracker)
-	})
+	s.context = context.NewLeadershipContext(s.tracker)
 }
 
 func (s *LeaderSuite) CheckCalls(c *gc.C, stubCalls []testing.StubCall, f func()) {

@@ -60,8 +60,6 @@ Currently available charm hook tools are:
     is-leader                Print application leadership status.
     juju-log                 Write a message to the juju log.
     juju-reboot              Reboot the host machine.
-    leader-get               Print application leadership settings.
-    leader-set               Write application leadership settings.
     network-get              Get network config.
     open-port                Register a request to open a port or port range.
     opened-ports             List all ports or port ranges opened by the unit.
@@ -113,8 +111,6 @@ var expectedCommands = []string{
 	"is-leader",
 	"juju-log",
 	"juju-reboot",
-	"leader-get",
-	"leader-set",
 	"network-get",
 	"open-port",
 	"opened-ports",

@@ -783,45 +783,6 @@ func (c *MockContextIsLeaderCall) DoAndReturn(f func() (bool, error)) *MockConte
 	return c
 }
 
-// LeaderSettings mocks base method.
-func (m *MockContext) LeaderSettings(arg0 context.Context) (map[string]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LeaderSettings", arg0)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LeaderSettings indicates an expected call of LeaderSettings.
-func (mr *MockContextMockRecorder) LeaderSettings(arg0 any) *MockContextLeaderSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaderSettings", reflect.TypeOf((*MockContext)(nil).LeaderSettings), arg0)
-	return &MockContextLeaderSettingsCall{Call: call}
-}
-
-// MockContextLeaderSettingsCall wrap *gomock.Call
-type MockContextLeaderSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextLeaderSettingsCall) Return(arg0 map[string]string, arg1 error) *MockContextLeaderSettingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextLeaderSettingsCall) Do(f func(context.Context) (map[string]string, error)) *MockContextLeaderSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextLeaderSettingsCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockContextLeaderSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // LogActionMessage mocks base method.
 func (m *MockContext) LogActionMessage(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -1895,44 +1856,6 @@ func (c *MockContextWorkloadNameCall) Do(f func() (string, error)) *MockContextW
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockContextWorkloadNameCall) DoAndReturn(f func() (string, error)) *MockContextWorkloadNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WriteLeaderSettings mocks base method.
-func (m *MockContext) WriteLeaderSettings(arg0 context.Context, arg1 map[string]string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteLeaderSettings", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// WriteLeaderSettings indicates an expected call of WriteLeaderSettings.
-func (mr *MockContextMockRecorder) WriteLeaderSettings(arg0, arg1 any) *MockContextWriteLeaderSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteLeaderSettings", reflect.TypeOf((*MockContext)(nil).WriteLeaderSettings), arg0, arg1)
-	return &MockContextWriteLeaderSettingsCall{Call: call}
-}
-
-// MockContextWriteLeaderSettingsCall wrap *gomock.Call
-type MockContextWriteLeaderSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockContextWriteLeaderSettingsCall) Return(arg0 error) *MockContextWriteLeaderSettingsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockContextWriteLeaderSettingsCall) Do(f func(context.Context, map[string]string) error) *MockContextWriteLeaderSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextWriteLeaderSettingsCall) DoAndReturn(f func(context.Context, map[string]string) error) *MockContextWriteLeaderSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

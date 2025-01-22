@@ -1011,21 +1011,18 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 		// the stop (as we might not react to a config change in time).
 		// It's actually clearer to just list the possible orders:
 		possibles := [][]string{{
-			"leader-settings-changed",
 			"db-relation-departed mysql/0 db:0",
 			"db-relation-broken db:0",
 			"stop",
 			"remove",
 		}, {
 			"db-relation-departed mysql/0 db:0",
-			"leader-settings-changed",
 			"db-relation-broken db:0",
 			"stop",
 			"remove",
 		}, {
 			"db-relation-departed mysql/0 db:0",
 			"db-relation-broken db:0",
-			"leader-settings-changed",
 			"stop",
 			"remove",
 		}, {
@@ -1350,7 +1347,6 @@ func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
 			"leader-settings-changed triggers when deposed (while running)",
 			quickStart{},
 			forceMinion{},
-			waitHooks{"leader-settings-changed"},
 		),
 	})
 }
