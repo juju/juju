@@ -77,9 +77,6 @@ func (s *Server) FindImage(
 		}
 	}
 
-	var sourced SourcedImage
-	lastErr := fmt.Errorf("no matching image found")
-
 	// We don't have an image locally with the juju-specific alias,
 	// so look in each of the provided remote sources for any of the aliases
 	// that might identify the image we want.
@@ -87,6 +84,9 @@ func (s *Server) FindImage(
 	if err != nil {
 		return SourcedImage{}, errors.Trace(err)
 	}
+
+	var sourced SourcedImage
+	lastErr := fmt.Errorf("no matching image found")
 
 	for _, remote := range sources {
 		source, err := ConnectImageRemote(ctx, remote)
@@ -101,8 +101,7 @@ func (s *Server) FindImage(
 		res, _, err := source.GetImageAliasType(string(virtType), alias)
 		if err != nil {
 			logger.Debugf("failed to get alias %q from %q: %s", alias, remote.Name, err)
-			continue
-		} else if err == nil && res != nil && res.Target != "" {
+		} else if res != nil && res.Target != "" {
 			// If the image is found by an alias prefer that over the one
 			// from the local alias.
 			target = res.Target
@@ -118,40 +117,35 @@ func (s *Server) FindImage(
 		// NOTE: If the get image fails for any reason, we'll never retry the
 		// same source again.
 		image, _, err := source.GetImage(target)
-		if err == nil {
-			logger.Debugf("Found image remotely - %q %q %q", remote.Name, image.Filename, target)
-
-			// In order to support auto-update, we need to set the
-			// fingerprint of the image to the alias that was used to
-			// find it.
-			// There is no LXD API to do this natively, and this is a copy
-			// direct from the LXD source that enables the same feature.
-
-			// Copy the image to ensure we don't modify the original. This
-			// can cause issues if the image is used in multiple places.
-			imageRef := *image
-			imageRef.AutoUpdate = true
-
-			// If dealing with an alias, set the img fingerprint to match
-			// the provided targetAlias (needed for auto-update)
-			if imageRef.Public && !strings.HasPrefix(imageRef.Fingerprint, alias) {
-				imageRef.Fingerprint = alias
-			}
-
-			// Set the image copy reference to the original image.
-
-			sourced.Image = &imageRef
-			sourced.LXDServer = source
-			sourced.Fingerprint = image.Fingerprint
-
-			break
-		} else {
+		if err != nil {
 			lastErr = errors.Trace(err)
+			continue
 		}
 
+		logger.Debugf("Found image remotely - %q %q %q", remote.Name, image.Filename, target)
+
+		// In order to support auto-update, we need to set the
+		// fingerprint of the image to the alias that was used to
+		// find it.
+		// There is no LXD API to do this natively, and this is a copy
+		// direct from the LXD source that enables the same feature.
+
+		// Copy the image to ensure we don't modify the original. This
+		// can cause issues if the image is used in multiple places.
+		imageRef := *image
+		imageRef.AutoUpdate = true
+
+		// If dealing with an alias, set the img fingerprint to match
+		// the provided targetAlias (needed for auto-update)
+		if imageRef.Public && !strings.HasPrefix(imageRef.Fingerprint, alias) {
+			imageRef.Fingerprint = alias
+		}
+
+		// Set the image copy reference to the original image.
 		logger.Debugf("found image remotely - %q %q %q", remote.Name, image.Filename, target)
-		sourced.Image = image
+		sourced.Image = &imageRef
 		sourced.LXDServer = source
+		sourced.Fingerprint = image.Fingerprint
 		break
 	}
 
