@@ -225,7 +225,6 @@ func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage, version in
 type debugLogParams struct {
 	version       int
 	startTime     time.Time
-	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
 	firehose      bool

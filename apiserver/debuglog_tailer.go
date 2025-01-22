@@ -70,7 +70,7 @@ func handleDebugLogRequest(
 			}
 
 			lineCount++
-			if reqParams.maxLines > 0 && lineCount == reqParams.maxLines {
+			if reqParams.noTail && reqParams.initialLines > 0 && lineCount == reqParams.initialLines {
 				return nil
 			}
 		}
@@ -90,9 +90,7 @@ func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
 		ExcludeModule: reqParams.excludeModule,
 		IncludeLabels: reqParams.includeLabels,
 		ExcludeLabels: reqParams.excludeLabels,
-	}
-	if reqParams.fromTheStart {
-		tailerParams.InitialLines = 0
+		FromTheStart:  reqParams.fromTheStart,
 	}
 	return tailerParams
 }

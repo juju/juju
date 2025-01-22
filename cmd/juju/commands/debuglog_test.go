@@ -169,7 +169,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 			args:     []string{"--replay", "-l", "INFO", "--lines", "40"},
 			errMatch: `setting --replay and --lines not valid`,
 		}, {
-			args:     []string{"--no-tail", "-l", "ERROR", "--exclude-label", "http", "--lines", "40"},
+			args:     []string{"--no-tail", "-l", "ERROR", "--exclude", "http", "--lines", "40"},
 			errMatch: `setting --no-tail and --lines not valid`,
 		}, {
 			args:     []string{"--lines", "30", "--no-tail", "--limit", "50"},

@@ -20,11 +20,11 @@ Displays log messages for a model.
 | `--include-labels` |  | Only show log messages for these logging label key values |
 | `--include-module` |  | Only show log messages for these logging modules |
 | `-l`, `--level` |  | Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR] |
-| `--limit` | 0xc00072f5a0 | Show this many of the most recent logs and then exit |
+| `--limit` | 0 | Show this many of the most recent logs and then exit |
 | `--location` | false | Show filename and line numbers |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--ms` | false | Show times to millisecond precision |
-| `-n`, `--lines` | 0xc00072f5a8 | Show this many of the most recent lines and continue to append new ones |
+| `-n`, `--lines` | 0 | Show this many of the most recent lines and continue to append new ones |
 | `--no-tail` | false | Show existing log messages and then exit |
 | `-o`, `--output` |  | Specify an output file |
 | `--replay` | false | Show the entire log and continue to append new ones |

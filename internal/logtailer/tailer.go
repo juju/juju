@@ -54,6 +54,7 @@ type LogTailerParams struct {
 	ExcludeModule []string
 	IncludeLabels map[string]string
 	ExcludeLabels map[string]string
+	FromTheStart  bool
 }
 
 // maxInitialLines limits the number of documents we will load into memory
@@ -113,7 +114,7 @@ func (t *logTailer) Wait() error {
 
 func (t *logTailer) loop() error {
 	var seekTo *tail.SeekInfo
-	if t.params.InitialLines > 0 {
+	if t.params.InitialLines > 0 && !t.params.FromTheStart {
 		seekOffset, err := t.processInitialLines()
 		if err != nil {
 			return err
