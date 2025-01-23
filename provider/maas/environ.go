@@ -887,11 +887,6 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 	return errors.Trace(err)
 }
 
-func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
-	filter := getSystemIdValues("nodes", ids)
-	return nodes.CallGet("deployment_status", filter)
-}
-
 type selectNodeArgs struct {
 	AvailabilityZone string
 	NodeName         string
