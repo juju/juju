@@ -264,7 +264,8 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	c.Assert(st.Addr(), gc.Equals, info.Addrs[0])
+	addr := st.Addr()
+	c.Assert(addr.String(), gc.Equals, "wss://"+info.Addrs[0])
 	modelTag, ok := st.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(modelTag, gc.Equals, s.Model.ModelTag())
@@ -760,6 +761,37 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
 }
 
+// We want open to perform a DNS lookup against the host without the segments,
+// but for the opening of the connect maintain the segments i.e.,
+// jimm.com/my-segment/api
+func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		return fakeConn{}, nil
+	}
+	dnsCache := make(dnsCacheMap)
+
+	conn, err := api.Open(
+		&api.Info{
+			Addrs: []string{
+				"place1.example:1234/segment",
+			},
+			SkipLogin: true,
+			CACert:    jtesting.CACert,
+		},
+		api.DialOpts{
+			DialWebsocket: fakeDialer,
+			IPAddrResolver: apitesting.IPAddrResolverMap{
+				"place1.example": {"0.1.1.1"},
+			},
+			DNSCache: dnsCache,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+
+	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
+}
+
 func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 	var dialed string
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
@@ -809,7 +841,8 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
-	c.Assert(conn.Addr(), gc.Equals, "0.1.2.3:1234")
+	addr := conn.Addr()
+	c.Assert(addr.String(), gc.Equals, "wss://0.1.2.3:1234")
 	c.Assert(conn.IPAddr(), gc.Equals, "0.1.2.3:1234")
 	c.Assert(dnsCache, gc.HasLen, 0)
 }
@@ -875,7 +908,8 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	r := <-openc
 	c.Assert(r.err, jc.ErrorIsNil)
 	c.Assert(r.conn, gc.NotNil)
-	c.Assert(r.conn.Addr(), gc.Equals, "place1.example:1234")
+	addr := r.conn.Addr()
+	c.Assert(addr.String(), gc.Equals, "wss://place1.example:1234")
 	c.Assert(r.conn.IPAddr(), gc.Equals, "0.2.2.2:1234")
 	c.Assert(dialed, jc.DeepEquals, map[string]bool{
 		"0.2.2.2:1234": true,
@@ -1197,7 +1231,7 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	testState := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})

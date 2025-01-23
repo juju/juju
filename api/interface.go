@@ -113,9 +113,9 @@ func (info *Info) Validate() error {
 	}
 
 	for _, addr := range info.Addrs {
-		_, err := network.ParseMachineHostPort(addr)
-		if err != nil {
-			return errors.NotValidf("host addresses: %v", err)
+		_, ok := parseURLWithOptionalScheme(addr)
+		if !ok {
+			return errors.NotValidf("host address: %s", addr)
 		}
 	}
 
@@ -327,14 +327,19 @@ type Connection interface {
 	// Close closes the connection.
 	Close() error
 
-	// Addr returns the address used to connect to the API server.
-	Addr() string
+	// Addr returns a copy of the address used to connect to the API server.
+	Addr() *url.URL
 
 	// IPAddr returns the IP address used to connect to the API server.
 	IPAddr() string
 
 	// APIHostPorts returns addresses that may be used to connect
-	// to the API server, including the address used to connect.
+	// to the API server, conditionally including the address used
+	// to connect when the address does not include a path segment.
+	// Use Addr() and IsProxied() to inspect the address used to
+	// to connect. This distinction is made because HostPorts
+	// do not carry information for routing through things like
+	// L7 load-balancers while Addr() does.
 	//
 	// The addresses are scoped (public, cloud-internal, etc.), so
 	// the client may choose which addresses to attempt. For the

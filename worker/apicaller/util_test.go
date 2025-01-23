@@ -4,6 +4,7 @@
 package apicaller_test
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -107,8 +108,11 @@ func (mock *mockConn) Broken() <-chan struct{} {
 	return mock.broken
 }
 
-func (mock *mockConn) Addr() string {
-	return "testing.invalid"
+func (mock *mockConn) Addr() *url.URL {
+	return &url.URL{
+		Scheme: "wss",
+		Host:   "testing.invalid",
+	}
 }
 
 func (mock *mockConn) Close() error {

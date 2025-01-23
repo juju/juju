@@ -6,8 +6,8 @@ package api
 import (
 	"context"
 	"crypto/tls"
-	"net"
 	"net/url"
+	"path"
 	"strconv"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -30,8 +30,8 @@ type state struct {
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
 
-	// addr is the address used to connect to the API server.
-	addr string
+	// addr is the address used to connect to the root of the API server.
+	addr *url.URL
 
 	// ipAddr is the IP address used to connect to the API server.
 	ipAddr string
@@ -148,9 +148,11 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 	st.modelAccess = p.modelAccess
 
 	hostPorts := p.servers
-	// if the connection is not proxied then we will add the connection address
-	// to host ports
-	if !st.IsProxied() {
+	// If the connection is not proxied then we will add the connection address
+	// to host ports. Additionally if the connection address includes a path,
+	// it can't be added to host ports as it will lose the path so skip the
+	// address in scenarios where we connect through a load-balancer.
+	if !st.IsProxied() && st.addr.Path == "" {
 		hostPorts, err = addAddress(p.servers, st.addr)
 		if err != nil {
 			if clerr := st.Close(); clerr != nil {
@@ -158,14 +160,6 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 			}
 			return err
 		}
-	}
-	st.hostPorts = hostPorts
-
-	if err != nil {
-		if clerr := st.Close(); clerr != nil {
-			err = errors.Annotatef(err, "error closing state: %v", clerr)
-		}
-		return err
 	}
 	st.hostPorts = hostPorts
 
@@ -216,25 +210,25 @@ func slideAddressToFront(servers []network.MachineHostPorts, serverIndex, addrIn
 // addAddress appends a new server derived from the given
 // address to servers if the address is not already found
 // there.
-func addAddress(servers []network.MachineHostPorts, addr string) ([]network.MachineHostPorts, error) {
+func addAddress(servers []network.MachineHostPorts, addr *url.URL) ([]network.MachineHostPorts, error) {
 	for i, server := range servers {
 		for j, hostPort := range server {
-			if network.DialAddress(hostPort) == addr {
+			u := network.CanonicalURL(hostPort, addr.Scheme)
+			if u.String() == addr.String() {
 				slideAddressToFront(servers, i, j)
 				return servers, nil
 			}
 		}
 	}
-	host, portString, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, err
-	}
-	port, err := strconv.Atoi(portString)
+
+	port, err := strconv.Atoi(addr.Port())
 	if err != nil {
 		return nil, err
 	}
 	result := make([]network.MachineHostPorts, 0, len(servers)+1)
-	result = append(result, network.NewMachineHostPorts(port, host))
+	// Ensure we don't pass in a port value in the addresses of NewMachineHostPorts, i.e. use addr.Hostname()
+	// since the function accepts URLs in a unique way (see docstring for NewMachineHostPorts)
+	result = append(result, network.NewMachineHostPorts(port, path.Join(addr.Hostname(), addr.Path)))
 	result = append(result, servers...)
 	return result, nil
 }

@@ -34,11 +34,7 @@ func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	// Replace the IP address in the URL with the
-	// host name so that tests can check it more
-	// easily.
-	u, _ := url.Parse(result.urlStr)
-	u.Host = result.addr
+	u := result.dialAddr
 	return result.conn, u.String(), nil
 }
 
@@ -82,10 +78,14 @@ func NewTestingState(params TestingStateParams) Connection {
 		}
 		modelTag = t
 	}
+	url, err := url.Parse(params.Address)
+	if err != nil {
+		panic("invalid testing address")
+	}
 	st := &state{
 		client:         params.RPCConnection,
 		clock:          params.Clock,
-		addr:           params.Address,
+		addr:           url,
 		modelTag:       modelTag,
 		hostPorts:      params.APIHostPorts,
 		facadeVersions: params.FacadeVersions,

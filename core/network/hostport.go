@@ -5,6 +5,7 @@ package network
 
 import (
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -47,6 +48,22 @@ func (hps HostPorts) Strings() []string {
 	return result
 }
 
+// CanonicalURLs returns the HostPorts as a slice of strings
+// after converting them to their full canonical URL form.
+// An empty scheme will result in URLs without a scheme
+// e.g. "host:port/path" as opposed to "scheme://host:port/path".
+func (hps HostPorts) CanonicalURLs(scheme string) []string {
+	result := make([]string, len(hps))
+	for i, addr := range hps {
+		res := CanonicalURL(addr, scheme).String()
+		if scheme == "" {
+			res = strings.TrimPrefix(res, "//")
+		}
+		result[i] = res
+	}
+	return result
+}
+
 // Unique returns a copy of the receiver HostPorts with duplicate endpoints
 // removed. Note that this only applies to dial addresses; spaces are ignored.
 func (hps HostPorts) Unique() HostPorts {
@@ -75,6 +92,17 @@ func (hps HostPorts) PrioritizedForScope(getMatcher ScopeMatchFunc) []string {
 		out[i] = DialAddress(hps[index])
 	}
 	return out
+}
+
+// CanonicalURL returns a URL value for the input HostPort,
+// that includes the the provided scheme.
+func CanonicalURL(a HostPort, scheme string) *url.URL {
+	hostPort := net.JoinHostPort(a.Host(), strconv.Itoa(a.Port()))
+	u := url.URL{
+		Scheme: scheme,
+		Host:   hostPort,
+	}
+	return &u
 }
 
 // DialAddress returns a string value for the input HostPort,

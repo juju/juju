@@ -4,7 +4,7 @@
 package upgrader_test
 
 import (
-	"fmt"
+	"path"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -101,8 +101,10 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	c.Assert(stateToolsList, gc.HasLen, 1)
 	stateTools := stateToolsList[0]
 	c.Assert(stateTools.Version, gc.Equals, current)
-	url := fmt.Sprintf("https://%s/model/%s/tools/%s", s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)
-	c.Assert(stateTools.URL, gc.Equals, url)
+	url := s.stateAPI.Addr()
+	url.Scheme = "https"
+	url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", current.String())
+	c.Assert(stateTools.URL, gc.Equals, url.String())
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {

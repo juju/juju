@@ -58,11 +58,9 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, st
 	return apistate, tag, password
 }
 
-func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
+func (s *stateSuite) TestAPIHostPortsAlwaysExcludesTheConnection(c *gc.C) {
 	hostportslist := s.APIState.APIHostPorts()
-	c.Check(hostportslist, gc.HasLen, 1)
-	serverhostports := hostportslist[0]
-	c.Check(serverhostports, gc.HasLen, 1)
+	c.Check(hostportslist, gc.HasLen, 0)
 
 	info := s.APIInfo(c)
 
@@ -82,7 +80,6 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 
 	hostports := apistate.APIHostPorts()
 	c.Check(hostports, gc.DeepEquals, []network.MachineHostPorts{
-		serverhostports,
 		{*hp},
 	})
 }
@@ -111,7 +108,7 @@ func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 	testState := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 		Proxier:       proxytest.NewMockTunnelProxier(),

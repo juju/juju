@@ -90,6 +90,33 @@ Welcome, bob@external. You are now logged into "0.1.2.3".
 	})
 }
 
+func (s *LoginCommandSuite) TestLoginWithControllerOnPathSegment(c *gc.C) {
+	s.apiConnection.authTag = names.NewUserTag("bob@external")
+	s.apiConnection.controllerAccess = "login"
+	stdout, stderr, code := s.run(c, "-c", "foo", "mycontroller.com:443/bar")
+	c.Check(stderr, gc.Equals, `
+Welcome, bob@external. You are now logged into "foo".
+`[1:]+user.NoModelsMessage)
+	c.Check(stdout, gc.Equals, "")
+	c.Assert(code, gc.Equals, 0)
+
+	// The controller and account details should be recorded with
+	// the specified controller name and user
+	// name from the auth tag.
+	controller, err := s.store.ControllerByName("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+		ControllerUUID: mockControllerUUID,
+		APIEndpoints:   []string{"mycontroller.com:443/bar"},
+	})
+	account, err := s.store.AccountDetails("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+		User:            "bob@external",
+		LastKnownAccess: "login",
+	})
+}
+
 func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPort(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
