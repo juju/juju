@@ -2770,45 +2770,6 @@ func (c *MockApplicationWatchCall) DoAndReturn(f func(context.Context) (watcher.
 	return c
 }
 
-// WatchLeadershipSettings mocks base method.
-func (m *MockApplication) WatchLeadershipSettings(arg0 context.Context) (watcher.Watcher[struct{}], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLeadershipSettings", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchLeadershipSettings indicates an expected call of WatchLeadershipSettings.
-func (mr *MockApplicationMockRecorder) WatchLeadershipSettings(arg0 any) *MockApplicationWatchLeadershipSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLeadershipSettings", reflect.TypeOf((*MockApplication)(nil).WatchLeadershipSettings), arg0)
-	return &MockApplicationWatchLeadershipSettingsCall{Call: call}
-}
-
-// MockApplicationWatchLeadershipSettingsCall wrap *gomock.Call
-type MockApplicationWatchLeadershipSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationWatchLeadershipSettingsCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationWatchLeadershipSettingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationWatchLeadershipSettingsCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchLeadershipSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationWatchLeadershipSettingsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchLeadershipSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockCharm is a mock of Charm interface.
 type MockCharm struct {
 	ctrl     *gomock.Controller

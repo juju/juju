@@ -153,12 +153,11 @@ func newUniterAPIWithServices(
 	}
 	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
-		APIAddresser:               common.NewAPIAddresser(systemState, resources),
-		ModelConfigWatcher:         common.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
-		RebootRequester:            common.NewRebootRequester(machineService, accessMachine),
-		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, unitStateService, st, resources, authorizer, accessUnit, logger),
-		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
-		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, machineService, context.WatcherRegistry(), authorizer, accessUnit, logger, modelInfoService, applicationService),
+		APIAddresser:       common.NewAPIAddresser(systemState, resources),
+		ModelConfigWatcher: common.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
+		RebootRequester:    common.NewRebootRequester(machineService, accessMachine),
+		UnitStateAPI:       common.NewExternalUnitStateAPI(controllerConfigService, unitStateService, st, resources, authorizer, accessUnit, logger),
+		lxdProfileAPI:      NewExternalLXDProfileAPIv2(st, machineService, context.WatcherRegistry(), authorizer, accessUnit, logger, modelInfoService, applicationService),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),

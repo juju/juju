@@ -590,7 +590,6 @@ func (s *MetaSuite) TestMetaHooks(c *gc.C) {
 		"remove":                            true,
 		"leader-elected":                    true,
 		"leader-deposed":                    true,
-		"leader-settings-changed":           true,
 		"update-status":                     true,
 		"cache-relation-created":            true,
 		"cache-relation-joined":             true,

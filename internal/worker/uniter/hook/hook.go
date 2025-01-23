@@ -128,7 +128,7 @@ func (hi Info) Validate() error {
 			return errors.Errorf("invalid storage ID %q", hi.StorageId)
 		}
 		return nil
-	case hooks.LeaderElected, hooks.LeaderDeposed, hooks.LeaderSettingsChanged:
+	case hooks.LeaderElected, hooks.LeaderDeposed:
 		return nil
 	case hooks.SecretRotate, hooks.SecretChanged, hooks.SecretExpired, hooks.SecretRemove:
 		if hi.SecretURI == "" {

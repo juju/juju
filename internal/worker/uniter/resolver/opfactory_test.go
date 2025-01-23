@@ -108,33 +108,6 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	c.Assert(resultState.AddressesHash, gc.Equals, "addresseshash")
 }
 
-func (s *ResolverOpFactorySuite) TestLeaderSettingsChanged(c *gc.C) {
-	s.testLeaderSettingsChanged(c, resolver.ResolverOpFactory.NewRunHook)
-	s.testLeaderSettingsChanged(c, resolver.ResolverOpFactory.NewSkipHook)
-}
-
-func (s *ResolverOpFactorySuite) testLeaderSettingsChanged(
-	c *gc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
-) {
-	f := resolver.NewResolverOpFactory(s.opFactory)
-	f.RemoteState.LeaderSettingsVersion = 1
-	f.RemoteState.UpdateStatusVersion = 3
-
-	op, err := meth(f, hook.Info{Kind: hooks.LeaderSettingsChanged})
-	c.Assert(err, jc.ErrorIsNil)
-	f.RemoteState.LeaderSettingsVersion = 2
-	f.RemoteState.UpdateStatusVersion = 4
-
-	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Local state's LeaderSettingsVersion should be set to what
-	// RemoteState's LeaderSettingsVersion was when the operation
-	// was constructed.
-	c.Assert(f.LocalState.LeaderSettingsVersion, gc.Equals, 1)
-	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
-}
-
 func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewRevertUpgrade)

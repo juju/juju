@@ -279,15 +279,6 @@ type ContextLeadership interface {
 	// IsLeader returns true if the local unit is known to be leader for at
 	// least the next 30s.
 	IsLeader() (bool, error)
-
-	// LeaderSettings returns the current leader settings. Once leader settings
-	// have been read in a given context, they will not be updated other than
-	// via successful calls to WriteLeaderSettings.
-	LeaderSettings(context.Context) (map[string]string, error)
-
-	// WriteLeaderSettings writes the supplied settings directly to state, or
-	// fails if the local unit is not the application's leader.
-	WriteLeaderSettings(context.Context, map[string]string) error
 }
 
 // ContextStorage is the part of a hook context related to storage

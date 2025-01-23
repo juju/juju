@@ -84,9 +84,7 @@ var storageCommands = map[string]creator{
 }
 
 var leaderCommands = map[string]creator{
-	"is-leader":  NewIsLeaderCommand,
-	"leader-get": NewLeaderGetCommand,
-	"leader-set": NewLeaderSetCommand,
+	"is-leader": NewIsLeaderCommand,
 }
 
 var resourceCommands = map[string]creator{

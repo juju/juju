@@ -112,7 +112,6 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: types.IAAS,
 	}, nil).AnyTimes()
-	s.uniter.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 	s.uniter.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.6.6.6"}, nil).AnyTimes()
 	s.uniter.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
@@ -252,22 +251,4 @@ func makeCharmMetadata(c *gc.C, charmDir string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = os.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type stubLeadershipSettingsAccessor struct {
-	results map[string]string
-}
-
-func (s *stubLeadershipSettingsAccessor) Read(_ stdcontext.Context, _ string) (result map[string]string, _ error) {
-	return result, nil
-}
-
-func (s *stubLeadershipSettingsAccessor) Merge(_ stdcontext.Context, _, _ string, settings map[string]string) error {
-	if s.results == nil {
-		s.results = make(map[string]string)
-	}
-	for k, v := range settings {
-		s.results[k] = v
-	}
-	return nil
 }

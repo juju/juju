@@ -65,10 +65,6 @@ type Snapshot struct {
 	// elected leader.
 	Leader bool
 
-	// LeaderSettingsVersion is the last published
-	// version of the leader settings for the application.
-	LeaderSettingsVersion int
-
 	// UpdateStatusVersion increments each time an
 	// update-status hook is supposed to run.
 	UpdateStatusVersion int

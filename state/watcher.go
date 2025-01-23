@@ -1872,13 +1872,6 @@ func (a *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
-// WatchLeaderSettings returns a watcher for observing changed to an application's
-// leader settings.
-func (a *Application) WatchLeaderSettings() NotifyWatcher {
-	docId := a.st.docID(leadershipSettingsKey(a.Name()))
-	return newEntityWatcher(a.st, settingsC, docId)
-}
-
 // Watch returns a watcher for observing changes to a unit.
 func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)

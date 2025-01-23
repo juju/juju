@@ -170,9 +170,3 @@ func (s *Application) Status(ctx context.Context, unitName string) (params.Appli
 	}
 	return result, nil
 }
-
-// WatchLeadershipSettings returns a watcher which can be used to wait
-// for leadership settings changes to be made for the application.
-func (s *Application) WatchLeadershipSettings(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return s.client.leadershipSettings.WatchLeadershipSettings(ctx, s.tag.Id())
-}

@@ -127,7 +127,6 @@ type testContext struct {
 	stateMu sync.Mutex
 
 	machineProfiles []string
-	leaderSettings  map[string]string
 	storage         map[string]*storageAttachment
 	relationUnits   map[int]relationUnitSettings
 	actionCounter   atomic.Int32
@@ -345,11 +344,10 @@ type createCharm struct {
 }
 
 func startupHooks(minion bool) []string {
-	leaderHook := "leader-elected"
 	if minion {
-		leaderHook = "leader-settings-changed"
+		return []string{"install", "config-changed", "start"}
 	}
-	return []string{"install", leaderHook, "config-changed", "start"}
+	return []string{"install", "leader-elected", "config-changed", "start"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *testContext) {
@@ -693,12 +691,6 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.app.EXPECT().WatchLeadershipSettings(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		ctx.sendNotify(c, ctx.leadershipSettingsCh, "initial leadership settings event")
-		w := watchertest.NewMockNotifyWatcher(ctx.leadershipSettingsCh)
-		return w, nil
-	}).AnyTimes()
-
 	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
@@ -836,7 +828,6 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(gomock.Any(), ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes()
 
 	ctx.api.EXPECT().UpdateStatusHookInterval(gomock.Any()).Return(time.Minute, nil).AnyTimes()
-	ctx.api.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 
 	// Storage attachments init.
 	var attachments []params.StorageAttachmentId
@@ -1108,17 +1099,12 @@ func (s verifyWaiting) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, waitHooks{})
 }
 
-type verifyRunning struct {
-	minion bool
-}
+type verifyRunning struct{}
 
 func (s verifyRunning) step(c *gc.C, ctx *testContext) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	var hooks []string
-	if s.minion {
-		hooks = append(hooks, "leader-settings-changed")
-	}
 	// We don't expect config-changed to always run on agent restart
 	// anymore.
 	step(c, ctx, waitHooks(hooks))
@@ -2032,15 +2018,6 @@ func (fastTicket) Ready() <-chan struct{} {
 
 func (t fastTicket) Wait() bool {
 	return t.value
-}
-
-type setLeaderSettings map[string]string
-
-func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
-	ctx.stateMu.Lock()
-	ctx.leaderSettings = s
-	ctx.stateMu.Unlock()
-	ctx.sendNotify(c, ctx.leadershipSettingsCh, "notify leadership settings change")
 }
 
 type mockCharmDirGuard struct{}

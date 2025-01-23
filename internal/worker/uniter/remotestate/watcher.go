@@ -436,16 +436,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	var seenLeaderSettingsChange bool
-	leaderSettingsw, err := w.application.WatchLeadershipSettings(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(leaderSettingsw); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
-
 	var seenActionsChange bool
 	actionsw, err := w.unit.WatchActionNotifications(ctx)
 	if err != nil {
@@ -594,16 +584,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			w.addressesHashChanged(hashes[0])
 			observedEvent(&seenAddressesChange)
-
-		case _, ok := <-leaderSettingsw.Changes():
-			w.logger.Debugf("got leader settings change for %s: ok=%t", w.unit.Tag().Id(), ok)
-			if !ok {
-				return errors.New("leader settings watcher closed")
-			}
-			if err := w.leaderSettingsChanged(); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenLeaderSettingsChange)
 
 		case actions, ok := <-actionsw.Changes():
 			w.logger.Debugf("got action change for %s: %v ok=%t", w.unit.Tag().Id(), actions, ok)
@@ -907,13 +887,6 @@ func (w *RemoteStateWatcher) addressesHashChanged(value string) {
 	w.mu.Lock()
 	w.current.AddressesHash = value
 	w.mu.Unlock()
-}
-
-func (w *RemoteStateWatcher) leaderSettingsChanged() error {
-	w.mu.Lock()
-	w.current.LeaderSettingsVersion++
-	w.mu.Unlock()
-	return nil
 }
 
 func (w *RemoteStateWatcher) leadershipChanged(ctx context.Context, isLeader bool) error {

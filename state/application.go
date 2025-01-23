@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
@@ -700,7 +699,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
 		removeConstraintsOp(globalKey),
-		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
 		removeStatusOp(a.st, applicationGlobalOperatorKey(name)),
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
@@ -2727,56 +2725,6 @@ func (a *Application) UpdateApplicationConfig(
 	return err
 }
 
-// LeaderSettings returns a application's leader settings. If nothing has been set
-// yet, it will return an empty map; this is not an error.
-func (a *Application) LeaderSettings() (map[string]string, error) {
-	// There's no compelling reason to have these methods on Application -- and
-	// thus require an extra db read to access them -- but it stops the State
-	// type getting even more cluttered.
-
-	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
-	if errors.Is(err, errors.NotFound) {
-		return nil, errors.NotFoundf("application %q", a.doc.Name)
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
-	}
-	result := make(map[string]string)
-	for escapedKey, interfaceValue := range doc.Settings {
-		key := mgoutils.UnescapeKey(escapedKey)
-		if value, _ := interfaceValue.(string); value != "" {
-			// Empty strings are technically bad data -- when set, they clear.
-			result[key] = value
-		} else {
-			// Some bad data isn't reason enough to obscure the good data.
-			logger.Warningf("unexpected leader settings value for %s: %#v", key, interfaceValue)
-		}
-	}
-	return result, nil
-}
-
-// UpdateLeaderSettings updates the application's leader settings with the supplied
-// values, but will fail (with a suitable error) if the supplied Token loses
-// validity. Empty values in the supplied map will be cleared in the database.
-func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[string]string) error {
-	// There's no compelling reason to have these methods on Application -- and
-	// thus require an extra db read to access them -- but it stops the State
-	// type getting even more cluttered.
-	key := leadershipSettingsKey(a.doc.Name)
-	converted := make(map[string]interface{}, len(updates))
-	for k, v := range updates {
-		converted[k] = v
-	}
-
-	modelOp := newUpdateLeaderSettingsOperation(a.st.db(), token, key, converted)
-	err := a.st.ApplyOperation(modelOp)
-	if errors.Is(err, errors.NotFound) {
-		return errors.NotFoundf("application %q", a.doc.Name)
-	} else if err != nil {
-		return errors.Annotatef(err, "application %q", a.doc.Name)
-	}
-	return nil
-}
-
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")
 
 // Constraints returns the current application constraints.
@@ -3011,10 +2959,7 @@ type addApplicationOpsArgs struct {
 	devices           map[string]DeviceConstraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}
-	// These are nil when adding a new application, and most likely
-	// non-nil when migrating.
-	leadershipSettings map[string]interface{}
-	operatorStatus     *statusDoc
+	operatorStatus    *statusDoc
 }
 
 // addApplicationOps returns the operations required to add an application to the
@@ -3028,7 +2973,6 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	applicationConfigKey := app.applicationConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
 	deviceConstraintsKey := app.deviceConstraintsKey()
-	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(globalKey, args.constraints),
@@ -3036,7 +2980,6 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		createDeviceConstraintsOp(deviceConstraintsKey, args.devices),
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
-		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.Name()),
 	}
