@@ -63,8 +63,8 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 
 	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	result, err := svc.GetModelConstraints(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, cons)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, cons)
 }
 
 // TestGetModelConstraintsFailedModelNotFound is asserting that if we ask for
@@ -78,7 +78,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) 
 
 	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	_, err := svc.GetModelConstraints(context.Background())
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
@@ -96,7 +96,7 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 
 	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 // TestSetModelConstraintsContainerTypeSet is asserting that if we supply model
@@ -151,7 +151,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 
 	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) {
@@ -169,7 +169,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 
 	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 type legacyModelServiceSuite struct {
