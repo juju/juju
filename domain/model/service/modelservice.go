@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
@@ -89,7 +90,9 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 }
 
 // SetModelConstraints sets the model constraints, including tags, spaces, and
-// zones.
+// zones. If the constraints being set does not have a container type set one
+// will automatically be set to the value of [instance.NONE].
+//
 // The following error types can be expected:
 // - [modelerrors.NotFound]: if the model does not exist
 // - [github.com/juju/juju/domain/network/errors.SpaceNotFound] - when the space
@@ -97,6 +100,11 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType] - when
 // the container type being set in the model constraint isn't valid.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
+	if !cons.HasContainer() {
+		defaultContainerType := instance.NONE
+		cons.Container = &defaultContainerType
+	}
+
 	return s.modelSt.SetModelConstraints(ctx, cons)
 }
 

@@ -4,7 +4,7 @@
 package errors
 
 import (
-	"github.com/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (

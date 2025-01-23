@@ -15,9 +15,11 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -27,11 +29,13 @@ import (
 type modelServiceSuite struct {
 	testing.IsolationSuite
 
-	mockModelState *MockModelState
+	mockControllerState *MockControllerState
+	mockModelState      *MockModelState
 }
 
 func (s *modelServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.mockControllerState = NewMockControllerState(ctrl)
 	s.mockModelState = NewMockModelState(ctrl)
 	return ctrl
 }
@@ -42,31 +46,37 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+// TestGetModelConstraints is asserting the happy path of retrieving the set
+// model constraints.
 func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	cons := constraints.Value{
-		Arch:     ptr("amd64"),
-		CpuCores: ptr(uint64(4)),
-		Mem:      ptr(uint64(1024)),
-		RootDisk: ptr(uint64(1024)),
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
 	}
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(cons, nil)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), nil, s.mockModelState)
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, cons)
 }
 
+// TestGetModelConstraintsFailedModelNotFound is asserting that if we ask for
+// model constraints and the model does not exist in the database we get back
+// an error satisfying [modelerrors.NotFound].
 func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), nil, s.mockModelState)
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	_, err := svc.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
@@ -76,16 +86,53 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	cons := constraints.Value{
-		Arch:     ptr("amd64"),
-		CpuCores: ptr(uint64(4)),
-		Mem:      ptr(uint64(1024)),
-		RootDisk: ptr(uint64(1024)),
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(nil)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), nil, s.mockModelState)
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestSetModelConstraintsContainerTypeSet is asserting that if we supply model
+// constraints to be set on a model and  we have not specified a value for
+// container type one of [instance.None] is set for us.
+func (s *modelServiceSuite) TestSetModelConstraintsContainerTypeSet(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), constraints.Value{
+		Container: ptr(instance.NONE),
+	}).Return(nil)
+
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	err := svc.SetModelConstraints(context.Background(), constraints.Value{})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSetModelConstraintsInvalidContainerType is asserting that if we provide
+// a constraints that uses an invalid container type we get back an error that
+// satisfies [machineerrors.InvalidContainerType].
+func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	badConstraints := constraints.Value{
+		Container: ptr(instance.ContainerType("bad")),
+	}
+
+	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), badConstraints).Return(
+		machineerrors.InvalidContainerType,
+	)
+
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	err := svc.SetModelConstraints(context.Background(), badConstraints)
+	c.Check(err, jc.ErrorIs, machineerrors.InvalidContainerType)
 }
 
 func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) {
@@ -93,15 +140,16 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 	defer ctrl.Finish()
 
 	cons := constraints.Value{
-		Arch:     ptr("amd64"),
-		CpuCores: ptr(uint64(4)),
-		Mem:      ptr(uint64(1024)),
-		RootDisk: ptr(uint64(1024)),
-		Spaces:   ptr([]string{"space1"}),
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+		Spaces:    ptr([]string{"space1"}),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(networkerrors.SpaceNotFound)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), nil, s.mockModelState)
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
@@ -111,14 +159,15 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 	defer ctrl.Finish()
 
 	cons := constraints.Value{
-		Arch:     ptr("amd64"),
-		CpuCores: ptr(uint64(4)),
-		Mem:      ptr(uint64(1024)),
-		RootDisk: ptr(uint64(1024)),
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(modelerrors.NotFound)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), nil, s.mockModelState)
+	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
