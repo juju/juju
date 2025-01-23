@@ -406,7 +406,7 @@ $ juju add-model observability
 
 $ juju deploy cos-lite
 
-$ juju status -m cos-lite --watch 1s
+$ watch -n 1 -c juju status -m cos-lite --color
 
 $  juju offer prometheus:metrics-endpoint
 

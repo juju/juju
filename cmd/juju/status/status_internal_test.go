@@ -5557,15 +5557,11 @@ controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00
 	c.Check(stderr, gc.Equals, "Nothing matched specified filters.\n")
 }
 
-func (s *StatusSuite) TestStatusArgsWithoutWatch(c *gc.C) {
+func (s *StatusSuite) TestStatusArgs(c *gc.C) {
 	cmd, err := initStatusCommand(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusArgsGNUStyle := []string{"juju", "status", "--watch=1s", "--relations"}
+	statusArgsGNUStyle := []string{"juju", "status", "--relations"}
 	expectedArgsGNUStyle := []string{"juju", "status", "--relations", "--color"}
-	c.Check(cmd.statusCommandForViddy(statusArgsGNUStyle), jc.SameContents, expectedArgsGNUStyle)
-
-	statusArgsUnixStyle := []string{"juju", "status", "--watch", "1s", "--relations"}
-	expectedArgsUnixStyle := []string{"juju", "status", "--relations", "--color"}
-	c.Check(cmd.statusCommandForViddy(statusArgsUnixStyle), jc.SameContents, expectedArgsUnixStyle)
+	c.Check(cmd.statusCommandAllArgs(statusArgsGNUStyle), jc.SameContents, expectedArgsGNUStyle)
 }
