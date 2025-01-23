@@ -26,7 +26,7 @@ import (
 	resource "github.com/juju/juju/internal/charm/resource"
 	cmd "github.com/juju/juju/internal/cmd"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	httprequest "gopkg.in/httprequest.v1"
 )

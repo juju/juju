@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"

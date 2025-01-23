@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/cert"
 
 	"github.com/juju/juju/internal/http"

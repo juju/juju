@@ -6,7 +6,7 @@ package action_test
 import (
 	"context"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gomock "go.uber.org/mock/gomock"

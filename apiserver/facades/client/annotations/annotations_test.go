@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
@@ -72,7 +72,7 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: names.NewModelTag(s.uuid).String()},
 			{Tag: names.NewApplicationTag("mysql").String()},
-			{Tag: names.NewCharmTag("mysql-1").String()},
+			{Tag: "charm-mysql-1"},
 		},
 	})
 	c.Assert(results.Results, gc.DeepEquals, []params.AnnotationsGetResult{
@@ -82,7 +82,7 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 				Message: `getting annotations for "application-mysql": boom`,
 			}},
 		},
-		{EntityTag: names.NewCharmTag("mysql-1").String(), Annotations: map[string]string{"other": "one"}},
+		{EntityTag: "charm-mysql-1", Annotations: map[string]string{"other": "one"}},
 	})
 }
 

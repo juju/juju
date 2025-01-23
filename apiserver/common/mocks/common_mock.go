@@ -29,7 +29,7 @@ import (
 	tools "github.com/juju/juju/internal/tools"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )

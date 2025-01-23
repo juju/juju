@@ -23,7 +23,7 @@ import (
 	charm0 "github.com/juju/juju/internal/charm"
 	charmhub "github.com/juju/juju/internal/resource/charmhub"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

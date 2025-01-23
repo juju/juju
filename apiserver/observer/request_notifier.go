@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"

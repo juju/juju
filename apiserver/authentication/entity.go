@@ -4,7 +4,7 @@
 package authentication
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	coreuser "github.com/juju/juju/core/user"
 )

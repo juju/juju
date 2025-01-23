@@ -21,7 +21,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/yaml.v2"
 

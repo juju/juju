@@ -4,7 +4,7 @@
 package unit
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
 
 	"github.com/juju/juju/agent"

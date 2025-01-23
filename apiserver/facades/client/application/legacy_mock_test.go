@@ -20,7 +20,7 @@ import (
 	configschema "github.com/juju/juju/internal/configschema"
 	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	schema "github.com/juju/schema"
 	gomock "go.uber.org/mock/gomock"
 )

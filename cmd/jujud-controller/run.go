@@ -18,7 +18,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/version/v2"

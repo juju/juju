@@ -14,7 +14,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/mitchellh/go-linereader"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"

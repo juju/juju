@@ -16,7 +16,7 @@ import (
 	reflect "reflect"
 
 	base "github.com/juju/juju/api/base"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	httprequest "gopkg.in/httprequest.v1"
 )

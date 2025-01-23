@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/juju/juju/internal/worker/uniter/api"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

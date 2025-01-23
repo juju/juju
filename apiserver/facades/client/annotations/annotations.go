@@ -5,9 +5,10 @@ package annotations
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -100,14 +101,9 @@ func annotateError(err error, tag, op string) *params.Error {
 }
 
 func (api *API) getEntityAnnotations(ctx context.Context, entityTag string) (map[string]string, error) {
-	tag, err := names.ParseTag(entityTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	switch tag.Kind() {
-	case names.CharmTagKind:
-		url, err := charm.ParseURL(tag.Id())
+	if strings.HasPrefix(entityTag, "charm-") {
+		urlStr := strings.TrimPrefix(entityTag, "charm-")
+		url, err := charm.ParseURL(urlStr)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -121,8 +117,12 @@ func (api *API) getEntityAnnotations(ctx context.Context, entityTag string) (map
 			return nil, errors.Trace(err)
 		}
 		return results, nil
+	} else {
+		tag, err := names.ParseTag(entityTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	default:
 		id, err := annotations.ConvertTagToID(tag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -137,14 +137,9 @@ func (api *API) getEntityAnnotations(ctx context.Context, entityTag string) (map
 }
 
 func (api *API) setEntityAnnotations(ctx context.Context, entityTag string, values map[string]string) error {
-	tag, err := names.ParseTag(entityTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	switch tag.Kind() {
-	case names.CharmTagKind:
-		url, err := charm.ParseURL(tag.Id())
+	if strings.HasPrefix(entityTag, "charm-") {
+		urlStr := strings.TrimPrefix(entityTag, "charm-")
+		url, err := charm.ParseURL(urlStr)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -158,8 +153,12 @@ func (api *API) setEntityAnnotations(ctx context.Context, entityTag string, valu
 			return errors.Trace(err)
 		}
 		return nil
+	} else {
+		tag, err := names.ParseTag(entityTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	default:
 		id, err := annotations.ConvertTagToID(tag)
 		if err != nil {
 			return errors.Trace(err)

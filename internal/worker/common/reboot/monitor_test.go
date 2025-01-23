@@ -6,7 +6,7 @@ package reboot_test
 import (
 	"testing"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

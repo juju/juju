@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"

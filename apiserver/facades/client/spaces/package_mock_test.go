@@ -19,7 +19,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

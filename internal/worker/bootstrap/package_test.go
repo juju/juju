@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"testing"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"

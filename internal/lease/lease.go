@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/lease"

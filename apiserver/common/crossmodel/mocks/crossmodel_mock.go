@@ -23,7 +23,7 @@ import (
 	user "github.com/juju/juju/core/user"
 	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

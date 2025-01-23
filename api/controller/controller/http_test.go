@@ -6,7 +6,7 @@ package controller_test
 import (
 	"net/url"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"

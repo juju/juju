@@ -7,7 +7,7 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/agent/uniter"
 	coreactions "github.com/juju/juju/core/actions"

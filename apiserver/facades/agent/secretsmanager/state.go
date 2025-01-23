@@ -4,7 +4,7 @@
 package secretsmanager
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 )
 

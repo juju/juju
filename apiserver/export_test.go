@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/clock"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwt"
