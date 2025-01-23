@@ -54,6 +54,8 @@ import (
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
+	relationservice "github.com/juju/juju/domain/relation/service"
+	relationstate "github.com/juju/juju/domain/relation/state"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	resourcestate "github.com/juju/juju/domain/resource/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -370,6 +372,20 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 		),
 		resourceStoreFactory,
 		s.logger.Child("resource.service"),
+	)
+}
+
+// Relation returns the service for persisting and retrieving relations
+// for the current model.
+func (s *ModelServices) Relation() *relationservice.WatchableService {
+	return relationservice.NewWatchableService(
+		relationstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+			s.clock,
+			s.logger.Child("relation.state"),
+		),
+		s.modelWatcherFactory("relation.watcher"),
+		s.logger.Child("relation.service"),
 	)
 }
 
