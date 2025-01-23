@@ -42,6 +42,7 @@ type gceConnection interface {
 	IngressRules(fwname string) (firewall.IngressRules, error)
 	OpenPorts(fwname string, rules firewall.IngressRules) error
 	ClosePorts(fwname string, rules firewall.IngressRules) error
+	RemoveFirewall(fwname string) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
 	// Subnetworks returns the subnetworks that machines can be
@@ -267,18 +268,15 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
-	ports, err := env.IngressRules(ctx)
+	err := destroyEnv(env, ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if len(ports) > 0 {
-		if err := env.ClosePorts(ctx, ports); err != nil {
-			return errors.Trace(err)
-		}
+	err = env.cleanupFirewall(ctx)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	return destroyEnv(env, ctx)
+	return nil
 }
 
 // DestroyController implements the Environ interface.
