@@ -30,6 +30,9 @@ type ModelState interface {
 	// GetModelMetrics returns the model metrics information set in the
 	// database.
 	GetModelMetrics(context.Context) (coremodel.ModelMetrics, error)
+
+	// GetModelCloudType returns the model cloud type set in the database.
+	GetModelCloudType(context.Context) (string, error)
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -46,10 +49,11 @@ type ControllerState interface {
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
-	clock        clock.Clock
-	modelID      coremodel.UUID
-	controllerSt ControllerState
-	modelSt      ModelState
+	clock                 clock.Clock
+	modelID               coremodel.UUID
+	controllerSt          ControllerState
+	modelSt               ModelState
+	environProviderGetter EnvironVersionProviderFunc
 }
 
 // NewModelService returns a new Service for interacting with a models state.
@@ -57,12 +61,14 @@ func NewModelService(
 	modelID coremodel.UUID,
 	controllerSt ControllerState,
 	modelSt ModelState,
+	environProviderGetter EnvironVersionProviderFunc,
 ) *ModelService {
 	return &ModelService{
-		modelID:      modelID,
-		controllerSt: controllerSt,
-		modelSt:      modelSt,
-		clock:        clock.WallClock,
+		modelID:               modelID,
+		controllerSt:          controllerSt,
+		modelSt:               modelSt,
+		clock:                 clock.WallClock,
+		environProviderGetter: environProviderGetter,
 	}
 }
 

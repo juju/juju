@@ -267,3 +267,37 @@ func (s *modelSuite) TestGetModelMetricsNotFound(c *gc.C) {
 	_, err := state.GetModelMetrics(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
+
+func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	id := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ReadOnlyModelCreationArgs{
+		UUID:            id,
+		AgentVersion:    jujuversion.Current,
+		ControllerUUID:  s.controllerUUID,
+		Name:            "mymodel",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudType:       cloudType,
+		CloudRegion:     "myregion",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
+		CredentialName:  "mycredential",
+	}
+	err := state.Create(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelCloudType, err := state.GetModelCloudType(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelCloudType, jc.DeepEquals, cloudType)
+}
+
+func (s *modelSuite) TestGetModelCloudTypeNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelCloudType(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}

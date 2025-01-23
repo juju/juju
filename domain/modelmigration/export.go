@@ -18,6 +18,7 @@ import (
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
 	machine "github.com/juju/juju/domain/machine/modelmigration"
+	model "github.com/juju/juju/domain/model/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	network "github.com/juju/juju/domain/network/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
@@ -70,4 +71,5 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
 	application.RegisterExport(e.coordinator, e.storageRegistryGetter, e.clock, e.logger.Child("application"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
+	model.RegisterExport(e.coordinator, e.logger.Child("model"))
 }
