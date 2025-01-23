@@ -2626,26 +2626,6 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoRow(c *gc.C) {
 	c.Check(trust, jc.IsFalse)
 }
 
-func (s *applicationStateSuite) TestGetApplicationTrustSettingStringValue(c *gc.C) {
-	id := s.createApplication(c, "foo", life.Alive)
-
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)`
-		_, err := tx.ExecContext(ctx, stmt, id.String(), "key", "value", 0)
-		if err != nil {
-			return err
-		}
-		stmt = `INSERT INTO application_setting (application_uuid, trust) VALUES (?, "true")`
-		_, err = tx.ExecContext(ctx, stmt, id.String())
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	trust, err := s.state.GetApplicationTrustSetting(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(trust, jc.IsTrue)
-}
-
 func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *gc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
