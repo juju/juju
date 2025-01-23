@@ -20,17 +20,17 @@ Displays log messages for a model.
 | `--include-labels` |  | Only show log messages for these logging label key values |
 | `--include-module` |  | Only show log messages for these logging modules |
 | `-l`, `--level` |  | Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR] |
-| `--limit` | 0 | Exit once this many of the most recent (possibly filtered) lines are shown |
+| `--limit` | 0 | Show this many of the most recent logs and then exit |
 | `--location` | false | Show filename and line numbers |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--ms` | false | Show times to millisecond precision |
-| `-n`, `--lines` | 10 | Show this many of the most recent (possibly filtered) lines, and continue to append |
-| `--no-tail` | false | Stop after returning existing log messages |
+| `-n`, `--lines` | 0 | Show this many of the most recent lines and continue to append new ones |
+| `--no-tail` | false | Show existing log messages and then exit |
 | `-o`, `--output` |  | Specify an output file |
-| `--replay` | false | Show the entire (possibly filtered) log and continue to append |
+| `--replay` | false | Show the entire log and continue to append new ones |
 | `--retry` | false | Retry connection on failure |
 | `--retry-delay` | 1s | Retry delay between connection failure retries |
-| `--tail` | false | Wait for new logs |
+| `--tail` | false | Show existing log messages and continue to append new ones |
 | `--utc` | false | Show times in UTC |
 | `-x`, `--exclude` |  | Do not show log messages for these entities |
 
@@ -119,3 +119,25 @@ The filtering options combine as follows:
 * The combined --include, --exclude, --include-module, --exclude-module,
   --include-labels and --exclude-labels selections are logically ANDed to form
   the complete filter.
+
+The '--tail' option waits for and continuously prints new log lines after displaying the most recent log lines.
+
+The '--no-tail' option displays the most recent log lines and then exits immediately.
+
+The '--lines' and '--limit' options control the number of log lines displayed:
+* --lines option prints the specified number of the most recent lines and then waits for new lines. This implies --tail.
+* --limit option prints up to the specified number of the most recent lines and exits. This implies --no-tail.
+* setting --lines or --limit to 0 will print the maximum number of the most recent lines available.
+
+The '--replay' option displays log lines starting from the beginning.
+
+Behavior when combining --replay with other options:
+* --replay and --limit prints the specified number of lines from the beginning of the log. 
+* --replay and --lines is invalid as it causes confusion by skipping logs between the replayed lines and the current tailing point.
+
+Given the above, the following flag combinations are incompatible and cannot be specified together:
+* --tail and --no-tail
+* --tail and --limit
+* --no-tail and --lines (-n)
+* --limit and --lines (-n)
+* --replay and --lines (-n)

@@ -112,10 +112,14 @@ func (i *PoolItem) refCount() int {
 // state.
 type StatePool struct {
 	systemState *State
-	// mu protects pool
-	mu      sync.Mutex
-	pool    map[string]*PoolItem
-	closing bool
+	// mu protects pool and the tombstones map.
+	mu   sync.Mutex
+	pool map[string]*PoolItem
+	// tombstones holds the model UUIDs that have been removed from the pool,
+	// while the agent is running. This is used to indicate that a model
+	// has been removed from the pool.
+	tombstones map[string]struct{}
+	closing    bool
 	// sourceKey is used to provide a unique number as a key for the
 	// referencesSources structure in the pool.
 	sourceKey uint64
@@ -143,8 +147,9 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	}
 
 	pool := &StatePool{
-		pool: make(map[string]*PoolItem),
-		hub:  pubsub.NewSimpleHub(nil),
+		pool:       make(map[string]*PoolItem),
+		tombstones: make(map[string]struct{}),
+		hub:        pubsub.NewSimpleHub(nil),
 	}
 
 	session := args.MongoSession.Copy()
@@ -237,6 +242,13 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 		// Disallow further usage of a pool item marked for removal.
 		return nil, errors.NewNotFound(nil, fmt.Sprintf("model %v has been removed", modelUUID))
 	}
+
+	// We could use the tombstones map to check if the model has been removed
+	// from the pool and prevent it getting a new PooledState. But it means that
+	// if it is in the tombstones map, it makes it impossible to create the pool
+	// item again, without restarting the agent. It's possible that a model is
+	// removed from the pool and then added back in again. So we don't check the
+	// tombstones map here.
 
 	p.sourceKey++
 	key := p.sourceKey
@@ -367,7 +379,8 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 	if !ok {
 		// Don't require the client to keep track of what we've seen -
 		// ignore unknown model uuids.
-		return false, nil
+		_, ok := p.tombstones[modelUUID]
+		return ok, nil
 	}
 	if !item.remove {
 		item.remove = true
@@ -379,11 +392,13 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 }
 
 func (p *StatePool) maybeRemoveItem(item *PoolItem) (bool, error) {
-	if item.remove && item.refCount() == 0 {
+	if item.refCount() == 0 {
 		delete(p.pool, item.modelUUID)
+		p.tombstones[item.modelUUID] = struct{}{}
 		return true, item.state.Close()
 	}
-	return false, nil
+	_, ok := p.tombstones[item.modelUUID]
+	return ok, nil
 }
 
 // SystemState returns the State passed in to NewStatePool.

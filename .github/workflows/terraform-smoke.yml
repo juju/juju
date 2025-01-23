@@ -42,6 +42,14 @@ jobs:
         run: |
           make go-install
 
+      - name: Install terraform
+        shell: bash
+        run: |
+          wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y terraform
+          echo "TF_ACC_TERRAFORM_PATH=$(which terraform)" >> $GITHUB_ENV
+
       - name: Bootstrap Juju - localhost
         shell: bash
         run: |

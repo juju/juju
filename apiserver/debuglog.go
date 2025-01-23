@@ -225,11 +225,10 @@ func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage, version in
 type debugLogParams struct {
 	version       int
 	startTime     time.Time
-	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
 	firehose      bool
-	backlog       uint
+	initialLines  uint
 	filterLevel   corelogger.Level
 	includeEntity []string
 	excludeEntity []string
@@ -250,20 +249,20 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 		params.version = vers
 	}
 
+	if value := queryMap.Get("backlog"); value != "" {
+		backLogVal, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+		}
+		params.initialLines = uint(backLogVal)
+	}
+
 	if value := queryMap.Get("maxLines"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
+		maxLinesVal, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
-		params.maxLines = uint(num)
-	}
-
-	if value := queryMap.Get("replay"); value != "" {
-		replay, err := strconv.ParseBool(value)
-		if err != nil {
-			return params, errors.Errorf("replay value %q is not a valid boolean", value)
-		}
-		params.fromTheStart = replay
+		params.initialLines = uint(maxLinesVal)
 	}
 
 	if value := queryMap.Get("noTail"); value != "" {
@@ -282,12 +281,12 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 		params.firehose = firehose
 	}
 
-	if value := queryMap.Get("backlog"); value != "" {
-		num, err := strconv.ParseUint(value, 10, 64)
+	if value := queryMap.Get("replay"); value != "" {
+		replay, err := strconv.ParseBool(value)
 		if err != nil {
-			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
-		params.backlog = uint(num)
+		params.fromTheStart = replay
 	}
 
 	if value := queryMap.Get("level"); value != "" {
