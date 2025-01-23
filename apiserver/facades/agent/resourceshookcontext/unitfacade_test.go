@@ -8,7 +8,7 @@ import (
 	"errors"
 
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -149,7 +149,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
 	facade := UnitFacade{
-		getApplicationID: func(ctx context.Context) (coreapplication.ID, error) { return "", expectedError },
+		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.ID, error) { return "", expectedError },
 	}
 
 	// Act
@@ -159,6 +159,28 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
 	c.Check(result.Error, gc.ErrorMatches, ".*expected error.*", gc.Commentf("(Assert) unexpected error result: %v",
 		result.Error))
+}
+
+// TestGetApplicationIDCache verifies that the application ID is correctly retrieved and cached to avoid redundant API calls.
+func (s *unitFacadeSuite) TestGetApplicationIDCache(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	facade := UnitFacade{
+		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.ID, error) { return "cached-id", nil },
+	}
+
+	// Act & Assert: first retrieval (non cached)
+	id, err := facade.getApplicationID(context.Background())
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
+	c.Check(id, gc.Equals, coreapplication.ID("cached-id"), gc.Commentf("(Assert) unexpected application ID: %v", id))
+	c.Check(facade.applicationID, gc.Equals, coreapplication.ID("cached-id"),
+		gc.Commentf("(Assert)application ID should be cached: %v", id))
+
+	// Act & Assert: first retrieval (cached)
+	id, err = facade.getApplicationID(context.Background())
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
+	c.Check(id, gc.Equals, coreapplication.ID("cached-id"), gc.Commentf("(Assert) unexpected application ID: %v", id))
+
 }
 
 // TestGetResourceInfoEmpty verifies that GetResourceInfo returns an empty list

@@ -48,15 +48,39 @@ func NewUnitFacade(
 	}
 
 	return &UnitFacade{
-		resourceService:  resourceService,
-		getApplicationID: applicationIDGetter,
+		resourceService:         resourceService,
+		getApplicationIDFromAPI: applicationIDGetter,
 	}, nil
 }
 
 // UnitFacade is the resources portion of the uniter's API facade.
 type UnitFacade struct {
-	resourceService  ResourceService
-	getApplicationID applicationIDGetter
+	resourceService         ResourceService
+	getApplicationIDFromAPI applicationIDGetter
+	applicationID           coreapplication.ID
+}
+
+// getApplicationID retrieves and caches the application ID for the unit.
+// It fetches from the API if not already cached.
+func (uf *UnitFacade) getApplicationID(ctx context.Context) (coreapplication.ID, error) {
+	if uf.applicationID == "" {
+		applicationID, err := uf.getApplicationIDFromAPI(ctx)
+		if err != nil {
+			return uf.applicationID, err
+		}
+		uf.applicationID = applicationID
+	}
+	return uf.applicationID, nil
+}
+
+// listResources retrieves the application resources information through the
+// resource service using the application ID.
+func (uf UnitFacade) listResources(ctx context.Context) ([]resource.Resource, error) {
+	appID, err := uf.getApplicationID(ctx)
+	if err != nil {
+		return nil, errors.Errorf("cannot get application id: %w", err)
+	}
+	return uf.resourceService.GetResourcesByApplicationID(ctx, appID)
 }
 
 // GetResourceInfo returns the resource info for each of the given
@@ -87,16 +111,6 @@ func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitRe
 		r.Resources[i].Resource = domainResource2API(res)
 	}
 	return r, nil
-}
-
-// listResources retrieves the application resources information through the
-// resource service using the application ID.
-func (uf UnitFacade) listResources(ctx context.Context) ([]resource.Resource, error) {
-	appID, err := uf.getApplicationID(ctx)
-	if err != nil {
-		return nil, errors.Errorf("cannot get application id: %w", err)
-	}
-	return uf.resourceService.GetResourcesByApplicationID(ctx, appID)
 }
 
 // lookUpResource searches for a resource by name in a list of resources and
