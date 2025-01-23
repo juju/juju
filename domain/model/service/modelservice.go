@@ -36,10 +36,19 @@ type ModelState interface {
 	// GetModelCloudType returns the model cloud type set in the database.
 	GetModelCloudType(context.Context) (string, error)
 
-	// GetModelConstraints returns the current model's constraints.
+	// GetModelConstraints returns the currently set constraints for the model.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	GetModelConstraints(context.Context) (constraints.Value, error)
 
-	// SetModelConstraints replaces the current model constraints.
+	// SetModelConstraints sets the model constraints to the new values supplied
+	// overriding and previously set values.
+	// The following error types can be expected:
+	// - [networkerrors.SpaceNotFound]: when a space constraint is set but the
+	// space does not exist.
+	// - [machineerrors.InvalidContainerType]: when the container type set on
+	// the constraints is invalid.
+	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	SetModelConstraints(ctx context.Context, cons constraints.Value) error
 }
 
@@ -95,9 +104,9 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 //
 // The following error types can be expected:
 // - [modelerrors.NotFound]: if the model does not exist
-// - [github.com/juju/juju/domain/network/errors.SpaceNotFound] - when the space
+// - [github.com/juju/juju/domain/network/errors.SpaceNotFound]: when the space
 // being set in the model constraint doesn't exist.
-// - [github.com/juju/juju/domain/machine/errors.InvalidContainerType] - when
+// - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
 	if !cons.HasContainer() {
