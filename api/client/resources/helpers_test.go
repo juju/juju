@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -44,11 +45,10 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
+		RetrievedBy:     "a-user",
+		Timestamp:       now,
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,17 +65,19 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
+		Username:        "a-user",
+		Timestamp:       now,
 	})
 }
 
 func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
+	resUUID, err := resource.NewUUID()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot create resource UUID"))
+
 	now := time.Now()
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
@@ -90,11 +92,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            resUUID,
+		ApplicationName: "a-application",
+		RetrievedBy:     "a-user",
+		Timestamp:       now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,11 +113,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            resUUID,
+		ApplicationName: "a-application",
+		RetrievedBy:     "a-user",
+		Timestamp:       now,
 	}
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,11 +132,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            resUUID.String(),
+		ApplicationName: "a-application",
+		Username:        "a-user",
+		Timestamp:       now,
 	}
 
 	unitRes := params.Resource{
@@ -150,11 +149,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            resUUID.String(),
+		ApplicationName: "a-application",
+		Username:        "a-user",
+		Timestamp:       now,
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("boo!"))
@@ -211,17 +209,14 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 		Resources: []resource.Resource{
 			expected,
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			chExpected,
 		},
 		UnitResources: []resource.UnitResources{
 			{
-				Tag: names.NewUnitTag("foo/0"),
+				Name: "foo/0",
 				Resources: []resource.Resource{
 					unitExpected,
-				},
-				DownloadProgress: map[string]int64{
-					unitRes.Name: 8,
 				},
 			},
 		},
@@ -247,11 +242,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
+		RetrievedBy:     "a-user",
+		Timestamp:       now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -269,11 +263,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
+		RetrievedBy:     "a-user",
+		Timestamp:       now,
 	}
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,11 +282,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
+		Username:        "a-user",
+		Timestamp:       now,
 	}
 
 	unitRes := params.Resource{
@@ -307,11 +299,10 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
+		Username:        "a-user",
+		Timestamp:       now,
 	}
 
 	_, err = apiResult2ApplicationResources(params.ResourcesResult{
@@ -343,8 +334,8 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		ApplicationID: "a-application",
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
 	}
 	failure := errors.New("<failure>")
 
@@ -374,8 +365,8 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		ApplicationID: "a-application",
+		UUID:            "a-application/spam",
+		ApplicationName: "a-application",
 	}
 
 	_, err := apiResult2ApplicationResources(params.ResourcesResult{
@@ -395,6 +386,9 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 
 func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 	now := time.Now()
+	resUUID, err := resource.NewUUID()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot create resource UUID"))
+
 	res, err := API2Resource(params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
@@ -406,11 +400,10 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            resUUID.String(),
+		ApplicationName: "a-application",
+		Username:        "a-user",
+		Timestamp:       now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -429,11 +422,10 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		UUID:            resUUID,
+		ApplicationName: "a-application",
+		RetrievedBy:     "a-user",
+		Timestamp:       now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -524,20 +516,17 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 		},
 		UnitResources: []resource.UnitResources{
 			{
-				Tag: tag0,
+				Name: unit.Name(tag0.Id()),
 				Resources: []resource.Resource{
 					res1,
 					res2,
 				},
-				DownloadProgress: map[string]int64{
-					res2.Name: 2,
-				},
 			},
 			{
-				Tag: tag1,
+				Name: unit.Name(tag1.Id()),
 			},
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			chres1,
 			chres2,
 		},
@@ -564,9 +553,6 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 				Resources: []params.Resource{
 					apiRes1,
 					apiRes2,
-				},
-				DownloadProgress: map[string]int64{
-					res2.Name: 2,
 				},
 			},
 			{

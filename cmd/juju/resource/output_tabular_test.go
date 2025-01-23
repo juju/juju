@@ -194,8 +194,8 @@ func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 				},
 				Origin: charmresource.OriginUpload,
 			},
-			Username:  "Bill User",
-			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+			RetrievedBy: "Bill User",
+			Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 		},
 	}
 
@@ -243,7 +243,7 @@ func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 
 	formatted, err := resourcecmd.FormatApplicationResources(resource.ApplicationResources{
 		Resources:           res,
-		CharmStoreResources: charmResources,
+		RepositoryResources: charmResources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

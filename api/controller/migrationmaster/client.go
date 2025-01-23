@@ -446,8 +446,8 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 			Size:        rev.Size,
 			Fingerprint: fp,
 		},
-		ApplicationID: app,
-		Username:      rev.Username,
-		Timestamp:     rev.Timestamp,
+		ApplicationName: app,
+		RetrievedBy:     rev.Username,
+		Timestamp:       rev.Timestamp,
 	}, nil
 }

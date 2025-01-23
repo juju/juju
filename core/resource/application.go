@@ -5,8 +5,8 @@ package resource
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/charm/resource"
 )
 
@@ -17,12 +17,12 @@ type ApplicationResources struct {
 	// resource-get will retrieve.
 	Resources []Resource
 
-	// CharmStoreResources provides the resource info from the charm
+	// RepositoryResources provides the resource info from the charm
 	// store for each of the application's resources. The information from
 	// the charm store is current as of the last time the charm store
 	// was polled. Each entry here corresponds to the same indexed entry
 	// in the Resources field.
-	CharmStoreResources []resource.Resource
+	RepositoryResources []resource.Resource
 
 	// UnitResources reports the currently-in-use version of resources for each
 	// unit.
@@ -55,17 +55,17 @@ func (sr ApplicationResources) Updates() ([]resource.Resource, error) {
 }
 
 func (sr ApplicationResources) alignStoreResources() ([]resource.Resource, error) {
-	if len(sr.CharmStoreResources) > len(sr.Resources) {
+	if len(sr.RepositoryResources) > len(sr.Resources) {
 		return nil, errors.Errorf("have more charm store resources than application resources")
 	}
-	if len(sr.CharmStoreResources) < len(sr.Resources) {
+	if len(sr.RepositoryResources) < len(sr.Resources) {
 		return nil, errors.Errorf("have fewer charm store resources than application resources")
 	}
 
 	var store []resource.Resource
 	for _, res := range sr.Resources {
 		found := false
-		for _, chRes := range sr.CharmStoreResources {
+		for _, chRes := range sr.RepositoryResources {
 			if chRes.Name == res.Name {
 				store = append(store, chRes)
 				found = true
@@ -81,16 +81,9 @@ func (sr ApplicationResources) alignStoreResources() ([]resource.Resource, error
 
 // UnitResources conains the list of resources used by a unit.
 type UnitResources struct {
-	// Tag is the tag of the unit.
-	Tag names.UnitTag
+	// Name is the name of the unit.
+	Name coreunit.Name
 
 	// Resources are the resource versions currently in use by this unit.
 	Resources []Resource
-
-	// DownloadProgress indicates the number of bytes of the unit's
-	// resources, identified by name, that have been downloaded so far
-	// by the uniter. This only applies to resources that are currently
-	// being downloaded to the unit. All other resources for the unit
-	// will not be found in the map.
-	DownloadProgress map[string]int64
 }

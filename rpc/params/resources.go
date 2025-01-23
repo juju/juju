@@ -83,18 +83,21 @@ type UploadResult struct {
 type Resource struct {
 	CharmResource
 
-	// ID uniquely identifies a resource-application pair within the model.
-	// Note that the model ignores pending resources (those with a
-	// pending ID) except for in a few clearly pending-related places.
-	ID string `json:"id"`
+	// UUID uniquely identifies a resource within the model.
+	// It shouldn't be used to fetch resources (use Application and resource
+	// names instead of this UUID).
+	// However, UUID can be useful to retrieve a resource in the DB for audit
+	// purposes.
+	UUID string `json:"id"`
 
 	// PendingID identifies that this resource is pending and
 	// distinguishes it from other pending resources with the same model
 	// ID (and from the active resource).
+	// Deprecated: it is not used anymore in 4.0.
 	PendingID string `json:"pending-id"`
 
-	// ApplicationID identifies the application for the resource.
-	ApplicationID string `json:"application"`
+	// ApplicationName identifies the application for the resource.
+	ApplicationName string `json:"application"`
 
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).

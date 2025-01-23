@@ -7,8 +7,8 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	domainresource "github.com/juju/juju/domain/resource"
 )
 
 // ResourceService provides methods for managing resource data related
@@ -16,7 +16,7 @@ import (
 type ResourceService interface {
 
 	// GetResourcesByApplicationID retrieves all resources associated with a given application ID in the specified context.
-	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]domainresource.Resource,
+	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]coreresource.Resource,
 		error)
 }
 

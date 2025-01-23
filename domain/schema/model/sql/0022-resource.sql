@@ -170,6 +170,7 @@ CREATE VIEW v_resource AS
 SELECT
     r.uuid,
     ar.application_uuid,
+    a.name AS application_name,
     r.charm_resource_name AS name,
     r.created_at,
     r.revision,
@@ -186,6 +187,7 @@ SELECT
     COALESCE(rfs.sha384, ris.sha384) AS sha384
 FROM resource AS r
 INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+INNER JOIN application AS a ON ar.application_uuid = a.uuid
 INNER JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
 INNER JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id
 INNER JOIN resource_state AS rs ON r.state_id = rs.id

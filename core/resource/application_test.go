@@ -27,7 +27,7 @@ func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *gc.C) {
 		Resources: []resource.Resource{
 			res,
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			csRes.Resource,
 		},
 	}
@@ -48,7 +48,7 @@ func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *gc.C) {
 			spam,
 			eggs,
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			spam.Resource,
 			expected,
 		},
@@ -70,7 +70,7 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 			spam,
 			eggs,
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			expected,
 			spam.Resource,
 		},
@@ -90,7 +90,7 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 			spam,
 			eggs,
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			spam.Resource,
 			eggs.Resource,
 		},
@@ -102,9 +102,9 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	c.Check(updates, gc.HasLen, 0)
 }
 
-func newStoreResource(c *gc.C, name, applicationID string, revision int) resource.Resource {
+func newStoreResource(c *gc.C, name, applicationName string, revision int) resource.Resource {
 	content := name
-	opened := resourcetesting.NewResource(c, nil, name, applicationID, content)
+	opened := resourcetesting.NewResource(c, nil, name, applicationName, content)
 	res := opened.Resource
 	res.Origin = charmresource.OriginStore
 	res.Revision = revision

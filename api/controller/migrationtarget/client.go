@@ -159,7 +159,7 @@ func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.Reader,
 // UploadResource uploads a resource to the migration endpoint.
 func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resource.Resource, r io.Reader) error {
 	args := makeResourceArgs(res)
-	args.Add("application", res.ApplicationID)
+	args.Add("application", res.ApplicationName)
 	err := c.resourcePost(ctx, modelUUID, args, r)
 	return errors.Trace(err)
 }
@@ -167,7 +167,7 @@ func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resou
 // SetPlaceholderResource sets the metadata for a placeholder resource.
 func (c *Client) SetPlaceholderResource(ctx context.Context, modelUUID string, res resource.Resource) error {
 	args := makeResourceArgs(res)
-	args.Add("application", res.ApplicationID)
+	args.Add("application", res.ApplicationName)
 	err := c.resourcePost(ctx, modelUUID, args, nil)
 	return errors.Trace(err)
 }
@@ -197,8 +197,8 @@ func makeResourceArgs(res resource.Resource) url.Values {
 	args.Add("revision", fmt.Sprintf("%d", res.Revision))
 	args.Add("size", fmt.Sprintf("%d", res.Size))
 	args.Add("fingerprint", res.Fingerprint.Hex())
-	if res.Username != "" {
-		args.Add("user", res.Username)
+	if res.RetrievedBy != "" {
+		args.Add("user", res.RetrievedBy)
 	}
 	if !res.IsPlaceholder() {
 		args.Add("timestamp", fmt.Sprint(res.Timestamp.UnixNano()))

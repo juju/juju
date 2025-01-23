@@ -190,25 +190,6 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
-	uploadContent := "<some data>"
-	res, _ := newResource(c, "spam", "a-user", uploadContent)
-	res.PendingID = "some-unique-id"
-	stored, _ := newResource(c, "spam", "", "")
-	stored.PendingID = "some-unique-id"
-	s.backend.ReturnGetPendingResource = stored
-	s.backend.ReturnUpdatePendingResource = res
-
-	req, _ := newUploadRequest(c, "spam", "a-application", content)
-	req.URL.RawQuery += "&pendingid=some-unique-id"
-	s.handler.ServeHTTP(s.recorder, req)
-
-	expected := mustMarshalJSON(&params.UploadResult{
-		Resource: api.Resource2API(res),
-	})
-	s.checkResp(c, http.StatusOK, "application/json", string(expected))
-}
-
 func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
 	content := "<some data>"
 	stored, _ := newResource(c, "spam", "", "")
@@ -279,7 +260,7 @@ func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID str
 func newDockerResource(c *gc.C, name, username, data string) resource.Resource {
 	opened := resourcetesting.NewDockerResource(c, nil, name, "a-application", data)
 	res := opened.Resource
-	res.Username = username
+	res.RetrievedBy = username
 	if username == "" {
 		res.Timestamp = time.Time{}
 	}
@@ -289,7 +270,7 @@ func newDockerResource(c *gc.C, name, username, data string) resource.Resource {
 func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
-	res.Username = username
+	res.RetrievedBy = username
 	if username == "" {
 		res.Timestamp = time.Time{}
 	}
@@ -305,10 +286,10 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, param
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		ID:            res.ID,
-		ApplicationID: res.ApplicationID,
-		Username:      username,
-		Timestamp:     res.Timestamp,
+		UUID:            res.UUID.String(),
+		ApplicationName: res.ApplicationName,
+		Username:        username,
+		Timestamp:       res.Timestamp,
 	}
 
 	return res, apiRes

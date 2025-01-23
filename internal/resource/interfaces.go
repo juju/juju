@@ -81,14 +81,14 @@ type ResourceService interface {
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
 	// GetResource returns the identified application resource.
-	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
+	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 
 	// OpenResource returns the details of and a reader for the resource.
 	//
 	// The following error types can be expected to be returned:
 	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is not
 	//     in the resource store.
-	OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, io.ReadCloser, error)
+	OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error)
 
 	// StoreResource adds the application resource to blob storage and updates the
 	// metadata. It also sets the retrival information for the resource.

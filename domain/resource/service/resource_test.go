@@ -17,6 +17,7 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	storetesting "github.com/juju/juju/core/resource/store/testing"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
@@ -208,10 +209,9 @@ func (s *resourceServiceSuite) TestListResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
-	expectedList := resource.ApplicationResources{
-		Resources: []resource.Resource{{
-			RetrievedBy:     "admin",
-			RetrievedByType: resource.Application,
+	expectedList := coreresource.ApplicationResources{
+		Resources: []coreresource.Resource{{
+			RetrievedBy: "admin",
 		}},
 	}
 	s.state.EXPECT().ListResources(gomock.Any(), id).Return(expectedList, nil)
@@ -231,9 +231,8 @@ func (s *resourceServiceSuite) TestGetResourcesByApplicationID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
-	expectedList := []resource.Resource{{
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.Application,
+	expectedList := []coreresource.Resource{{
+		RetrievedBy: "admin",
 	}}
 	s.state.EXPECT().GetResourcesByApplicationID(gomock.Any(), id).Return(expectedList, nil)
 
@@ -252,9 +251,8 @@ func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := resourcetesting.GenResourceUUID(c)
-	expectedRes := resource.Resource{
-		RetrievedBy:     "admin",
-		RetrievedByType: resource.Application,
+	expectedRes := coreresource.Resource{
+		RetrievedBy: "admin",
 	}
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
 
@@ -303,14 +301,14 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 	size := int64(42)
 
 	retrievedBy := "bob"
-	retrievedByType := resource.User
+	retrievedByType := coreresource.User
 
 	origin := charmresource.OriginStore
 	revision := 17
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		resource.Resource{
+		coreresource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Type: resourceType,
@@ -367,14 +365,14 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 	size := int64(42)
 
 	retrievedBy := "bob"
-	retrievedByType := resource.User
+	retrievedByType := coreresource.User
 
 	origin := charmresource.OriginStore
 	revision := 17
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		resource.Resource{
+		coreresource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Type: resourceType,
@@ -437,14 +435,14 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOldResourceBlob(c *gc.C) 
 	size := int64(42)
 
 	retrievedBy := "bob"
-	retrievedByType := resource.User
+	retrievedByType := coreresource.User
 
 	origin := charmresource.OriginStore
 	revision := 17
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		resource.Resource{
+		coreresource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Type: resourceType,
@@ -511,7 +509,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlob(c *gc.
 	revision := 17
 
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		resource.Resource{
+		coreresource.Resource{
 			Resource: charmresource.Resource{
 				Fingerprint: fp,
 			},
@@ -590,7 +588,7 @@ func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *gc.C) {
 			Reader:          bytes.NewBufferString("spam"),
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
-			RetrievedByType: resource.Unknown,
+			RetrievedByType: coreresource.Unknown,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, resourceerrors.RetrievedByTypeNotValid)
@@ -606,7 +604,7 @@ func (s *resourceServiceSuite) TestStoreResourceOriginNotValid(c *gc.C) {
 			Reader:          bytes.NewBufferString("spam"),
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
-			RetrievedByType: resource.User,
+			RetrievedByType: coreresource.User,
 			Origin:          charmresource.Origin(0),
 		},
 	)
@@ -623,7 +621,7 @@ func (s *resourceServiceSuite) TestStoreResourceRevisionNotValidOriginUpload(c *
 			Reader:          bytes.NewBufferString("spam"),
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
-			RetrievedByType: resource.User,
+			RetrievedByType: coreresource.User,
 			Origin:          charmresource.OriginUpload,
 			Revision:        17,
 		},
@@ -641,7 +639,7 @@ func (s *resourceServiceSuite) TestStoreResourceRevisionNotValidOriginStore(c *g
 			Reader:          bytes.NewBufferString("spam"),
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
-			RetrievedByType: resource.User,
+			RetrievedByType: coreresource.User,
 			Origin:          charmresource.OriginStore,
 			Revision:        -1,
 		},
@@ -661,14 +659,14 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	size := int64(42)
 
 	retrievedBy := "bob"
-	retrievedByType := resource.User
+	retrievedByType := coreresource.User
 
 	origin := charmresource.OriginStore
 	revision := 17
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		resource.Resource{
+		coreresource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Type: resourceType,
@@ -768,7 +766,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 			Reader:          bytes.NewBufferString("spam"),
 			Fingerprint:     fp,
 			RetrievedBy:     "bob",
-			RetrievedByType: resource.Unknown,
+			RetrievedByType: coreresource.Unknown,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, resourceerrors.RetrievedByTypeNotValid)
@@ -812,7 +810,7 @@ func (s *resourceServiceSuite) TestOpenResource(c *gc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	size := int64(42)
-	res := resource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Type: resourceType,
@@ -843,7 +841,7 @@ func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *gc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	size := int64(42)
-	res := resource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Type: resourceType,
@@ -871,7 +869,7 @@ func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *gc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	size := int64(42)
-	res := resource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Type: resourceType,

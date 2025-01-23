@@ -394,9 +394,9 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Fingerprint: appFp,
 					Size:        123,
 				},
-				ApplicationID: "fooapp",
-				Username:      "bob",
-				Timestamp:     appTs,
+				ApplicationName: "fooapp",
+				RetrievedBy:     "bob",
+				Timestamp:       appTs,
 			},
 			CharmStoreRevision: resource.Resource{
 				Resource: charmresource.Resource{
@@ -410,8 +410,8 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Revision: 3,
 					Size:     321,
 				},
-				ApplicationID: "fooapp",
-				Username:      "xena",
+				ApplicationName: "fooapp",
+				RetrievedBy:     "xena",
 			},
 			UnitRevisions: map[string]resource.Resource{
 				"fooapp/0": {
@@ -427,9 +427,9 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 						Fingerprint: unitFp,
 						Size:        222,
 					},
-					ApplicationID: "fooapp",
-					Username:      "bambam",
-					Timestamp:     unitTs,
+					ApplicationName: "fooapp",
+					RetrievedBy:     "bambam",
+					Timestamp:       unitTs,
 				},
 			},
 		}},

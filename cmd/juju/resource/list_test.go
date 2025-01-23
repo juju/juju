@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
+	coreunit "github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -125,11 +125,11 @@ func (s *ShowApplicationSuite) TestRun(c *gc.C) {
 						},
 						Origin: charmresource.OriginUpload,
 					},
-					Username:  "Bill User",
-					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					RetrievedBy: "Bill User",
+					Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 				},
 			},
-			CharmStoreResources: []charmresource.Resource{
+			RepositoryResources: []charmresource.Resource{
 				{
 					// This resource has a higher revision than the corresponding one
 					// above.
@@ -223,7 +223,7 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 				},
 			},
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			{
 				// This resource has a higher revision than the corresponding one
 				// above.
@@ -239,7 +239,7 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 		},
 		UnitResources: []resource.UnitResources{
 			{
-				Tag: names.NewUnitTag(unitName),
+				Name: coreunit.Name(unitName),
 			},
 		},
 	}}
@@ -271,7 +271,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 						Revision: 20,
 					},
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-					ID:        "one",
+					UUID:      "one",
 				},
 				{
 					Resource: charmresource.Resource{
@@ -282,13 +282,13 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 						Origin: charmresource.OriginUpload,
 						Size:   15,
 					},
-					Username:  "Bill User",
-					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-					ID:        "two",
+					RetrievedBy: "Bill User",
+					Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					UUID:        "two",
 				},
 			},
 			UnitResources: []resource.UnitResources{{
-				Tag: names.NewUnitTag("svc/0"),
+				Name: coreunit.Name("svc/0"),
 				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
@@ -300,7 +300,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 							Revision: 15, // Note revision is different to the application resource
 						},
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-						ID:        "one",
+						UUID:      "one",
 					},
 					{
 						Resource: charmresource.Resource{
@@ -311,13 +311,10 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 							Origin: charmresource.OriginUpload,
 							Size:   15,
 						},
-						Username:  "Bill User",
-						ID:        "two",
-						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+						RetrievedBy: "Bill User",
+						UUID:        "two",
+						Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
-				},
-				DownloadProgress: map[string]int64{
-					"website2": 12,
 				},
 			}},
 		}}
@@ -362,8 +359,8 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 					Origin: charmresource.OriginUpload,
 					Size:   9835617,
 				},
-				Username:  "Bill User",
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				RetrievedBy: "Bill User",
+				Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 			{
 				Resource: charmresource.Resource{
@@ -373,11 +370,11 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 					},
 					Origin: charmresource.OriginUpload,
 				},
-				Username:  "Bill User",
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				RetrievedBy: "Bill User",
+				Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			{
 				Meta: charmresource.Meta{
 					Name:        "alpha",
@@ -403,7 +400,7 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 		},
 		UnitResources: []resource.UnitResources{
 			{
-				Tag: names.NewUnitTag("svc/10"),
+				Name: coreunit.Name("svc/10"),
 				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
@@ -424,19 +421,15 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 							},
 							Origin: charmresource.OriginUpload,
 						},
-						Username: "Bill User",
+						RetrievedBy: "Bill User",
 						// note the different time
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
 					// note we're missing the beta resource for this unit
 				},
-				DownloadProgress: map[string]int64{
-					"alpha":   17,
-					"charlie": 899937,
-				},
 			},
 			{
-				Tag: names.NewUnitTag("svc/5"),
+				Name: coreunit.Name("svc/5"),
 				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
@@ -457,7 +450,7 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 							},
 							Origin: charmresource.OriginUpload,
 						},
-						Username: "Bill User",
+						RetrievedBy: "Bill User",
 						// note the different time
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
@@ -469,12 +462,9 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 							},
 							Origin: charmresource.OriginUpload,
 						},
-						Username:  "Bill User",
-						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+						RetrievedBy: "Bill User",
+						Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
-				},
-				DownloadProgress: map[string]int64{
-					"charlie": 177331,
 				},
 			},
 		},
@@ -491,10 +481,10 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 Unit    Resource  Revision          Expected
 svc/5   alpha     10                15
 svc/5   beta      2012-12-12T12:12  2012-12-12T12:12
-svc/5   charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
-svc/10  alpha     10                15 (fetching: 15%)
+svc/5   charlie   2011-11-11T11:11  2012-12-12T12:12
+svc/10  alpha     10                15
 svc/10  beta      -                 2012-12-12T12:12
-svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
+svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
@@ -524,8 +514,8 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 					Origin: charmresource.OriginUpload,
 					Size:   9835617,
 				},
-				Username:  "Bill User",
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				RetrievedBy: "Bill User",
+				Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 			{
 				Resource: charmresource.Resource{
@@ -535,13 +525,13 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 					},
 					Origin: charmresource.OriginUpload,
 				},
-				Username:  "Bill User",
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				RetrievedBy: "Bill User",
+				Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 		},
 		UnitResources: []resource.UnitResources{
 			{
-				Tag: names.NewUnitTag("svc/10"),
+				Name: coreunit.Name("svc/10"),
 				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
@@ -562,18 +552,15 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 							},
 							Origin: charmresource.OriginUpload,
 						},
-						Username: "Bill User",
+						RetrievedBy: "Bill User",
 						// note the different time
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
 					// note we're missing the beta resource for this unit
 				},
-				DownloadProgress: map[string]int64{
-					"charlie": 17,
-				},
 			},
 			{
-				Tag: names.NewUnitTag("svc/5"),
+				Name: coreunit.Name("svc/5"),
 				Resources: []resource.Resource{
 					{
 						Resource: charmresource.Resource{
@@ -594,7 +581,7 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 							},
 							Origin: charmresource.OriginUpload,
 						},
-						Username: "Bill User",
+						RetrievedBy: "Bill User",
 						// note the different time
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
@@ -606,8 +593,8 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 							},
 							Origin: charmresource.OriginUpload,
 						},
-						Username:  "Bill User",
-						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+						RetrievedBy: "Bill User",
+						Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
 				},
 			},
@@ -625,7 +612,7 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 Resource  Revision          Expected
 alpha     10                15
 beta      -                 2012-12-12T12:12
-charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)
+charlie   2011-11-11T11:11  2012-12-12T12:12
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})

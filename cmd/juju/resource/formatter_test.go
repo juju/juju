@@ -64,10 +64,10 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		Username:      "Bill User",
-		Timestamp:     time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:            "a-application/website",
-		ApplicationID: "a-application",
+		RetrievedBy:     "Bill User",
+		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
+		UUID:            "a-application/website",
+		ApplicationName: "a-application",
 	}
 
 	f := resourcecmd.FormatAppResource(r)
@@ -84,7 +84,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Size:             10,
 		Description:      r.Description,
 		Timestamp:        r.Timestamp,
-		Username:         r.Username,
+		Username:         r.RetrievedBy,
 		CombinedRevision: "5",
 		UsedYesNo:        "yes",
 		CombinedOrigin:   "store",
@@ -106,10 +106,10 @@ func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		Username:      "vvgogh",
-		Timestamp:     time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:            "a-application/website",
-		ApplicationID: "a-application",
+		RetrievedBy:     "vvgogh",
+		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
+		UUID:            "a-application/website",
+		ApplicationName: "a-application",
 	}
 
 	f := resourcecmd.FormatAppResource(r)
@@ -126,7 +126,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *gc.C) {
 		Size:             10,
 		Description:      r.Description,
 		Timestamp:        r.Timestamp,
-		Username:         r.Username,
+		Username:         r.RetrievedBy,
 		CombinedRevision: r.Timestamp.Format("2006-01-02T15:04"),
 		UsedYesNo:        "yes",
 		CombinedOrigin:   "vvgogh",
@@ -155,8 +155,8 @@ func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 		Resource: charmresource.Resource{
 			Origin: charmresource.OriginUpload,
 		},
-		Username:  "bill",
-		Timestamp: time.Now(),
+		RetrievedBy: "bill",
+		Timestamp:   time.Now(),
 	}
 	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, gc.Equals, "bill")
@@ -195,10 +195,10 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		Username:      "Bill User",
-		Timestamp:     time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:            "a-application/website",
-		ApplicationID: "a-application",
+		RetrievedBy:     "Bill User",
+		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
+		UUID:            "a-application/website",
+		ApplicationName: "a-application",
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("other"))
@@ -217,10 +217,10 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 			Fingerprint: fp2,
 			Size:        15,
 		},
-		Username:      "Bill User",
-		Timestamp:     time.Now(),
-		ID:            "a-application/website",
-		ApplicationID: "a-application",
+		RetrievedBy:     "Bill User",
+		Timestamp:       time.Now(),
+		UUID:            "a-application/website",
+		ApplicationName: "a-application",
 	}
 	tag := names.NewUnitTag("a-application/55")
 
@@ -254,10 +254,10 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		Username:      "Bill User",
-		Timestamp:     time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:            "a-application/website",
-		ApplicationID: "a-application",
+		RetrievedBy:     "Bill User",
+		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
+		UUID:            "a-application/website",
+		ApplicationName: "a-application",
 	}
 
 	unit := resource.Resource{}

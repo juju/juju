@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreresources "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -48,17 +49,17 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 		UnitResources: []coreresources.UnitResources{
 			{
-				Tag: tag0,
+				Name: unit.Name(tag0.Id()),
 				Resources: []coreresources.Resource{
 					res1,
 					res2,
 				},
 			},
 			{
-				Tag: tag1,
+				Name: unit.Name(tag1.Id()),
 			},
 		},
-		CharmStoreResources: []charmresource.Resource{
+		RepositoryResources: []charmresource.Resource{
 			chres1,
 			chres2,
 		},

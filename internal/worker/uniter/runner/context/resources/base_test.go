@@ -22,7 +22,7 @@ func newCharmResource(c *gc.C, stub *testing.Stub, name, content string, resType
 	if content != "" {
 		return res, opened.ReadCloser
 	}
-	res.Username = ""
+	res.RetrievedBy = ""
 	res.Timestamp = time.Time{}
 	return res, nil
 }

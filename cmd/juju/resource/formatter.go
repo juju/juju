@@ -61,8 +61,8 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 func FormatAppResource(res resource.Resource) FormattedAppResource {
 	used := !res.IsPlaceholder()
 	result := FormattedAppResource{
-		ID:               res.ID,
-		ApplicationID:    res.ApplicationID,
+		ID:               res.UUID.String(),
+		ApplicationID:    res.ApplicationName,
 		Name:             res.Name,
 		Type:             res.Type.String(),
 		Path:             res.Path,
@@ -72,7 +72,7 @@ func FormatAppResource(res resource.Resource) FormattedAppResource {
 		Size:             res.Size,
 		Used:             used,
 		Timestamp:        res.Timestamp,
-		Username:         res.Username,
+		Username:         res.RetrievedBy,
 		CombinedRevision: combinedRevision(res),
 		CombinedOrigin:   combinedOrigin(used, res),
 		UsedYesNo:        usedYesNo(used),
@@ -170,8 +170,8 @@ func combinedRevision(r resource.Resource) string {
 }
 
 func combinedOrigin(used bool, r resource.Resource) string {
-	if r.Origin == charmresource.OriginUpload && used && r.Username != "" {
-		return r.Username
+	if r.Origin == charmresource.OriginUpload && used && r.RetrievedBy != "" {
+		return r.RetrievedBy
 	}
 	return r.Origin.String()
 }
@@ -189,14 +189,11 @@ func usedYesNo(used bool) string {
 func detailedResources(unit string, sr resource.ApplicationResources) []FormattedDetailResource {
 	var formatted []FormattedDetailResource
 	for _, ur := range sr.UnitResources {
-		if unit == "" || unit == ur.Tag.Id() {
+		tag := names.NewUnitTag(ur.Name.String())
+		if unit == "" || unit == tag.Id() {
 			units := resourceMap(ur.Resources)
 			for _, svc := range sr.Resources {
-				progress, ok := ur.DownloadProgress[svc.Name]
-				if !ok {
-					progress = -1
-				}
-				f := FormatDetailResource(ur.Tag, svc, units[svc.Name], progress)
+				f := FormatDetailResource(tag, svc, units[svc.Name], -1)
 				formatted = append(formatted, f)
 			}
 			if unit != "" {

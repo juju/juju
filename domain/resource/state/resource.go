@@ -321,10 +321,10 @@ AND    a.name = $resourceAndAppName.application_name
 func (st *State) ListResources(
 	ctx context.Context,
 	applicationID application.ID,
-) (resource.ApplicationResources, error) {
+) (coreresource.ApplicationResources, error) {
 	db, err := st.DB()
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Capture(err)
+		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
 	// Prepare the application ID to query resources by application.
@@ -339,7 +339,7 @@ FROM v_resource
 WHERE application_uuid = $resourceIdentity.application_uuid`
 	getResourcesStmt, err := st.Prepare(getResourcesQuery, appID, resourceView{})
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Capture(err)
+		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
 	// Prepare the statement to check if a resource has been polled.
@@ -351,23 +351,28 @@ AND uuid = $resourceIdentity.uuid
 AND last_polled IS NOT NULL`
 	checkPolledStmt, err := st.Prepare(checkPolledQuery, appID)
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Capture(err)
+		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
 	// Prepare the statement to get units related to a resource.
 	getUnitsQuery := `
-SELECT &unitResource.*
-FROM unit_resource
-WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
-	getUnitStmt, err := st.Prepare(getUnitsQuery, appID, unitResource{})
+SELECT 
+    u.uuid as &unitResourceWithUnitName.unit_uuid,
+    u.name as &unitResourceWithUnitName.unit_name,
+	ur.added_at as &unitResourceWithUnitName.added_at,
+	ur.resource_uuid as &unitResourceWithUnitName.resource_uuid
+FROM unit_resource AS ur
+LEFT JOIN unit as u ON u.uuid = ur.unit_uuid
+WHERE ur.resource_uuid = $resourceIdentity.uuid`
+	getUnitStmt, err := st.Prepare(getUnitsQuery, appID, unitResourceWithUnitName{})
 	if err != nil {
-		return resource.ApplicationResources{}, errors.Capture(err)
+		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
-	var result resource.ApplicationResources
+	var result coreresource.ApplicationResources
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
 		// Map to hold unit-specific resources
-		resByUnit := map[coreunit.UUID]resource.UnitResources{}
+		resByUnit := map[coreunit.UUID]coreresource.UnitResources{}
 		// resource found for the application
 		var resources []resourceView
 
@@ -393,7 +398,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 			hasBeenPolled := !errors.Is(err, sqlair.ErrNoRows)
 
 			// Fetch units related to the resource.
-			var units []unitResource
+			var units []unitResourceWithUnitName
 			err = tx.Query(ctx, getUnitStmt, resId).GetAll(&units)
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Capture(err)
@@ -421,7 +426,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 			for _, unit := range units {
 				unitRes, ok := resByUnit[coreunit.UUID(unit.UnitUUID)]
 				if !ok {
-					unitRes = resource.UnitResources{ID: coreunit.UUID(unit.UnitUUID)}
+					unitRes = coreresource.UnitResources{Name: coreunit.Name(unit.UnitName)}
 				}
 				ur, err := res.toResource()
 				if err != nil {
@@ -432,8 +437,8 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 			}
 		}
 		// Collect and sort unit resources.
-		units := slices.SortedFunc(maps.Values(resByUnit), func(r1, r2 resource.UnitResources) int {
-			return strings.Compare(r1.ID.String(), r2.ID.String())
+		units := slices.SortedFunc(maps.Values(resByUnit), func(r1, r2 coreresource.UnitResources) int {
+			return strings.Compare(r1.Name.String(), r2.Name.String())
 		})
 		result.UnitResources = append(result.UnitResources, units...)
 
@@ -456,7 +461,7 @@ WHERE unit_resource.resource_uuid = $resourceIdentity.uuid`
 func (st *State) GetResourcesByApplicationID(
 	ctx context.Context,
 	applicationID application.ID,
-) ([]resource.Resource, error) {
+) ([]coreresource.Resource, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -496,7 +501,7 @@ AND state = 'available'`
 		return nil
 	})
 	// Convert each resourceView to a resource
-	var result []resource.Resource
+	var result []coreresource.Resource
 	for _, res := range resources {
 		r, err := res.toResource()
 		if err != nil {
@@ -514,10 +519,10 @@ AND state = 'available'`
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if no such resource exists.
 func (st *State) GetResource(ctx context.Context,
-	resourceUUID coreresource.UUID) (resource.Resource, error) {
+	resourceUUID coreresource.UUID) (coreresource.Resource, error) {
 	db, err := st.DB()
 	if err != nil {
-		return resource.Resource{}, errors.Capture(err)
+		return coreresource.Resource{}, errors.Capture(err)
 	}
 	resourceParam := resourceIdentity{
 		UUID: resourceUUID.String(),
@@ -530,7 +535,7 @@ FROM v_resource
 WHERE uuid = $resourceIdentity.uuid`,
 		resourceParam, resourceOutput)
 	if err != nil {
-		return resource.Resource{}, errors.Capture(err)
+		return coreresource.Resource{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -542,7 +547,7 @@ WHERE uuid = $resourceIdentity.uuid`,
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return resource.Resource{}, errors.Capture(err)
+		return coreresource.Resource{}, errors.Capture(err)
 	}
 
 	return resourceOutput.toResource()
@@ -862,7 +867,7 @@ func (st *State) upsertRetrievedBy(
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	retrievedBy string,
-	retrievedByType resource.RetrievedByType,
+	retrievedByType coreresource.RetrievedByType,
 ) error {
 	// Upsert retrieved by.
 	type setRetrievedBy struct {

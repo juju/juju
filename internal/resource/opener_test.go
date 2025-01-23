@@ -60,7 +60,7 @@ var _ = gc.Suite(&OpenerSuite{})
 
 func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
-	res := domainresource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -71,7 +71,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 			Fingerprint: s.resourceFingerprint,
 			Size:        s.resourceSize,
 		},
-		ApplicationID: "postgreql",
+		ApplicationName: "postgreql",
 	}
 	s.expectServiceMethods(res, 1)
 	s.resourceClientGetter.EXPECT().GetResourceClient(
@@ -99,7 +99,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 
 func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
-	res := domainresource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -110,7 +110,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 			Fingerprint: s.resourceFingerprint,
 			Size:        s.resourceSize,
 		},
-		ApplicationID: "postgreql",
+		ApplicationName: "postgreql",
 	}
 	const (
 		numConcurrentRequests = 10
@@ -171,7 +171,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 
 func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	defer s.setupMocks(c, false).Finish()
-	res := domainresource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -182,7 +182,7 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 			Fingerprint: s.resourceFingerprint,
 			Size:        s.resourceSize,
 		},
-		ApplicationID: "postgreql",
+		ApplicationName: "postgreql",
 	}
 	s.expectServiceMethods(res, 1)
 	s.resourceClient.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(
@@ -256,7 +256,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 }
 
 func (s *OpenerSuite) expectServiceMethods(
-	res domainresource.Resource,
+	res coreresource.Resource,
 	numConcurrentRequests int,
 ) {
 	s.resourceService.EXPECT().GetApplicationResourceID(
@@ -266,10 +266,10 @@ func (s *OpenerSuite) expectServiceMethods(
 		},
 	).Return(s.resourceUUID, nil).AnyTimes()
 	var retrievedBy string
-	var retrevedByType domainresource.RetrievedByType
+	var retrevedByType coreresource.RetrievedByType
 	if s.unitName != "" {
 		retrievedBy = s.unitName.String()
-		retrevedByType = domainresource.Unit
+		retrevedByType = coreresource.Unit
 		s.resourceService.EXPECT().OpenResource(
 			gomock.Any(),
 			s.resourceUUID,
@@ -277,20 +277,20 @@ func (s *OpenerSuite) expectServiceMethods(
 			func(
 				_ context.Context,
 				_ coreresource.UUID,
-			) (domainresource.Resource, io.ReadCloser, error) {
+			) (coreresource.Resource, io.ReadCloser, error) {
 				s.unleash.Lock()
 				defer s.unleash.Unlock()
-				return domainresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound
+				return coreresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound
 			},
 		)
 	} else {
 		retrievedBy = s.appName
-		retrevedByType = domainresource.Application
+		retrevedByType = coreresource.Application
 		s.resourceService.EXPECT().OpenResource(
 			gomock.Any(),
 			s.resourceUUID,
 		).Return(
-			domainresource.Resource{},
+			coreresource.Resource{},
 			io.NopCloser(bytes.NewBuffer([]byte{})),
 			resourceerrors.StoredResourceNotFound,
 		)
@@ -311,7 +311,7 @@ func (s *OpenerSuite) expectServiceMethods(
 	)
 
 	other := res
-	other.ApplicationID = "postgreql"
+	other.ApplicationName = "postgreql"
 	if s.unitName != "" {
 		s.resourceService.EXPECT().OpenResource(
 			gomock.Any(),
@@ -332,7 +332,7 @@ func (s *OpenerSuite) expectServiceMethods(
 func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	res := domainresource.Resource{
+	res := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "wal-e",
@@ -343,7 +343,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 			Fingerprint: fp,
 			Size:        0,
 		},
-		ApplicationID: "postgreql",
+		ApplicationName: "postgreql",
 	}
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
@@ -356,13 +356,13 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		s.resourceUUID,
 	).DoAndReturn(
 		func(_ context.Context, _ coreresource.UUID) (
-			domainresource.Resource,
+			coreresource.Resource,
 			io.ReadCloser,
 			error,
 		) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
-			return domainresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound
+			return coreresource.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), resourceerrors.StoredResourceNotFound
 		},
 	)
 	s.resourceClientGetter.EXPECT().GetResourceClient(

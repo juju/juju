@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -75,7 +75,7 @@ func (uf *UnitFacade) getApplicationID(ctx context.Context) (coreapplication.ID,
 
 // listResources retrieves the application resources information through the
 // resource service using the application ID.
-func (uf UnitFacade) listResources(ctx context.Context) ([]resource.Resource, error) {
+func (uf *UnitFacade) listResources(ctx context.Context) ([]resource.Resource, error) {
 	appID, err := uf.getApplicationID(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get application id: %w", err)
@@ -86,7 +86,8 @@ func (uf UnitFacade) listResources(ctx context.Context) ([]resource.Resource, er
 // GetResourceInfo returns the resource info for each of the given
 // resource names (for the implicit application). If any one is missing then
 // the corresponding result is set with errors.NotFound.
-func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.UnitResourcesResult, error) {
+func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.
+	UnitResourcesResult, error) {
 	var r params.UnitResourcesResult
 	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 
@@ -108,7 +109,7 @@ func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitRe
 			continue
 		}
 
-		r.Resources[i].Resource = domainResource2API(res)
+		r.Resources[i].Resource = resources.Resource2API(res)
 	}
 	return r, nil
 }
@@ -122,21 +123,4 @@ func lookUpResource(name string, resources []resource.Resource) (resource.Resour
 		}
 	}
 	return resource.Resource{}, false
-}
-
-// DomainResource2API converts a [domainresource.Resource] into
-// a [params.Resource] struct.
-func domainResource2API(res resource.Resource) params.Resource {
-	return params.Resource{
-		CharmResource: resources.CharmResource2API(res.Resource),
-		// TODO(gfouillet): Shouldn't be the UUID here, ID should just be deprecated
-		//   howevever, this code will disappear very soon. If we are in 2026
-		//   and you read this comment, well, something gets wrong. Please
-		//   at least deprecate the ID and not set it, or comply to whatever new
-		//   way of dealing with ID had arose in the meantime ;)
-		ID:            res.UUID.String(),
-		ApplicationID: res.ApplicationID.String(),
-		Username:      res.RetrievedBy,
-		Timestamp:     res.Timestamp,
-	}
 }
