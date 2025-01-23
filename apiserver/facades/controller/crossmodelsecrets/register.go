@@ -20,20 +20,8 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CrossModelSecrets", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newCrossModelSecretsAPIV1(ctx)
-	}, reflect.TypeOf((*CrossModelSecretsAPIV1)(nil)))
-	registry.MustRegister("CrossModelSecrets", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateCrossModelSecretsAPI(ctx)
 	}, reflect.TypeOf((*CrossModelSecretsAPI)(nil)))
-}
-
-// newStateCrossModelSecretsAPIV1 creates a new server-side CrossModelSecrets V1 API facade.
-func newCrossModelSecretsAPIV1(ctx facade.Context) (*CrossModelSecretsAPIV1, error) {
-	api, err := newStateCrossModelSecretsAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &CrossModelSecretsAPIV1{CrossModelSecretsAPI: api}, nil
 }
 
 // newStateCrossModelSecretsAPI creates a new server-side CrossModelSecrets API facade

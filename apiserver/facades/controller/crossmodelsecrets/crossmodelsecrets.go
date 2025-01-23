@@ -15,7 +15,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
@@ -27,11 +26,6 @@ import (
 
 type backendConfigGetter func(modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error)
 type secretStateGetter func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error)
-
-// CrossModelSecretsAPIV1 provides access to the CrossModelSecrets API V1 facade.
-type CrossModelSecretsAPIV1 struct {
-	*CrossModelSecretsAPI
-}
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
 type CrossModelSecretsAPI struct {
@@ -148,24 +142,6 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac
 	// it is scoped to is accessible by the supplied macaroon.
 	auth := s.authCtxt.Authenticator()
 	return auth.CheckRelationMacaroons(s.ctx, s.modelUUID, offerUUID, names.NewRelationTag(relKey), mac, version)
-}
-
-// GetSecretContentInfo returns the secret values for the specified secrets.
-func (s *CrossModelSecretsAPIV1) GetSecretContentInfo(args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
-	results, err := s.CrossModelSecretsAPI.GetSecretContentInfo(args)
-	if err != nil {
-		return params.SecretContentResults{}, errors.Trace(err)
-	}
-	for i, cfg := range results.Results {
-		if cfg.BackendConfig == nil {
-			continue
-		}
-		if err := commonsecrets.MarshallLegacyBackendConfig(cfg.BackendConfig.Config); err != nil {
-			return params.SecretContentResults{}, errors.Annotatef(err, "marshalling legacy backend config")
-		}
-		results.Results[i] = cfg
-	}
-	return results, nil
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.

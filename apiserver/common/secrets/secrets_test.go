@@ -81,30 +81,6 @@ var (
 	}
 )
 
-func (s *secretsSuite) TestMarshallLegacyBackendConfig(c *gc.C) {
-	cfg := params.SecretBackendConfig{
-		BackendType: kubernetes.BackendType,
-		Params: map[string]interface{}{
-			"endpoint":                 "http://nowhere",
-			"ca-certs":                 []string{"cert-data"},
-			"namespace":                "fred",
-			"token":                    "bar",
-			"prefer-incluster-address": true,
-		},
-	}
-	err := secrets.MarshallLegacyBackendConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, params.SecretBackendConfig{
-		BackendType: kubernetes.BackendType,
-		Params: map[string]interface{}{
-			"endpoint":            "http://nowhere",
-			"ca-certs":            []string{"cert-data"},
-			"credential":          `{"auth-type":"oauth2","Attributes":{"Token":"bar"}}`,
-			"is-controller-cloud": false,
-		},
-	})
-}
-
 func (s *secretsSuite) TestAdminBackendConfigInfoDefaultIAAS(c *gc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "auto",
 		&provider.ModelBackendConfigInfo{

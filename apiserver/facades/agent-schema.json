@@ -9551,7 +9551,7 @@
     {
         "Name": "SecretsManager",
         "Description": "",
-        "Version": 3,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",

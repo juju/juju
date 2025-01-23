@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/secrets"
 )
 
 type k8sBackend struct {
@@ -57,6 +57,8 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
+		} else if k8serrors.IsForbidden(err) {
+			return nil, errors.Unauthorizedf("cannot access %q", secretName)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -64,11 +66,7 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 }
 
 // GetContent implements SecretBackend.
-func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (_ coresecrets.SecretValue, err error) {
-	defer func() {
-		err = maybePermissionDenied(err)
-	}()
-
+func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
 	// revisionId is the secret name.
 	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
@@ -79,15 +77,11 @@ func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (_ cores
 	for k, v := range secret.Data {
 		data[k] = base64.StdEncoding.EncodeToString(v)
 	}
-	return coresecrets.NewSecretValue(data), nil
+	return secrets.NewSecretValue(data), nil
 }
 
 // SaveContent implements SecretBackend.
-func (k *k8sBackend) SaveContent(ctx context.Context, uri *coresecrets.URI, revision int, value coresecrets.SecretValue) (_ string, err error) {
-	defer func() {
-		err = maybePermissionDenied(err)
-	}()
-
+func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
 	name := uri.Name(revision)
 	labels := utils.LabelsMerge(
 		utils.LabelsForModel(k.model, false),
@@ -109,11 +103,7 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *coresecrets.URI, revi
 }
 
 // DeleteContent implements SecretBackend.
-func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err error) {
-	defer func() {
-		err = maybePermissionDenied(err)
-	}()
-
+func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
 	// revisionId is the secret name.
 	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
