@@ -219,6 +219,36 @@ func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetric
 	}, nil
 }
 
+// GetModelCloudType returns the cloud type from a model that has been
+// set in the database. If no model exists then an error satisfying
+// [modelerrors.NotFound] is returned.
+func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	m := dbReadOnlyModel{}
+	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.cloud_type FROM model`, m)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return m.CloudType, nil
+}
+
 // CreateReadOnlyModel is responsible for creating a new model within the model
 // database. If the model already exists then an error satisfying
 // [modelerrors.AlreadyExists] is returned.

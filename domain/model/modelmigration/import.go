@@ -115,11 +115,13 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelservice.DefaultAgentBinaryFinder(),
 		i.logger,
 	)
+
 	i.modelDetailServiceFunc = func(id coremodel.UUID) ModelDetailService {
 		return modelservice.NewModelService(
 			id,
 			modelstate.NewState(scope.ControllerDB()),
 			modelstate.NewModelState(scope.ModelDB(), i.logger),
+			modelservice.EnvironVersionProviderGetter(),
 		)
 	}
 	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))

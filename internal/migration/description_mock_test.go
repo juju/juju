@@ -2501,6 +2501,42 @@ func (c *MockModelSetConstraintsCall) DoAndReturn(f func(description.Constraints
 	return c
 }
 
+// SetEnvironVersion mocks base method.
+func (m *MockModel) SetEnvironVersion(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEnvironVersion", arg0)
+}
+
+// SetEnvironVersion indicates an expected call of SetEnvironVersion.
+func (mr *MockModelMockRecorder) SetEnvironVersion(arg0 any) *MockModelSetEnvironVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEnvironVersion", reflect.TypeOf((*MockModel)(nil).SetEnvironVersion), arg0)
+	return &MockModelSetEnvironVersionCall{Call: call}
+}
+
+// MockModelSetEnvironVersionCall wrap *gomock.Call
+type MockModelSetEnvironVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelSetEnvironVersionCall) Return() *MockModelSetEnvironVersionCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelSetEnvironVersionCall) Do(f func(int)) *MockModelSetEnvironVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelSetEnvironVersionCall) DoAndReturn(f func(int)) *MockModelSetEnvironVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetMeterStatus mocks base method.
 func (m *MockModel) SetMeterStatus(arg0, arg1 string) description.MeterStatus {
 	m.ctrl.T.Helper()
