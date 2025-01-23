@@ -12,7 +12,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"

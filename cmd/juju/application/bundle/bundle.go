@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"

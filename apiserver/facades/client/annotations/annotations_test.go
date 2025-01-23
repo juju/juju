@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"

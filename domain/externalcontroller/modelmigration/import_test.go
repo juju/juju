@@ -8,7 +8,7 @@ import (
 	"errors"
 
 	"github.com/juju/description/v8"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

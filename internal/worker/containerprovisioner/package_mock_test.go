@@ -23,7 +23,7 @@ import (
 	network0 "github.com/juju/juju/internal/network"
 	containerprovisioner "github.com/juju/juju/internal/worker/containerprovisioner"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

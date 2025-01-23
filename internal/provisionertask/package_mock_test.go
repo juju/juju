@@ -18,7 +18,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

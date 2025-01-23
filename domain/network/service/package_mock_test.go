@@ -18,7 +18,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

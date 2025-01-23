@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"

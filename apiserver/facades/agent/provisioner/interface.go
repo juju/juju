@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network"

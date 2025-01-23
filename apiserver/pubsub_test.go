@@ -13,7 +13,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

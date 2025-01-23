@@ -19,7 +19,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"

@@ -15,7 +15,7 @@ import (
 
 	permission "github.com/juju/juju/core/permission"
 	blockcommand "github.com/juju/juju/domain/blockcommand"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

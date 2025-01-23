@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"

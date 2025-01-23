@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	storageerrors "github.com/juju/juju/domain/storage/errors"

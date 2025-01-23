@@ -49,7 +49,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v8 v8.0.0-20250117025457-3d63958474c1
+	github.com/juju/description/v8 v8.0.0-20250123080652-ce9b0c894e3f
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
@@ -61,7 +61,7 @@ require (
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
-	github.com/juju/names/v5 v5.0.0
+	github.com/juju/names/v6 v6.0.0-20250122164631-383bcab851ca
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/persistent-cookiejar v1.0.0

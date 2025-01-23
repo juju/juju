@@ -5,7 +5,7 @@ package lifeflag_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
 	coretesting "github.com/juju/juju/internal/testing"

@@ -6,7 +6,7 @@ package machiner_test
 import (
 	"context"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/life"

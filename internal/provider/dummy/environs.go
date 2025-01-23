@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 

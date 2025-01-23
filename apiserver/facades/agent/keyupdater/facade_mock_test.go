@@ -21,7 +21,7 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	services "github.com/juju/juju/internal/services"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v5"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 

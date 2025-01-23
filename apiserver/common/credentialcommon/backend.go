@@ -5,7 +5,7 @@ package credentialcommon
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/state"

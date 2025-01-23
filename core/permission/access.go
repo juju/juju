@@ -5,7 +5,7 @@ package permission
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 )
 
 // AccessChange represents a change in access level.

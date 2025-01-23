@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"

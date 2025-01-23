@@ -5,7 +5,7 @@ package centralhub
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
+	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
