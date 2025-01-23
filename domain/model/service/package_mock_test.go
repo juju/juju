@@ -119,10 +119,10 @@ func (c *MockModelStateDeleteCall) DoAndReturn(f func(context.Context, model.UUI
 }
 
 // GetModel mocks base method.
-func (m *MockModelState) GetModel(arg0 context.Context) (model.ReadOnlyModel, error) {
+func (m *MockModelState) GetModel(arg0 context.Context) (model.ModelInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModel", arg0)
-	ret0, _ := ret[0].(model.ReadOnlyModel)
+	ret0, _ := ret[0].(model.ModelInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -140,19 +140,19 @@ type MockModelStateGetModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetModelCall) Return(arg0 model.ReadOnlyModel, arg1 error) *MockModelStateGetModelCall {
+func (c *MockModelStateGetModelCall) Return(arg0 model.ModelInfo, arg1 error) *MockModelStateGetModelCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetModelCall) Do(f func(context.Context) (model.ReadOnlyModel, error)) *MockModelStateGetModelCall {
+func (c *MockModelStateGetModelCall) Do(f func(context.Context) (model.ModelInfo, error)) *MockModelStateGetModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetModelCall) DoAndReturn(f func(context.Context) (model.ReadOnlyModel, error)) *MockModelStateGetModelCall {
+func (c *MockModelStateGetModelCall) DoAndReturn(f func(context.Context) (model.ModelInfo, error)) *MockModelStateGetModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
