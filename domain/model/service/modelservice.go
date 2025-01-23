@@ -41,8 +41,8 @@ type ModelState interface {
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	GetModelConstraints(context.Context) (constraints.Value, error)
 
-	// SetModelConstraints sets the model constraints to the new values supplied
-	// overriding and previously set values.
+	// SetModelConstraints sets the model constraints to the new values removing
+	// any previously set values.
 	// The following error types can be expected:
 	// - [networkerrors.SpaceNotFound]: when a space constraint is set but the
 	// space does not exist.
@@ -98,12 +98,13 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 	return s.modelSt.GetModelConstraints(ctx)
 }
 
-// SetModelConstraints sets the model constraints, including tags, spaces, and
-// zones. If the constraints being set does not have a container type set one
-// will automatically be set to the value of [instance.NONE].
+// SetModelConstraints sets the model constraints to the new values removing
+// any previously set constraints. If the constraints being set does not have a
+// container type set one will automatically be set to the value of
+// [instance.NONE].
 //
 // The following error types can be expected:
-// - [modelerrors.NotFound]: if the model does not exist
+// - [modelerrors.NotFound]: when the model does not exist
 // - [github.com/juju/juju/domain/network/errors.SpaceNotFound]: when the space
 // being set in the model constraint doesn't exist.
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when

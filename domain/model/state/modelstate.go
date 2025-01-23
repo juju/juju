@@ -114,8 +114,8 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 	return constraints.Value{}, nil
 }
 
-// SetModelConstraints sets the model constraints to the new values supplied
-// overriding and previously set values.
+// SetModelConstraints sets the model constraints to the new values removing
+// any previously set values.
 // The following error types can be expected:
 // - [networkerrors.SpaceNotFound]: when a space constraint is set but the
 // space does not exist.
