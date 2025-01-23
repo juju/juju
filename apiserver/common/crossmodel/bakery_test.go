@@ -58,6 +58,26 @@ func (s *bakerySuite) getLocalOfferBakery(c *gc.C) (*crossmodel.OfferBakery, *go
 	return b, ctrl
 }
 
+func (s *bakerySuite) setMockRoundTripperRoundTrip(c *gc.C, expectedUrl string) {
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			req.Header.Set("Content-Type", "application/json")
+			c.Assert(req.URL.String(), gc.Equals, expectedUrl)
+			resp := &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(
+					strings.NewReader(
+						`{"PublicKey": "AhIuwQfV71m2G+DhE/YNT1jIbSvp6jWgivTf06+tLBU=", "Version": 3}`,
+					),
+				),
+			}
+			resp.Header = req.Header
+			return resp, nil
+		},
+	).Times(1)
+}
+
 func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
@@ -71,6 +91,7 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 	c.Assert(err, gc.IsNil)
 	mockBakeryConfig.EXPECT().GetExternalUsersThirdPartyKey().Return(key, nil).AnyTimes()
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil).AnyTimes()
+
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Content-Type", "application/json")
@@ -93,6 +114,7 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 		"https://example.com/.well-known/jwks.json", "",
 		mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker,
 	)
+
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.NotNil)
 	return b, ctrl
@@ -111,27 +133,17 @@ func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *gc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	defer ctrl.Finish()
 
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			req.Header.Set("Content-Type", "application/json")
-			c.Assert(req.URL.String(), gc.Equals, `https://example-1.com/macaroons/discharge/info`)
-			resp := &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body: io.NopCloser(
-					strings.NewReader(
-						`{"PublicKey": "AhIuwQfV71m2G+DhE/YNT1jIbSvp6jWgivTf06+tLBU=", "Version": 3}`,
-					),
-				),
-			}
-			resp.Header = req.Header
-			return resp, nil
-		},
-	)
-
+	// Test with no prefixed path segments
+	s.setMockRoundTripperRoundTrip(c, `https://example-1.com/macaroons/discharge/info`)
 	result, err := offerBakery.RefreshDischargeURL("https://example-1.com/.well-known/jwks.json")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, "https://example-1.com/macaroons")
+
+	// Test with prefixed path segments and assert they're maintained (i.e., ingress rule defines /my-prefix/)
+	s.setMockRoundTripperRoundTrip(c, `https://example-2.com/my-prefix/macaroons/discharge/info`)
+	result, err = offerBakery.RefreshDischargeURL("https://example-2.com/my-prefix/.well-known/jwks.json")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, "https://example-2.com/my-prefix/macaroons")
 }
 
 func (s *bakerySuite) TestGetConsumeOfferCaveats(c *gc.C) {
@@ -244,6 +256,7 @@ permission: consume
 
 func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *gc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
+	s.mockExpirableStorageBakery = mocks.NewMockExpirableStorageBakery(ctrl)
 	defer ctrl.Finish()
 
 	offerBakery.SetBakery(s.mockExpirableStorageBakery)
