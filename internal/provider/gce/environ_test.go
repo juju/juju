@@ -195,7 +195,7 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "RemoveFirewall")
 	fwname := common.EnvFullName(s.Env.Config().UUID())
 	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{

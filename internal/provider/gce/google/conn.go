@@ -72,7 +72,7 @@ type service interface {
 	// firewall is updated or the request fails.
 	UpdateFirewall(projectID, name string, firewall *compute.Firewall) error
 
-	// RemoveFirewall removed the named firewall from the project. If it
+	// RemoveFirewall removes the named firewall from the project. If it
 	// does not exist then this is a noop. The call blocks until the
 	// firewall is added or the request fails.
 	RemoveFirewall(projectID, name string) error
