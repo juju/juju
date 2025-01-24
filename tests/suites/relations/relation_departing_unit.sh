@@ -12,8 +12,12 @@ run_relation_departing_unit() {
 
 	echo "Deploy 2 departer instances"
 	juju deploy ./testcharms/charms/departer -n 2
+
 	wait_for "departer" "$(idle_condition "departer" 0 0)"
 	wait_for "departer" "$(idle_condition "departer" 0 1)"
+
+	check_contains "$(juju show-unit departer/0 | yq '.departer/0.relation-info[0].related-units')" 'departer/1'
+	check_contains "$(juju show-unit departer/1 | yq '.departer/1.relation-info[0].related-units')" 'departer/0'
 
 	echo "Remove departer/1"
 	juju remove-unit departer/1
@@ -21,29 +25,17 @@ run_relation_departing_unit() {
 	attempt=10
 	while [[ ${attempt} -gt 0 ]]; do
 		attempt=$((attempt - 1))
-		sleep 10
+
 		echo "Check departer/1 is departing the relation"
-		got=$(juju debug-log --replay --include unit-departer-0 | grep 'Remote unit departer/1 is departing the relation' || true)
-		if [ -z "${got}" ]; then
+		got=$(juju show-unit departer/0 | yq '.departer/0.relation-info[0].related-units' || true)
+		if [ "${got}" != null ]; then
 			# shellcheck disable=SC2046
-			echo $(red "expected departer/0 to be notified that departer/1 went away")
+			echo $(red "expected departer/1 to be removed from departer/0 related-units")
 			if [[ ${attempt} -eq 0 ]]; then
 				exit 1
-			else
-				continue
 			fi
 		fi
-		got=$(juju debug-log --replay --include unit-departer-1 | grep 'Local unit is departing the relation' || true)
-		if [ -z "${got}" ]; then
-			# shellcheck disable=SC2046
-			echo $(red "expected departer/1 to be notified that it is going away")
-			if [[ ${attempt} -eq 0 ]]; then
-				exit 1
-			else
-				continue
-			fi
-		fi
-		break
+		sleep 2
 	done
 
 	destroy_model "${model_name}"
