@@ -1683,8 +1683,9 @@ func (s *applicationServiceSuite) TestSetApplicationConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(applicationcharm.Config{
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
 			"foo": {
 				Type:    applicationcharm.OptionString,
@@ -1692,7 +1693,7 @@ func (s *applicationServiceSuite) TestSetApplicationConfig(c *gc.C) {
 			},
 		},
 	}, nil)
-	s.state.EXPECT().SetApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().SetApplicationConfigAndSettings(gomock.Any(), appUUID, charmUUID, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
 			Value: "bar",
@@ -1712,8 +1713,13 @@ func (s *applicationServiceSuite) TestSetApplicationConfigNoCharmConfig(c *gc.C)
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(applicationcharm.Config{}, applicationerrors.CharmNotFound)
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(
+		charmUUID,
+		applicationcharm.Config{},
+		applicationerrors.CharmNotFound,
+	)
 
 	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{
 		"trust": "true",
@@ -1726,8 +1732,9 @@ func (s *applicationServiceSuite) TestSetApplicationConfigWithNoCharmConfig(c *g
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(applicationcharm.Config{
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{},
 	}, nil)
 
@@ -1742,8 +1749,9 @@ func (s *applicationServiceSuite) TestSetApplicationConfigInvalidOptionType(c *g
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(applicationcharm.Config{
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
 			"foo": {
 				Type:    "blah",
@@ -1763,8 +1771,9 @@ func (s *applicationServiceSuite) TestSetApplicationConfigInvalidTrustType(c *gc
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(applicationcharm.Config{
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
 			"foo": {
 				Type:    "string",
@@ -1784,9 +1793,14 @@ func (s *applicationServiceSuite) TestSetApplicationConfigNoConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(applicationcharm.Config{}, nil)
-	s.state.EXPECT().SetApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{}, application.ApplicationSettings{}).Return(nil)
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{}, nil)
+	s.state.EXPECT().SetApplicationConfigAndSettings(
+		gomock.Any(), appUUID, charmUUID,
+		map[string]application.ApplicationConfig{},
+		application.ApplicationSettings{},
+	).Return(nil)
 
 	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)

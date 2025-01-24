@@ -2294,6 +2294,7 @@ WHERE application_uuid = $applicationID.uuid;`
 func (st *State) SetApplicationConfigAndSettings(
 	ctx context.Context,
 	appID coreapplication.ID,
+	cID corecharm.ID,
 	config map[string]application.ApplicationConfig,
 	settings application.ApplicationSettings,
 ) error {
@@ -2303,10 +2304,8 @@ func (st *State) SetApplicationConfigAndSettings(
 	}
 
 	ident := applicationID{ID: appID}
+	charmIdent := charmID{UUID: cID.String()}
 
-	// We don't need to verify the application exists on write, as there
-	// will be a foreign key constraint that will fail if the application
-	// doesn't exist.
 	getQuery := `
 SELECT &applicationConfig.*
 FROM v_application_config
@@ -2336,27 +2335,30 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 	getStmt, err := st.Prepare(getQuery, applicationConfig{}, ident)
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return internalerrors.Errorf("preparing get query: %w", err)
 	}
 	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return internalerrors.Errorf("preparing delete query: %w", err)
 	}
 	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return internalerrors.Errorf("preparing insert query: %w", err)
 	}
 	updateStmt, err := st.Prepare(updateQuery, setApplicationConfig{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return internalerrors.Errorf("preparing update query: %w", err)
 	}
 	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return internalerrors.Errorf("preparing settings query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Capture(err)
+		}
+		if err := st.checkApplicationCharm(ctx, tx, ident, charmIdent); err != nil {
 			return internalerrors.Capture(err)
 		}
 
@@ -2553,10 +2555,10 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 // [applicationerrors.ApplicationNotFound] is returned.
 // If the charm for the application does not exist, an error satisfying
 // [applicationerrors.CharmNotFoundError] is returned.
-func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (charm.Config, error) {
+func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error) {
 	db, err := st.DB()
 	if err != nil {
-		return charm.Config{}, internalerrors.Capture(err)
+		return "", charm.Config{}, internalerrors.Capture(err)
 	}
 
 	appIdent := applicationID{ID: appID}
@@ -2568,12 +2570,15 @@ WHERE uuid = $applicationID.uuid;
 `
 	appStmt, err := st.Prepare(appQuery, appIdent, charmUUID{})
 	if err != nil {
-		return charm.Config{}, internalerrors.Errorf("preparing query for charm config: %w", err)
+		return "", charm.Config{}, internalerrors.Errorf("preparing query for charm config: %w", err)
 	}
 
-	var charmConfig charm.Config
+	var (
+		ident       charmUUID
+		charmConfig charm.Config
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var ident charmUUID
+
 		if err := tx.Query(ctx, appStmt, appIdent).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
@@ -2583,9 +2588,40 @@ WHERE uuid = $applicationID.uuid;
 		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: ident.UUID})
 		return internalerrors.Capture(err)
 	}); err != nil {
-		return charm.Config{}, internalerrors.Capture(err)
+		return "", charm.Config{}, internalerrors.Capture(err)
 	}
-	return charmConfig, nil
+
+	charmID, err := corecharm.ParseID(ident.UUID)
+	if err != nil {
+		return "", charm.Config{}, internalerrors.Errorf("parsing charm id: %w", err)
+	}
+
+	return charmID, charmConfig, nil
+}
+
+func (st *State) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {
+	query := `
+SELECT COUNT(*) AS &countResult.count
+FROM application
+WHERE uuid = $applicationID.uuid
+AND charm_uuid = $charmID.uuid;
+	`
+	stmt, err := st.Prepare(query, countResult{}, ident, charmID)
+	if err != nil {
+		return internalerrors.Errorf("preparing verification query: %w", err)
+	}
+
+	// Ensure that the charm is the same as the one we're trying to set.
+	var count countResult
+	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); errors.Is(err, sqlair.ErrNoRows) {
+		return applicationerrors.ApplicationHasDifferentCharm
+	} else if err != nil {
+		return internalerrors.Errorf("verifying charm: %w", err)
+	}
+	if count.Count == 0 {
+		return applicationerrors.ApplicationHasDifferentCharm
+	}
+	return nil
 }
 
 func decodeRisk(risk string) (application.ChannelRisk, error) {

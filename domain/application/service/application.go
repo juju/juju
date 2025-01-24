@@ -247,7 +247,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (charm.Config, error)
+	GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error)
 
 	// GetApplicationConfig returns the application config attributes for the
 	// configuration.
@@ -268,6 +268,7 @@ type ApplicationState interface {
 	SetApplicationConfigAndSettings(
 		ctx context.Context,
 		appID coreapplication.ID,
+		charmID corecharm.ID,
 		config map[string]application.ApplicationConfig,
 		settings application.ApplicationSettings,
 	) error
@@ -1591,7 +1592,10 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 	// foreign key constraint will be violated, and we can return that as an
 	// error.
 
-	cfg, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
+	// Return back the charm UUID, so that we can verify that the charm
+	// hasn't changed between this call and the transaction to set it.
+
+	charmID, cfg, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -1639,7 +1643,7 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 		}
 	}
 
-	return s.st.SetApplicationConfigAndSettings(ctx, appID, encodedConfig, application.ApplicationSettings{
+	return s.st.SetApplicationConfigAndSettings(ctx, appID, charmID, encodedConfig, application.ApplicationSettings{
 		Trust: trust,
 	})
 }

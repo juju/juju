@@ -19,6 +19,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
@@ -2634,7 +2635,10 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *g
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettings(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2659,7 +2663,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettings(c *gc.C) {
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsApplicationIsDead(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Dead)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2671,7 +2678,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsApplicationIs
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesType(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2679,7 +2689,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesType(c
 	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionInt,
 			Value: 2,
@@ -2704,7 +2714,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesType(c
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesIdempotent(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2715,7 +2728,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesIdempo
 	// The second call should not perform any updates, although it will still
 	// write the trust setting.
 
-	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2740,7 +2753,8 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesIdempo
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsNoApplication(c *gc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID := charmtesting.GenCharmID(c)
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2752,7 +2766,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsNoApplication
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsUpdatesRemoves(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",
@@ -2764,7 +2781,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsUpdatesRemove
 	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
 			Value: "d2",
@@ -2787,7 +2804,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsUpdatesRemove
 		},
 	})
 
-	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{}, application.ApplicationSettings{})
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err = s.state.GetApplicationConfig(context.Background(), id)
@@ -2803,7 +2820,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsUpdatesRemove
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",
@@ -2842,7 +2862,10 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFoun
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id,
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID,
 		map[string]application.ApplicationConfig{},
 		application.ApplicationSettings{Trust: true},
 	)
@@ -2873,7 +2896,10 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
+	charmID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, charmID, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",
@@ -2915,8 +2941,9 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
+	charmID, config, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(charmID, gc.Equals, cid)
 	c.Check(config, jc.DeepEquals, charm.Config{
 		Options: map[string]charm.Option{
 			"key": {
@@ -2930,8 +2957,29 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *gc.C) {
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDApplicationNotFound(c *gc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
-	_, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
+	_, _, err := s.state.GetCharmConfigByApplicationID(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestCheckApplicationCharm(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	cid, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.checkApplicationCharm(context.Background(), tx, applicationID{ID: id}, charmID{UUID: cid.String()})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.checkApplicationCharm(context.Background(), tx, applicationID{ID: id}, charmID{UUID: "other"})
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
 }
 
 func (s *applicationStateSuite) assertApplication(
