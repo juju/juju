@@ -174,6 +174,7 @@ SELECT
     r.created_at,
     r.revision,
     r.origin_type_id,
+    rs.name AS state,
     rrb.name AS retrieved_by,
     rrbt.name AS retrieved_by_type,
     cr.path,
@@ -187,6 +188,7 @@ FROM resource AS r
 INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
 INNER JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
 INNER JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id
+INNER JOIN resource_state AS rs ON r.state_id = rs.id
 LEFT JOIN resource_retrieved_by AS rrb ON r.uuid = rrb.resource_uuid
 LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id
 LEFT JOIN resource_file_store AS rfs ON r.uuid = rfs.resource_uuid

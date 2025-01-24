@@ -170,10 +170,31 @@ func (s *resourceServiceSuite) TestListResources(c *gc.C) {
 	c.Assert(obtainedList, gc.DeepEquals, expectedList)
 }
 
+func (s *resourceServiceSuite) TestGetResourcesByApplicationIDBadID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service.GetResourcesByApplicationID(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationIDNotValid)
+}
+
+func (s *resourceServiceSuite) TestGetResourcesByApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+	expectedList := []resource.Resource{{
+		RetrievedBy:     "admin",
+		RetrievedByType: resource.Application,
+	}}
+	s.state.EXPECT().GetResourcesByApplicationID(gomock.Any(), id).Return(expectedList, nil)
+
+	obtainedList, err := s.service.GetResourcesByApplicationID(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedList, gc.DeepEquals, expectedList)
+}
+
 func (s *resourceServiceSuite) TestListResourcesBadID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.ListResources(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationIDNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
