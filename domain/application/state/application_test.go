@@ -2631,10 +2631,10 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *g
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestSetApplicationConfig(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationConfigAndSettings(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2656,22 +2656,22 @@ func (s *applicationStateSuite) TestSetApplicationConfig(c *gc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationConfigApplicationIsDead(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsApplicationIsDead(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Dead)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
-func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesType(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2679,7 +2679,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
 	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionInt,
 			Value: 2,
@@ -2701,26 +2701,26 @@ func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationConfigChangesIdempotent(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsChangesIdempotent(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The second call should not perform any updates, although it will still
 	// write the trust setting.
 
-	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
 		},
-	})
+	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := s.state.GetApplicationConfig(context.Background(), id)
@@ -2737,10 +2737,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigChangesIdempotent(c *gc.
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationConfigNoApplication(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsNoApplication(c *gc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
 			Value: "value",
@@ -2749,10 +2749,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigNoApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsUpdatesRemoves(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",
@@ -2764,16 +2764,14 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 	}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
 			Value: "d2",
 		},
-		"trust": {
-			Type:  charm.OptionBool,
-			Value: true,
-		},
-	}, application.ApplicationSettings{})
+	}, application.ApplicationSettings{
+		Trust: true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := s.state.GetApplicationConfig(context.Background(), id)
@@ -2789,7 +2787,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 		},
 	})
 
-	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{}, application.ApplicationSettings{})
+	err = s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{}, application.ApplicationSettings{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err = s.state.GetApplicationConfig(context.Background(), id)
@@ -2805,7 +2803,7 @@ func (s *applicationStateSuite) TestSetApplicationConfigUpdatesRemoves(c *gc.C) 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",
@@ -2844,7 +2842,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFoun
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id,
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id,
 		map[string]application.ApplicationConfig{},
 		application.ApplicationSettings{Trust: true},
 	)
@@ -2875,7 +2873,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+	err := s.state.SetApplicationConfigAndSettings(context.Background(), id, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
 			Value: "b",

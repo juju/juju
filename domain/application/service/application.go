@@ -241,13 +241,13 @@ type ApplicationState interface {
 	// This will return an empty slice if there are no applications.
 	GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error)
 
-	// GetCharmConfigByAppID returns the charm config for the specified
+	// GetCharmConfigByApplicationID returns the charm config for the specified
 	// application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmConfigByAppID(ctx context.Context, appID coreapplication.ID) (charm.Config, error)
+	GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (charm.Config, error)
 
 	// GetApplicationConfig returns the application config attributes for the
 	// configuration.
@@ -1538,7 +1538,7 @@ func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplicatio
 
 	result := make(config.ConfigAttributes)
 	for k, v := range cfg {
-		result[k] = v
+		result[k] = v.Value
 	}
 	return result, nil
 }
@@ -1561,6 +1561,9 @@ func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreappl
 func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
 	if err := appID.Validate(); err != nil {
 		return internalerrors.Errorf("application ID: %w", err)
+	}
+	if len(keys) == 0 {
+		return nil
 	}
 	return s.st.UnsetApplicationConfigKeys(ctx, appID, keys)
 }
@@ -1588,7 +1591,7 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 	// foreign key constraint will be violated, and we can return that as an
 	// error.
 
-	cfg, err := s.st.GetCharmConfigByAppID(ctx, appID)
+	cfg, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -1607,7 +1610,9 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 	// Everything else from the newConfig is just application config. Treat it
 	// as such.
 	coercedConfig, err := charmConfig.ParseSettingsStrings(newConfig)
-	if err != nil {
+	if errors.Is(err, internalcharm.ErrUnknownOption) {
+		return internalerrors.Errorf("%w: %w", applicationerrors.InvalidCharmConfig, err)
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 

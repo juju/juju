@@ -2291,7 +2291,7 @@ WHERE application_uuid = $applicationID.uuid;`
 
 // SetApplicationConfig sets the application config attributes using the
 // configuration.
-func (st *State) SetApplicationConfig(
+func (st *State) SetApplicationConfigAndSettings(
 	ctx context.Context,
 	appID coreapplication.ID,
 	config map[string]application.ApplicationConfig,
