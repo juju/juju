@@ -238,6 +238,45 @@ func (c *MockStateGetResourceTypeCall) DoAndReturn(f func(context.Context, resou
 	return c
 }
 
+// GetResourceUUIDByApplicationAndResourceName mocks base method.
+func (m *MockState) GetResourceUUIDByApplicationAndResourceName(arg0 context.Context, arg1, arg2 string) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetResourceUUIDByApplicationAndResourceName", arg0, arg1, arg2)
+	ret0, _ := ret[0].(resource.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetResourceUUIDByApplicationAndResourceName indicates an expected call of GetResourceUUIDByApplicationAndResourceName.
+func (mr *MockStateMockRecorder) GetResourceUUIDByApplicationAndResourceName(arg0, arg1, arg2 any) *MockStateGetResourceUUIDByApplicationAndResourceNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceUUIDByApplicationAndResourceName", reflect.TypeOf((*MockState)(nil).GetResourceUUIDByApplicationAndResourceName), arg0, arg1, arg2)
+	return &MockStateGetResourceUUIDByApplicationAndResourceNameCall{Call: call}
+}
+
+// MockStateGetResourceUUIDByApplicationAndResourceNameCall wrap *gomock.Call
+type MockStateGetResourceUUIDByApplicationAndResourceNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetResourceUUIDByApplicationAndResourceNameCall) Return(arg0 resource.UUID, arg1 error) *MockStateGetResourceUUIDByApplicationAndResourceNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetResourceUUIDByApplicationAndResourceNameCall) Do(f func(context.Context, string, string) (resource.UUID, error)) *MockStateGetResourceUUIDByApplicationAndResourceNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetResourceUUIDByApplicationAndResourceNameCall) DoAndReturn(f func(context.Context, string, string) (resource.UUID, error)) *MockStateGetResourceUUIDByApplicationAndResourceNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetResourcesByApplicationID mocks base method.
 func (m *MockState) GetResourcesByApplicationID(arg0 context.Context, arg1 application.ID) ([]resource0.Resource, error) {
 	m.ctrl.T.Helper()

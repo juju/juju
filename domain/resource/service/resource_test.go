@@ -153,6 +153,57 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
+func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	retID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, nil)
+
+	ret, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "res-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ret, gc.Equals, retID)
+}
+
+func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameResourceNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	retID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, resourceerrors.ResourceNotFound)
+
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "res-name")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
+func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	retID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, resourceerrors.ApplicationNotFound)
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "res-name")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound)
+}
+
+func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameEmptyAppID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "", "res-name")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNameNotValid)
+}
+
+func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBadAppID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "9", "res-name")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNameNotValid)
+}
+
+func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBadName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
+}
+
 func (s *resourceServiceSuite) TestListResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

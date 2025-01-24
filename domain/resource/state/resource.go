@@ -259,6 +259,64 @@ AND application_uuid = $resourceIdentity.application_uuid
 	return coreresource.UUID(resource.UUID), nil
 }
 
+// GetResourceUUIDByApplicationAndResourceName returns the ID of the application
+// resource specified by natural key of application and resource name.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ApplicationNotFound] is returned if the application is
+//     not found.
+//   - [resourceerrors.ResourceNotFound] if no resource with name exists for
+//     given application.
+func (st *State) GetResourceUUIDByApplicationAndResourceName(
+	ctx context.Context,
+	appName string,
+	resName string,
+) (coreresource.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// Define the resource identity based on the provided application ID and
+	// name.
+	names := resourceAndAppName{
+		ApplicationName: appName,
+		ResourceName:    resName,
+	}
+	uuid := resourceUUID{}
+
+	// Prepare the SQL statement to retrieve the resource UUID.
+	stmt, err := st.Prepare(`
+SELECT r.uuid AS &resourceUUID.uuid
+FROM   resource AS r
+JOIN   application_resource ar ON r.uuid = ar.resource_uuid
+JOIN   application a           ON ar.application_uuid = a.uuid
+WHERE  r.charm_resource_name = $resourceAndAppName.resource_name 
+AND    a.name = $resourceAndAppName.application_name
+`, names, uuid)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// Execute the SQL transaction.
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, names).Get(&uuid)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			if exists, err := st.checkApplicationNameExists(ctx, tx, appName); err != nil {
+				return errors.Errorf("checking application with name %s exists: %w", appName, err)
+			} else if !exists {
+				return resourceerrors.ApplicationNotFound
+			}
+			return resourceerrors.ResourceNotFound
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return coreresource.UUID(uuid.UUID), nil
+}
+
 // ListResources returns the list of resource for the given application.
 func (st *State) ListResources(
 	ctx context.Context,
@@ -1294,6 +1352,28 @@ WHERE  uuid = $applicationNameAndID.uuid
 	}
 
 	err = tx.Query(ctx, checkApplicationExistsStmt, application).Get(&application)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
+func (st *State) checkApplicationNameExists(ctx context.Context, tx *sqlair.TX, name string) (bool, error) {
+	id := applicationNameAndID{
+		Name: name,
+	}
+	checkApplicationExistsStmt, err := st.Prepare(`
+SELECT uuid AS &applicationNameAndID.uuid
+FROM   application
+WHERE  name = $applicationNameAndID.name
+`, id)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkApplicationExistsStmt, id).Get(&id)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {

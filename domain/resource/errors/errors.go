@@ -57,4 +57,12 @@ const (
 	// ResourceRevisionNotValid describes an error where the resource revision
 	// is not valid.
 	ResourceRevisionNotValid = errors.ConstError("resource revision not valid")
+
+	// ResourceAlreadyStored describes an errors where the resource has already
+	// been stored.
+	ResourceAlreadyStored = errors.ConstError("resource already found in storage")
+
+	// ApplicationNameNotValid describes an error when the application is
+	// not valid.
+	ApplicationNameNotValid = errors.ConstError("application name not valid")
 )
