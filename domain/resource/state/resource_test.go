@@ -37,6 +37,8 @@ type resourceSuite struct {
 	constants struct {
 		fakeApplicationUUID1 string
 		fakeApplicationUUID2 string
+		fakeApplicationName1 string
+		fakeApplicationName2 string
 		fakeUnitUUID1        string
 		fakeUnitUUID2        string
 	}
@@ -54,7 +56,9 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.constants.fakeApplicationUUID1 = "fake-application-1-uuid"
 	s.constants.fakeApplicationUUID2 = "fake-application-2-uuid"
-	s.constants.fakeUnitUUID1 = "fake-unit-1-uuid"
+	s.constants.fakeApplicationName1 = "app1"
+	s.constants.fakeApplicationName2 = "app2"
+	s.constants.fakeUnitUUID1 = "fake-unit-1-name"
 	s.constants.fakeUnitUUID2 = "fake-unit-2-uuid"
 
 	// Populate DB with two application and a charm
@@ -73,8 +77,8 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO application (uuid, name, life_id, charm_uuid) VALUES (?, ?, ?, ?),(?, ?, ?, ?)`,
-			s.constants.fakeApplicationUUID1, "app1", 0 /* alive */, fakeCharmUUID,
-			s.constants.fakeApplicationUUID2, "app2", 0 /* alive */, fakeCharmUUID)
+			s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1, 0 /* alive */, fakeCharmUUID,
+			s.constants.fakeApplicationUUID2, s.constants.fakeApplicationName2, 0 /* alive */, fakeCharmUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -416,6 +420,68 @@ func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *gc.C) {
 		Name:          "resource-name-not-found",
 	})
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+}
+
+// TestGetResourceUUIDByApplicationAndResourceName tests that the resource ID can be correctly
+// retrieved from the database, given a name and an application
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *gc.C) {
+	// Arrange: Populate state with two resources on application 1.
+	found := resourceData{
+		UUID:            "resource-uuid-found",
+		Name:            "resource-name-found",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+	}
+	other := resourceData{
+		UUID:            "resource-uuid-other",
+		Name:            "resource-name-other",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		for _, input := range []resourceData{found, other} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: Get application resource ID
+	id, err := s.state.GetResourceUUIDByApplicationAndResourceName(
+		context.Background(),
+		s.constants.fakeApplicationName1,
+		found.Name,
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to get resource UUID: %v", errors.ErrorStack(err)))
+	c.Assert(id, gc.Equals, coreresource.UUID(found.UUID), gc.Commentf("(Act) unexpected resource UUID"))
+}
+
+// TestGetResourceUUIDByApplicationAndResourceNameNotFound verifies the behavior when attempting
+// to retrieve a resource ID for a non-existent resource within a specified
+// application.
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameNotFound(c *gc.C) {
+	// Arrange: No resources
+	// Act: Get application resource ID
+	_, err := s.state.GetResourceUUIDByApplicationAndResourceName(
+		context.Background(),
+		s.constants.fakeApplicationName1,
+		"resource-name-not-found",
+	)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+}
+
+// TestGetResourceUUIDByApplicationAndResourceNameNotFound verifies the behavior when attempting
+// to retrieve a resource ID for a non-existent resource within a specified
+// application.
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicationNameNotFound(c *gc.C) {
+	// Arrange: No resources
+	// Act: Get application resource ID
+	_, err := s.state.GetResourceUUIDByApplicationAndResourceName(
+		context.Background(),
+		"bad-app-name",
+		"resource-name-found",
+	)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, gc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceNotFound verifies that attempting to retrieve a non-existent

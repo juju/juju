@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"io"
+	"regexp"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
@@ -33,6 +34,17 @@ type State interface {
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
+
+	// GetResourceUUIDByApplicationAndResourceName returns the UUID of the
+	// application resource specified by natural key of application and resource
+	// name.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ApplicationNotFound] is returned if the
+	//     application is not found.
+	//   - [resourceerrors.ResourceNotFound] if no resource with name exists for
+	//     given application.
+	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (coreresource.UUID, error)
 
 	// ListResources returns the list of resource for the given application.
 	ListResources(ctx context.Context, applicationID coreapplication.ID) (resource.ApplicationResources, error)
@@ -96,6 +108,16 @@ type ResourceStoreGetter interface {
 	// given resource type.
 	GetResourceStore(context.Context, charmresource.Type) (coreresourcestore.ResourceStore, error)
 }
+
+const (
+	// applicationSnippet is a non-compiled regexp that can be composed with
+	// other snippets to form a valid application regexp.
+	applicationSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
+)
+
+var (
+	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
+)
 
 // Service provides the API for working with resources.
 type Service struct {
@@ -173,6 +195,31 @@ func (s *Service) GetApplicationResourceID(
 		return "", resourceerrors.ResourceNameNotValid
 	}
 	return s.st.GetApplicationResourceID(ctx, args)
+}
+
+// GetResourceUUIDByApplicationAndResourceName returns the ID of the application
+// resource specified by natural key of application and resource name.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ApplicationNotFound] is returned if the application is
+//     not found.
+//   - [resourceerrors.ResourceNotFound] if no resource with name exists for
+//     given application.
+//   - [resourceerrors.ResourceNameNotValid] if no resource name is provided
+//     in the args.
+//   - [resourceerrors.ApplicationNameNotValid] if the application name is
+//     invalid.
+func (s *Service) GetResourceUUIDByApplicationAndResourceName(
+	ctx context.Context,
+	appName, resName string,
+) (coreresource.UUID, error) {
+	if resName == "" {
+		return "", resourceerrors.ResourceNameNotValid
+	}
+	if !isValidApplicationName(appName) {
+		return "", resourceerrors.ApplicationNameNotValid
+	}
+	return s.st.GetResourceUUIDByApplicationAndResourceName(ctx, appName, resName)
 }
 
 // ListResources returns the resource data for the given application including
@@ -500,4 +547,9 @@ func (s *Service) SetRepositoryResources(
 // different locations.
 func blobPath(uuid coreresource.UUID, hash string) string {
 	return "resource-" + uuid.String() + "#" + hash
+}
+
+// isValidApplicationName returns whether name is a valid application name.
+func isValidApplicationName(name string) bool {
+	return validApplication.MatchString(name)
 }

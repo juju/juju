@@ -13,6 +13,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// resourceAndAppName represents the resource name and app name, this can be
+// used as an identifier for a resource.
+type resourceAndAppName struct {
+	ApplicationName string `db:"application_name"`
+	ResourceName    string `db:"resource_name"`
+}
+
 // resourceIdentity represents the unique identity of a resource within an
 // application.
 type resourceIdentity struct {
