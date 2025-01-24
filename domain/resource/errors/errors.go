@@ -40,10 +40,6 @@ const (
 	// not valid.
 	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
 
-	// ResourceStateNotValid describes an error where the resource state is not
-	// valid.
-	ResourceStateNotValid = errors.ConstError("resource state not valid")
-
 	// CleanUpStateNotValid describes an error where the application state is
 	// during cleanup. It means that application dependencies are deleted in
 	// an incorrect order.
@@ -61,10 +57,6 @@ const (
 	// StoredResourceAlreadyExists describes an error where the resource being
 	// stored already exists in the store.
 	StoredResourceAlreadyExists = errors.ConstError("stored resource already exists")
-
-	// ResourceAlreadyStored describes an errors where the resource has already
-	// been stored.
-	ResourceAlreadyStored = errors.ConstError("resource already found in storage")
 
 	// ApplicationNameNotValid describes an error when the application is
 	// not valid.
